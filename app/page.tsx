@@ -37,7 +37,6 @@ export default function HomePage() {
   });
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "offen" | "ok" | "nogeo">("all");
   const [onlyUpcoming, setOnlyUpcoming] = useState(true);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -543,12 +542,6 @@ export default function HomePage() {
   const activeCustomers = customers.filter((c) => c.active !== false);
   const listItems = activeCustomers
     .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase()))
-    .filter((c) => {
-      if (filter === "offen") return effectiveColor(c, settings.period_months) === "red";
-      if (filter === "ok") return effectiveColor(c, settings.period_months) === "green";
-      if (filter === "nogeo") return c.lat == null;
-      return true;
-    })
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
   const statTotal = activeCustomers.length;
   const statOk = activeCustomers.filter((c) => effectiveColor(c, settings.period_months) === "green").length;
@@ -597,6 +590,9 @@ export default function HomePage() {
         <NavItem active={tab === "module"} onClick={() => setTab("module")} icon={<IconModule />} label="Module" />
         <NavItem active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neu" />
         <NavItem active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktiv" />
+        {isSuperAdmin && (
+          <NavItem active={false} onClick={() => router.push("/admin/users")} icon={<IconAdmin />} label="Admin" />
+        )}
         <NavItem active={tab === "settings"} onClick={() => setTab("settings")} icon={<IconSettings />} label="Settings" className="settings-item" />
       </nav>
 
@@ -655,13 +651,6 @@ export default function HomePage() {
         {tab === "list" && (
           <div className="tabpanel active">
             <input id="search" type="text" placeholder="Kunde oder Adresse suchen…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <div className="filterbar">
-              {(["all", "offen", "ok", "nogeo"] as const).map((f) => (
-                <div key={f} className={`chip ${filter === f ? "active" : ""}`} onClick={() => setFilter(f)}>
-                  {f === "all" ? "Alle" : f === "offen" ? "🔴 Offen" : f === "ok" ? "🟢 Kontaktiert" : "Ohne Karte"}
-                </div>
-              ))}
-            </div>
             <div id="customerList">
               {listItems.length === 0 && <div className="empty">Keine Kunden gefunden.</div>}
               {listItems.map((c) => {
@@ -951,6 +940,14 @@ function IconSettings() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 13a7.7 7.7 0 0 0 0-2l2-1.5-2-3.4-2.4 1a7.7 7.7 0 0 0-1.7-1L15 3h-4l-.3 2.6a7.7 7.7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.7 7.7 0 0 0 1.7 1L11 21h4l.3-2.6a7.7 7.7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5Z" />
+    </svg>
+  );
+}
+function IconAdmin() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M12 3 5 6v5c0 5 3 8.5 7 10 4-1.5 7-5 7-10V6l-7-3Z" strokeLinejoin="round" />
+      <path d="m9 12 2 2 4-4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
