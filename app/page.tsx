@@ -9,7 +9,7 @@ import {
 } from "@/lib/helpers";
 import { MAP_STYLES, type MapStyleKey } from "@/lib/mapStyles";
 
-type TabKey = "list" | "termine" | "inactive" | "add" | "settings";
+type TabKey = "list" | "termine" | "module" | "inactive" | "add" | "settings";
 
 export default function HomePage() {
   const router = useRouter();
@@ -23,7 +23,7 @@ export default function HomePage() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [settings, setSettings] = useState<UserSettings>({
-    user_id: "", period_months: 3, map_style: "strasse", theme: "light",
+    user_id: "", period_months: 3, map_style: "strasse", theme: "light", row_display: "datum",
   });
 
   const [search, setSearch] = useState("");
@@ -459,6 +459,7 @@ export default function HomePage() {
         </div>
         <NavItem active={tab === "list"} onClick={() => setTab("list")} icon="📋" label="Kunden" />
         <NavItem active={tab === "termine"} onClick={() => setTab("termine")} icon="📅" label="Termine" />
+        <NavItem active={tab === "module"} onClick={() => setTab("module")} icon="🧩" label="Module" />
         <NavItem active={tab === "add"} onClick={() => setTab("add")} icon="➕" label="Neu" />
         <NavItem active={tab === "inactive"} onClick={() => setTab("inactive")} icon="🚫" label="Inaktiv" />
         <NavItem active={tab === "settings"} onClick={() => setTab("settings")} icon="⚙️" label="Settings" className="settings-item" />
@@ -500,17 +501,16 @@ export default function HomePage() {
               {listItems.map((c) => {
                 const color = c.lat == null ? "gray" : effectiveColor(c, settings.period_months);
                 const nextAppt = nextAppointment(apptsFor(c.id));
-                const meta = nextAppt
-                  ? `📅 Termin: ${formatDate(nextAppt.date)}`
-                  : c.lat == null ? "Keine Kartenposition"
-                  : c.last_contact ? `Letzter Kontakt: ${formatDate(c.last_contact)}` : "Noch nicht kontaktiert";
                 return (
                   <div key={c.id} className="cust-item" onClick={() => openDetail(c.id)}>
                     <div className={`dot ${color}`}></div>
                     <div className="info">
                       <div className="name">{c.name}</div>
                       <div className="addr">{c.address}</div>
-                      <div className="meta">{meta}</div>
+                      {nextAppt && (
+                        <div className="meta">📅 Termin: {formatDate(nextAppt.date)}</div>
+                      )}
+                      {!nextAppt && <CustomerRowMeta customer={c} rowDisplay={settings.row_display} />}
                     </div>
                   </div>
                 );
@@ -554,6 +554,34 @@ export default function HomePage() {
                   </tbody>
                 </table>
               )}
+            </div>
+          </div>
+        )}
+
+        {tab === "module" && (
+          <div className="tabpanel active">
+            <div className="module-placeholder">
+              <div className="mp-icon">🧩</div>
+              <h3>Module – bald verfügbar</h3>
+              <p>Hier entstehen als Nächstes eigene Bereiche für Lagerverwaltung und Aufträge.</p>
+            </div>
+            <div className="module-cards">
+              <div className="module-card">
+                <div className="mc-icon">🏬</div>
+                <div className="mc-text">
+                  <div className="mc-title">Lager</div>
+                  <div className="mc-sub">Lager &amp; Lagerplätze anlegen, Reifen mit DOT-Datum und Profiltiefe zuordnen</div>
+                </div>
+                <div className="mc-tag">Bald</div>
+              </div>
+              <div className="module-card">
+                <div className="mc-icon">🧾</div>
+                <div className="mc-text">
+                  <div className="mc-title">Aufträge</div>
+                  <div className="mc-sub">Aufträge je Kunde anlegen und verwalten</div>
+                </div>
+                <div className="mc-tag">Bald</div>
+              </div>
             </div>
           </div>
         )}
@@ -642,6 +670,37 @@ function escapeHtml(str: string): string {
   return String(str).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m] as string));
 }
 
+function daysSinceContact(lastContact: string | null): number | null {
+  if (!lastContact) return null;
+  const then = new Date(lastContact + "T00:00:00");
+  const now = new Date(todayStr() + "T00:00:00");
+  return Math.round((now.getTime() - then.getTime()) / 86400000);
+}
+
+function CustomerRowMeta({ customer, rowDisplay }: { customer: Customer; rowDisplay: "datum" | "status" | "tage" }) {
+  if (customer.lat == null) return <div className="meta">Keine Kartenposition</div>;
+
+  if (rowDisplay === "status") {
+    return (
+      <div className="meta">
+        <span className={`row-pill ${customer.status === "kontaktiert" ? "green" : "red"}`}>
+          {customer.status === "kontaktiert" ? "Kontaktiert" : "Offen"}
+        </span>
+      </div>
+    );
+  }
+  if (rowDisplay === "tage") {
+    const d = daysSinceContact(customer.last_contact);
+    if (d == null) return <div className="meta">Noch nicht kontaktiert</div>;
+    return <div className="meta">{d === 0 ? "Heute kontaktiert" : `Vor ${d} ${d === 1 ? "Tag" : "Tagen"} kontaktiert`}</div>;
+  }
+  return (
+    <div className="meta">
+      {customer.last_contact ? `Letzter Kontakt: ${formatDate(customer.last_contact)}` : "Noch nicht kontaktiert"}
+    </div>
+  );
+}
+
 function NavItem({ active, onClick, icon, label, className }: { active: boolean; onClick: () => void; icon: string; label: string; className?: string }) {
   return (
     <div className={`icon-nav-item ${active ? "active" : ""} ${className || ""}`} onClick={onClick}>
@@ -699,6 +758,15 @@ function SettingsPanel({ settings, onChange, isAdmin, userEmail, onLogout }: {
         <select value={settings.theme} onChange={(e) => onChange({ theme: e.target.value as "light" | "dark" })}>
           <option value="light">Hell</option>
           <option value="dark">Dunkel</option>
+        </select>
+      </div>
+      <hr />
+      <div className="field">
+        <label>Zeilenanzeige in der Kundenliste</label>
+        <select value={settings.row_display} onChange={(e) => onChange({ row_display: e.target.value as UserSettings["row_display"] })}>
+          <option value="datum">Datum des letzten Kontakts</option>
+          <option value="status">Status-Pille (Offen/Kontaktiert)</option>
+          <option value="tage">Tage seit letztem Kontakt</option>
         </select>
       </div>
       <hr />

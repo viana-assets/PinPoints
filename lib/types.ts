@@ -27,9 +27,12 @@ export type ContactHistoryEntry = {
   note: string | null;
 };
 
+export type RowDisplay = "datum" | "status" | "tage";
+
 export type UserSettings = {
   user_id: string;
   period_months: number;
   map_style: string;
   theme: "light" | "dark";
+  row_display: RowDisplay;
 };
