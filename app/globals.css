@@ -11,15 +11,6 @@
     --font-brand:"Outfit","Segoe UI",Arial,sans-serif;
     --font-body:"Karla","Segoe UI",Arial,sans-serif;
   }
-  :root[data-theme="dark"]{
-    --bg:#211c14; --panel:#2b241a; --border:#42392a; --text:#f1ebdf; --muted:#b0a389;
-    --red:#ff7a63; --red-bg:#3c261f; --green:#3ecf99; --green-bg:#1c3329;
-    --accent:#ff7a3d; --accent-bg:#4a2a17;
-    --navy:#2c4a72;
-    --hover:#332b1e; --input-bg:#2f2819; --stat-bg:#2f2819; --chip-bg:#2f2819; --chip-hover:#3a3121;
-    --overlay:rgba(0,0,0,.62);
-    --nav-bg:#2b241a; --nav-text:#b0a389; --nav-active-bg:var(--accent-bg); --nav-active-text:var(--accent);
-  }
   *{box-sizing:border-box;}
   html,body{margin:0;height:100%;font-family:var(--font-body);color:var(--text);background:var(--bg);}
   #app{display:flex;height:100vh;}
@@ -136,7 +127,9 @@
   .module-card{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:var(--panel);
     display:flex;align-items:center;gap:10px;}
   .module-card .mc-icon{width:34px;height:34px;border-radius:10px;background:var(--accent-bg);color:var(--accent);
-    display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto;}
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .module-card .mc-icon svg{width:18px;height:18px;}
+  button svg{width:16px;height:16px;display:block;}
   .module-card .mc-text{flex:1;min-width:0;}
   .module-card .mc-text .mc-title{font-weight:700;font-size:13px;font-family:var(--font-brand);}
   .module-card .mc-text .mc-sub{font-size:11.5px;color:var(--muted);}

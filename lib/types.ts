@@ -33,6 +33,67 @@ export type UserSettings = {
   user_id: string;
   period_months: number;
   map_style: string;
-  theme: "light" | "dark";
   row_display: RowDisplay;
+};
+
+export type Warehouse = {
+  id: string;
+  name: string;
+  note: string | null;
+  created_at: string;
+};
+
+export type StorageSlot = {
+  id: string;
+  warehouse_id: string;
+  code: string;
+  note: string | null;
+  created_at: string;
+};
+
+export type TireStorage = {
+  id: string;
+  storage_slot_id: string;
+  customer_id: string;
+  dot_date: string | null;
+  profiltiefe_mm: number | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrderStatus = "offen" | "in_arbeit" | "erledigt";
+
+export type Order = {
+  id: string;
+  customer_id: string;
+  title: string;
+  description: string | null;
+  status: OrderStatus;
+  order_date: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Vehicle = {
+  id: string;
+  customer_id: string;
+  license_plate: string | null;
+  make_model: string | null;
+  tire_size: string | null;
+  tire_dot_date: string | null;
+  tire_profile_mm: number | null;
+  stored_tire_storage_id: string | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type Role = "superadmin" | "admin" | "techniker" | "user";
+
+export type Profile = {
+  id: string;
+  email: string | null;
+  role: Role;
+  created_at: string;
 };
