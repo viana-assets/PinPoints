@@ -1,4 +1,7 @@
-export type MapStyleKey = "strasse" | "hell" | "dunkel" | "satellit" | "satellit_labels";
+// "hell" (CARTO light_all) und "dunkel" (CARTO dark_all) wurden entfernt:
+// CARTOs kostenlose Basemap-Kacheln verlangen inzwischen einen API-Key,
+// ohne Key erscheint nur noch ein "API KEY REQUIRED"-Wasserzeichen.
+export type MapStyleKey = "strasse" | "satellit" | "satellit_labels";
 
 export const MAP_STYLES: Record<
   MapStyleKey,
@@ -8,16 +11,6 @@ export const MAP_STYLES: Record<
     label: "Straße (Standard)",
     baseUrl: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
     baseAttr: "&copy; OpenStreetMap-Mitwirkende",
-  },
-  hell: {
-    label: "Straße (Hell/Minimal)",
-    baseUrl: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    baseAttr: "&copy; OpenStreetMap-Mitwirkende &copy; CARTO",
-  },
-  dunkel: {
-    label: "Straße (Dunkel)",
-    baseUrl: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    baseAttr: "&copy; OpenStreetMap-Mitwirkende &copy; CARTO",
   },
   satellit: {
     label: "Satellit",

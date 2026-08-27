@@ -143,7 +143,7 @@ export default function HomePage() {
 
   // Google-Maps-artiger Ebenen-Schalter direkt auf der Karte (unten links),
   // statt nur über die Einstellungen erreichbar zu sein.
-  const STYLE_ORDER: MapStyleKey[] = ["strasse", "hell", "dunkel", "satellit", "satellit_labels"];
+  const STYLE_ORDER: MapStyleKey[] = ["strasse", "satellit", "satellit_labels"];
   function addMapStyleControl(L: any, map: any) {
     const StyleControl = L.Control.extend({
       options: { position: "bottomleft" },
@@ -696,8 +696,6 @@ function SettingsPanel({ settings, onChange, isAdmin, userEmail, onLogout }: {
         <label>Kartenansicht</label>
         <select value={settings.map_style} onChange={(e) => onChange({ map_style: e.target.value })}>
           <option value="strasse">Straße (Standard)</option>
-          <option value="hell">Straße (Hell/Minimal)</option>
-          <option value="dunkel">Straße (Dunkel)</option>
           <option value="satellit">Satellit</option>
           <option value="satellit_labels">Satellit mit Beschriftung</option>
         </select>

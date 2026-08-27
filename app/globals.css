@@ -54,8 +54,6 @@
   .map-style-swatch{width:22px;height:22px;border-radius:6px;flex:0 0 auto;
     border:1px solid rgba(0,0,0,.15);position:relative;}
   .swatch-strasse{background:linear-gradient(135deg,#eef1f4,#c9d6e3);}
-  .swatch-hell{background:linear-gradient(135deg,#ffffff,#eceff1);}
-  .swatch-dunkel{background:linear-gradient(135deg,#3a3f4b,#12141a);}
   .swatch-satellit{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
   .swatch-satellit_labels{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
   .swatch-satellit_labels::after{content:"";position:absolute;left:4px;right:4px;bottom:4px;height:3px;
