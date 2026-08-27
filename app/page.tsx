@@ -48,6 +48,7 @@ export default function HomePage() {
   // des React-Renderzyklus leben) nie mit veralteten Closures arbeiten.
   const liveRef = useRef({ customers, appointments, settings });
   liveRef.current = { customers, appointments, settings };
+  const saveSettingsRef = useRef<(patch: Partial<UserSettings>) => Promise<void>>(async () => {});
 
   // ---------------------------------------------------------------- Initial-Load
   useEffect(() => {
@@ -113,6 +114,7 @@ export default function HomePage() {
       mapRef.current = map;
       markerLayerRef.current = L.layerGroup().addTo(map);
       applyMapStyle(settings.map_style as MapStyleKey);
+      addMapStyleControl(L, map);
       window.addEventListener("resize", () => map.invalidateSize());
       syncMarkers();
     }
@@ -138,6 +140,54 @@ export default function HomePage() {
   useEffect(() => {
     if (mapRef.current) applyMapStyle(settings.map_style as MapStyleKey);
   }, [settings.map_style]);
+
+  // Google-Maps-artiger Ebenen-Schalter direkt auf der Karte (unten links),
+  // statt nur über die Einstellungen erreichbar zu sein.
+  const STYLE_ORDER: MapStyleKey[] = ["strasse", "hell", "dunkel", "satellit", "satellit_labels"];
+  function addMapStyleControl(L: any, map: any) {
+    const StyleControl = L.Control.extend({
+      options: { position: "bottomleft" },
+      onAdd: function () {
+        const container = L.DomUtil.create("div", "map-style-control");
+        const toggle = L.DomUtil.create("button", "map-style-toggle", container);
+        toggle.type = "button";
+        toggle.innerHTML =
+          '<span class="map-style-icon">' +
+          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M12 3 2 8l10 5 10-5-10-5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M2 12l10 5 10-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M2 16l10 5 10-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' +
+          "</span><span>Kartenansicht</span>";
+        const panel = L.DomUtil.create("div", "map-style-panel");
+        container.appendChild(panel);
+
+        function render() {
+          panel.innerHTML = "";
+          STYLE_ORDER.forEach((key) => {
+            const def = MAP_STYLES[key];
+            const isActive = liveRef.current.settings.map_style === key;
+            const opt = L.DomUtil.create("div", "map-style-option" + (isActive ? " active" : ""));
+            opt.innerHTML =
+              '<span class="map-style-swatch swatch-' + key + '"></span><span>' + def.label + "</span>";
+            opt.onclick = () => {
+              applyMapStyle(key);
+              saveSettingsRef.current({ map_style: key });
+              panel.classList.remove("open");
+              render();
+            };
+            panel.appendChild(opt);
+          });
+        }
+        render();
+
+        toggle.onclick = () => {
+          panel.classList.toggle("open");
+        };
+
+        L.DomEvent.disableClickPropagation(container);
+        L.DomEvent.disableScrollPropagation(container);
+        return container;
+      },
+    });
+    new StyleControl().addTo(map);
+  }
 
   // ---------------------------------------------------------------- Marker synchronisieren
   function makeIcon(color: "red" | "green") {
@@ -350,10 +400,10 @@ export default function HomePage() {
     await refreshAppointments();
   }
   async function saveSettingsPatch(patch: Partial<UserSettings>) {
-    const next = { ...settings, ...patch };
-    setSettings(next);
-    await supabase.from("user_settings").update(patch).eq("user_id", settings.user_id);
+    setSettings((prev) => ({ ...prev, ...patch }));
+    await supabase.from("user_settings").update(patch).eq("user_id", liveRef.current.settings.user_id);
   }
+  saveSettingsRef.current = saveSettingsPatch;
   async function handleLogout() {
     await supabase.auth.signOut();
     router.push("/login");

@@ -36,6 +36,30 @@
   #mapToggleBtn{display:none;position:fixed;z-index:900;width:52px;height:52px;border-radius:50%;
     background:var(--accent);color:#fff;font-size:20px;align-items:center;justify-content:center;
     box-shadow:0 4px 14px rgba(0,0,0,.3);}
+
+  /* ---------------- Kartenansicht-Schalter (Google-Maps-artig, direkt auf der Karte) ---------------- */
+  .map-style-control{font-family:inherit;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.2);overflow:hidden;}
+  .map-style-toggle{display:flex;align-items:center;gap:7px;padding:9px 12px;cursor:pointer;
+    font-size:12.5px;font-weight:600;color:var(--text);background:var(--panel);border:none;
+    font-family:inherit;user-select:none;}
+  .map-style-toggle:hover{background:var(--hover);}
+  .map-style-icon{display:flex;color:var(--muted);}
+  .map-style-panel{display:none;border-top:1px solid var(--border);padding:6px;min-width:196px;}
+  .map-style-panel.open{display:block;}
+  .map-style-option{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;
+    cursor:pointer;font-size:12.5px;color:var(--text);}
+  .map-style-option:hover{background:var(--hover);}
+  .map-style-option.active{background:var(--accent-bg);color:var(--accent);font-weight:700;}
+  .map-style-swatch{width:22px;height:22px;border-radius:6px;flex:0 0 auto;
+    border:1px solid rgba(0,0,0,.15);position:relative;}
+  .swatch-strasse{background:linear-gradient(135deg,#eef1f4,#c9d6e3);}
+  .swatch-hell{background:linear-gradient(135deg,#ffffff,#eceff1);}
+  .swatch-dunkel{background:linear-gradient(135deg,#3a3f4b,#12141a);}
+  .swatch-satellit{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
+  .swatch-satellit_labels{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
+  .swatch-satellit_labels::after{content:"";position:absolute;left:4px;right:4px;bottom:4px;height:3px;
+    background:rgba(255,255,255,.85);border-radius:2px;}
   header{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
   header h1{font-size:16px;margin:0 0 2px;}
   header p{margin:0;font-size:12px;color:var(--muted);}
