@@ -37,6 +37,9 @@ export default function HomePage() {
   });
 
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "offen" | "ok" | "nogeo">("all");
+  const [plzFilter, setPlzFilter] = useState("");
+  const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const [onlyUpcoming, setOnlyUpcoming] = useState(true);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -542,7 +545,24 @@ export default function HomePage() {
   const activeCustomers = customers.filter((c) => c.active !== false);
   const listItems = activeCustomers
     .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase()))
+    .filter((c) => {
+      if (filter === "all") return true;
+      if (filter === "nogeo") return c.lat == null;
+      const color = effectiveColor(c, settings.period_months);
+      if (filter === "offen") return color === "red";
+      if (filter === "ok") return color === "green";
+      return true;
+    })
+    .filter((c) => !letterFilter || c.name.trim().charAt(0).toUpperCase() === letterFilter)
+    .filter((c) => {
+      if (!plzFilter.trim()) return true;
+      const match = c.address.match(/\b\d{5}\b/);
+      return !!match && match[0].startsWith(plzFilter.trim());
+    })
     .sort((a, b) => a.name.localeCompare(b.name, "de"));
+  const availableLetters = Array.from(
+    new Set(activeCustomers.map((c) => c.name.trim().charAt(0).toUpperCase()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b, "de"));
   const statTotal = activeCustomers.length;
   const statOk = activeCustomers.filter((c) => effectiveColor(c, settings.period_months) === "green").length;
   const inactiveCustomers = customers.filter((c) => c.active === false).sort((a, b) => a.name.localeCompare(b.name, "de"));
@@ -651,6 +671,40 @@ export default function HomePage() {
         {tab === "list" && (
           <div className="tabpanel active">
             <input id="search" type="text" placeholder="Kunde oder Adresse suchen…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <div className="filterbar">
+              <button type="button" className={"chip" + (filter === "all" ? " active" : "")} onClick={() => setFilter("all")}>Alle</button>
+              <button type="button" className={"chip" + (filter === "offen" ? " active" : "")} onClick={() => setFilter("offen")}>Offen</button>
+              <button type="button" className={"chip" + (filter === "ok" ? " active" : "")} onClick={() => setFilter("ok")}>Kontaktiert</button>
+              <button type="button" className={"chip" + (filter === "nogeo" ? " active" : "")} onClick={() => setFilter("nogeo")}>Ohne Karte</button>
+            </div>
+            <input
+              className="plz-input"
+              type="text"
+              inputMode="numeric"
+              maxLength={5}
+              placeholder="Postleitzahl filtern…"
+              value={plzFilter}
+              onChange={(e) => setPlzFilter(e.target.value.replace(/[^0-9]/g, ""))}
+            />
+            <div className="letter-strip">
+              <button
+                type="button"
+                className={"letter-chip" + (letterFilter === null ? " active" : "")}
+                onClick={() => setLetterFilter(null)}
+              >
+                A-Z
+              </button>
+              {availableLetters.map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  className={"letter-chip" + (letterFilter === l ? " active" : "")}
+                  onClick={() => setLetterFilter(letterFilter === l ? null : l)}
+                >
+                  {l}
+                </button>
+              ))}
+            </div>
             <div id="customerList">
               {listItems.length === 0 && <div className="empty">Keine Kunden gefunden.</div>}
               {listItems.map((c) => {
