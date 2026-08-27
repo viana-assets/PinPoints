@@ -32,29 +32,28 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-box">
         <div className="login-brand">
-          <svg viewBox="0 0 24 24" fill="none">
-            <line x1="6" y1="21" x2="6" y2="3" stroke="#2f6fed" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M6 3 L19 7.5 L6 12 Z" fill="#2f6fed" />
-            <circle cx="6" cy="21" r="1.6" fill="#2f6fed" />
-          </svg>
+          <div className="brand-badge">
+            <svg viewBox="0 0 24 24" fill="none">
+              <line x1="6" y1="21" x2="6" y2="3" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
+              <path d="M6 3 L19 7.5 L6 12 Z" fill="#fff" />
+              <circle cx="6" cy="21" r="1.6" fill="#fff" />
+            </svg>
+          </div>
           <h1>Viana PinPoints</h1>
         </div>
-        <p className="subtitle">Reifenwechsel-Anruflisten auf der Karte</p>
 
-        <div className="login-info">
-          Kein offenes Konto – Zugang nur per Einladungslink vom Admin.
-        </div>
         {error && <div className="login-error">{error}</div>}
 
         <form onSubmit={handleLogin}>
           <div className="field">
             <label>E-Mail</label>
             <input
-              type="text"
+              type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="name@firma.de"
               required
+              autoComplete="email"
             />
           </div>
           <div className="field">
@@ -65,6 +64,7 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
               required
+              autoComplete="current-password"
             />
           </div>
           <button className="btn-primary btn-block" type="submit" disabled={loading}>
