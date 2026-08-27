@@ -457,12 +457,12 @@ export default function HomePage() {
             <circle cx="6" cy="21" r="1.6" fill="#ffffff" />
           </svg>
         </div>
-        <NavItem active={tab === "list"} onClick={() => setTab("list")} icon="📋" label="Kunden" />
-        <NavItem active={tab === "termine"} onClick={() => setTab("termine")} icon="📅" label="Termine" />
-        <NavItem active={tab === "module"} onClick={() => setTab("module")} icon="🧩" label="Module" />
-        <NavItem active={tab === "add"} onClick={() => setTab("add")} icon="➕" label="Neu" />
-        <NavItem active={tab === "inactive"} onClick={() => setTab("inactive")} icon="🚫" label="Inaktiv" />
-        <NavItem active={tab === "settings"} onClick={() => setTab("settings")} icon="⚙️" label="Settings" className="settings-item" />
+        <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />
+        <NavItem active={tab === "termine"} onClick={() => setTab("termine")} icon={<IconTermine />} label="Termine" />
+        <NavItem active={tab === "module"} onClick={() => setTab("module")} icon={<IconModule />} label="Module" />
+        <NavItem active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neu" />
+        <NavItem active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktiv" />
+        <NavItem active={tab === "settings"} onClick={() => setTab("settings")} icon={<IconSettings />} label="Settings" className="settings-item" />
       </nav>
 
       <div id="sidebar" className={mobileMapVisible ? "mobile-hidden" : ""}>
@@ -624,7 +624,7 @@ export default function HomePage() {
       <div id="map" ref={mapDivRef} className={mobileMapVisible ? "mobile-visible" : ""}></div>
 
       <button id="mapToggleBtn" type="button" onClick={toggleMobileMap} title={mobileMapVisible ? "Liste anzeigen" : "Karte anzeigen"}>
-        {mobileMapVisible ? "📋" : "🗺️"}
+        {mobileMapVisible ? <IconKunden /> : <IconMap />}
       </button>
 
       {callMenuFor && (
@@ -701,7 +701,65 @@ function CustomerRowMeta({ customer, rowDisplay }: { customer: Customer; rowDisp
   );
 }
 
-function NavItem({ active, onClick, icon, label, className }: { active: boolean; onClick: () => void; icon: string; label: string; className?: string }) {
+function IconKunden() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <rect x="4" y="4" width="16" height="16" rx="4" />
+      <path d="M4 10h16M10 4v16" />
+    </svg>
+  );
+}
+function IconTermine() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <rect x="4" y="5" width="16" height="15" rx="4" />
+      <path d="M4 9h16M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+function IconModule() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <rect x="4" y="4" width="7" height="7" rx="2" />
+      <rect x="13" y="4" width="7" height="7" rx="2" />
+      <rect x="4" y="13" width="7" height="7" rx="2" />
+      <rect x="13" y="13" width="7" height="7" rx="2" />
+    </svg>
+  );
+}
+function IconNeu() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+function IconInaktiv() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M8 8l8 8" />
+    </svg>
+  );
+}
+function IconSettings() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 13a7.7 7.7 0 0 0 0-2l2-1.5-2-3.4-2.4 1a7.7 7.7 0 0 0-1.7-1L15 3h-4l-.3 2.6a7.7 7.7 0 0 0-1.7 1l-2.4-1-2 3.4L6.6 11a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.4-1a7.7 7.7 0 0 0 1.7 1L11 21h4l.3-2.6a7.7 7.7 0 0 0 1.7-1l2.4 1 2-3.4-2-1.5Z" />
+    </svg>
+  );
+}
+function IconMap() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" strokeLinejoin="round" />
+      <path d="M9 4v14M15 6v14" />
+    </svg>
+  );
+}
+
+function NavItem({ active, onClick, icon, label, className }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string; className?: string }) {
   return (
     <div className={`icon-nav-item ${active ? "active" : ""} ${className || ""}`} onClick={onClick}>
       <span className="ic">{icon}</span><span>{label}</span>
@@ -767,15 +825,6 @@ function SettingsPanel({ settings, onChange, isAdmin, userEmail, onLogout }: {
           <option value="datum">Datum des letzten Kontakts</option>
           <option value="status">Status-Pille (Offen/Kontaktiert)</option>
           <option value="tage">Tage seit letztem Kontakt</option>
-        </select>
-      </div>
-      <hr />
-      <div className="field">
-        <label>Kartenansicht</label>
-        <select value={settings.map_style} onChange={(e) => onChange({ map_style: e.target.value })}>
-          <option value="strasse">Straße (Standard)</option>
-          <option value="satellit">Satellit</option>
-          <option value="satellit_labels">Satellit mit Beschriftung</option>
         </select>
       </div>
       <hr />
