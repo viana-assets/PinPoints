@@ -201,6 +201,7 @@
 }
 .login-box .login-brand svg{width:26px;height:26px;}
 .login-box h1{font-size:21px;font-weight:700;margin:0;text-align:center;letter-spacing:-.01em;}
+.login-box h1 .brand-accent{color:var(--accent);}
 .login-box p.subtitle{margin:6px 0 22px;font-size:13px;color:var(--muted);text-align:center;line-height:1.5;}
 .login-box .field{margin-bottom:16px;}
 .login-box label{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}

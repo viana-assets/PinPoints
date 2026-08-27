@@ -39,7 +39,9 @@ export default function LoginPage() {
               <circle cx="6" cy="21" r="1.6" fill="#fff" />
             </svg>
           </div>
-          <h1>Viana PinPoints</h1>
+          <h1>
+            Vi<span className="brand-accent">ana</span> PinPoints
+          </h1>
         </div>
 
         {error && <div className="login-error">{error}</div>}
