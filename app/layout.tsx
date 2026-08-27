@@ -1,4 +1,5 @@
 import "./globals.css";
+import HashSessionHandler from "./auth/HashSessionHandler";
 
 export const metadata = {
   title: "Viana PinPoints",
@@ -18,7 +19,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" defer></script>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
-      <body>{children}</body>
+      <body>
+        <HashSessionHandler />
+        {children}
+      </body>
     </html>
   );
 }
