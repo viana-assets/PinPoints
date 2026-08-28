@@ -172,6 +172,28 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [loading]);
 
+  // Manche Browser (v. a. Chromium/Edge) zeichnen das Layout nicht sauber neu, wenn das
+  // Fenster über die Mobil-Schwelle (700px) hinweg verkleinert und wieder vergrößert wird –
+  // die Karte "hängt" dann sichtbar über einem Teil der Seitenleiste, bis irgendein anderer
+  // Reflow das behebt. Ein erzwungener Reflow genau in dem Moment, in dem die Schwelle
+  // überschritten wird, behebt das zuverlässig, statt darauf zu hoffen, dass der Browser von
+  // selbst neu zeichnet.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 700px)");
+    function forceReflow() {
+      const el = mapDivRef.current;
+      if (el) {
+        const prevDisplay = el.style.display;
+        el.style.display = "none";
+        void el.offsetHeight; // erzwingt den Reflow
+        el.style.display = prevDisplay;
+      }
+      setTimeout(() => mapRef.current?.invalidateSize(), 30);
+    }
+    mq.addEventListener("change", forceReflow);
+    return () => mq.removeEventListener("change", forceReflow);
+  }, []);
+
   function applyMapStyle(styleKey: MapStyleKey) {
     const L = (window as any).L;
     const map = mapRef.current;
@@ -793,10 +815,13 @@ export default function HomePage() {
                     <div className="info">
                       <div className="name">{c.name}</div>
                       <div className="addr">{c.address}</div>
+                      {/* Die Einstellung "Zeilenanzeige" soll immer greifen, unabhängig davon, ob
+                          ein Termin ansteht – ein anstehender Termin wird deshalb zusätzlich
+                          angezeigt statt die Einstellung zu ersetzen. */}
+                      <CustomerRowMeta customer={c} rowDisplay={settings.row_display} />
                       {nextOrd && (
                         <div className="meta">📅 Termin: {formatDate(nextOrd.order_date)}</div>
                       )}
-                      {!nextOrd && <CustomerRowMeta customer={c} rowDisplay={settings.row_display} />}
                     </div>
                   </div>
                 );
