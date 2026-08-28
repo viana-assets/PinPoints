@@ -354,3 +354,27 @@
 .login-box .btn-primary:disabled{opacity:.6;cursor:default;transform:none;filter:none;}
 .login-error{background:var(--red-bg);color:var(--red);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:16px;font-weight:500;}
 .login-info{background:var(--accent-bg);color:var(--accent);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:16px;font-weight:500;}
+
+/* ---------------- Einsatzplanung: Monats-Kalender ---------------- */
+.emp-chip{display:inline-flex;align-items:center;gap:6px;}
+.emp-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
+.calendar-grid{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--panel);}
+.calendar-row{display:grid;grid-template-columns:52px repeat(7, 1fr);}
+.calendar-row + .calendar-row{border-top:1px solid var(--border);}
+.calendar-head{background:var(--bg);}
+.calendar-kw{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--muted);
+  font-weight:700;padding:6px 2px;border-right:1px solid var(--border);}
+.calendar-daylabel{text-align:center;font-size:10.5px;color:var(--muted);font-weight:700;
+  text-transform:uppercase;letter-spacing:.03em;padding:8px 2px;}
+.calendar-day{border:none;border-left:1px solid var(--border);background:var(--panel);cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;
+  padding:6px 2px 8px;min-height:56px;font-family:inherit;}
+.calendar-day:hover{background:var(--hover);}
+.calendar-day.outside{background:var(--bg);color:var(--muted);}
+.calendar-day.today .calendar-daynum{background:var(--accent);color:#fff;}
+.calendar-day.selected{background:var(--accent-bg);}
+.calendar-daynum{font-size:12.5px;font-weight:700;width:22px;height:22px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;}
+.calendar-dots{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;max-width:44px;}
+.calendar-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
+.calendar-dot-unassigned{background:var(--muted);opacity:.5;}

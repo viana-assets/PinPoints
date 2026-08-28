@@ -85,6 +85,11 @@ export default function HomePage() {
   const [tireStorages, setTireStorages] = useState<TireStorage[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
+  // Mehrere Mitarbeiter je Auftrag (Migration 11, Tabelle `order_employees`): Auftrag-ID → Liste
+  // von Mitarbeiter-IDs. `orders.assigned_employee_id` bleibt in der Datenbank als Altlast
+  // liegen, wird von der App aber nicht mehr verwendet – Zuordnungen laufen ab sofort komplett
+  // über diese Map/Tabelle.
+  const [orderEmployees, setOrderEmployeesMap] = useState<Record<string, string[]>>({});
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   // Modul-Berechtigungen: pro Modul (aktuell nur "lager") hinterlegt, welche Rollen dort
   // strukturelle Änderungen vornehmen dürfen (Migration 09). Superadmin darf immer alles,
@@ -111,7 +116,13 @@ export default function HomePage() {
   // genau wie beim Anrufen-Button mit mehreren Nummern.
   const [navMenuFor, setNavMenuFor] = useState<Customer | null>(null);
   const [navMenuPos, setNavMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Mitarbeiter-Zuordnung eines Auftrags (Aufträge-Tab & Einsatzplanung): Klick auf die
+  // Mitarbeiter-Zelle öffnet ein kleines Menü mit Checkboxen (mehrere Mitarbeiter möglich), jeder
+  // Klick speichert sofort – kein separater "Speichern"-Button, wie beim Modul-Berechtigungen-Raster.
+  const [empMenuFor, setEmpMenuFor] = useState<{ orderId: string; ids: string[] } | null>(null);
+  const [empMenuPos, setEmpMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
+  const appRef = useRef<HTMLDivElement | null>(null);
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const sidebarRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
@@ -155,6 +166,7 @@ export default function HomePage() {
       await refreshTireStorages();
       await refreshOrders();
       await refreshEmployees();
+      await refreshOrderEmployees();
       await refreshVehicles();
       await refreshModulePermissions();
       setLoading(false);
@@ -184,6 +196,26 @@ export default function HomePage() {
   async function refreshOrders() {
     const { data } = await supabase.from("orders").select("*").order("order_date", { ascending: false });
     if (data) setOrders(data as Order[]);
+  }
+  async function refreshOrderEmployees() {
+    const { data } = await supabase.from("order_employees").select("order_id, employee_id");
+    if (data) {
+      const map: Record<string, string[]> = {};
+      (data as { order_id: string; employee_id: string }[]).forEach((r) => {
+        (map[r.order_id] ||= []).push(r.employee_id);
+      });
+      setOrderEmployeesMap(map);
+    }
+  }
+  // Ersetzt die komplette Mitarbeiter-Zuordnung eines Auftrags (löschen + neu einfügen ist bei
+  // dieser kleinen Zeilenzahl pro Auftrag einfacher und robuster als ein Diff).
+  async function setOrderEmployees(orderId: string, employeeIds: string[]) {
+    await supabase.from("order_employees").delete().eq("order_id", orderId);
+    const unique = Array.from(new Set(employeeIds.filter(Boolean)));
+    if (unique.length) {
+      await supabase.from("order_employees").insert(unique.map((employeeId) => ({ order_id: orderId, employee_id: employeeId })));
+    }
+    await refreshOrderEmployees();
   }
   async function refreshVehicles() {
     const { data } = await supabase.from("vehicles").select("*").order("created_at");
@@ -227,6 +259,30 @@ export default function HomePage() {
     return orders.filter((o) => o.customer_id === customerId);
   }
 
+  // Erzwingt einen kompletten Reflow (Layout) UND Repaint des gesamten App-Layouts (Nav +
+  // Seitenleiste + Karte) – nicht nur einzelner Kindelemente. Browser wie Chromium/Edge geraten
+  // nach einer Größenänderung (Fenster verkleinert/vergrößert, DevTools geöffnet/geschlossen,
+  // Wechsel zwischen Vollseiten-Modul und normalem Tab, Zurückkehren aus dem Hintergrund/bfcache)
+  // manchmal in einen Zustand, in dem die GEZEICHNETEN Pixel nicht mehr zur tatsächlichen
+  // Layout-Position passen: Ein Klick landet dann korrekt auf dem darunterliegenden, eigentlich
+  // richtig positionierten Element, während optisch noch die alte (verschobene/überlappende)
+  // Ansicht zu sehen ist ("Geisterbild") – genau das gemeldete Verhalten, bei dem die Karte über
+  // die Seitenleiste geschoben wirkt, aber die Klicks trotzdem bei den darunterliegenden
+  // Terminen ankommen. Ein kurzes Aus-/Wiedereinblenden des GESAMTEN #app-Wurzelelements (statt
+  // nur von Karte oder Seitenleiste einzeln) zwingt den Browser, Layout und Pixel für die
+  // komplette Ansicht neu zu berechnen und zu zeichnen.
+  function forceFullReflow() {
+    const el = appRef.current;
+    if (el) {
+      const prevDisplay = el.style.display;
+      el.style.display = "none";
+      void el.offsetHeight; // erzwingt den Reflow
+      el.style.display = prevDisplay;
+    }
+    window.scrollTo(0, 0);
+    setTimeout(() => mapRef.current?.invalidateSize(), 30);
+  }
+
   // ---------------------------------------------------------------- Karte initialisieren
   useEffect(() => {
     if (loading) return;
@@ -243,66 +299,30 @@ export default function HomePage() {
       markerLayerRef.current = L.layerGroup().addTo(map);
       applyMapStyle(settings.map_style as MapStyleKey);
       addMapStyleControl(L, map);
-      window.addEventListener("resize", () => map.invalidateSize());
-      // Verteidigung gegen "abgeschnittene" Navigationsbar/Seitenleiste: Wenn der Tab aus dem
-      // Hintergrund zurückkommt (Tab-Wechsel, Standby) oder die Seite aus dem Zurück/Vorwärts-
-      // Cache des Browsers wiederhergestellt wird (bfcache), kann die zuvor gerenderte Ansicht
-      // veraltet/verschoben wirken, bis man neu lädt. Statt darauf zu warten, erzwingen wir dann
-      // aktiv ein Neuberechnen der Kartengröße und setzen einen eventuell versehentlichen
-      // horizontalen Scroll zurück.
-      function relayout() {
-        window.scrollTo(0, 0);
-        setTimeout(() => map.invalidateSize(), 60);
-      }
-      document.addEventListener("visibilitychange", () => { if (!document.hidden) relayout(); });
-      window.addEventListener("pageshow", (e) => { if ((e as PageTransitionEvent).persisted) relayout(); });
-      window.addEventListener("focus", relayout);
+      // Jede Größenänderung des Fensters (auch durch Öffnen/Schließen der Browser-DevTools, nicht
+      // nur durch Ziehen am Fensterrand) sowie Rückkehr aus Hintergrund/bfcache lösen den vollen
+      // Reflow/Repaint aus – siehe forceFullReflow() oben.
+      window.addEventListener("resize", forceFullReflow);
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) forceFullReflow(); });
+      window.addEventListener("pageshow", (e) => { if ((e as PageTransitionEvent).persisted) forceFullReflow(); });
+      window.addEventListener("focus", forceFullReflow);
       syncMarkers();
     }
     tryInit();
     return () => { cancelled = true; };
   }, [loading]);
 
-  // Manche Browser (v. a. Chromium/Edge) zeichnen das Layout nicht sauber neu, wenn das
-  // Fenster über die Mobil-Schwelle (700px) hinweg verkleinert und wieder vergrößert wird –
-  // die Karte "hängt" dann sichtbar über einem Teil der Seitenleiste, bis irgendein anderer
-  // Reflow das behebt. Ein erzwungener Reflow genau in dem Moment, in dem die Schwelle
-  // überschritten wird, behebt das zuverlässig, statt darauf zu hoffen, dass der Browser von
-  // selbst neu zeichnet.
+  // Zusätzlich zum Resize-Listener oben: die 700px-Mobil-Schwelle separat abfangen (matchMedia
+  // reagiert zuverlässiger auf das Über-/Unterschreiten der Schwelle als ein reiner
+  // resize-Listener) und beim Wechsel zwischen Vollseiten-Modul und normalem Tab.
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 700px)");
-    function forceReflow() {
-      const el = mapDivRef.current;
-      if (el) {
-        const prevDisplay = el.style.display;
-        el.style.display = "none";
-        void el.offsetHeight; // erzwingt den Reflow
-        el.style.display = prevDisplay;
-      }
-      setTimeout(() => mapRef.current?.invalidateSize(), 30);
-    }
-    mq.addEventListener("change", forceReflow);
-    return () => mq.removeEventListener("change", forceReflow);
+    mq.addEventListener("change", forceFullReflow);
+    return () => mq.removeEventListener("change", forceFullReflow);
   }, []);
 
-  // Der eigentliche Auslöser für das "abgeschnittene" Seitenleisten-Problem: Beim Wechsel
-  // zwischen einem Vollseiten-Modul (Karte per display:none ausgeblendet, Seitenleiste 100%
-  // breit) und einem normalen Tab (Karte wieder da, Seitenleiste 380px) schafft es der Browser
-  // (v. a. Chromium/Edge) manchmal nicht, den Kindinhalt der Seitenleiste sauber auf die neue
-  // Breite neu umzubrechen – der Text wird dann so abgeschnitten, als hätte die Leiste noch die
-  // alte (breitere) Größe. Ein erzwungener Reflow genau bei jedem Wechsel behebt das, statt
-  // dass man dafür die Seite neu laden muss.
   useEffect(() => {
-    const sidebarEl = sidebarRef.current;
-    const mapEl = mapDivRef.current;
-    [sidebarEl, mapEl].forEach((el) => {
-      if (!el) return;
-      const prevDisplay = el.style.display;
-      el.style.display = "none";
-      void el.offsetHeight; // erzwingt den Reflow
-      el.style.display = prevDisplay;
-    });
-    setTimeout(() => mapRef.current?.invalidateSize(), 30);
+    forceFullReflow();
   }, [fullPageTabs]);
 
   function applyMapStyle(styleKey: MapStyleKey) {
@@ -578,11 +598,11 @@ export default function HomePage() {
     // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist im gleichen Zug meist auch
     // schon klar, worum es geht – deshalb kann direkt ein passender Auftrag mit angelegt werden.
     if (created?.id && fields.orderTitle.trim()) {
-      await supabase.from("orders").insert({
+      const { data: createdOrder } = await supabase.from("orders").insert({
         customer_id: created.id, title: fields.orderTitle.trim(), description: fields.orderDescription || null,
         status: "offen", order_date: fields.orderDate || todayStr(), time: fields.orderTime || null,
-        assigned_employee_id: fields.assignedEmployeeId || null,
-      });
+      }).select("id").single();
+      if (createdOrder?.id && fields.assignedEmployeeId) await setOrderEmployees(createdOrder.id as string, [fields.assignedEmployeeId]);
       await refreshOrders();
     }
     await refreshCustomers();
@@ -649,28 +669,28 @@ export default function HomePage() {
   }
 
   // ---------------------------------------------------------------- Aufträge-Modul (Termine inklusive)
-  async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) {
-    await supabase.from("orders").insert({
+  // Mitarbeiter-Zuordnung läuft komplett über `order_employees` (Migration 11) – ein Auftrag kann
+  // mehreren Mitarbeitern zugeordnet sein (z. B. bei umfangreichen Aufträgen). `assignedEmployeeIds`
+  // ist deshalb überall eine Liste, auch wenn sie in vielen Fällen nur ein Element hat.
+  async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
+    const { data: created } = await supabase.from("orders").insert({
       customer_id: fields.customerId, title: fields.title, description: fields.description || null,
       order_date: fields.orderDate, time: fields.time || null, status: fields.status,
-      assigned_employee_id: fields.assignedEmployeeId || null,
-    });
+    }).select("id").single();
+    if (created?.id) await setOrderEmployees(created.id as string, fields.assignedEmployeeIds);
     await refreshOrders();
   }
-  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) {
+  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
     await supabase.from("orders").update({
       title: fields.title, description: fields.description || null, order_date: fields.orderDate,
-      time: fields.time || null, status: fields.status, assigned_employee_id: fields.assignedEmployeeId || null,
+      time: fields.time || null, status: fields.status,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
+    await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
   }
   async function updateOrderStatus(id: string, status: OrderStatus) {
     await supabase.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
-    await refreshOrders();
-  }
-  async function assignOrderEmployee(id: string, employeeId: string) {
-    await supabase.from("orders").update({ assigned_employee_id: employeeId || null, updated_at: new Date().toISOString() }).eq("id", id);
     await refreshOrders();
   }
   async function deleteOrder(id: string) {
@@ -790,6 +810,26 @@ export default function HomePage() {
     setNavMenuFor(cust);
   }
 
+  // Öffnet das Mitarbeiter-Zuordnungs-Menü für einen Auftrag (Aufträge-Tab & Einsatzplanung).
+  function openEmpMenu(e: React.MouseEvent, orderId: string) {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setEmpMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 210) });
+    setEmpMenuFor({ orderId, ids: orderEmployees[orderId] || [] });
+  }
+  async function toggleEmpMenuEmployee(employeeId: string) {
+    if (!empMenuFor) return;
+    const next = empMenuFor.ids.includes(employeeId) ? empMenuFor.ids.filter((id) => id !== employeeId) : [...empMenuFor.ids, employeeId];
+    setEmpMenuFor({ ...empMenuFor, ids: next });
+    await setOrderEmployees(empMenuFor.orderId, next);
+  }
+  // Kurzform für die Anzeige "Paul, Roman" / "–" in Tabellenzeilen.
+  function employeeNamesFor(orderId: string): string {
+    const ids = orderEmployees[orderId] || [];
+    const names = ids.map((id) => employees.find((e) => e.id === id)?.name).filter(Boolean) as string[];
+    return names.length ? names.join(", ") : "–";
+  }
+
   if (loading) {
     return <div style={{ padding: 40, fontFamily: "sans-serif" }}>Lädt…</div>;
   }
@@ -804,7 +844,7 @@ export default function HomePage() {
   const isMoreActive = SECONDARY_TABS.includes(tab);
 
   return (
-    <div id="app">
+    <div id="app" ref={appRef}>
       <nav id="iconNav">
         <div className="nav-brand" title="Viana PinPoints">
           <svg viewBox="0 0 24 24" fill="none">
@@ -980,12 +1020,12 @@ export default function HomePage() {
                   <thead><tr><th>Termin</th><th>Kunde</th><th>Auftrag</th><th></th></tr></thead>
                   <tbody>
                     {apptRows.map(({ cust, order, past }) => {
-                      const emp = employees.find((e) => e.id === order.assigned_employee_id);
+                      const empNames = employeeNamesFor(order.id);
                       return (
                         <tr key={order.id} className={past ? "past" : ""} onClick={() => openDetail(cust.id)}>
                           <td className="date-cell">{formatOrderDateTime(order)}{past ? " (vergangen)" : ""}</td>
                           <td>{cust.name}<br /><span className="small">{cust.address}</span></td>
-                          <td>{order.title}{order.description ? ` – ${order.description}` : ""}{emp ? <><br /><span className="small">👤 {emp.name}</span></> : ""}</td>
+                          <td>{order.title}{order.description ? ` – ${order.description}` : ""}{empNames !== "–" ? <><br /><span className="small">👤 {empNames}</span></> : ""}</td>
                           <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                             {cust.address.trim() && (
                               <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => openNavMenu(e, cust)}>
@@ -1018,10 +1058,12 @@ export default function HomePage() {
             customers={customers}
             orders={orders}
             employees={employees}
+            orderEmployees={orderEmployees}
             onAdd={addOrder}
             onUpdateStatus={updateOrderStatus}
             onDelete={deleteOrder}
-            onAssignEmployee={assignOrderEmployee}
+            onEditEmployees={openEmpMenu}
+            employeeNamesFor={employeeNamesFor}
             onOpenCustomer={openDetail}
             onNavigate={openNavMenu}
           />
@@ -1055,8 +1097,12 @@ export default function HomePage() {
             customers={customers}
             orders={orders}
             employees={employees}
-            onAssignEmployee={assignOrderEmployee}
+            orderEmployees={orderEmployees}
+            onEditEmployees={openEmpMenu}
+            employeeNamesFor={employeeNamesFor}
             onOpenCustomer={openDetail}
+            onUpdateStatus={updateOrderStatus}
+            onDelete={deleteOrder}
           />
         )}
 
@@ -1221,11 +1267,31 @@ export default function HomePage() {
         </>
       )}
 
+      {empMenuFor && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 19999 }} onClick={() => setEmpMenuFor(null)} />
+          <div className="call-menu" style={{ top: empMenuPos.top, left: empMenuPos.left, minWidth: 200 }}>
+            <div className="small" style={{ padding: "2px 10px 6px", fontWeight: 700 }}>Mitarbeiter zuordnen</div>
+            {employees.length === 0 ? (
+              <div className="small" style={{ padding: "0 10px 8px" }}>Noch keine Mitarbeiter angelegt.</div>
+            ) : (
+              employees.map((emp) => (
+                <label key={emp.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={empMenuFor.ids.includes(emp.id)} onChange={() => toggleEmpMenuEmployee(emp.id)} />
+                  {emp.name}
+                </label>
+              ))
+            )}
+          </div>
+        </>
+      )}
+
       {selectedId && (
         <DetailModal
           customer={customers.find((c) => c.id === selectedId)!}
           orders={ordersFor(selectedId)}
           employees={employees}
+          orderEmployees={orderEmployees}
           history={history}
           periodMonths={settings.period_months}
           vehicles={vehicles.filter((v) => v.customer_id === selectedId)}
@@ -1806,7 +1872,7 @@ function PermissionMatrix({ modulePermissions, onUpdateModulePermissions }: {
 }
 
 function DetailModal(props: {
-  customer: Customer; orders: Order[]; employees: Employee[]; history: ContactHistoryEntry[]; periodMonths: number;
+  customer: Customer; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>; history: ContactHistoryEntry[]; periodMonths: number;
   vehicles: Vehicle[]; tireStorages: TireStorage[]; storageSlots: StorageSlot[]; warehouses: Warehouse[];
   onClose: () => void;
   onSaveFields: (f: Partial<Customer>) => void;
@@ -1814,8 +1880,8 @@ function DetailModal(props: {
   onMarkOpen: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
-  onAddOrder: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
-  onUpdateOrder: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
+  onAddOrder: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
+  onUpdateOrder: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
   onDeleteOrder: (id: string) => void;
   onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
   onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
@@ -1907,7 +1973,7 @@ function DetailModal(props: {
         <div>
           {custOrders.length === 0 && <div className="small">Noch keine Aufträge hinterlegt.</div>}
           {custOrders.map((o) => (
-            <CustomerOrderRow key={o.id} order={o} employees={props.employees} onUpdate={props.onUpdateOrder} onDelete={props.onDeleteOrder} />
+            <CustomerOrderRow key={o.id} order={o} employees={props.employees} assignedEmployeeIds={props.orderEmployees[o.id] || []} onUpdate={props.onUpdateOrder} onDelete={props.onDeleteOrder} />
           ))}
         </div>
         <AddOrderInline employees={props.employees} onAdd={props.onAddOrder} />
@@ -1934,9 +2000,32 @@ function DetailModal(props: {
   );
 }
 
-function CustomerOrderRow({ order, employees, onUpdate, onDelete }: {
-  order: Order; employees: Employee[];
-  onUpdate: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
+// Mehrfachauswahl von Mitarbeitern als Chips (Kompaktversion des Rollen-Chip-Musters aus der
+// alten Modul-Berechtigungen-UI) – wird an mehreren Stellen für Auftrags-Mitarbeiter gebraucht,
+// weil ein Auftrag ab sofort mehreren Mitarbeitern zugeordnet werden kann.
+function EmployeeCheckboxList({ employees, value, onChange }: {
+  employees: Employee[]; value: string[]; onChange: (ids: string[]) => void;
+}) {
+  if (employees.length === 0) return <div className="small">Noch keine Mitarbeiter angelegt.</div>;
+  return (
+    <div className="filterbar">
+      {employees.map((emp) => (
+        <button
+          key={emp.id}
+          type="button"
+          className={`chip ${value.includes(emp.id) ? "active" : ""}`}
+          onClick={() => onChange(value.includes(emp.id) ? value.filter((id) => id !== emp.id) : [...value, emp.id])}
+        >
+          {emp.name}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CustomerOrderRow({ order, employees, assignedEmployeeIds, onUpdate, onDelete }: {
+  order: Order; employees: Employee[]; assignedEmployeeIds: string[];
+  onUpdate: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
   onDelete: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
@@ -1945,10 +2034,10 @@ function CustomerOrderRow({ order, employees, onUpdate, onDelete }: {
   const [time, setTime] = useState(order.time || "");
   const [desc, setDesc] = useState(order.description || "");
   const [status, setStatus] = useState<OrderStatus>(order.status);
-  const [empId, setEmpId] = useState(order.assigned_employee_id || "");
+  const [empIds, setEmpIds] = useState<string[]>(assignedEmployeeIds);
   const past = isOrderPast(order);
   const statusLabel: Record<OrderStatus, string> = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
-  const emp = employees.find((e) => e.id === order.assigned_employee_id);
+  const empNames = employees.filter((e) => assignedEmployeeIds.includes(e.id)).map((e) => e.name).join(", ");
 
   if (editing) {
     return (
@@ -1959,19 +2048,15 @@ function CustomerOrderRow({ order, employees, onUpdate, onDelete }: {
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
         </div>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Beschreibung" />
-        <div className="row" style={{ marginBottom: 4 }}>
-          <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
-            <option value="offen">Offen</option>
-            <option value="in_arbeit">In Arbeit</option>
-            <option value="erledigt">Erledigt</option>
-          </select>
-          <select value={empId} onChange={(e) => setEmpId(e.target.value)}>
-            <option value="">Kein Mitarbeiter</option>
-            {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-          </select>
-        </div>
+        <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)} style={{ marginBottom: 4 }}>
+          <option value="offen">Offen</option>
+          <option value="in_arbeit">In Arbeit</option>
+          <option value="erledigt">Erledigt</option>
+        </select>
+        <div className="small" style={{ marginBottom: 2 }}>Mitarbeiter</div>
+        <EmployeeCheckboxList employees={employees} value={empIds} onChange={setEmpIds} />
         <div className="appt-actions">
-          <button className="btn-primary" onClick={() => { onUpdate(order.id, { title, description: desc, orderDate: date, time, status, assignedEmployeeId: empId }); setEditing(false); }}>Speichern</button>
+          <button className="btn-primary" onClick={() => { onUpdate(order.id, { title, description: desc, orderDate: date, time, status, assignedEmployeeIds: empIds }); setEditing(false); }}>Speichern</button>
           <button className="btn-secondary" onClick={() => setEditing(false)}>Abbrechen</button>
         </div>
       </div>
@@ -1981,7 +2066,7 @@ function CustomerOrderRow({ order, employees, onUpdate, onDelete }: {
     <div className="appt-item">
       <div><span className="appt-date">{formatOrderDateTime(order)}</span>{past && order.status !== "erledigt" ? " (vergangen)" : ""} <span className={`badge ${order.status === "erledigt" ? "green" : order.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[order.status]}</span></div>
       <div>{order.title}{order.description ? ` – ${order.description}` : ""}</div>
-      {emp && <div className="small">👤 {emp.name}</div>}
+      {empNames && <div className="small">👤 {empNames}</div>}
       <div className="appt-actions">
         <button className="btn-secondary" onClick={() => setEditing(true)}>Bearbeiten</button>
         <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm("Diesen Auftrag wirklich löschen?")) onDelete(order.id); }}>Löschen</button>
@@ -1992,14 +2077,14 @@ function CustomerOrderRow({ order, employees, onUpdate, onDelete }: {
 
 function AddOrderInline({ employees, onAdd }: {
   employees: Employee[];
-  onAdd: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
+  onAdd: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("Termin");
   const [date, setDate] = useState(todayStr());
   const [time, setTime] = useState("");
   const [desc, setDesc] = useState("");
-  const [empId, setEmpId] = useState("");
+  const [empIds, setEmpIds] = useState<string[]>([]);
   if (!open) {
     return <button className="btn-secondary btn-block" onClick={() => setOpen(true)}>+ Auftrag / Termin hinzufügen</button>;
   }
@@ -2011,17 +2096,15 @@ function AddOrderInline({ employees, onAdd }: {
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
       </div>
       <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Was ist zu tun?" />
-      <select value={empId} onChange={(e) => setEmpId(e.target.value)} style={{ marginBottom: 4 }}>
-        <option value="">Kein Mitarbeiter</option>
-        {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-      </select>
+      <div className="small" style={{ margin: "2px 0" }}>Mitarbeiter (optional, mehrere möglich)</div>
+      <EmployeeCheckboxList employees={employees} value={empIds} onChange={setEmpIds} />
       <div className="appt-actions">
         <button
           className="btn-primary"
           onClick={() => {
             if (!title.trim()) return;
-            onAdd({ title: title.trim(), description: desc, orderDate: date, time, status: "offen", assignedEmployeeId: empId });
-            setOpen(false); setTitle("Termin"); setDate(todayStr()); setTime(""); setDesc(""); setEmpId("");
+            onAdd({ title: title.trim(), description: desc, orderDate: date, time, status: "offen", assignedEmployeeIds: empIds });
+            setOpen(false); setTitle("Termin"); setDate(todayStr()); setTime(""); setDesc(""); setEmpIds([]);
           }}
         >
           Speichern
@@ -2638,22 +2721,25 @@ function TireAssignModal({ slot, customers, assignment, history, onClose, onAssi
 // =====================================================================
 // Aufträge-Modul
 // =====================================================================
-function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, onDelete, onAssignEmployee, onOpenCustomer, onNavigate }: {
-  customers: Customer[]; orders: Order[]; employees: Employee[];
-  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => Promise<void>;
+function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, onUpdateStatus, onDelete, onEditEmployees, employeeNamesFor, onOpenCustomer, onNavigate }: {
+  customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
+  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
   onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onAssignEmployee: (id: string, employeeId: string) => Promise<void>;
+  onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
+  employeeNamesFor: (orderId: string) => string;
   onOpenCustomer: (customerId: string) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  const [empFilter, setEmpFilter] = useState<"all" | string>("all");
   const [custFilter, setCustFilter] = useState("");
   const statusLabel: Record<OrderStatus, string> = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
 
   const filteredOrders = orders
     .filter((o) => statusFilter === "all" || o.status === statusFilter)
+    .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
     .filter((o) => {
       if (!custFilter.trim()) return true;
       const cust = customers.find((c) => c.id === o.customer_id);
@@ -2680,6 +2766,14 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
           </div>
           <button className="btn-primary" style={{ flex: "0 0 auto" }} onClick={() => setShowAdd(true)}>+ Auftrag</button>
         </div>
+        {employees.length > 0 && (
+          <div className="filterbar">
+            <button type="button" className={`chip ${empFilter === "all" ? "active" : ""}`} onClick={() => setEmpFilter("all")}>Alle Mitarbeiter</button>
+            {employees.map((emp) => (
+              <button key={emp.id} type="button" className={`chip ${empFilter === emp.id ? "active" : ""}`} onClick={() => setEmpFilter(emp.id)}>{emp.name}</button>
+            ))}
+          </div>
+        )}
         <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
 
         <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
@@ -2710,10 +2804,9 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
                       </td>
                       <td>{o.title}</td>
                       <td onClick={(e) => e.stopPropagation()}>
-                        <select value={o.assigned_employee_id || ""} onChange={(e) => onAssignEmployee(o.id, e.target.value)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
-                          <option value="">–</option>
-                          {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
-                        </select>
+                        <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditEmployees(e, o.id)}>
+                          {employeeNamesFor(o.id)}
+                        </button>
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <select value={o.status} onChange={(e) => onUpdateStatus(o.id, e.target.value as OrderStatus)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
@@ -2748,7 +2841,7 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
 
 function OrderModal({ customers, employees, onClose, onAdd }: {
   customers: Customer[]; employees: Employee[]; onClose: () => void;
-  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => Promise<void>;
+  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
 }) {
   const [customerId, setCustomerId] = useState("");
   const [title, setTitle] = useState("");
@@ -2756,13 +2849,13 @@ function OrderModal({ customers, employees, onClose, onAdd }: {
   const [orderDate, setOrderDate] = useState(todayStr());
   const [time, setTime] = useState("");
   const [status, setStatus] = useState<OrderStatus>("offen");
-  const [empId, setEmpId] = useState("");
+  const [empIds, setEmpIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   async function save() {
     if (!customerId || !title.trim()) return;
     setSaving(true);
-    await onAdd({ customerId, title: title.trim(), description, orderDate, time, status, assignedEmployeeId: empId });
+    await onAdd({ customerId, title: title.trim(), description, orderDate, time, status, assignedEmployeeIds: empIds });
     setSaving(false);
     onClose();
   }
@@ -2779,22 +2872,17 @@ function OrderModal({ customers, employees, onClose, onAdd }: {
           <div className="field"><label>Datum</label><input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></div>
           <div className="field"><label>Uhrzeit (optional)</label><input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
         </div>
-        <div className="row">
-          <div className="field">
-            <label>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
-              <option value="offen">Offen</option>
-              <option value="in_arbeit">In Arbeit</option>
-              <option value="erledigt">Erledigt</option>
-            </select>
-          </div>
-          <div className="field">
-            <label>Mitarbeiter (optional)</label>
-            <select value={empId} onChange={(e) => setEmpId(e.target.value)}>
-              <option value="">Kein Mitarbeiter</option>
-              {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-            </select>
-          </div>
+        <div className="field">
+          <label>Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
+            <option value="offen">Offen</option>
+            <option value="in_arbeit">In Arbeit</option>
+            <option value="erledigt">Erledigt</option>
+          </select>
+        </div>
+        <div className="field">
+          <label>Mitarbeiter (optional, mehrere möglich)</label>
+          <EmployeeCheckboxList employees={employees} value={empIds} onChange={setEmpIds} />
         </div>
         <button className="btn-primary btn-block" disabled={!customerId || !title.trim() || saving} onClick={save}>Auftrag anlegen</button>
       </div>
@@ -2806,87 +2894,291 @@ function OrderModal({ customers, employees, onClose, onAdd }: {
 // Einsatzplanung: Aufträge nach Tag und Mitarbeiter, für die Übersicht
 // "wer macht welchen Auftrag wann".
 // =====================================================================
-function EinsatzplanungPanel({ customers, orders, employees, onAssignEmployee, onOpenCustomer }: {
-  customers: Customer[]; orders: Order[]; employees: Employee[];
-  onAssignEmployee: (id: string, employeeId: string) => Promise<void>;
+// Kalender-Hilfsfunktionen (Montag als Wochenstart, ISO-Kalenderwochen).
+const EMP_COLORS = ["#FF5A1F", "#1E9B6E", "#1E3A5F", "#8a5cf6", "#e0447a", "#c9a227", "#2f8fd1", "#a15c2e"];
+function employeeColorFor(employees: Employee[], employeeId: string): string {
+  const idx = employees.findIndex((e) => e.id === employeeId);
+  return EMP_COLORS[(idx < 0 ? 0 : idx) % EMP_COLORS.length];
+}
+function startOfWeekMonday(d: Date): Date {
+  const nd = new Date(d);
+  const day = (nd.getDay() + 6) % 7; // Montag = 0 … Sonntag = 6
+  nd.setDate(nd.getDate() - day);
+  nd.setHours(0, 0, 0, 0);
+  return nd;
+}
+function addDays(d: Date, n: number): Date {
+  const nd = new Date(d);
+  nd.setDate(nd.getDate() + n);
+  return nd;
+}
+function toDateStr(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function isoWeekNumber(date: Date): number {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+}
+
+// =====================================================================
+// Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
+// Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
+// filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung.
+// =====================================================================
+function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, onOpenCustomer, onUpdateStatus, onDelete }: {
+  customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
+  onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
+  employeeNamesFor: (orderId: string) => string;
   onOpenCustomer: (customerId: string) => void;
+  onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
 }) {
-  const [date, setDate] = useState(todayStr());
+  const today = new Date();
+  const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  const [selectedDay, setSelectedDay] = useState<string | null>(todayStr());
+  const [empFilter, setEmpFilter] = useState<"all" | string>("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  const [custFilter, setCustFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"date" | "kunde" | "status">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const statusLabel: Record<OrderStatus, string> = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
+  const monthLabel = monthCursor.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 
-  const ordersOnDate = orders.filter((o) => o.order_date === date);
-  const groups: { employee: Employee | null; orders: Order[] }[] = [
-    ...employees.map((emp) => ({ employee: emp, orders: ordersOnDate.filter((o) => o.assigned_employee_id === emp.id) })),
-    { employee: null, orders: ordersOnDate.filter((o) => !o.assigned_employee_id) },
-  ].filter((g) => g.orders.length > 0 || g.employee !== null);
+  const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
+  const gridStart = startOfWeekMonday(monthCursor);
+  const gridEndDay = (monthEnd.getDay() + 6) % 7;
+  const gridEnd = addDays(monthEnd, 6 - gridEndDay);
+  const weeks: { kw: number; days: Date[] }[] = [];
+  for (let d = gridStart; d <= gridEnd; d = addDays(d, 7)) {
+    const days = Array.from({ length: 7 }, (_, i) => addDays(d, i));
+    weeks.push({ kw: isoWeekNumber(days[0]), days });
+  }
 
-  function shiftDate(days: number) {
-    const d = new Date(date + "T00:00:00");
-    d.setDate(d.getDate() + days);
-    setDate(d.toISOString().slice(0, 10));
+  function ordersOn(dateStr: string): Order[] {
+    return orders.filter((o) => o.order_date === dateStr && (empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter)));
+  }
+  function employeesOnDay(dateStr: string): Employee[] {
+    const ids = new Set<string>();
+    orders.filter((o) => o.order_date === dateStr).forEach((o) => (orderEmployees[o.id] || []).forEach((id) => ids.add(id)));
+    return employees.filter((e) => ids.has(e.id));
+  }
+
+  const dayOrders = selectedDay ? ordersOn(selectedDay) : [];
+  const dayGroups: { employee: Employee | null; orders: Order[] }[] = [
+    ...employees.map((emp) => ({ employee: emp, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).includes(emp.id)) })),
+    { employee: null, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).length === 0) },
+  ].filter((g) => g.orders.length > 0);
+
+  // Volle Liste unter dem Kalender – unabhängig vom ausgewählten Tag, mit eigenen Filtern/Sortierung.
+  const listOrders = orders
+    .filter((o) => statusFilter === "all" || o.status === statusFilter)
+    .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
+    .filter((o) => {
+      if (!custFilter.trim()) return true;
+      const cust = customers.find((c) => c.id === o.customer_id);
+      return !!cust && cust.name.toLowerCase().includes(custFilter.toLowerCase());
+    })
+    .slice()
+    .sort((a, b) => {
+      let cmp = 0;
+      if (sortBy === "date") cmp = orderDateTime(a).getTime() - orderDateTime(b).getTime();
+      else if (sortBy === "kunde") {
+        const an = customers.find((c) => c.id === a.customer_id)?.name || "";
+        const bn = customers.find((c) => c.id === b.customer_id)?.name || "";
+        cmp = an.localeCompare(bn);
+      } else cmp = a.status.localeCompare(b.status);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+
+  function toggleSort(field: "date" | "kunde" | "status") {
+    if (sortBy === field) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(field); setSortDir("asc"); }
+  }
+  function sortArrow(field: "date" | "kunde" | "status") {
+    return sortBy === field ? (sortDir === "asc" ? " ▲" : " ▼") : "";
   }
 
   return (
     <div className="tabpanel active">
-      <div className="module-page">
+      <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0 }}>
         <div className="module-header">
           <div className="mh-icon"><IconEinsatzplanung /></div>
           <div className="mh-text">
             <h2>Einsatzplanung</h2>
-            <p>{ordersOnDate.length} Aufträge am {formatDate(date)}</p>
+            <p>{monthLabel}</p>
           </div>
         </div>
 
         <div className="row" style={{ maxWidth: 420, alignItems: "center" }}>
-          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => shiftDate(-1)}>‹</button>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => shiftDate(1)}>›</button>
-          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setDate(todayStr())}>Heute</button>
+          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}>‹</button>
+          <div style={{ flex: 1, textAlign: "center", fontWeight: 700 }}>{monthLabel}</div>
+          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 1))}>›</button>
+          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => { const t = new Date(); setMonthCursor(new Date(t.getFullYear(), t.getMonth(), 1)); setSelectedDay(todayStr()); }}>Heute</button>
         </div>
 
-        {ordersOnDate.length === 0 && <div className="empty">Keine Aufträge für diesen Tag.</div>}
-
-        {groups.map((g) => (
-          <div key={g.employee?.id || "unassigned"}>
-            <h4 style={{ margin: "8px 0 4px" }}>{g.employee ? g.employee.name : "Nicht zugeordnet"} <span className="small">({g.orders.length})</span></h4>
-            {g.orders.length === 0 ? (
-              <div className="small">Keine Aufträge zugeordnet.</div>
-            ) : (
-              <table className="appt-table">
-                <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Titel</th><th>Status</th><th>Mitarbeiter</th></tr></thead>
-                <tbody>
-                  {g.orders.map((o) => {
-                    const cust = customers.find((c) => c.id === o.customer_id);
-                    return (
-                      <tr key={o.id}>
-                        <td className="date-cell">{o.time || "–"}</td>
-                        <td>
-                          {cust ? (
-                            <button
-                              type="button"
-                              onClick={() => onOpenCustomer(cust.id)}
-                              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
-                            >
-                              {cust.name}
-                            </button>
-                          ) : "–"}
-                        </td>
-                        <td>{o.title}</td>
-                        <td><span className={`badge ${o.status === "erledigt" ? "green" : o.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[o.status]}</span></td>
-                        <td>
-                          <select value={o.assigned_employee_id || ""} onChange={(e) => onAssignEmployee(o.id, e.target.value)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
-                            <option value="">–</option>
-                            {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
-                          </select>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+        {employees.length > 0 && (
+          <div className="filterbar">
+            <button type="button" className={`chip ${empFilter === "all" ? "active" : ""}`} onClick={() => setEmpFilter("all")}>Alle Mitarbeiter</button>
+            {employees.map((emp) => (
+              <button
+                key={emp.id}
+                type="button"
+                className={`chip emp-chip ${empFilter === emp.id ? "active" : ""}`}
+                onClick={() => setEmpFilter(emp.id)}
+              >
+                <span className="emp-dot" style={{ background: employeeColorFor(employees, emp.id) }} />
+                {emp.name}
+              </button>
+            ))}
           </div>
-        ))}
+        )}
+
+        <div className="calendar-grid">
+          <div className="calendar-row calendar-head">
+            <div className="calendar-kw"></div>
+            {["Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"].map((d) => <div key={d} className="calendar-daylabel">{d}</div>)}
+          </div>
+          {weeks.map((w) => (
+            <div className="calendar-row" key={toDateStr(w.days[0])}>
+              <div className="calendar-kw">KW {w.kw}</div>
+              {w.days.map((d) => {
+                const ds = toDateStr(d);
+                const inMonth = d.getMonth() === monthCursor.getMonth();
+                const empsToday = employeesOnDay(ds).filter((e) => empFilter === "all" || e.id === empFilter);
+                const ordersToday = orders.filter((o) => o.order_date === ds);
+                const hasUnassigned = ordersToday.some((o) => (orderEmployees[o.id] || []).length === 0);
+                return (
+                  <button
+                    type="button"
+                    key={ds}
+                    className={`calendar-day ${inMonth ? "" : "outside"} ${ds === todayStr() ? "today" : ""} ${ds === selectedDay ? "selected" : ""}`}
+                    onClick={() => setSelectedDay(ds)}
+                  >
+                    <span className="calendar-daynum">{d.getDate()}</span>
+                    {ordersToday.length > 0 && (
+                      <span className="calendar-dots">
+                        {empsToday.map((e) => <span key={e.id} className="calendar-dot" style={{ background: employeeColorFor(employees, e.id) }} title={e.name} />)}
+                        {hasUnassigned && empFilter === "all" && <span className="calendar-dot calendar-dot-unassigned" title="Nicht zugeordnet" />}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+
+        {selectedDay && (
+          <>
+            <h4 style={{ margin: "6px 0 0" }}>Aufträge am {formatDate(selectedDay)} <span className="small">({dayOrders.length})</span></h4>
+            {dayOrders.length === 0 ? (
+              <div className="empty">Keine Aufträge für diesen Tag.</div>
+            ) : (
+              dayGroups.map((g) => (
+                <div key={g.employee?.id || "unassigned"}>
+                  <h4 style={{ margin: "6px 0 2px", fontSize: 13 }}>{g.employee ? g.employee.name : "Nicht zugeordnet"} <span className="small">({g.orders.length})</span></h4>
+                  <table className="appt-table">
+                    <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Titel</th><th>Status</th></tr></thead>
+                    <tbody>
+                      {g.orders.map((o) => {
+                        const cust = customers.find((c) => c.id === o.customer_id);
+                        return (
+                          <tr key={o.id}>
+                            <td className="date-cell">{o.time || "–"}</td>
+                            <td>
+                              {cust ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenCustomer(cust.id)}
+                                  style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
+                                >
+                                  {cust.name}
+                                </button>
+                              ) : "–"}
+                            </td>
+                            <td>{o.title}</td>
+                            <td><span className={`badge ${o.status === "erledigt" ? "green" : o.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[o.status]}</span></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              ))
+            )}
+          </>
+        )}
+
+        <hr />
+        <h4 style={{ margin: "4px 0 0" }}>Alle Aufträge</h4>
+        <div className="filterbar">
+          <button type="button" className={`chip ${statusFilter === "all" ? "active" : ""}`} onClick={() => setStatusFilter("all")}>Alle</button>
+          <button type="button" className={`chip ${statusFilter === "offen" ? "active" : ""}`} onClick={() => setStatusFilter("offen")}>Offen</button>
+          <button type="button" className={`chip ${statusFilter === "in_arbeit" ? "active" : ""}`} onClick={() => setStatusFilter("in_arbeit")}>In Arbeit</button>
+          <button type="button" className={`chip ${statusFilter === "erledigt" ? "active" : ""}`} onClick={() => setStatusFilter("erledigt")}>Erledigt</button>
+        </div>
+        <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
+
+        <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
+          {listOrders.length === 0 ? (
+            <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
+          ) : (
+            <table className="appt-table">
+              <thead>
+                <tr>
+                  <th style={{ cursor: "pointer" }} onClick={() => toggleSort("date")}>Termin{sortArrow("date")}</th>
+                  <th style={{ cursor: "pointer" }} onClick={() => toggleSort("kunde")}>Kunde{sortArrow("kunde")}</th>
+                  <th>Titel</th>
+                  <th>Mitarbeiter</th>
+                  <th style={{ cursor: "pointer" }} onClick={() => toggleSort("status")}>Status{sortArrow("status")}</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {listOrders.map((o) => {
+                  const cust = customers.find((c) => c.id === o.customer_id);
+                  return (
+                    <tr key={o.id}>
+                      <td className="date-cell">{formatOrderDateTime(o)}</td>
+                      <td>
+                        {cust ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenCustomer(cust.id)}
+                            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
+                          >
+                            {cust.name}
+                          </button>
+                        ) : "–"}
+                      </td>
+                      <td>{o.title}</td>
+                      <td>
+                        <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditEmployees(e, o.id)}>
+                          {employeeNamesFor(o.id)}
+                        </button>
+                      </td>
+                      <td>
+                        <select value={o.status} onChange={(e) => onUpdateStatus(o.id, e.target.value as OrderStatus)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
+                          <option value="offen">{statusLabel.offen}</option>
+                          <option value="in_arbeit">{statusLabel.in_arbeit}</option>
+                          <option value="erledigt">{statusLabel.erledigt}</option>
+                        </select>
+                      </td>
+                      <td>
+                        <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>
+                          <IconTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
     </div>
   );
