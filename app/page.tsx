@@ -3,16 +3,16 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import type {
-  Appointment, Customer, ContactHistoryEntry, UserSettings,
-  Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle,
+  Customer, ContactHistoryEntry, UserSettings,
+  Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
 } from "@/lib/types";
 import {
-  todayStr, formatDate, formatApptDateTime, isApptPast, nextAppointment,
+  todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
   effectiveColor, telHref, getPhoneNumbers, geocodeAddress,
 } from "@/lib/helpers";
 import { MAP_STYLES, type MapStyleKey } from "@/lib/mapStyles";
 
-type TabKey = "dashboard" | "list" | "termine" | "module" | "inactive" | "add" | "settings";
+type TabKey = "dashboard" | "list" | "termine" | "module" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "more";
 
 export default function HomePage() {
   const router = useRouter();
@@ -25,13 +25,13 @@ export default function HomePage() {
   const [tab, setTab] = useState<TabKey>("dashboard");
 
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [storageSlots, setStorageSlots] = useState<StorageSlot[]>([]);
   const [tireStorages, setTireStorages] = useState<TireStorage[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [moduleView, setModuleView] = useState<"overview" | "lager" | "auftraege">("overview");
+  const [moduleView, setModuleView] = useState<"overview" | "lager" | "einsatzplanung">("overview");
   const [settings, setSettings] = useState<UserSettings>({
     user_id: "", period_months: 3, map_style: "strasse", row_display: "datum",
   });
@@ -58,8 +58,8 @@ export default function HomePage() {
 
   // Aktuelle Daten/Handler als Ref, damit Leaflet-Popup-Callbacks (die außerhalb
   // des React-Renderzyklus leben) nie mit veralteten Closures arbeiten.
-  const liveRef = useRef({ customers, appointments, settings });
-  liveRef.current = { customers, appointments, settings };
+  const liveRef = useRef({ customers, orders, settings });
+  liveRef.current = { customers, orders, settings };
   const saveSettingsRef = useRef<(patch: Partial<UserSettings>) => Promise<void>>(async () => {});
 
   // ---------------------------------------------------------------- Initial-Load
@@ -85,11 +85,11 @@ export default function HomePage() {
       if (settingsRow) setSettings(settingsRow as UserSettings);
 
       await refreshCustomers();
-      await refreshAppointments();
       await refreshWarehouses();
       await refreshStorageSlots();
       await refreshTireStorages();
       await refreshOrders();
+      await refreshEmployees();
       await refreshVehicles();
       setLoading(false);
     })();
@@ -99,9 +99,9 @@ export default function HomePage() {
     const { data } = await supabase.from("customers").select("*").order("name");
     if (data) setCustomers(data as Customer[]);
   }
-  async function refreshAppointments() {
-    const { data } = await supabase.from("appointments").select("*");
-    if (data) setAppointments(data as Appointment[]);
+  async function refreshEmployees() {
+    const { data } = await supabase.from("employees").select("*").order("name");
+    if (data) setEmployees(data as Employee[]);
   }
   async function refreshWarehouses() {
     const { data } = await supabase.from("warehouses").select("*").order("name");
@@ -133,8 +133,8 @@ export default function HomePage() {
     setHistory((data as ContactHistoryEntry[]) || []);
   }
 
-  function apptsFor(customerId: string): Appointment[] {
-    return appointments.filter((a) => a.customer_id === customerId);
+  function ordersFor(customerId: string): Order[] {
+    return orders.filter((o) => o.customer_id === customerId);
   }
 
   // ---------------------------------------------------------------- Karte initialisieren
@@ -242,16 +242,16 @@ export default function HomePage() {
   function syncMarkers() {
     const L = (window as any).L;
     if (!L || !markerLayerRef.current) return;
-    const { customers: custs, appointments: appts, settings: s } = liveRef.current;
+    const { customers: custs, orders: ords, settings: s } = liveRef.current;
     const seen = new Set<string>();
     custs.forEach((cust) => {
       if (cust.active === false || cust.lat == null || cust.lng == null) return;
       seen.add(cust.id);
       const color = effectiveColor(cust, s.period_months);
-      const nextAppt = nextAppointment(apptsForLive(cust.id, appts));
+      const nextOrd = nextOrder(ordersForLive(cust.id, ords));
       let tooltip = `<b>${escapeHtml(cust.name)}</b><br>${escapeHtml(cust.address)}<br>` +
         (cust.status === "kontaktiert" && cust.last_contact ? `Letzter Kontakt: ${formatDate(cust.last_contact)}` : "Noch nicht kontaktiert");
-      if (nextAppt) tooltip += `<br>📅 Termin: ${formatApptDateTime(nextAppt)}${nextAppt.description ? " – " + escapeHtml(nextAppt.description) : ""}`;
+      if (nextOrd) tooltip += `<br>📅 Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}`;
 
       let marker = markerIndexRef.current[cust.id];
       if (marker) {
@@ -275,19 +275,19 @@ export default function HomePage() {
       }
     });
   }
-  function apptsForLive(customerId: string, appts: Appointment[]) {
-    return appts.filter((a) => a.customer_id === customerId);
+  function ordersForLive(customerId: string, ords: Order[]) {
+    return ords.filter((o) => o.customer_id === customerId);
   }
-  useEffect(() => { syncMarkers(); }, [customers, appointments, settings.period_months]);
+  useEffect(() => { syncMarkers(); }, [customers, orders, settings.period_months]);
 
   // ---------------------------------------------------------------- Popup-Inhalt (imperativ, wie im Original)
   function buildPopupEl(customerId: string): HTMLElement {
-    const { customers: custs, appointments: appts, settings: s } = liveRef.current;
+    const { customers: custs, orders: ords, settings: s } = liveRef.current;
     const cust = custs.find((c) => c.id === customerId);
     const div = document.createElement("div");
     if (!cust) { div.textContent = "Kunde nicht gefunden"; return div; }
     const color = effectiveColor(cust, s.period_months);
-    const nextAppt = nextAppointment(apptsForLive(cust.id, appts));
+    const nextOrd = nextOrder(ordersForLive(cust.id, ords));
     const phoneLines = getPhoneNumbers(cust).map(n => `<div class="pline">📞 ${escapeHtml(n.label)}: ${escapeHtml(n.number)}</div>`).join("");
     div.innerHTML = `
       <div class="header-row">
@@ -298,7 +298,7 @@ export default function HomePage() {
       ${phoneLines}
       ${cust.note ? `<div class="pline">📝 ${escapeHtml(cust.note)}</div>` : ""}
       <div class="pline small">Letzter Kontakt: ${cust.last_contact ? formatDate(cust.last_contact) : "–"}</div>
-      ${nextAppt ? `<div class="pline small">📅 Nächster Termin: ${formatApptDateTime(nextAppt)}${nextAppt.description ? " – " + escapeHtml(nextAppt.description) : ""}</div>` : ""}
+      ${nextOrd ? `<div class="pline small">📅 Nächster Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}</div>` : ""}
       <hr>
       <div class="field" style="margin-bottom:6px;">
         <label>Kontaktiert am</label>
@@ -319,7 +319,7 @@ export default function HomePage() {
         <button id="btnMarkContacted" style="flex:1" class="btn-green">✔ Kontaktiert speichern</button>
         <button id="btnMarkOpen" style="flex:1" class="btn-secondary">Auf offen setzen</button>
       </div>
-      <button id="btnEditCust" class="btn-secondary btn-block">✏️ Kundendaten &amp; Termine bearbeiten</button>
+      <button id="btnEditCust" class="btn-secondary btn-block">✏️ Kundendaten &amp; Aufträge bearbeiten</button>
     `;
     return div;
   }
@@ -379,10 +379,10 @@ export default function HomePage() {
     if (apptDate) note += ` – Termin vereinbart am ${formatDate(apptDate)}${apptTime ? ", " + apptTime + " Uhr" : ""}`;
     await supabase.from("contact_history").insert({ customer_id: id, date: contactDate, note });
     if (apptDate) {
-      await supabase.from("appointments").insert({ customer_id: id, date: apptDate, time: apptTime || null, description: apptDesc || null });
+      await supabase.from("orders").insert({ customer_id: id, title: "Termin", description: apptDesc || null, status: "offen", order_date: apptDate, time: apptTime || null });
+      await refreshOrders();
     }
     await refreshCustomers();
-    await refreshAppointments();
     if (selectedId === id) loadHistory(id);
   }
   async function markOpen(id: string) {
@@ -396,7 +396,7 @@ export default function HomePage() {
   async function deleteCustomerById(id: string) {
     await supabase.from("customers").delete().eq("id", id);
     await refreshCustomers();
-    await refreshAppointments();
+    await refreshOrders();
     setSelectedId(null);
   }
   async function updateCustomerFields(id: string, fields: Partial<Customer>) {
@@ -415,27 +415,33 @@ export default function HomePage() {
     }
     await refreshCustomers();
   }
-  async function addCustomer(fields: { name: string; address: string; phone_mobile: string; phone_landline: string; note: string }) {
+  async function addCustomer(fields: {
+    name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
+    orderTitle: string; orderDescription: string; orderDate: string; orderTime: string; assignedEmployeeId: string;
+  }) {
     let lat: number | null = null, lng: number | null = null;
     try {
       const res = await geocodeAddress(fields.address);
       if (res) { lat = res.lat; lng = res.lng; }
     } catch {}
-    await supabase.from("customers").insert({ ...fields, lat, lng, status: "offen", active: true });
+    const { name, address, phone_mobile, phone_landline, note } = fields;
+    const { data: created } = await supabase
+      .from("customers")
+      .insert({ name, address, phone_mobile, phone_landline, note, lat, lng, status: "offen", active: true })
+      .select("id")
+      .single();
+    // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist im gleichen Zug meist auch
+    // schon klar, worum es geht – deshalb kann direkt ein passender Auftrag mit angelegt werden.
+    if (created?.id && fields.orderTitle.trim()) {
+      await supabase.from("orders").insert({
+        customer_id: created.id, title: fields.orderTitle.trim(), description: fields.orderDescription || null,
+        status: "offen", order_date: fields.orderDate || todayStr(), time: fields.orderTime || null,
+        assigned_employee_id: fields.assignedEmployeeId || null,
+      });
+      await refreshOrders();
+    }
     await refreshCustomers();
     return lat != null;
-  }
-  async function addAppointment(customerId: string, date: string, description: string, time: string) {
-    await supabase.from("appointments").insert({ customer_id: customerId, date, description: description || null, time: time || null });
-    await refreshAppointments();
-  }
-  async function updateAppointment(apptId: string, date: string, description: string, time: string) {
-    await supabase.from("appointments").update({ date, description: description || null, time: time || null }).eq("id", apptId);
-    await refreshAppointments();
-  }
-  async function deleteAppointment(apptId: string) {
-    await supabase.from("appointments").delete().eq("id", apptId);
-    await refreshAppointments();
   }
   // ---------------------------------------------------------------- Lager-Modul
   async function addWarehouse(name: string) {
@@ -474,25 +480,50 @@ export default function HomePage() {
     await refreshTireStorages();
   }
   async function removeTireAssignment(id: string) {
-    await supabase.from("tire_storage").delete().eq("id", id);
+    // Soft-Delete: Zuordnung wird nur als "entfernt" markiert, nicht gelöscht,
+    // damit der Lagerplatz eine Historie behält (Migration 06).
+    await supabase.from("tire_storage").update({ removed_at: new Date().toISOString() }).eq("id", id);
     await refreshTireStorages();
   }
 
-  // ---------------------------------------------------------------- Aufträge-Modul
-  async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; status: OrderStatus }) {
+  // ---------------------------------------------------------------- Aufträge-Modul (Termine inklusive)
+  async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) {
     await supabase.from("orders").insert({
       customer_id: fields.customerId, title: fields.title, description: fields.description || null,
-      order_date: fields.orderDate, status: fields.status,
+      order_date: fields.orderDate, time: fields.time || null, status: fields.status,
+      assigned_employee_id: fields.assignedEmployeeId || null,
     });
+    await refreshOrders();
+  }
+  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) {
+    await supabase.from("orders").update({
+      title: fields.title, description: fields.description || null, order_date: fields.orderDate,
+      time: fields.time || null, status: fields.status, assigned_employee_id: fields.assignedEmployeeId || null,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
     await refreshOrders();
   }
   async function updateOrderStatus(id: string, status: OrderStatus) {
     await supabase.from("orders").update({ status, updated_at: new Date().toISOString() }).eq("id", id);
     await refreshOrders();
   }
+  async function assignOrderEmployee(id: string, employeeId: string) {
+    await supabase.from("orders").update({ assigned_employee_id: employeeId || null, updated_at: new Date().toISOString() }).eq("id", id);
+    await refreshOrders();
+  }
   async function deleteOrder(id: string) {
     await supabase.from("orders").delete().eq("id", id);
     await refreshOrders();
+  }
+
+  // ---------------------------------------------------------------- Mitarbeiter (Einsatzplanung)
+  async function addEmployee(name: string) {
+    await supabase.from("employees").insert({ name });
+    await refreshEmployees();
+  }
+  async function deleteEmployee(id: string) {
+    await supabase.from("employees").delete().eq("id", id);
+    await refreshEmployees();
   }
 
   // ---------------------------------------------------------------- Fahrzeuge
@@ -567,11 +598,13 @@ export default function HomePage() {
   const statOk = activeCustomers.filter((c) => effectiveColor(c, settings.period_months) === "green").length;
   const inactiveCustomers = customers.filter((c) => c.active === false).sort((a, b) => a.name.localeCompare(b.name, "de"));
 
+  // Termine-Tab: Auftrag = Termin (siehe Migration 07), hier einfach chronologisch alle
+  // Aufträge mit ihrem Kunden – gleiche Datenbasis wie das Aufträge-Modul.
   const apptRows = customers
     .filter((c) => c.active !== false)
-    .flatMap((c) => apptsFor(c.id).map((a) => ({ cust: c, appt: a, past: isApptPast(a) })))
+    .flatMap((c) => ordersFor(c.id).map((o) => ({ cust: c, order: o, past: isOrderPast(o) })))
     .filter((r) => !onlyUpcoming || !r.past)
-    .sort((a, b) => new Date(a.appt.date + "T" + (a.appt.time || "23:59")).getTime() - new Date(b.appt.date + "T" + (b.appt.time || "23:59")).getTime());
+    .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime());
 
   function openDetail(id: string) {
     setSelectedId(id);
@@ -591,8 +624,14 @@ export default function HomePage() {
   }
 
   const upcomingApptCount = apptRows.filter((r) => !r.past).length;
-  const occupiedSlots = storageSlots.filter((s) => tireStorages.some((t) => t.storage_slot_id === s.id)).length;
+  const occupiedSlots = storageSlots.filter((s) => tireStorages.some((t) => t.storage_slot_id === s.id && !t.removed_at)).length;
   const openOrders = orders.filter((o) => o.status !== "erledigt").length;
+  // Vollseiten-Module: hier ergibt die Karte keinen Sinn, der Inhalt bekommt die volle Breite.
+  const fullPageTabs = tab === "module" || tab === "admin" || tab === "auftraege";
+  // Hauptnavigation bewusst schlank (Dashboard/Kunden/Aufträge/Weitere) – alles Seltenere
+  // steckt hinter "Weitere", damit die Leiste auf dem Handy nicht überladen wirkt.
+  const SECONDARY_TABS: TabKey[] = ["termine", "module", "add", "inactive", "admin", "settings"];
+  const isMoreActive = SECONDARY_TABS.includes(tab);
 
   return (
     <div id="app">
@@ -606,17 +645,11 @@ export default function HomePage() {
         </div>
         <NavItem active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={<IconDashboard />} label="Dashboard" />
         <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />
-        <NavItem active={tab === "termine"} onClick={() => setTab("termine")} icon={<IconTermine />} label="Termine" />
-        <NavItem active={tab === "module"} onClick={() => setTab("module")} icon={<IconModule />} label="Module" />
-        <NavItem active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neu" />
-        <NavItem active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktiv" />
-        {isSuperAdmin && (
-          <NavItem active={false} onClick={() => router.push("/admin/users")} icon={<IconAdmin />} label="Admin" />
-        )}
-        <NavItem active={tab === "settings"} onClick={() => setTab("settings")} icon={<IconSettings />} label="Settings" className="settings-item" />
+        <NavItem active={tab === "auftraege"} onClick={() => setTab("auftraege")} icon={<IconAuftraege />} label="Aufträge" />
+        <NavItem active={isMoreActive} onClick={() => setTab("more")} icon={<IconMore />} label="Weitere" className="settings-item" />
       </nav>
 
-      <div id="sidebar" className={mobileMapVisible ? "mobile-hidden" : ""}>
+      <div id="sidebar" className={(fullPageTabs ? "full-page " : "") + (mobileMapVisible ? "mobile-hidden" : "")}>
         <header>
           <div className="app-brand">
             <div className="app-brand-badge">
@@ -656,7 +689,7 @@ export default function HomePage() {
                 </div>
                 <div className="mc-tag">{occupiedSlots}</div>
               </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => { setTab("module"); setModuleView("auftraege"); }}>
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("auftraege")}>
                 <div className="mc-icon"><IconAuftraege /></div>
                 <div className="mc-text">
                   <div className="mc-title">Offene Aufträge</div>
@@ -709,17 +742,17 @@ export default function HomePage() {
               {listItems.length === 0 && <div className="empty">Keine Kunden gefunden.</div>}
               {listItems.map((c) => {
                 const color = c.lat == null ? "gray" : effectiveColor(c, settings.period_months);
-                const nextAppt = nextAppointment(apptsFor(c.id));
+                const nextOrd = nextOrder(ordersFor(c.id));
                 return (
                   <div key={c.id} className="cust-item" onClick={() => openDetail(c.id)}>
                     <div className={`dot ${color}`}></div>
                     <div className="info">
                       <div className="name">{c.name}</div>
                       <div className="addr">{c.address}</div>
-                      {nextAppt && (
-                        <div className="meta">📅 Termin: {formatDate(nextAppt.date)}</div>
+                      {nextOrd && (
+                        <div className="meta">📅 Termin: {formatDate(nextOrd.order_date)}</div>
                       )}
-                      {!nextAppt && <CustomerRowMeta customer={c} rowDisplay={settings.row_display} />}
+                      {!nextOrd && <CustomerRowMeta customer={c} rowDisplay={settings.row_display} />}
                     </div>
                   </div>
                 );
@@ -739,27 +772,30 @@ export default function HomePage() {
                 <div className="empty">Keine Termine gefunden.</div>
               ) : (
                 <table className="appt-table">
-                  <thead><tr><th>Termin</th><th>Kunde</th><th>Was ist zu tun?</th><th></th></tr></thead>
+                  <thead><tr><th>Termin</th><th>Kunde</th><th>Auftrag</th><th></th></tr></thead>
                   <tbody>
-                    {apptRows.map(({ cust, appt, past }) => (
-                      <tr key={appt.id} className={past ? "past" : ""} onClick={() => openDetail(cust.id)}>
-                        <td className="date-cell">{formatApptDateTime(appt)}{past ? " (vergangen)" : ""}</td>
-                        <td>{cust.name}<br /><span className="small">{cust.address}</span></td>
-                        <td>{appt.description || "–"}</td>
-                        <td onClick={(e) => e.stopPropagation()}>
-                          {getPhoneNumbers(cust).length > 0 && (
-                            <button
-                              className="call-icon-btn small"
-                              onClick={(e) => {
-                                const rect = (e.target as HTMLElement).getBoundingClientRect();
-                                setCallMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 190) });
-                                setCallMenuFor(cust);
-                              }}
-                            >📞</button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {apptRows.map(({ cust, order, past }) => {
+                      const emp = employees.find((e) => e.id === order.assigned_employee_id);
+                      return (
+                        <tr key={order.id} className={past ? "past" : ""} onClick={() => openDetail(cust.id)}>
+                          <td className="date-cell">{formatOrderDateTime(order)}{past ? " (vergangen)" : ""}</td>
+                          <td>{cust.name}<br /><span className="small">{cust.address}</span></td>
+                          <td>{order.title}{order.description ? ` – ${order.description}` : ""}{emp ? <><br /><span className="small">👤 {emp.name}</span></> : ""}</td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {getPhoneNumbers(cust).length > 0 && (
+                              <button
+                                className="call-icon-btn small"
+                                onClick={(e) => {
+                                  const rect = (e.target as HTMLElement).getBoundingClientRect();
+                                  setCallMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 190) });
+                                  setCallMenuFor(cust);
+                                }}
+                              >📞</button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
@@ -767,24 +803,45 @@ export default function HomePage() {
           </div>
         )}
 
+        {tab === "auftraege" && (
+          <AuftraegePanel
+            customers={customers}
+            orders={orders}
+            employees={employees}
+            onAdd={addOrder}
+            onUpdateStatus={updateOrderStatus}
+            onDelete={deleteOrder}
+            onAssignEmployee={assignOrderEmployee}
+          />
+        )}
+
         {tab === "module" && moduleView === "overview" && (
           <div className="tabpanel active">
-            <div className="module-cards">
-              <div className="module-card" onClick={() => setModuleView("lager")} style={{ cursor: "pointer" }}>
-                <div className="mc-icon"><IconLager /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Lager</div>
-                  <div className="mc-sub">Lager &amp; Lagerplätze verwalten, Reifen mit DOT-Datum und Profiltiefe zuordnen</div>
+            <div className="module-page">
+              <div className="module-header">
+                <div className="mh-icon"><IconModule /></div>
+                <div className="mh-text">
+                  <h2>Module</h2>
+                  <p>Eigene Arbeitsbereiche wie in einem eigenständigen Programm.</p>
                 </div>
-                <div className="mc-tag">{storageSlots.length} Plätze</div>
               </div>
-              <div className="module-card" onClick={() => setModuleView("auftraege")} style={{ cursor: "pointer" }}>
-                <div className="mc-icon"><IconAuftraege /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Aufträge</div>
-                  <div className="mc-sub">Aufträge je Kunde anlegen und verwalten</div>
+              <div className="module-cards" style={{ maxWidth: 560 }}>
+                <div className="module-card" onClick={() => setModuleView("lager")} style={{ cursor: "pointer" }}>
+                  <div className="mc-icon"><IconLager /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Lager</div>
+                    <div className="mc-sub">Lager &amp; Lagerplätze verwalten, Reifen mit DOT-Datum und Profiltiefe zuordnen</div>
+                  </div>
+                  <div className="mc-tag">{storageSlots.length} Plätze</div>
                 </div>
-                <div className="mc-tag">{orders.length} Aufträge</div>
+                <div className="module-card" onClick={() => setModuleView("einsatzplanung")} style={{ cursor: "pointer" }}>
+                  <div className="mc-icon"><IconEinsatzplanung /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Einsatzplanung</div>
+                    <div className="mc-sub">Aufträge nach Tag und Mitarbeiter planen – wer macht was, wann</div>
+                  </div>
+                  <div className="mc-tag">{employees.length} Mitarbeiter</div>
+                </div>
               </div>
             </div>
           </div>
@@ -806,15 +863,65 @@ export default function HomePage() {
           />
         )}
 
-        {tab === "module" && moduleView === "auftraege" && (
-          <AuftraegePanel
+        {tab === "module" && moduleView === "einsatzplanung" && (
+          <EinsatzplanungPanel
             customers={customers}
             orders={orders}
+            employees={employees}
             onBack={() => setModuleView("overview")}
-            onAdd={addOrder}
-            onUpdateStatus={updateOrderStatus}
-            onDelete={deleteOrder}
+            onAssignEmployee={assignOrderEmployee}
           />
+        )}
+
+        {tab === "more" && (
+          <div className="tabpanel active">
+            <div className="module-cards">
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("termine")}>
+                <div className="mc-icon"><IconTermine /></div>
+                <div className="mc-text">
+                  <div className="mc-title">Termine</div>
+                  <div className="mc-sub">Chronologische Terminübersicht (Aufträge mit Uhrzeit)</div>
+                </div>
+              </div>
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("module")}>
+                <div className="mc-icon"><IconModule /></div>
+                <div className="mc-text">
+                  <div className="mc-title">Module</div>
+                  <div className="mc-sub">Lager &amp; Einsatzplanung</div>
+                </div>
+              </div>
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("add")}>
+                <div className="mc-icon"><IconNeu /></div>
+                <div className="mc-text">
+                  <div className="mc-title">Neuer Kunde</div>
+                  <div className="mc-sub">Kunden anlegen, optional gleich mit Auftrag</div>
+                </div>
+              </div>
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("inactive")}>
+                <div className="mc-icon"><IconInaktiv /></div>
+                <div className="mc-text">
+                  <div className="mc-title">Inaktive Kunden</div>
+                  <div className="mc-sub">Deaktivierte Kunden ansehen &amp; reaktivieren</div>
+                </div>
+              </div>
+              {isAdmin && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("admin")}>
+                  <div className="mc-icon"><IconAdmin /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Admin</div>
+                    <div className="mc-sub">Nutzer einladen &amp; verwalten, Mitarbeiter</div>
+                  </div>
+                </div>
+              )}
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("settings")}>
+                <div className="mc-icon"><IconSettings /></div>
+                <div className="mc-text">
+                  <div className="mc-title">Settings</div>
+                  <div className="mc-sub">Anzeige, Wiedervorlage-Zeitraum, Abmelden</div>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {tab === "inactive" && (
@@ -839,7 +946,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "add" && <AddCustomerForm onAdd={addCustomer} />}
+        {tab === "add" && <AddCustomerForm onAdd={addCustomer} employees={employees} />}
 
         {tab === "settings" && (
           <SettingsPanel
@@ -849,15 +956,28 @@ export default function HomePage() {
             isSuperAdmin={isSuperAdmin}
             userEmail={userEmail}
             onLogout={handleLogout}
+            onOpenAdmin={() => setTab("admin")}
+          />
+        )}
+
+        {tab === "admin" && (
+          <AdminPanel
+            isAdmin={isAdmin}
+            isSuperAdmin={isSuperAdmin}
+            employees={employees}
+            onAddEmployee={addEmployee}
+            onDeleteEmployee={deleteEmployee}
           />
         )}
       </div>
 
-      <div id="map" ref={mapDivRef} className={mobileMapVisible ? "mobile-visible" : ""}></div>
+      <div id="map" ref={mapDivRef} className={fullPageTabs ? "force-hidden" : (mobileMapVisible ? "mobile-visible" : "")}></div>
 
-      <button id="mapToggleBtn" type="button" onClick={toggleMobileMap} title={mobileMapVisible ? "Liste anzeigen" : "Karte anzeigen"}>
-        {mobileMapVisible ? <IconKunden /> : <IconMap />}
-      </button>
+      {!fullPageTabs && (
+        <button id="mapToggleBtn" type="button" onClick={toggleMobileMap} title={mobileMapVisible ? "Liste anzeigen" : "Karte anzeigen"}>
+          {mobileMapVisible ? <IconKunden /> : <IconMap />}
+        </button>
+      )}
 
       {callMenuFor && (
         <>
@@ -875,7 +995,8 @@ export default function HomePage() {
       {selectedId && (
         <DetailModal
           customer={customers.find((c) => c.id === selectedId)!}
-          appointments={apptsFor(selectedId)}
+          orders={ordersFor(selectedId)}
+          employees={employees}
           history={history}
           periodMonths={settings.period_months}
           vehicles={vehicles.filter((v) => v.customer_id === selectedId)}
@@ -888,9 +1009,9 @@ export default function HomePage() {
           onMarkOpen={() => markOpen(selectedId)}
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}
-          onAddAppointment={(date, desc, time) => addAppointment(selectedId, date, desc, time)}
-          onUpdateAppointment={updateAppointment}
-          onDeleteAppointment={deleteAppointment}
+          onAddOrder={(fields) => addOrder({ ...fields, customerId: selectedId })}
+          onUpdateOrder={updateOrder}
+          onDeleteOrder={deleteOrder}
           onAddVehicle={(fields) => addVehicle(selectedId, fields)}
           onUpdateVehicle={updateVehicle}
           onDeleteVehicle={deleteVehicle}
@@ -1036,6 +1157,26 @@ function IconBack() {
     </svg>
   );
 }
+function IconMore() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <circle cx="5" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.8" fill="currentColor" />
+      <circle cx="19" cy="12" r="1.8" fill="currentColor" />
+    </svg>
+  );
+}
+function IconEinsatzplanung() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <rect x="3" y="4.5" width="18" height="16" rx="2" strokeLinejoin="round" />
+      <path d="M3 9.5h18M8 3v3M16 3v3" strokeLinecap="round" />
+      <circle cx="8" cy="14" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="14" r="1.3" fill="currentColor" stroke="none" />
+      <circle cx="16" cy="14" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 function IconTrash() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
@@ -1052,7 +1193,13 @@ function NavItem({ active, onClick, icon, label, className }: { active: boolean;
   );
 }
 
-function AddCustomerForm({ onAdd }: { onAdd: (f: { name: string; address: string; phone_mobile: string; phone_landline: string; note: string }) => Promise<boolean> }) {
+function AddCustomerForm({ onAdd, employees }: {
+  onAdd: (f: {
+    name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
+    orderTitle: string; orderDescription: string; orderDate: string; orderTime: string; assignedEmployeeId: string;
+  }) => Promise<boolean>;
+  employees: Employee[];
+}) {
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
   const [mobile, setMobile] = useState("");
@@ -1060,6 +1207,14 @@ function AddCustomerForm({ onAdd }: { onAdd: (f: { name: string; address: string
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // Ruft z. B. ein neuer Kunde direkt an, kann im gleichen Zug schon der passende
+  // Auftrag angelegt werden – Titel leer lassen, wenn (noch) kein Auftrag ansteht.
+  const [orderTitle, setOrderTitle] = useState("");
+  const [orderDesc, setOrderDesc] = useState("");
+  const [orderDate, setOrderDate] = useState(todayStr());
+  const [orderTime, setOrderTime] = useState("");
+  const [empId, setEmpId] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -1069,12 +1224,16 @@ function AddCustomerForm({ onAdd }: { onAdd: (f: { name: string; address: string
     }
     setBusy(true);
     setStatus({ text: "Suche Adresse auf der Karte…", ok: true });
-    const found = await onAdd({ name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(), phone_landline: landline.trim(), note: note.trim() });
+    const found = await onAdd({
+      name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(), phone_landline: landline.trim(), note: note.trim(),
+      orderTitle, orderDescription: orderDesc, orderDate, orderTime, assignedEmployeeId: empId,
+    });
     setBusy(false);
     setStatus(found
-      ? { text: "✔ Kunde hinzugefügt und auf Karte platziert.", ok: true }
+      ? { text: orderTitle.trim() ? "✔ Kunde und Auftrag angelegt, Kunde auf Karte platziert." : "✔ Kunde hinzugefügt und auf Karte platziert.", ok: true }
       : { text: "Adresse nicht gefunden – Kunde wurde ohne Kartenposition angelegt.", ok: false });
     setName(""); setAddress(""); setMobile(""); setLandline(""); setNote("");
+    setOrderTitle(""); setOrderDesc(""); setOrderDate(todayStr()); setOrderTime(""); setEmpId("");
   }
 
   return (
@@ -1084,14 +1243,32 @@ function AddCustomerForm({ onAdd }: { onAdd: (f: { name: string; address: string
       <div className="field"><label>Mobil (optional)</label><input type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="0151 …" /></div>
       <div className="field"><label>Festnetz (optional)</label><input type="text" value={landline} onChange={(e) => setLandline(e.target.value)} placeholder="0911 …" /></div>
       <div className="field"><label>Notiz (optional)</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Winterreifen 205/55 R16" /></div>
+
+      <hr />
+      <h4 style={{ margin: "0 0 2px" }}>Gleich einen Auftrag anlegen (optional)</h4>
+      <div className="small" style={{ marginBottom: 6 }}>Z. B. wenn der Kunde gerade selbst anruft – Titel leer lassen, wenn noch kein Auftrag ansteht.</div>
+      <div className="field"><label>Titel</label><input type="text" value={orderTitle} onChange={(e) => setOrderTitle(e.target.value)} placeholder="z. B. Reifenwechsel Winter" /></div>
+      <div className="field"><label>Beschreibung (optional)</label><textarea value={orderDesc} onChange={(e) => setOrderDesc(e.target.value)} /></div>
+      <div className="row">
+        <div className="field"><label>Datum</label><input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></div>
+        <div className="field"><label>Uhrzeit (optional)</label><input type="time" value={orderTime} onChange={(e) => setOrderTime(e.target.value)} /></div>
+      </div>
+      <div className="field">
+        <label>Mitarbeiter (optional)</label>
+        <select value={empId} onChange={(e) => setEmpId(e.target.value)}>
+          <option value="">Kein Mitarbeiter</option>
+          {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+        </select>
+      </div>
+
       <button className="btn-primary btn-block" type="submit" disabled={busy}>Kunde hinzufügen &amp; auf Karte platzieren</button>
       {status && <div className="small" style={{ color: status.ok ? "var(--green)" : "var(--red)" }}>{status.text}</div>}
     </form>
   );
 }
 
-function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, onLogout }: {
-  settings: UserSettings; onChange: (p: Partial<UserSettings>) => void; isAdmin: boolean; isSuperAdmin: boolean; userEmail: string; onLogout: () => void;
+function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, onLogout, onOpenAdmin }: {
+  settings: UserSettings; onChange: (p: Partial<UserSettings>) => void; isAdmin: boolean; isSuperAdmin: boolean; userEmail: string; onLogout: () => void; onOpenAdmin: () => void;
 }) {
   const [period, setPeriod] = useState(settings.period_months);
   return (
@@ -1112,15 +1289,215 @@ function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, o
       <button className="btn-primary btn-block" onClick={() => onChange({ period_months: period })}>Speichern</button>
       <hr />
       <div className="small">Angemeldet als {userEmail}{isSuperAdmin ? " (Superadmin)" : isAdmin ? " (Admin)" : ""}</div>
-      {isAdmin && <a className="btn-secondary btn-block" href="/admin/invite" style={{ marginTop: 8, display: "block", textAlign: "center", textDecoration: "none" }}>👤 Nutzer einladen</a>}
-      {isSuperAdmin && <a className="btn-secondary btn-block" href="/admin/users" style={{ marginTop: 8, display: "block", textAlign: "center", textDecoration: "none" }}>🛡️ Nutzerverwaltung</a>}
+      {isAdmin && <button className="btn-secondary btn-block" style={{ marginTop: 8 }} onClick={onOpenAdmin}>🛡️ Nutzerverwaltung</button>}
       <button className="btn-secondary btn-block" style={{ marginTop: 8 }} onClick={onLogout}>Abmelden</button>
     </div>
   );
 }
 
+// =====================================================================
+// Admin-Modul: Nutzerverwaltung – als eigener Tab statt separater Seite,
+// damit man wie bei Termine einfach das Fenster wechselt statt zu navigieren.
+// =====================================================================
+const ROLE_LABEL: Record<Role, string> = {
+  superadmin: "Superadmin",
+  admin: "Admin",
+  techniker: "Techniker",
+  user: "Nutzer",
+};
+
+function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee }: {
+  isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
+  onAddEmployee: (name: string) => Promise<void>;
+  onDeleteEmployee: (id: string) => Promise<void>;
+}) {
+  const supabase = useMemo(() => createClient(), []);
+  const [ownUserId, setOwnUserId] = useState<string | null>(null);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [loadingList, setLoadingList] = useState(true);
+  const [status, setStatus] = useState<{ type: "ok" | "error"; text: string } | null>(null);
+
+  const [email, setEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<Role>("user");
+  const [sending, setSending] = useState(false);
+  const [newEmployeeName, setNewEmployeeName] = useState("");
+
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setOwnUserId(user?.id || null);
+      if (isSuperAdmin) await refreshProfiles();
+      else setLoadingList(false);
+    })();
+  }, [isSuperAdmin]);
+
+  async function refreshProfiles() {
+    setLoadingList(true);
+    const { data, error } = await supabase.from("profiles").select("*").order("email");
+    if (!error && data) setProfiles(data as Profile[]);
+    setLoadingList(false);
+  }
+
+  async function changeRole(profileId: string, newRole: Role) {
+    setStatus(null);
+    if (profileId === ownUserId && newRole !== "superadmin") {
+      const ok = confirm("Du entziehst dir gerade selbst die Superadmin-Rolle. Fortfahren?");
+      if (!ok) return;
+    }
+    const { error } = await supabase.from("profiles").update({ role: newRole }).eq("id", profileId);
+    if (error) {
+      setStatus({ type: "error", text: "Rolle konnte nicht geändert werden: " + error.message });
+      return;
+    }
+    await refreshProfiles();
+    setStatus({ type: "ok", text: "Rolle aktualisiert." });
+  }
+
+  async function sendInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setStatus(null);
+    setSending(true);
+    const res = await fetch("/api/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, role: inviteRole }),
+    });
+    const data = await res.json();
+    setSending(false);
+    if (!res.ok) {
+      setStatus({ type: "error", text: data.error || "Einladung fehlgeschlagen." });
+      return;
+    }
+    setStatus({ type: "ok", text: `Einladung an ${email} wurde per E-Mail versendet.` });
+    setEmail("");
+    setInviteRole("user");
+    if (isSuperAdmin) await refreshProfiles();
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="tabpanel active">
+        <div className="empty">Diese Seite ist nur für Admin und Superadmin.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="tabpanel active">
+      <div className="module-page">
+        <div className="module-header">
+          <div className="mh-icon"><IconAdmin /></div>
+          <div className="mh-text">
+            <h2>Nutzerverwaltung</h2>
+            <p>Es gibt keine offene Registrierung – neue Kolleg:innen werden hier eingeladen.</p>
+          </div>
+        </div>
+
+        {status && (
+          <div className={status.type === "ok" ? "login-info" : "login-error"}>{status.text}</div>
+        )}
+
+        <h4 style={{ margin: "4px 0 0" }}>Neuen Nutzer einladen</h4>
+        <form onSubmit={sendInvite} style={{ maxWidth: 420 }}>
+          <div className="row">
+            <div className="field" style={{ flex: 2 }}>
+              <label>E-Mail-Adresse</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="kollege@firma.de" required />
+            </div>
+            <div className="field" style={{ flex: 1 }}>
+              <label>Rolle</label>
+              <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Role)}>
+                <option value="user">Nutzer</option>
+                <option value="techniker">Techniker</option>
+                <option value="admin">Admin</option>
+                {isSuperAdmin && <option value="superadmin">Superadmin</option>}
+              </select>
+            </div>
+          </div>
+          <button className="btn-primary" type="submit" disabled={sending}>
+            {sending ? "Sende Einladung…" : "Einladung senden"}
+          </button>
+        </form>
+
+        {isSuperAdmin && (
+          <>
+            <hr />
+            <h4 style={{ margin: 0 }}>Alle Nutzer</h4>
+            {loadingList ? (
+              <div className="small">Lädt…</div>
+            ) : profiles.length === 0 ? (
+              <div className="empty">Keine Nutzer gefunden.</div>
+            ) : (
+              <table className="appt-table" style={{ maxWidth: 560 }}>
+                <thead><tr><th>E-Mail</th><th>Rolle</th></tr></thead>
+                <tbody>
+                  {profiles.map((p) => (
+                    <tr key={p.id}>
+                      <td>{p.email || "–"}{p.id === ownUserId ? <span className="small"> (Du)</span> : ""}</td>
+                      <td>
+                        <select value={p.role} onChange={(e) => changeRole(p.id, e.target.value as Role)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
+                          <option value="user">{ROLE_LABEL.user}</option>
+                          <option value="techniker">{ROLE_LABEL.techniker}</option>
+                          <option value="admin">{ROLE_LABEL.admin}</option>
+                          <option value="superadmin">{ROLE_LABEL.superadmin}</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        )}
+
+        <hr />
+        <h4 style={{ margin: 0 }}>Mitarbeiter (Einsatzplanung)</h4>
+        <div className="small" style={{ marginBottom: 4 }}>
+          Für die Zuordnung von Aufträgen – muss kein eingeladener Account sein, auch Namen ohne
+          eigenen Login können hier hinterlegt werden.
+        </div>
+        <div className="row" style={{ maxWidth: 420 }}>
+          <input
+            type="text"
+            placeholder="Name des Mitarbeiters"
+            value={newEmployeeName}
+            onChange={(e) => setNewEmployeeName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && newEmployeeName.trim()) { onAddEmployee(newEmployeeName.trim()); setNewEmployeeName(""); } }}
+          />
+          <button
+            className="btn-primary"
+            style={{ flex: "0 0 auto" }}
+            onClick={() => { if (!newEmployeeName.trim()) return; onAddEmployee(newEmployeeName.trim()); setNewEmployeeName(""); }}
+          >
+            + Mitarbeiter
+          </button>
+        </div>
+        {employees.length === 0 ? (
+          <div className="empty">Noch keine Mitarbeiter angelegt.</div>
+        ) : (
+          <div className="filterbar">
+            {employees.map((emp) => (
+              <div key={emp.id} className="chip" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {emp.name}
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ padding: "1px 5px" }}
+                  onClick={() => { if (confirm(`Mitarbeiter "${emp.name}" wirklich löschen? Zuordnungen auf Aufträgen werden entfernt.`)) onDeleteEmployee(emp.id); }}
+                >
+                  <IconTrash />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function DetailModal(props: {
-  customer: Customer; appointments: Appointment[]; history: ContactHistoryEntry[]; periodMonths: number;
+  customer: Customer; orders: Order[]; employees: Employee[]; history: ContactHistoryEntry[]; periodMonths: number;
   vehicles: Vehicle[]; tireStorages: TireStorage[]; storageSlots: StorageSlot[]; warehouses: Warehouse[];
   onClose: () => void;
   onSaveFields: (f: Partial<Customer>) => void;
@@ -1128,9 +1505,9 @@ function DetailModal(props: {
   onMarkOpen: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
-  onAddAppointment: (date: string, desc: string, time: string) => void;
-  onUpdateAppointment: (apptId: string, date: string, desc: string, time: string) => void;
-  onDeleteAppointment: (apptId: string) => void;
+  onAddOrder: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
+  onUpdateOrder: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
+  onDeleteOrder: (id: string) => void;
   onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
   onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
   onDeleteVehicle: (id: string) => void;
@@ -1149,7 +1526,7 @@ function DetailModal(props: {
   const [apptDesc, setApptDesc] = useState("");
 
   const color = effectiveColor(cust, props.periodMonths);
-  const appts = props.appointments.slice().sort((a, b) => a.date.localeCompare(b.date));
+  const custOrders = props.orders.slice().sort((a, b) => a.order_date.localeCompare(b.order_date));
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
@@ -1217,14 +1594,14 @@ function DetailModal(props: {
           <button className="btn-secondary" onClick={props.onMarkOpen}>Auf offen setzen</button>
         </div>
 
-        <h4>Termine</h4>
+        <h4>Aufträge &amp; Termine</h4>
         <div>
-          {appts.length === 0 && <div className="small">Keine Termine hinterlegt.</div>}
-          {appts.map((a) => (
-            <AppointmentRow key={a.id} appt={a} onUpdate={props.onUpdateAppointment} onDelete={props.onDeleteAppointment} />
+          {custOrders.length === 0 && <div className="small">Noch keine Aufträge hinterlegt.</div>}
+          {custOrders.map((o) => (
+            <CustomerOrderRow key={o.id} order={o} employees={props.employees} onUpdate={props.onUpdateOrder} onDelete={props.onDeleteOrder} />
           ))}
         </div>
-        <AddAppointmentInline onAdd={props.onAddAppointment} />
+        <AddOrderInline employees={props.employees} onAdd={props.onAddOrder} />
 
         <h4>Kontakt-Historie</h4>
         {props.history.length === 0 && <div className="small">Noch keine Kontakt-Historie</div>}
@@ -1248,25 +1625,44 @@ function DetailModal(props: {
   );
 }
 
-function AppointmentRow({ appt, onUpdate, onDelete }: {
-  appt: Appointment; onUpdate: (id: string, date: string, desc: string, time: string) => void; onDelete: (id: string) => void;
+function CustomerOrderRow({ order, employees, onUpdate, onDelete }: {
+  order: Order; employees: Employee[];
+  onUpdate: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
+  onDelete: (id: string) => void;
 }) {
   const [editing, setEditing] = useState(false);
-  const [date, setDate] = useState(appt.date);
-  const [time, setTime] = useState(appt.time || "");
-  const [desc, setDesc] = useState(appt.description || "");
-  const past = isApptPast(appt);
+  const [title, setTitle] = useState(order.title);
+  const [date, setDate] = useState(order.order_date);
+  const [time, setTime] = useState(order.time || "");
+  const [desc, setDesc] = useState(order.description || "");
+  const [status, setStatus] = useState<OrderStatus>(order.status);
+  const [empId, setEmpId] = useState(order.assigned_employee_id || "");
+  const past = isOrderPast(order);
+  const statusLabel: Record<OrderStatus, string> = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
+  const emp = employees.find((e) => e.id === order.assigned_employee_id);
 
   if (editing) {
     return (
       <div className="appt-item">
+        <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titel" style={{ marginBottom: 4 }} />
         <div className="row" style={{ marginBottom: 4 }}>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
         </div>
-        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} />
+        <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Beschreibung" />
+        <div className="row" style={{ marginBottom: 4 }}>
+          <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
+            <option value="offen">Offen</option>
+            <option value="in_arbeit">In Arbeit</option>
+            <option value="erledigt">Erledigt</option>
+          </select>
+          <select value={empId} onChange={(e) => setEmpId(e.target.value)}>
+            <option value="">Kein Mitarbeiter</option>
+            {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+        </div>
         <div className="appt-actions">
-          <button className="btn-primary" onClick={() => { onUpdate(appt.id, date, desc, time); setEditing(false); }}>Speichern</button>
+          <button className="btn-primary" onClick={() => { onUpdate(order.id, { title, description: desc, orderDate: date, time, status, assignedEmployeeId: empId }); setEditing(false); }}>Speichern</button>
           <button className="btn-secondary" onClick={() => setEditing(false)}>Abbrechen</button>
         </div>
       </div>
@@ -1274,33 +1670,53 @@ function AppointmentRow({ appt, onUpdate, onDelete }: {
   }
   return (
     <div className="appt-item">
-      <div><span className="appt-date">{formatApptDateTime(appt)}</span>{past ? " (vergangen)" : ""}</div>
-      <div>{appt.description || "Kein Beschreibungstext"}</div>
+      <div><span className="appt-date">{formatOrderDateTime(order)}</span>{past && order.status !== "erledigt" ? " (vergangen)" : ""} <span className={`badge ${order.status === "erledigt" ? "green" : order.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[order.status]}</span></div>
+      <div>{order.title}{order.description ? ` – ${order.description}` : ""}</div>
+      {emp && <div className="small">👤 {emp.name}</div>}
       <div className="appt-actions">
         <button className="btn-secondary" onClick={() => setEditing(true)}>Bearbeiten</button>
-        <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm("Diesen Termin wirklich löschen?")) onDelete(appt.id); }}>Löschen</button>
+        <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm("Diesen Auftrag wirklich löschen?")) onDelete(order.id); }}>Löschen</button>
       </div>
     </div>
   );
 }
 
-function AddAppointmentInline({ onAdd }: { onAdd: (date: string, desc: string, time: string) => void }) {
+function AddOrderInline({ employees, onAdd }: {
+  employees: Employee[];
+  onAdd: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => void;
+}) {
   const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("Termin");
   const [date, setDate] = useState(todayStr());
   const [time, setTime] = useState("");
   const [desc, setDesc] = useState("");
+  const [empId, setEmpId] = useState("");
   if (!open) {
-    return <button className="btn-secondary btn-block" onClick={() => setOpen(true)}>+ Termin ohne Kontaktvermerk hinzufügen</button>;
+    return <button className="btn-secondary btn-block" onClick={() => setOpen(true)}>+ Auftrag / Termin hinzufügen</button>;
   }
   return (
     <div className="appt-item">
+      <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titel" style={{ marginBottom: 4 }} />
       <div className="row" style={{ marginBottom: 4 }}>
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
         <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
       </div>
       <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Was ist zu tun?" />
+      <select value={empId} onChange={(e) => setEmpId(e.target.value)} style={{ marginBottom: 4 }}>
+        <option value="">Kein Mitarbeiter</option>
+        {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+      </select>
       <div className="appt-actions">
-        <button className="btn-primary" onClick={() => { onAdd(date, desc, time); setOpen(false); setDate(todayStr()); setTime(""); setDesc(""); }}>Termin speichern</button>
+        <button
+          className="btn-primary"
+          onClick={() => {
+            if (!title.trim()) return;
+            onAdd({ title: title.trim(), description: desc, orderDate: date, time, status: "offen", assignedEmployeeId: empId });
+            setOpen(false); setTitle("Termin"); setDate(todayStr()); setTime(""); setDesc(""); setEmpId("");
+          }}
+        >
+          Speichern
+        </button>
         <button className="btn-secondary" onClick={() => setOpen(false)}>Abbrechen</button>
       </div>
     </div>
@@ -1499,113 +1915,173 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
   onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) => Promise<void>;
   onRemoveAssignment: (id: string) => Promise<void>;
 }) {
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(warehouses[0]?.id || null);
+  // Zwei Ebenen wie ein eigenständiges Modul: erst die Übersicht aller Lager
+  // (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze.
+  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
+  const [showAddWarehouse, setShowAddWarehouse] = useState(false);
   const [newWarehouseName, setNewWarehouseName] = useState("");
   const [newSlotCode, setNewSlotCode] = useState("");
   const [assignSlot, setAssignSlot] = useState<StorageSlot | null>(null);
-
-  useEffect(() => {
-    if (!selectedWarehouseId && warehouses.length > 0) setSelectedWarehouseId(warehouses[0].id);
-  }, [warehouses, selectedWarehouseId]);
 
   const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || null;
   const slotsInWarehouse = storageSlots.filter((s) => s.warehouse_id === selectedWarehouseId);
 
   function currentAssignment(slotId: string): TireStorage | null {
-    const matches = tireStorages.filter((t) => t.storage_slot_id === slotId);
+    const matches = tireStorages.filter((t) => t.storage_slot_id === slotId && !t.removed_at);
     if (matches.length === 0) return null;
     return matches.slice().sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
   }
+  function historyFor(slotId: string): TireStorage[] {
+    return tireStorages
+      .filter((t) => t.storage_slot_id === slotId && !!t.removed_at)
+      .sort((a, b) => (b.removed_at || "").localeCompare(a.removed_at || ""));
+  }
+  function occupiedCount(warehouseId: string): number {
+    const slotIds = storageSlots.filter((s) => s.warehouse_id === warehouseId).map((s) => s.id);
+    return tireStorages.filter((t) => slotIds.includes(t.storage_slot_id) && !t.removed_at).length;
+  }
 
-  return (
-    <div className="tabpanel active">
-      <button className="btn-secondary" style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6 }} onClick={onBack}>
-        <IconBack /> Module
-      </button>
-      <h4 style={{ margin: "4px 0 0" }}>Lager</h4>
+  async function createWarehouse() {
+    if (!newWarehouseName.trim()) return;
+    await onAddWarehouse(newWarehouseName.trim());
+    setNewWarehouseName("");
+    setShowAddWarehouse(false);
+  }
 
-      <div className="filterbar">
-        {warehouses.map((w) => (
-          <div key={w.id} className={`chip ${selectedWarehouseId === w.id ? "active" : ""}`} onClick={() => setSelectedWarehouseId(w.id)}>
-            {w.name}
-          </div>
-        ))}
-      </div>
-      <div className="row">
-        <input type="text" placeholder="Neues Lager (z. B. Nürnberg Hauptlager)" value={newWarehouseName} onChange={(e) => setNewWarehouseName(e.target.value)} />
-        <button
-          className="btn-primary"
-          style={{ flex: "0 0 auto" }}
-          onClick={async () => { if (!newWarehouseName.trim()) return; await onAddWarehouse(newWarehouseName.trim()); setNewWarehouseName(""); }}
-        >
-          + Lager
-        </button>
-      </div>
-
-      {!selectedWarehouse && <div className="empty">Noch kein Lager angelegt.</div>}
-
-      {selectedWarehouse && (
-        <>
-          <hr />
-          <div className="header-row">
-            <h4 style={{ margin: 0, flex: 1 }}>Lagerplätze in „{selectedWarehouse.name}"</h4>
-            <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) onDeleteWarehouse(selectedWarehouse.id); }}>
-              Lager löschen
-            </button>
-          </div>
-          <div className="row">
-            <input type="text" placeholder="Neuer Lagerplatz (z. B. A-01)" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)} />
-            <button
-              className="btn-primary"
-              style={{ flex: "0 0 auto" }}
-              onClick={async () => { if (!newSlotCode.trim()) return; await onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); }}
-            >
-              + Platz
+  // ---------------- Ebene 1: alle Lager ----------------
+  if (!selectedWarehouse) {
+    return (
+      <div className="tabpanel active">
+        <div className="module-page">
+          <div className="module-header">
+            <div className="mh-icon"><IconLager /></div>
+            <div className="mh-text">
+              <h2>Lager</h2>
+              <p>{warehouses.length} Lager · {storageSlots.length} Lagerplätze insgesamt</p>
+            </div>
+            <button className="btn-secondary" onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <IconBack /> Module
             </button>
           </div>
 
-          <div id="customerList">
-            {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
-            {slotsInWarehouse.map((slot) => {
-              const assignment = currentAssignment(slot.id);
-              const cust = assignment ? customers.find((c) => c.id === assignment.customer_id) : null;
+          <div className="card-grid">
+            {warehouses.map((w) => {
+              const total = storageSlots.filter((s) => s.warehouse_id === w.id).length;
+              const occ = occupiedCount(w.id);
+              const pct = total > 0 ? Math.round((occ / total) * 100) : 0;
               return (
-                <div key={slot.id} className="cust-item" onClick={() => setAssignSlot(slot)}>
-                  <div className={`dot ${assignment ? "green" : "gray"}`}></div>
-                  <div className="info">
-                    <div className="name">{slot.code}</div>
-                    {assignment && cust ? (
-                      <>
-                        <div className="addr">{cust.name}</div>
-                        <div className="meta">
-                          {assignment.dot_date ? `DOT ${assignment.dot_date}` : "DOT –"}
-                          {assignment.profiltiefe_mm != null ? ` · Profil ${assignment.profiltiefe_mm} mm` : ""}
-                        </div>
-                      </>
-                    ) : (
-                      <div className="addr">Frei</div>
-                    )}
+                <button key={w.id} type="button" className="wh-card" onClick={() => setSelectedWarehouseId(w.id)}>
+                  <div className="wh-name">{w.name}</div>
+                  <div className="occ-bar"><div className="fill" style={{ width: `${pct}%` }}></div></div>
+                  <div className="wh-stats">
+                    <span>{occ} von {total} belegt</span>
+                    <span>{pct}%</span>
                   </div>
-                  <button
-                    type="button"
-                    className="btn-secondary"
-                    style={{ flex: "0 0 auto", padding: "4px 8px" }}
-                    onClick={(e) => { e.stopPropagation(); if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?`)) onDeleteSlot(slot.id); }}
-                  >
-                    <IconTrash />
-                  </button>
-                </div>
+                </button>
               );
             })}
+            {!showAddWarehouse && (
+              <button type="button" className="add-card" onClick={() => setShowAddWarehouse(true)}>+ Neues Lager</button>
+            )}
+            {showAddWarehouse && (
+              <div className="wh-card" style={{ cursor: "default" }}>
+                <div className="field" style={{ marginBottom: 0 }}>
+                  <label>Name</label>
+                  <input
+                    type="text"
+                    autoFocus
+                    placeholder="z. B. Nürnberg Hauptlager"
+                    value={newWarehouseName}
+                    onChange={(e) => setNewWarehouseName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") createWarehouse(); }}
+                  />
+                </div>
+                <div className="row" style={{ marginTop: 4 }}>
+                  <button className="btn-primary" style={{ flex: 1 }} onClick={createWarehouse}>Anlegen</button>
+                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => { setShowAddWarehouse(false); setNewWarehouseName(""); }}>Abbrechen</button>
+                </div>
+              </div>
+            )}
           </div>
-        </>
-      )}
+
+          {warehouses.length === 0 && !showAddWarehouse && (
+            <div className="empty">Noch kein Lager angelegt. Leg dein erstes Lager an, um Lagerplätze zu verwalten.</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ---------------- Ebene 2: Lagerplätze eines Lagers ----------------
+  return (
+    <div className="tabpanel active">
+      <div className="module-page">
+        <div className="breadcrumb">
+          <button onClick={() => setSelectedWarehouseId(null)}>Lager</button>
+          <span className="sep">›</span>
+          <span className="current">{selectedWarehouse.name}</span>
+        </div>
+        <div className="module-header">
+          <div className="mh-icon"><IconLager /></div>
+          <div className="mh-text">
+            <h2>{selectedWarehouse.name}</h2>
+            <p>{slotsInWarehouse.length} Lagerplätze</p>
+          </div>
+          <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
+            Lager löschen
+          </button>
+        </div>
+
+        <div className="row" style={{ maxWidth: 420 }}>
+          <input type="text" placeholder="Neuer Lagerplatz (z. B. A-01)" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSlotCode.trim()) { onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); } }} />
+          <button
+            className="btn-primary"
+            style={{ flex: "0 0 auto" }}
+            onClick={async () => { if (!newSlotCode.trim()) return; await onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); }}
+          >
+            + Platz
+          </button>
+        </div>
+
+        {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
+
+        <div className="card-grid">
+          {slotsInWarehouse.map((slot) => {
+            const assignment = currentAssignment(slot.id);
+            const cust = assignment ? customers.find((c) => c.id === assignment.customer_id) : null;
+            return (
+              <button key={slot.id} type="button" className="slot-card" onClick={() => setAssignSlot(slot)}>
+                <div className="sc-code"><span className={`dot ${assignment ? "green" : "gray"}`}></span>{slot.code}</div>
+                {assignment && cust ? (
+                  <>
+                    <div className="sc-cust">{cust.name}</div>
+                    <div className="sc-meta">
+                      {assignment.dot_date ? `DOT ${assignment.dot_date}` : "DOT –"}
+                      {assignment.profiltiefe_mm != null ? ` · Profil ${assignment.profiltiefe_mm} mm` : ""}
+                    </div>
+                  </>
+                ) : (
+                  <div className="sc-meta">Frei</div>
+                )}
+                <button
+                  type="button"
+                  className="btn-secondary sc-del"
+                  onClick={(e) => { e.stopPropagation(); if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?`)) onDeleteSlot(slot.id); }}
+                >
+                  <IconTrash />
+                </button>
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {assignSlot && (
         <TireAssignModal
           slot={assignSlot}
           customers={customers}
           assignment={currentAssignment(assignSlot.id)}
+          history={historyFor(assignSlot.id)}
           onClose={() => setAssignSlot(null)}
           onAssign={onAssignTire}
           onRemove={onRemoveAssignment}
@@ -1615,8 +2091,8 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
   );
 }
 
-function TireAssignModal({ slot, customers, assignment, onClose, onAssign, onRemove }: {
-  slot: StorageSlot; customers: Customer[]; assignment: TireStorage | null;
+function TireAssignModal({ slot, customers, assignment, history, onClose, onAssign, onRemove }: {
+  slot: StorageSlot; customers: Customer[]; assignment: TireStorage | null; history: TireStorage[];
   onClose: () => void;
   onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
@@ -1664,6 +2140,26 @@ function TireAssignModal({ slot, customers, assignment, onClose, onAssign, onRem
             Zuordnung entfernen
           </button>
         )}
+
+        {history.length > 0 && (
+          <>
+            <h4>Historie dieses Lagerplatzes</h4>
+            <div style={{ maxHeight: 160, overflowY: "auto" }}>
+              {history.map((h) => {
+                const cust = customers.find((c) => c.id === h.customer_id);
+                return (
+                  <div key={h.id} className="hist-entry">
+                    <span className="he-cust">{cust ? cust.name : "Unbekannter Kunde"}</span>
+                    {h.dot_date ? ` · DOT ${h.dot_date}` : ""}
+                    {h.profiltiefe_mm != null ? ` · Profil ${h.profiltiefe_mm} mm` : ""}
+                    <br />
+                    eingelagert {formatDate(h.created_at.slice(0, 10))} · entfernt {h.removed_at ? formatDate(h.removed_at.slice(0, 10)) : "–"}
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
@@ -1672,80 +2168,111 @@ function TireAssignModal({ slot, customers, assignment, onClose, onAssign, onRem
 // =====================================================================
 // Aufträge-Modul
 // =====================================================================
-function AuftraegePanel({ customers, orders, onBack, onAdd, onUpdateStatus, onDelete }: {
-  customers: Customer[]; orders: Order[];
-  onBack: () => void;
-  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; status: OrderStatus }) => Promise<void>;
+function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, onDelete, onAssignEmployee }: {
+  customers: Customer[]; orders: Order[]; employees: Employee[];
+  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => Promise<void>;
   onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onAssignEmployee: (id: string, employeeId: string) => Promise<void>;
 }) {
   const [showAdd, setShowAdd] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  const [custFilter, setCustFilter] = useState("");
   const statusLabel: Record<OrderStatus, string> = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
+
+  const filteredOrders = orders
+    .filter((o) => statusFilter === "all" || o.status === statusFilter)
+    .filter((o) => {
+      if (!custFilter.trim()) return true;
+      const cust = customers.find((c) => c.id === o.customer_id);
+      return !!cust && cust.name.toLowerCase().includes(custFilter.toLowerCase());
+    });
 
   return (
     <div className="tabpanel active">
-      <button className="btn-secondary" style={{ alignSelf: "flex-start", display: "flex", alignItems: "center", gap: 6 }} onClick={onBack}>
-        <IconBack /> Module
-      </button>
-      <div className="header-row">
-        <h4 style={{ margin: 0, flex: 1 }}>Aufträge</h4>
-        <button className="btn-primary" onClick={() => setShowAdd(true)}>+ Auftrag</button>
+      <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0 }}>
+        <div className="module-header">
+          <div className="mh-icon"><IconAuftraege /></div>
+          <div className="mh-text">
+            <h2>Aufträge &amp; Termine</h2>
+            <p>{orders.length} Aufträge insgesamt – ein Termin ist ein Auftrag mit Uhrzeit</p>
+          </div>
+        </div>
+
+        <div className="header-row">
+          <div className="filterbar" style={{ flex: 1 }}>
+            <button type="button" className={`chip ${statusFilter === "all" ? "active" : ""}`} onClick={() => setStatusFilter("all")}>Alle</button>
+            <button type="button" className={`chip ${statusFilter === "offen" ? "active" : ""}`} onClick={() => setStatusFilter("offen")}>Offen</button>
+            <button type="button" className={`chip ${statusFilter === "in_arbeit" ? "active" : ""}`} onClick={() => setStatusFilter("in_arbeit")}>In Arbeit</button>
+            <button type="button" className={`chip ${statusFilter === "erledigt" ? "active" : ""}`} onClick={() => setStatusFilter("erledigt")}>Erledigt</button>
+          </div>
+          <button className="btn-primary" style={{ flex: "0 0 auto" }} onClick={() => setShowAdd(true)}>+ Auftrag</button>
+        </div>
+        <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
+
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          {filteredOrders.length === 0 ? (
+            <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
+          ) : (
+            <table className="appt-table">
+              <thead><tr><th>Termin</th><th>Kunde</th><th>Titel</th><th>Mitarbeiter</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                {filteredOrders.map((o) => {
+                  const cust = customers.find((c) => c.id === o.customer_id);
+                  return (
+                    <tr key={o.id}>
+                      <td className="date-cell">{formatOrderDateTime(o)}</td>
+                      <td>{cust ? cust.name : "–"}</td>
+                      <td>{o.title}</td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <select value={o.assigned_employee_id || ""} onChange={(e) => onAssignEmployee(o.id, e.target.value)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
+                          <option value="">–</option>
+                          {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                        </select>
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <select value={o.status} onChange={(e) => onUpdateStatus(o.id, e.target.value as OrderStatus)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
+                          <option value="offen">{statusLabel.offen}</option>
+                          <option value="in_arbeit">{statusLabel.in_arbeit}</option>
+                          <option value="erledigt">{statusLabel.erledigt}</option>
+                        </select>
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>
+                          <IconTrash />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
       </div>
 
-      <div style={{ overflowY: "auto", flex: 1 }}>
-        {orders.length === 0 ? (
-          <div className="empty">Noch keine Aufträge angelegt.</div>
-        ) : (
-          <table className="appt-table">
-            <thead><tr><th>Datum</th><th>Kunde</th><th>Titel</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-              {orders.map((o) => {
-                const cust = customers.find((c) => c.id === o.customer_id);
-                return (
-                  <tr key={o.id}>
-                    <td className="date-cell">{formatDate(o.order_date)}</td>
-                    <td>{cust ? cust.name : "–"}</td>
-                    <td>{o.title}</td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <select value={o.status} onChange={(e) => onUpdateStatus(o.id, e.target.value as OrderStatus)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
-                        <option value="offen">{statusLabel.offen}</option>
-                        <option value="in_arbeit">{statusLabel.in_arbeit}</option>
-                        <option value="erledigt">{statusLabel.erledigt}</option>
-                      </select>
-                    </td>
-                    <td onClick={(e) => e.stopPropagation()}>
-                      <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>
-                        <IconTrash />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {showAdd && <OrderModal customers={customers} onClose={() => setShowAdd(false)} onAdd={onAdd} />}
+      {showAdd && <OrderModal customers={customers} employees={employees} onClose={() => setShowAdd(false)} onAdd={onAdd} />}
     </div>
   );
 }
 
-function OrderModal({ customers, onClose, onAdd }: {
-  customers: Customer[]; onClose: () => void;
-  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; status: OrderStatus }) => Promise<void>;
+function OrderModal({ customers, employees, onClose, onAdd }: {
+  customers: Customer[]; employees: Employee[]; onClose: () => void;
+  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => Promise<void>;
 }) {
   const [customerId, setCustomerId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [orderDate, setOrderDate] = useState(todayStr());
+  const [time, setTime] = useState("");
   const [status, setStatus] = useState<OrderStatus>("offen");
+  const [empId, setEmpId] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function save() {
     if (!customerId || !title.trim()) return;
     setSaving(true);
-    await onAdd({ customerId, title: title.trim(), description, orderDate, status });
+    await onAdd({ customerId, title: title.trim(), description, orderDate, time, status, assignedEmployeeId: empId });
     setSaving(false);
     onClose();
   }
@@ -1760,6 +2287,9 @@ function OrderModal({ customers, onClose, onAdd }: {
         <div className="field"><label>Beschreibung (optional)</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} /></div>
         <div className="row">
           <div className="field"><label>Datum</label><input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></div>
+          <div className="field"><label>Uhrzeit (optional)</label><input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
+        </div>
+        <div className="row">
           <div className="field">
             <label>Status</label>
             <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)}>
@@ -1768,8 +2298,98 @@ function OrderModal({ customers, onClose, onAdd }: {
               <option value="erledigt">Erledigt</option>
             </select>
           </div>
+          <div className="field">
+            <label>Mitarbeiter (optional)</label>
+            <select value={empId} onChange={(e) => setEmpId(e.target.value)}>
+              <option value="">Kein Mitarbeiter</option>
+              {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </div>
         </div>
         <button className="btn-primary btn-block" disabled={!customerId || !title.trim() || saving} onClick={save}>Auftrag anlegen</button>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================================
+// Einsatzplanung: Aufträge nach Tag und Mitarbeiter, für die Übersicht
+// "wer macht welchen Auftrag wann".
+// =====================================================================
+function EinsatzplanungPanel({ customers, orders, employees, onBack, onAssignEmployee }: {
+  customers: Customer[]; orders: Order[]; employees: Employee[];
+  onBack: () => void;
+  onAssignEmployee: (id: string, employeeId: string) => Promise<void>;
+}) {
+  const [date, setDate] = useState(todayStr());
+  const statusLabel: Record<OrderStatus, string> = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
+
+  const ordersOnDate = orders.filter((o) => o.order_date === date);
+  const groups: { employee: Employee | null; orders: Order[] }[] = [
+    ...employees.map((emp) => ({ employee: emp, orders: ordersOnDate.filter((o) => o.assigned_employee_id === emp.id) })),
+    { employee: null, orders: ordersOnDate.filter((o) => !o.assigned_employee_id) },
+  ].filter((g) => g.orders.length > 0 || g.employee !== null);
+
+  function shiftDate(days: number) {
+    const d = new Date(date + "T00:00:00");
+    d.setDate(d.getDate() + days);
+    setDate(d.toISOString().slice(0, 10));
+  }
+
+  return (
+    <div className="tabpanel active">
+      <div className="module-page">
+        <div className="module-header">
+          <div className="mh-icon"><IconEinsatzplanung /></div>
+          <div className="mh-text">
+            <h2>Einsatzplanung</h2>
+            <p>{ordersOnDate.length} Aufträge am {formatDate(date)}</p>
+          </div>
+          <button className="btn-secondary" onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <IconBack /> Module
+          </button>
+        </div>
+
+        <div className="row" style={{ maxWidth: 420, alignItems: "center" }}>
+          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => shiftDate(-1)}>‹</button>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => shiftDate(1)}>›</button>
+          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setDate(todayStr())}>Heute</button>
+        </div>
+
+        {ordersOnDate.length === 0 && <div className="empty">Keine Aufträge für diesen Tag.</div>}
+
+        {groups.map((g) => (
+          <div key={g.employee?.id || "unassigned"}>
+            <h4 style={{ margin: "8px 0 4px" }}>{g.employee ? g.employee.name : "Nicht zugeordnet"} <span className="small">({g.orders.length})</span></h4>
+            {g.orders.length === 0 ? (
+              <div className="small">Keine Aufträge zugeordnet.</div>
+            ) : (
+              <table className="appt-table">
+                <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Titel</th><th>Status</th><th>Mitarbeiter</th></tr></thead>
+                <tbody>
+                  {g.orders.map((o) => {
+                    const cust = customers.find((c) => c.id === o.customer_id);
+                    return (
+                      <tr key={o.id}>
+                        <td className="date-cell">{o.time || "–"}</td>
+                        <td>{cust ? cust.name : "–"}</td>
+                        <td>{o.title}</td>
+                        <td><span className={`badge ${o.status === "erledigt" ? "green" : o.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[o.status]}</span></td>
+                        <td>
+                          <select value={o.assigned_employee_id || ""} onChange={(e) => onAssignEmployee(o.id, e.target.value)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
+                            <option value="">–</option>
+                            {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.name}</option>)}
+                          </select>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ))}
       </div>
     </div>
   );

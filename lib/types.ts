@@ -60,10 +60,14 @@ export type TireStorage = {
   note: string | null;
   created_at: string;
   updated_at: string;
+  removed_at: string | null;
 };
 
 export type OrderStatus = "offen" | "in_arbeit" | "erledigt";
 
+// Ein Auftrag ist seit dem ERP-Umbau zugleich der "Termin": order_date/time sind das
+// Datum/die Uhrzeit, zu der etwas beim Kunden ansteht (können aber auch nur ein grobes
+// Anlage-Datum sein, wenn kein fester Termin vereinbart ist – time bleibt dann leer).
 export type Order = {
   id: string;
   customer_id: string;
@@ -71,8 +75,20 @@ export type Order = {
   description: string | null;
   status: OrderStatus;
   order_date: string;
+  time: string | null; // HH:MM, optional
+  assigned_employee_id: string | null;
   created_at: string;
   updated_at: string;
+};
+
+// Mitarbeiter-Stammdaten für die Einsatzplanung – bewusst unabhängig vom Login-System,
+// damit auch nicht registrierte ("Fake"-)Mitarbeiter mit echtem Namen hinterlegt werden
+// können, nicht nur eingeladene Techniker-Accounts.
+export type Employee = {
+  id: string;
+  name: string;
+  profile_id: string | null;
+  created_at: string;
 };
 
 export type Vehicle = {

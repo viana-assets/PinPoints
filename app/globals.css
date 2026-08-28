@@ -32,6 +32,10 @@
   #sidebar{width:380px;min-width:380px;background:var(--bg);border-right:1px solid var(--border);
     display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;}
   #map{flex:1;min-width:0;}
+  #map.force-hidden{display:none !important;}
+  /* "Vollseiten"-Module (Lager, Aufträge, Nutzerverwaltung): kein Kartenkontext nötig,
+     der Inhalt bekommt die volle Breite statt der 380px-Seitenleiste. */
+  #sidebar.full-page{width:100%;min-width:0;flex:1;}
   #mapToggleBtn{display:none;position:fixed;z-index:900;width:52px;height:52px;border-radius:50%;
     background:var(--accent);color:#fff;align-items:center;justify-content:center;
     box-shadow:0 4px 14px rgba(0,0,0,.3);}
@@ -144,6 +148,47 @@
   .module-card .mc-text .mc-sub{font-size:11.5px;color:var(--muted);}
   .module-card .mc-tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--chip-bg);
     color:var(--muted);text-transform:uppercase;letter-spacing:.03em;flex:0 0 auto;}
+
+  /* ---------------- Vollseiten-Module: Lager, Aufträge, Nutzerverwaltung ---------------- */
+  .module-page{max-width:1100px;margin:0 auto;width:100%;}
+  .module-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:4px;}
+  .module-header .mh-icon{width:42px;height:42px;border-radius:12px;background:var(--accent-bg);color:var(--accent);
+    display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+  .module-header .mh-icon svg{width:22px;height:22px;}
+  .module-header .mh-text{flex:1;min-width:0;}
+  .module-header h2{margin:0;font-size:19px;font-family:var(--font-brand);}
+  .module-header p{margin:2px 0 0;font-size:12.5px;color:var(--muted);}
+  .breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:2px;}
+  .breadcrumb button{background:none;border:none;padding:0;font:inherit;color:var(--accent);cursor:pointer;
+    font-weight:700;}
+  .breadcrumb .sep{color:var(--border);}
+  .breadcrumb .current{color:var(--text);font-weight:700;}
+  .card-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(230px, 1fr));gap:12px;}
+  .wh-card{background:var(--panel);border-radius:16px;padding:16px;cursor:pointer;text-align:left;border:none;
+    box-shadow:0 4px 12px -4px rgba(43,38,32,.12);transition:box-shadow .12s ease,transform .12s ease;
+    display:flex;flex-direction:column;gap:8px;}
+  .wh-card:hover{box-shadow:0 8px 20px -6px rgba(43,38,32,.2);transform:translateY(-2px);}
+  .wh-card .wh-name{font-weight:700;font-size:14.5px;font-family:var(--font-brand);}
+  .wh-card .wh-sub{font-size:11.5px;color:var(--muted);}
+  .occ-bar{height:7px;border-radius:999px;background:var(--hover);overflow:hidden;}
+  .occ-bar .fill{height:100%;background:var(--accent);border-radius:999px;}
+  .wh-card .wh-stats{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:600;}
+  .add-card{border:1.5px dashed var(--border);background:transparent;border-radius:16px;display:flex;
+    flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;color:var(--muted);
+    cursor:pointer;min-height:118px;font-size:12.5px;font-weight:600;}
+  .add-card:hover{border-color:var(--accent);color:var(--accent);}
+  .slot-card{background:var(--panel);border-radius:14px;padding:12px 13px;cursor:pointer;text-align:left;
+    border:none;box-shadow:0 4px 12px -4px rgba(43,38,32,.1);display:flex;flex-direction:column;gap:6px;
+    position:relative;}
+  .slot-card:hover{box-shadow:0 8px 18px -5px rgba(43,38,32,.18);}
+  .slot-card .sc-code{font-weight:800;font-size:13.5px;font-family:var(--font-brand);display:flex;
+    align-items:center;gap:6px;}
+  .slot-card .sc-cust{font-size:12px;color:var(--text);font-weight:600;}
+  .slot-card .sc-meta{font-size:10.5px;color:var(--muted);}
+  .slot-card .sc-del{position:absolute;top:8px;right:8px;padding:3px 6px;}
+  .hist-entry{border-left:2px solid var(--border);padding:4px 10px;margin-bottom:4px;font-size:11.5px;
+    color:var(--muted);}
+  .hist-entry .he-cust{color:var(--text);font-weight:700;}
   .leaflet-tooltip.cust-tip{font-size:12px;line-height:1.4;}
   #geoProgress{display:none;flex-direction:column;gap:6px;background:var(--accent-bg);border:1px solid var(--accent);
     border-radius:8px;padding:10px;font-size:12px;}
@@ -164,6 +209,7 @@
   .badge{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:999px;font-weight:600;margin-left:6px;}
   .badge.red{background:var(--red-bg);color:var(--red);}
   .badge.green{background:var(--green-bg);color:var(--green);}
+  .badge.orange{background:var(--accent-bg);color:var(--accent);}
   .modal-overlay{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;
     justify-content:center;z-index:10000;}
   .modal-box{background:var(--panel);color:var(--text);border-radius:18px;padding:20px 22px;width:440px;max-width:92vw;

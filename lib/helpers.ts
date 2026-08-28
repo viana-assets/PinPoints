@@ -1,4 +1,4 @@
-import type { Appointment, Customer } from "./types";
+import type { Appointment, Customer, Order } from "./types";
 
 export function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -27,6 +27,29 @@ export function nextAppointment(appointments: Appointment[]): Appointment | null
     .filter((a) => a.date && !isApptPast(a))
     .slice()
     .sort((a, b) => apptDateTime(a).getTime() - apptDateTime(b).getTime());
+  return list[0] || null;
+}
+
+// Termine und Aufträge sind seit dem ERP-Umbau ein Modul: ein "Termin" ist einfach
+// ein Auftrag mit Datum/Uhrzeit. Diese Helfer arbeiten auf `orders` genauso, wie die
+// obigen früher auf `appointments` gearbeitet haben.
+export function formatOrderDateTime(o: Order): string {
+  return formatDate(o.order_date) + (o.time ? `, ${o.time} Uhr` : "");
+}
+
+export function orderDateTime(o: Order): Date {
+  return new Date(o.order_date + "T" + (o.time || "23:59") + ":00");
+}
+
+export function isOrderPast(o: Order): boolean {
+  return orderDateTime(o).getTime() < Date.now();
+}
+
+export function nextOrder(orders: Order[]): Order | null {
+  const list = orders
+    .filter((o) => o.order_date && o.status !== "erledigt" && !isOrderPast(o))
+    .slice()
+    .sort((a, b) => orderDateTime(a).getTime() - orderDateTime(b).getTime());
   return list[0] || null;
 }
 
