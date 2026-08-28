@@ -1340,9 +1340,12 @@ function IconInaktiv() {
   );
 }
 function IconNav() {
+  // Klassischer "Navigations-Pfeil" (wie bei Google/Apple Maps): eine gefüllte Kompassnadel statt
+  // eines dünnen Umrisses, damit sie auch in der kleinen 24px-Schaltfläche klar als "Navigation
+  // starten" erkennbar ist und nicht wie ein einfacher dunkler Kreis wirkt.
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round">
-      <path d="M12 2 L20 20 L12 16 L4 20 Z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+      <path d="M12 2 L4.5 20.3 L5.2 21 L12 18 L18.8 21 L19.5 20.3 Z" />
     </svg>
   );
 }
