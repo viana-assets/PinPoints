@@ -3,6 +3,8 @@
 // eigene Dateien). Reine, zustandslose Komponenten ohne Abhängigkeit zu HomePage-State,
 // deshalb risikolos verschiebbar.
 
+import { useId } from "react";
+
 export function IconDashboard() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
@@ -124,6 +126,29 @@ export function IconArtikel() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
       <path d="M11 3H5a1 1 0 0 0-1 1v6l10 10 7-7L11 3Z" strokeLinejoin="round" />
       <circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+// Navigations-Button (Auftrag/Termin): bewusst der farbige "Standort-Pin" statt eines
+// dünnen Linien-Icons wie die übrigen Icons hier – ersetzt das vorher genutzte Kompass-Emoji
+// (siehe docs/design-system.md), weil er in der kleinen runden Schaltfläche sofort als
+// "Navigation/Karte" erkennbar bleibt, ohne sich je nach Betriebssystem/Schriftart anders
+// darzustellen wie ein Emoji das tut. useId() macht die clipPath-ID pro Instanz eindeutig,
+// falls mehrere Navigations-Buttons gleichzeitig auf der Seite stehen (z. B. Tabellenzeilen).
+export function IconNavPin() {
+  const clipId = useId();
+  return (
+    <svg viewBox="0 0 24 24">
+      <clipPath id={clipId}>
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z" />
+      </clipPath>
+      <g clipPath={`url(#${clipId})`}>
+        <rect x="4" y="1" width="8" height="11" fill="#EA4335" />
+        <rect x="12" y="1" width="8" height="11" fill="#4285F4" />
+        <rect x="4" y="12" width="8" height="11" fill="#FBBC05" />
+        <rect x="12" y="12" width="8" height="11" fill="#34A853" />
+      </g>
+      <circle cx="12" cy="9" r="3.1" fill="#fff" />
     </svg>
   );
 }

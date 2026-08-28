@@ -260,13 +260,13 @@
   .call-icon-btn:hover{background:#2fb350;}
   .call-icon-btn.small{width:24px;height:24px;font-size:12px;}
   /* Navigations-Button (Auftrag/Termin): gleiche Form wie der Anrufen-Button, aber in Navy statt
-     Grün und mit deutlichem Abstand dazu, damit man die zwei Aktionen nicht verwechselt. Nutzt
-     bewusst das Kompass-Emoji statt eines eigenen kleinen SVG-Symbols – ein Emoji bleibt auch in
-     der kleinen 24px-Schaltfläche auf jedem Gerät sofort als "Navigation/Karte" erkennbar, ein
-     dünnes Vektor-Symbol wirkt dort schnell wie ein einfacher Punkt. */
-  .nav-icon-btn{background:var(--navy);margin-right:8px;font-size:15px;}
+     Grün und mit deutlichem Abstand dazu, damit man die zwei Aktionen nicht verwechselt. Zeigt
+     IconNavPin (components/icons.tsx) – ein farbiger Standort-Pin statt eines dünnen
+     Linien-Symbols, damit er auch klein sofort als "Navigation/Karte" erkennbar bleibt. Ersetzt
+     das vorher genutzte Kompass-Emoji (siehe docs/design-system.md); die Größe kommt von der
+     generischen `button svg`-Regel, font-size wirkt hier nicht mehr. */
+  .nav-icon-btn{background:var(--navy);margin-right:8px;}
   .nav-icon-btn:hover{background:#16304e;}
-  .call-icon-btn.small.nav-icon-btn{font-size:13px;}
   .call-menu{position:fixed;z-index:20000;background:var(--panel);border:1px solid var(--border);border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.22);padding:6px;min-width:170px;
     max-height:min(360px, calc(100vh - 24px));overflow-y:auto;}

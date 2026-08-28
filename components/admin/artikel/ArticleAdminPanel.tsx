@@ -7,15 +7,20 @@ import { ArticleDetailEditor } from "./ArticleDetailEditor";
 // Artikel-Übersicht (Migration 12 + 14): eigene Kachel in der Hauptnavigation (vorher ein
 // Unter-Tab im Admin-Bereich, siehe docs/roadmap.md Phase 4 – Datei/Ordnerpfad bewusst
 // unverändert gelassen, um kein verwaistes Duplikat im OneDrive-Ordner zu hinterlassen).
-// Kurz-/Langbezeichnung je Artikel unter einer automatisch vergebenen Artikelnummer, dazu
-// eine Preis-Historie mit "gültig von/bis" statt nur einem einzigen aktuellen Preis. Pflegen
-// bleibt laut RLS weiterhin nur Admin/Superadmin vorbehalten (Migration 12) – das Sehen der
-// Übersicht selbst steuert `view.artikel` in den Modul-Berechtigungen.
-export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onAddArticlePrice }: {
+// Kurz-/Langbezeichnung je Artikel unter einer Artikelnummer, dazu eine Preis-Historie mit
+// "gültig von/bis" statt nur einem einzigen aktuellen Preis. Pflegen bleibt laut RLS weiterhin
+// nur Admin/Superadmin vorbehalten (Migration 12) – das Sehen der Übersicht selbst steuert
+// `view.artikel` in den Modul-Berechtigungen. Die Artikelnummer wird beim Anlegen zwar
+// automatisch vorbelegt (Sequenz `article_number_seq`, Migration 14), ist aber bewusst frei
+// überschreibbar – für unterschiedliche Artikel(-gruppen) mit eigenen Nummernfolgen (z. B.
+// eigene Nummernkreise je Kategorie), siehe onUpdateArticleNumber. Die Unique-Constraint aus
+// Migration 14 verhindert weiterhin doppelt vergebene Nummern.
+export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onUpdateArticleNumber, onAddArticlePrice }: {
   articles: Article[];
   articlePrices: ArticlePrice[];
   onAddArticle: (shortName: string, longName: string) => Promise<void>;
   onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean }) => Promise<void>;
+  onUpdateArticleNumber: (id: string, articleNumber: number) => Promise<void>;
   onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
 }) {
   const [newShort, setNewShort] = useState("");
@@ -75,7 +80,18 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
               return (
                 <Fragment key={a.id}>
                   <tr>
-                    <td className="small">{a.article_number}</td>
+                    <td>
+                      <input
+                        type="number"
+                        defaultValue={a.article_number}
+                        style={{ width: 70, padding: "3px 6px", fontSize: 11.5 }}
+                        onBlur={(e) => {
+                          const val = parseInt(e.target.value, 10);
+                          if (!isNaN(val) && val !== a.article_number) onUpdateArticleNumber(a.id, val);
+                          else e.target.value = String(a.article_number);
+                        }}
+                      />
+                    </td>
                     <td style={{ fontWeight: 700 }}>{a.short_name}</td>
                     <td>{a.long_name}</td>
                     <td>{current ? `${formatEUR(current.net_price)} netto (${current.vat_rate}% MwSt.)` : "– kein Preis hinterlegt –"}</td>

@@ -17,6 +17,7 @@ import { ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
   IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
+  IconNavPin,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -41,7 +42,7 @@ import {
 } from "@/lib/api/lager";
 import {
   fetchArticles, fetchArticlePrices, fetchOrderArticles,
-  insertArticle, updateArticleById, insertArticlePrice,
+  insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
   insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleDiscountById, deleteOrderArticleById,
 } from "@/lib/api/articles";
 import {
@@ -218,6 +219,11 @@ export default function HomePage() {
   }
   async function updateArticle(id: string, fields: { short_name: string; long_name: string; active: boolean }) {
     await updateArticleById(supabase, id, fields);
+    await refreshArticles();
+  }
+  async function updateArticleNumber(id: string, articleNumber: number) {
+    const { error } = await updateArticleNumberById(supabase, id, articleNumber);
+    if (error) alert(error);
     await refreshArticles();
   }
   async function addArticlePrice(articleId: string, netPrice: number, vatRate: number, validFrom: string) {
@@ -1020,7 +1026,7 @@ export default function HomePage() {
                           <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                             {cust.address.trim() && (
                               <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => openNavMenu(e, cust)}>
-                                🧭
+                                <IconNavPin />
                               </button>
                             )}
                             {getPhoneNumbers(cust).length > 0 && (
@@ -1230,6 +1236,7 @@ export default function HomePage() {
             articlePrices={articlePrices}
             onAddArticle={addArticle}
             onUpdateArticle={updateArticle}
+            onUpdateArticleNumber={updateArticleNumber}
             onAddArticlePrice={addArticlePrice}
           />
         )}

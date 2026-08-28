@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
 import { formatOrderDateTime } from "@/lib/helpers";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
-import { IconAuftraege, IconTrash } from "@/components/icons";
+import { IconAuftraege, IconTrash, IconNavPin } from "@/components/icons";
 import { OrderModal } from "./OrderModal";
 
 // Aufträge-Modul: filter-/sortierbare Tabelle aller Aufträge (Status, Mitarbeiter, Kunde),
@@ -135,7 +135,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                       <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                         {cust && cust.address.trim() && (
                           <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => onNavigate(e, cust)}>
-                            🧭
+                            <IconNavPin />
                           </button>
                         )}
                         {!isTechniker && (

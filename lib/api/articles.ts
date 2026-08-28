@@ -30,6 +30,17 @@ export async function updateArticleById(supabase: SupabaseClient, id: string, fi
   await supabase.from("articles").update(fields).eq("id", id);
 }
 
+// Artikelnummer ist von der Datenbank vorbelegt (Sequenz `article_number_seq`, Migration 14),
+// aber bewusst frei überschreibbar: verschiedene Artikel(-gruppen) brauchen unterschiedliche
+// eigene Nummernfolgen (z. B. eigene Nummernkreise je Kategorie), das lässt sich nicht mit
+// einer einzigen fortlaufenden Sequenz abbilden. Die Unique-Constraint aus Migration 14 bleibt
+// bestehen – ein Postgres-Fehler mit Code "23505" bedeutet, dass die Nummer schon vergeben ist.
+export async function updateArticleNumberById(supabase: SupabaseClient, id: string, articleNumber: number): Promise<{ error: string | null }> {
+  const { error } = await supabase.from("articles").update({ article_number: articleNumber }).eq("id", id);
+  if (!error) return { error: null };
+  return { error: error.code === "23505" ? "Diese Artikelnummer ist schon vergeben." : error.message };
+}
+
 // Neuer Preis für einen Artikel: schließt zunächst einen ggf. noch offenen (oder bis nach dem
 // neuen Startdatum reichenden) bestehenden Preiszeitraum automatisch einen Tag vor dem neuen
 // Startdatum, damit sich Preis-Zeiträume nie überlappen und die Historie lückenlos bleibt.
