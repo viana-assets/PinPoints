@@ -8,7 +8,7 @@ import type {
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
-  effectiveColor, telHref, getPhoneNumbers, geocodeAddress,
+  effectiveColor, telHref, getPhoneNumbers, geocodeAddress, navigationUrls,
 } from "@/lib/helpers";
 import { MAP_STYLES, type MapStyleKey } from "@/lib/mapStyles";
 
@@ -106,6 +106,11 @@ export default function HomePage() {
   const [mobileMapVisible, setMobileMapVisible] = useState(false);
   const [callMenuFor, setCallMenuFor] = useState<Customer | null>(null);
   const [callMenuPos, setCallMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Navigations-Button (Auftrag/Termin, wenn eine Adresse gepflegt ist): am Smartphone erst
+  // fragen, ob mit Google Maps oder Apple Karten navigiert werden soll, statt direkt zu öffnen –
+  // genau wie beim Anrufen-Button mit mehreren Nummern.
+  const [navMenuFor, setNavMenuFor] = useState<Customer | null>(null);
+  const [navMenuPos, setNavMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   const mapDivRef = useRef<HTMLDivElement | null>(null);
   const sidebarRef = useRef<HTMLDivElement | null>(null);
@@ -776,6 +781,15 @@ export default function HomePage() {
     if (next) setTimeout(() => mapRef.current?.invalidateSize(), 200);
   }
 
+  // Navigations-Button in Auftrags-/Termin-Zeilen: fragt per kleinem Menü (wie beim
+  // Anrufen-Icon), ob mit Google Maps oder Apple Karten navigiert werden soll.
+  function openNavMenu(e: React.MouseEvent, cust: Customer) {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setNavMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 190) });
+    setNavMenuFor(cust);
+  }
+
   if (loading) {
     return <div style={{ padding: 40, fontFamily: "sans-serif" }}>Lädt…</div>;
   }
@@ -972,7 +986,12 @@ export default function HomePage() {
                           <td className="date-cell">{formatOrderDateTime(order)}{past ? " (vergangen)" : ""}</td>
                           <td>{cust.name}<br /><span className="small">{cust.address}</span></td>
                           <td>{order.title}{order.description ? ` – ${order.description}` : ""}{emp ? <><br /><span className="small">👤 {emp.name}</span></> : ""}</td>
-                          <td onClick={(e) => e.stopPropagation()}>
+                          <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
+                            {cust.address.trim() && (
+                              <button className="call-icon-btn small nav-icon-btn" title="Navigation" onClick={(e) => openNavMenu(e, cust)}>
+                                <IconNav />
+                              </button>
+                            )}
                             {getPhoneNumbers(cust).length > 0 && (
                               <button
                                 className="call-icon-btn small"
@@ -1004,6 +1023,7 @@ export default function HomePage() {
             onDelete={deleteOrder}
             onAssignEmployee={assignOrderEmployee}
             onOpenCustomer={openDetail}
+            onNavigate={openNavMenu}
           />
         )}
 
@@ -1180,6 +1200,27 @@ export default function HomePage() {
         </>
       )}
 
+      {navMenuFor && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 19999 }} onClick={() => setNavMenuFor(null)} />
+          <div className="call-menu" style={{ top: navMenuPos.top, left: navMenuPos.left }}>
+            {(() => {
+              const urls = navigationUrls(navMenuFor);
+              return (
+                <>
+                  <button onClick={() => { window.open(urls.google, "_blank"); setNavMenuFor(null); }}>
+                    Google Maps
+                  </button>
+                  <button onClick={() => { window.open(urls.apple, "_blank"); setNavMenuFor(null); }}>
+                    Apple Karten
+                  </button>
+                </>
+              );
+            })()}
+          </div>
+        </>
+      )}
+
       {selectedId && (
         <DetailModal
           customer={customers.find((c) => c.id === selectedId)!}
@@ -1295,6 +1336,13 @@ function IconInaktiv() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
       <circle cx="12" cy="12" r="8" />
       <path d="M8 8l8 8" />
+    </svg>
+  );
+}
+function IconNav() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round">
+      <path d="M12 2 L20 20 L12 16 L4 20 Z" />
     </svg>
   );
 }
@@ -2597,13 +2645,14 @@ function TireAssignModal({ slot, customers, assignment, history, onClose, onAssi
 // =====================================================================
 // Aufträge-Modul
 // =====================================================================
-function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, onDelete, onAssignEmployee, onOpenCustomer }: {
+function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, onDelete, onAssignEmployee, onOpenCustomer, onNavigate }: {
   customers: Customer[]; orders: Order[]; employees: Employee[];
   onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => Promise<void>;
   onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAssignEmployee: (id: string, employeeId: string) => Promise<void>;
   onOpenCustomer: (customerId: string) => void;
+  onNavigate: (e: React.MouseEvent, cust: Customer) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
@@ -2654,13 +2703,16 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
                       <td className="date-cell">{formatOrderDateTime(o)}</td>
                       <td>
                         {cust ? (
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
-                            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
-                          >
-                            {cust.name}
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
+                              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
+                            >
+                              {cust.name}
+                            </button>
+                            {cust.address.trim() && <><br /><span className="small">{cust.address}</span></>}
+                          </>
                         ) : "–"}
                       </td>
                       <td>{o.title}</td>
@@ -2677,7 +2729,12 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
                           <option value="erledigt">{statusLabel.erledigt}</option>
                         </select>
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
+                      <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
+                        {cust && cust.address.trim() && (
+                          <button className="call-icon-btn small nav-icon-btn" title="Navigation" onClick={(e) => onNavigate(e, cust)}>
+                            <IconNav />
+                          </button>
+                        )}
                         <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>
                           <IconTrash />
                         </button>

@@ -76,6 +76,21 @@ export function getPhoneNumbers(cust: Customer): { label: string; number: string
   return nums;
 }
 
+// Navigations-Links zu einem Kunden: bevorzugt die geokodierte Position (lat/lng), falls
+// vorhanden, sonst die Adresse als Text – jeweils als fertige "Route dorthin"-Links für Google
+// Maps und Apple Karten, die sich auf dem Smartphone direkt in der jeweiligen App öffnen.
+export function navigationUrls(cust: Customer): { google: string; apple: string } {
+  const hasCoords = cust.lat != null && cust.lng != null;
+  const dest = hasCoords ? `${cust.lat},${cust.lng}` : cust.address;
+  const q = encodeURIComponent(dest);
+  return {
+    google: `https://www.google.com/maps/dir/?api=1&destination=${q}`,
+    apple: hasCoords
+      ? `https://maps.apple.com/?daddr=${q}&dirflg=d`
+      : `https://maps.apple.com/?daddr=${q}`,
+  };
+}
+
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   const q =
     address.toLowerCase().includes("nürnberg") || address.toLowerCase().includes("nuernberg")

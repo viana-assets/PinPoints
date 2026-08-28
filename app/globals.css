@@ -255,6 +255,12 @@
     box-shadow:0 1px 3px rgba(0,0,0,.25);flex:0 0 auto;line-height:1;}
   .call-icon-btn:hover{background:#2fb350;}
   .call-icon-btn.small{width:24px;height:24px;font-size:12px;}
+  /* Navigations-Button (Auftrag/Termin): gleiche Form wie der Anrufen-Button, aber in Navy statt
+     Grün, damit man beide Aktionen in einer Zeile klar auseinanderhalten kann. */
+  .nav-icon-btn{background:var(--navy);}
+  .nav-icon-btn:hover{background:#16304e;}
+  .nav-icon-btn svg{width:15px;height:15px;display:block;}
+  .call-icon-btn.small.nav-icon-btn svg{width:13px;height:13px;}
   .call-menu{position:fixed;z-index:20000;background:var(--panel);border:1px solid var(--border);border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.22);padding:6px;min-width:170px;}
   .call-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 10px;
