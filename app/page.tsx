@@ -1,14 +1,16 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
+  Article, ArticlePrice, OrderArticle,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
   effectiveColor, telHref, getPhoneNumbers, geocodeAddress, navigationUrls,
+  formatEUR, currentArticlePrice, orderArticleTotals,
 } from "@/lib/helpers";
 import { MAP_STYLES, type MapStyleKey } from "@/lib/mapStyles";
 
@@ -90,6 +92,12 @@ export default function HomePage() {
   // liegen, wird von der App aber nicht mehr verwendet – Zuordnungen laufen ab sofort komplett
   // über diese Map/Tabelle.
   const [orderEmployees, setOrderEmployeesMap] = useState<Record<string, string[]>>({});
+  // Artikelstammdaten (Migration 12): Dienstleistungen/Artikel mit Preis-Historie, die einem
+  // Auftrag zugeordnet werden können ("Leistungen"). `orderArticles` ist bewusst eine flache
+  // Liste (nicht nach Auftrag gruppiert), analog zu den anderen Rohdaten-States.
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [articlePrices, setArticlePrices] = useState<ArticlePrice[]>([]);
+  const [orderArticles, setOrderArticlesState] = useState<OrderArticle[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   // Modul-Berechtigungen: pro Modul (aktuell nur "lager") hinterlegt, welche Rollen dort
   // strukturelle Änderungen vornehmen dürfen (Migration 09). Superadmin darf immer alles,
@@ -121,6 +129,10 @@ export default function HomePage() {
   // Klick speichert sofort – kein separater "Speichern"-Button, wie beim Modul-Berechtigungen-Raster.
   const [empMenuFor, setEmpMenuFor] = useState<{ orderId: string; ids: string[] } | null>(null);
   const [empMenuPos, setEmpMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Leistungen/Artikel-Zuordnung eines Auftrags (Aufträge-Tab & Einsatzplanung): gleiches
+  // Popover-Muster wie beim Mitarbeiter-Menü, nur mit dem Artikelstamm statt Mitarbeitern.
+  const [artMenuFor, setArtMenuFor] = useState<string | null>(null);
+  const [artMenuPos, setArtMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   const appRef = useRef<HTMLDivElement | null>(null);
   const mapDivRef = useRef<HTMLDivElement | null>(null);
@@ -167,6 +179,9 @@ export default function HomePage() {
       await refreshOrders();
       await refreshEmployees();
       await refreshOrderEmployees();
+      await refreshArticles();
+      await refreshArticlePrices();
+      await refreshOrderArticles();
       await refreshVehicles();
       await refreshModulePermissions();
       setLoading(false);
@@ -216,6 +231,67 @@ export default function HomePage() {
       await supabase.from("order_employees").insert(unique.map((employeeId) => ({ order_id: orderId, employee_id: employeeId })));
     }
     await refreshOrderEmployees();
+  }
+  // ---------------------------------------------------------------- Artikelstammdaten
+  async function refreshArticles() {
+    const { data } = await supabase.from("articles").select("*").order("short_name");
+    if (data) setArticles(data as Article[]);
+  }
+  async function refreshArticlePrices() {
+    const { data } = await supabase.from("article_prices").select("*").order("valid_from", { ascending: false });
+    if (data) setArticlePrices(data as ArticlePrice[]);
+  }
+  async function refreshOrderArticles() {
+    const { data } = await supabase.from("order_articles").select("*").order("created_at");
+    if (data) setOrderArticlesState(data as OrderArticle[]);
+  }
+  async function addArticle(shortName: string, longName: string) {
+    await supabase.from("articles").insert({ short_name: shortName, long_name: longName });
+    await refreshArticles();
+  }
+  async function updateArticle(id: string, fields: { short_name: string; long_name: string; active: boolean }) {
+    await supabase.from("articles").update(fields).eq("id", id);
+    await refreshArticles();
+  }
+  // Neuer Preis für einen Artikel: schließt zunächst einen ggf. noch offenen (oder bis nach dem
+  // neuen Startdatum reichenden) bestehenden Preiszeitraum automatisch einen Tag vor dem neuen
+  // Startdatum, damit sich Preis-Zeiträume nie überlappen und die Historie lückenlos bleibt.
+  async function addArticlePrice(articleId: string, netPrice: number, vatRate: number, validFrom: string) {
+    const overlapping = articlePrices.filter(
+      (p) => p.article_id === articleId && p.valid_from < validFrom && (!p.valid_to || p.valid_to >= validFrom)
+    );
+    for (const row of overlapping) {
+      const d = new Date(validFrom + "T00:00:00");
+      d.setDate(d.getDate() - 1);
+      const closeDate = d.toISOString().slice(0, 10);
+      await supabase.from("article_prices").update({ valid_to: closeDate }).eq("id", row.id);
+    }
+    await supabase.from("article_prices").insert({ article_id: articleId, net_price: netPrice, vat_rate: vatRate, valid_from: validFrom });
+    await refreshArticlePrices();
+  }
+  async function addOrderArticle(orderId: string, articleId: string, quantity: number, discountPercent: number) {
+    const price = currentArticlePrice(articlePrices.filter((p) => p.article_id === articleId));
+    await supabase.from("order_articles").insert({
+      order_id: orderId, article_id: articleId, quantity,
+      net_price: price ? price.net_price : 0, vat_rate: price ? price.vat_rate : 19,
+      discount_percent: discountPercent,
+    });
+    await refreshOrderArticles();
+  }
+  async function updateOrderArticleQty(id: string, quantity: number) {
+    await supabase.from("order_articles").update({ quantity }).eq("id", id);
+    await refreshOrderArticles();
+  }
+  async function updateOrderArticleDiscount(id: string, discountPercent: number) {
+    await supabase.from("order_articles").update({ discount_percent: discountPercent }).eq("id", id);
+    await refreshOrderArticles();
+  }
+  async function removeOrderArticle(id: string) {
+    await supabase.from("order_articles").delete().eq("id", id);
+    await refreshOrderArticles();
+  }
+  function orderArticlesFor(orderId: string): OrderArticle[] {
+    return orderArticles.filter((oa) => oa.order_id === orderId);
   }
   async function refreshVehicles() {
     const { data } = await supabase.from("vehicles").select("*").order("created_at");
@@ -842,6 +918,23 @@ export default function HomePage() {
     return names.length ? names.join(", ") : "–";
   }
 
+  // Öffnet das Leistungen/Artikel-Zuordnungs-Menü für einen Auftrag (Aufträge-Tab & Einsatzplanung).
+  function openArtMenu(e: React.MouseEvent, orderId: string) {
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const estHeight = 260;
+    setArtMenuPos({ top: clampMenuTop(rect, estHeight), left: Math.min(rect.left, window.innerWidth - 380) });
+    setArtMenuFor(orderId);
+  }
+  // Kurzform für die Anzeige in Tabellenzeilen: Bruttosumme, oder "–", wenn noch keine Leistung
+  // zugeordnet ist.
+  function orderArticlesLabel(orderId: string): string {
+    const rows = orderArticlesFor(orderId);
+    if (rows.length === 0) return "–";
+    const totals = orderArticleTotals(rows);
+    return `${rows.length} · ${formatEUR(totals.gross)}`;
+  }
+
   if (loading) {
     return <div style={{ padding: 40, fontFamily: "sans-serif" }}>Lädt…</div>;
   }
@@ -1076,6 +1169,8 @@ export default function HomePage() {
             onDelete={deleteOrder}
             onEditEmployees={openEmpMenu}
             employeeNamesFor={employeeNamesFor}
+            onEditArticles={openArtMenu}
+            orderArticlesLabel={orderArticlesLabel}
             onOpenCustomer={openDetail}
             onNavigate={openNavMenu}
           />
@@ -1112,6 +1207,8 @@ export default function HomePage() {
             orderEmployees={orderEmployees}
             onEditEmployees={openEmpMenu}
             employeeNamesFor={employeeNamesFor}
+            onEditArticles={openArtMenu}
+            orderArticlesLabel={orderArticlesLabel}
             onOpenCustomer={openDetail}
             onUpdateStatus={updateOrderStatus}
             onDelete={deleteOrder}
@@ -1233,6 +1330,11 @@ export default function HomePage() {
             onDeleteEmployee={deleteEmployee}
             modulePermissions={modulePermissions}
             onUpdateModulePermissions={updateModulePermissions}
+            articles={articles}
+            articlePrices={articlePrices}
+            onAddArticle={addArticle}
+            onUpdateArticle={updateArticle}
+            onAddArticlePrice={addArticlePrice}
           />
         )}
       </div>
@@ -1298,12 +1400,35 @@ export default function HomePage() {
         </>
       )}
 
+      {artMenuFor && (
+        <>
+          <div style={{ position: "fixed", inset: 0, zIndex: 19999 }} onClick={() => setArtMenuFor(null)} />
+          <div className="call-menu" style={{ top: artMenuPos.top, left: artMenuPos.left, minWidth: 340, padding: "8px 10px" }}>
+            <ArticleAssignPanel
+              orderId={artMenuFor}
+              articles={articles}
+              rows={orderArticlesFor(artMenuFor)}
+              onAdd={addOrderArticle}
+              onUpdateQty={updateOrderArticleQty}
+              onUpdateDiscount={updateOrderArticleDiscount}
+              onRemove={removeOrderArticle}
+            />
+          </div>
+        </>
+      )}
+
       {selectedId && (
         <DetailModal
           customer={customers.find((c) => c.id === selectedId)!}
           orders={ordersFor(selectedId)}
           employees={employees}
           orderEmployees={orderEmployees}
+          articles={articles}
+          orderArticles={orderArticles}
+          onAddOrderArticle={addOrderArticle}
+          onUpdateOrderArticleQty={updateOrderArticleQty}
+          onUpdateOrderArticleDiscount={updateOrderArticleDiscount}
+          onRemoveOrderArticle={removeOrderArticle}
           history={history}
           periodMonths={settings.period_months}
           vehicles={vehicles.filter((v) => v.customer_id === selectedId)}
@@ -1613,12 +1738,20 @@ const ROLE_LABEL: Record<Role, string> = {
   user: "Nutzer",
 };
 
-function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, modulePermissions, onUpdateModulePermissions }: {
+function AdminPanel({
+  isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, modulePermissions, onUpdateModulePermissions,
+  articles, articlePrices, onAddArticle, onUpdateArticle, onAddArticlePrice,
+}: {
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
   onAddEmployee: (name: string) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
   modulePermissions: Record<string, string[]>;
   onUpdateModulePermissions: (moduleKey: string, roles: string[]) => Promise<void>;
+  articles: Article[];
+  articlePrices: ArticlePrice[];
+  onAddArticle: (shortName: string, longName: string) => Promise<void>;
+  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean }) => Promise<void>;
+  onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [ownUserId, setOwnUserId] = useState<string | null>(null);
@@ -1630,7 +1763,7 @@ function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteE
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [adminTab, setAdminTab] = useState<"users" | "modules">("users");
+  const [adminTab, setAdminTab] = useState<"users" | "modules" | "artikel">("users");
 
   useEffect(() => {
     (async () => {
@@ -1708,10 +1841,19 @@ function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteE
           {isSuperAdmin && (
             <button type="button" className={`chip ${adminTab === "modules" ? "active" : ""}`} onClick={() => setAdminTab("modules")}>Modulverwaltung</button>
           )}
+          <button type="button" className={`chip ${adminTab === "artikel" ? "active" : ""}`} onClick={() => setAdminTab("artikel")}>Artikelstamm</button>
         </div>
 
         {adminTab === "modules" && isSuperAdmin ? (
           <PermissionMatrix modulePermissions={modulePermissions} onUpdateModulePermissions={onUpdateModulePermissions} />
+        ) : adminTab === "artikel" ? (
+          <ArticleAdminPanel
+            articles={articles}
+            articlePrices={articlePrices}
+            onAddArticle={onAddArticle}
+            onUpdateArticle={onUpdateArticle}
+            onAddArticlePrice={onAddArticlePrice}
+          />
         ) : (
         <>
         {status && (
@@ -1883,9 +2025,285 @@ function PermissionMatrix({ modulePermissions, onUpdateModulePermissions }: {
   );
 }
 
+// =====================================================================
+// Artikelstamm (Admin-Bereich, nur Admin/Superadmin – Migration 12): Kurz-/Langbezeichnung je
+// Artikel, dazu eine Preis-Historie mit "gültig von/bis" statt nur einem einzigen aktuellen
+// Preis. Rabatte werden bewusst NICHT hier, sondern individuell bei der Zuordnung zu einem
+// Auftrag vergeben (siehe ArticleAssignPanel).
+// =====================================================================
+function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onAddArticlePrice }: {
+  articles: Article[];
+  articlePrices: ArticlePrice[];
+  onAddArticle: (shortName: string, longName: string) => Promise<void>;
+  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean }) => Promise<void>;
+  onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
+}) {
+  const [newShort, setNewShort] = useState("");
+  const [newLong, setNewLong] = useState("");
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  return (
+    <div>
+      <div className="small" style={{ marginBottom: 8 }}>
+        Zentrales Artikelstammdatenbuch für Dienstleistungen/Artikel, die einem Auftrag
+        zugeordnet werden können. Jeder Artikel hat eine Preis-Historie (Nettopreis + MwSt.,
+        jeweils gültig von/bis) statt nur eines einzigen aktuellen Preises – ein neuer Preis
+        schließt den vorherigen automatisch einen Tag davor. Rabatte werden individuell bei der
+        Zuordnung zu einem Auftrag vergeben, nicht hier am Artikel.
+      </div>
+
+      <div className="row" style={{ maxWidth: 560, alignItems: "flex-end" }}>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Kurzbezeichnung</label>
+          <input type="text" value={newShort} onChange={(e) => setNewShort(e.target.value)} placeholder="z. B. Reifenwechsel mobil" />
+        </div>
+        <div className="field" style={{ marginBottom: 0, flex: 2 }}>
+          <label>Langbezeichnung</label>
+          <input type="text" value={newLong} onChange={(e) => setNewLong(e.target.value)} placeholder="z. B. Mobiler Reifenwechsel direkt beim Kunden vor Ort" />
+        </div>
+        <button
+          className="btn-primary"
+          style={{ flex: "0 0 auto" }}
+          onClick={async () => {
+            if (!newShort.trim() || !newLong.trim()) return;
+            await onAddArticle(newShort.trim(), newLong.trim());
+            setNewShort(""); setNewLong("");
+          }}
+        >
+          + Artikel
+        </button>
+      </div>
+
+      {articles.length === 0 ? (
+        <div className="empty">Noch keine Artikel angelegt.</div>
+      ) : (
+        <table className="appt-table" style={{ marginTop: 8 }}>
+          <thead><tr><th>Kurzbezeichnung</th><th>Langbezeichnung</th><th>Aktueller Preis</th><th>Aktiv</th><th></th></tr></thead>
+          <tbody>
+            {articles.map((a) => {
+              const prices = articlePrices.filter((p) => p.article_id === a.id);
+              const current = currentArticlePrice(prices);
+              return (
+                <Fragment key={a.id}>
+                  <tr>
+                    <td style={{ fontWeight: 700 }}>{a.short_name}</td>
+                    <td>{a.long_name}</td>
+                    <td>{current ? `${formatEUR(current.net_price)} netto (${current.vat_rate}% MwSt.)` : "– kein Preis hinterlegt –"}</td>
+                    <td>
+                      <input
+                        type="checkbox"
+                        checked={a.active}
+                        onChange={(e) => onUpdateArticle(a.id, { short_name: a.short_name, long_name: a.long_name, active: e.target.checked })}
+                      />
+                    </td>
+                    <td>
+                      <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={() => setOpenId(openId === a.id ? null : a.id)}>
+                        {openId === a.id ? "Schließen" : "Preise & Bearbeiten"}
+                      </button>
+                    </td>
+                  </tr>
+                  {openId === a.id && (
+                    <tr>
+                      <td colSpan={5} style={{ background: "rgba(0,0,0,.02)" }}>
+                        <ArticleDetailEditor article={a} prices={prices} onUpdateArticle={onUpdateArticle} onAddPrice={onAddArticlePrice} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
+
+function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPrice }: {
+  article: Article;
+  prices: ArticlePrice[];
+  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean }) => Promise<void>;
+  onAddPrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
+}) {
+  const [shortName, setShortName] = useState(article.short_name);
+  const [longName, setLongName] = useState(article.long_name);
+  const [netPrice, setNetPrice] = useState("");
+  const [vatRate, setVatRate] = useState("19");
+  const [validFrom, setValidFrom] = useState(todayStr());
+  const sortedPrices = prices.slice().sort((a, b) => b.valid_from.localeCompare(a.valid_from));
+
+  return (
+    <div style={{ padding: "6px 2px" }}>
+      <div className="row">
+        <div className="field" style={{ marginBottom: 0 }}><label>Kurzbezeichnung</label><input type="text" value={shortName} onChange={(e) => setShortName(e.target.value)} /></div>
+        <div className="field" style={{ marginBottom: 0, flex: 2 }}><label>Langbezeichnung</label><input type="text" value={longName} onChange={(e) => setLongName(e.target.value)} /></div>
+        <button
+          className="btn-secondary"
+          style={{ flex: "0 0 auto" }}
+          onClick={() => onUpdateArticle(article.id, { short_name: shortName.trim() || article.short_name, long_name: longName.trim() || article.long_name, active: article.active })}
+        >
+          Speichern
+        </button>
+      </div>
+
+      <h4 style={{ margin: "8px 0 4px", fontSize: 13 }}>Preis-Historie</h4>
+      {sortedPrices.length === 0 ? (
+        <div className="small" style={{ marginBottom: 6 }}>Noch kein Preis hinterlegt.</div>
+      ) : (
+        <table className="appt-table" style={{ marginBottom: 6, maxWidth: 480 }}>
+          <thead><tr><th>Gültig von</th><th>Gültig bis</th><th>Nettopreis</th><th>MwSt.</th></tr></thead>
+          <tbody>
+            {sortedPrices.map((p) => (
+              <tr key={p.id}>
+                <td>{formatDate(p.valid_from)}</td>
+                <td>{p.valid_to ? formatDate(p.valid_to) : "bis auf Weiteres"}</td>
+                <td>{formatEUR(p.net_price)}</td>
+                <td>{p.vat_rate}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      <div className="row" style={{ maxWidth: 480, alignItems: "flex-end" }}>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Nettopreis (€)</label>
+          <input type="number" min={0} step="0.01" value={netPrice} onChange={(e) => setNetPrice(e.target.value)} placeholder="0,00" />
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>MwSt. %</label>
+          <input type="number" min={0} max={100} step="0.01" value={vatRate} onChange={(e) => setVatRate(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Gültig ab</label>
+          <input type="date" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+        </div>
+        <button
+          className="btn-primary"
+          style={{ flex: "0 0 auto" }}
+          onClick={async () => {
+            const price = parseFloat(netPrice.replace(",", "."));
+            const vat = parseFloat(vatRate.replace(",", "."));
+            if (isNaN(price) || price < 0) return;
+            await onAddPrice(article.id, price, isNaN(vat) ? 19 : vat, validFrom);
+            setNetPrice("");
+          }}
+        >
+          + Preis
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// =====================================================================
+// Leistungen/Artikel-Zuordnung zu einem Auftrag: Liste bereits zugeordneter Positionen (Menge,
+// Rabatt individuell je Position, Preis als Schnappschuss vom Zuordnungszeitpunkt) plus eine
+// kleine Zeile zum Hinzufügen weiterer Artikel. Wird sowohl im Popover (Aufträge-Tab &
+// Einsatzplanung) als auch direkt inline im Kunden-Detailfenster verwendet.
+// =====================================================================
+function ArticleAssignPanel({ orderId, articles, rows, onAdd, onUpdateQty, onUpdateDiscount, onRemove }: {
+  orderId: string;
+  articles: Article[];
+  rows: OrderArticle[];
+  onAdd: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
+  onUpdateQty: (id: string, quantity: number) => Promise<void>;
+  onUpdateDiscount: (id: string, discountPercent: number) => Promise<void>;
+  onRemove: (id: string) => Promise<void>;
+}) {
+  const activeArticles = articles.filter((a) => a.active);
+  const [articleId, setArticleId] = useState("");
+  const [qty, setQty] = useState("1");
+  const [discount, setDiscount] = useState("0");
+  const totals = orderArticleTotals(rows);
+
+  return (
+    <div>
+      <div className="small" style={{ fontWeight: 700, padding: "2px 0 4px" }}>Leistungen / Artikel</div>
+      {rows.length === 0 ? (
+        <div className="small" style={{ marginBottom: 6 }}>Noch keine Leistungen zugeordnet.</div>
+      ) : (
+        <table className="appt-table" style={{ marginBottom: 6 }}>
+          <thead><tr><th>Artikel</th><th>Menge</th><th>Rabatt %</th><th>Summe netto</th><th></th></tr></thead>
+          <tbody>
+            {rows.map((r) => {
+              const art = articles.find((a) => a.id === r.article_id);
+              const lineNet = r.quantity * r.net_price * (1 - (r.discount_percent || 0) / 100);
+              return (
+                <tr key={r.id}>
+                  <td>{art ? art.short_name : "(gelöschter Artikel)"}<div className="small">{formatEUR(r.net_price)} / Stk.</div></td>
+                  <td>
+                    <input
+                      type="number" min={0.01} step="0.01" value={r.quantity} style={{ width: 56 }}
+                      onChange={(e) => onUpdateQty(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      type="number" min={0} max={100} step="1" value={r.discount_percent} style={{ width: 52 }}
+                      onChange={(e) => onUpdateDiscount(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
+                    />
+                  </td>
+                  <td>{formatEUR(lineNet)}</td>
+                  <td>
+                    <button type="button" className="btn-secondary" style={{ padding: "2px 6px" }} onClick={() => onRemove(r.id)}><IconTrash /></button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {rows.length > 0 && (
+        <div className="small" style={{ marginBottom: 6 }}>
+          Netto {formatEUR(totals.net)} · MwSt. {formatEUR(totals.vat)} · <b>Brutto {formatEUR(totals.gross)}</b>
+        </div>
+      )}
+      {activeArticles.length === 0 ? (
+        <div className="small">Noch keine Artikel im Artikelstamm angelegt (Admin → Artikelstamm).</div>
+      ) : (
+        <div className="row" style={{ alignItems: "flex-end" }}>
+          <div className="field" style={{ flex: 2, marginBottom: 0 }}>
+            <label>Artikel</label>
+            <select value={articleId} onChange={(e) => setArticleId(e.target.value)}>
+              <option value="">– wählen –</option>
+              {activeArticles.map((a) => <option key={a.id} value={a.id}>{a.short_name}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+            <label>Menge</label>
+            <input type="number" min={0.01} step="0.01" value={qty} onChange={(e) => setQty(e.target.value)} />
+          </div>
+          <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+            <label>Rabatt %</label>
+            <input type="number" min={0} max={100} step="1" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+          </div>
+          <button
+            type="button"
+            className="btn-primary"
+            style={{ flex: "0 0 auto" }}
+            onClick={() => {
+              if (!articleId) return;
+              onAdd(orderId, articleId, parseFloat(qty.replace(",", ".")) || 1, parseFloat(discount.replace(",", ".")) || 0);
+              setArticleId(""); setQty("1"); setDiscount("0");
+            }}
+          >
+            +
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function DetailModal(props: {
   customer: Customer; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>; history: ContactHistoryEntry[]; periodMonths: number;
   vehicles: Vehicle[]; tireStorages: TireStorage[]; storageSlots: StorageSlot[]; warehouses: Warehouse[];
+  articles: Article[]; orderArticles: OrderArticle[];
+  onAddOrderArticle: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
+  onUpdateOrderArticleQty: (id: string, quantity: number) => Promise<void>;
+  onUpdateOrderArticleDiscount: (id: string, discountPercent: number) => Promise<void>;
+  onRemoveOrderArticle: (id: string) => Promise<void>;
   onClose: () => void;
   onSaveFields: (f: Partial<Customer>) => void;
   onMarkContacted: (contactDate: string, apptDate: string | null, apptTime: string, apptDesc: string) => void;
@@ -1985,7 +2403,20 @@ function DetailModal(props: {
         <div>
           {custOrders.length === 0 && <div className="small">Noch keine Aufträge hinterlegt.</div>}
           {custOrders.map((o) => (
-            <CustomerOrderRow key={o.id} order={o} employees={props.employees} assignedEmployeeIds={props.orderEmployees[o.id] || []} onUpdate={props.onUpdateOrder} onDelete={props.onDeleteOrder} />
+            <CustomerOrderRow
+              key={o.id}
+              order={o}
+              employees={props.employees}
+              assignedEmployeeIds={props.orderEmployees[o.id] || []}
+              onUpdate={props.onUpdateOrder}
+              onDelete={props.onDeleteOrder}
+              articles={props.articles}
+              orderArticles={props.orderArticles.filter((oa) => oa.order_id === o.id)}
+              onAddArticle={props.onAddOrderArticle}
+              onUpdateArticleQty={props.onUpdateOrderArticleQty}
+              onUpdateArticleDiscount={props.onUpdateOrderArticleDiscount}
+              onRemoveArticle={props.onRemoveOrderArticle}
+            />
           ))}
         </div>
         <AddOrderInline employees={props.employees} onAdd={props.onAddOrder} />
@@ -2035,10 +2466,19 @@ function EmployeeCheckboxList({ employees, value, onChange }: {
   );
 }
 
-function CustomerOrderRow({ order, employees, assignedEmployeeIds, onUpdate, onDelete }: {
+function CustomerOrderRow({
+  order, employees, assignedEmployeeIds, onUpdate, onDelete,
+  articles, orderArticles, onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle,
+}: {
   order: Order; employees: Employee[]; assignedEmployeeIds: string[];
   onUpdate: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
   onDelete: (id: string) => void;
+  articles: Article[];
+  orderArticles: OrderArticle[];
+  onAddArticle: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
+  onUpdateArticleQty: (id: string, quantity: number) => Promise<void>;
+  onUpdateArticleDiscount: (id: string, discountPercent: number) => Promise<void>;
+  onRemoveArticle: (id: string) => Promise<void>;
 }) {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(order.title);
@@ -2083,6 +2523,16 @@ function CustomerOrderRow({ order, employees, assignedEmployeeIds, onUpdate, onD
         <button className="btn-secondary" onClick={() => setEditing(true)}>Bearbeiten</button>
         <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm("Diesen Auftrag wirklich löschen?")) onDelete(order.id); }}>Löschen</button>
       </div>
+      <hr style={{ margin: "6px 0" }} />
+      <ArticleAssignPanel
+        orderId={order.id}
+        articles={articles}
+        rows={orderArticles}
+        onAdd={onAddArticle}
+        onUpdateQty={onUpdateArticleQty}
+        onUpdateDiscount={onUpdateArticleDiscount}
+        onRemove={onRemoveArticle}
+      />
     </div>
   );
 }
@@ -2733,13 +3183,15 @@ function TireAssignModal({ slot, customers, assignment, history, onClose, onAssi
 // =====================================================================
 // Aufträge-Modul
 // =====================================================================
-function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, onUpdateStatus, onDelete, onEditEmployees, employeeNamesFor, onOpenCustomer, onNavigate }: {
+function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, onUpdateStatus, onDelete, onEditEmployees, employeeNamesFor, onEditArticles, orderArticlesLabel, onOpenCustomer, onNavigate }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
   onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
+  onEditArticles: (e: React.MouseEvent, orderId: string) => void;
+  orderArticlesLabel: (orderId: string) => string;
   onOpenCustomer: (customerId: string) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
 }) {
@@ -2793,7 +3245,7 @@ function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, o
             <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
           ) : (
             <table className="appt-table">
-              <thead><tr><th>Termin</th><th>Kunde</th><th>Titel</th><th>Mitarbeiter</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Termin</th><th>Kunde</th><th>Titel</th><th>Mitarbeiter</th><th>Leistungen</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {filteredOrders.map((o) => {
                   const cust = customers.find((c) => c.id === o.customer_id);
@@ -2818,6 +3270,11 @@ function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, o
                       <td onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditEmployees(e, o.id)}>
                           {employeeNamesFor(o.id)}
+                        </button>
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditArticles(e, o.id)}>
+                          {orderArticlesLabel(o.id)}
                         </button>
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
@@ -2940,10 +3397,12 @@ function isoWeekNumber(date: Date): number {
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung.
 // =====================================================================
-function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, onOpenCustomer, onUpdateStatus, onDelete }: {
+function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, onEditArticles, orderArticlesLabel, onOpenCustomer, onUpdateStatus, onDelete }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
+  onEditArticles: (e: React.MouseEvent, orderId: string) => void;
+  orderArticlesLabel: (orderId: string) => string;
   onOpenCustomer: (customerId: string) => void;
   onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -3145,6 +3604,7 @@ function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onE
                   <th style={{ cursor: "pointer" }} onClick={() => toggleSort("kunde")}>Kunde{sortArrow("kunde")}</th>
                   <th>Titel</th>
                   <th>Mitarbeiter</th>
+                  <th>Leistungen</th>
                   <th style={{ cursor: "pointer" }} onClick={() => toggleSort("status")}>Status{sortArrow("status")}</th>
                   <th></th>
                 </tr>
@@ -3170,6 +3630,11 @@ function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onE
                       <td>
                         <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditEmployees(e, o.id)}>
                           {employeeNamesFor(o.id)}
+                        </button>
+                      </td>
+                      <td>
+                        <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditArticles(e, o.id)}>
+                          {orderArticlesLabel(o.id)}
                         </button>
                       </td>
                       <td>

@@ -1,4 +1,4 @@
-import type { Appointment, Customer, Order } from "./types";
+import type { Appointment, ArticlePrice, Customer, Order, OrderArticle } from "./types";
 
 export function todayStr(): string {
   return new Date().toISOString().slice(0, 10);
@@ -89,6 +89,35 @@ export function navigationUrls(cust: Customer): { google: string; apple: string 
       ? `https://maps.apple.com/?daddr=${q}&dirflg=d`
       : `https://maps.apple.com/?daddr=${q}`,
   };
+}
+
+// ---------------------------------------------------------------- Artikelstammdaten
+export function formatEUR(amount: number): string {
+  return amount.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+}
+
+// Der zu einem Stichtag (Standard: heute) gültige Preis-Eintrag eines Artikels – der jüngste
+// Eintrag, dessen Gültigkeitszeitraum den Stichtag einschließt (valid_to = null heißt
+// "bis auf Weiteres"). Gibt es keinen passenden Eintrag (z. B. noch kein Preis hinterlegt),
+// wird null zurückgegeben statt eines Fantasiepreises.
+export function currentArticlePrice(prices: ArticlePrice[], onDate?: string): ArticlePrice | null {
+  const day = onDate || todayStr();
+  const candidates = prices
+    .filter((p) => p.valid_from <= day && (!p.valid_to || p.valid_to >= day))
+    .sort((a, b) => b.valid_from.localeCompare(a.valid_from));
+  return candidates[0] || null;
+}
+
+// Netto-, MwSt.- und Brutto-Summe der einem Auftrag zugeordneten Artikel-Positionen, jeweils
+// unter Berücksichtigung von Menge und individuellem Rabatt je Position.
+export function orderArticleTotals(rows: OrderArticle[]): { net: number; vat: number; gross: number } {
+  let net = 0, vat = 0;
+  rows.forEach((r) => {
+    const lineNet = r.quantity * r.net_price * (1 - (r.discount_percent || 0) / 100);
+    net += lineNet;
+    vat += lineNet * (r.vat_rate / 100);
+  });
+  return { net, vat, gross: net + vat };
 }
 
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {

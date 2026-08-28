@@ -106,6 +106,46 @@ export type Vehicle = {
   updated_at: string;
 };
 
+// Artikelstammdaten (Migration 12): Dienstleistungen/Artikel, die einem Auftrag zugeordnet
+// werden können. Preise stehen NICHT direkt am Artikel, sondern als eigene Historie in
+// ArticlePrice (siehe dort), damit nachvollziehbar bleibt, welcher Preis wann galt.
+export type Article = {
+  id: string;
+  short_name: string;
+  long_name: string;
+  active: boolean;
+  created_at: string;
+};
+
+// Ein Preis-Eintrag eines Artikels mit Gültigkeitszeitraum. `valid_to` ist null, solange der
+// Preis "bis auf Weiteres" gilt – wird beim Anlegen eines neuen Preises für denselben Artikel
+// automatisch auf den Vortag des neuen `valid_from` gesetzt.
+export type ArticlePrice = {
+  id: string;
+  article_id: string;
+  net_price: number;
+  vat_rate: number;
+  valid_from: string; // YYYY-MM-DD
+  valid_to: string | null; // YYYY-MM-DD
+  created_at: string;
+};
+
+// Zuordnung eines Artikels zu einem Auftrag. Preis/MwSt. sind ein Schnappschuss zum
+// Zuordnungszeitpunkt (nicht live aus ArticlePrice berechnet), damit eine spätere
+// Preisänderung bereits zugeordnete Positionen nicht rückwirkend verändert. Rabatt wird
+// bewusst individuell hier vergeben, nicht am Artikel selbst.
+export type OrderArticle = {
+  id: string;
+  order_id: string;
+  article_id: string;
+  quantity: number;
+  net_price: number;
+  vat_rate: number;
+  discount_percent: number;
+  note: string | null;
+  created_at: string;
+};
+
 export type Role = "superadmin" | "admin" | "techniker" | "user";
 
 export type Profile = {
