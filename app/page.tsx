@@ -14,6 +14,55 @@ import { MAP_STYLES, type MapStyleKey } from "@/lib/mapStyles";
 
 type TabKey = "dashboard" | "list" | "termine" | "lager" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "more";
 
+// =====================================================================
+// Modul-Berechtigungen: ein fester Katalog von Berechtigungs-"Zeilen", jede mit einem
+// eindeutigen Schlüssel (in `module_permissions.module_key` gespeichert). "view.*" steuert,
+// ob eine Rolle den jeweiligen Tab überhaupt sieht/öffnen kann; "action.*" steuert einzelne
+// Handlungen innerhalb eines Moduls (aktuell nur Lager, weil das konkret gefragt war – lässt
+// sich für weitere Module genauso ergänzen). Superadmin darf immer alles, unabhängig von
+// dieser Tabelle. Dashboard ist immer für alle sichtbar (Startseite/Absturz-Sicherung), daher
+// zwar in der Liste (Transparenz), aber nicht abwählbar.
+// =====================================================================
+type PermItem = { key: string; label: string; indent?: boolean; locked?: boolean };
+const PERMISSION_CATALOG: PermItem[] = [
+  { key: "view.dashboard", label: "Dashboard", locked: true },
+  { key: "view.kunden", label: "Kunden" },
+  { key: "view.auftraege", label: "Aufträge" },
+  { key: "view.termine", label: "Termine" },
+  { key: "view.lager", label: "Lager" },
+  { key: "action.lager.tire_assign", label: "– Reifen einem Lagerplatz zuordnen/entfernen", indent: true },
+  { key: "action.lager.slot_create", label: "– Lagerplätze anlegen", indent: true },
+  { key: "action.lager.slot_delete", label: "– Lagerplätze löschen", indent: true },
+  { key: "action.lager.warehouse_create", label: "– Neues Lager anlegen", indent: true },
+  { key: "action.lager.warehouse_edit", label: "– Lager bearbeiten (Name/Adresse/Notiz)", indent: true },
+  { key: "action.lager.warehouse_delete", label: "– Lager löschen", indent: true },
+  { key: "view.einsatzplanung", label: "Einsatzplanung" },
+  { key: "view.neuer_kunde", label: "Neuer Kunde" },
+  { key: "view.inaktive_kunden", label: "Inaktive Kunden" },
+  { key: "view.einstellungen", label: "Einstellungen" },
+];
+// Fallback, solange in der Datenbank (noch) keine Zeile für einen Schlüssel existiert –
+// entspricht dem Verhalten von vor der Modul-Berechtigungen-Funktion (nichts eingeschränkt),
+// außer bei den Lager-Struktur-Aktionen, die von Anfang an nur Admin/Superadmin waren.
+const PERMISSION_DEFAULTS: Record<string, string[]> = {
+  "view.dashboard": ["admin", "techniker", "user"],
+  "view.kunden": ["admin", "techniker", "user"],
+  "view.auftraege": ["admin", "techniker", "user"],
+  "view.termine": ["admin", "techniker", "user"],
+  "view.lager": ["admin", "techniker", "user"],
+  "action.lager.tire_assign": ["admin", "techniker", "user"],
+  "action.lager.slot_create": ["admin"],
+  "action.lager.slot_delete": ["admin"],
+  "action.lager.warehouse_create": ["admin"],
+  "action.lager.warehouse_edit": ["admin"],
+  "action.lager.warehouse_delete": ["admin"],
+  "view.einsatzplanung": ["admin", "techniker", "user"],
+  "view.neuer_kunde": ["admin", "techniker", "user"],
+  "view.inaktive_kunden": ["admin", "techniker", "user"],
+  "view.einstellungen": ["admin", "techniker", "user"],
+};
+const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
+
 export default function HomePage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -147,12 +196,17 @@ export default function HomePage() {
     await supabase.from("module_permissions").upsert({ module_key: moduleKey, edit_roles: roles });
     await refreshModulePermissions();
   }
-  // Superadmin darf immer alles – auch wenn für ein Modul (noch) keine Zeile in
-  // `module_permissions` existiert. Für alle anderen Rollen zählt, ob sie in den
-  // hinterlegten `edit_roles` des jeweiligen Moduls stehen.
-  function canEditModule(moduleKey: string): boolean {
+  // Superadmin darf/sieht immer alles – auch wenn für einen Schlüssel (noch) keine Zeile in
+  // `module_permissions` existiert. Für alle anderen Rollen zählt, ob sie in den hinterlegten
+  // Rollen des jeweiligen Schlüssels stehen (oder, falls dazu noch keine DB-Zeile existiert,
+  // im eingebauten Standardwert `PERMISSION_DEFAULTS`).
+  function hasPermission(key: string): boolean {
     if (isSuperAdmin) return true;
-    return (modulePermissions[moduleKey] || []).includes(myRole);
+    const roles = modulePermissions[key] ?? PERMISSION_DEFAULTS[key] ?? [];
+    return roles.includes(myRole);
+  }
+  function canView(moduleKey: string): boolean {
+    return hasPermission("view." + moduleKey);
   }
   async function loadHistory(customerId: string) {
     const { data } = await supabase
@@ -746,26 +800,38 @@ export default function HomePage() {
           </svg>
         </div>
         <NavItem active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={<IconDashboard />} label="Dashboard" />
-        <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />
-        <NavItem active={tab === "auftraege"} onClick={() => setTab("auftraege")} icon={<IconAuftraege />} label="Aufträge" />
+        {canView("kunden") && <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />}
+        {canView("auftraege") && <NavItem active={tab === "auftraege"} onClick={() => setTab("auftraege")} icon={<IconAuftraege />} label="Aufträge" />}
 
         <div className="nav-divider nav-secondary" />
-        <NavItem className="nav-secondary" active={tab === "termine"} onClick={() => setTab("termine")} icon={<IconTermine />} label="Termine" />
-        <NavItem className="nav-secondary" active={tab === "lager"} onClick={() => setTab("lager")} icon={<IconLager />} label="Lager" />
-        <NavItem className="nav-secondary" active={tab === "einsatzplanung"} onClick={() => setTab("einsatzplanung")} icon={<IconEinsatzplanung />} label="Einsatzplanung" />
-        <NavItem className="nav-secondary" active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neuer Kunde" />
-        <NavItem className="nav-secondary" active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktive Kunden" />
+        {canView("termine") && <NavItem className="nav-secondary" active={tab === "termine"} onClick={() => setTab("termine")} icon={<IconTermine />} label="Termine" />}
+        {canView("lager") && <NavItem className="nav-secondary" active={tab === "lager"} onClick={() => setTab("lager")} icon={<IconLager />} label="Lager" />}
+        {canView("einsatzplanung") && <NavItem className="nav-secondary" active={tab === "einsatzplanung"} onClick={() => setTab("einsatzplanung")} icon={<IconEinsatzplanung />} label="Einsatzplanung" />}
+        {canView("neuer_kunde") && <NavItem className="nav-secondary" active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neuer Kunde" />}
+        {canView("inaktive_kunden") && <NavItem className="nav-secondary" active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktive Kunden" />}
 
         <div className="nav-spacer nav-secondary" />
         {isAdmin && (
           <NavItem className="nav-secondary" active={tab === "admin"} onClick={() => setTab("admin")} icon={<IconAdmin />} label="Admin" />
         )}
-        <NavItem className="nav-secondary" active={tab === "settings"} onClick={() => setTab("settings")} icon={<IconSettings />} label="Einstellungen" />
+        {canView("einstellungen") && <NavItem className="nav-secondary" active={tab === "settings"} onClick={() => setTab("settings")} icon={<IconSettings />} label="Einstellungen" />}
 
         <NavItem className="nav-more-btn" active={isMoreActive} onClick={() => setTab("more")} icon={<IconMore />} label="Weitere" />
       </nav>
 
-      <div id="sidebar" ref={sidebarRef} className={(fullPageTabs ? "full-page " : "") + (mobileMapVisible ? "mobile-hidden" : "")}>
+      <div
+        id="sidebar"
+        ref={sidebarRef}
+        // key erzwingt bei jedem Wechsel zwischen Vollseiten-Modul (100% Breite) und normalem
+        // Tab (380px + Karte) ein komplettes Neu-Erstellen dieses DOM-Knotens statt eines reinen
+        // In-Place-Updates. Genau dieser Breitenwechsel war es, bei dem manche Browser
+        // (v. a. Chromium/Edge) den Kindinhalt sichtbar "abgeschnitten" stehen ließen, selbst nach
+        // erzwungenem Reflow (display:none/wieder-an) – ein frischer DOM-Knoten hat dieses
+        // Problem nicht, weil nichts Altes wiederverwendet wird. React-State in den Eltern- und
+        // Geschwister-Komponenten bleibt davon unberührt, nur dieser Teilbaum wird neu gebaut.
+        key={fullPageTabs ? "sidebar-full" : "sidebar-normal"}
+        className={(fullPageTabs ? "full-page " : "") + (mobileMapVisible ? "mobile-hidden" : "")}
+      >
         <header>
           <div className="app-brand">
             <div className="app-brand-badge">
@@ -789,35 +855,41 @@ export default function HomePage() {
               <div className="stat green"><div className="num">{statOk}</div><div className="lbl">Kontaktiert</div></div>
             </div>
             <div className="module-cards">
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("termine")}>
-                <div className="mc-icon"><IconTermine /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Anstehende Termine</div>
-                  <div className="mc-sub">Nächste Reifenwechsel-Termine im Blick behalten</div>
+              {canView("termine") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("termine")}>
+                  <div className="mc-icon"><IconTermine /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Anstehende Termine</div>
+                    <div className="mc-sub">Nächste Reifenwechsel-Termine im Blick behalten</div>
+                  </div>
+                  <div className="mc-tag">{upcomingApptCount}</div>
                 </div>
-                <div className="mc-tag">{upcomingApptCount}</div>
-              </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
-                <div className="mc-icon"><IconLager /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Belegte Lagerplätze</div>
-                  <div className="mc-sub">von {storageSlots.length} Lagerplätzen insgesamt</div>
+              )}
+              {canView("lager") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
+                  <div className="mc-icon"><IconLager /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Belegte Lagerplätze</div>
+                    <div className="mc-sub">von {storageSlots.length} Lagerplätzen insgesamt</div>
+                  </div>
+                  <div className="mc-tag">{occupiedSlots}</div>
                 </div>
-                <div className="mc-tag">{occupiedSlots}</div>
-              </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("auftraege")}>
-                <div className="mc-icon"><IconAuftraege /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Offene Aufträge</div>
-                  <div className="mc-sub">von {orders.length} Aufträgen insgesamt</div>
+              )}
+              {canView("auftraege") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("auftraege")}>
+                  <div className="mc-icon"><IconAuftraege /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Offene Aufträge</div>
+                    <div className="mc-sub">von {orders.length} Aufträgen insgesamt</div>
+                  </div>
+                  <div className="mc-tag">{openOrders}</div>
                 </div>
-                <div className="mc-tag">{openOrders}</div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
-        {tab === "list" && (
+        {tab === "list" && canView("kunden") && (
           <div className="tabpanel active">
             <input id="search" type="text" placeholder="Kunde oder Adresse suchen…" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="filterbar">
@@ -880,7 +952,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "termine" && (
+        {tab === "termine" && canView("termine") && (
           <div className="tabpanel active">
             <div className="checkbox-row" style={{ marginTop: 0 }}>
               <input type="checkbox" checked={onlyUpcoming} onChange={(e) => setOnlyUpcoming(e.target.checked)} />
@@ -922,7 +994,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "auftraege" && (
+        {tab === "auftraege" && canView("auftraege") && (
           <AuftraegePanel
             customers={customers}
             orders={orders}
@@ -935,7 +1007,7 @@ export default function HomePage() {
           />
         )}
 
-        {tab === "lager" && (
+        {tab === "lager" && canView("lager") && (
           <LagerPanel
             customers={customers}
             warehouses={warehouses}
@@ -949,11 +1021,16 @@ export default function HomePage() {
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
             onRemoveAssignment={removeTireAssignment}
-            canEdit={canEditModule("lager")}
+            canCreateWarehouse={hasPermission("action.lager.warehouse_create")}
+            canEditWarehouse={hasPermission("action.lager.warehouse_edit")}
+            canDeleteWarehouse={hasPermission("action.lager.warehouse_delete")}
+            canCreateSlot={hasPermission("action.lager.slot_create")}
+            canDeleteSlot={hasPermission("action.lager.slot_delete")}
+            canAssignTire={hasPermission("action.lager.tire_assign")}
           />
         )}
 
-        {tab === "einsatzplanung" && (
+        {tab === "einsatzplanung" && canView("einsatzplanung") && (
           <EinsatzplanungPanel
             customers={customers}
             orders={orders}
@@ -966,41 +1043,51 @@ export default function HomePage() {
         {tab === "more" && (
           <div className="tabpanel active">
             <div className="module-cards">
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("termine")}>
-                <div className="mc-icon"><IconTermine /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Termine</div>
-                  <div className="mc-sub">Chronologische Terminübersicht (Aufträge mit Uhrzeit)</div>
+              {canView("termine") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("termine")}>
+                  <div className="mc-icon"><IconTermine /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Termine</div>
+                    <div className="mc-sub">Chronologische Terminübersicht (Aufträge mit Uhrzeit)</div>
+                  </div>
                 </div>
-              </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
-                <div className="mc-icon"><IconLager /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Lager</div>
-                  <div className="mc-sub">Lager &amp; Lagerplätze verwalten, Reifen zuordnen</div>
+              )}
+              {canView("lager") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
+                  <div className="mc-icon"><IconLager /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Lager</div>
+                    <div className="mc-sub">Lager &amp; Lagerplätze verwalten, Reifen zuordnen</div>
+                  </div>
                 </div>
-              </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("einsatzplanung")}>
-                <div className="mc-icon"><IconEinsatzplanung /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Einsatzplanung</div>
-                  <div className="mc-sub">Aufträge nach Tag und Mitarbeiter planen</div>
+              )}
+              {canView("einsatzplanung") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("einsatzplanung")}>
+                  <div className="mc-icon"><IconEinsatzplanung /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Einsatzplanung</div>
+                    <div className="mc-sub">Aufträge nach Tag und Mitarbeiter planen</div>
+                  </div>
                 </div>
-              </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("add")}>
-                <div className="mc-icon"><IconNeu /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Neuer Kunde</div>
-                  <div className="mc-sub">Kunden anlegen, optional gleich mit Auftrag</div>
+              )}
+              {canView("neuer_kunde") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("add")}>
+                  <div className="mc-icon"><IconNeu /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Neuer Kunde</div>
+                    <div className="mc-sub">Kunden anlegen, optional gleich mit Auftrag</div>
+                  </div>
                 </div>
-              </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("inactive")}>
-                <div className="mc-icon"><IconInaktiv /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Inaktive Kunden</div>
-                  <div className="mc-sub">Deaktivierte Kunden ansehen &amp; reaktivieren</div>
+              )}
+              {canView("inaktive_kunden") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("inactive")}>
+                  <div className="mc-icon"><IconInaktiv /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Inaktive Kunden</div>
+                    <div className="mc-sub">Deaktivierte Kunden ansehen &amp; reaktivieren</div>
+                  </div>
                 </div>
-              </div>
+              )}
               {isAdmin && (
                 <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("admin")}>
                   <div className="mc-icon"><IconAdmin /></div>
@@ -1010,18 +1097,20 @@ export default function HomePage() {
                   </div>
                 </div>
               )}
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("settings")}>
-                <div className="mc-icon"><IconSettings /></div>
-                <div className="mc-text">
-                  <div className="mc-title">Settings</div>
-                  <div className="mc-sub">Anzeige, Wiedervorlage-Zeitraum, Abmelden</div>
+              {canView("einstellungen") && (
+                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("settings")}>
+                  <div className="mc-icon"><IconSettings /></div>
+                  <div className="mc-text">
+                    <div className="mc-title">Settings</div>
+                    <div className="mc-sub">Anzeige, Wiedervorlage-Zeitraum, Abmelden</div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
-        {tab === "inactive" && (
+        {tab === "inactive" && canView("inaktive_kunden") && (
           <div className="tabpanel active">
             <div className="small" style={{ marginBottom: 4 }}>Deaktivierte Kunden erscheinen nicht mehr in der normalen Liste und haben keine Flagge auf der Karte.</div>
             <div>
@@ -1043,9 +1132,9 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "add" && <AddCustomerForm onAdd={addCustomer} employees={employees} />}
+        {tab === "add" && canView("neuer_kunde") && <AddCustomerForm onAdd={addCustomer} employees={employees} />}
 
-        {tab === "settings" && (
+        {tab === "settings" && canView("einstellungen") && (
           <SettingsPanel
             settings={settings}
             onChange={saveSettingsPatch}
@@ -1405,13 +1494,6 @@ const ROLE_LABEL: Record<Role, string> = {
   user: "Nutzer",
 };
 
-// Module, für die es (bisher) eine Berechtigungssteuerung gibt – "Superadmin" ist immer
-// implizit erlaubt und wird deshalb hier nicht als abwählbare Rolle geführt.
-const PERMISSION_MODULES: { key: string; label: string }[] = [
-  { key: "lager", label: "Lager (anlegen/löschen, Lagerplätze anlegen/löschen)" },
-];
-const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
-
 function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, modulePermissions, onUpdateModulePermissions }: {
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
   onAddEmployee: (name: string) => Promise<void>;
@@ -1429,6 +1511,7 @@ function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteE
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
+  const [adminTab, setAdminTab] = useState<"users" | "modules">("users");
 
   useEffect(() => {
     (async () => {
@@ -1496,11 +1579,22 @@ function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteE
         <div className="module-header">
           <div className="mh-icon"><IconAdmin /></div>
           <div className="mh-text">
-            <h2>Nutzerverwaltung</h2>
-            <p>Es gibt keine offene Registrierung – neue Kolleg:innen werden hier eingeladen.</p>
+            <h2>Admin</h2>
+            <p>Nutzerverwaltung und Modulverwaltung.</p>
           </div>
         </div>
 
+        <div className="filterbar" style={{ marginBottom: 4 }}>
+          <button type="button" className={`chip ${adminTab === "users" ? "active" : ""}`} onClick={() => setAdminTab("users")}>Nutzerverwaltung</button>
+          {isSuperAdmin && (
+            <button type="button" className={`chip ${adminTab === "modules" ? "active" : ""}`} onClick={() => setAdminTab("modules")}>Modulverwaltung</button>
+          )}
+        </div>
+
+        {adminTab === "modules" && isSuperAdmin ? (
+          <PermissionMatrix modulePermissions={modulePermissions} onUpdateModulePermissions={onUpdateModulePermissions} />
+        ) : (
+        <>
         {status && (
           <div className={status.type === "ok" ? "login-info" : "login-error"}>{status.text}</div>
         )}
@@ -1600,66 +1694,72 @@ function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteE
           </div>
         )}
 
-        {isSuperAdmin && (
-          <>
-            <hr />
-            <h4 style={{ margin: 0 }}>Modul-Berechtigungen</h4>
-            <div className="small" style={{ marginBottom: 4 }}>
-              Wer darf in welchem Modul strukturelle Änderungen vornehmen (z. B. Lager anlegen/
-              löschen, Lagerplätze anlegen/löschen)? Superadmin darf hier immer alles, unabhängig
-              von dieser Auswahl. Nur für den Superadmin sichtbar/änderbar.
-            </div>
-            {PERMISSION_MODULES.map((mod) => (
-              <ModulePermissionRow
-                key={mod.key}
-                moduleKey={mod.key}
-                label={mod.label}
-                currentRoles={modulePermissions[mod.key] || []}
-                onSave={onUpdateModulePermissions}
-              />
-            ))}
-          </>
+        </>
         )}
       </div>
     </div>
   );
 }
 
-function ModulePermissionRow({ moduleKey, label, currentRoles, onSave }: {
-  moduleKey: string; label: string; currentRoles: string[];
-  onSave: (moduleKey: string, roles: string[]) => Promise<void>;
+// Modulverwaltung: eine Matrix, oben die Rollen als Spalten, links die Module (mit eingerückten
+// Modulbestandteilen als eigene Zeilen darunter), pro Zelle eine Checkbox. "locked"-Zeilen (z. B.
+// Dashboard) sind für alle Rollen fest sichtbar und nicht abwählbar. Superadmin ist implizit immer
+// erlaubt und deshalb keine eigene Spalte. Jede Zeile speichert für sich (Checkbox-Klick = sofort
+// speichern), damit man nicht versehentlich halb ausgefüllte Formulare verliert.
+function PermissionMatrix({ modulePermissions, onUpdateModulePermissions }: {
+  modulePermissions: Record<string, string[]>;
+  onUpdateModulePermissions: (moduleKey: string, roles: string[]) => Promise<void>;
 }) {
-  const [roles, setRoles] = useState<string[]>(currentRoles);
-  const [saving, setSaving] = useState(false);
-  const dirty = JSON.stringify(roles.slice().sort()) !== JSON.stringify(currentRoles.slice().sort());
+  const [savingKey, setSavingKey] = useState<string | null>(null);
 
-  function toggle(role: Role) {
-    setRoles((prev) => prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]);
+  async function toggle(item: PermItem, role: Role) {
+    if (item.locked) return;
+    const current = modulePermissions[item.key] ?? PERMISSION_DEFAULTS[item.key] ?? [];
+    const next = current.includes(role) ? current.filter((r) => r !== role) : [...current, role];
+    setSavingKey(item.key);
+    await onUpdateModulePermissions(item.key, next);
+    setSavingKey(null);
   }
 
   return (
-    <div className="wh-card" style={{ cursor: "default", maxWidth: 480 }}>
-      <div style={{ fontWeight: 700, fontSize: 13 }}>{label}</div>
-      <div className="filterbar">
-        {PERMISSION_ROLES.map((role) => (
-          <button
-            key={role}
-            type="button"
-            className={`chip ${roles.includes(role) ? "active" : ""}`}
-            onClick={() => toggle(role)}
-          >
-            {ROLE_LABEL[role]}
-          </button>
-        ))}
+    <div>
+      <div className="small" style={{ marginBottom: 8 }}>
+        Wer sieht welches Modul, und wer darf welche Aktion innerhalb eines Moduls ausführen?
+        Eingerückte Zeilen sind Teilbereiche des Moduls darüber. Superadmin darf hier immer alles,
+        unabhängig von dieser Tabelle, und wird deshalb nicht extra aufgeführt.
       </div>
-      <button
-        className="btn-primary"
-        style={{ alignSelf: "flex-start" }}
-        disabled={!dirty || saving}
-        onClick={async () => { setSaving(true); await onSave(moduleKey, roles); setSaving(false); }}
-      >
-        {saving ? "Speichert…" : "Speichern"}
-      </button>
+      <div style={{ overflowX: "auto" }}>
+        <table className="appt-table" style={{ minWidth: 480 }}>
+          <thead>
+            <tr>
+              <th>Modul / Aktion</th>
+              {PERMISSION_ROLES.map((role) => <th key={role} style={{ textAlign: "center" }}>{ROLE_LABEL[role]}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {PERMISSION_CATALOG.map((item) => {
+              const current = modulePermissions[item.key] ?? PERMISSION_DEFAULTS[item.key] ?? [];
+              return (
+                <tr key={item.key}>
+                  <td style={item.indent ? { paddingLeft: 22, color: "var(--muted, #667)", fontSize: 12.5 } : { fontWeight: 700 }}>
+                    {item.label}
+                  </td>
+                  {PERMISSION_ROLES.map((role) => (
+                    <td key={role} style={{ textAlign: "center" }}>
+                      <input
+                        type="checkbox"
+                        checked={item.locked ? true : current.includes(role)}
+                        disabled={item.locked || savingKey === item.key}
+                        onChange={() => toggle(item, role)}
+                      />
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -2109,7 +2209,7 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canEdit }: {
+function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire }: {
   customers: Customer[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
   onAddWarehouse: (fields: { name: string; address: string; note: string }) => Promise<string | undefined>;
   onUpdateWarehouse: (id: string, fields: { name: string; address: string; note: string }) => Promise<void>;
@@ -2119,10 +2219,15 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
   onDeleteSlot: (id: string) => Promise<void>;
   onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) => Promise<void>;
   onRemoveAssignment: (id: string) => Promise<void>;
-  // Ob die aktuelle Rolle Lager/Lagerplätze anlegen, bearbeiten oder löschen darf
-  // (Modul-Berechtigungen, von einem Superadmin im Admin-Tab konfigurierbar). Reifen
-  // zuordnen/entfernen bleibt davon unabhängig für alle erlaubt, die das Modul sehen.
-  canEdit: boolean;
+  // Granulare Modul-Berechtigungen (von einem Superadmin im Admin-Tab unter
+  // "Modulverwaltung" konfigurierbar) – jede Struktur-Aktion einzeln steuerbar, damit z. B.
+  // ein Techniker Reifen zuordnen, aber kein Lager anlegen/löschen darf.
+  canCreateWarehouse: boolean;
+  canEditWarehouse: boolean;
+  canDeleteWarehouse: boolean;
+  canCreateSlot: boolean;
+  canDeleteSlot: boolean;
+  canAssignTire: boolean;
 }) {
   // Zwei Ebenen wie ein eigenständiges Modul: erst die Übersicht aller Lager
   // (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze.
@@ -2228,10 +2333,10 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
                 </button>
               );
             })}
-            {canEdit && !showAddWarehouse && (
+            {canCreateWarehouse && !showAddWarehouse && (
               <button type="button" className="add-card" onClick={() => setShowAddWarehouse(true)}>+ Neues Lager</button>
             )}
-            {canEdit && showAddWarehouse && (
+            {canCreateWarehouse && showAddWarehouse && (
               <div className="wh-card" style={{ cursor: "default" }}>
                 <div className="field" style={{ marginBottom: 4 }}>
                   <label>Name</label>
@@ -2269,13 +2374,10 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
 
           {warehouses.length === 0 && !showAddWarehouse && (
             <div className="empty">
-              {canEdit
+              {canCreateWarehouse
                 ? "Noch kein Lager angelegt. Leg dein erstes Lager an, um Lagerplätze zu verwalten."
-                : "Noch kein Lager angelegt. Nur Admin/Superadmin dürfen Lager anlegen."}
+                : "Noch kein Lager angelegt. Deine Rolle darf kein Lager anlegen."}
             </div>
-          )}
-          {!canEdit && warehouses.length > 0 && (
-            <div className="small">Lager anlegen/löschen und Lagerplätze anlegen/löschen ist nur für Admin und Superadmin freigeschaltet.</div>
           )}
         </div>
       </div>
@@ -2292,14 +2394,18 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
             <span className="sep">›</span>
             <span className="current">{selectedWarehouse.name}</span>
           </div>
-          {canEdit && (
+          {(canEditWarehouse || canDeleteWarehouse) && (
             <div className="row" style={{ flex: "0 0 auto" }}>
-              <button className="btn-secondary" onClick={() => (editingWarehouse ? setEditingWarehouse(false) : startEditWarehouse())}>
-                {editingWarehouse ? "Bearbeiten abbrechen" : "Lager bearbeiten"}
-              </button>
-              <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
-                Lager löschen
-              </button>
+              {canEditWarehouse && (
+                <button className="btn-secondary" onClick={() => (editingWarehouse ? setEditingWarehouse(false) : startEditWarehouse())}>
+                  {editingWarehouse ? "Bearbeiten abbrechen" : "Lager bearbeiten"}
+                </button>
+              )}
+              {canDeleteWarehouse && (
+                <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
+                  Lager löschen
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -2325,7 +2431,7 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
           </div>
         )}
 
-        {canEdit && (
+        {canCreateSlot && (
           <>
             <div className="row" style={{ maxWidth: 420 }}>
               <input type="text" placeholder="Neuer Lagerplatz (z. B. A-01)" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSlotCode.trim()) { onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); } }} />
@@ -2357,10 +2463,6 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
           </>
         )}
 
-        {!canEdit && (
-          <div className="small">Lagerplätze anlegen/löschen ist nur für Admin und Superadmin freigeschaltet – Reifen zuordnen geht wie gewohnt per Klick auf einen Platz.</div>
-        )}
-
         {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
 
         <div className="card-grid">
@@ -2368,7 +2470,14 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
             const assignment = currentAssignment(slot.id);
             const cust = assignment ? customers.find((c) => c.id === assignment.customer_id) : null;
             return (
-              <button key={slot.id} type="button" className="slot-card" onClick={() => setAssignSlot(slot)}>
+              <button
+                key={slot.id}
+                type="button"
+                className="slot-card"
+                onClick={() => { if (canAssignTire) setAssignSlot(slot); }}
+                style={canAssignTire ? undefined : { cursor: "default" }}
+                title={canAssignTire ? undefined : "Deine Rolle darf keine Reifen zuordnen."}
+              >
                 <div className="sc-code"><span className={`dot ${assignment ? "green" : "gray"}`}></span>{slot.code}</div>
                 {assignment && cust ? (
                   <>
@@ -2381,7 +2490,7 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
                 ) : (
                   <div className="sc-meta">Frei</div>
                 )}
-                {canEdit && (
+                {canDeleteSlot && (
                   <button
                     type="button"
                     className="btn-secondary sc-del"
