@@ -988,8 +988,8 @@ export default function HomePage() {
                           <td>{order.title}{order.description ? ` – ${order.description}` : ""}{emp ? <><br /><span className="small">👤 {emp.name}</span></> : ""}</td>
                           <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                             {cust.address.trim() && (
-                              <button className="call-icon-btn small nav-icon-btn" title="Navigation" onClick={(e) => openNavMenu(e, cust)}>
-                                <IconNav />
+                              <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => openNavMenu(e, cust)}>
+                                🧭
                               </button>
                             )}
                             {getPhoneNumbers(cust).length > 0 && (
@@ -1336,16 +1336,6 @@ function IconInaktiv() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
       <circle cx="12" cy="12" r="8" />
       <path d="M8 8l8 8" />
-    </svg>
-  );
-}
-function IconNav() {
-  // Klassischer "Navigations-Pfeil" (wie bei Google/Apple Maps): eine gefüllte Kompassnadel statt
-  // eines dünnen Umrisses, damit sie auch in der kleinen 24px-Schaltfläche klar als "Navigation
-  // starten" erkennbar ist und nicht wie ein einfacher dunkler Kreis wirkt.
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
-      <path d="M12 2 L4.5 20.3 L5.2 21 L12 18 L18.8 21 L19.5 20.3 Z" />
     </svg>
   );
 }
@@ -2734,8 +2724,8 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
                       </td>
                       <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                         {cust && cust.address.trim() && (
-                          <button className="call-icon-btn small nav-icon-btn" title="Navigation" onClick={(e) => onNavigate(e, cust)}>
-                            <IconNav />
+                          <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => onNavigate(e, cust)}>
+                            🧭
                           </button>
                         )}
                         <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>
