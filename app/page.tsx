@@ -21,8 +21,14 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [myRole, setMyRole] = useState<Role>("user");
   const [userEmail, setUserEmail] = useState("");
   const [tab, setTab] = useState<TabKey>("dashboard");
+  // Vollseiten-Module: hier ergibt die Karte keinen Sinn, der Inhalt bekommt die volle Breite.
+  // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
+  // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
+  // darauf verlassen kann (Hooks dürfen nicht erst nach einem bedingten Return kommen).
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege";
 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -31,6 +37,10 @@ export default function HomePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  // Modul-Berechtigungen: pro Modul (aktuell nur "lager") hinterlegt, welche Rollen dort
+  // strukturelle Änderungen vornehmen dürfen (Migration 09). Superadmin darf immer alles,
+  // unabhängig vom Inhalt dieser Tabelle (Sicherheitsnetz falls eine Zeile fehlt).
+  const [modulePermissions, setModulePermissions] = useState<Record<string, string[]>>({});
   const [settings, setSettings] = useState<UserSettings>({
     user_id: "", period_months: 3, map_style: "strasse", row_display: "datum",
   });
@@ -49,6 +59,7 @@ export default function HomePage() {
   const [callMenuPos, setCallMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
   const mapDivRef = useRef<HTMLDivElement | null>(null);
+  const sidebarRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<any>(null);
   const markerLayerRef = useRef<any>(null);
   const markerIndexRef = useRef<Record<string, any>>({});
@@ -71,6 +82,7 @@ export default function HomePage() {
       const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
       setIsAdmin(profile?.role === "admin" || profile?.role === "superadmin");
       setIsSuperAdmin(profile?.role === "superadmin");
+      if (profile?.role) setMyRole(profile.role as Role);
 
       let { data: settingsRow } = await supabase.from("user_settings").select("*").eq("user_id", user.id).maybeSingle();
       if (!settingsRow) {
@@ -90,6 +102,7 @@ export default function HomePage() {
       await refreshOrders();
       await refreshEmployees();
       await refreshVehicles();
+      await refreshModulePermissions();
       setLoading(false);
     })();
   }, []);
@@ -121,6 +134,25 @@ export default function HomePage() {
   async function refreshVehicles() {
     const { data } = await supabase.from("vehicles").select("*").order("created_at");
     if (data) setVehicles(data as Vehicle[]);
+  }
+  async function refreshModulePermissions() {
+    const { data } = await supabase.from("module_permissions").select("*");
+    if (data) {
+      const map: Record<string, string[]> = {};
+      (data as { module_key: string; edit_roles: string[] }[]).forEach((r) => { map[r.module_key] = r.edit_roles || []; });
+      setModulePermissions(map);
+    }
+  }
+  async function updateModulePermissions(moduleKey: string, roles: string[]) {
+    await supabase.from("module_permissions").upsert({ module_key: moduleKey, edit_roles: roles });
+    await refreshModulePermissions();
+  }
+  // Superadmin darf immer alles – auch wenn für ein Modul (noch) keine Zeile in
+  // `module_permissions` existiert. Für alle anderen Rollen zählt, ob sie in den
+  // hinterlegten `edit_roles` des jeweiligen Moduls stehen.
+  function canEditModule(moduleKey: string): boolean {
+    if (isSuperAdmin) return true;
+    return (modulePermissions[moduleKey] || []).includes(myRole);
   }
   async function loadHistory(customerId: string) {
     const { data } = await supabase
@@ -193,6 +225,26 @@ export default function HomePage() {
     mq.addEventListener("change", forceReflow);
     return () => mq.removeEventListener("change", forceReflow);
   }, []);
+
+  // Der eigentliche Auslöser für das "abgeschnittene" Seitenleisten-Problem: Beim Wechsel
+  // zwischen einem Vollseiten-Modul (Karte per display:none ausgeblendet, Seitenleiste 100%
+  // breit) und einem normalen Tab (Karte wieder da, Seitenleiste 380px) schafft es der Browser
+  // (v. a. Chromium/Edge) manchmal nicht, den Kindinhalt der Seitenleiste sauber auf die neue
+  // Breite neu umzubrechen – der Text wird dann so abgeschnitten, als hätte die Leiste noch die
+  // alte (breitere) Größe. Ein erzwungener Reflow genau bei jedem Wechsel behebt das, statt
+  // dass man dafür die Seite neu laden muss.
+  useEffect(() => {
+    const sidebarEl = sidebarRef.current;
+    const mapEl = mapDivRef.current;
+    [sidebarEl, mapEl].forEach((el) => {
+      if (!el) return;
+      const prevDisplay = el.style.display;
+      el.style.display = "none";
+      void el.offsetHeight; // erzwingt den Reflow
+      el.style.display = prevDisplay;
+    });
+    setTimeout(() => mapRef.current?.invalidateSize(), 30);
+  }, [fullPageTabs]);
 
   function applyMapStyle(styleKey: MapStyleKey) {
     const L = (window as any).L;
@@ -677,8 +729,6 @@ export default function HomePage() {
   const upcomingApptCount = apptRows.filter((r) => !r.past).length;
   const occupiedSlots = storageSlots.filter((s) => tireStorages.some((t) => t.storage_slot_id === s.id && !t.removed_at)).length;
   const openOrders = orders.filter((o) => o.status !== "erledigt").length;
-  // Vollseiten-Module: hier ergibt die Karte keinen Sinn, der Inhalt bekommt die volle Breite.
-  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege";
   // Hauptnavigation: Dashboard/Kunden/Aufträge sind immer sichtbar. Alles andere ist auf dem
   // Desktop Teil der breiten Seitenleiste (wie in einem ERP-System), auf dem Handy dagegen
   // hinter "Weitere" versteckt, damit die schmale Leiste dort nicht überladen wirkt.
@@ -715,7 +765,7 @@ export default function HomePage() {
         <NavItem className="nav-more-btn" active={isMoreActive} onClick={() => setTab("more")} icon={<IconMore />} label="Weitere" />
       </nav>
 
-      <div id="sidebar" className={(fullPageTabs ? "full-page " : "") + (mobileMapVisible ? "mobile-hidden" : "")}>
+      <div id="sidebar" ref={sidebarRef} className={(fullPageTabs ? "full-page " : "") + (mobileMapVisible ? "mobile-hidden" : "")}>
         <header>
           <div className="app-brand">
             <div className="app-brand-badge">
@@ -836,7 +886,7 @@ export default function HomePage() {
               <input type="checkbox" checked={onlyUpcoming} onChange={(e) => setOnlyUpcoming(e.target.checked)} />
               <label>Nur anstehende Termine zeigen</label>
             </div>
-            <div style={{ overflowY: "auto", flex: 1 }}>
+            <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
               {apptRows.length === 0 ? (
                 <div className="empty">Keine Termine gefunden.</div>
               ) : (
@@ -899,6 +949,7 @@ export default function HomePage() {
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
             onRemoveAssignment={removeTireAssignment}
+            canEdit={canEditModule("lager")}
           />
         )}
 
@@ -1013,6 +1064,8 @@ export default function HomePage() {
             employees={employees}
             onAddEmployee={addEmployee}
             onDeleteEmployee={deleteEmployee}
+            modulePermissions={modulePermissions}
+            onUpdateModulePermissions={updateModulePermissions}
           />
         )}
       </div>
@@ -1352,10 +1405,19 @@ const ROLE_LABEL: Record<Role, string> = {
   user: "Nutzer",
 };
 
-function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee }: {
+// Module, für die es (bisher) eine Berechtigungssteuerung gibt – "Superadmin" ist immer
+// implizit erlaubt und wird deshalb hier nicht als abwählbare Rolle geführt.
+const PERMISSION_MODULES: { key: string; label: string }[] = [
+  { key: "lager", label: "Lager (anlegen/löschen, Lagerplätze anlegen/löschen)" },
+];
+const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
+
+function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, modulePermissions, onUpdateModulePermissions }: {
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
   onAddEmployee: (name: string) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
+  modulePermissions: Record<string, string[]>;
+  onUpdateModulePermissions: (moduleKey: string, roles: string[]) => Promise<void>;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [ownUserId, setOwnUserId] = useState<string | null>(null);
@@ -1537,7 +1599,67 @@ function AdminPanel({ isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteE
             ))}
           </div>
         )}
+
+        {isSuperAdmin && (
+          <>
+            <hr />
+            <h4 style={{ margin: 0 }}>Modul-Berechtigungen</h4>
+            <div className="small" style={{ marginBottom: 4 }}>
+              Wer darf in welchem Modul strukturelle Änderungen vornehmen (z. B. Lager anlegen/
+              löschen, Lagerplätze anlegen/löschen)? Superadmin darf hier immer alles, unabhängig
+              von dieser Auswahl. Nur für den Superadmin sichtbar/änderbar.
+            </div>
+            {PERMISSION_MODULES.map((mod) => (
+              <ModulePermissionRow
+                key={mod.key}
+                moduleKey={mod.key}
+                label={mod.label}
+                currentRoles={modulePermissions[mod.key] || []}
+                onSave={onUpdateModulePermissions}
+              />
+            ))}
+          </>
+        )}
       </div>
+    </div>
+  );
+}
+
+function ModulePermissionRow({ moduleKey, label, currentRoles, onSave }: {
+  moduleKey: string; label: string; currentRoles: string[];
+  onSave: (moduleKey: string, roles: string[]) => Promise<void>;
+}) {
+  const [roles, setRoles] = useState<string[]>(currentRoles);
+  const [saving, setSaving] = useState(false);
+  const dirty = JSON.stringify(roles.slice().sort()) !== JSON.stringify(currentRoles.slice().sort());
+
+  function toggle(role: Role) {
+    setRoles((prev) => prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]);
+  }
+
+  return (
+    <div className="wh-card" style={{ cursor: "default", maxWidth: 480 }}>
+      <div style={{ fontWeight: 700, fontSize: 13 }}>{label}</div>
+      <div className="filterbar">
+        {PERMISSION_ROLES.map((role) => (
+          <button
+            key={role}
+            type="button"
+            className={`chip ${roles.includes(role) ? "active" : ""}`}
+            onClick={() => toggle(role)}
+          >
+            {ROLE_LABEL[role]}
+          </button>
+        ))}
+      </div>
+      <button
+        className="btn-primary"
+        style={{ alignSelf: "flex-start" }}
+        disabled={!dirty || saving}
+        onClick={async () => { setSaving(true); await onSave(moduleKey, roles); setSaving(false); }}
+      >
+        {saving ? "Speichert…" : "Speichern"}
+      </button>
     </div>
   );
 }
@@ -1987,7 +2109,7 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment }: {
+function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canEdit }: {
   customers: Customer[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
   onAddWarehouse: (fields: { name: string; address: string; note: string }) => Promise<string | undefined>;
   onUpdateWarehouse: (id: string, fields: { name: string; address: string; note: string }) => Promise<void>;
@@ -1997,6 +2119,10 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
   onDeleteSlot: (id: string) => Promise<void>;
   onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) => Promise<void>;
   onRemoveAssignment: (id: string) => Promise<void>;
+  // Ob die aktuelle Rolle Lager/Lagerplätze anlegen, bearbeiten oder löschen darf
+  // (Modul-Berechtigungen, von einem Superadmin im Admin-Tab konfigurierbar). Reifen
+  // zuordnen/entfernen bleibt davon unabhängig für alle erlaubt, die das Modul sehen.
+  canEdit: boolean;
 }) {
   // Zwei Ebenen wie ein eigenständiges Modul: erst die Übersicht aller Lager
   // (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze.
@@ -2102,10 +2228,10 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
                 </button>
               );
             })}
-            {!showAddWarehouse && (
+            {canEdit && !showAddWarehouse && (
               <button type="button" className="add-card" onClick={() => setShowAddWarehouse(true)}>+ Neues Lager</button>
             )}
-            {showAddWarehouse && (
+            {canEdit && showAddWarehouse && (
               <div className="wh-card" style={{ cursor: "default" }}>
                 <div className="field" style={{ marginBottom: 4 }}>
                   <label>Name</label>
@@ -2142,7 +2268,14 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
           </div>
 
           {warehouses.length === 0 && !showAddWarehouse && (
-            <div className="empty">Noch kein Lager angelegt. Leg dein erstes Lager an, um Lagerplätze zu verwalten.</div>
+            <div className="empty">
+              {canEdit
+                ? "Noch kein Lager angelegt. Leg dein erstes Lager an, um Lagerplätze zu verwalten."
+                : "Noch kein Lager angelegt. Nur Admin/Superadmin dürfen Lager anlegen."}
+            </div>
+          )}
+          {!canEdit && warehouses.length > 0 && (
+            <div className="small">Lager anlegen/löschen und Lagerplätze anlegen/löschen ist nur für Admin und Superadmin freigeschaltet.</div>
           )}
         </div>
       </div>
@@ -2153,10 +2286,22 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
   return (
     <div className="tabpanel active">
       <div className="module-page">
-        <div className="breadcrumb">
-          <button onClick={() => setSelectedWarehouseId(null)}>Lager</button>
-          <span className="sep">›</span>
-          <span className="current">{selectedWarehouse.name}</span>
+        <div className="breadcrumb" style={{ justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => setSelectedWarehouseId(null)}>Lager</button>
+            <span className="sep">›</span>
+            <span className="current">{selectedWarehouse.name}</span>
+          </div>
+          {canEdit && (
+            <div className="row" style={{ flex: "0 0 auto" }}>
+              <button className="btn-secondary" onClick={() => (editingWarehouse ? setEditingWarehouse(false) : startEditWarehouse())}>
+                {editingWarehouse ? "Bearbeiten abbrechen" : "Lager bearbeiten"}
+              </button>
+              <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
+                Lager löschen
+              </button>
+            </div>
+          )}
         </div>
 
         {editingWarehouse ? (
@@ -2177,39 +2322,43 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
               <p>{slotsInWarehouse.length} Lagerplätze{selectedWarehouse.address ? ` · 📍 ${selectedWarehouse.address}` : ""}</p>
               {selectedWarehouse.note && <p>{selectedWarehouse.note}</p>}
             </div>
-            <button className="btn-secondary" onClick={startEditWarehouse}>Lager bearbeiten</button>
-            <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
-              Lager löschen
-            </button>
           </div>
         )}
 
-        <div className="row" style={{ maxWidth: 420 }}>
-          <input type="text" placeholder="Neuer Lagerplatz (z. B. A-01)" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSlotCode.trim()) { onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); } }} />
-          <button
-            className="btn-primary"
-            style={{ flex: "0 0 auto" }}
-            onClick={async () => { if (!newSlotCode.trim()) return; await onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); }}
-          >
-            + Platz
-          </button>
-        </div>
-
-        {!showAddMoreSlots ? (
-          <button type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setShowAddMoreSlots(true)}>+ Mehrere Lagerplätze nach Nummerierung anlegen</button>
-        ) : (
-          <div className="wh-card" style={{ cursor: "default", maxWidth: 420 }}>
-            <SlotNumberingFields
-              prefix={morePrefix} setPrefix={setMorePrefix}
-              start={moreStart} setStart={setMoreStart}
-              end={moreEnd} setEnd={setMoreEnd}
-              digits={moreDigits} setDigits={setMoreDigits}
-            />
-            <div className="row">
-              <button className="btn-primary" style={{ flex: 1 }} onClick={addMoreSlots}>Anlegen</button>
-              <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setShowAddMoreSlots(false)}>Abbrechen</button>
+        {canEdit && (
+          <>
+            <div className="row" style={{ maxWidth: 420 }}>
+              <input type="text" placeholder="Neuer Lagerplatz (z. B. A-01)" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSlotCode.trim()) { onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); } }} />
+              <button
+                className="btn-primary"
+                style={{ flex: "0 0 auto" }}
+                onClick={async () => { if (!newSlotCode.trim()) return; await onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); }}
+              >
+                + Platz
+              </button>
             </div>
-          </div>
+
+            {!showAddMoreSlots ? (
+              <button type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setShowAddMoreSlots(true)}>+ Mehrere Lagerplätze nach Nummerierung anlegen</button>
+            ) : (
+              <div className="wh-card" style={{ cursor: "default", maxWidth: 420 }}>
+                <SlotNumberingFields
+                  prefix={morePrefix} setPrefix={setMorePrefix}
+                  start={moreStart} setStart={setMoreStart}
+                  end={moreEnd} setEnd={setMoreEnd}
+                  digits={moreDigits} setDigits={setMoreDigits}
+                />
+                <div className="row">
+                  <button className="btn-primary" style={{ flex: 1 }} onClick={addMoreSlots}>Anlegen</button>
+                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setShowAddMoreSlots(false)}>Abbrechen</button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {!canEdit && (
+          <div className="small">Lagerplätze anlegen/löschen ist nur für Admin und Superadmin freigeschaltet – Reifen zuordnen geht wie gewohnt per Klick auf einen Platz.</div>
         )}
 
         {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
@@ -2232,13 +2381,15 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWa
                 ) : (
                   <div className="sc-meta">Frei</div>
                 )}
-                <button
-                  type="button"
-                  className="btn-secondary sc-del"
-                  onClick={(e) => { e.stopPropagation(); if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?`)) onDeleteSlot(slot.id); }}
-                >
-                  <IconTrash />
-                </button>
+                {canEdit && (
+                  <button
+                    type="button"
+                    className="btn-secondary sc-del"
+                    onClick={(e) => { e.stopPropagation(); if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?`)) onDeleteSlot(slot.id); }}
+                  >
+                    <IconTrash />
+                  </button>
+                )}
               </button>
             );
           })}
@@ -2380,7 +2531,7 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
         </div>
         <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
 
-        <div style={{ overflowY: "auto", flex: 1 }}>
+        <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
           {filteredOrders.length === 0 ? (
             <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
           ) : (
