@@ -529,7 +529,7 @@ export default function HomePage() {
           return;
         }
         const rect = (btn as HTMLElement).getBoundingClientRect();
-        setCallMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 190) });
+        setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
         setCallMenuFor(cust);
       };
     });
@@ -801,12 +801,23 @@ export default function HomePage() {
     if (next) setTimeout(() => mapRef.current?.invalidateSize(), 200);
   }
 
+  // Popover-Menüs (Anrufen, Navigation, Mitarbeiter-Zuordnung) dürfen nie unten aus dem
+  // sichtbaren Fenster herauslaufen, sonst sind die unteren Einträge weder sichtbar noch
+  // anklickbar (genau das wurde beim Mitarbeiter-Menü nahe am unteren Bildschirmrand gemeldet).
+  // `estHeight` ist eine grobe Schätzung der Menühöhe – reicht sie nicht, öffnet sich das Menü
+  // stattdessen nach oben statt nach unten.
+  function clampMenuTop(buttonRect: DOMRect, estHeight: number): number {
+    const margin = 8;
+    if (buttonRect.bottom + 4 + estHeight <= window.innerHeight - margin) return buttonRect.bottom + 4;
+    return Math.max(margin, buttonRect.top - 4 - estHeight);
+  }
+
   // Navigations-Button in Auftrags-/Termin-Zeilen: fragt per kleinem Menü (wie beim
   // Anrufen-Icon), ob mit Google Maps oder Apple Karten navigiert werden soll.
   function openNavMenu(e: React.MouseEvent, cust: Customer) {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setNavMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 190) });
+    setNavMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
     setNavMenuFor(cust);
   }
 
@@ -814,7 +825,8 @@ export default function HomePage() {
   function openEmpMenu(e: React.MouseEvent, orderId: string) {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setEmpMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 210) });
+    const estHeight = 40 + Math.max(1, employees.length) * 34;
+    setEmpMenuPos({ top: clampMenuTop(rect, estHeight), left: Math.min(rect.left, window.innerWidth - 210) });
     setEmpMenuFor({ orderId, ids: orderEmployees[orderId] || [] });
   }
   async function toggleEmpMenuEmployee(employeeId: string) {
@@ -1037,7 +1049,7 @@ export default function HomePage() {
                                 className="call-icon-btn small"
                                 onClick={(e) => {
                                   const rect = (e.target as HTMLElement).getBoundingClientRect();
-                                  setCallMenuPos({ top: rect.bottom + 4, left: Math.min(rect.left, window.innerWidth - 190) });
+                                  setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
                                   setCallMenuFor(cust);
                                 }}
                               >📞</button>
