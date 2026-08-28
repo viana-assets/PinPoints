@@ -1,18 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Article, ArticlePrice, Employee, Profile, Role } from "@/lib/types";
+import type { Employee, Profile, Role } from "@/lib/types";
 import { createClient } from "@/lib/supabaseClient";
 import { ROLE_LABEL } from "@/lib/constants";
 import { IconAdmin, IconTrash } from "@/components/icons";
 import { PermissionMatrix } from "./PermissionMatrix";
-import { ArticleAdminPanel } from "./artikel/ArticleAdminPanel";
 
 // Admin-Modul: Nutzerverwaltung – als eigener Tab statt separater Seite, damit man wie bei
 // Termine einfach das Fenster wechselt statt zu navigieren. Bündelt zusätzlich die
-// Modulverwaltung (PermissionMatrix) und den Artikelstamm (ArticleAdminPanel) als Unter-Tabs.
+// Modulverwaltung (PermissionMatrix) als Unter-Tab. Die Artikel-Übersicht war früher hier als
+// dritter Unter-Tab eingebunden, ist aber seit Phase 4 eine eigene Kachel in der
+// Hauptnavigation (siehe components/admin/artikel/ArticleAdminPanel.tsx, app/page.tsx).
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
 export function AdminPanel({
   isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, onUpdateEmployeeProfileId, modulePermissions, onUpdateModulePermissions,
-  articles, articlePrices, onAddArticle, onUpdateArticle, onAddArticlePrice,
 }: {
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
   onAddEmployee: (name: string) => Promise<void>;
@@ -20,11 +20,6 @@ export function AdminPanel({
   onUpdateEmployeeProfileId: (employeeId: string, profileId: string | null) => Promise<void>;
   modulePermissions: Record<string, string[]>;
   onUpdateModulePermissions: (moduleKey: string, roles: string[]) => Promise<void>;
-  articles: Article[];
-  articlePrices: ArticlePrice[];
-  onAddArticle: (shortName: string, longName: string) => Promise<void>;
-  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean }) => Promise<void>;
-  onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [ownUserId, setOwnUserId] = useState<string | null>(null);
@@ -36,7 +31,7 @@ export function AdminPanel({
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [adminTab, setAdminTab] = useState<"users" | "modules" | "artikel">("users");
+  const [adminTab, setAdminTab] = useState<"users" | "modules">("users");
 
   useEffect(() => {
     (async () => {
@@ -118,19 +113,10 @@ export function AdminPanel({
           {isSuperAdmin && (
             <button type="button" className={`chip ${adminTab === "modules" ? "active" : ""}`} onClick={() => setAdminTab("modules")}>Modulverwaltung</button>
           )}
-          <button type="button" className={`chip ${adminTab === "artikel" ? "active" : ""}`} onClick={() => setAdminTab("artikel")}>Artikelstamm</button>
         </div>
 
         {adminTab === "modules" && isSuperAdmin ? (
           <PermissionMatrix modulePermissions={modulePermissions} onUpdateModulePermissions={onUpdateModulePermissions} />
-        ) : adminTab === "artikel" ? (
-          <ArticleAdminPanel
-            articles={articles}
-            articlePrices={articlePrices}
-            onAddArticle={onAddArticle}
-            onUpdateArticle={onUpdateArticle}
-            onAddArticlePrice={onAddArticlePrice}
-          />
         ) : (
         <>
         {status && (

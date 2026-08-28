@@ -115,6 +115,11 @@ export type Vehicle = {
 // ArticlePrice (siehe dort), damit nachvollziehbar bleibt, welcher Preis wann galt.
 export type Article = {
   id: string;
+  // Fortlaufende, für Menschen lesbare Artikelnummer (Migration 14) – von der Datenbank
+  // automatisch vergeben (Sequenz `article_number_seq`), nicht editierbar. Getrennt von `id`
+  // (UUID, technischer Primärschlüssel), weil eine UUID als "Artikelnummer" im Alltag
+  // unpraktisch wäre.
+  article_number: number;
   short_name: string;
   long_name: string;
   active: boolean;

@@ -16,7 +16,7 @@ import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } fr
 import { ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
-  IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash,
+  IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -24,6 +24,7 @@ import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
 import { AddCustomerForm } from "@/components/kunden/AddCustomerForm";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
+import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
 import { ArticleAssignPanel } from "@/components/auftraege/ArticleAssignPanel";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
@@ -54,7 +55,7 @@ import {
 import { fetchModulePermissions, upsertModulePermissions } from "@/lib/api/permissions";
 import { fetchOwnRole, fetchOrCreateUserSettings, updateUserSettings } from "@/lib/api/session";
 
-type TabKey = "dashboard" | "list" | "termine" | "lager" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "more";
+type TabKey = "dashboard" | "list" | "termine" | "lager" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "more";
 
 export default function HomePage() {
   const router = useRouter();
@@ -70,7 +71,7 @@ export default function HomePage() {
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
   // darauf verlassen kann (Hooks dürfen nicht erst nach einem bedingten Return kommen).
-  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege";
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel";
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), die
   // Oberfläche blendet zusätzlich Anlegen/Löschen/Mitarbeiter- und Leistungen-Zuordnung aus –
   // siehe AuftraegePanel/EinsatzplanungPanel.
@@ -824,7 +825,7 @@ export default function HomePage() {
   // Hauptnavigation: Dashboard/Kunden/Aufträge sind immer sichtbar. Alles andere ist auf dem
   // Desktop Teil der breiten Seitenleiste (wie in einem ERP-System), auf dem Handy dagegen
   // hinter "Weitere" versteckt, damit die schmale Leiste dort nicht überladen wirkt.
-  const SECONDARY_TABS: TabKey[] = ["termine", "lager", "einsatzplanung", "add", "inactive", "admin", "settings"];
+  const SECONDARY_TABS: TabKey[] = ["termine", "lager", "einsatzplanung", "add", "inactive", "artikel", "admin", "settings"];
   const isMoreActive = SECONDARY_TABS.includes(tab);
 
   return (
@@ -847,6 +848,7 @@ export default function HomePage() {
         {canView("einsatzplanung") && <NavItem className="nav-secondary" active={tab === "einsatzplanung"} onClick={() => setTab("einsatzplanung")} icon={<IconEinsatzplanung />} label="Einsatzplanung" />}
         {canView("neuer_kunde") && <NavItem className="nav-secondary" active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neuer Kunde" />}
         {canView("inaktive_kunden") && <NavItem className="nav-secondary" active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktive Kunden" />}
+        {canView("artikel") && <NavItem className="nav-secondary" active={tab === "artikel"} onClick={() => setTab("artikel")} icon={<IconArtikel />} label="Artikel" />}
 
         <div className="nav-spacer nav-secondary" />
         {isAdmin && (
@@ -1219,6 +1221,11 @@ export default function HomePage() {
             onUpdateEmployeeProfileId={updateEmployeeProfile}
             modulePermissions={modulePermissions}
             onUpdateModulePermissions={updateModulePermissions}
+          />
+        )}
+
+        {tab === "artikel" && canView("artikel") && (
+          <ArticleAdminPanel
             articles={articles}
             articlePrices={articlePrices}
             onAddArticle={addArticle}

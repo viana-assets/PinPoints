@@ -52,6 +52,7 @@ export const PERMISSION_CATALOG: PermItem[] = [
   { key: "view.einsatzplanung", label: "Einsatzplanung" },
   { key: "view.neuer_kunde", label: "Neuer Kunde" },
   { key: "view.inaktive_kunden", label: "Inaktive Kunden" },
+  { key: "view.artikel", label: "Artikel" },
   { key: "view.einstellungen", label: "Einstellungen" },
 ];
 
@@ -79,6 +80,10 @@ export const PERMISSION_DEFAULTS: Record<string, string[]> = {
   "view.einsatzplanung": ["admin", "techniker", "user"],
   "view.neuer_kunde": ["admin", "user"],
   "view.inaktive_kunden": ["admin", "user"],
+  // "Artikel" (vorher "Artikelstamm" im Admin-Bereich, siehe docs/roadmap.md Phase 4) ist eine
+  // eigene Kachel wie "Kunden"/"Neuer Kunde" – Pflegen bleibt laut RLS ohnehin nur
+  // Admin/Superadmin vorbehalten (Migration 12), hier geht es nur um das Sehen der Übersicht.
+  "view.artikel": ["admin", "user"],
   "view.einstellungen": ["admin", "techniker", "user"],
 };
 

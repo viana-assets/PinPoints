@@ -8,7 +8,7 @@ import { currentArticlePrice, DEFAULT_VAT_RATE } from "@/lib/helpers";
 // docs/roadmap.md Phase 3.
 
 export async function fetchArticles(supabase: SupabaseClient): Promise<Article[]> {
-  const { data } = await supabase.from("articles").select("*").order("short_name");
+  const { data } = await supabase.from("articles").select("*").order("article_number");
   return (data as Article[]) || [];
 }
 

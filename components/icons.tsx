@@ -119,6 +119,14 @@ export function IconEinsatzplanung() {
     </svg>
   );
 }
+export function IconArtikel() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M11 3H5a1 1 0 0 0-1 1v6l10 10 7-7L11 3Z" strokeLinejoin="round" />
+      <circle cx="7.5" cy="7.5" r="1.3" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 export function IconTrash() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7">
