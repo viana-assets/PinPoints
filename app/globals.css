@@ -72,7 +72,11 @@
   .swatch-satellit_labels{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
   .swatch-satellit_labels::after{content:"";position:absolute;left:4px;right:4px;bottom:4px;height:3px;
     background:rgba(255,255,255,.85);border-radius:2px;}
-  header{padding:16px;border-bottom:1px solid var(--border);}
+  /* Marke erscheint nur EINMAL gleichzeitig: auf Desktop/Tablet trägt .nav-brand in
+     #iconNav die Flagge, diese Kopfzeile bleibt dort unsichtbar; auf dem Handy wird
+     .nav-brand ausgeblendet (Bottom-Bar hat keinen Platz/keine Konvention dafür), dort
+     übernimmt diese Kopfzeile die Markenkennzeichnung (siehe Mobil-Media-Query unten). */
+  .app-brand-header{display:none;padding:16px;border-bottom:1px solid var(--border);}
   .app-brand{display:flex;align-items:center;gap:10px;}
   .app-brand-badge{width:34px;height:34px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;
     justify-content:center;background:linear-gradient(135deg, var(--accent), var(--navy));
@@ -286,6 +290,7 @@
       justify-content:space-around;padding:0;gap:0;order:3;border-top:1px solid var(--border);border-right:none;
       padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;overflow-y:visible;}
     .nav-brand, .nav-divider, .nav-spacer{display:none;}
+    .app-brand-header{display:block;}
     /* Mobil bewusst schlank: nur Dashboard/Kunden/Aufträge/Weitere sind direkt sichtbar,
        alles hinter "Weitere" (.nav-secondary) ist ausgeblendet, damit die Leiste nicht überladen wirkt. */
     .nav-secondary{display:none !important;}

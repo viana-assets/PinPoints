@@ -78,6 +78,10 @@ export type Order = {
   order_date: string;
   time: string | null; // HH:MM, optional
   assigned_employee_id: string | null;
+  // Freitext-Notiz, die ausschließlich von der zugeordneten Techniker-Rolle selbst gepflegt
+  // wird (z. B. "Rad hinten links nicht zugänglich") – getrennt von `description`, das der
+  // Admin/Büro-seitige Auftragstext bleibt. Siehe Migration 13 + docs/roadmap.md Phase 4.
+  techniker_notiz: string | null;
   created_at: string;
   updated_at: string;
 };

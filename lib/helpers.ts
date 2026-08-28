@@ -92,6 +92,11 @@ export function navigationUrls(cust: Customer): { google: string; apple: string 
 }
 
 // ---------------------------------------------------------------- Artikelstammdaten
+// Standard-MwSt.-Satz (Deutschland), Vorbelegung im Preis-Formular und Fallback, wenn einem
+// Artikel noch kein Preis hinterlegt ist – zentral hier statt an zwei Stellen in
+// app/page.tsx als literale Zahl (siehe docs/konstanten-register.md).
+export const DEFAULT_VAT_RATE = 19;
+
 export function formatEUR(amount: number): string {
   return amount.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }
@@ -120,11 +125,18 @@ export function orderArticleTotals(rows: OrderArticle[]): { net: number; vat: nu
   return { net, vat, gross: net + vat };
 }
 
+// Region, die an eine Adresse ohne erkennbaren Stadtnamen angehängt wird, damit die
+// kostenlose Nominatim/OpenStreetMap-Geokodierung eindeutige Treffer liefert – zentral hier
+// benannt statt als literaler String in der Funktion (siehe docs/konstanten-register.md).
+// Wächst das Geschäft über die Region hinaus, hier anpassen (perspektivisch: Einstellung
+// statt Code-Konstante, siehe docs/roadmap.md).
+export const DEFAULT_GEOCODE_REGION = "Nürnberg, Deutschland";
+
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
   const q =
     address.toLowerCase().includes("nürnberg") || address.toLowerCase().includes("nuernberg")
       ? address
-      : address + ", Nürnberg, Deutschland";
+      : address + ", " + DEFAULT_GEOCODE_REGION;
   const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(q);
   const resp = await fetch(url, { headers: { "Accept-Language": "de" } });
   if (!resp.ok) throw new Error("Geocoding fehlgeschlagen");

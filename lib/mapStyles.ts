@@ -3,6 +3,12 @@
 // ohne Key erscheint nur noch ein "API KEY REQUIRED"-Wasserzeichen.
 export type MapStyleKey = "strasse" | "satellit" | "satellit_labels";
 
+// Kartenmittelpunkt/Zoom beim ersten Laden (Nürnberg-Region) – zentral hier benannt statt
+// als literale Zahlen im Karten-Init-Effekt in app/page.tsx (siehe
+// docs/konstanten-register.md). Wächst das Geschäft über die Region hinaus, hier anpassen.
+export const DEFAULT_MAP_CENTER: [number, number] = [49.4521, 11.0767];
+export const DEFAULT_MAP_ZOOM = 12;
+
 export const MAP_STYLES: Record<
   MapStyleKey,
   { label: string; baseUrl: string; baseAttr: string; overlayUrl?: string; overlayAttr?: string }
