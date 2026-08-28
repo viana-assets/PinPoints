@@ -12,7 +12,7 @@ import {
 } from "@/lib/helpers";
 import { MAP_STYLES, type MapStyleKey } from "@/lib/mapStyles";
 
-type TabKey = "dashboard" | "list" | "termine" | "module" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "more";
+type TabKey = "dashboard" | "list" | "termine" | "lager" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "more";
 
 export default function HomePage() {
   const router = useRouter();
@@ -31,7 +31,6 @@ export default function HomePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [moduleView, setModuleView] = useState<"overview" | "lager" | "einsatzplanung">("overview");
   const [settings, setSettings] = useState<UserSettings>({
     user_id: "", period_months: 3, map_style: "strasse", row_display: "datum",
   });
@@ -154,6 +153,19 @@ export default function HomePage() {
       applyMapStyle(settings.map_style as MapStyleKey);
       addMapStyleControl(L, map);
       window.addEventListener("resize", () => map.invalidateSize());
+      // Verteidigung gegen "abgeschnittene" Navigationsbar/Seitenleiste: Wenn der Tab aus dem
+      // Hintergrund zurückkommt (Tab-Wechsel, Standby) oder die Seite aus dem Zurück/Vorwärts-
+      // Cache des Browsers wiederhergestellt wird (bfcache), kann die zuvor gerenderte Ansicht
+      // veraltet/verschoben wirken, bis man neu lädt. Statt darauf zu warten, erzwingen wir dann
+      // aktiv ein Neuberechnen der Kartengröße und setzen einen eventuell versehentlichen
+      // horizontalen Scroll zurück.
+      function relayout() {
+        window.scrollTo(0, 0);
+        setTimeout(() => map.invalidateSize(), 60);
+      }
+      document.addEventListener("visibilitychange", () => { if (!document.hidden) relayout(); });
+      window.addEventListener("pageshow", (e) => { if ((e as PageTransitionEvent).persisted) relayout(); });
+      window.addEventListener("focus", relayout);
       syncMarkers();
     }
     tryInit();
@@ -444,8 +456,17 @@ export default function HomePage() {
     return lat != null;
   }
   // ---------------------------------------------------------------- Lager-Modul
-  async function addWarehouse(name: string) {
-    await supabase.from("warehouses").insert({ name });
+  async function addWarehouse(fields: { name: string; address: string; note: string }): Promise<string | undefined> {
+    const { data: created } = await supabase
+      .from("warehouses")
+      .insert({ name: fields.name, address: fields.address || null, note: fields.note || null })
+      .select("id")
+      .single();
+    await refreshWarehouses();
+    return created?.id as string | undefined;
+  }
+  async function updateWarehouse(id: string, fields: { name: string; address: string; note: string }) {
+    await supabase.from("warehouses").update({ name: fields.name, address: fields.address || null, note: fields.note || null }).eq("id", id);
     await refreshWarehouses();
   }
   async function deleteWarehouse(id: string) {
@@ -456,6 +477,14 @@ export default function HomePage() {
   }
   async function addStorageSlot(warehouseId: string, code: string) {
     await supabase.from("storage_slots").insert({ warehouse_id: warehouseId, code });
+    await refreshStorageSlots();
+  }
+  // Bulk-Anlage von Lagerplätzen nach einer Nummerierungslogik (Präfix + Start/Ende + Stellen),
+  // z. B. Präfix "A", 1–20, 2-stellig → A-01 … A-20. Wird sowohl beim Anlegen eines neuen Lagers
+  // als auch später zum Nachrüsten weiterer Plätze verwendet.
+  async function addStorageSlotsBulk(warehouseId: string, codes: string[]) {
+    if (codes.length === 0) return;
+    await supabase.from("storage_slots").insert(codes.map((code) => ({ warehouse_id: warehouseId, code })));
     await refreshStorageSlots();
   }
   async function deleteStorageSlot(id: string) {
@@ -627,10 +656,11 @@ export default function HomePage() {
   const occupiedSlots = storageSlots.filter((s) => tireStorages.some((t) => t.storage_slot_id === s.id && !t.removed_at)).length;
   const openOrders = orders.filter((o) => o.status !== "erledigt").length;
   // Vollseiten-Module: hier ergibt die Karte keinen Sinn, der Inhalt bekommt die volle Breite.
-  const fullPageTabs = tab === "module" || tab === "admin" || tab === "auftraege";
-  // Hauptnavigation bewusst schlank (Dashboard/Kunden/Aufträge/Weitere) – alles Seltenere
-  // steckt hinter "Weitere", damit die Leiste auf dem Handy nicht überladen wirkt.
-  const SECONDARY_TABS: TabKey[] = ["termine", "module", "add", "inactive", "admin", "settings"];
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege";
+  // Hauptnavigation: Dashboard/Kunden/Aufträge sind immer sichtbar. Alles andere ist auf dem
+  // Desktop Teil der breiten Seitenleiste (wie in einem ERP-System), auf dem Handy dagegen
+  // hinter "Weitere" versteckt, damit die schmale Leiste dort nicht überladen wirkt.
+  const SECONDARY_TABS: TabKey[] = ["termine", "lager", "einsatzplanung", "add", "inactive", "admin", "settings"];
   const isMoreActive = SECONDARY_TABS.includes(tab);
 
   return (
@@ -646,7 +676,21 @@ export default function HomePage() {
         <NavItem active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={<IconDashboard />} label="Dashboard" />
         <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />
         <NavItem active={tab === "auftraege"} onClick={() => setTab("auftraege")} icon={<IconAuftraege />} label="Aufträge" />
-        <NavItem active={isMoreActive} onClick={() => setTab("more")} icon={<IconMore />} label="Weitere" className="settings-item" />
+
+        <div className="nav-divider nav-secondary" />
+        <NavItem className="nav-secondary" active={tab === "termine"} onClick={() => setTab("termine")} icon={<IconTermine />} label="Termine" />
+        <NavItem className="nav-secondary" active={tab === "lager"} onClick={() => setTab("lager")} icon={<IconLager />} label="Lager" />
+        <NavItem className="nav-secondary" active={tab === "einsatzplanung"} onClick={() => setTab("einsatzplanung")} icon={<IconEinsatzplanung />} label="Einsatzplanung" />
+        <NavItem className="nav-secondary" active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neuer Kunde" />
+        <NavItem className="nav-secondary" active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktive Kunden" />
+
+        <div className="nav-spacer nav-secondary" />
+        {isAdmin && (
+          <NavItem className="nav-secondary" active={tab === "admin"} onClick={() => setTab("admin")} icon={<IconAdmin />} label="Admin" />
+        )}
+        <NavItem className="nav-secondary" active={tab === "settings"} onClick={() => setTab("settings")} icon={<IconSettings />} label="Einstellungen" />
+
+        <NavItem className="nav-more-btn" active={isMoreActive} onClick={() => setTab("more")} icon={<IconMore />} label="Weitere" />
       </nav>
 
       <div id="sidebar" className={(fullPageTabs ? "full-page " : "") + (mobileMapVisible ? "mobile-hidden" : "")}>
@@ -681,7 +725,7 @@ export default function HomePage() {
                 </div>
                 <div className="mc-tag">{upcomingApptCount}</div>
               </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => { setTab("module"); setModuleView("lager"); }}>
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
                 <div className="mc-icon"><IconLager /></div>
                 <div className="mc-text">
                   <div className="mc-title">Belegte Lagerplätze</div>
@@ -812,64 +856,34 @@ export default function HomePage() {
             onUpdateStatus={updateOrderStatus}
             onDelete={deleteOrder}
             onAssignEmployee={assignOrderEmployee}
+            onOpenCustomer={openDetail}
           />
         )}
 
-        {tab === "module" && moduleView === "overview" && (
-          <div className="tabpanel active">
-            <div className="module-page">
-              <div className="module-header">
-                <div className="mh-icon"><IconModule /></div>
-                <div className="mh-text">
-                  <h2>Module</h2>
-                  <p>Eigene Arbeitsbereiche wie in einem eigenständigen Programm.</p>
-                </div>
-              </div>
-              <div className="module-cards" style={{ maxWidth: 560 }}>
-                <div className="module-card" onClick={() => setModuleView("lager")} style={{ cursor: "pointer" }}>
-                  <div className="mc-icon"><IconLager /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Lager</div>
-                    <div className="mc-sub">Lager &amp; Lagerplätze verwalten, Reifen mit DOT-Datum und Profiltiefe zuordnen</div>
-                  </div>
-                  <div className="mc-tag">{storageSlots.length} Plätze</div>
-                </div>
-                <div className="module-card" onClick={() => setModuleView("einsatzplanung")} style={{ cursor: "pointer" }}>
-                  <div className="mc-icon"><IconEinsatzplanung /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Einsatzplanung</div>
-                    <div className="mc-sub">Aufträge nach Tag und Mitarbeiter planen – wer macht was, wann</div>
-                  </div>
-                  <div className="mc-tag">{employees.length} Mitarbeiter</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {tab === "module" && moduleView === "lager" && (
+        {tab === "lager" && (
           <LagerPanel
             customers={customers}
             warehouses={warehouses}
             storageSlots={storageSlots}
             tireStorages={tireStorages}
-            onBack={() => setModuleView("overview")}
             onAddWarehouse={addWarehouse}
+            onUpdateWarehouse={updateWarehouse}
             onDeleteWarehouse={deleteWarehouse}
             onAddSlot={addStorageSlot}
+            onAddSlotsBulk={addStorageSlotsBulk}
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
             onRemoveAssignment={removeTireAssignment}
           />
         )}
 
-        {tab === "module" && moduleView === "einsatzplanung" && (
+        {tab === "einsatzplanung" && (
           <EinsatzplanungPanel
             customers={customers}
             orders={orders}
             employees={employees}
-            onBack={() => setModuleView("overview")}
             onAssignEmployee={assignOrderEmployee}
+            onOpenCustomer={openDetail}
           />
         )}
 
@@ -883,11 +897,18 @@ export default function HomePage() {
                   <div className="mc-sub">Chronologische Terminübersicht (Aufträge mit Uhrzeit)</div>
                 </div>
               </div>
-              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("module")}>
-                <div className="mc-icon"><IconModule /></div>
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
+                <div className="mc-icon"><IconLager /></div>
                 <div className="mc-text">
-                  <div className="mc-title">Module</div>
-                  <div className="mc-sub">Lager &amp; Einsatzplanung</div>
+                  <div className="mc-title">Lager</div>
+                  <div className="mc-sub">Lager &amp; Lagerplätze verwalten, Reifen zuordnen</div>
+                </div>
+              </div>
+              <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("einsatzplanung")}>
+                <div className="mc-icon"><IconEinsatzplanung /></div>
+                <div className="mc-text">
+                  <div className="mc-title">Einsatzplanung</div>
+                  <div className="mc-sub">Aufträge nach Tag und Mitarbeiter planen</div>
                 </div>
               </div>
               <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("add")}>
@@ -1905,12 +1926,49 @@ function CustomerPicker({ customers, value, onChange, placeholder }: {
 // =====================================================================
 // Lager-Modul
 // =====================================================================
-function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack, onAddWarehouse, onDeleteWarehouse, onAddSlot, onDeleteSlot, onAssignTire, onRemoveAssignment }: {
+// Erzeugt Lagerplatz-Codes aus einer einfachen Nummerierungslogik, z. B.
+// Präfix "A", 1–20, 2-stellig gepolstert → A-01 … A-20.
+function buildSlotCodes(prefix: string, start: number, end: number, digits: number): string[] {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) return [];
+  const codes: string[] = [];
+  for (let n = start; n <= end && codes.length < 500; n++) {
+    const num = String(n).padStart(Math.max(1, digits), "0");
+    codes.push(prefix.trim() ? `${prefix.trim()}-${num}` : num);
+  }
+  return codes;
+}
+
+function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, digits, setDigits }: {
+  prefix: string; setPrefix: (v: string) => void;
+  start: string; setStart: (v: string) => void;
+  end: string; setEnd: (v: string) => void;
+  digits: string; setDigits: (v: string) => void;
+}) {
+  const preview = buildSlotCodes(prefix, parseInt(start, 10), parseInt(end, 10), parseInt(digits, 10) || 2);
+  return (
+    <>
+      <div className="row" style={{ marginBottom: 4 }}>
+        <div className="field" style={{ marginBottom: 0 }}><label>Präfix (optional)</label><input type="text" placeholder="z. B. A" value={prefix} onChange={(e) => setPrefix(e.target.value)} /></div>
+        <div className="field" style={{ marginBottom: 0 }}><label>Von Nr.</label><input type="number" min={0} value={start} onChange={(e) => setStart(e.target.value)} /></div>
+        <div className="field" style={{ marginBottom: 0 }}><label>Bis Nr.</label><input type="number" min={0} value={end} onChange={(e) => setEnd(e.target.value)} /></div>
+        <div className="field" style={{ marginBottom: 0 }}><label>Stellen</label><input type="number" min={1} max={4} value={digits} onChange={(e) => setDigits(e.target.value)} /></div>
+      </div>
+      {preview.length > 0 && (
+        <div className="small" style={{ marginBottom: 6 }}>
+          {preview.length} Lagerplätze: {preview.slice(0, 4).join(", ")}{preview.length > 4 ? ` … ${preview[preview.length - 1]}` : ""}
+        </div>
+      )}
+    </>
+  );
+}
+
+function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment }: {
   customers: Customer[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
-  onBack: () => void;
-  onAddWarehouse: (name: string) => Promise<void>;
+  onAddWarehouse: (fields: { name: string; address: string; note: string }) => Promise<string | undefined>;
+  onUpdateWarehouse: (id: string, fields: { name: string; address: string; note: string }) => Promise<void>;
   onDeleteWarehouse: (id: string) => Promise<void>;
   onAddSlot: (warehouseId: string, code: string) => Promise<void>;
+  onAddSlotsBulk: (warehouseId: string, codes: string[]) => Promise<void>;
   onDeleteSlot: (id: string) => Promise<void>;
   onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) => Promise<void>;
   onRemoveAssignment: (id: string) => Promise<void>;
@@ -1920,11 +1978,26 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
   const [showAddWarehouse, setShowAddWarehouse] = useState(false);
   const [newWarehouseName, setNewWarehouseName] = useState("");
+  const [newWarehouseAddress, setNewWarehouseAddress] = useState("");
+  const [newWarehouseNote, setNewWarehouseNote] = useState("");
+  const [newPrefix, setNewPrefix] = useState("");
+  const [newStart, setNewStart] = useState("1");
+  const [newEnd, setNewEnd] = useState("10");
+  const [newDigits, setNewDigits] = useState("2");
   const [newSlotCode, setNewSlotCode] = useState("");
   const [assignSlot, setAssignSlot] = useState<StorageSlot | null>(null);
+  const [editingWarehouse, setEditingWarehouse] = useState(false);
+  const [showAddMoreSlots, setShowAddMoreSlots] = useState(false);
+  const [morePrefix, setMorePrefix] = useState("");
+  const [moreStart, setMoreStart] = useState("1");
+  const [moreEnd, setMoreEnd] = useState("10");
+  const [moreDigits, setMoreDigits] = useState("2");
 
   const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || null;
   const slotsInWarehouse = storageSlots.filter((s) => s.warehouse_id === selectedWarehouseId);
+  const [editName, setEditName] = useState(selectedWarehouse?.name || "");
+  const [editAddress, setEditAddress] = useState(selectedWarehouse?.address || "");
+  const [editNote, setEditNote] = useState(selectedWarehouse?.note || "");
 
   function currentAssignment(slotId: string): TireStorage | null {
     const matches = tireStorages.filter((t) => t.storage_slot_id === slotId && !t.removed_at);
@@ -1943,9 +2016,35 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
 
   async function createWarehouse() {
     if (!newWarehouseName.trim()) return;
-    await onAddWarehouse(newWarehouseName.trim());
-    setNewWarehouseName("");
+    const id = await onAddWarehouse({ name: newWarehouseName.trim(), address: newWarehouseAddress.trim(), note: newWarehouseNote.trim() });
+    const codes = buildSlotCodes(newPrefix, parseInt(newStart, 10), parseInt(newEnd, 10), parseInt(newDigits, 10) || 2);
+    if (id && codes.length > 0) await onAddSlotsBulk(id, codes);
+    setNewWarehouseName(""); setNewWarehouseAddress(""); setNewWarehouseNote("");
+    setNewPrefix(""); setNewStart("1"); setNewEnd("10"); setNewDigits("2");
     setShowAddWarehouse(false);
+  }
+
+  function startEditWarehouse() {
+    if (!selectedWarehouse) return;
+    setEditName(selectedWarehouse.name);
+    setEditAddress(selectedWarehouse.address || "");
+    setEditNote(selectedWarehouse.note || "");
+    setEditingWarehouse(true);
+  }
+
+  async function saveEditWarehouse() {
+    if (!selectedWarehouse || !editName.trim()) return;
+    await onUpdateWarehouse(selectedWarehouse.id, { name: editName.trim(), address: editAddress.trim(), note: editNote.trim() });
+    setEditingWarehouse(false);
+  }
+
+  async function addMoreSlots() {
+    if (!selectedWarehouse) return;
+    const codes = buildSlotCodes(morePrefix, parseInt(moreStart, 10), parseInt(moreEnd, 10), parseInt(moreDigits, 10) || 2);
+    if (codes.length === 0) return;
+    await onAddSlotsBulk(selectedWarehouse.id, codes);
+    setMorePrefix(""); setMoreStart("1"); setMoreEnd("10"); setMoreDigits("2");
+    setShowAddMoreSlots(false);
   }
 
   // ---------------- Ebene 1: alle Lager ----------------
@@ -1959,9 +2058,6 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
               <h2>Lager</h2>
               <p>{warehouses.length} Lager · {storageSlots.length} Lagerplätze insgesamt</p>
             </div>
-            <button className="btn-secondary" onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <IconBack /> Module
-            </button>
           </div>
 
           <div className="card-grid">
@@ -1972,6 +2068,7 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
               return (
                 <button key={w.id} type="button" className="wh-card" onClick={() => setSelectedWarehouseId(w.id)}>
                   <div className="wh-name">{w.name}</div>
+                  {w.address && <div className="wh-sub">📍 {w.address}</div>}
                   <div className="occ-bar"><div className="fill" style={{ width: `${pct}%` }}></div></div>
                   <div className="wh-stats">
                     <span>{occ} von {total} belegt</span>
@@ -1985,7 +2082,7 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
             )}
             {showAddWarehouse && (
               <div className="wh-card" style={{ cursor: "default" }}>
-                <div className="field" style={{ marginBottom: 0 }}>
+                <div className="field" style={{ marginBottom: 4 }}>
                   <label>Name</label>
                   <input
                     type="text"
@@ -1993,12 +2090,27 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
                     placeholder="z. B. Nürnberg Hauptlager"
                     value={newWarehouseName}
                     onChange={(e) => setNewWarehouseName(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") createWarehouse(); }}
                   />
                 </div>
+                <div className="field" style={{ marginBottom: 4 }}>
+                  <label>Lageradresse (optional)</label>
+                  <input type="text" placeholder="Straße, PLZ Ort" value={newWarehouseAddress} onChange={(e) => setNewWarehouseAddress(e.target.value)} />
+                </div>
+                <div className="field" style={{ marginBottom: 4 }}>
+                  <label>Notiz (optional)</label>
+                  <input type="text" placeholder="z. B. Zugang nur über Hof" value={newWarehouseNote} onChange={(e) => setNewWarehouseNote(e.target.value)} />
+                </div>
+                <hr />
+                <label>Lagerplätze gleich anlegen (optional)</label>
+                <SlotNumberingFields
+                  prefix={newPrefix} setPrefix={setNewPrefix}
+                  start={newStart} setStart={setNewStart}
+                  end={newEnd} setEnd={setNewEnd}
+                  digits={newDigits} setDigits={setNewDigits}
+                />
                 <div className="row" style={{ marginTop: 4 }}>
                   <button className="btn-primary" style={{ flex: 1 }} onClick={createWarehouse}>Anlegen</button>
-                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => { setShowAddWarehouse(false); setNewWarehouseName(""); }}>Abbrechen</button>
+                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setShowAddWarehouse(false)}>Abbrechen</button>
                 </div>
               </div>
             )}
@@ -2021,16 +2133,31 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
           <span className="sep">›</span>
           <span className="current">{selectedWarehouse.name}</span>
         </div>
-        <div className="module-header">
-          <div className="mh-icon"><IconLager /></div>
-          <div className="mh-text">
-            <h2>{selectedWarehouse.name}</h2>
-            <p>{slotsInWarehouse.length} Lagerplätze</p>
+
+        {editingWarehouse ? (
+          <div className="wh-card" style={{ cursor: "default", maxWidth: 420 }}>
+            <div className="field" style={{ marginBottom: 4 }}><label>Name</label><input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
+            <div className="field" style={{ marginBottom: 4 }}><label>Lageradresse</label><input type="text" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} /></div>
+            <div className="field" style={{ marginBottom: 4 }}><label>Notiz</label><input type="text" value={editNote} onChange={(e) => setEditNote(e.target.value)} /></div>
+            <div className="row">
+              <button className="btn-primary" style={{ flex: 1 }} onClick={saveEditWarehouse}>Speichern</button>
+              <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setEditingWarehouse(false)}>Abbrechen</button>
+            </div>
           </div>
-          <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
-            Lager löschen
-          </button>
-        </div>
+        ) : (
+          <div className="module-header">
+            <div className="mh-icon"><IconLager /></div>
+            <div className="mh-text">
+              <h2>{selectedWarehouse.name}</h2>
+              <p>{slotsInWarehouse.length} Lagerplätze{selectedWarehouse.address ? ` · 📍 ${selectedWarehouse.address}` : ""}</p>
+              {selectedWarehouse.note && <p>{selectedWarehouse.note}</p>}
+            </div>
+            <button className="btn-secondary" onClick={startEditWarehouse}>Lager bearbeiten</button>
+            <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
+              Lager löschen
+            </button>
+          </div>
+        )}
 
         <div className="row" style={{ maxWidth: 420 }}>
           <input type="text" placeholder="Neuer Lagerplatz (z. B. A-01)" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSlotCode.trim()) { onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); } }} />
@@ -2042,6 +2169,23 @@ function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onBack,
             + Platz
           </button>
         </div>
+
+        {!showAddMoreSlots ? (
+          <button type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setShowAddMoreSlots(true)}>+ Mehrere Lagerplätze nach Nummerierung anlegen</button>
+        ) : (
+          <div className="wh-card" style={{ cursor: "default", maxWidth: 420 }}>
+            <SlotNumberingFields
+              prefix={morePrefix} setPrefix={setMorePrefix}
+              start={moreStart} setStart={setMoreStart}
+              end={moreEnd} setEnd={setMoreEnd}
+              digits={moreDigits} setDigits={setMoreDigits}
+            />
+            <div className="row">
+              <button className="btn-primary" style={{ flex: 1 }} onClick={addMoreSlots}>Anlegen</button>
+              <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setShowAddMoreSlots(false)}>Abbrechen</button>
+            </div>
+          </div>
+        )}
 
         {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
 
@@ -2168,12 +2312,13 @@ function TireAssignModal({ slot, customers, assignment, history, onClose, onAssi
 // =====================================================================
 // Aufträge-Modul
 // =====================================================================
-function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, onDelete, onAssignEmployee }: {
+function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, onDelete, onAssignEmployee, onOpenCustomer }: {
   customers: Customer[]; orders: Order[]; employees: Employee[];
   onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeId: string }) => Promise<void>;
   onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAssignEmployee: (id: string, employeeId: string) => Promise<void>;
+  onOpenCustomer: (customerId: string) => void;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
@@ -2222,7 +2367,17 @@ function AuftraegePanel({ customers, orders, employees, onAdd, onUpdateStatus, o
                   return (
                     <tr key={o.id}>
                       <td className="date-cell">{formatOrderDateTime(o)}</td>
-                      <td>{cust ? cust.name : "–"}</td>
+                      <td>
+                        {cust ? (
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
+                            style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
+                          >
+                            {cust.name}
+                          </button>
+                        ) : "–"}
+                      </td>
                       <td>{o.title}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         <select value={o.assigned_employee_id || ""} onChange={(e) => onAssignEmployee(o.id, e.target.value)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
@@ -2316,10 +2471,10 @@ function OrderModal({ customers, employees, onClose, onAdd }: {
 // Einsatzplanung: Aufträge nach Tag und Mitarbeiter, für die Übersicht
 // "wer macht welchen Auftrag wann".
 // =====================================================================
-function EinsatzplanungPanel({ customers, orders, employees, onBack, onAssignEmployee }: {
+function EinsatzplanungPanel({ customers, orders, employees, onAssignEmployee, onOpenCustomer }: {
   customers: Customer[]; orders: Order[]; employees: Employee[];
-  onBack: () => void;
   onAssignEmployee: (id: string, employeeId: string) => Promise<void>;
+  onOpenCustomer: (customerId: string) => void;
 }) {
   const [date, setDate] = useState(todayStr());
   const statusLabel: Record<OrderStatus, string> = { offen: "Offen", in_arbeit: "In Arbeit", erledigt: "Erledigt" };
@@ -2345,9 +2500,6 @@ function EinsatzplanungPanel({ customers, orders, employees, onBack, onAssignEmp
             <h2>Einsatzplanung</h2>
             <p>{ordersOnDate.length} Aufträge am {formatDate(date)}</p>
           </div>
-          <button className="btn-secondary" onClick={onBack} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <IconBack /> Module
-          </button>
         </div>
 
         <div className="row" style={{ maxWidth: 420, alignItems: "center" }}>
@@ -2373,7 +2525,17 @@ function EinsatzplanungPanel({ customers, orders, employees, onBack, onAssignEmp
                     return (
                       <tr key={o.id}>
                         <td className="date-cell">{o.time || "–"}</td>
-                        <td>{cust ? cust.name : "–"}</td>
+                        <td>
+                          {cust ? (
+                            <button
+                              type="button"
+                              onClick={() => onOpenCustomer(cust.id)}
+                              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
+                            >
+                              {cust.name}
+                            </button>
+                          ) : "–"}
+                        </td>
                         <td>{o.title}</td>
                         <td><span className={`badge ${o.status === "erledigt" ? "green" : o.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[o.status]}</span></td>
                         <td>

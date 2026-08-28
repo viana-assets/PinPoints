@@ -39,6 +39,7 @@ export type UserSettings = {
 export type Warehouse = {
   id: string;
   name: string;
+  address: string | null;
   note: string | null;
   created_at: string;
 };
