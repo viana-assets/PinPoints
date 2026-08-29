@@ -164,3 +164,54 @@ export function IconTrash() {
     </svg>
   );
 }
+
+/* ---------------- Firmenlogo (Bildmarke) ----------------
+   Die Bildmarke aus dem Viana-PinPoints-Logo: roter Startpunkt, blauer Pfeil, grüner
+   Zielpunkt mit Haken – also "PLAN • TRACK • COMPLETE" als Bild. Sie ersetzt die frühere
+   Flagge an allen vier Stellen (Seitenleiste, Handy-Kopfzeile, Login, Passwort-Setzen).
+
+   Warum keine Bilddatei in public/: das Projekt kommt ohne public/ aus, und Dateien werden
+   einzeln über die GitHub-Oberfläche hochgeladen. Ein Inline-SVG bleibt Teil des Quelltexts,
+   skaliert verlustfrei und spart eine zusätzliche Netzwerkanfrage.
+
+   Bewusst ohne <defs>, ohne IDs und ohne url(#…)-Verweise, mit festen Farb-Attributen – siehe
+   den Kommentar bei IconNavPin und docs/design-system.md. Der Farbverlauf aus dem
+   Original-Logo entfällt deshalb; er wäre bei 26–56 px ohnehin nicht zu erkennen.
+
+   Keine width/height am Element: die Größe kommt an jeder Stelle aus dem CSS. Dort ist sie
+   jeweils AUSDRÜCKLICH in Breite UND Höhe angegeben und mit flex:0 0 auto geschützt – ein
+   SVG in einem Flex-Container wird sonst auf Breite 0 gequetscht und ist unsichtbar. */
+export const MARKE_ROT = "#E24C3D";
+export const MARKE_BLAU = "#2F6FED";
+export const MARKE_GRUEN = "#1E9B6E";
+
+// Ein Kartenpin, 18 breit und 26 hoch, Spitze unten mittig. Beide Pins der Marke benutzen
+// dieselbe Form und werden nur verschoben und eingefärbt.
+const MARKE_PIN_PFAD = "M9 0C4.03 0 0 4.03 0 9c0 6.6 9 17 9 17s9-10.4 9-17c0-4.97-4.03-9-9-9Z";
+const MARKE_HAKEN_PFAD = "M4.9 9.1 7.7 11.9 13.1 6.3";
+
+export function IconMarke() {
+  return (
+    <svg viewBox="0 0 52 26" fill="none">
+      <path d={MARKE_PIN_PFAD} fill={MARKE_ROT} />
+      <circle cx="9" cy="9" r="3.7" fill="#ffffff" />
+      <path d="M19.8 3.6 34 9 19.8 14.4 23.8 9Z" fill={MARKE_BLAU} />
+      <g transform="translate(34 0)">
+        <path d={MARKE_PIN_PFAD} fill={MARKE_GRUEN} />
+        <path d={MARKE_HAKEN_PFAD} stroke="#ffffff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+      </g>
+    </svg>
+  );
+}
+
+// Favicon: dieselbe Marke wäre bei 16 px Breite nicht mehr zu erkennen (zwei Pins nebeneinander
+// ergeben dort Matsch). Deshalb steht im Browser-Tab nur der grüne Zielpunkt mit Haken – das
+// unterscheidbarste Element der Marke. Form, Haken und Farbe kommen aus denselben Konstanten
+// wie oben, damit es keine zweite Quelle für dasselbe Bild gibt (app/layout.tsx bindet nur ein).
+const alsUri = (farbe: string) => "%23" + farbe.slice(1);
+export const MARKE_FAVICON =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E" +
+  "%3Cg transform='translate(4 0)'%3E" +
+  `%3Cpath d='${MARKE_PIN_PFAD}' fill='${alsUri(MARKE_GRUEN)}'/%3E` +
+  `%3Cpath d='${MARKE_HAKEN_PFAD}' fill='none' stroke='%23ffffff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E` +
+  "%3C/g%3E%3C/svg%3E";

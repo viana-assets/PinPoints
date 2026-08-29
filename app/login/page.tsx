@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
+import { IconMarke } from "@/components/icons";
 
 // Login-only-Seite: es gibt hier bewusst KEIN Registrierungsformular.
 // Zugang bekommt man nur über einen Einladungslink, den der Admin
@@ -32,13 +33,7 @@ export default function LoginPage() {
     <div className="login-page">
       <div className="login-box">
         <div className="login-brand">
-          <div className="brand-badge">
-            <svg viewBox="0 0 24 24" fill="none">
-              <line x1="6" y1="21" x2="6" y2="3" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
-              <path d="M6 3 L19 7.5 L6 12 Z" fill="#fff" />
-              <circle cx="6" cy="21" r="1.6" fill="#fff" />
-            </svg>
-          </div>
+          <IconMarke />
           <h1>
             Vi<span className="brand-accent">ana</span> PinPoints
           </h1>

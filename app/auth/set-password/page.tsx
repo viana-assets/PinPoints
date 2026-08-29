@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
+import { IconMarke } from "@/components/icons";
 
 // Erster Schritt nach dem Einladungslink: eigenes Passwort setzen.
 export default function SetPasswordPage() {
@@ -39,11 +40,7 @@ export default function SetPasswordPage() {
     <div className="login-page">
       <div className="login-box">
         <div className="login-brand">
-          <svg viewBox="0 0 24 24" fill="none">
-            <line x1="6" y1="21" x2="6" y2="3" stroke="#2f6fed" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M6 3 L19 7.5 L6 12 Z" fill="#2f6fed" />
-            <circle cx="6" cy="21" r="1.6" fill="#2f6fed" />
-          </svg>
+          <IconMarke />
           <h1>Willkommen!</h1>
         </div>
         <p className="subtitle">Bitte setze ein eigenes Passwort für deinen Zugang.</p>

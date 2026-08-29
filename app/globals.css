@@ -37,10 +37,13 @@
      Die Breite kommt aus der Rasterspalte, nicht aus einer eigenen width-Angabe. */
   #iconNav{min-width:0;background:var(--nav-bg);border-right:1px solid var(--border);
     display:flex;flex-direction:column;align-items:stretch;padding:14px 10px;gap:2px;overflow-y:auto;}
-  .nav-brand{width:34px;height:34px;border-radius:10px;
-    background:linear-gradient(135deg, var(--accent), var(--navy));display:flex;
-    align-items:center;justify-content:center;margin:0 0 16px 6px;flex-shrink:0;}
-  .nav-brand svg{width:18px;height:18px;}
+  /* Bildmarke des Firmenlogos (components/icons.tsx, IconMarke). Die frühere quadratische
+     Plakette mit Orange-Navy-Verlauf ist entfallen: das Logo bringt seine eigenen Farben mit
+     (rot/blau/grün) und stand auf dem Verlauf unruhig. Breite UND Höhe sind ausdrücklich
+     gesetzt und flex:0 0 auto ist Pflicht – ein SVG ohne feste Breite wird im Flex-Container
+     auf 0 gequetscht und ist dann unsichtbar (siehe docs/design-system.md). */
+  .nav-brand{height:34px;display:flex;align-items:center;margin:2px 0 18px 8px;flex-shrink:0;}
+  .nav-brand svg{width:60px;height:30px;flex:0 0 auto;}
   .icon-nav-item{width:100%;height:auto;border-radius:10px;display:flex;flex-direction:row;
     align-items:center;justify-content:flex-start;gap:11px;color:var(--nav-text);cursor:pointer;
     font-size:13px;font-weight:600;user-select:none;text-align:left;line-height:1.25;
@@ -84,15 +87,12 @@
   .swatch-satellit_labels::after{content:"";position:absolute;left:4px;right:4px;bottom:4px;height:3px;
     background:rgba(255,255,255,.85);border-radius:2px;}
   /* Marke erscheint nur EINMAL gleichzeitig: auf Desktop/Tablet trägt .nav-brand in
-     #iconNav die Flagge, diese Kopfzeile bleibt dort unsichtbar; auf dem Handy wird
+     #iconNav die Bildmarke, diese Kopfzeile bleibt dort unsichtbar; auf dem Handy wird
      .nav-brand ausgeblendet (Bottom-Bar hat keinen Platz/keine Konvention dafür), dort
      übernimmt diese Kopfzeile die Markenkennzeichnung (siehe Mobil-Media-Query unten). */
   .app-brand-header{display:none;padding:16px;border-bottom:1px solid var(--border);}
   .app-brand{display:flex;align-items:center;gap:10px;}
-  .app-brand-badge{width:34px;height:34px;border-radius:11px;flex:0 0 auto;display:flex;align-items:center;
-    justify-content:center;background:linear-gradient(135deg, var(--accent), var(--navy));
-    box-shadow:0 6px 14px -6px color-mix(in srgb, var(--accent) 70%, transparent);}
-  .app-brand-badge svg{width:16px;height:16px;}
+  .app-brand svg{width:52px;height:26px;flex:0 0 auto;}
   header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em;font-family:var(--font-brand);}
   .brand-accent{color:var(--accent);}
   .tabpanel{flex:1;overflow-y:auto;padding:12px 14px;display:none;}
@@ -361,12 +361,7 @@
 }
 @keyframes loginCardIn{from{opacity:0;transform:translateY(16px) scale(.97);}to{opacity:1;transform:none;}}
 .login-box .login-brand{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:8px;}
-.login-box .login-brand .brand-badge{
-  width:56px;height:56px;border-radius:18px;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg, var(--accent), var(--navy));
-  box-shadow:0 12px 26px -10px color-mix(in srgb, var(--accent) 75%, transparent);
-}
-.login-box .login-brand svg{width:26px;height:26px;}
+.login-box .login-brand svg{width:108px;height:54px;flex:0 0 auto;}
 .login-box h1{font-size:22px;font-weight:700;margin:0;text-align:center;letter-spacing:-.01em;font-family:var(--font-brand);}
 .login-box h1 .brand-accent{color:var(--accent);}
 .login-box p.subtitle{margin:6px 0 22px;font-size:13px;color:var(--muted);text-align:center;line-height:1.5;}

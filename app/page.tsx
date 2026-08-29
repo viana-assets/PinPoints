@@ -18,7 +18,7 @@ import { ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
   IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
-  IconNavPin,
+  IconNavPin, IconMarke,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -1064,11 +1064,7 @@ export default function HomePage() {
     <div id="app" ref={appRef} className={fullPageTabs ? "vollseite" : undefined}>
       <nav id="iconNav">
         <div className="nav-brand" title="Viana PinPoints">
-          <svg viewBox="0 0 24 24" fill="none">
-            <line x1="6" y1="21" x2="6" y2="3" stroke="#ffffff" strokeWidth="1.8" strokeLinecap="round" />
-            <path d="M6 3 L19 7.5 L6 12 Z" fill="#5b8dff" />
-            <circle cx="6" cy="21" r="1.6" fill="#ffffff" />
-          </svg>
+          <IconMarke />
         </div>
         <NavItem active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={<IconDashboard />} label="Dashboard" />
         {canView("kunden") && <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />}
@@ -1106,18 +1102,12 @@ export default function HomePage() {
       >
         {/* Marke nur auf dem Handy hier zeigen (dort ist .nav-brand in #iconNav per CSS
             ausgeblendet, weil #iconNav zur schmalen Bottom-Bar wird) – auf Desktop/Tablet
-            steht die Flagge bereits oben in #iconNav, eine zweite Flagge hier wäre
+            steht die Bildmarke bereits oben in #iconNav, ein zweites Logo hier wäre
             Redundanz (siehe docs/design-system.md). Steuerung über .app-brand-header in
             globals.css, kein zusätzlicher State nötig. */}
         <header className="app-brand-header">
           <div className="app-brand">
-            <div className="app-brand-badge">
-              <svg viewBox="0 0 24 24" fill="none">
-                <line x1="6" y1="21" x2="6" y2="3" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" />
-                <path d="M6 3 L19 7.5 L6 12 Z" fill="#fff" />
-                <circle cx="6" cy="21" r="1.6" fill="#fff" />
-              </svg>
-            </div>
+            <IconMarke />
             <h1>
               Vi<span className="brand-accent">ana</span> PinPoints
             </h1>
