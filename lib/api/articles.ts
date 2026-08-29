@@ -31,7 +31,7 @@ export async function insertArticle(supabase: SupabaseClient, shortName: string,
   );
 }
 
-export async function updateArticleById(supabase: SupabaseClient, id: string, fields: { short_name: string; long_name: string; active: boolean }): Promise<void> {
+export async function updateArticleById(supabase: SupabaseClient, id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }): Promise<void> {
   await qWrite("Der Artikel konnte nicht gespeichert werden", supabase.from("articles").update(fields).eq("id", id));
 }
 

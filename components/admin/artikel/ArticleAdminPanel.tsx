@@ -19,7 +19,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
   articles: Article[];
   articlePrices: ArticlePrice[];
   onAddArticle: (shortName: string, longName: string) => Promise<void>;
-  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean }) => Promise<void>;
+  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }) => Promise<void>;
   onUpdateArticleNumber: (id: string, articleNumber: number) => Promise<void>;
   onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
 }) {
@@ -99,7 +99,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
                       <input
                         type="checkbox"
                         checked={a.active}
-                        onChange={(e) => onUpdateArticle(a.id, { short_name: a.short_name, long_name: a.long_name, active: e.target.checked })}
+                        onChange={(e) => onUpdateArticle(a.id, { short_name: a.short_name, long_name: a.long_name, active: e.target.checked, braucht_lagerplatz: a.braucht_lagerplatz })}
                       />
                     </td>
                     <td>

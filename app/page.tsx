@@ -15,6 +15,7 @@ import {
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
+import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
   IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
@@ -28,7 +29,6 @@ import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
 import { AuftragModal } from "@/components/auftraege/AuftragModal";
-import { OrderModal } from "@/components/auftraege/OrderModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
@@ -145,11 +145,20 @@ export default function HomePage() {
   // der Initialisierung. TypeScript kann das nicht sehen, weil der Zugriff in einem
   // find()-Callback steckt – zur Laufzeit wirft es.
   const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
-  // Kunde, für den gerade ein neuer Auftrag angelegt wird (aus dem Karten-Popup heraus, seit
-  // 29.08.2026 – siehe docs/termine-kontakt-auftrag-analyse.md). Das Anlegeformular ist ein
-  // Overlay über der Karte: der Reiter wechselt nicht, nach dem Speichern steht man wieder an
-  // derselben Stelle. Direkt danach öffnet sich das Auftragsfenster für Fahrzeug und Leistungen.
-  const [neuerAuftragKundeId, setNeuerAuftragKundeId] = useState<string | null>(null);
+  // Auftrag, der gerade eben neu angelegt wurde. Nur für die Anzeige: das Auftragsfenster weist
+  // dann darauf hin, dass es sich um einen frischen Auftrag handelt, und bietet "Verwerfen"
+  // statt des Löschknopfs an.
+  //
+  // Warum überhaupt: "+ Auftrag anlegen" im Karten-Popup legt die Zeile SOFORT an und öffnet
+  // direkt das vollständige Auftragsfenster – kein Zwischenformular mehr. Das ist keine
+  // Bequemlichkeit, sondern eine Notwendigkeit: Leistungen und Positionen hängen an einer
+  // Auftrags-Id, es kann sie ohne eine gespeicherte Zeile gar nicht geben. Ein Formular, das
+  // erst beim Absenden schreibt, könnte den wichtigsten Teil des Fensters nicht anbieten.
+  // Siehe docs/termine-kontakt-auftrag-analyse.md.
+  const [frischerAuftragId, setFrischerAuftragId] = useState<string | null>(null);
+  // Lagerplatz aus einem gescannten QR-Aufkleber (?lagerplatz=…, siehe lib/lagerplatzCode.ts).
+  // Wird beim Start einmal aus der Adresszeile gelesen und danach an das Lager-Modul gereicht.
+  const [gescannterLagerplatzId, setGescannterLagerplatzId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
   //
@@ -169,7 +178,10 @@ export default function HomePage() {
   const kundeOffen = selectedId !== null;
   const brauchtMitarbeiter = tab === "auftraege" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || kundeOffen;
   const brauchtArtikel = tab === "artikel" || tab === "auftraege" || tab === "einsatzplanung" || kundeOffen;
-  const brauchtLager = tab === "lager" || kundeOffen;
+  // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
+  // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
+  // geöffnet wurde und gar kein Kundendetail offen ist.
+  const brauchtLager = tab === "lager" || kundeOffen || offenerAuftragId !== null;
 
   const kundenQuery = useKunden(supabase, sitzungBereit);
   const auftraegeQuery = useAuftraege(supabase, auftragsFenster, sitzungBereit);
@@ -192,9 +204,6 @@ export default function HomePage() {
     (auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
     (kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
   const auftragFahrzeugeQuery = useKundeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, sitzungBereit);
-  // Aus derselben Nachbarschaft wie `offenerAuftrag` und aus demselben Grund: die Ableitung
-  // liest den Zustand, eine Deklaration danach wäre ein Zugriff vor der Initialisierung.
-  const neuerAuftragKunde = (kundenQuery.data ?? KEINE_KUNDEN).find((c) => c.id === neuerAuftragKundeId);
 
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
   const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
@@ -243,14 +252,21 @@ export default function HomePage() {
 
   // Nach einer Änderung gezielt die betroffenen Bestände nachladen lassen – nicht mehr pauschal
   // die ganze Tabelle wie vor Phase 10.
-  function neuLaden(...schluessel: readonly (readonly unknown[])[]) {
-    schluessel.forEach((key) => { void queryClient.invalidateQueries({ queryKey: key }); });
+  // Gibt ein Versprechen zurück, das erst hält, wenn die betroffenen Bestände WIRKLICH neu
+  // geladen sind. Vorher stand hier `void queryClient.invalidateQueries(...)` – ein
+  // `await refreshOrders()` kehrte also sofort zurück, während die Abfrage noch lief. Das fiel
+  // erst auf, als ein neu angelegter Auftrag direkt geöffnet werden sollte: die Zeile war in
+  // der Datenbank, im Zwischenspeicher aber noch nicht, das Auftragsfenster fand nichts und
+  // blieb zu. Wer den Rückgabewert nicht abwartet, bekommt wie bisher ein "nebenher".
+  function neuLaden(...schluessel: readonly (readonly unknown[])[]): Promise<void> {
+    return Promise.all(
+      schluessel.map((key) => queryClient.invalidateQueries({ queryKey: key }))
+    ).then(() => undefined);
   }
   // Auftragsdaten hängen an zwei Stellen: am Zeitfenster (Listen, Karte, Kalender) und an der
   // vollständigen Historie des gerade geöffneten Kunden.
-  function auftraegeNeuLaden() {
-    neuLaden(qk.auftraegeAlle());
-    if (selectedId) neuLaden(qk.kundeAuftraege(selectedId));
+  function auftraegeNeuLaden(): Promise<void> {
+    return neuLaden(...(selectedId ? [qk.auftraegeAlle(), qk.kundeAuftraege(selectedId)] : [qk.auftraegeAlle()]));
   }
 
   const [mobileMapVisible, setMobileMapVisible] = useState(false);
@@ -370,7 +386,7 @@ export default function HomePage() {
     neuLaden(qk.einlagerungen(), qk.lagerKennzahlen());
   }
   async function refreshOrders() {
-    auftraegeNeuLaden();
+    await auftraegeNeuLaden();
   }
   async function refreshOrderEmployees() {
     // Zuordnungen kommen mit den Aufträgen verschachtelt – derselbe Bestand.
@@ -396,7 +412,7 @@ export default function HomePage() {
     await insertArticle(supabase, shortName, longName);
     await refreshArticles();
   }
-  async function updateArticle(id: string, fields: { short_name: string; long_name: string; active: boolean }) {
+  async function updateArticle(id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }) {
     await updateArticleById(supabase, id, fields);
     await refreshArticles();
   }
@@ -710,7 +726,7 @@ export default function HomePage() {
     // Auftrag anlegen und Kontakt bestätigen sind seit 29.08.2026 zwei getrennte Handlungen.
     // Der Auftrag öffnet das gewohnte Anlegeformular als Overlay über der Karte – kein
     // Reiterwechsel, nach dem Speichern steht man wieder hier.
-    if (bN) bN.onclick = () => { setNeuerAuftragKundeId(customerId); marker.closePopup(); };
+    if (bN) bN.onclick = () => { marker.closePopup(); void neuenAuftragAnlegen(customerId); };
     if (bC) bC.onclick = async () => {
       const contactDate = (document.getElementById("popupContactDate") as HTMLInputElement).value || todayStr();
       await markContacted(customerId, contactDate);
@@ -853,6 +869,50 @@ export default function HomePage() {
     // am selben Tag nicht eindeutig ist.
     return id;
   }
+  // Ein Klick, ein Auftrag, ein Fenster: aus dem Karten-Popup heraus wird die Zeile mit
+  // sinnvollen Vorgaben sofort angelegt (Titel "Termin – ‹Kunde›", heutiges Datum, Zustand
+  // offen) und dann das vollständige Auftragsfenster geöffnet. Titel, Termin, Fahrzeug,
+  // Mitarbeiter und Leistungen werden dort geändert – alles an einer Stelle, dieselbe Maske
+  // wie bei jedem anderen Auftrag.
+  //
+  // `addOrder` wartet das Neuladen inzwischen wirklich ab (siehe `neuLaden`), sonst wäre die
+  // frische Zeile im Zwischenspeicher noch nicht vorhanden und das Fenster bliebe zu.
+  async function neuenAuftragAnlegen(kundenId: string) {
+    const kunde = customers.find((c) => c.id === kundenId);
+    const id = await addOrder({
+      customerId: kundenId, title: terminTitel(kunde?.name), description: "",
+      orderDate: todayStr(), time: "", status: "offen", assignedEmployeeIds: [],
+    });
+    if (!id) return;
+    setFrischerAuftragId(id);
+    setOffenerAuftragId(id);
+  }
+  // ------------------------------------------------------- Einlagerung am Auftrag (Migration 22)
+  // Die aktive Einlagerung eines Auftrags. "Aktiv" heißt: noch nicht ausgelagert
+  // (`removed_at is null`) – die Historie eines Lagerplatzes bleibt davon unberührt.
+  function einlagerungZuAuftrag(orderId: string): TireStorage | null {
+    return tireStorages.find((t) => t.order_id === orderId && !t.removed_at) || null;
+  }
+  // Steht im Auftrag eine Leistung, die einen Lagerplatz verlangt? Gefragt wird das Kennzeichen
+  // am Artikel, nicht dessen Name – siehe lib/types.ts, `Article.braucht_lagerplatz`.
+  function auftragBrauchtLagerplatz(orderId: string): boolean {
+    return orderArticlesFor(orderId).some(
+      (pos) => articles.find((a) => a.id === pos.article_id)?.braucht_lagerplatz
+    );
+  }
+  async function einlagernFuerAuftrag(order: Order, lagerplatzId: string) {
+    await upsertTireAssignment(supabase, {
+      // Eine vorhandene Einlagerung dieses Auftrags wird umgezogen statt doppelt angelegt –
+      // sonst blieben zwei Plätze belegt, von denen einer niemandem gehört.
+      id: einlagerungZuAuftrag(order.id)?.id,
+      storageSlotId: lagerplatzId,
+      customerId: order.customer_id,
+      dotDate: "", profiltiefeMm: "", note: "",
+      orderId: order.id,
+    });
+    await refreshTireStorages();
+  }
+
   async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
     await updateOrderById(supabase, id, fields);
     await setOrderEmployees(id, fields.assignedEmployeeIds);
@@ -968,6 +1028,18 @@ export default function HomePage() {
 
   // Termine-Tab: Auftrag = Termin (siehe Migration 07), hier einfach chronologisch alle
   // Aufträge mit ihrem Kunden – gleiche Datenbasis wie das Aufträge-Modul.
+  // Welche Lagerplätze gerade belegt sind – einmal je Neuzeichnen gebildet statt je Zeile neu
+  // durch alle Einlagerungen zu laufen. Ein Set, weil danach nur noch nachgeschlagen wird.
+  //
+  // Steht bewusst HIER, oberhalb des `if (loading) return` weiter unten: ein Hook hinter einem
+  // vorzeitigen Rücksprung wird beim nächsten Durchlauf nicht mehr aufgerufen, und React
+  // verliert die Zuordnung seiner Hooks. Die ESLint-Regel react-hooks/rules-of-hooks hat genau
+  // das hier abgefangen.
+  const belegteSlotIds = useMemo(
+    () => new Set(tireStorages.filter((t) => !t.removed_at).map((t) => t.storage_slot_id)),
+    [tireStorages]
+  );
+
   const apptRows = useMemo(
     () =>
       customers
@@ -977,6 +1049,26 @@ export default function HomePage() {
         .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime()),
     [customers, auftraegeJeKunde, onlyUpcoming]
   );
+
+  // Aufruf über einen QR-Aufkleber am Regal: die App öffnet sich mit ?lagerplatz=‹Kennung›.
+  // Bewusst über `window.location` statt `useSearchParams()`: dieser Baum ist vollständig auf
+  // dem Client zuhause, und `useSearchParams` verlangte in Next 14 eine Suspense-Grenze und
+  // machte die Seite dynamisch – Aufwand ohne Gegenwert für einen einzelnen Parameter.
+  //
+  // Die Adresszeile wird sofort wieder bereinigt: sonst landet der Parameter in Lesezeichen und
+  // im Verlauf, und ein Neuladen springt Wochen später wieder auf denselben Lagerplatz.
+  useEffect(() => {
+    const parameter = new URLSearchParams(window.location.search);
+    const roh = parameter.get(LAGERPLATZ_PARAMETER);
+    if (!roh) return;
+    const id = lagerplatzIdAusCode(roh);
+    parameter.delete(LAGERPLATZ_PARAMETER);
+    const rest = parameter.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    if (!id) return;
+    setGescannterLagerplatzId(id);
+    setTab("lager");
+  }, []);
 
   function openDetail(id: string) {
     setSelectedId(id);
@@ -1336,6 +1428,8 @@ export default function HomePage() {
             canCreateSlot={hasPermission("action.lager.slot_create")}
             canDeleteSlot={hasPermission("action.lager.slot_delete")}
             canAssignTire={hasPermission("action.lager.tire_assign")}
+            springeZuLagerplatzId={gescannterLagerplatzId}
+            onLagerplatzGeoeffnet={() => setGescannterLagerplatzId(null)}
           />
         )}
 
@@ -1556,24 +1650,6 @@ export default function HomePage() {
         </>
       )}
 
-      {/* Neuer Auftrag aus dem Karten-Popup. Liegt als Overlay über der Karte, deshalb bleibt
-          der Reiter stehen und die Karte behält Ausschnitt und Zoom. Nach dem Speichern geht
-          direkt das Auftragsfenster auf, damit Fahrzeug und Leistungen an derselben Stelle
-          eingetragen werden können, an der man ohnehin schon steht. */}
-      {neuerAuftragKunde && (
-        <OrderModal
-          customers={customers}
-          employees={employees}
-          festerKunde={neuerAuftragKunde}
-          onClose={() => setNeuerAuftragKundeId(null)}
-          onAdd={async (fields) => {
-            const id = await addOrder(fields);
-            if (id) setOffenerAuftragId(id);
-            return id;
-          }}
-        />
-      )}
-
       {offenerAuftrag && (
         <AuftragModal
           order={offenerAuftrag}
@@ -1585,10 +1661,17 @@ export default function HomePage() {
           orderArticles={orderArticlesFor(offenerAuftrag.id)}
           isTechniker={isTechniker}
           darfWiedereroeffnen={isAdmin}
-          onClose={() => setOffenerAuftragId(null)}
+          frischAngelegt={offenerAuftrag.id === frischerAuftragId}
+          einlagerung={einlagerungZuAuftrag(offenerAuftrag.id)}
+          brauchtLagerplatz={auftragBrauchtLagerplatz(offenerAuftrag.id)}
+          storageSlots={storageSlots}
+          warehouses={warehouses}
+          belegteSlotIds={belegteSlotIds}
+          onEinlagern={(lagerplatzId) => einlagernFuerAuftrag(offenerAuftrag, lagerplatzId)}
+          onEinlagerungEntfernen={removeTireAssignment}
+          onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
           onSetVehicle={setOrderVehicle}
-          onSetEmployees={setOrderEmployees}
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
           onSetStatus={updateOrderStatus}
           onDelete={deleteOrder}

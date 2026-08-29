@@ -1,10 +1,11 @@
-import { useState } from "react";
-import type { Article, Customer, Employee, Order, OrderArticle, OrderStatus, Vehicle } from "@/lib/types";
+import { useEffect, useRef, useState } from "react";
+import type { Article, Customer, Employee, Order, OrderArticle, OrderStatus, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { formatDate, formatOrderDateTime } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "./ArticleAssignPanel";
 import { IconNavPin, IconTrash } from "@/components/icons";
+import { EinlagerungBlock } from "./EinlagerungBlock";
 
 // Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
 //
@@ -19,9 +20,11 @@ import { IconNavPin, IconTrash } from "@/components/icons";
 // nur an, was gerade möglich ist.
 export function AuftragModal({
   order, customer, vehicles, employees, assignedEmployeeIds, articles, orderArticles,
-  isTechniker, darfWiedereroeffnen,
-  onClose, onSaveFields, onSetVehicle, onSetEmployees, onUpdateTechnikerNotiz, onSetStatus, onDelete,
+  isTechniker, darfWiedereroeffnen, frischAngelegt = false,
+  einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds,
+  onClose, onSaveFields, onSetVehicle, onUpdateTechnikerNotiz, onSetStatus, onDelete,
   onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate,
+  onEinlagern, onEinlagerungEntfernen,
 }: {
   order: Order;
   customer: Customer | undefined;
@@ -32,10 +35,21 @@ export function AuftragModal({
   orderArticles: OrderArticle[];
   isTechniker: boolean;
   darfWiedereroeffnen: boolean;
+  // Der Auftrag wurde gerade eben angelegt und ist noch leer. Dann steht oben ein Hinweis, was
+  // jetzt zu tun ist, und unten "Verwerfen" statt des Papierkorbs: einen Auftrag, den man vor
+  // einer Sekunde selbst erzeugt hat, löscht man nicht – man nimmt ihn zurück. Deshalb dort
+  // auch keine Rückfrage; es kann nichts verloren gehen, was es vorher schon gab.
+  frischAngelegt?: boolean;
+  // Einlagerung (Migration 22, siehe docs/lager.md): welcher Lagerplatz gehört zu diesem
+  // Auftrag, und verlangt eine seiner Leistungen überhaupt einen?
+  einlagerung: TireStorage | null;
+  brauchtLagerplatz: boolean;
+  storageSlots: StorageSlot[];
+  warehouses: Warehouse[];
+  belegteSlotIds: Set<string>;
   onClose: () => void;
   onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
   onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
-  onSetEmployees: (orderId: string, employeeIds: string[]) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
   onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -44,12 +58,62 @@ export function AuftragModal({
   onUpdateArticleDiscount: (id: string, discountPercent: number) => Promise<void>;
   onRemoveArticle: (id: string) => Promise<void>;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
+  onEinlagern: (lagerplatzId: string) => Promise<void>;
+  onEinlagerungEntfernen: (einlagerungId: string) => Promise<void>;
 }) {
   const gesperrt = istAbgeschlossen(order.status);
+
+  // ---------------------------------------------------------------- Entwurf
+  // Alle Angaben dieses Fensters werden ZUERST hier gesammelt und erst auf „Speichern"
+  // geschrieben. Vorher liefen Fahrzeug, Mitarbeiter und Technikernotiz sofort in die
+  // Datenbank, während Titel/Datum/Uhrzeit an einem eigenen Knopf weiter unten hingen – man
+  // konnte also nicht sagen, was schon gespeichert war und was noch nicht. Ein Fenster, ein
+  // Speicherpunkt.
+  //
+  // Ausgenommen bleiben die Leistungen: jede Position ist eine eigene Zeile mit eigenem Knopf,
+  // und die Datenbank friert sie beim Abschluss ein (Migration 20). Sie in denselben Entwurf
+  // zu ziehen hieße, Menge und Rabatt im Browser zu halten, bis jemand speichert – mehr Risiko
+  // als Gewinn.
   const [titel, setTitel] = useState(order.title);
   const [datum, setDatum] = useState(order.order_date);
   const [zeit, setZeit] = useState(order.time || "");
   const [beschreibung, setBeschreibung] = useState(order.description || "");
+  const [fahrzeugId, setFahrzeugId] = useState(order.vehicle_id || "");
+  const [mitarbeiterIds, setMitarbeiterIds] = useState<string[]>(assignedEmployeeIds);
+  const [notiz, setNotiz] = useState(order.techniker_notiz || "");
+  const [speichert, setSpeichert] = useState(false);
+  const [gespeichert, setGespeichert] = useState(false);
+  const [schliessenNachfrage, setSchliessenNachfrage] = useState(false);
+
+  // Der Entwurf wird neu aufgesetzt, wenn ein ANDERER Auftrag ins Fenster kommt – nicht bei
+  // jeder Prop-Änderung. Sonst würde das Neuladen nach dem Speichern (oder eine Änderung durch
+  // jemand anderen) mitten im Tippen die Eingabe überschreiben.
+  const zuletztGezeigt = useRef(order.id);
+  useEffect(() => {
+    if (zuletztGezeigt.current === order.id) return;
+    zuletztGezeigt.current = order.id;
+    setTitel(order.title);
+    setDatum(order.order_date);
+    setZeit(order.time || "");
+    setBeschreibung(order.description || "");
+    setFahrzeugId(order.vehicle_id || "");
+    setMitarbeiterIds(assignedEmployeeIds);
+    setNotiz(order.techniker_notiz || "");
+    setGespeichert(false);
+    setSchliessenNachfrage(false);
+  }, [order, assignedEmployeeIds]);
+
+  const gleicheListe = (a: string[], b: string[]) =>
+    a.length === b.length && a.every((id) => b.includes(id));
+
+  const geaendert =
+    titel !== order.title ||
+    datum !== order.order_date ||
+    zeit !== (order.time || "") ||
+    beschreibung !== (order.description || "") ||
+    fahrzeugId !== (order.vehicle_id || "") ||
+    notiz !== (order.techniker_notiz || "") ||
+    !gleicheListe(mitarbeiterIds, assignedEmployeeIds);
   // Zwei Handlungen brauchen eine Begründung. Statt eines Browser-Dialogs klappt hier ein
   // kleiner Block auf – der Nutzer sieht dabei weiterhin den Auftrag, um den es geht.
   const [stornoOffen, setStornoOffen] = useState(false);
@@ -57,36 +121,100 @@ export function AuftragModal({
   const [wiederOffen, setWiederOffen] = useState(false);
   const [wiederGrund, setWiederGrund] = useState("");
 
-  const fahrzeug = vehicles.find((v) => v.id === order.vehicle_id);
+  const fahrzeug = vehicles.find((v) => v.id === fahrzeugId);
   const feldeAendern = !gesperrt && !isTechniker;
 
   function fahrzeugText(v: Vehicle): string {
     return [v.license_plate, v.make_model, v.tire_size].filter(Boolean).join(" · ") || "Fahrzeug ohne Angaben";
   }
 
+  // Ein Speichervorgang für das ganze Fenster. Die drei Aufrufe dahinter sind bestehende
+  // Schnittstellen; nur Fahrzeug und Notiz werden übersprungen, wenn sie sich nicht geändert
+  // haben – jedes überflüssige Schreiben wäre ein Eintrag im Änderungsprotokoll (Migration 18)
+  // über etwas, das niemand geändert hat.
   async function speichern() {
-    await onSaveFields(order.id, {
-      title: titel,
-      description: beschreibung,
-      orderDate: datum,
-      time: zeit,
-      status: order.status,
-      assignedEmployeeIds,
-    });
+    if (speichert) return;
+    setSpeichert(true);
+    try {
+      await onSaveFields(order.id, {
+        title: titel,
+        description: beschreibung,
+        orderDate: datum,
+        time: zeit,
+        status: order.status,
+        assignedEmployeeIds: mitarbeiterIds,
+      });
+      if (fahrzeugId !== (order.vehicle_id || "")) await onSetVehicle(order.id, fahrzeugId || null);
+      if (notiz !== (order.techniker_notiz || "")) await onUpdateTechnikerNotiz(order.id, notiz);
+      setGespeichert(true);
+    } finally {
+      setSpeichert(false);
+    }
+  }
+
+  // Die Bestätigung verschwindet nach kurzer Zeit von selbst. Der Zeitgeber wird beim
+  // Verlassen abgeräumt, sonst schriebe er in eine Komponente, die es nicht mehr gibt.
+  useEffect(() => {
+    if (!gespeichert) return;
+    const uhr = setTimeout(() => setGespeichert(false), 2200);
+    return () => clearTimeout(uhr);
+  }, [gespeichert]);
+
+  // Schließen mit ungespeicherten Änderungen fragt einmal nach, statt sie stillschweigend zu
+  // verwerfen. Bewusst als Zeile im Fenster und nicht als Browser-Dialog: der blockiert die
+  // Seite und sieht auf jedem Gerät anders aus.
+  function schliessenVersuchen() {
+    if (geaendert && !gesperrt) { setSchliessenNachfrage(true); return; }
+    onClose();
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={schliessenVersuchen}>
       <div className="modal-box auftrag-modal" onClick={(e) => e.stopPropagation()}>
         <div className="auftrag-kopf">
           <div>
-            <h3 style={{ margin: 0 }}>Auftrag {order.order_number}</h3>
+            <h3 style={{ margin: 0 }}>{frischAngelegt ? "Neuer Auftrag" : "Auftrag"} {order.order_number}</h3>
             <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
           </div>
-          <button type="button" className="btn-secondary" onClick={onClose} aria-label="Schließen">×</button>
+          {/* Speichern steht oben und nicht unten im Fuß: der Fuß trägt die Zustandswechsel
+              („Abschließen", „Stornieren"), und ein Speichern-Knopf daneben lädt dazu ein,
+              versehentlich den Auftrag abzuschließen, wenn man nur die Uhrzeit ändern wollte.
+              Der Knopf erscheint erst, wenn es etwas zu speichern gibt – ein dauerhaft
+              sichtbarer, meist wirkungsloser Knopf sagt nichts über den Zustand aus. */}
+          <div className="auftrag-kopf-aktionen">
+            {gespeichert && !geaendert && (
+              <span className="gespeichert-haken" role="status">✓ Gespeichert</span>
+            )}
+            {geaendert && !gesperrt && (
+              <button type="button" className="btn-primary" onClick={speichern} disabled={speichert}>
+                {speichert ? "Speichert …" : "Speichern"}
+              </button>
+            )}
+            <button type="button" className="btn-secondary auftrag-schliessen" onClick={schliessenVersuchen} aria-label="Schließen">×</button>
+          </div>
         </div>
 
+        {schliessenNachfrage && (
+          <div className="auftrag-nachfrage">
+            <span>Es gibt ungespeicherte Änderungen.</span>
+            <div className="auftrag-nachfrage-knoepfe">
+              <button type="button" className="btn-secondary" onClick={() => setSchliessenNachfrage(false)}>Zurück</button>
+              <button type="button" className="btn-secondary" style={{ color: "#b33" }} onClick={onClose}>Verwerfen</button>
+              <button type="button" className="btn-primary" disabled={speichert} onClick={async () => { await speichern(); onClose(); }}>
+                Speichern und schließen
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="auftrag-inhalt">
+          {frischAngelegt && (
+            <div className="auftrag-hinweis">
+              Angelegt mit heutigem Datum und dem Titel &bdquo;{order.title}&ldquo;. Termin,
+              Fahrzeug, Mitarbeiter und Leistungen jetzt hier eintragen – zum Schluss oben auf
+              &bdquo;Speichern&ldquo;.
+            </div>
+          )}
           {/* ---------------------------------------------------------------- Kunde */}
           <div className="auftrag-block">
             <div className="auftrag-block-titel">Kunde</div>
@@ -115,7 +243,7 @@ export function AuftragModal({
             ) : gesperrt || isTechniker ? (
               <div>{fahrzeug ? fahrzeugText(fahrzeug) : "– kein Fahrzeug zugeordnet –"}</div>
             ) : (
-              <select value={order.vehicle_id || ""} onChange={(e) => onSetVehicle(order.id, e.target.value || null)}>
+              <select value={fahrzeugId} onChange={(e) => setFahrzeugId(e.target.value)}>
                 <option value="">– kein Fahrzeug zugeordnet –</option>
                 {vehicles.map((v) => <option key={v.id} value={v.id}>{fahrzeugText(v)}</option>)}
               </select>
@@ -148,7 +276,6 @@ export function AuftragModal({
                 <div className="field"><label>Beschreibung</label>
                   <textarea value={beschreibung} onChange={(e) => setBeschreibung(e.target.value)} />
                 </div>
-                <button type="button" className="btn-secondary" onClick={speichern}>Angaben speichern</button>
               </>
             ) : (
               <>
@@ -163,12 +290,12 @@ export function AuftragModal({
           <div className="auftrag-block">
             <div className="auftrag-block-titel">Mitarbeiter</div>
             {gesperrt || isTechniker ? (
-              <div>{employees.filter((e) => assignedEmployeeIds.includes(e.id)).map((e) => e.name).join(", ") || "– niemand zugeordnet –"}</div>
+              <div>{employees.filter((e) => mitarbeiterIds.includes(e.id)).map((e) => e.name).join(", ") || "– niemand zugeordnet –"}</div>
             ) : (
               <EmployeeCheckboxList
                 employees={employees}
-                value={assignedEmployeeIds}
-                onChange={(ids) => onSetEmployees(order.id, ids)}
+                value={mitarbeiterIds}
+                onChange={setMitarbeiterIds}
               />
             )}
           </div>
@@ -187,13 +314,32 @@ export function AuftragModal({
             />
           </div>
 
+          {/* ---------------------------------------------------------------- Einlagerung */}
+          {/* Steht direkt hinter den Leistungen, weil die Pflicht von genau dort kommt: erst
+              wenn eine Leistung mit dem Kennzeichen im Auftrag steht, wird ein Lagerplatz
+              verlangt. Der Block wird auch ohne Pflicht gezeigt, solange eine Einlagerung
+              vorhanden ist – sonst verschwände sie beim Entfernen der Leistung aus dem Blick,
+              obwohl die Reifen weiter im Regal liegen. */}
+          {(brauchtLagerplatz || einlagerung) && (
+            <EinlagerungBlock
+              pflicht={brauchtLagerplatz}
+              einlagerung={einlagerung}
+              slots={storageSlots}
+              warehouses={warehouses}
+              belegteSlotIds={belegteSlotIds}
+              gesperrt={gesperrt}
+              onEinlagern={onEinlagern}
+              onEntfernen={onEinlagerungEntfernen}
+            />
+          )}
+
           {/* ---------------------------------------------------------------- Notiz */}
           <div className="auftrag-block">
             <div className="auftrag-block-titel">Notiz des Technikers</div>
             <textarea
-              defaultValue={order.techniker_notiz || ""}
+              value={notiz}
               placeholder="Was vor Ort aufgefallen ist …"
-              onBlur={(e) => { if (e.target.value !== (order.techniker_notiz || "")) onUpdateTechnikerNotiz(order.id, e.target.value); }}
+              onChange={(e) => setNotiz(e.target.value)}
             />
           </div>
 
@@ -250,12 +396,21 @@ export function AuftragModal({
                   <button type="button" className="btn-secondary" onClick={() => setStornoOffen(true)}>Stornieren</button>
                 )}
                 {!isTechniker && (
-                  <button
-                    type="button" className="btn-secondary" style={{ color: "#b33" }}
-                    onClick={() => { if (confirm(`Auftrag ${order.order_number} wirklich löschen?`)) { onDelete(order.id); onClose(); } }}
-                  >
-                    <IconTrash />
-                  </button>
+                  frischAngelegt ? (
+                    <button
+                      type="button" className="btn-secondary" style={{ color: "#b33" }}
+                      onClick={() => { onDelete(order.id); onClose(); }}
+                    >
+                      Verwerfen
+                    </button>
+                  ) : (
+                    <button
+                      type="button" className="btn-secondary" style={{ color: "#b33" }}
+                      onClick={() => { if (confirm(`Auftrag ${order.order_number} wirklich löschen?`)) { onDelete(order.id); onClose(); } }}
+                    >
+                      <IconTrash />
+                    </button>
+                  )
                 )}
               </div>
               <div className="auftrag-fuss-rechts">

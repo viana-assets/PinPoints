@@ -73,7 +73,7 @@ export async function deleteStorageSlotById(supabase: SupabaseClient, id: string
 // EINE aktive Belegung hat (removed_at is null). Versucht jemand parallel eine zweite
 // Einlagerung auf denselben Platz, lehnt die Datenbank das jetzt ab, statt zwei aktive Zeilen
 // entstehen zu lassen, von denen die Oberfläche willkürlich eine anzeigt.
-export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }): Promise<void> {
+export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; orderId?: string | null }): Promise<void> {
   const patch = {
     storage_slot_id: fields.storageSlotId,
     customer_id: fields.customerId,
@@ -81,6 +81,10 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
     profiltiefe_mm: fields.profiltiefeMm ? parseFloat(fields.profiltiefeMm.replace(",", ".")) : null,
     note: fields.note || null,
     updated_at: new Date().toISOString(),
+    // Nur mitschreiben, wenn der Aufrufer sich dazu geäußert hat (Migration 22). Ohne diese
+    // Unterscheidung würde das Lager-Modul, das keinen Auftrag kennt, beim Bearbeiten einer
+    // Einlagerung deren Auftragsbezug stillschweigend auf null setzen.
+    ...(fields.orderId === undefined ? {} : { order_id: fields.orderId }),
   };
   if (fields.id) {
     await qWrite(

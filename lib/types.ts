@@ -63,6 +63,9 @@ export type TireStorage = {
   created_at: string;
   updated_at: string;
   removed_at: string | null;
+  // Aus welchem Auftrag diese Einlagerung stammt (Migration 22). Null bei allem, was direkt im
+  // Lager-Modul eingelagert wurde, und bei Altbestand von vor der Migration.
+  order_id: string | null;
 };
 
 // Zustände eines Auftrags (Migration 20, Konzept in docs/auftragsablauf.md). Sie werden NICHT
@@ -148,6 +151,13 @@ export type Article = {
   short_name: string;
   long_name: string;
   active: boolean;
+  // Leistung, bei der etwas ins Lager geht (Migration 22). Steht eine solche Leistung im
+  // Auftrag, verlangt die Datenbank vor dem Abschluss einen belegten Lagerplatz.
+  //
+  // Das Kennzeichen hängt bewusst an der LEISTUNG und nicht an einem festen Namen im Code:
+  // kommt später „Felgen einlagern" oder „Dachbox" dazu, wird ein Haken gesetzt statt Code
+  // geändert. Ein Vergleich auf „Reifeneinlagerung" wäre beim ersten Umbenennen still kaputt.
+  braucht_lagerplatz: boolean;
   created_at: string;
 };
 

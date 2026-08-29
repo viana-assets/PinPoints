@@ -8,11 +8,12 @@ import { formatDate, formatEUR, todayStr, DEFAULT_VAT_RATE } from "@/lib/helpers
 export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPrice }: {
   article: Article;
   prices: ArticlePrice[];
-  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean }) => Promise<void>;
+  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }) => Promise<void>;
   onAddPrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
 }) {
   const [shortName, setShortName] = useState(article.short_name);
   const [longName, setLongName] = useState(article.long_name);
+  const [brauchtLagerplatz, setBrauchtLagerplatz] = useState(article.braucht_lagerplatz);
   const [netPrice, setNetPrice] = useState("");
   const [vatRate, setVatRate] = useState(String(DEFAULT_VAT_RATE));
   const [validFrom, setValidFrom] = useState(todayStr());
@@ -26,10 +27,26 @@ export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPri
         <button
           className="btn-secondary"
           style={{ flex: "0 0 auto" }}
-          onClick={() => onUpdateArticle(article.id, { short_name: shortName.trim() || article.short_name, long_name: longName.trim() || article.long_name, active: article.active })}
+          onClick={() => onUpdateArticle(article.id, { short_name: shortName.trim() || article.short_name, long_name: longName.trim() || article.long_name, active: article.active, braucht_lagerplatz: brauchtLagerplatz })}
         >
           Speichern
         </button>
+      </div>
+
+      {/* Kennzeichen für Leistungen, bei denen etwas ins Lager geht (Migration 22). Es hängt
+          hier am Artikel und nicht an einem festen Namen im Code – so löst auch eine später
+          angelegte Leistung wie „Felgen einlagern" die Lagerplatzpflicht aus, ohne dass jemand
+          eine Zeile Code anfasst. Siehe docs/lager.md. */}
+      <div className="checkbox-row" style={{ marginTop: 6 }}>
+        <input
+          type="checkbox" id={`lagerpflicht-${article.id}`}
+          checked={brauchtLagerplatz}
+          onChange={(e) => setBrauchtLagerplatz(e.target.checked)}
+        />
+        <label htmlFor={`lagerpflicht-${article.id}`}>
+          Braucht einen Lagerplatz (z. B. Reifeneinlagerung) – der Auftrag lässt sich erst
+          abschließen, wenn ein Platz belegt ist
+        </label>
       </div>
 
       <h4 style={{ margin: "8px 0 4px", fontSize: 13 }}>Preis-Historie</h4>

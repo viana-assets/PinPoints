@@ -233,6 +233,9 @@
   .slot-card .sc-cust{font-size:12px;color:var(--text);font-weight:600;}
   .slot-card .sc-meta{font-size:10.5px;color:var(--muted);}
   .slot-card .sc-del{position:absolute;top:8px;right:8px;padding:3px 6px;}
+  /* Aufkleber-Knopf links neben dem Papierkorb. Feste Breite, damit beide Knöpfe gleich groß
+     wirken, obwohl der eine ein Zeichen und der andere ein SVG enthält. */
+  .slot-card .sc-qr{position:absolute;top:8px;right:44px;padding:3px 6px;min-width:30px;}
   .hist-entry{border-left:2px solid var(--border);padding:4px 10px;margin-bottom:4px;font-size:11.5px;
     color:var(--muted);}
   .hist-entry .he-cust{color:var(--text);font-weight:700;}
@@ -648,3 +651,75 @@ tr.klickbar:hover { background: var(--hover); }
   .auftrag-fuss-links, .auftrag-fuss-rechts { flex: 1; }
   .auftrag-fuss-rechts { justify-content: flex-end; }
 }
+
+/* ---------------- QR-Aufkleber für Lagerplätze ---------------- */
+/* Jeder Lagerplatz bekommt einen Aufkleber, der genau auf ihn zeigt (Migration 22,
+   siehe docs/lager.md). Der Bogen wird über die Druckfunktion des Browsers ausgegeben. */
+.druck-modal{max-width:760px;}
+.druckbogen{display:flex;flex-wrap:wrap;gap:10px;max-height:52vh;overflow-y:auto;padding:4px;
+  background:#ffffff;border:1px solid var(--border);border-radius:12px;}
+.aufkleber{width:150px;border:1px dashed #b9b1a1;border-radius:8px;padding:8px;
+  display:flex;flex-direction:column;align-items:center;gap:6px;background:#ffffff;
+  break-inside:avoid;page-break-inside:avoid;}
+.qr-bild{width:104px;height:104px;display:block;image-rendering:pixelated;}
+.qr-platzhalter{width:104px;height:104px;display:flex;align-items:center;justify-content:center;
+  font-size:10px;color:var(--muted);text-align:center;border:1px dashed var(--border);border-radius:6px;}
+.aufkleber-text{text-align:center;line-height:1.2;}
+.aufkleber-code{font-family:var(--font-brand);font-weight:800;font-size:16px;color:#000000;}
+.aufkleber-lager{font-size:9.5px;color:#444444;}
+
+/* Beim Drucken bleibt nur der Bogen übrig. Bewusst über `visibility` statt `display`: das
+   erhält den Seitenaufbau und vermeidet, dass ein ausgeblendeter Vorfahre den Bogen mitreißt.
+   Farben werden erzwungen, sonst sparen manche Browser den schwarzen QR-Code weg. */
+@media print{
+  body *{visibility:hidden;}
+  .druckbogen, .druckbogen *{visibility:visible;}
+  .druckbogen{position:absolute;left:0;top:0;width:100%;max-height:none;overflow:visible;
+    border:none;padding:0;gap:6mm;}
+  .druck-weg{display:none !important;}
+  .aufkleber{width:38mm;border:1px dashed #999999;}
+  .qr-bild{width:26mm;height:26mm;}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
+
+/* ---------------- Kamera-Scanner ---------------- */
+.scanner-box{max-width:420px;}
+.scanner-bild{position:relative;width:100%;aspect-ratio:1;background:#000000;border-radius:12px;
+  overflow:hidden;}
+.scanner-bild video{width:100%;height:100%;object-fit:cover;display:block;}
+/* Zielrahmen: rein optisch. Er schneidet das Bild NICHT zu – ausgewertet wird das ganze
+   Kamerabild, damit ein Aufkleber auch dann erkannt wird, wenn er neben der Mitte liegt. */
+.scanner-rahmen{position:absolute;inset:18%;border:3px solid rgba(255,255,255,.9);border-radius:14px;
+  box-shadow:0 0 0 100vmax rgba(0,0,0,.35);pointer-events:none;}
+
+/* ---------------- Einlagerung im Auftragsfenster ---------------- */
+.einlagerung-zeile{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.einlagerung-zeile select{flex:1;min-width:150px;}
+.einlagerung-pflicht{color:var(--red);font-weight:700;}
+
+/* ---------------- Auftragsfenster: Speichern in der Kopfzeile ---------------- */
+/* Der Entwurf wird erst auf Knopfdruck geschrieben (siehe AuftragModal.tsx). Der Knopf sitzt
+   oben und nicht im Fuß: dort stehen die Zustandswechsel („Abschließen", „Stornieren"), und ein
+   Speichern daneben lädt dazu ein, versehentlich den Auftrag abzuschließen. */
+.auftrag-kopf-aktionen{display:flex;align-items:center;gap:8px;flex:0 0 auto;}
+/* Das Schließen-Kreuz war ein schmaler Sekundärknopf und auf dem Handy kaum zu treffen.
+   44 px sind die übliche Mindestgröße für eine Fingerfläche. */
+.auftrag-schliessen{width:38px;height:38px;min-width:38px;padding:0;font-size:20px;line-height:1;
+  display:flex;align-items:center;justify-content:center;}
+@media (max-width:700px){
+  .auftrag-schliessen{width:44px;height:44px;min-width:44px;}
+}
+/* Bestätigung nach dem Speichern – erscheint kurz und verschwindet von selbst. Sie ERSETZT den
+   Speichern-Knopf an derselben Stelle, statt daneben aufzutauchen: so springt die Kopfzeile
+   nicht in der Breite. */
+.gespeichert-haken{display:inline-flex;align-items:center;gap:5px;color:var(--green);
+  font-size:13px;font-weight:700;white-space:nowrap;animation:hakenEin .18s ease-out;}
+@keyframes hakenEin{from{opacity:0;transform:translateY(-3px);}to{opacity:1;transform:none;}}
+
+/* Nachfrage beim Schließen mit ungespeicherten Änderungen. Bewusst eine Zeile im Fenster und
+   kein Browser-Dialog: der blockiert die Seite und sieht auf jedem Gerät anders aus. */
+.auftrag-nachfrage{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  flex-wrap:wrap;margin:0 22px 8px;padding:9px 12px;border-radius:10px;
+  background:var(--accent-bg);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  font-size:13px;font-weight:600;}
+.auftrag-nachfrage-knoepfe{display:flex;gap:6px;flex-wrap:wrap;}

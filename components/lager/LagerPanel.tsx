@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Customer, StorageSlot, TireStorage, Warehouse } from "@/lib/types";
 import { formatDate } from "@/lib/helpers";
 import { IconLager, IconTrash } from "@/components/icons";
 import { CustomerPicker } from "@/components/CustomerPicker";
+import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
 
 // Lager-Modul: zwei Ebenen wie ein eigenständiges Modul – erst die Übersicht aller Lager
 // (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze, inkl. Reifen-
@@ -46,7 +47,7 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire }: {
+export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
   customers: Customer[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
   onAddWarehouse: (fields: { name: string; address: string; note: string }) => Promise<string | undefined>;
   onUpdateWarehouse: (id: string, fields: { name: string; address: string; note: string }) => Promise<void>;
@@ -65,6 +66,12 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
   canCreateSlot: boolean;
   canDeleteSlot: boolean;
   canAssignTire: boolean;
+  // Lagerplatz, der beim Öffnen des Moduls direkt aufgeschlagen werden soll – gesetzt, wenn
+  // die App über einen gescannten QR-Aufkleber aufgerufen wurde (?lagerplatz=…). Das Lager
+  // dazu wird mit ausgewählt, damit man nicht auf einer Lagerübersicht landet und selbst
+  // suchen muss. `onLagerplatzGeoeffnet` meldet zurück, dass der Sprung erledigt ist.
+  springeZuLagerplatzId?: string | null;
+  onLagerplatzGeoeffnet?: () => void;
 }) {
   // Zwei Ebenen wie ein eigenständiges Modul: erst die Übersicht aller Lager
   // (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze.
@@ -79,6 +86,9 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
   const [newDigits, setNewDigits] = useState("2");
   const [newSlotCode, setNewSlotCode] = useState("");
   const [assignSlot, setAssignSlot] = useState<StorageSlot | null>(null);
+  // Lagerplätze, für die gerade ein Aufkleberbogen offen ist: ein einzelner Platz beim
+  // Nachdruck, alle Plätze eines Lagers bei der Erstausstattung.
+  const [aufkleberFuer, setAufkleberFuer] = useState<StorageSlot[] | null>(null);
   const [editingWarehouse, setEditingWarehouse] = useState(false);
   const [showAddMoreSlots, setShowAddMoreSlots] = useState(false);
   const [morePrefix, setMorePrefix] = useState("");
@@ -88,6 +98,18 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
 
   const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || null;
   const slotsInWarehouse = storageSlots.filter((s) => s.warehouse_id === selectedWarehouseId);
+
+  // Kommt die App über einen gescannten Aufkleber (?lagerplatz=…), wird das passende Lager
+  // aufgeschlagen und der Platz gleich geöffnet. Läuft erst, wenn die Lagerplätze geladen
+  // sind – deshalb hängt der Effekt an `storageSlots` und nicht nur an der Kennung.
+  useEffect(() => {
+    if (!springeZuLagerplatzId) return;
+    const platz = storageSlots.find((sl) => sl.id === springeZuLagerplatzId);
+    if (!platz) return;
+    setSelectedWarehouseId(platz.warehouse_id);
+    if (canAssignTire) setAssignSlot(platz);
+    onLagerplatzGeoeffnet?.();
+  }, [springeZuLagerplatzId, storageSlots, canAssignTire, onLagerplatzGeoeffnet]);
   const [editName, setEditName] = useState(selectedWarehouse?.name || "");
   const [editAddress, setEditAddress] = useState(selectedWarehouse?.address || "");
   const [editNote, setEditNote] = useState(selectedWarehouse?.note || "");
@@ -300,6 +322,15 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
           </>
         )}
 
+        {slotsInWarehouse.length > 0 && (
+          <button
+            type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }}
+            onClick={() => setAufkleberFuer(slotsInWarehouse)}
+          >
+            🏷 Aufkleber für alle {slotsInWarehouse.length} Lagerplätze drucken
+          </button>
+        )}
+
         {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
 
         <div className="card-grid">
@@ -327,6 +358,14 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
                 ) : (
                   <div className="sc-meta">Frei</div>
                 )}
+                <button
+                  type="button"
+                  className="btn-secondary sc-qr"
+                  title={`Aufkleber für ${slot.code} drucken`}
+                  onClick={(e) => { e.stopPropagation(); setAufkleberFuer([slot]); }}
+                >
+                  🏷
+                </button>
                 {canDeleteSlot && (
                   <button
                     type="button"
@@ -341,6 +380,14 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
           })}
         </div>
       </div>
+
+      {aufkleberFuer && (
+        <LagerplatzAufkleber
+          slots={aufkleberFuer}
+          lagerName={selectedWarehouse?.name || ""}
+          onClose={() => setAufkleberFuer(null)}
+        />
+      )}
 
       {assignSlot && (
         <TireAssignModal
