@@ -96,6 +96,13 @@ export default function HomePage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
+  // Erst wenn die Anmeldung geprüft und die eigene Rolle geladen ist, dürfen die Datenabfragen
+  // starten. Vor Roadmap-Phase 10 ergab sich das von selbst, weil alles Laden nacheinander in
+  // einem einzigen Effekt lief; seit die Abfragen eigenständig sind, müssen sie ausdrücklich
+  // warten. Sonst überholen sie den Sitzungsstart und gehen mit einem abgelaufenen Token
+  // hinaus – Supabase antwortet dann mit 401, während im Hintergrund gerade ein frisches Token
+  // geholt wird.
+  const [sitzungBereit, setSitzungBereit] = useState(false);
   // Zentrale Fehleranzeige (Roadmap Phase 9). Vorher verschluckte lib/api jeden Fehler:
   // eine abgelehnte Schreiboperation verschwand spurlos und der Nutzer sah nur, wie seine
   // Eingabe wieder verschwand.
@@ -149,19 +156,19 @@ export default function HomePage() {
   const brauchtArtikel = tab === "artikel" || tab === "auftraege" || tab === "einsatzplanung" || kundeOffen;
   const brauchtLager = tab === "lager" || kundeOffen;
 
-  const kundenQuery = useKunden(supabase);
-  const auftraegeQuery = useAuftraege(supabase, auftragsFenster);
-  const mitarbeiterQuery = useMitarbeiter(supabase, brauchtMitarbeiter);
-  const artikelQuery = useArtikel(supabase, brauchtArtikel);
-  const artikelpreiseQuery = useArtikelpreise(supabase, brauchtArtikel);
-  const lagerQuery = useLager(supabase, brauchtLager);
-  const lagerplaetzeQuery = useLagerplaetze(supabase, brauchtLager);
-  const einlagerungenQuery = useEinlagerungen(supabase, brauchtLager);
-  const lagerKennzahlenQuery = useLagerKennzahlen(supabase, tab === "dashboard");
-  const modulrechteQuery = useModulrechte(supabase);
-  const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId);
-  const kundeAuftraegeQuery = useKundenAuftraege(supabase, selectedId);
-  const historieQuery = useKundeHistorie(supabase, selectedId);
+  const kundenQuery = useKunden(supabase, sitzungBereit);
+  const auftraegeQuery = useAuftraege(supabase, auftragsFenster, sitzungBereit);
+  const mitarbeiterQuery = useMitarbeiter(supabase, sitzungBereit && brauchtMitarbeiter);
+  const artikelQuery = useArtikel(supabase, sitzungBereit && brauchtArtikel);
+  const artikelpreiseQuery = useArtikelpreise(supabase, sitzungBereit && brauchtArtikel);
+  const lagerQuery = useLager(supabase, sitzungBereit && brauchtLager);
+  const lagerplaetzeQuery = useLagerplaetze(supabase, sitzungBereit && brauchtLager);
+  const einlagerungenQuery = useEinlagerungen(supabase, sitzungBereit && brauchtLager);
+  const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && tab === "dashboard");
+  const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
+  const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId, sitzungBereit);
+  const kundeAuftraegeQuery = useKundenAuftraege(supabase, selectedId, sitzungBereit);
+  const historieQuery = useKundeHistorie(supabase, selectedId, sitzungBereit);
 
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
   const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
@@ -192,6 +199,21 @@ export default function HomePage() {
     (kundeAuftraegeQuery.data?.orderArticles ?? KEINE_POSITIONEN).forEach((z) => nachId.set(z.id, z));
     return Array.from(nachId.values());
   }, [auftraegeQuery.data, kundeAuftraegeQuery.data]);
+
+  // Fehlgeschlagene Abfragen sichtbar machen. TanStack Query fängt Fehler intern ab und legt
+  // sie an der Abfrage ab – sie werden also KEINE unbehandelte Promise-Ablehnung und liefen
+  // damit an der zentralen Fehleranzeige aus Phase 9 vorbei. Ohne diese Zeilen bliebe ein
+  // Panel bei einem Fehler einfach leer, ohne jeden Hinweis: genau die Sorte stiller Fehler,
+  // die Phase 9 abstellen sollte.
+  const abfrageFehler =
+    kundenQuery.error || auftraegeQuery.error || modulrechteQuery.error ||
+    mitarbeiterQuery.error || artikelQuery.error || artikelpreiseQuery.error ||
+    lagerQuery.error || lagerplaetzeQuery.error || einlagerungenQuery.error ||
+    lagerKennzahlenQuery.error || kundeFahrzeugeQuery.error || kundeAuftraegeQuery.error ||
+    historieQuery.error;
+  useEffect(() => {
+    if (abfrageFehler) setFehler(abfrageFehler.message || "Daten konnten nicht geladen werden.");
+  }, [abfrageFehler]);
 
   // Nach einer Änderung gezielt die betroffenen Bestände nachladen lassen – nicht mehr pauschal
   // die ganze Tabelle wie vor Phase 10.
@@ -290,6 +312,9 @@ export default function HomePage() {
 
       const settingsRow = await fetchOrCreateUserSettings(supabase, user.id);
       if (settingsRow) setSettings(settingsRow);
+
+      // Ab hier ist das Zugriffstoken frisch – jetzt dürfen die Datenabfragen loslaufen.
+      setSitzungBereit(true);
 
       // Ab hier nichts mehr laden: die Datenbestände hängen an den Abfragen weiter oben und
       // kommen nach und nach an, während die Oberfläche schon steht (Roadmap Phase 10). Vorher

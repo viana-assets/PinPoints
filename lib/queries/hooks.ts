@@ -26,23 +26,31 @@ import { fetchModulePermissions } from "@/lib/api/permissions";
 // Bewusst NICHT nach Bedarf, sondern immer geladen: Kunden und das Auftrags-Zeitfenster. Beide
 // stecken in der Karte, im Dashboard und in fast jeder Liste; sie erst beim Tabwechsel zu holen
 // würde nur ein Flackern erzeugen, ohne etwas zu sparen.
+//
+// ABER: auch diese beiden warten auf `aktiv`. Jede Abfrage hier bekommt einen solchen Schalter,
+// und app/page.tsx setzt ihn erst, wenn die Anmeldung fertig geprüft ist. Sonst starten die
+// Abfragen parallel zum Sitzungs-Bootstrap und können ihn überholen – dann geht die erste
+// Anfrage mit einem abgelaufenen Zugriffstoken hinaus und Supabase antwortet mit 401, während
+// im Hintergrund gerade ein frisches Token geholt wird.
 
 // Zwischenspeicher-Dauer: eine Minute gilt ein Bestand als frisch. Kurz genug, dass Änderungen
 // eines Kollegen zeitnah ankommen, lang genug, dass ein Tabwechsel nicht jedes Mal neu lädt.
 const FRISCH_MS = 60_000;
 
-export function useKunden(supabase: SupabaseClient) {
+export function useKunden(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.kunden(),
     queryFn: () => fetchCustomers(supabase),
+    enabled: aktiv,
     staleTime: FRISCH_MS,
   });
 }
 
-export function useAuftraege(supabase: SupabaseClient, fenster: AuftragsFenster) {
+export function useAuftraege(supabase: SupabaseClient, fenster: AuftragsFenster, aktiv: boolean) {
   return useQuery<Auftragsdaten>({
     queryKey: qk.auftraege(fenster),
     queryFn: () => fetchOrders(supabase, fenster),
+    enabled: aktiv,
     staleTime: FRISCH_MS,
     // Beim Umschalten des Zeitfensters die bisherigen Zeilen stehen lassen, statt die Liste
     // kurz leer zu zeigen.
@@ -50,29 +58,29 @@ export function useAuftraege(supabase: SupabaseClient, fenster: AuftragsFenster)
   });
 }
 
-export function useKundenAuftraege(supabase: SupabaseClient, kundeId: string | null) {
+export function useKundenAuftraege(supabase: SupabaseClient, kundeId: string | null, aktiv: boolean) {
   return useQuery<Auftragsdaten>({
     queryKey: qk.kundeAuftraege(kundeId || "-"),
     queryFn: () => fetchOrdersFuerKunde(supabase, kundeId as string),
-    enabled: !!kundeId,
+    enabled: aktiv && !!kundeId,
     staleTime: FRISCH_MS,
   });
 }
 
-export function useKundeFahrzeuge(supabase: SupabaseClient, kundeId: string | null) {
+export function useKundeFahrzeuge(supabase: SupabaseClient, kundeId: string | null, aktiv: boolean) {
   return useQuery({
     queryKey: qk.kundeFahrzeuge(kundeId || "-"),
     queryFn: () => fetchVehiclesFuerKunde(supabase, kundeId as string),
-    enabled: !!kundeId,
+    enabled: aktiv && !!kundeId,
     staleTime: FRISCH_MS,
   });
 }
 
-export function useKundeHistorie(supabase: SupabaseClient, kundeId: string | null) {
+export function useKundeHistorie(supabase: SupabaseClient, kundeId: string | null, aktiv: boolean) {
   return useQuery({
     queryKey: qk.kundeHistorie(kundeId || "-"),
     queryFn: () => fetchContactHistory(supabase, kundeId as string),
-    enabled: !!kundeId,
+    enabled: aktiv && !!kundeId,
     staleTime: FRISCH_MS,
   });
 }
@@ -141,10 +149,11 @@ export function useLagerKennzahlen(supabase: SupabaseClient, aktiv: boolean) {
   });
 }
 
-export function useModulrechte(supabase: SupabaseClient) {
+export function useModulrechte(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.modulrechte(),
     queryFn: () => fetchModulePermissions(supabase),
+    enabled: aktiv,
     staleTime: FRISCH_MS,
   });
 }
