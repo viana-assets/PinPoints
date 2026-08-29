@@ -129,26 +129,37 @@ export function IconArtikel() {
     </svg>
   );
 }
-// Navigations-Button (Auftrag/Termin): bewusst der farbige "Standort-Pin" statt eines
-// dünnen Linien-Icons wie die übrigen Icons hier – ersetzt das vorher genutzte Kompass-Emoji
-// (siehe docs/design-system.md), weil er in der kleinen runden Schaltfläche sofort als
-// "Navigation/Karte" erkennbar bleibt, ohne sich je nach Betriebssystem/Schriftart anders
-// darzustellen wie ein Emoji das tut. useId() macht die clipPath-ID pro Instanz eindeutig,
-// falls mehrere Navigations-Buttons gleichzeitig auf der Seite stehen (z. B. Tabellenzeilen).
+// Navigations-Button (Auftrag/Termin): bewusst ein farbiger Standort-Pin statt eines dünnen
+// Linien-Icons wie die übrigen Icons hier – er bleibt auch klein sofort als "Navigation/Karte"
+// erkennbar und sieht, anders als das früher genutzte Kompass-Emoji, auf jedem Betriebssystem
+// gleich aus.
+//
+// Farben aus der eigenen Palette (siehe :root in globals.css), NICHT die Markenfarben von
+// Google Maps: der Button öffnet wahlweise Google Maps oder Apple Karten, ein fremdes
+// Bildzeichen wäre hier weder zutreffend noch zulässig.
+//
+// Zur ID: useId() liefert in React 18 Werte wie ":r5:" – mit Doppelpunkten. Eine solche ID in
+// einer SVG-Referenz (`url(#:r5:)`) lösen Browser nicht auf, und ein ungültiger Verweis führt
+// dazu, dass das betroffene Element GAR NICHT gezeichnet wird. Genau daran lag es, dass vom Pin
+// nur ein winziger weißer Punkt übrig blieb und der Button wie eine leere farbige Fläche
+// aussah. Deshalb werden hier alle Sonderzeichen entfernt.
 export function IconNavPin() {
-  const clipId = useId();
+  const farbverlauf = "navpin-" + useId().replace(/[^a-zA-Z0-9]/g, "");
   return (
     <svg viewBox="0 0 24 24">
-      <clipPath id={clipId}>
-        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z" />
-      </clipPath>
-      <g clipPath={`url(#${clipId})`}>
-        <rect x="4" y="1" width="8" height="11" fill="#EA4335" />
-        <rect x="12" y="1" width="8" height="11" fill="#4285F4" />
-        <rect x="4" y="12" width="8" height="11" fill="#FBBC05" />
-        <rect x="12" y="12" width="8" height="11" fill="#34A853" />
-      </g>
-      <circle cx="12" cy="9" r="3.1" fill="#fff" />
+      <defs>
+        <linearGradient id={farbverlauf} x1="4" y1="2" x2="19" y2="22" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#FF7A3D" />
+          <stop offset="0.35" stopColor="#FF5A1F" />
+          <stop offset="0.7" stopColor="#1E9B6E" />
+          <stop offset="1" stopColor="#1E3A5F" />
+        </linearGradient>
+      </defs>
+      <path
+        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z"
+        fill={`url(#${farbverlauf})`}
+      />
+      <circle cx="12" cy="9" r="3.05" fill="#fff" />
     </svg>
   );
 }
