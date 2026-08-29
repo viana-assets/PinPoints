@@ -1062,8 +1062,14 @@ export default function HomePage() {
   return (
     <div id="app" ref={appRef} className={fullPageTabs ? "vollseite" : undefined}>
       <nav id="iconNav">
-        <div className="nav-brand" title="Viana PinPoints">
+        {/* Bildmarke UND Schriftzug. Der Schriftzug ist echter Text, nicht Teil des Bildes:
+            er steht damit in der Hausschrift, bleibt bei jeder Vergrößerung scharf, ist
+            durchsuchbar und für Vorleseprogramme lesbar. Die Wortmarke aus der Logodatei ist
+            für 1400 px Breite gezeichnet und wäre hier unlesbar klein (siehe
+            docs/design-system.md). */}
+        <div className="nav-brand">
           <IconMarke />
+          <h1>Vi<span className="brand-accent">ana</span> PinPoints</h1>
         </div>
         <NavItem active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={<IconDashboard />} label="Dashboard" />
         {canView("kunden") && <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />}
