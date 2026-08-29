@@ -136,6 +136,14 @@ export default function HomePage() {
   const [onlyUpcoming, setOnlyUpcoming] = useState(true);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Der gerade geöffnete Auftrag (Migration 20, docs/auftragsablauf.md). Er ersetzt das frühere
+  // Leistungen-Popover: dort war für die Positionserfassung schlicht kein Platz.
+  //
+  // Steht bewusst HIER und nicht weiter unten bei den Popover-Zuständen: die Ableitung
+  // `offenerAuftrag` weiter unten liest ihn, und eine Deklaration danach wäre ein Zugriff vor
+  // der Initialisierung. TypeScript kann das nicht sehen, weil der Zugriff in einem
+  // find()-Callback steckt – zur Laufzeit wirft es.
+  const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
   //
@@ -254,9 +262,6 @@ export default function HomePage() {
   // Klick speichert sofort – kein separater "Speichern"-Button, wie beim Modul-Berechtigungen-Raster.
   const [empMenuFor, setEmpMenuFor] = useState<{ orderId: string; ids: string[] } | null>(null);
   const [empMenuPos, setEmpMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-  // Der gerade geöffnete Auftrag (Migration 20, docs/auftragsablauf.md). Er ersetzt das frühere
-  // Leistungen-Popover: dort war für die Positionserfassung schlicht kein Platz.
-  const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
 
   const appRef = useRef<HTMLDivElement | null>(null);
   const mapDivRef = useRef<HTMLDivElement | null>(null);
