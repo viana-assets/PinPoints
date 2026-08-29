@@ -167,7 +167,16 @@
   .module-card .mc-icon{width:34px;height:34px;border-radius:10px;background:var(--accent-bg);color:var(--accent);
     display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
   .module-card .mc-icon svg{width:18px;height:18px;}
-  button svg{width:16px;height:16px;display:block;}
+  /* flex:0 0 auto ist hier nicht optional: Buttons sind display:inline-flex, ein Icon darin ist
+     also ein Flex-Element und darf von der Flexbox geschrumpft werden – und zwar nur entlang der
+     Hauptachse, bei einer Zeile also in der BREITE. Reicht der Innenraum des Buttons nicht
+     (Standard-Innenabstand eines <button> kommt noch dazu), wird das Icon auf 0 Pixel Breite
+     zusammengedrückt, während die Höhe unberührt bleibt. Gezeichnet wird der Pfad trotzdem, er
+     ragt nur aus dem 0 Pixel breiten Kasten heraus – und SVG schneidet Überstehendes ab. Das
+     Ergebnis ist ein Icon, das vollständig korrekt im Dokument steht und trotzdem unsichtbar
+     ist. Genau daran lag es beim Navigations-Button (gemessen am 29.08.2026: Breite 0, Höhe 20).
+     Diese eine Angabe verhindert das für alle Icon-Buttons. */
+  button svg{width:16px;height:16px;display:block;flex:0 0 auto;}
   .module-card .mc-text{flex:1;min-width:0;}
   .module-card .mc-text .mc-title{font-weight:700;font-size:13px;font-family:var(--font-brand);}
   .module-card .mc-text .mc-sub{font-size:11.5px;color:var(--muted);}
@@ -275,10 +284,12 @@
      selbst mit – eine zusätzliche Kreisfläche darunter hat ihn vorher regelrecht verschluckt.
      Dadurch unterscheiden sich die beiden Aktionen jetzt auch in der Form voneinander, nicht
      nur in der Farbe: gefüllter Kreis = anrufen, freistehender Pin = navigieren.
-     Größer als die generische `button svg`-Regel (16px), weil kein Kreis mehr drumherum steht. */
-  .nav-icon-btn{background:none;box-shadow:none;margin-right:8px;width:26px;height:26px;}
+     Größer als die generische `button svg`-Regel (16px), weil kein Kreis mehr drumherum steht.
+     padding:0 ist wichtig: ohne das bleibt der Standard-Innenabstand eines <button> stehen und
+     der Innenraum ist schmaler als das Icon – siehe die Erklärung bei `button svg` oben. */
+  .nav-icon-btn{background:none;box-shadow:none;padding:0;margin-right:8px;width:26px;height:26px;}
   .nav-icon-btn:hover{background:none;transform:translateY(-1px);}
-  .nav-icon-btn svg{width:22px;height:22px;}
+  .nav-icon-btn svg{width:22px;height:22px;flex:0 0 auto;}
   .nav-icon-btn.small{width:24px;height:24px;}
   .nav-icon-btn.small svg{width:20px;height:20px;}
   .call-menu{position:fixed;z-index:20000;background:var(--panel);border:1px solid var(--border);border-radius:10px;
