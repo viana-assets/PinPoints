@@ -1,0 +1,37 @@
+# Prüft bei jedem Push/Pull-Request auf main, dass der Stand typprüfbar, baubar und
+# lint-sauber ist – Vitali sieht das Ergebnis direkt am Commit, ohne eigenen Terminalzugriff.
+#
+# Hinweis: diese Datei fehlte im OneDrive-Ordner, obwohl die Doku sie beschrieb (Review-Befund
+# C7). Falls auf GitHub schon eine gleichnamige Datei liegt, ersetzt diese sie.
+name: Typecheck, Lint und Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pruefen:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: viana-pinpoints
+    env:
+      # Platzhalter: der Build braucht die Variablen nur, damit die Supabase-Clients
+      # initialisiert werden können – es wird nichts kontaktiert.
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: viana-pinpoints/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
