@@ -3,7 +3,6 @@
 // eigene Dateien). Reine, zustandslose Komponenten ohne Abhängigkeit zu HomePage-State,
 // deshalb risikolos verschiebbar.
 
-import { useId } from "react";
 
 export function IconDashboard() {
   return (
@@ -129,35 +128,30 @@ export function IconArtikel() {
     </svg>
   );
 }
-// Navigations-Button (Auftrag/Termin): bewusst ein farbiger Standort-Pin statt eines dünnen
-// Linien-Icons wie die übrigen Icons hier – er bleibt auch klein sofort als "Navigation/Karte"
-// erkennbar und sieht, anders als das früher genutzte Kompass-Emoji, auf jedem Betriebssystem
-// gleich aus.
+// Navigations-Button (Auftrag/Termin): ein Standort-Pin statt eines dünnen Linien-Icons wie die
+// übrigen Icons hier – er bleibt auch klein sofort als "Navigation/Karte" erkennbar und sieht,
+// anders als das früher genutzte Kompass-Emoji, auf jedem Betriebssystem gleich aus.
 //
-// Farben aus der eigenen Palette (siehe :root in globals.css), NICHT die Markenfarben von
-// Google Maps: der Button öffnet wahlweise Google Maps oder Apple Karten, ein fremdes
-// Bildzeichen wäre hier weder zutreffend noch zulässig.
+// Farbe aus der eigenen Palette (--accent), NICHT die Markenfarben von Google Maps: der Button
+// öffnet wahlweise Google Maps oder Apple Karten, ein fremdes Bildzeichen wäre hier weder
+// zutreffend noch zulässig.
 //
-// Zur ID: useId() liefert in React 18 Werte wie ":r5:" – mit Doppelpunkten. Eine solche ID in
-// einer SVG-Referenz (`url(#:r5:)`) lösen Browser nicht auf, und ein ungültiger Verweis führt
-// dazu, dass das betroffene Element GAR NICHT gezeichnet wird. Genau daran lag es, dass vom Pin
-// nur ein winziger weißer Punkt übrig blieb und der Button wie eine leere farbige Fläche
-// aussah. Deshalb werden hier alle Sonderzeichen entfernt.
+// BEWUSST OHNE `<defs>`, ohne Verlauf und ohne jede ID: dieses Icon war schon zweimal unsichtbar,
+// beide Male wegen einer internen SVG-Referenz. Erst über ein `clipPath`, dessen ID aus useId()
+// stammte und Doppelpunkte enthielt (`url(#:r5:)` lösen Browser nicht auf), dann über einen
+// Farbverlauf mit demselben Verweismuster. Ein ungültiger Verweis führt in SVG dazu, dass das
+// Element GAR NICHT gezeichnet wird – und ein weißer Punkt auf hellem Grund fällt niemandem als
+// Fehler auf, er sieht einfach aus wie nichts. Zwei einfache Formen mit fester Farbe können
+// nicht fehlschlagen. Wer hier später einen Verlauf will: erst prüfen, ob er wirklich ankommt.
+//
+// Die Maße stehen zusätzlich als Attribute am Element, damit der Pin auch dann eine sinnvolle
+// Größe hat, wenn die CSS-Regel dazu einmal nicht greift.
 export function IconNavPin() {
-  const farbverlauf = "navpin-" + useId().replace(/[^a-zA-Z0-9]/g, "");
   return (
-    <svg viewBox="0 0 24 24">
-      <defs>
-        <linearGradient id={farbverlauf} x1="4" y1="2" x2="19" y2="22" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#FF7A3D" />
-          <stop offset="0.35" stopColor="#FF5A1F" />
-          <stop offset="0.7" stopColor="#1E9B6E" />
-          <stop offset="1" stopColor="#1E3A5F" />
-        </linearGradient>
-      </defs>
+    <svg viewBox="0 0 24 24" width="22" height="22">
       <path
         d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z"
-        fill={`url(#${farbverlauf})`}
+        fill="#FF5A1F"
       />
       <circle cx="12" cy="9" r="3.05" fill="#fff" />
     </svg>
