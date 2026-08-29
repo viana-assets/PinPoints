@@ -384,3 +384,43 @@
 .calendar-dots{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;max-width:44px;}
 .calendar-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
 .calendar-dot-unassigned{background:var(--muted);opacity:.5;}
+
+/* Zentrale Fehlermeldung (Roadmap Phase 9): eine nicht blockierende Einblendung unten rechts,
+   damit ein fehlgeschlagener Speichervorgang sichtbar wird, ohne den Arbeitsfluss zu stoppen.
+   Bewusst kein modaler Dialog – der Nutzer soll seine Eingabe direkt korrigieren können, sie
+   steht ja noch im Formular. */
+.fehler-hinweis {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 4000;
+  max-width: min(420px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(226, 76, 61, .35);
+  border-left: 4px solid #E24C3D;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.4;
+  color: #241d13;
+}
+.fehler-hinweis button {
+  flex: 0 0 auto;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+  padding: 0 2px;
+  color: #8a8178;
+}
+.fehler-hinweis button:hover { color: #241d13; }
+@media (max-width: 700px) {
+  /* Über der mobilen Navigationsleiste bleiben. */
+  .fehler-hinweis { right: 12px; left: 12px; bottom: 78px; max-width: none; }
+}

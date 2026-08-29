@@ -10,15 +10,16 @@ export type Customer = {
   status: "offen" | "kontaktiert";
   last_contact: string | null; // YYYY-MM-DD
   active: boolean;
+  // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
+  // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen
+  // filtern deshalb auf `deleted_at is null`.
+  deleted_at: string | null;
 };
 
-export type Appointment = {
-  id: string;
-  customer_id: string;
-  date: string; // YYYY-MM-DD
-  time: string | null; // HH:MM
-  description: string | null;
-};
+// Der frühere Typ `Appointment` ist entfallen: seit Migration 07 ist ein Termin ein Auftrag
+// mit Uhrzeit (siehe `Order` unten). Die Tabelle `public.appointments` existiert in der
+// Datenbank noch mit ihren Altdaten, ist seit Migration 16 aber für die API gesperrt und wird
+// von der App nicht mehr angefasst (Review-Befund D7).
 
 export type ContactHistoryEntry = {
   id: string;
@@ -84,6 +85,10 @@ export type Order = {
   techniker_notiz: string | null;
   created_at: string;
   updated_at: string;
+  // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
+  // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen
+  // filtern deshalb auf `deleted_at is null`.
+  deleted_at: string | null;
 };
 
 // Mitarbeiter-Stammdaten für die Einsatzplanung – bewusst unabhängig vom Login-System,
@@ -115,10 +120,12 @@ export type Vehicle = {
 // ArticlePrice (siehe dort), damit nachvollziehbar bleibt, welcher Preis wann galt.
 export type Article = {
   id: string;
-  // Fortlaufende, für Menschen lesbare Artikelnummer (Migration 14) – von der Datenbank
-  // automatisch vergeben (Sequenz `article_number_seq`), nicht editierbar. Getrennt von `id`
-  // (UUID, technischer Primärschlüssel), weil eine UUID als "Artikelnummer" im Alltag
-  // unpraktisch wäre.
+  // Für Menschen lesbare Artikelnummer (Migration 14). Beim Anlegen von der Datenbank
+  // fortlaufend vorbelegt (Sequenz `article_number_seq`), in der Artikel-Übersicht aber
+  // bewusst frei überschreibbar – verschiedene Artikelgruppen brauchen eigene Nummernkreise,
+  // dafür reicht eine einzige Sequenz nicht. Eindeutigkeit sichert die Unique-Constraint.
+  // Getrennt von `id` (UUID, technischer Primärschlüssel), weil eine UUID als "Artikelnummer"
+  // im Alltag unpraktisch wäre.
   article_number: number;
   short_name: string;
   long_name: string;
@@ -153,6 +160,10 @@ export type OrderArticle = {
   discount_percent: number;
   note: string | null;
   created_at: string;
+  // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
+  // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen
+  // filtern deshalb auf `deleted_at is null`.
+  deleted_at: string | null;
 };
 
 export type Role = "superadmin" | "admin" | "techniker" | "user";

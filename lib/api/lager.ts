@@ -1,44 +1,57 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StorageSlot, TireStorage, Warehouse } from "@/lib/types";
+import { fetchPaged, qOne, qWrite } from "./client";
 
 // Datenzugriffsschicht für das Lager-Modul (Warehouses, Lagerplätze, Reifen-Einlagerung).
 // Reine Supabase-Wrapper ohne React-State – siehe lib/api/employees.ts für das Muster.
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 3.
 
 export async function fetchWarehouses(supabase: SupabaseClient): Promise<Warehouse[]> {
-  const { data } = await supabase.from("warehouses").select("*").order("name");
-  return (data as Warehouse[]) || [];
+  return fetchPaged<Warehouse>("Die Lager konnten nicht geladen werden", (von, bis) =>
+    supabase.from("warehouses").select("*").order("name").range(von, bis)
+  );
 }
 
 export async function fetchStorageSlots(supabase: SupabaseClient): Promise<StorageSlot[]> {
-  const { data } = await supabase.from("storage_slots").select("*").order("code");
-  return (data as StorageSlot[]) || [];
+  return fetchPaged<StorageSlot>("Die Lagerplätze konnten nicht geladen werden", (von, bis) =>
+    supabase.from("storage_slots").select("*").order("code").range(von, bis)
+  );
 }
 
 export async function fetchTireStorages(supabase: SupabaseClient): Promise<TireStorage[]> {
-  const { data } = await supabase.from("tire_storage").select("*").order("updated_at", { ascending: false });
-  return (data as TireStorage[]) || [];
+  return fetchPaged<TireStorage>("Die Einlagerungen konnten nicht geladen werden", (von, bis) =>
+    supabase.from("tire_storage").select("*").order("updated_at", { ascending: false }).range(von, bis)
+  );
 }
 
-export async function insertWarehouse(supabase: SupabaseClient, fields: { name: string; address: string; note: string }): Promise<string | undefined> {
-  const { data: created } = await supabase
-    .from("warehouses")
-    .insert({ name: fields.name, address: fields.address || null, note: fields.note || null })
-    .select("id")
-    .single();
-  return created?.id as string | undefined;
+export async function insertWarehouse(supabase: SupabaseClient, fields: { name: string; address: string; note: string }): Promise<string> {
+  const created = await qOne<{ id: string }>(
+    "Das Lager konnte nicht angelegt werden",
+    supabase
+      .from("warehouses")
+      .insert({ name: fields.name, address: fields.address || null, note: fields.note || null })
+      .select("id")
+      .single()
+  );
+  return created.id;
 }
 
 export async function updateWarehouseById(supabase: SupabaseClient, id: string, fields: { name: string; address: string; note: string }): Promise<void> {
-  await supabase.from("warehouses").update({ name: fields.name, address: fields.address || null, note: fields.note || null }).eq("id", id);
+  await qWrite(
+    "Das Lager konnte nicht gespeichert werden",
+    supabase.from("warehouses").update({ name: fields.name, address: fields.address || null, note: fields.note || null }).eq("id", id)
+  );
 }
 
 export async function deleteWarehouseById(supabase: SupabaseClient, id: string): Promise<void> {
-  await supabase.from("warehouses").delete().eq("id", id);
+  await qWrite("Das Lager konnte nicht gelöscht werden", supabase.from("warehouses").delete().eq("id", id));
 }
 
 export async function insertStorageSlot(supabase: SupabaseClient, warehouseId: string, code: string): Promise<void> {
-  await supabase.from("storage_slots").insert({ warehouse_id: warehouseId, code });
+  await qWrite(
+    "Der Lagerplatz konnte nicht angelegt werden",
+    supabase.from("storage_slots").insert({ warehouse_id: warehouseId, code })
+  );
 }
 
 // Bulk-Anlage von Lagerplätzen nach einer Nummerierungslogik (Präfix + Start/Ende + Stellen),
@@ -46,13 +59,20 @@ export async function insertStorageSlot(supabase: SupabaseClient, warehouseId: s
 // als auch später zum Nachrüsten weiterer Plätze verwendet.
 export async function insertStorageSlotsBulk(supabase: SupabaseClient, warehouseId: string, codes: string[]): Promise<void> {
   if (codes.length === 0) return;
-  await supabase.from("storage_slots").insert(codes.map((code) => ({ warehouse_id: warehouseId, code })));
+  await qWrite(
+    "Die Lagerplätze konnten nicht angelegt werden",
+    supabase.from("storage_slots").insert(codes.map((code) => ({ warehouse_id: warehouseId, code })))
+  );
 }
 
 export async function deleteStorageSlotById(supabase: SupabaseClient, id: string): Promise<void> {
-  await supabase.from("storage_slots").delete().eq("id", id);
+  await qWrite("Der Lagerplatz konnte nicht gelöscht werden", supabase.from("storage_slots").delete().eq("id", id));
 }
 
+// Seit Migration 15 stellt ein partieller Unique-Index sicher, dass ein Lagerplatz höchstens
+// EINE aktive Belegung hat (removed_at is null). Versucht jemand parallel eine zweite
+// Einlagerung auf denselben Platz, lehnt die Datenbank das jetzt ab, statt zwei aktive Zeilen
+// entstehen zu lassen, von denen die Oberfläche willkürlich eine anzeigt.
 export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }): Promise<void> {
   const patch = {
     storage_slot_id: fields.storageSlotId,
@@ -63,14 +83,23 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
     updated_at: new Date().toISOString(),
   };
   if (fields.id) {
-    await supabase.from("tire_storage").update(patch).eq("id", fields.id);
+    await qWrite(
+      "Die Einlagerung konnte nicht gespeichert werden",
+      supabase.from("tire_storage").update(patch).eq("id", fields.id)
+    );
   } else {
-    await supabase.from("tire_storage").insert(patch);
+    await qWrite(
+      "Die Einlagerung konnte nicht angelegt werden – ist der Lagerplatz schon belegt?",
+      supabase.from("tire_storage").insert(patch)
+    );
   }
 }
 
 // Soft-Delete: Zuordnung wird nur als "entfernt" markiert, nicht gelöscht, damit der
 // Lagerplatz eine Historie behält (Migration 06).
 export async function removeTireAssignmentById(supabase: SupabaseClient, id: string): Promise<void> {
-  await supabase.from("tire_storage").update({ removed_at: new Date().toISOString() }).eq("id", id);
+  await qWrite(
+    "Die Einlagerung konnte nicht entfernt werden",
+    supabase.from("tire_storage").update({ removed_at: new Date().toISOString() }).eq("id", id)
+  );
 }

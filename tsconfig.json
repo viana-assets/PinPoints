@@ -4,7 +4,11 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "skipLibCheck": true,
-    "strict": false,
+    // Roadmap Phase 12: vorher stand hier false – der Compiler prüfte damit weder
+    // null/undefined noch implizite any. Genau die Fehlerklasse, die bei optionalen
+    // Datenbankfeldern (lat, time, valid_to, profile_id, deleted_at) auftritt, war also
+    // ungeprüft, und die CI prüfte deutlich weniger, als sie zu prüfen schien.
+    "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
     "module": "esnext",

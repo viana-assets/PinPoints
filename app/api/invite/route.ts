@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabaseServer";
+import { ALL_ROLES } from "@/lib/constants";
+import type { Role } from "@/lib/types";
 
-const ASSIGNABLE_ROLES = ["user", "techniker", "admin", "superadmin"] as const;
+// Vergebbare Rollen kommen aus der zentralen Rollenliste, statt hier ein viertes Mal
+// aufgezählt zu werden (Konstanten-Regel, siehe docs/README.md, Befund D3).
+const ASSIGNABLE_ROLES = ALL_ROLES;
 
 // Admin und Superadmin dürfen Einladungen versenden. Nutzt den Service-Role-Key
 // (nur serverseitig!) um über Supabase Auth eine echte Einladungs-E-Mail
@@ -30,7 +34,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "E-Mail-Adresse fehlt." }, { status: 400 });
   }
 
-  const requestedRole = (role && ASSIGNABLE_ROLES.includes(role) ? role : "user") as typeof ASSIGNABLE_ROLES[number];
+  const requestedRole: Role = role && ASSIGNABLE_ROLES.includes(role as Role) ? (role as Role) : "user";
   if (requestedRole === "superadmin" && callerRole !== "superadmin") {
     return NextResponse.json({ error: "Nur ein Superadmin darf die Rolle Superadmin vergeben." }, { status: 403 });
   }

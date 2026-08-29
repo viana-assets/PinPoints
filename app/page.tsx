@@ -63,6 +63,10 @@ export default function HomePage() {
   const supabase = useMemo(() => createClient(), []);
 
   const [loading, setLoading] = useState(true);
+  // Zentrale Fehleranzeige (Roadmap Phase 9). Vorher verschluckte lib/api jeden Fehler:
+  // eine abgelehnte Schreiboperation verschwand spurlos und der Nutzer sah nur, wie seine
+  // Eingabe wieder verschwand.
+  const [fehler, setFehler] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [myRole, setMyRole] = useState<Role>("user");
@@ -139,12 +143,39 @@ export default function HomePage() {
   const markerIndexRef = useRef<Record<string, any>>({});
   const baseLayerRef = useRef<any>(null);
   const overlayLayerRef = useRef<any>(null);
+  // Leaflet wird seit Roadmap-Phase 8 als npm-Paket dynamisch geladen (vorher ein <script>
+  // von cdnjs ohne integrity-Attribut, siehe app/layout.tsx). Das Modul liegt hier statt in
+  // window.L – bewusst als any typisiert, weil der Kartenstil-Schalter mit L.Control.extend
+  // arbeitet; eine vollständige Typisierung der Karte ist ein eigener Schritt.
+  const leafletRef = useRef<any>(null);
 
   // Aktuelle Daten/Handler als Ref, damit Leaflet-Popup-Callbacks (die außerhalb
   // des React-Renderzyklus leben) nie mit veralteten Closures arbeiten.
   const liveRef = useRef({ customers, orders, settings });
   liveRef.current = { customers, orders, settings };
   const saveSettingsRef = useRef<(patch: Partial<UserSettings>) => Promise<void>>(async () => {});
+
+  // Jede Funktion in lib/api wirft bei einem Supabase-Fehler eine ApiError (siehe
+  // lib/api/client.ts). Bricht ein Klick-Handler dadurch ab, landet das als unbehandelte
+  // Promise-Ablehnung hier – eine einzige Stelle statt einer Fehlerbehandlung an ~60
+  // Aufrufstellen. Nebeneffekt, der so gewollt ist: das refreshX() nach dem fehlgeschlagenen
+  // Schreibvorgang läuft nicht mehr, die Eingabe des Nutzers bleibt also stehen.
+  useEffect(() => {
+    function onRejection(e: PromiseRejectionEvent) {
+      const grund = e.reason as { message?: string } | undefined;
+      setFehler(grund?.message || "Es ist ein unerwarteter Fehler aufgetreten.");
+      e.preventDefault();
+    }
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => window.removeEventListener("unhandledrejection", onRejection);
+  }, []);
+
+  // Meldung nach einer Weile von selbst ausblenden – sie ist ein Hinweis, kein Dialog.
+  useEffect(() => {
+    if (!fehler) return;
+    const t = setTimeout(() => setFehler(null), 9000);
+    return () => clearTimeout(t);
+  }, [fehler]);
 
   // ---------------------------------------------------------------- Initial-Load
   useEffect(() => {
@@ -173,8 +204,13 @@ export default function HomePage() {
       await refreshOrderArticles();
       await refreshVehicles();
       await refreshModulePermissions();
-      setLoading(false);
-    })();
+    })()
+      .catch((e: { message?: string }) => {
+        setFehler(e?.message || "Die Daten konnten nicht geladen werden.");
+      })
+      // Auch im Fehlerfall aus dem Ladezustand herausgehen: mit einer sichtbaren Meldung und
+      // Teildaten kommt man weiter als mit einem "Lädt…", das nie verschwindet.
+      .finally(() => setLoading(false));
   }, []);
 
   async function refreshCustomers() {
@@ -223,7 +259,9 @@ export default function HomePage() {
   }
   async function updateArticleNumber(id: string, articleNumber: number) {
     const { error } = await updateArticleNumberById(supabase, id, articleNumber);
-    if (error) alert(error);
+    // Eine doppelte Artikelnummer ist ein erwarteter Bedienfehler, keine Störung – deshalb
+    // meldet updateArticleNumberById sie als Rückgabewert statt als Ausnahme.
+    if (error) setFehler(error);
     await refreshArticles();
   }
   async function addArticlePrice(articleId: string, netPrice: number, vatRate: number, validFrom: string) {
@@ -307,10 +345,12 @@ export default function HomePage() {
   useEffect(() => {
     if (loading) return;
     let cancelled = false;
-    function tryInit() {
-      const L = (window as any).L;
-      if (!L || !mapDivRef.current) {
-        if (!cancelled) setTimeout(tryInit, 60);
+    async function tryInit() {
+      const L: any = (await import("leaflet")).default;
+      if (cancelled) return;
+      leafletRef.current = L;
+      if (!mapDivRef.current) {
+        setTimeout(tryInit, 60);
         return;
       }
       if (mapRef.current) return;
@@ -328,7 +368,7 @@ export default function HomePage() {
       window.addEventListener("focus", forceFullReflow);
       syncMarkers();
     }
-    tryInit();
+    void tryInit();
     return () => { cancelled = true; };
   }, [loading]);
 
@@ -346,7 +386,7 @@ export default function HomePage() {
   }, [fullPageTabs]);
 
   function applyMapStyle(styleKey: MapStyleKey) {
-    const L = (window as any).L;
+    const L = leafletRef.current;
     const map = mapRef.current;
     if (!L || !map) return;
     const def = MAP_STYLES[styleKey] || MAP_STYLES.strasse;
@@ -414,7 +454,7 @@ export default function HomePage() {
 
   // ---------------------------------------------------------------- Marker synchronisieren
   function makeIcon(color: "red" | "green") {
-    const L = (window as any).L;
+    const L = leafletRef.current;
     const bg = color === "green" ? "#2f9e5c" : "#e0483f";
     return L.divIcon({
       className: "custom-pin",
@@ -425,7 +465,7 @@ export default function HomePage() {
   }
 
   function syncMarkers() {
-    const L = (window as any).L;
+    const L = leafletRef.current;
     if (!L || !markerLayerRef.current) return;
     const { customers: custs, orders: ords, settings: s } = liveRef.current;
     const seen = new Set<string>();
@@ -1356,6 +1396,13 @@ export default function HomePage() {
             else if (nums.length > 1) { setCallMenuPos({ top: 80, left: 80 }); setCallMenuFor(cust); }
           }}
         />
+      )}
+
+      {fehler && (
+        <div className="fehler-hinweis" role="alert">
+          <span>{fehler}</span>
+          <button type="button" onClick={() => setFehler(null)} aria-label="Meldung schließen">×</button>
+        </div>
       )}
     </div>
   );

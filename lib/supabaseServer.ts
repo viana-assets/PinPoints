@@ -1,4 +1,9 @@
+// Schutzschild: dieser Import lässt den Build fehlschlagen, sobald diese Datei versehentlich
+// aus einer Client-Komponente heraus importiert wird. Sie enthält mit createAdminClient() den
+// Service-Role-Key-Pfad und war bisher nur durch Konvention serverseitig (Review-Befund A7).
+import "server-only";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createClient as createRawClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 
 // Server-seitiger Supabase-Client für Server Components / Route Handler,
@@ -34,7 +39,6 @@ export function createClient() {
 // Admin-Client mit Service-Role-Key: NUR in serverseitigen Route Handlern
 // verwenden (z.B. für Einladungen), NIE ins Client-Bundle gelangen lassen.
 export function createAdminClient() {
-  const { createClient: createRawClient } = require("@supabase/supabase-js");
   return createRawClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,

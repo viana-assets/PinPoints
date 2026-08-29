@@ -17,6 +17,10 @@ export const ROLE_LABEL: Record<Role, string> = {
   user: "Nutzer",
 };
 
+// Alle existierenden Rollen, abgeleitet aus ROLE_LABEL – damit es keine zweite Aufzählung
+// gibt, die beim Hinzufügen einer Rolle vergessen werden kann (z. B. in der Einladungsroute).
+export const ALL_ROLES = Object.keys(ROLE_LABEL) as Role[];
+
 // ---------------------------------------------------------------- Auftragsstatus
 // Anzeigename je Auftragsstatus – referenziert von CustomerOrderRow, AuftraegePanel und
 // EinsatzplanungPanel (vorher an allen drei Stellen als identische lokale Konstante

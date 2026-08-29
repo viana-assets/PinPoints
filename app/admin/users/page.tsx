@@ -3,13 +3,9 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import type { Profile, Role } from "@/lib/types";
-
-const ROLE_LABEL: Record<Role, string> = {
-  superadmin: "Superadmin",
-  admin: "Admin",
-  techniker: "Techniker",
-  user: "Nutzer",
-};
+// Anzeigenamen der Rollen kommen zentral aus lib/constants.ts – hier standen sie bis zur
+// Sanierung ein zweites Mal wörtlich (Konstanten-Regel, siehe docs/README.md, Befund D1).
+import { ROLE_LABEL } from "@/lib/constants";
 
 // Nutzerverwaltung: nur für den Superadmin sichtbar. Listet alle Profile
 // (dank RLS-Policy "Superadmin liest alle Profile") und erlaubt, die Rolle

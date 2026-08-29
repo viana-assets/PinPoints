@@ -10,7 +10,9 @@ import { CustomerPicker } from "@/components/CustomerPicker";
 
 // Erzeugt Lagerplatz-Codes aus einer einfachen Nummerierungslogik, z. B.
 // Präfix "A", 1–20, 2-stellig gepolstert → A-01 … A-20.
-function buildSlotCodes(prefix: string, start: number, end: number, digits: number): string[] {
+// Exportiert, damit die Nummerierungslogik in tests/lagerplaetze.test.ts geprüft werden kann
+// (Roadmap Phase 12) – innerhalb dieser Datei ändert sich dadurch nichts.
+export function buildSlotCodes(prefix: string, start: number, end: number, digits: number): string[] {
   if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) return [];
   const codes: string[] = [];
   for (let n = start; n <= end && codes.length < 500; n++) {

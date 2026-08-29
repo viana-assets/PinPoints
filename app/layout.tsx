@@ -1,4 +1,10 @@
 import "./globals.css";
+// Leaflet wird seit Roadmap-Phase 8 als npm-Paket gebündelt statt von cdnjs geladen: das
+// frühere <script>/<link> auf ein fremdes CDN hatte kein integrity-Attribut, ein
+// kompromittiertes Skript hätte mit vollen Rechten in jeder Sitzung laufen und den
+// Supabase-Token abgreifen können (Review-Befund A6). Das JavaScript selbst lädt
+// app/page.tsx bei Bedarf per dynamischem Import – nur das Stylesheet gehört hierher.
+import "leaflet/dist/leaflet.css";
 import HashSessionHandler from "./auth/HashSessionHandler";
 
 export const metadata = {
@@ -21,8 +27,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Karla:wght@400;500;600;700&display=swap"
         />
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js" defer></script>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
       <body>

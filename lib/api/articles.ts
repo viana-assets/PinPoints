@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Article, ArticlePrice, OrderArticle } from "@/lib/types";
 import { currentArticlePrice, DEFAULT_VAT_RATE } from "@/lib/helpers";
+import { fetchPaged, qWrite } from "./client";
 
 // Datenzugriffsschicht für das Artikelstammdatenbuch (Migration 12): Artikel, Preis-Historie
 // und die Zuordnung von Artikeln zu Aufträgen. Reine Supabase-Wrapper ohne React-State –
@@ -8,26 +9,32 @@ import { currentArticlePrice, DEFAULT_VAT_RATE } from "@/lib/helpers";
 // docs/roadmap.md Phase 3.
 
 export async function fetchArticles(supabase: SupabaseClient): Promise<Article[]> {
-  const { data } = await supabase.from("articles").select("*").order("article_number");
-  return (data as Article[]) || [];
+  return fetchPaged<Article>("Die Artikel konnten nicht geladen werden", (von, bis) =>
+    supabase.from("articles").select("*").order("article_number").range(von, bis)
+  );
 }
 
 export async function fetchArticlePrices(supabase: SupabaseClient): Promise<ArticlePrice[]> {
-  const { data } = await supabase.from("article_prices").select("*").order("valid_from", { ascending: false });
-  return (data as ArticlePrice[]) || [];
+  return fetchPaged<ArticlePrice>("Die Artikelpreise konnten nicht geladen werden", (von, bis) =>
+    supabase.from("article_prices").select("*").order("valid_from", { ascending: false }).range(von, bis)
+  );
 }
 
 export async function fetchOrderArticles(supabase: SupabaseClient): Promise<OrderArticle[]> {
-  const { data } = await supabase.from("order_articles").select("*").order("created_at");
-  return (data as OrderArticle[]) || [];
+  return fetchPaged<OrderArticle>("Die zugeordneten Leistungen konnten nicht geladen werden", (von, bis) =>
+    supabase.from("order_articles").select("*").is("deleted_at", null).order("created_at").range(von, bis)
+  );
 }
 
 export async function insertArticle(supabase: SupabaseClient, shortName: string, longName: string): Promise<void> {
-  await supabase.from("articles").insert({ short_name: shortName, long_name: longName });
+  await qWrite(
+    "Der Artikel konnte nicht angelegt werden",
+    supabase.from("articles").insert({ short_name: shortName, long_name: longName })
+  );
 }
 
 export async function updateArticleById(supabase: SupabaseClient, id: string, fields: { short_name: string; long_name: string; active: boolean }): Promise<void> {
-  await supabase.from("articles").update(fields).eq("id", id);
+  await qWrite("Der Artikel konnte nicht gespeichert werden", supabase.from("articles").update(fields).eq("id", id));
 }
 
 // Artikelnummer ist von der Datenbank vorbelegt (Sequenz `article_number_seq`, Migration 14),
@@ -35,6 +42,10 @@ export async function updateArticleById(supabase: SupabaseClient, id: string, fi
 // eigene Nummernfolgen (z. B. eigene Nummernkreise je Kategorie), das lässt sich nicht mit
 // einer einzigen fortlaufenden Sequenz abbilden. Die Unique-Constraint aus Migration 14 bleibt
 // bestehen – ein Postgres-Fehler mit Code "23505" bedeutet, dass die Nummer schon vergeben ist.
+//
+// Diese Funktion wirft bewusst NICHT (anders als der Rest dieser Schicht, siehe ./client.ts):
+// eine doppelte Nummer ist keine Störung, sondern eine normale Rückmeldung an den Nutzer, der
+// sie direkt in der Tabellenzelle korrigieren soll.
 export async function updateArticleNumberById(supabase: SupabaseClient, id: string, articleNumber: number): Promise<{ error: string | null }> {
   const { error } = await supabase.from("articles").update({ article_number: articleNumber }).eq("id", id);
   if (!error) return { error: null };
@@ -61,9 +72,15 @@ export async function insertArticlePrice(
     const d = new Date(validFrom + "T00:00:00");
     d.setDate(d.getDate() - 1);
     const closeDate = d.toISOString().slice(0, 10);
-    await supabase.from("article_prices").update({ valid_to: closeDate }).eq("id", row.id);
+    await qWrite(
+      "Der bisherige Preiszeitraum konnte nicht abgeschlossen werden",
+      supabase.from("article_prices").update({ valid_to: closeDate }).eq("id", row.id)
+    );
   }
-  await supabase.from("article_prices").insert({ article_id: articleId, net_price: netPrice, vat_rate: vatRate, valid_from: validFrom });
+  await qWrite(
+    "Der neue Preis konnte nicht gespeichert werden",
+    supabase.from("article_prices").insert({ article_id: articleId, net_price: netPrice, vat_rate: vatRate, valid_from: validFrom })
+  );
 }
 
 // Legt eine Auftrags-Artikelzeile an, mit dem aktuell gültigen Preis (aus `existingPrices`) als
@@ -77,21 +94,32 @@ export async function insertOrderArticle(
   discountPercent: number
 ): Promise<void> {
   const price = currentArticlePrice(existingPrices.filter((p) => p.article_id === articleId));
-  await supabase.from("order_articles").insert({
-    order_id: orderId, article_id: articleId, quantity,
-    net_price: price ? price.net_price : 0, vat_rate: price ? price.vat_rate : DEFAULT_VAT_RATE,
-    discount_percent: discountPercent,
-  });
+  await qWrite(
+    "Die Leistung konnte dem Auftrag nicht zugeordnet werden",
+    supabase.from("order_articles").insert({
+      order_id: orderId, article_id: articleId, quantity,
+      net_price: price ? price.net_price : 0, vat_rate: price ? price.vat_rate : DEFAULT_VAT_RATE,
+      discount_percent: discountPercent,
+    })
+  );
 }
 
 export async function updateOrderArticleQtyById(supabase: SupabaseClient, id: string, quantity: number): Promise<void> {
-  await supabase.from("order_articles").update({ quantity }).eq("id", id);
+  await qWrite("Die Menge konnte nicht gespeichert werden", supabase.from("order_articles").update({ quantity }).eq("id", id));
 }
 
 export async function updateOrderArticleDiscountById(supabase: SupabaseClient, id: string, discountPercent: number): Promise<void> {
-  await supabase.from("order_articles").update({ discount_percent: discountPercent }).eq("id", id);
+  await qWrite(
+    "Der Rabatt konnte nicht gespeichert werden",
+    supabase.from("order_articles").update({ discount_percent: discountPercent }).eq("id", id)
+  );
 }
 
+// Soft-Delete seit Migration 19: eine einmal einem Auftrag zugeordnete Leistung ist eine
+// Belegposition mit Preis-Schnappschuss – die darf nicht spurlos verschwinden.
 export async function deleteOrderArticleById(supabase: SupabaseClient, id: string): Promise<void> {
-  await supabase.from("order_articles").delete().eq("id", id);
+  await qWrite(
+    "Die Leistung konnte nicht entfernt werden",
+    supabase.from("order_articles").update({ deleted_at: new Date().toISOString() }).eq("id", id)
+  );
 }

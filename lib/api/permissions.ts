@@ -1,17 +1,24 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchPaged, qWrite } from "./client";
 
-// Datenzugriffsschicht für die Modul-Berechtigungen (Migration 09): pro Modul-Schlüssel, welche
-// Rollen dort etwas dürfen. Reine Supabase-Wrapper ohne React-State – siehe
-// lib/api/employees.ts für das Muster. Ausgelagert aus app/page.tsx, siehe docs/roadmap.md
-// Phase 3.
+// Datenzugriffsschicht für die Modul-Berechtigungen (Migration 09/10/16): pro Modul-Schlüssel,
+// welche Rollen dort etwas dürfen. Seit Migration 16 wertet die Datenbank diese Tabelle selbst
+// aus (`public.has_module_permission()`) – ein Haken in der Modulverwaltung ändert damit
+// tatsächlich, was möglich ist, nicht nur, was sichtbar ist.
 
 export async function fetchModulePermissions(supabase: SupabaseClient): Promise<Record<string, string[]>> {
-  const { data } = await supabase.from("module_permissions").select("*");
+  const rows = await fetchPaged<{ module_key: string; edit_roles: string[] }>(
+    "Die Modul-Berechtigungen konnten nicht geladen werden",
+    (von, bis) => supabase.from("module_permissions").select("*").range(von, bis)
+  );
   const map: Record<string, string[]> = {};
-  (data as { module_key: string; edit_roles: string[] }[] | null)?.forEach((r) => { map[r.module_key] = r.edit_roles || []; });
+  rows.forEach((r) => { map[r.module_key] = r.edit_roles || []; });
   return map;
 }
 
 export async function upsertModulePermissions(supabase: SupabaseClient, moduleKey: string, roles: string[]): Promise<void> {
-  await supabase.from("module_permissions").upsert({ module_key: moduleKey, edit_roles: roles });
+  await qWrite(
+    "Die Berechtigung konnte nicht gespeichert werden",
+    supabase.from("module_permissions").upsert({ module_key: moduleKey, edit_roles: roles })
+  );
 }
