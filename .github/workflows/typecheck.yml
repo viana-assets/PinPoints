@@ -1,8 +1,5 @@
-# Prüft bei jedem Push/Pull-Request auf main, dass der Stand typprüfbar, baubar und
-# lint-sauber ist – Vitali sieht das Ergebnis direkt am Commit, ohne eigenen Terminalzugriff.
-#
-# Hinweis: diese Datei fehlte im OneDrive-Ordner, obwohl die Doku sie beschrieb (Review-Befund
-# C7). Falls auf GitHub schon eine gleichnamige Datei liegt, ersetzt diese sie.
+# Prüft bei jedem Push/Pull-Request auf main, dass der Stand typprüfbar, lint-sauber, getestet
+# und baubar ist – Vitali sieht das Ergebnis direkt am Commit, ohne eigenen Terminalzugriff.
 name: Typecheck, Lint und Build
 
 on:
@@ -14,24 +11,54 @@ on:
 jobs:
   pruefen:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: viana-pinpoints
     env:
       # Platzhalter: der Build braucht die Variablen nur, damit die Supabase-Clients
       # initialisiert werden können – es wird nichts kontaktiert.
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
       NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-anon-key
       SUPABASE_SERVICE_ROLE_KEY: placeholder-service-key
+      NEXT_TELEMETRY_DISABLED: "1"
     steps:
       - uses: actions/checkout@v4
+
+      # Wo im Repo liegt die Anwendung? Vitali lädt die Dateien über die GitHub-Weboberfläche
+      # hoch; je nachdem, wie das passiert, landet der Inhalt im Wurzelverzeichnis oder in einem
+      # Unterordner "viana-pinpoints". Ein fest eingetragener Pfad ist deshalb genau die Art
+      # Annahme, die still bricht – dieser Schritt stellt es fest und sagt im Klartext, was er
+      # gefunden hat.
+      - id: pfad
+        name: Projektordner bestimmen
+        run: |
+          set -eu
+          if [ -f package.json ]; then
+            DIR="."
+          elif [ -f viana-pinpoints/package.json ]; then
+            DIR="viana-pinpoints"
+          else
+            echo "::error::Keine package.json gefunden – weder im Wurzelverzeichnis noch in viana-pinpoints/."
+            exit 1
+          fi
+          echo "Projekt gefunden in: $DIR"
+          if [ ! -f "$DIR/package-lock.json" ]; then
+            echo "::error::In $DIR fehlt package-lock.json. Ohne sie kann npm ci nicht arbeiten – die Datei muss mit ins Repo hochgeladen werden."
+            exit 1
+          fi
+          echo "package-lock.json ist vorhanden."
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
-          cache-dependency-path: viana-pinpoints/package-lock.json
+          cache-dependency-path: ${{ steps.pfad.outputs.dir }}/package-lock.json
+
       - run: npm ci
+        working-directory: ${{ steps.pfad.outputs.dir }}
       - run: npx tsc --noEmit
+        working-directory: ${{ steps.pfad.outputs.dir }}
       - run: npm run lint
+        working-directory: ${{ steps.pfad.outputs.dir }}
       - run: npm test
+        working-directory: ${{ steps.pfad.outputs.dir }}
       - run: npm run build
+        working-directory: ${{ steps.pfad.outputs.dir }}
