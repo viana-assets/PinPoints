@@ -423,29 +423,41 @@ export default function HomePage() {
     return auftraegeJeKunde[customerId] || KEINE_AUFTRAEGE;
   }
 
-  // Erzwingt einen kompletten Reflow (Layout) UND Repaint des gesamten App-Layouts (Nav +
-  // Seitenleiste + Karte) – nicht nur einzelner Kindelemente. Browser wie Chromium/Edge geraten
-  // nach einer Größenänderung (Fenster verkleinert/vergrößert, DevTools geöffnet/geschlossen,
-  // Wechsel zwischen Vollseiten-Modul und normalem Tab, Zurückkehren aus dem Hintergrund/bfcache)
-  // manchmal in einen Zustand, in dem die GEZEICHNETEN Pixel nicht mehr zur tatsächlichen
-  // Layout-Position passen: Ein Klick landet dann korrekt auf dem darunterliegenden, eigentlich
-  // richtig positionierten Element, während optisch noch die alte (verschobene/überlappende)
-  // Ansicht zu sehen ist ("Geisterbild") – genau das gemeldete Verhalten, bei dem die Karte über
-  // die Seitenleiste geschoben wirkt, aber die Klicks trotzdem bei den darunterliegenden
-  // Terminen ankommen. Ein kurzes Aus-/Wiedereinblenden des GESAMTEN #app-Wurzelelements (statt
-  // nur von Karte oder Seitenleiste einzeln) zwingt den Browser, Layout und Pixel für die
-  // komplette Ansicht neu zu berechnen und zu zeichnen.
-  function forceFullReflow() {
-    const el = appRef.current;
-    if (el) {
-      const prevDisplay = el.style.display;
-      el.style.display = "none";
-      void el.offsetHeight; // erzwingt den Reflow
-      el.style.display = prevDisplay;
+  // Leaflet rechnet mit einer selbst gemerkten Containergröße weiter und merkt von sich aus
+  // nicht, wenn sich die Box ändert. Genau dafür ist ein ResizeObserver da: er feuert, wenn
+  // sich die Größe TATSÄCHLICH geändert hat – beim Wechsel zwischen Vollseiten-Modul und
+  // normalem Tab, beim Verkleinern des Fensters, beim Öffnen der Entwicklerwerkzeuge, beim
+  // Drehen des Handys – und sonst nie.
+  //
+  // Was hier vorher stand, war ein forceFullReflow(): das gesamte #app-Element kurz auf
+  // display:none und zurück, dazu window.scrollTo(0,0) und ein invalidateSize() auf einem
+  // 30-ms-Timer, angestoßen von vier globalen Listenern (resize, visibilitychange, pageshow,
+  // focus), die nie wieder abgemeldet wurden. Das war der Versuch, ein Layout-Problem durch
+  // Erzwingen von Neuberechnungen zu übertönen – mit zwei eigenen Fehlern: der Timer riet die
+  // Wartezeit (war das Layout langsamer, maß Leaflet die falsche Breite), und weil sich
+  // forceFullReflow den vorherigen Inline-display-Wert merkte, konnten zwei gleichzeitige
+  // Aufrufe – beim Öffnen der Entwicklerwerkzeuge feuern resize, focus und visibilitychange
+  // praktisch zeitgleich – am Ende display:none stehen lassen.
+  useEffect(() => {
+    const el = mapDivRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const beobachter = new ResizeObserver(() => {
+      mapRef.current?.invalidateSize({ animate: false });
+    });
+    beobachter.observe(el);
+    return () => beobachter.disconnect();
+  }, [loading]);
+
+  // Rückkehr aus dem Verlaufsspeicher (Zurück-Taste, Wischgeste): dabei ändert sich die
+  // Containergröße nicht, der ResizeObserver feuert also nicht – Leaflet braucht hier trotzdem
+  // einen Anstoß, weil der Browser die Seite aus einem eingefrorenen Zustand wiederherstellt.
+  useEffect(() => {
+    function beiRueckkehr(e: PageTransitionEvent) {
+      if (e.persisted) mapRef.current?.invalidateSize({ animate: false });
     }
-    window.scrollTo(0, 0);
-    setTimeout(() => mapRef.current?.invalidateSize(), 30);
-  }
+    window.addEventListener("pageshow", beiRueckkehr);
+    return () => window.removeEventListener("pageshow", beiRueckkehr);
+  }, []);
 
   // ---------------------------------------------------------------- Karte initialisieren
   useEffect(() => {
@@ -465,34 +477,17 @@ export default function HomePage() {
       markerLayerRef.current = L.layerGroup().addTo(map);
       applyMapStyle(settings.map_style as MapStyleKey);
       addMapStyleControl(L, map);
-      // Jede Größenänderung des Fensters (auch durch Öffnen/Schließen der Browser-DevTools, nicht
-      // nur durch Ziehen am Fensterrand) sowie Rückkehr aus Hintergrund/bfcache lösen den vollen
-      // Reflow/Repaint aus – siehe forceFullReflow() oben.
       // Beim Verschieben und Zoomen die sichtbaren Marker neu bestimmen (Roadmap Phase 10).
       map.on("moveend", syncMarkers);
       map.on("zoomend", syncMarkers);
-      window.addEventListener("resize", forceFullReflow);
-      document.addEventListener("visibilitychange", () => { if (!document.hidden) forceFullReflow(); });
-      window.addEventListener("pageshow", (e) => { if ((e as PageTransitionEvent).persisted) forceFullReflow(); });
-      window.addEventListener("focus", forceFullReflow);
+      // Auch nach einer Größenänderung neu bestimmen: kommt die Karte aus einem
+      // Vollseiten-Modul zurück, ist der sichtbare Ausschnitt ein anderer als vorher.
+      map.on("resize", syncMarkers);
       syncMarkers();
     }
     void tryInit();
     return () => { cancelled = true; };
   }, [loading]);
-
-  // Zusätzlich zum Resize-Listener oben: die 700px-Mobil-Schwelle separat abfangen (matchMedia
-  // reagiert zuverlässiger auf das Über-/Unterschreiten der Schwelle als ein reiner
-  // resize-Listener) und beim Wechsel zwischen Vollseiten-Modul und normalem Tab.
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 700px)");
-    mq.addEventListener("change", forceFullReflow);
-    return () => mq.removeEventListener("change", forceFullReflow);
-  }, []);
-
-  useEffect(() => {
-    forceFullReflow();
-  }, [fullPageTabs]);
 
   function applyMapStyle(styleKey: MapStyleKey) {
     const L = leafletRef.current;
@@ -943,9 +938,10 @@ export default function HomePage() {
   }
 
   function toggleMobileMap() {
-    const next = !mobileMapVisible;
-    setMobileMapVisible(next);
-    if (next) setTimeout(() => mapRef.current?.invalidateSize(), 200);
+    // Kein invalidateSize() auf Verdacht mehr: die Karte wechselt hier von display:none auf
+    // sichtbar, das ist eine echte Größenänderung, und der ResizeObserver weiter oben meldet
+    // sie zuverlässiger als ein geschätzter Timer.
+    setMobileMapVisible((v) => !v);
   }
 
   // Popover-Menüs (Anrufen, Navigation, Mitarbeiter-Zuordnung) dürfen nie unten aus dem
@@ -1024,7 +1020,7 @@ export default function HomePage() {
   const isMoreActive = SECONDARY_TABS.includes(tab);
 
   return (
-    <div id="app" ref={appRef}>
+    <div id="app" ref={appRef} className={fullPageTabs ? "vollseite" : undefined}>
       <nav id="iconNav">
         <div className="nav-brand" title="Viana PinPoints">
           <svg viewBox="0 0 24 24" fill="none">
@@ -1057,15 +1053,15 @@ export default function HomePage() {
       <div
         id="sidebar"
         ref={sidebarRef}
-        // key erzwingt bei jedem Wechsel zwischen Vollseiten-Modul (100% Breite) und normalem
-        // Tab (380px + Karte) ein komplettes Neu-Erstellen dieses DOM-Knotens statt eines reinen
-        // In-Place-Updates. Genau dieser Breitenwechsel war es, bei dem manche Browser
-        // (v. a. Chromium/Edge) den Kindinhalt sichtbar "abgeschnitten" stehen ließen, selbst nach
-        // erzwungenem Reflow (display:none/wieder-an) – ein frischer DOM-Knoten hat dieses
-        // Problem nicht, weil nichts Altes wiederverwendet wird. React-State in den Eltern- und
-        // Geschwister-Komponenten bleibt davon unberührt, nur dieser Teilbaum wird neu gebaut.
-        key={fullPageTabs ? "sidebar-full" : "sidebar-normal"}
-        className={(fullPageTabs ? "full-page " : "") + (mobileMapVisible ? "mobile-hidden" : "")}
+        // Die Breite kommt jetzt allein aus der Rasterspalte von #app (siehe globals.css) –
+        // dieses Element hat dazu nichts mehr zu sagen. Hier stand vorher ein `key`, der den
+        // Knoten bei jedem Wechsel zwischen Vollseiten-Modul und normalem Tab komplett neu
+        // aufbauen ließ, weil der Inhalt sonst "abgeschnitten" stehenblieb. Das war die
+        // Behandlung eines Symptoms: ein neu erzeugter Knoten umging das widersprüchliche
+        // Flexbox-Layout, statt es zu beheben. Mit festen Rasterspalten entsteht der
+        // Zwischenzustand gar nicht erst, und der Teilbaum darf erhalten bleiben – was
+        // nebenbei Scrollposition und Eingabefokus über einen Tabwechsel hinweg rettet.
+        className={mobileMapVisible ? "mobile-hidden" : ""}
       >
         {/* Marke nur auf dem Handy hier zeigen (dort ist .nav-brand in #iconNav per CSS
             ausgeblendet, weil #iconNav zur schmalen Bottom-Bar wird) – auf Desktop/Tablet
@@ -1445,7 +1441,7 @@ export default function HomePage() {
         )}
       </div>
 
-      <div id="map" ref={mapDivRef} className={fullPageTabs ? "force-hidden" : (mobileMapVisible ? "mobile-visible" : "")}>
+      <div id="map" ref={mapDivRef} className={mobileMapVisible ? "mobile-visible" : ""}>
         {ausgelasseneMarker > 0 && !fullPageTabs && (
           <div className="map-hinweis">
             {ausgelasseneMarker} weitere Kunden in diesem Ausschnitt – zum Anzeigen näher heranzoomen.
