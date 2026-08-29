@@ -134,7 +134,7 @@ export function DetailModal(props: {
             />
           ))}
         </div>
-        <AddOrderInline employees={props.employees} onAdd={props.onAddOrder} />
+        <AddOrderInline employees={props.employees} kundenName={props.customer.name} onAdd={props.onAddOrder} />
 
         <h4>Kontakt-Historie</h4>
         {props.history.length === 0 && <div className="small">Noch keine Kontakt-Historie</div>}

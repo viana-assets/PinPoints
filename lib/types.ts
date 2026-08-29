@@ -65,14 +65,23 @@ export type TireStorage = {
   removed_at: string | null;
 };
 
-export type OrderStatus = "offen" | "in_arbeit" | "erledigt";
+// Zustände eines Auftrags (Migration 20, Konzept in docs/auftragsablauf.md). Sie werden NICHT
+// frei ausgewählt, sondern durch benannte Handlungen erreicht ("Arbeit beginnen",
+// "Auftrag abschließen", "Stornieren"); die erlaubten Übergänge erzwingt ein Datenbank-Trigger.
+export type OrderStatus = "offen" | "in_arbeit" | "erledigt" | "storniert";
 
 // Ein Auftrag ist seit dem ERP-Umbau zugleich der "Termin": order_date/time sind das
 // Datum/die Uhrzeit, zu der etwas beim Kunden ansteht (können aber auch nur ein grobes
 // Anlage-Datum sein, wenn kein fester Termin vereinbart ist – time bleibt dann leer).
 export type Order = {
   id: string;
+  // Fortlaufende, für Menschen lesbare Auftragsnummer (Migration 20) – für Rechnungen und für
+  // jedes Gespräch mit dem Kunden. Getrennt von `id` (UUID, technischer Schlüssel).
+  order_number: number;
   customer_id: string;
+  // Welches Fahrzeug dieses Kunden betrifft der Auftrag (Migration 20). Bei einem Kunden mit
+  // mehreren Autos die entscheidende Angabe für den Techniker vor Ort.
+  vehicle_id: string | null;
   title: string;
   description: string | null;
   status: OrderStatus;
@@ -83,6 +92,15 @@ export type Order = {
   // wird (z. B. "Rad hinten links nicht zugänglich") – getrennt von `description`, das der
   // Admin/Büro-seitige Auftragstext bleibt. Siehe Migration 13 + docs/roadmap.md Phase 4.
   techniker_notiz: string | null;
+  // Wer hat wann abgeschlossen bzw. storniert – von der Datenbank gesetzt, nicht vom Client
+  // (Migration 20). Ohne Zeitstempel und Person wäre ein Abschluss keine Abnahme.
+  completed_at: string | null;
+  completed_by: string | null;
+  cancelled_at: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  // Begründung der letzten Wiedereröffnung. Die vollständige Historie steht im audit_log.
+  reopen_reason: string | null;
   created_at: string;
   updated_at: string;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile

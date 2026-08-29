@@ -8,10 +8,14 @@ import { IconTrash } from "@/components/icons";
 // kleine Zeile zum Hinzufügen weiterer Artikel. Wird sowohl im Popover (Aufträge-Tab &
 // Einsatzplanung) als auch direkt inline im Kunden-Detailfenster verwendet. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function ArticleAssignPanel({ orderId, articles, rows, onAdd, onUpdateQty, onUpdateDiscount, onRemove }: {
+export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, onUpdateQty, onUpdateDiscount, onRemove }: {
   orderId: string;
   articles: Article[];
   rows: OrderArticle[];
+  // Ist der Auftrag abgeschlossen oder storniert, sind seine Positionen eingefroren – die
+  // Datenbank lehnt jede Änderung ohnehin ab (Migration 20). Hier werden die Eingabefelder
+  // deshalb gar nicht erst angeboten, statt den Nutzer in eine Fehlermeldung laufen zu lassen.
+  gesperrt?: boolean;
   onAdd: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
   onUpdateQty: (id: string, quantity: number) => Promise<void>;
   onUpdateDiscount: (id: string, discountPercent: number) => Promise<void>;
@@ -39,20 +43,26 @@ export function ArticleAssignPanel({ orderId, articles, rows, onAdd, onUpdateQty
                 <tr key={r.id}>
                   <td>{art ? art.short_name : "(gelöschter Artikel)"}<div className="small">{formatEUR(r.net_price)} / Stk.</div></td>
                   <td>
-                    <input
-                      type="number" min={0.01} step="0.01" value={r.quantity} style={{ width: 56 }}
-                      onChange={(e) => onUpdateQty(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
-                    />
+                    {gesperrt ? r.quantity : (
+                      <input
+                        type="number" min={0.01} step="0.01" value={r.quantity} style={{ width: 56 }}
+                        onChange={(e) => onUpdateQty(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
+                      />
+                    )}
                   </td>
                   <td>
-                    <input
-                      type="number" min={0} max={100} step="1" value={r.discount_percent} style={{ width: 52 }}
-                      onChange={(e) => onUpdateDiscount(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
-                    />
+                    {gesperrt ? `${r.discount_percent} %` : (
+                      <input
+                        type="number" min={0} max={100} step="1" value={r.discount_percent} style={{ width: 52 }}
+                        onChange={(e) => onUpdateDiscount(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
+                      />
+                    )}
                   </td>
                   <td>{formatEUR(lineNet)}</td>
                   <td>
-                    <button type="button" className="btn-secondary" style={{ padding: "2px 6px" }} onClick={() => onRemove(r.id)}><IconTrash /></button>
+                    {!gesperrt && (
+                      <button type="button" className="btn-secondary" style={{ padding: "2px 6px" }} onClick={() => onRemove(r.id)}><IconTrash /></button>
+                    )}
                   </td>
                 </tr>
               );
@@ -65,7 +75,9 @@ export function ArticleAssignPanel({ orderId, articles, rows, onAdd, onUpdateQty
           Netto {formatEUR(totals.net)} · MwSt. {formatEUR(totals.vat)} · <b>Brutto {formatEUR(totals.gross)}</b>
         </div>
       )}
-      {activeArticles.length === 0 ? (
+      {gesperrt ? (
+        <div className="small">Der Auftrag ist abgeschlossen – die Leistungen stehen fest und lassen sich nicht mehr ändern.</div>
+      ) : activeArticles.length === 0 ? (
         <div className="small">Noch keine Artikel im Artikelstamm angelegt (Admin → Artikelstamm).</div>
       ) : (
         <div className="row" style={{ alignItems: "flex-end" }}>

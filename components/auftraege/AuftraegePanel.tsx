@@ -1,24 +1,27 @@
 import { useState } from "react";
 import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
 import { formatOrderDateTime } from "@/lib/helpers";
-import { ORDER_STATUS_LABEL } from "@/lib/constants";
+import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { IconAuftraege, IconTrash, IconNavPin } from "@/components/icons";
 import { OrderModal } from "./OrderModal";
 
-// Aufträge-Modul: filter-/sortierbare Tabelle aller Aufträge (Status, Mitarbeiter, Kunde),
-// mit Mitarbeiter- und Leistungen-Zuordnung per Popover (über die übergebenen onEditEmployees/
-// onEditArticles-Callbacks, deren Popover-State weiterhin in HomePage lebt) sowie einem Modal
-// zum Neuanlegen. Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, onUpdateStatus, onDelete, onEditEmployees, employeeNamesFor, onEditArticles, orderArticlesLabel, onOpenCustomer, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
+// Aufträge-Modul: filter-/sortierbare Tabelle aller Aufträge (Status, Mitarbeiter, Kunde) sowie
+// ein Modal zum Neuanlegen. Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
+//
+// Seit Migration 20 (docs/auftragsablauf.md) ist die Tabelle eine ÜBERSICHT, kein Bearbeitungs-
+// formular: ein Klick auf die Zeile öffnet das Auftragsfenster, in dem gehandelt wird. Der
+// Status ist deshalb nur noch ein farbiges Kennzeichen und kein Auswahlfeld mehr – man wählt
+// nicht "erledigt", man schließt den Auftrag ab. Das frühere Leistungen-Popover ist ersatzlos
+// entfallen; es war für die Positionserfassung ohnehin zu klein.
+export function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
-  onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
-  onEditArticles: (e: React.MouseEvent, orderId: string) => void;
   orderArticlesLabel: (orderId: string) => string;
   onOpenCustomer: (customerId: string) => void;
+  onOpenOrder: (orderId: string) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (siehe Migration 13),
   // darf in der Oberfläche aber zusätzlich keine Aufträge anlegen/löschen und keine
@@ -30,8 +33,6 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
   const [empFilter, setEmpFilter] = useState<"all" | string>("all");
   const [custFilter, setCustFilter] = useState("");
-  const statusLabel = ORDER_STATUS_LABEL;
-
   const filteredOrders = orders
     .filter((o) => statusFilter === "all" || o.status === statusFilter)
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
@@ -58,6 +59,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
             <button type="button" className={`chip ${statusFilter === "offen" ? "active" : ""}`} onClick={() => setStatusFilter("offen")}>Offen</button>
             <button type="button" className={`chip ${statusFilter === "in_arbeit" ? "active" : ""}`} onClick={() => setStatusFilter("in_arbeit")}>In Arbeit</button>
             <button type="button" className={`chip ${statusFilter === "erledigt" ? "active" : ""}`} onClick={() => setStatusFilter("erledigt")}>Erledigt</button>
+            <button type="button" className={`chip ${statusFilter === "storniert" ? "active" : ""}`} onClick={() => setStatusFilter("storniert")}>Storniert</button>
           </div>
           {!isTechniker && <button className="btn-primary" style={{ flex: "0 0 auto" }} onClick={() => setShowAdd(true)}>+ Auftrag</button>}
         </div>
@@ -76,12 +78,13 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
             <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
           ) : (
             <table className="appt-table">
-              <thead><tr><th>Termin</th><th>Kunde</th><th>Titel</th><th>Mitarbeiter</th><th>Leistungen</th><th>Status</th><th>Notiz</th><th></th></tr></thead>
+              <thead><tr><th>Nr.</th><th>Termin</th><th>Kunde</th><th>Titel</th><th>Mitarbeiter</th><th>Leistungen</th><th>Status</th><th>Notiz</th><th></th></tr></thead>
               <tbody>
                 {filteredOrders.map((o) => {
                   const cust = customers.find((c) => c.id === o.customer_id);
                   return (
-                    <tr key={o.id}>
+                    <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
+                      <td className="small">{o.order_number}</td>
                       <td className="date-cell">{formatOrderDateTime(o)}</td>
                       <td>
                         {cust ? (
@@ -105,19 +108,9 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                           </button>
                         )}
                       </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        {isTechniker ? orderArticlesLabel(o.id) : (
-                          <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditArticles(e, o.id)}>
-                            {orderArticlesLabel(o.id)}
-                          </button>
-                        )}
-                      </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        <select value={o.status} onChange={(e) => onUpdateStatus(o.id, e.target.value as OrderStatus)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
-                          <option value="offen">{statusLabel.offen}</option>
-                          <option value="in_arbeit">{statusLabel.in_arbeit}</option>
-                          <option value="erledigt">{statusLabel.erledigt}</option>
-                        </select>
+                      <td>{orderArticlesLabel(o.id)}</td>
+                      <td>
+                        <span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         {isTechniker ? (

@@ -1,16 +1,19 @@
 import { useState } from "react";
 import type { Employee, OrderStatus } from "@/lib/types";
-import { todayStr } from "@/lib/helpers";
+import { terminTitel, todayStr } from "@/lib/helpers";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 
 // Formular zum Hinzufügen eines weiteren Auftrags/Termins direkt im Kunden-Detailfenster.
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function AddOrderInline({ employees, onAdd }: {
+export function AddOrderInline({ employees, kundenName, onAdd }: {
   employees: Employee[];
+  kundenName: string;
   onAdd: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [title, setTitle] = useState("Termin");
+  // Vorbelegt mit "Termin – ‹Kunde›" statt nur "Termin": in einer Liste unterscheidet ein
+  // blanker Titel "Termin" nichts von jedem anderen.
+  const [title, setTitle] = useState(terminTitel(kundenName));
   const [date, setDate] = useState(todayStr());
   const [time, setTime] = useState("");
   const [desc, setDesc] = useState("");

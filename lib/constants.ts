@@ -29,7 +29,28 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   offen: "Offen",
   in_arbeit: "In Arbeit",
   erledigt: "Erledigt",
+  storniert: "Storniert",
 };
+
+// Farbklasse je Zustand für das Status-Kennzeichen (.badge in globals.css). Seit Migration 20
+// ist der Status in den Listen nur noch eine Anzeige – gehandelt wird im Auftragsfenster über
+// benannte Schaltflächen, siehe docs/auftragsablauf.md.
+export const ORDER_STATUS_FARBE: Record<OrderStatus, string> = {
+  offen: "red",
+  in_arbeit: "orange",
+  erledigt: "green",
+  storniert: "grau",
+};
+
+// Zustände, in denen die Positionen eines Auftrags eingefroren sind: die Rechnungsgrundlage
+// steht fest und darf sich nicht mehr ändern. Ein Datenbank-Trigger erzwingt dasselbe
+// (Migration 20) – hier steht es nur, damit die Oberfläche gar nicht erst etwas anbietet, das
+// die Datenbank ohnehin ablehnen würde.
+export const ABGESCHLOSSENE_ZUSTAENDE: OrderStatus[] = ["erledigt", "storniert"];
+
+export function istAbgeschlossen(status: OrderStatus): boolean {
+  return ABGESCHLOSSENE_ZUSTAENDE.includes(status);
+}
 
 // ---------------------------------------------------------------- Modul-Berechtigungen
 // Ein fester Katalog von Berechtigungs-"Zeilen", jede mit einem eindeutigen Schlüssel (in

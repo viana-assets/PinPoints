@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Customer, Employee, OrderStatus } from "@/lib/types";
-import { todayStr } from "@/lib/helpers";
+import { terminTitel, todayStr } from "@/lib/helpers";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 
@@ -13,6 +13,10 @@ export function OrderModal({ customers, employees, onClose, onAdd }: {
 }) {
   const [customerId, setCustomerId] = useState("");
   const [title, setTitle] = useState("");
+  // Sobald ein Kunde gewählt ist, wird der Titel mit "Termin – ‹Kunde›" vorbelegt – aber nur,
+  // solange der Nutzer nichts Eigenes hineingeschrieben hat. Sonst würde ein Kundenwechsel
+  // seinen Text überschreiben.
+  const [titelVonHand, setTitelVonHand] = useState(false);
   const [description, setDescription] = useState("");
   const [orderDate, setOrderDate] = useState(todayStr());
   const [time, setTime] = useState("");
@@ -33,8 +37,15 @@ export function OrderModal({ customers, employees, onClose, onAdd }: {
       <div className="modal-box" style={{ position: "relative" }}>
         <button className="modal-close" onClick={onClose}>✕</button>
         <h2>Neuer Auftrag</h2>
-        <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />
-        <div className="field"><label>Titel *</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="z. B. Reifenwechsel Sommer/Winter" /></div>
+        <CustomerPicker
+          customers={customers}
+          value={customerId}
+          onChange={(id) => {
+            setCustomerId(id);
+            if (!titelVonHand) setTitle(terminTitel(customers.find((c) => c.id === id)?.name));
+          }}
+        />
+        <div className="field"><label>Titel *</label><input type="text" value={title} onChange={(e) => { setTitle(e.target.value); setTitelVonHand(true); }} placeholder="z. B. Reifenwechsel Sommer/Winter" /></div>
         <div className="field"><label>Beschreibung (optional)</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} /></div>
         <div className="row">
           <div className="field"><label>Datum</label><input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></div>

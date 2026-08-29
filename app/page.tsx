@@ -11,7 +11,7 @@ import type {
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
   effectiveColor, telHref, getPhoneNumbers, navigationUrls,
-  formatEUR, orderArticleTotals,
+  formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import { ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
@@ -27,7 +27,7 @@ import { AddCustomerForm } from "@/components/kunden/AddCustomerForm";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
-import { ArticleAssignPanel } from "@/components/auftraege/ArticleAssignPanel";
+import { AuftragModal } from "@/components/auftraege/AuftragModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
@@ -47,6 +47,7 @@ import {
 import {
   replaceOrderEmployees,
   insertOrder, updateOrderById, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
+  updateOrderVehicle,
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
 import {
@@ -170,6 +171,14 @@ export default function HomePage() {
   const kundeAuftraegeQuery = useKundenAuftraege(supabase, selectedId, sitzungBereit);
   const historieQuery = useKundeHistorie(supabase, selectedId, sitzungBereit);
 
+  // Für das Auftragsfenster werden die Fahrzeuge des zugehörigen Kunden gebraucht – im
+  // Aufträge-Tab ist ja kein Kundendetail offen. Gleicher Abfrage-Schlüssel wie im
+  // Kundendetail, der Zwischenspeicher wird also geteilt statt doppelt geladen.
+  const offenerAuftrag =
+    (auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
+    (kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
+  const auftragFahrzeugeQuery = useKundeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, sitzungBereit);
+
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
   const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
   const employees = mitarbeiterQuery.data ?? KEINE_MITARBEITER;
@@ -245,10 +254,9 @@ export default function HomePage() {
   // Klick speichert sofort – kein separater "Speichern"-Button, wie beim Modul-Berechtigungen-Raster.
   const [empMenuFor, setEmpMenuFor] = useState<{ orderId: string; ids: string[] } | null>(null);
   const [empMenuPos, setEmpMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
-  // Leistungen/Artikel-Zuordnung eines Auftrags (Aufträge-Tab & Einsatzplanung): gleiches
-  // Popover-Muster wie beim Mitarbeiter-Menü, nur mit dem Artikelstamm statt Mitarbeitern.
-  const [artMenuFor, setArtMenuFor] = useState<string | null>(null);
-  const [artMenuPos, setArtMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Der gerade geöffnete Auftrag (Migration 20, docs/auftragsablauf.md). Er ersetzt das frühere
+  // Leistungen-Popover: dort war für die Positionserfassung schlicht kein Platz.
+  const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
 
   const appRef = useRef<HTMLDivElement | null>(null);
   const mapDivRef = useRef<HTMLDivElement | null>(null);
@@ -744,7 +752,7 @@ export default function HomePage() {
     if (apptDate) note += ` – Termin vereinbart am ${formatDate(apptDate)}${apptTime ? ", " + apptTime + " Uhr" : ""}`;
     await markCustomerContacted(supabase, id, contactDate, note);
     if (apptDate) {
-      await insertOrder(supabase, { customerId: id, title: "Termin", description: apptDesc || "", orderDate: apptDate, time: apptTime, status: "offen" });
+      await insertOrder(supabase, { customerId: id, title: terminTitel(cust.name), description: apptDesc || "", orderDate: apptDate, time: apptTime, status: "offen" });
       await refreshOrders();
     }
     await refreshCustomers();
@@ -833,7 +841,11 @@ export default function HomePage() {
   // mehreren Mitarbeitern zugeordnet sein (z. B. bei umfangreichen Aufträgen). `assignedEmployeeIds`
   // ist deshalb überall eine Liste, auch wenn sie in vielen Fällen nur ein Element hat.
   async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
-    const id = await insertOrder(supabase, fields);
+    // Rückfallebene für alle Anlagemasken: bleibt der Titel leer, wird "Termin – ‹Kunde›"
+    // eingesetzt. Die Masken belegen ihn zwar vor, aber so hängt es nicht daran, dass jede
+    // einzelne daran denkt.
+    const kunde = customers.find((c) => c.id === fields.customerId);
+    const id = await insertOrder(supabase, { ...fields, title: fields.title.trim() || terminTitel(kunde?.name) });
     if (id) await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
   }
@@ -842,8 +854,15 @@ export default function HomePage() {
     await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
   }
-  async function updateOrderStatus(id: string, status: OrderStatus) {
-    await updateOrderStatusById(supabase, id, status);
+  // Zustandswechsel eines Auftrags. Welche Übergänge erlaubt sind, entscheidet der Trigger aus
+  // Migration 20 – lehnt er ab, kommt der Grund als Fehlermeldung zurück und wird über die
+  // zentrale Anzeige sichtbar (siehe lib/api/client.ts).
+  async function updateOrderStatus(id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
+    await updateOrderStatusById(supabase, id, status, grund);
+    await refreshOrders();
+  }
+  async function setOrderVehicle(id: string, vehicleId: string | null) {
+    await updateOrderVehicle(supabase, id, vehicleId);
     await refreshOrders();
   }
   async function updateTechnikerNotiz(id: string, notiz: string) {
@@ -1010,14 +1029,6 @@ export default function HomePage() {
     return names.length ? names.join(", ") : "–";
   }
 
-  // Öffnet das Leistungen/Artikel-Zuordnungs-Menü für einen Auftrag (Aufträge-Tab & Einsatzplanung).
-  function openArtMenu(e: React.MouseEvent, orderId: string) {
-    e.stopPropagation();
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const estHeight = 260;
-    setArtMenuPos({ top: clampMenuTop(rect, estHeight), left: Math.min(rect.left, window.innerWidth - 380) });
-    setArtMenuFor(orderId);
-  }
   // Kurzform für die Anzeige in Tabellenzeilen: Bruttosumme, oder "–", wenn noch keine Leistung
   // zugeordnet ist.
   function orderArticlesLabel(orderId: string): string {
@@ -1277,13 +1288,12 @@ export default function HomePage() {
             employees={employees}
             orderEmployees={orderEmployees}
             onAdd={addOrder}
-            onUpdateStatus={updateOrderStatus}
             onDelete={deleteOrder}
             onEditEmployees={openEmpMenu}
             employeeNamesFor={employeeNamesFor}
-            onEditArticles={openArtMenu}
             orderArticlesLabel={orderArticlesLabel}
             onOpenCustomer={openDetail}
+            onOpenOrder={setOffenerAuftragId}
             onNavigate={openNavMenu}
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
@@ -1324,10 +1334,9 @@ export default function HomePage() {
             orderEmployees={orderEmployees}
             onEditEmployees={openEmpMenu}
             employeeNamesFor={employeeNamesFor}
-            onEditArticles={openArtMenu}
             orderArticlesLabel={orderArticlesLabel}
             onOpenCustomer={openDetail}
-            onUpdateStatus={updateOrderStatus}
+            onOpenOrder={setOffenerAuftragId}
             onDelete={deleteOrder}
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
@@ -1533,21 +1542,30 @@ export default function HomePage() {
         </>
       )}
 
-      {artMenuFor && (
-        <>
-          <div style={{ position: "fixed", inset: 0, zIndex: 19999 }} onClick={() => setArtMenuFor(null)} />
-          <div className="call-menu" style={{ top: artMenuPos.top, left: artMenuPos.left, minWidth: 340, padding: "8px 10px" }}>
-            <ArticleAssignPanel
-              orderId={artMenuFor}
-              articles={articles}
-              rows={orderArticlesFor(artMenuFor)}
-              onAdd={addOrderArticle}
-              onUpdateQty={updateOrderArticleQty}
-              onUpdateDiscount={updateOrderArticleDiscount}
-              onRemove={removeOrderArticle}
-            />
-          </div>
-        </>
+      {offenerAuftrag && (
+        <AuftragModal
+          order={offenerAuftrag}
+          customer={customers.find((c) => c.id === offenerAuftrag.customer_id)}
+          vehicles={auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE}
+          employees={employees}
+          assignedEmployeeIds={orderEmployees[offenerAuftrag.id] || []}
+          articles={articles}
+          orderArticles={orderArticlesFor(offenerAuftrag.id)}
+          isTechniker={isTechniker}
+          darfWiedereroeffnen={isAdmin}
+          onClose={() => setOffenerAuftragId(null)}
+          onSaveFields={updateOrder}
+          onSetVehicle={setOrderVehicle}
+          onSetEmployees={setOrderEmployees}
+          onUpdateTechnikerNotiz={updateTechnikerNotiz}
+          onSetStatus={updateOrderStatus}
+          onDelete={deleteOrder}
+          onAddArticle={addOrderArticle}
+          onUpdateArticleQty={updateOrderArticleQty}
+          onUpdateArticleDiscount={updateOrderArticleDiscount}
+          onRemoveArticle={removeOrderArticle}
+          onNavigate={openNavMenu}
+        />
       )}
 
       {selectedId && (

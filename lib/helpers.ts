@@ -79,6 +79,14 @@ export function navigationUrls(cust: Customer): { google: string; apple: string 
 // app/page.tsx als literale Zahl (siehe docs/konstanten-register.md).
 export const DEFAULT_VAT_RATE = 19;
 
+// Standardtitel eines Termins. Bis dahin hießen alle Termine schlicht "Termin", was in einer
+// Liste nichts unterscheidet – mit dem Kundennamen ist auf einen Blick klar, worum es geht.
+// Bewusst nur eine Vorbelegung: wer einen sprechenderen Titel will, überschreibt ihn.
+export function terminTitel(kundenName: string | null | undefined): string {
+  const name = (kundenName || "").trim();
+  return name ? `Termin – ${name}` : "Termin";
+}
+
 export function formatEUR(amount: number): string {
   return amount.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 }

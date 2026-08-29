@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Article, Employee, Order, OrderArticle, OrderStatus } from "@/lib/types";
 import { formatOrderDateTime, isOrderPast } from "@/lib/helpers";
-import { ORDER_STATUS_LABEL } from "@/lib/constants";
+import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "@/components/auftraege/ArticleAssignPanel";
 
@@ -27,8 +27,11 @@ export function CustomerOrderRow({
   const [date, setDate] = useState(order.order_date);
   const [time, setTime] = useState(order.time || "");
   const [desc, setDesc] = useState(order.description || "");
-  const [status, setStatus] = useState<OrderStatus>(order.status);
   const [empIds, setEmpIds] = useState<string[]>(assignedEmployeeIds);
+  // Der Status wird hier nicht mehr bearbeitet: seit Migration 20 sind Zustandswechsel benannte
+  // Handlungen im Auftragsfenster, keine Auswahl in einem Formular (docs/auftragsablauf.md).
+  const status: OrderStatus = order.status;
+  const gesperrt = istAbgeschlossen(order.status);
   const past = isOrderPast(order);
   const statusLabel = ORDER_STATUS_LABEL;
   const empNames = employees.filter((e) => assignedEmployeeIds.includes(e.id)).map((e) => e.name).join(", ");
@@ -42,11 +45,6 @@ export function CustomerOrderRow({
           <input type="time" value={time} onChange={(e) => setTime(e.target.value)} />
         </div>
         <textarea value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="Beschreibung" />
-        <select value={status} onChange={(e) => setStatus(e.target.value as OrderStatus)} style={{ marginBottom: 4 }}>
-          <option value="offen">Offen</option>
-          <option value="in_arbeit">In Arbeit</option>
-          <option value="erledigt">Erledigt</option>
-        </select>
         <div className="small" style={{ marginBottom: 2 }}>Mitarbeiter</div>
         <EmployeeCheckboxList employees={employees} value={empIds} onChange={setEmpIds} />
         <div className="appt-actions">
@@ -58,11 +56,11 @@ export function CustomerOrderRow({
   }
   return (
     <div className="appt-item">
-      <div><span className="appt-date">{formatOrderDateTime(order)}</span>{past && order.status !== "erledigt" ? " (vergangen)" : ""} <span className={`badge ${order.status === "erledigt" ? "green" : order.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[order.status]}</span></div>
-      <div>{order.title}{order.description ? ` – ${order.description}` : ""}</div>
+      <div><span className="appt-date">{formatOrderDateTime(order)}</span>{past && !gesperrt ? " (vergangen)" : ""} <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{statusLabel[order.status]}</span></div>
+      <div><span className="small">Auftrag {order.order_number}</span> · {order.title}{order.description ? ` – ${order.description}` : ""}</div>
       {empNames && <div className="small">👤 {empNames}</div>}
       <div className="appt-actions">
-        <button className="btn-secondary" onClick={() => setEditing(true)}>Bearbeiten</button>
+        {!gesperrt && <button className="btn-secondary" onClick={() => setEditing(true)}>Bearbeiten</button>}
         <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm("Diesen Auftrag wirklich löschen?")) onDelete(order.id); }}>Löschen</button>
       </div>
       <hr style={{ margin: "6px 0" }} />
@@ -70,6 +68,7 @@ export function CustomerOrderRow({
         orderId={order.id}
         articles={articles}
         rows={orderArticles}
+        gesperrt={gesperrt}
         onAdd={onAddArticle}
         onUpdateQty={onUpdateArticleQty}
         onUpdateDiscount={onUpdateArticleDiscount}

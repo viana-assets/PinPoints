@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
 import { todayStr, formatDate, formatOrderDateTime, orderDateTime } from "@/lib/helpers";
-import { ORDER_STATUS_LABEL } from "@/lib/constants";
+import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
 import { IconEinsatzplanung, IconTrash } from "@/components/icons";
 
@@ -9,14 +9,15 @@ import { IconEinsatzplanung, IconTrash } from "@/components/icons";
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, onEditArticles, orderArticlesLabel, onOpenCustomer, onUpdateStatus, onDelete, isTechniker, onUpdateTechnikerNotiz }: {
+export function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
-  onEditArticles: (e: React.MouseEvent, orderId: string) => void;
   orderArticlesLabel: (orderId: string) => string;
+  // Klick auf eine Auftragszeile öffnet das Auftragsfenster (docs/auftragsablauf.md) – dasselbe
+  // wie im Aufträge-Tab und im Kundendetail.
+  onOpenOrder: (orderId: string) => void;
   onOpenCustomer: (customerId: string) => void;
-  onUpdateStatus: (id: string, status: OrderStatus) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), darf
   // in der Oberfläche zusätzlich keine Mitarbeiter-/Leistungen-Zuordnung oder Löschung anstoßen –
@@ -174,13 +175,13 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                       {g.orders.map((o) => {
                         const cust = customers.find((c) => c.id === o.customer_id);
                         return (
-                          <tr key={o.id}>
+                          <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
                             <td className="date-cell">{o.time || "–"}</td>
                             <td>
                               {cust ? (
                                 <button
                                   type="button"
-                                  onClick={() => onOpenCustomer(cust.id)}
+                                  onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
                                   style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
                                 >
                                   {cust.name}
@@ -188,7 +189,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                               ) : "–"}
                             </td>
                             <td>{o.title}</td>
-                            <td><span className={`badge ${o.status === "erledigt" ? "green" : o.status === "in_arbeit" ? "orange" : "red"}`}>{statusLabel[o.status]}</span></td>
+                            <td><span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{statusLabel[o.status]}</span></td>
                           </tr>
                         );
                       })}
@@ -231,13 +232,13 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                 {listOrders.map((o) => {
                   const cust = customers.find((c) => c.id === o.customer_id);
                   return (
-                    <tr key={o.id}>
+                    <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
                       <td className="date-cell">{formatOrderDateTime(o)}</td>
                       <td>
                         {cust ? (
                           <button
                             type="button"
-                            onClick={() => onOpenCustomer(cust.id)}
+                            onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
                             style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
                           >
                             {cust.name}
@@ -245,28 +246,18 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                         ) : "–"}
                       </td>
                       <td>{o.title}</td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         {isTechniker ? employeeNamesFor(o.id) : (
                           <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditEmployees(e, o.id)}>
                             {employeeNamesFor(o.id)}
                           </button>
                         )}
                       </td>
+                      <td>{orderArticlesLabel(o.id)}</td>
                       <td>
-                        {isTechniker ? orderArticlesLabel(o.id) : (
-                          <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditArticles(e, o.id)}>
-                            {orderArticlesLabel(o.id)}
-                          </button>
-                        )}
+                        <span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{statusLabel[o.status]}</span>
                       </td>
-                      <td>
-                        <select value={o.status} onChange={(e) => onUpdateStatus(o.id, e.target.value as OrderStatus)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
-                          <option value="offen">{statusLabel.offen}</option>
-                          <option value="in_arbeit">{statusLabel.in_arbeit}</option>
-                          <option value="erledigt">{statusLabel.erledigt}</option>
-                        </select>
-                      </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         {isTechniker ? (
                           <input
                             type="text"
@@ -279,9 +270,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                           o.techniker_notiz ? <span className="small">{o.techniker_notiz}</span> : "–"
                         )}
                       </td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         {!isTechniker && (
-                          <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>
+                          <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag ${o.order_number} wirklich löschen?`)) onDelete(o.id); }}>
                             <IconTrash />
                           </button>
                         )}

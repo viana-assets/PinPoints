@@ -244,6 +244,9 @@
   .badge.red{background:var(--red-bg);color:var(--red);}
   .badge.green{background:var(--green-bg);color:var(--green);}
   .badge.orange{background:var(--accent-bg);color:var(--accent);}
+  /* Storniert: bewusst grau und unauffällig – der Auftrag ist erledigt im Sinne von
+     "abgehakt", aber nicht im Sinne von "geleistet". */
+  .badge.grau{background:rgba(0,0,0,.06);color:#6b6259;}
   .modal-overlay{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;
     justify-content:center;z-index:10000;}
   .modal-box{background:var(--panel);color:var(--text);border-radius:18px;padding:20px 22px;width:440px;max-width:92vw;
@@ -544,3 +547,95 @@
   cursor: pointer;
 }
 .listen-mehr button:hover { background: var(--accent); color: #fff; }
+
+/* ---------------- Auftragsfenster (docs/auftragsablauf.md) ---------------- */
+/* Breiter als die übrigen Dialoge: hier werden Positionen erfasst, und genau daran ist das
+   frühere Leistungen-Popover gescheitert – 440 Pixel mit waagerechtem Rollbalken. */
+.modal-box.auftrag-modal {
+  width: 720px;
+  max-width: 94vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.auftrag-kopf {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.auftrag-kopf h3 {
+  font-family: var(--font-brand);
+  font-size: 17px;
+}
+.auftrag-inhalt {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 22px 12px;
+}
+.auftrag-block {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.auftrag-block:last-child { border-bottom: none; }
+.auftrag-block-titel {
+  font-size: 11.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.auftrag-kunde {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.auftrag-hinweis {
+  margin: 10px 0 2px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, .04);
+  font-size: 12.5px;
+  color: #6b6259;
+}
+/* Der Fuß trägt die Handlungen. Links das Zurückhaltende (Stornieren, Löschen), rechts das,
+   was der Nutzer im Normalfall tun will – der Abschluss. */
+.auftrag-fuss {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 0 0 18px 18px;
+}
+.auftrag-fuss-links, .auftrag-fuss-rechts {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.auftrag-grund { width: 100%; }
+.auftrag-grund .field { margin-bottom: 8px; }
+.auftrag-grund-knoepfe {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+/* Auftragszeilen sind anklickbar – das muss man ihnen ansehen. */
+tr.klickbar { cursor: pointer; }
+tr.klickbar:hover { background: var(--hover); }
+
+@media (max-width: 700px) {
+  .modal-box.auftrag-modal { max-height: 100%; }
+  .auftrag-fuss { border-radius: 0; }
+  .auftrag-fuss-links, .auftrag-fuss-rechts { flex: 1; }
+  .auftrag-fuss-rechts { justify-content: flex-end; }
+}

@@ -1,0 +1,281 @@
+import { useState } from "react";
+import type { Article, Customer, Employee, Order, OrderArticle, OrderStatus, Vehicle } from "@/lib/types";
+import { formatDate, formatOrderDateTime } from "@/lib/helpers";
+import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
+import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
+import { ArticleAssignPanel } from "./ArticleAssignPanel";
+import { IconNavPin, IconTrash } from "@/components/icons";
+
+// Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
+//
+// Es ersetzt das frühere Leistungen-Popover ersatzlos: ein 440 Pixel breites Überblendfenster
+// mit waagerechtem Rollbalken war der falsche Ort, um Positionen zu erfassen. Hier ist alles zu
+// einem Auftrag an einer Stelle – Kunde, Fahrzeug, Termin, Mitarbeiter, Leistungen, Notiz – und
+// vor allem: hier wird gehandelt.
+//
+// Der wichtigste Unterschied zur alten Tabelle: der Status ist kein Auswahlfeld mehr. Man wählt
+// nicht "erledigt", man drückt "Auftrag abschließen" – und daraufhin friert die Datenbank die
+// Positionen ein. Welche Übergänge erlaubt sind, entscheidet ein Trigger; diese Komponente zeigt
+// nur an, was gerade möglich ist.
+export function AuftragModal({
+  order, customer, vehicles, employees, assignedEmployeeIds, articles, orderArticles,
+  isTechniker, darfWiedereroeffnen,
+  onClose, onSaveFields, onSetVehicle, onSetEmployees, onUpdateTechnikerNotiz, onSetStatus, onDelete,
+  onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate,
+}: {
+  order: Order;
+  customer: Customer | undefined;
+  vehicles: Vehicle[];
+  employees: Employee[];
+  assignedEmployeeIds: string[];
+  articles: Article[];
+  orderArticles: OrderArticle[];
+  isTechniker: boolean;
+  darfWiedereroeffnen: boolean;
+  onClose: () => void;
+  onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
+  onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
+  onSetEmployees: (orderId: string, employeeIds: string[]) => Promise<void>;
+  onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
+  onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
+  onDelete: (id: string) => Promise<void>;
+  onAddArticle: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
+  onUpdateArticleQty: (id: string, quantity: number) => Promise<void>;
+  onUpdateArticleDiscount: (id: string, discountPercent: number) => Promise<void>;
+  onRemoveArticle: (id: string) => Promise<void>;
+  onNavigate: (e: React.MouseEvent, cust: Customer) => void;
+}) {
+  const gesperrt = istAbgeschlossen(order.status);
+  const [titel, setTitel] = useState(order.title);
+  const [datum, setDatum] = useState(order.order_date);
+  const [zeit, setZeit] = useState(order.time || "");
+  const [beschreibung, setBeschreibung] = useState(order.description || "");
+  // Zwei Handlungen brauchen eine Begründung. Statt eines Browser-Dialogs klappt hier ein
+  // kleiner Block auf – der Nutzer sieht dabei weiterhin den Auftrag, um den es geht.
+  const [stornoOffen, setStornoOffen] = useState(false);
+  const [stornoGrund, setStornoGrund] = useState("");
+  const [wiederOffen, setWiederOffen] = useState(false);
+  const [wiederGrund, setWiederGrund] = useState("");
+
+  const fahrzeug = vehicles.find((v) => v.id === order.vehicle_id);
+  const feldeAendern = !gesperrt && !isTechniker;
+
+  function fahrzeugText(v: Vehicle): string {
+    return [v.license_plate, v.make_model, v.tire_size].filter(Boolean).join(" · ") || "Fahrzeug ohne Angaben";
+  }
+
+  async function speichern() {
+    await onSaveFields(order.id, {
+      title: titel,
+      description: beschreibung,
+      orderDate: datum,
+      time: zeit,
+      status: order.status,
+      assignedEmployeeIds,
+    });
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-box auftrag-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="auftrag-kopf">
+          <div>
+            <h3 style={{ margin: 0 }}>Auftrag {order.order_number}</h3>
+            <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
+          </div>
+          <button type="button" className="btn-secondary" onClick={onClose} aria-label="Schließen">×</button>
+        </div>
+
+        <div className="auftrag-inhalt">
+          {/* ---------------------------------------------------------------- Kunde */}
+          <div className="auftrag-block">
+            <div className="auftrag-block-titel">Kunde</div>
+            {customer ? (
+              <div className="auftrag-kunde">
+                <div>
+                  <b>{customer.name}</b>
+                  {customer.address.trim() && <div className="small">{customer.address}</div>}
+                </div>
+                {customer.address.trim() && (
+                  <button className="call-icon-btn small nav-icon-btn" title="Navigation starten" onClick={(e) => onNavigate(e, customer)}>
+                    <IconNavPin />
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="small">Kunde nicht gefunden.</div>
+            )}
+          </div>
+
+          {/* ---------------------------------------------------------------- Fahrzeug */}
+          <div className="auftrag-block">
+            <div className="auftrag-block-titel">Fahrzeug</div>
+            {vehicles.length === 0 ? (
+              <div className="small">Für diesen Kunden ist kein Fahrzeug hinterlegt (Kundendetail → Fahrzeuge).</div>
+            ) : gesperrt || isTechniker ? (
+              <div>{fahrzeug ? fahrzeugText(fahrzeug) : "– kein Fahrzeug zugeordnet –"}</div>
+            ) : (
+              <select value={order.vehicle_id || ""} onChange={(e) => onSetVehicle(order.id, e.target.value || null)}>
+                <option value="">– kein Fahrzeug zugeordnet –</option>
+                {vehicles.map((v) => <option key={v.id} value={v.id}>{fahrzeugText(v)}</option>)}
+              </select>
+            )}
+            {fahrzeug && (fahrzeug.tire_dot_date || fahrzeug.tire_profile_mm != null) && (
+              <div className="small" style={{ marginTop: 4 }}>
+                {fahrzeug.tire_dot_date ? `DOT ${fahrzeug.tire_dot_date}` : ""}
+                {fahrzeug.tire_dot_date && fahrzeug.tire_profile_mm != null ? " · " : ""}
+                {fahrzeug.tire_profile_mm != null ? `Profil ${fahrzeug.tire_profile_mm} mm` : ""}
+              </div>
+            )}
+          </div>
+
+          {/* ---------------------------------------------------------------- Auftragsdaten */}
+          <div className="auftrag-block">
+            <div className="auftrag-block-titel">Auftrag</div>
+            {feldeAendern ? (
+              <>
+                <div className="field"><label>Titel</label>
+                  <input type="text" value={titel} onChange={(e) => setTitel(e.target.value)} />
+                </div>
+                <div className="row">
+                  <div className="field" style={{ flex: 1 }}><label>Datum</label>
+                    <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
+                  </div>
+                  <div className="field" style={{ flex: 1 }}><label>Uhrzeit (optional)</label>
+                    <input type="time" value={zeit} onChange={(e) => setZeit(e.target.value)} />
+                  </div>
+                </div>
+                <div className="field"><label>Beschreibung</label>
+                  <textarea value={beschreibung} onChange={(e) => setBeschreibung(e.target.value)} />
+                </div>
+                <button type="button" className="btn-secondary" onClick={speichern}>Angaben speichern</button>
+              </>
+            ) : (
+              <>
+                <div><b>{order.title}</b></div>
+                <div className="small">{formatOrderDateTime(order)}</div>
+                {order.description && <div style={{ marginTop: 4 }}>{order.description}</div>}
+              </>
+            )}
+          </div>
+
+          {/* ---------------------------------------------------------------- Mitarbeiter */}
+          <div className="auftrag-block">
+            <div className="auftrag-block-titel">Mitarbeiter</div>
+            {gesperrt || isTechniker ? (
+              <div>{employees.filter((e) => assignedEmployeeIds.includes(e.id)).map((e) => e.name).join(", ") || "– niemand zugeordnet –"}</div>
+            ) : (
+              <EmployeeCheckboxList
+                employees={employees}
+                value={assignedEmployeeIds}
+                onChange={(ids) => onSetEmployees(order.id, ids)}
+              />
+            )}
+          </div>
+
+          {/* ---------------------------------------------------------------- Leistungen */}
+          <div className="auftrag-block">
+            <ArticleAssignPanel
+              orderId={order.id}
+              articles={articles}
+              rows={orderArticles}
+              gesperrt={gesperrt || isTechniker}
+              onAdd={onAddArticle}
+              onUpdateQty={onUpdateArticleQty}
+              onUpdateDiscount={onUpdateArticleDiscount}
+              onRemove={onRemoveArticle}
+            />
+          </div>
+
+          {/* ---------------------------------------------------------------- Notiz */}
+          <div className="auftrag-block">
+            <div className="auftrag-block-titel">Notiz des Technikers</div>
+            <textarea
+              defaultValue={order.techniker_notiz || ""}
+              placeholder="Was vor Ort aufgefallen ist …"
+              onBlur={(e) => { if (e.target.value !== (order.techniker_notiz || "")) onUpdateTechnikerNotiz(order.id, e.target.value); }}
+            />
+          </div>
+
+          {/* ---------------------------------------------------------------- Abschluss-Auskunft */}
+          {order.status === "erledigt" && order.completed_at && (
+            <div className="auftrag-hinweis">Abgeschlossen am {formatDate(order.completed_at.slice(0, 10))}.</div>
+          )}
+          {order.status === "storniert" && (
+            <div className="auftrag-hinweis">
+              Storniert{order.cancelled_at ? ` am ${formatDate(order.cancelled_at.slice(0, 10))}` : ""}
+              {order.cancel_reason ? ` – ${order.cancel_reason}` : ""}.
+            </div>
+          )}
+        </div>
+
+        {/* ---------------------------------------------------------------- Handlungen */}
+        <div className="auftrag-fuss">
+          {stornoOffen ? (
+            <div className="auftrag-grund">
+              <div className="field"><label>Warum wird der Auftrag storniert?</label>
+                <input type="text" value={stornoGrund} onChange={(e) => setStornoGrund(e.target.value)} autoFocus />
+              </div>
+              <div className="auftrag-grund-knoepfe">
+                <button type="button" className="btn-secondary" onClick={() => { setStornoOffen(false); setStornoGrund(""); }}>Abbrechen</button>
+                <button
+                  type="button" className="btn-red"
+                  disabled={!stornoGrund.trim()}
+                  onClick={async () => { await onSetStatus(order.id, "storniert", { stornoGrund: stornoGrund.trim() }); setStornoOffen(false); }}
+                >
+                  Stornierung bestätigen
+                </button>
+              </div>
+            </div>
+          ) : wiederOffen ? (
+            <div className="auftrag-grund">
+              <div className="field"><label>Warum wird der Auftrag wiedereröffnet?</label>
+                <input type="text" value={wiederGrund} onChange={(e) => setWiederGrund(e.target.value)} autoFocus />
+              </div>
+              <div className="auftrag-grund-knoepfe">
+                <button type="button" className="btn-secondary" onClick={() => { setWiederOffen(false); setWiederGrund(""); }}>Abbrechen</button>
+                <button
+                  type="button" className="btn-primary"
+                  disabled={!wiederGrund.trim()}
+                  onClick={async () => { await onSetStatus(order.id, "in_arbeit", { wiedereroeffnungsGrund: wiederGrund.trim() }); setWiederOffen(false); }}
+                >
+                  Wiedereröffnen
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="auftrag-fuss-links">
+                {!gesperrt && !isTechniker && (
+                  <button type="button" className="btn-secondary" onClick={() => setStornoOffen(true)}>Stornieren</button>
+                )}
+                {!isTechniker && (
+                  <button
+                    type="button" className="btn-secondary" style={{ color: "#b33" }}
+                    onClick={() => { if (confirm(`Auftrag ${order.order_number} wirklich löschen?`)) { onDelete(order.id); onClose(); } }}
+                  >
+                    <IconTrash />
+                  </button>
+                )}
+              </div>
+              <div className="auftrag-fuss-rechts">
+                {order.status === "offen" && (
+                  <button type="button" className="btn-secondary" onClick={() => onSetStatus(order.id, "in_arbeit")}>Arbeit beginnen</button>
+                )}
+                {!gesperrt && (
+                  <button type="button" className="btn-green" onClick={() => onSetStatus(order.id, "erledigt")}>Auftrag abschließen</button>
+                )}
+                {gesperrt && darfWiedereroeffnen && (
+                  <button type="button" className="btn-secondary" onClick={() => setWiederOffen(true)}>Wiedereröffnen</button>
+                )}
+                {gesperrt && !darfWiedereroeffnen && (
+                  <span className="small">Zum Wiedereröffnen wird Admin-Recht benötigt.</span>
+                )}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
