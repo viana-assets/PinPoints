@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StorageSlot, TireStorage, Warehouse } from "@/lib/types";
-import { fetchPaged, qOne, qWrite } from "./client";
+import { ApiError, fetchPaged, qOne, qWrite } from "./client";
 
 // Datenzugriffsschicht für das Lager-Modul (Warehouses, Lagerplätze, Reifen-Einlagerung).
 // Reine Supabase-Wrapper ohne React-State – siehe lib/api/employees.ts für das Muster.
@@ -102,4 +102,21 @@ export async function removeTireAssignmentById(supabase: SupabaseClient, id: str
     "Die Einlagerung konnte nicht entfernt werden",
     supabase.from("tire_storage").update({ removed_at: new Date().toISOString() }).eq("id", id)
   );
+}
+
+// Kennzahlen für das Dashboard, ohne dafür das ganze Lager zu laden (Roadmap Phase 10).
+// Seit Migration 15 belegt eine aktive Einlagerung genau einen Lagerplatz (partieller
+// Unique-Index), deshalb ist die Zahl der aktiven Einlagerungen zugleich die Zahl der belegten
+// Plätze – ohne die beiden Tabellen im Browser gegeneinander zu rechnen.
+export async function fetchLagerKennzahlen(supabase: SupabaseClient): Promise<{ belegt: number; gesamt: number }> {
+  const belegt = await supabase
+    .from("tire_storage")
+    .select("id", { count: "exact", head: true })
+    .is("removed_at", null);
+  if (belegt.error) throw new ApiError("Die Lager-Kennzahlen konnten nicht geladen werden", belegt.error);
+
+  const gesamt = await supabase.from("storage_slots").select("id", { count: "exact", head: true });
+  if (gesamt.error) throw new ApiError("Die Lager-Kennzahlen konnten nicht geladen werden", gesamt.error);
+
+  return { belegt: belegt.count || 0, gesamt: gesamt.count || 0 };
 }

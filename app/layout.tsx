@@ -6,6 +6,7 @@ import "./globals.css";
 // app/page.tsx bei Bedarf per dynamischem Import – nur das Stylesheet gehört hierher.
 import "leaflet/dist/leaflet.css";
 import HashSessionHandler from "./auth/HashSessionHandler";
+import { Providers } from "./providers";
 
 export const metadata = {
   title: "Viana PinPoints",
@@ -31,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <HashSessionHandler />
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

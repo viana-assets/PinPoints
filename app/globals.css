@@ -424,3 +424,95 @@
   /* Über der mobilen Navigationsleiste bleiben. */
   .fehler-hinweis { right: 12px; left: 12px; bottom: 78px; max-width: none; }
 }
+
+/* Umschaltung des geladenen Auftrags-Zeitraums (Roadmap Phase 10). Sitzt über den beiden
+   Auftragslisten und macht sichtbar, dass hier bewusst nicht alles geladen ist. */
+.fenster-schalter {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .06);
+  font-family: var(--font-body);
+}
+.fenster-schalter .fs-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6b6259;
+  margin-right: 2px;
+}
+.fenster-schalter .fs-btn {
+  border: 1px solid rgba(0, 0, 0, .12);
+  background: transparent;
+  border-radius: 999px;
+  padding: 5px 13px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  color: #241d13;
+}
+.fenster-schalter .fs-btn:hover { border-color: var(--accent); }
+.fenster-schalter .fs-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+.fenster-schalter .fs-hinweis {
+  font-size: 12px;
+  color: #8a8178;
+  margin-left: auto;
+}
+
+/* Hinweis auf der Karte, wenn im aktuellen Ausschnitt mehr Kunden liegen als gezeichnet werden
+   (siehe MAX_MARKER in app/page.tsx). Ohne diesen Hinweis würde es so aussehen, als fehlten
+   Kunden. */
+.map-hinweis {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  max-width: min(420px, calc(100% - 24px));
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(36, 29, 19, .82);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 12.5px;
+  text-align: center;
+  pointer-events: none;
+}
+@media (max-width: 700px) {
+  .fenster-schalter .fs-hinweis { display: none; }
+}
+
+/* Fuß der Kundenliste: zeigt, dass nicht alle Treffer gezeichnet sind, und lädt weitere nach
+   (siehe LISTEN_SCHRITT in app/page.tsx). Gefiltert wird immer über den ganzen Bestand. */
+.listen-mehr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 4px 6px;
+  font-family: var(--font-body);
+  font-size: 13px;
+  color: #6b6259;
+}
+.listen-mehr button {
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  border-radius: 999px;
+  padding: 6px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.listen-mehr button:hover { background: var(--accent); color: #fff; }

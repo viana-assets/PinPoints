@@ -24,9 +24,12 @@ function toRow(fields: VehicleFields) {
   };
 }
 
-export async function fetchVehicles(supabase: SupabaseClient): Promise<Vehicle[]> {
+// Fahrzeuge werden nur noch für den gerade geöffneten Kunden geladen (Roadmap Phase 10).
+// Vorher lag die komplette Tabelle im Speicher, obwohl immer nur die Fahrzeuge eines einzigen
+// Kunden angezeigt werden – im Kundendetail.
+export async function fetchVehiclesFuerKunde(supabase: SupabaseClient, customerId: string): Promise<Vehicle[]> {
   return fetchPaged<Vehicle>("Die Fahrzeuge konnten nicht geladen werden", (von, bis) =>
-    supabase.from("vehicles").select("*").order("created_at").range(von, bis)
+    supabase.from("vehicles").select("*").eq("customer_id", customerId).order("created_at").range(von, bis)
   );
 }
 

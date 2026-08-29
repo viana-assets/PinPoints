@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Article, ArticlePrice, OrderArticle } from "@/lib/types";
+import type { Article, ArticlePrice } from "@/lib/types";
 import { currentArticlePrice, DEFAULT_VAT_RATE } from "@/lib/helpers";
 import { fetchPaged, qWrite } from "./client";
 
@@ -20,11 +20,9 @@ export async function fetchArticlePrices(supabase: SupabaseClient): Promise<Arti
   );
 }
 
-export async function fetchOrderArticles(supabase: SupabaseClient): Promise<OrderArticle[]> {
-  return fetchPaged<OrderArticle>("Die zugeordneten Leistungen konnten nicht geladen werden", (von, bis) =>
-    supabase.from("order_articles").select("*").is("deleted_at", null).order("created_at").range(von, bis)
-  );
-}
+// Ein eigener Vollabzug über `order_articles` ist seit Roadmap-Phase 10 nicht mehr nötig: die
+// Auftragspositionen kommen verschachtelt mit den Aufträgen mit (siehe lib/api/orders.ts) und
+// passen dadurch immer zum geladenen Zeitfenster.
 
 export async function insertArticle(supabase: SupabaseClient, shortName: string, longName: string): Promise<void> {
   await qWrite(

@@ -1,5 +1,6 @@
 "use client";
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import type {
@@ -32,29 +33,61 @@ import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
-import { fetchEmployees, insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
-import { fetchVehicles, insertVehicle, updateVehicleById, deleteVehicleById } from "@/lib/api/vehicles";
+import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
+import { insertVehicle, updateVehicleById, deleteVehicleById } from "@/lib/api/vehicles";
 import {
-  fetchWarehouses, fetchStorageSlots, fetchTireStorages,
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
   insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById,
   upsertTireAssignment, removeTireAssignmentById,
 } from "@/lib/api/lager";
 import {
-  fetchArticles, fetchArticlePrices, fetchOrderArticles,
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
   insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleDiscountById, deleteOrderArticleById,
 } from "@/lib/api/articles";
 import {
-  fetchOrders, fetchOrderEmployeesMap, replaceOrderEmployees,
+  replaceOrderEmployees,
   insertOrder, updateOrderById, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
+  AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
 import {
-  fetchCustomers, fetchContactHistory, markCustomerContacted, markCustomerOpen,
+  markCustomerContacted, markCustomerOpen,
   setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
 } from "@/lib/api/customers";
-import { fetchModulePermissions, upsertModulePermissions } from "@/lib/api/permissions";
+import { upsertModulePermissions } from "@/lib/api/permissions";
 import { fetchOwnRole, fetchOrCreateUserSettings, updateUserSettings } from "@/lib/api/session";
+import { qk } from "@/lib/queries/keys";
+import {
+  useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
+  useMitarbeiter, useArtikel, useArtikelpreise,
+  useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte,
+} from "@/lib/queries/hooks";
+
+// Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
+// Effekte auslösen, die eigentlich nur auf echte Datenänderungen reagieren sollen.
+const KEINE_KUNDEN: Customer[] = [];
+const KEINE_AUFTRAEGE: Order[] = [];
+const KEINE_MITARBEITER: Employee[] = [];
+const KEINE_ARTIKEL: Article[] = [];
+const KEINE_ARTIKELPREISE: ArticlePrice[] = [];
+const KEINE_POSITIONEN: OrderArticle[] = [];
+const KEINE_LAGER: Warehouse[] = [];
+const KEINE_LAGERPLAETZE: StorageSlot[] = [];
+const KEINE_EINLAGERUNGEN: TireStorage[] = [];
+const KEINE_FAHRZEUGE: Vehicle[] = [];
+const KEINE_HISTORIE: ContactHistoryEntry[] = [];
+const KEINE_ZUORDNUNGEN: Record<string, string[]> = {};
+
+// Höchstzahl gleichzeitig gezeichneter Kartenmarker. Leaflet legt je Marker ein DOM-Element an;
+// bei mehreren tausend Kunden im Bild wird das Zoomen und Verschieben spürbar zäh. Es werden
+// ohnehin nur Marker im sichtbaren Ausschnitt gezeichnet – diese Grenze fängt den Fall ab, dass
+// jemand ganz herauszoomt.
+const MAX_MARKER = 600;
+
+// Wie viele Kundenzeilen auf einmal gezeichnet werden. Die Suche filtert weiterhin über den
+// gesamten Bestand – begrenzt ist nur, wie viele Treffer gleichzeitig im Dokument stehen.
+// Ohne diese Grenze legt der Browser bei ~4500 Kunden ebenso viele Zeilen an, was das Scrollen
+// und jedes Tippen im Suchfeld spürbar verzögert.
+const LISTEN_SCHRITT = 200;
 
 type TabKey = "dashboard" | "list" | "termine" | "lager" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "more";
 
@@ -82,28 +115,8 @@ export default function HomePage() {
   // siehe AuftraegePanel/EinsatzplanungPanel.
   const isTechniker = myRole === "techniker";
 
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [storageSlots, setStorageSlots] = useState<StorageSlot[]>([]);
-  const [tireStorages, setTireStorages] = useState<TireStorage[]>([]);
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [employees, setEmployees] = useState<Employee[]>([]);
-  // Mehrere Mitarbeiter je Auftrag (Migration 11, Tabelle `order_employees`): Auftrag-ID → Liste
-  // von Mitarbeiter-IDs. `orders.assigned_employee_id` bleibt in der Datenbank als Altlast
-  // liegen, wird von der App aber nicht mehr verwendet – Zuordnungen laufen ab sofort komplett
-  // über diese Map/Tabelle.
-  const [orderEmployees, setOrderEmployeesMap] = useState<Record<string, string[]>>({});
-  // Artikelstammdaten (Migration 12): Dienstleistungen/Artikel mit Preis-Historie, die einem
-  // Auftrag zugeordnet werden können ("Leistungen"). `orderArticles` ist bewusst eine flache
-  // Liste (nicht nach Auftrag gruppiert), analog zu den anderen Rohdaten-States.
-  const [articles, setArticles] = useState<Article[]>([]);
-  const [articlePrices, setArticlePrices] = useState<ArticlePrice[]>([]);
-  const [orderArticles, setOrderArticlesState] = useState<OrderArticle[]>([]);
-  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  // Modul-Berechtigungen: pro Modul (aktuell nur "lager") hinterlegt, welche Rollen dort
-  // strukturelle Änderungen vornehmen dürfen (Migration 09). Superadmin darf immer alles,
-  // unabhängig vom Inhalt dieser Tabelle (Sicherheitsnetz falls eine Zeile fehlt).
-  const [modulePermissions, setModulePermissions] = useState<Record<string, string[]>>({});
+  // Die Datenbestände liegen seit Roadmap-Phase 10 nicht mehr als useState hier, sondern in
+  // Abfragen (siehe weiter unten beim "selectedId"-Block und in lib/queries/hooks.ts).
   const [settings, setSettings] = useState<UserSettings>({
     user_id: "", period_months: 3, map_style: "strasse", row_display: "datum",
   });
@@ -115,9 +128,89 @@ export default function HomePage() {
   const [onlyUpcoming, setOnlyUpcoming] = useState(true);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [history, setHistory] = useState<ContactHistoryEntry[]>([]);
+
+  // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
+  //
+  // Vorher lud diese Komponente beim Start zwölf Tabellen vollständig und nacheinander, bevor
+  // überhaupt etwas zu sehen war – und nach jeder Änderung die betroffene Tabelle komplett neu.
+  // Jetzt hängt jeder Bestand an einer Abfrage, die erst lädt, wenn er gebraucht wird, danach
+  // zwischengespeichert bleibt und nach einer Änderung gezielt für ungültig erklärt wird.
+  //
+  // Was die Oberfläche sieht, bleibt gleich: `customers`, `orders`, `employees` … sind weiterhin
+  // schlichte Arrays mit denselben Namen, deshalb ändert sich an den Panels nichts.
+  const queryClient = useQueryClient();
+  const [auftragsFenster, setAuftragsFenster] = useState<AuftragsFenster>("aktuell");
+
+  // Kunden und das Auftragsfenster stecken in Karte, Dashboard und fast jeder Liste – die erst
+  // beim Tabwechsel zu holen würde nur flackern, ohne etwas zu sparen. Alles andere kommt beim
+  // Öffnen des jeweiligen Moduls bzw. des Kundendetails.
+  const kundeOffen = selectedId !== null;
+  const brauchtMitarbeiter = tab === "auftraege" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || kundeOffen;
+  const brauchtArtikel = tab === "artikel" || tab === "auftraege" || tab === "einsatzplanung" || kundeOffen;
+  const brauchtLager = tab === "lager" || kundeOffen;
+
+  const kundenQuery = useKunden(supabase);
+  const auftraegeQuery = useAuftraege(supabase, auftragsFenster);
+  const mitarbeiterQuery = useMitarbeiter(supabase, brauchtMitarbeiter);
+  const artikelQuery = useArtikel(supabase, brauchtArtikel);
+  const artikelpreiseQuery = useArtikelpreise(supabase, brauchtArtikel);
+  const lagerQuery = useLager(supabase, brauchtLager);
+  const lagerplaetzeQuery = useLagerplaetze(supabase, brauchtLager);
+  const einlagerungenQuery = useEinlagerungen(supabase, brauchtLager);
+  const lagerKennzahlenQuery = useLagerKennzahlen(supabase, tab === "dashboard");
+  const modulrechteQuery = useModulrechte(supabase);
+  const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId);
+  const kundeAuftraegeQuery = useKundenAuftraege(supabase, selectedId);
+  const historieQuery = useKundeHistorie(supabase, selectedId);
+
+  const customers = kundenQuery.data ?? KEINE_KUNDEN;
+  const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
+  const employees = mitarbeiterQuery.data ?? KEINE_MITARBEITER;
+  const articles = artikelQuery.data ?? KEINE_ARTIKEL;
+  const articlePrices = artikelpreiseQuery.data ?? KEINE_ARTIKELPREISE;
+  const warehouses = lagerQuery.data ?? KEINE_LAGER;
+  const storageSlots = lagerplaetzeQuery.data ?? KEINE_LAGERPLAETZE;
+  const tireStorages = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
+  const vehicles = kundeFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
+  const history = historieQuery.data ?? KEINE_HISTORIE;
+  const modulePermissions = modulrechteQuery.data ?? KEINE_ZUORDNUNGEN;
+
+  // Das Kundendetail zeigt die VOLLSTÄNDIGE Auftragshistorie eines Kunden, unabhängig vom
+  // Zeitfenster der Listen – dort will man sehen, was es zu diesem Kunden je gab.
+  const kundeAuftraege = kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
+
+  // Mitarbeiter- und Leistungszuordnungen kommen seit Phase 10 verschachtelt mit den Aufträgen
+  // (statt als zwei eigene Vollabzüge). Beide Quellen – Zeitfenster und geöffneter Kunde –
+  // werden hier zusammengeführt, damit Popover und Kundendetail dieselben Daten sehen.
+  const orderEmployees = useMemo(
+    () => ({ ...(auftraegeQuery.data?.orderEmployees ?? {}), ...(kundeAuftraegeQuery.data?.orderEmployees ?? {}) }),
+    [auftraegeQuery.data, kundeAuftraegeQuery.data]
+  );
+  const orderArticles = useMemo(() => {
+    const nachId = new Map<string, OrderArticle>();
+    (auftraegeQuery.data?.orderArticles ?? KEINE_POSITIONEN).forEach((z) => nachId.set(z.id, z));
+    (kundeAuftraegeQuery.data?.orderArticles ?? KEINE_POSITIONEN).forEach((z) => nachId.set(z.id, z));
+    return Array.from(nachId.values());
+  }, [auftraegeQuery.data, kundeAuftraegeQuery.data]);
+
+  // Nach einer Änderung gezielt die betroffenen Bestände nachladen lassen – nicht mehr pauschal
+  // die ganze Tabelle wie vor Phase 10.
+  function neuLaden(...schluessel: readonly (readonly unknown[])[]) {
+    schluessel.forEach((key) => { void queryClient.invalidateQueries({ queryKey: key }); });
+  }
+  // Auftragsdaten hängen an zwei Stellen: am Zeitfenster (Listen, Karte, Kalender) und an der
+  // vollständigen Historie des gerade geöffneten Kunden.
+  function auftraegeNeuLaden() {
+    neuLaden(qk.auftraegeAlle());
+    if (selectedId) neuLaden(qk.kundeAuftraege(selectedId));
+  }
 
   const [mobileMapVisible, setMobileMapVisible] = useState(false);
+  // Wie viele Kunden im aktuellen Ausschnitt nicht gezeichnet wurden, weil die Marker-Grenze
+  // erreicht war – daraus wird der Hinweis auf der Karte gespeist.
+  const [ausgelasseneMarker, setAusgelasseneMarker] = useState(0);
+  // Wie viele Kundenzeilen gerade gezeichnet werden dürfen (siehe LISTEN_SCHRITT).
+  const [listenGrenze, setListenGrenze] = useState(LISTEN_SCHRITT);
   const [callMenuFor, setCallMenuFor] = useState<Customer | null>(null);
   const [callMenuPos, setCallMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   // Navigations-Button (Auftrag/Termin, wenn eine Adresse gepflegt ist): am Smartphone erst
@@ -170,6 +263,12 @@ export default function HomePage() {
     return () => window.removeEventListener("unhandledrejection", onRejection);
   }, []);
 
+  // Nach jeder Änderung an Suche oder Filtern wieder von vorn zählen: sonst würde eine zuvor
+  // aufgeklappte lange Liste eine neue, kurze Trefferliste unnötig groß halten.
+  useEffect(() => {
+    setListenGrenze(LISTEN_SCHRITT);
+  }, [search, filter, plzFilter, letterFilter]);
+
   // Meldung nach einer Weile von selbst ausblenden – sie ist ein Hinweis, kein Dialog.
   useEffect(() => {
     if (!fehler) return;
@@ -192,47 +291,43 @@ export default function HomePage() {
       const settingsRow = await fetchOrCreateUserSettings(supabase, user.id);
       if (settingsRow) setSettings(settingsRow);
 
-      await refreshCustomers();
-      await refreshWarehouses();
-      await refreshStorageSlots();
-      await refreshTireStorages();
-      await refreshOrders();
-      await refreshEmployees();
-      await refreshOrderEmployees();
-      await refreshArticles();
-      await refreshArticlePrices();
-      await refreshOrderArticles();
-      await refreshVehicles();
-      await refreshModulePermissions();
+      // Ab hier nichts mehr laden: die Datenbestände hängen an den Abfragen weiter oben und
+      // kommen nach und nach an, während die Oberfläche schon steht (Roadmap Phase 10). Vorher
+      // wartete der Nutzer hier auf zwölf vollständige Tabellen, bevor er überhaupt etwas sah.
     })()
       .catch((e: { message?: string }) => {
-        setFehler(e?.message || "Die Daten konnten nicht geladen werden.");
+        setFehler(e?.message || "Die Anmeldedaten konnten nicht geladen werden.");
       })
-      // Auch im Fehlerfall aus dem Ladezustand herausgehen: mit einer sichtbaren Meldung und
-      // Teildaten kommt man weiter als mit einem "Lädt…", das nie verschwindet.
+      // Auch im Fehlerfall aus dem Ladezustand herausgehen: mit einer sichtbaren Meldung kommt
+      // man weiter als mit einem "Lädt…", das nie verschwindet.
       .finally(() => setLoading(false));
   }, []);
 
+  // Die refreshX()-Funktionen heißen weiter so, holen aber nichts mehr selbst: sie erklären den
+  // betroffenen Bestand für ungültig, und nachgeladen wird genau das, was gerade auf dem
+  // Bildschirm gebraucht wird. Dadurch konnten alle CRUD-Funktionen darunter unverändert
+  // bleiben – ein Häkchen im Mitarbeiter-Popover zieht keinen Vollabzug mehr nach sich.
   async function refreshCustomers() {
-    setCustomers(await fetchCustomers(supabase));
+    neuLaden(qk.kunden());
   }
   async function refreshEmployees() {
-    setEmployees(await fetchEmployees(supabase));
+    neuLaden(qk.mitarbeiter());
   }
   async function refreshWarehouses() {
-    setWarehouses(await fetchWarehouses(supabase));
+    neuLaden(qk.lager(), qk.lagerKennzahlen());
   }
   async function refreshStorageSlots() {
-    setStorageSlots(await fetchStorageSlots(supabase));
+    neuLaden(qk.lagerplaetze(), qk.lagerKennzahlen());
   }
   async function refreshTireStorages() {
-    setTireStorages(await fetchTireStorages(supabase));
+    neuLaden(qk.einlagerungen(), qk.lagerKennzahlen());
   }
   async function refreshOrders() {
-    setOrders(await fetchOrders(supabase));
+    auftraegeNeuLaden();
   }
   async function refreshOrderEmployees() {
-    setOrderEmployeesMap(await fetchOrderEmployeesMap(supabase));
+    // Zuordnungen kommen mit den Aufträgen verschachtelt – derselbe Bestand.
+    auftraegeNeuLaden();
   }
   // Ersetzt die komplette Mitarbeiter-Zuordnung eines Auftrags.
   async function setOrderEmployees(orderId: string, employeeIds: string[]) {
@@ -241,13 +336,14 @@ export default function HomePage() {
   }
   // ---------------------------------------------------------------- Artikelstammdaten
   async function refreshArticles() {
-    setArticles(await fetchArticles(supabase));
+    neuLaden(qk.artikel());
   }
   async function refreshArticlePrices() {
-    setArticlePrices(await fetchArticlePrices(supabase));
+    neuLaden(qk.artikelpreise());
   }
   async function refreshOrderArticles() {
-    setOrderArticlesState(await fetchOrderArticles(supabase));
+    // Auftragspositionen kommen mit den Aufträgen verschachtelt – derselbe Bestand.
+    auftraegeNeuLaden();
   }
   async function addArticle(shortName: string, longName: string) {
     await insertArticle(supabase, shortName, longName);
@@ -288,10 +384,11 @@ export default function HomePage() {
     return orderArticles.filter((oa) => oa.order_id === orderId);
   }
   async function refreshVehicles() {
-    setVehicles(await fetchVehicles(supabase));
+    // Fahrzeuge werden nur noch für den geöffneten Kunden geladen.
+    if (selectedId) neuLaden(qk.kundeFahrzeuge(selectedId));
   }
   async function refreshModulePermissions() {
-    setModulePermissions(await fetchModulePermissions(supabase));
+    neuLaden(qk.modulrechte());
   }
   async function updateModulePermissions(moduleKey: string, roles: string[]) {
     await upsertModulePermissions(supabase, moduleKey, roles);
@@ -310,11 +407,20 @@ export default function HomePage() {
     return hasPermission("view." + moduleKey);
   }
   async function loadHistory(customerId: string) {
-    setHistory(await fetchContactHistory(supabase, customerId));
+    neuLaden(qk.kundeHistorie(customerId));
   }
 
+  // Aufträge einmal nach Kunde gruppieren, statt für jeden Kunden die komplette Auftragsliste
+  // erneut zu durchsuchen: die Terminliste tat das vorher einmal pro Kunde, was bei ~4500
+  // Kunden in die Tausende von Durchläufen ging.
+  const auftraegeJeKunde = useMemo(() => {
+    const map: Record<string, Order[]> = {};
+    orders.forEach((o) => { (map[o.customer_id] ||= []).push(o); });
+    return map;
+  }, [orders]);
+
   function ordersFor(customerId: string): Order[] {
-    return orders.filter((o) => o.customer_id === customerId);
+    return auftraegeJeKunde[customerId] || KEINE_AUFTRAEGE;
   }
 
   // Erzwingt einen kompletten Reflow (Layout) UND Repaint des gesamten App-Layouts (Nav +
@@ -362,6 +468,9 @@ export default function HomePage() {
       // Jede Größenänderung des Fensters (auch durch Öffnen/Schließen der Browser-DevTools, nicht
       // nur durch Ziehen am Fensterrand) sowie Rückkehr aus Hintergrund/bfcache lösen den vollen
       // Reflow/Repaint aus – siehe forceFullReflow() oben.
+      // Beim Verschieben und Zoomen die sichtbaren Marker neu bestimmen (Roadmap Phase 10).
+      map.on("moveend", syncMarkers);
+      map.on("zoomend", syncMarkers);
       window.addEventListener("resize", forceFullReflow);
       document.addEventListener("visibilitychange", () => { if (!document.hidden) forceFullReflow(); });
       window.addEventListener("pageshow", (e) => { if ((e as PageTransitionEvent).persisted) forceFullReflow(); });
@@ -468,9 +577,20 @@ export default function HomePage() {
     const L = leafletRef.current;
     if (!L || !markerLayerRef.current) return;
     const { customers: custs, orders: ords, settings: s } = liveRef.current;
+    // Nur zeichnen, was im Bild ist (Roadmap Phase 10). Bei ~4500 Kunden legte Leaflet vorher
+    // 4500 DOM-Elemente an, von denen fast alle außerhalb des Ausschnitts lagen – Zoomen und
+    // Verschieben wurden dadurch spürbar zäh. `pad` nimmt einen Rand mit, damit beim Schieben
+    // nichts nachträglich aufpoppt.
+    const karte = mapRef.current;
+    const grenzen = karte ? karte.getBounds().pad(0.25) : null;
+    let gezeichnet = 0;
+    let ausgelassen = 0;
     const seen = new Set<string>();
     custs.forEach((cust) => {
       if (cust.active === false || cust.lat == null || cust.lng == null) return;
+      if (grenzen && !grenzen.contains([cust.lat, cust.lng])) return;
+      if (gezeichnet >= MAX_MARKER) { ausgelassen++; return; }
+      gezeichnet++;
       seen.add(cust.id);
       const color = effectiveColor(cust, s.period_months);
       const nextOrd = nextOrder(ordersForLive(cust.id, ords));
@@ -499,6 +619,7 @@ export default function HomePage() {
         delete markerIndexRef.current[id];
       }
     });
+    setAusgelasseneMarker((vorher) => (vorher === ausgelassen ? vorher : ausgelassen));
   }
   function ordersForLive(customerId: string, ords: Order[]) {
     return ords.filter((o) => o.customer_id === customerId);
@@ -757,38 +878,62 @@ export default function HomePage() {
   }
 
   // ---------------------------------------------------------------- Ableitungen für die Liste
-  const activeCustomers = customers.filter((c) => c.active !== false);
-  const listItems = activeCustomers
-    .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase()))
-    .filter((c) => {
-      if (filter === "all") return true;
-      if (filter === "nogeo") return c.lat == null;
-      const color = effectiveColor(c, settings.period_months);
-      if (filter === "offen") return color === "red";
-      if (filter === "ok") return color === "green";
-      return true;
-    })
-    .filter((c) => !letterFilter || c.name.trim().charAt(0).toUpperCase() === letterFilter)
-    .filter((c) => {
-      if (!plzFilter.trim()) return true;
-      const match = c.address.match(/\b\d{5}\b/);
-      return !!match && match[0].startsWith(plzFilter.trim());
-    })
-    .sort((a, b) => a.name.localeCompare(b.name, "de"));
-  const availableLetters = Array.from(
-    new Set(activeCustomers.map((c) => c.name.trim().charAt(0).toUpperCase()).filter(Boolean))
-  ).sort((a, b) => a.localeCompare(b, "de"));
+  //
+  // Alles hier in useMemo: Filtern und Sortieren laufen über den gesamten Kundenbestand, und
+  // localeCompare ist nicht billig – ohne Zwischenspeicherung würde das bei jedem Rendern der
+  // Komponente erneut passieren, also auch beim Öffnen eines Popovers.
+  const activeCustomers = useMemo(() => customers.filter((c) => c.active !== false), [customers]);
+  const listItems = useMemo(
+    () =>
+      activeCustomers
+        .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase()))
+        .filter((c) => {
+          if (filter === "all") return true;
+          if (filter === "nogeo") return c.lat == null;
+          const color = effectiveColor(c, settings.period_months);
+          if (filter === "offen") return color === "red";
+          if (filter === "ok") return color === "green";
+          return true;
+        })
+        .filter((c) => !letterFilter || c.name.trim().charAt(0).toUpperCase() === letterFilter)
+        .filter((c) => {
+          if (!plzFilter.trim()) return true;
+          const match = c.address.match(/\b\d{5}\b/);
+          return !!match && match[0].startsWith(plzFilter.trim());
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, "de")),
+    [activeCustomers, search, filter, letterFilter, plzFilter, settings.period_months]
+  );
+  // Nur ein Ausschnitt der Treffer landet im Dokument, nachladbar per Knopf am Listenende.
+  // Gefiltert und gezählt wird weiterhin über alle Kunden.
+  const sichtbareListItems = useMemo(() => listItems.slice(0, listenGrenze), [listItems, listenGrenze]);
+  const availableLetters = useMemo(
+    () =>
+      Array.from(new Set(activeCustomers.map((c) => c.name.trim().charAt(0).toUpperCase()).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b, "de")),
+    [activeCustomers]
+  );
   const statTotal = activeCustomers.length;
-  const statOk = activeCustomers.filter((c) => effectiveColor(c, settings.period_months) === "green").length;
-  const inactiveCustomers = customers.filter((c) => c.active === false).sort((a, b) => a.name.localeCompare(b.name, "de"));
+  const statOk = useMemo(
+    () => activeCustomers.filter((c) => effectiveColor(c, settings.period_months) === "green").length,
+    [activeCustomers, settings.period_months]
+  );
+  const inactiveCustomers = useMemo(
+    () => customers.filter((c) => c.active === false).sort((a, b) => a.name.localeCompare(b.name, "de")),
+    [customers]
+  );
 
   // Termine-Tab: Auftrag = Termin (siehe Migration 07), hier einfach chronologisch alle
   // Aufträge mit ihrem Kunden – gleiche Datenbasis wie das Aufträge-Modul.
-  const apptRows = customers
-    .filter((c) => c.active !== false)
-    .flatMap((c) => ordersFor(c.id).map((o) => ({ cust: c, order: o, past: isOrderPast(o) })))
-    .filter((r) => !onlyUpcoming || !r.past)
-    .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime());
+  const apptRows = useMemo(
+    () =>
+      customers
+        .filter((c) => c.active !== false)
+        .flatMap((c) => (auftraegeJeKunde[c.id] || KEINE_AUFTRAEGE).map((o) => ({ cust: c, order: o, past: isOrderPast(o) })))
+        .filter((r) => !onlyUpcoming || !r.past)
+        .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime()),
+    [customers, auftraegeJeKunde, onlyUpcoming]
+  );
 
   function openDetail(id: string) {
     setSelectedId(id);
@@ -866,7 +1011,11 @@ export default function HomePage() {
   }
 
   const upcomingApptCount = apptRows.filter((r) => !r.past).length;
-  const occupiedSlots = storageSlots.filter((s) => tireStorages.some((t) => t.storage_slot_id === s.id && !t.removed_at)).length;
+  // Belegte und vorhandene Lagerplätze kommen als zwei count-Abfragen aus der Datenbank, statt
+  // dafür das komplette Lager in den Browser zu laden und dort gegeneinander zu rechnen
+  // (Roadmap Phase 10). Seit Migration 15 belegt eine aktive Einlagerung genau einen Platz.
+  const occupiedSlots = lagerKennzahlenQuery.data?.belegt ?? 0;
+  const slotsGesamt = lagerKennzahlenQuery.data?.gesamt ?? 0;
   const openOrders = orders.filter((o) => o.status !== "erledigt").length;
   // Hauptnavigation: Dashboard/Kunden/Aufträge sind immer sichtbar. Alles andere ist auf dem
   // Desktop Teil der breiten Seitenleiste (wie in einem ERP-System), auf dem Handy dagegen
@@ -961,7 +1110,7 @@ export default function HomePage() {
                   <div className="mc-icon"><IconLager /></div>
                   <div className="mc-text">
                     <div className="mc-title">Belegte Lagerplätze</div>
-                    <div className="mc-sub">von {storageSlots.length} Lagerplätzen insgesamt</div>
+                    <div className="mc-sub">von {slotsGesamt} Lagerplätzen insgesamt</div>
                   </div>
                   <div className="mc-tag">{occupiedSlots}</div>
                 </div>
@@ -1019,7 +1168,7 @@ export default function HomePage() {
             </div>
             <div id="customerList">
               {listItems.length === 0 && <div className="empty">Keine Kunden gefunden.</div>}
-              {listItems.map((c) => {
+              {sichtbareListItems.map((c) => {
                 const color = c.lat == null ? "gray" : effectiveColor(c, settings.period_months);
                 const nextOrd = nextOrder(ordersFor(c.id));
                 return (
@@ -1039,6 +1188,14 @@ export default function HomePage() {
                   </div>
                 );
               })}
+              {listItems.length > sichtbareListItems.length && (
+                <div className="listen-mehr">
+                  <span>{sichtbareListItems.length} von {listItems.length} Kunden</span>
+                  <button type="button" onClick={() => setListenGrenze((g) => g + LISTEN_SCHRITT)}>
+                    Weitere {Math.min(LISTEN_SCHRITT, listItems.length - sichtbareListItems.length)} anzeigen
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1091,6 +1248,8 @@ export default function HomePage() {
         )}
 
         {tab === "auftraege" && canView("auftraege") && (
+          <>
+          <FensterSchalter wert={auftragsFenster} onChange={setAuftragsFenster} laedt={auftraegeQuery.isFetching} />
           <AuftraegePanel
             customers={customers}
             orders={orders}
@@ -1108,6 +1267,7 @@ export default function HomePage() {
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
           />
+          </>
         )}
 
         {tab === "lager" && canView("lager") && (
@@ -1134,6 +1294,8 @@ export default function HomePage() {
         )}
 
         {tab === "einsatzplanung" && canView("einsatzplanung") && (
+          <>
+          <FensterSchalter wert={auftragsFenster} onChange={setAuftragsFenster} laedt={auftraegeQuery.isFetching} />
           <EinsatzplanungPanel
             customers={customers}
             orders={orders}
@@ -1149,6 +1311,7 @@ export default function HomePage() {
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
           />
+          </>
         )}
 
         {tab === "more" && (
@@ -1282,7 +1445,13 @@ export default function HomePage() {
         )}
       </div>
 
-      <div id="map" ref={mapDivRef} className={fullPageTabs ? "force-hidden" : (mobileMapVisible ? "mobile-visible" : "")}></div>
+      <div id="map" ref={mapDivRef} className={fullPageTabs ? "force-hidden" : (mobileMapVisible ? "mobile-visible" : "")}>
+        {ausgelasseneMarker > 0 && !fullPageTabs && (
+          <div className="map-hinweis">
+            {ausgelasseneMarker} weitere Kunden in diesem Ausschnitt – zum Anzeigen näher heranzoomen.
+          </div>
+        )}
+      </div>
 
       {!fullPageTabs && (
         <button id="mapToggleBtn" type="button" onClick={toggleMobileMap} title={mobileMapVisible ? "Liste anzeigen" : "Karte anzeigen"}>
@@ -1363,7 +1532,7 @@ export default function HomePage() {
       {selectedId && (
         <DetailModal
           customer={customers.find((c) => c.id === selectedId)!}
-          orders={ordersFor(selectedId)}
+          orders={kundeAuftraege}
           employees={employees}
           orderEmployees={orderEmployees}
           articles={articles}
@@ -1374,7 +1543,7 @@ export default function HomePage() {
           onRemoveOrderArticle={removeOrderArticle}
           history={history}
           periodMonths={settings.period_months}
-          vehicles={vehicles.filter((v) => v.customer_id === selectedId)}
+          vehicles={vehicles}
           tireStorages={tireStorages.filter((t) => t.customer_id === selectedId)}
           storageSlots={storageSlots}
           warehouses={warehouses}
@@ -1404,6 +1573,38 @@ export default function HomePage() {
           <button type="button" onClick={() => setFehler(null)} aria-label="Meldung schließen">×</button>
         </div>
       )}
+    </div>
+  );
+}
+
+// Umschaltung des geladenen Auftrags-Zeitfensters (Roadmap Phase 10). Steht über den beiden
+// Auftragslisten, weil sie sich dieselbe Abfrage teilen: was hier gewählt wird, gilt für den
+// Aufträge-Tab und die Einsatzplanung gleichermaßen.
+//
+// "Aktuell" enthält immer alle offenen Aufträge, unabhängig vom Alter – nur ERLEDIGTE werden
+// nach 30 Tagen ausgeblendet. Was noch zu tun ist, kann also nie aus dem Blick geraten.
+function FensterSchalter({ wert, onChange, laedt }: {
+  wert: AuftragsFenster;
+  onChange: (w: AuftragsFenster) => void;
+  laedt: boolean;
+}) {
+  const fenster: AuftragsFenster[] = ["aktuell", "jahr", "alles"];
+  return (
+    <div className="fenster-schalter">
+      <span className="fs-label">Geladener Zeitraum</span>
+      {fenster.map((f) => (
+        <button
+          key={f}
+          type="button"
+          className={"fs-btn" + (wert === f ? " active" : "")}
+          onClick={() => onChange(f)}
+        >
+          {AUFTRAGSFENSTER_LABEL[f]}
+        </button>
+      ))}
+      <span className="fs-hinweis">
+        {laedt ? "lädt…" : wert === "aktuell" ? "Erledigte der letzten 30 Tage, offene immer" : ""}
+      </span>
     </div>
   );
 }
