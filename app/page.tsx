@@ -14,7 +14,7 @@ import {
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
-import { ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
+import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
   IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
@@ -28,6 +28,7 @@ import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
 import { AuftragModal } from "@/components/auftraege/AuftragModal";
+import { OrderModal } from "@/components/auftraege/OrderModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
@@ -144,6 +145,11 @@ export default function HomePage() {
   // der Initialisierung. TypeScript kann das nicht sehen, weil der Zugriff in einem
   // find()-Callback steckt – zur Laufzeit wirft es.
   const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
+  // Kunde, für den gerade ein neuer Auftrag angelegt wird (aus dem Karten-Popup heraus, seit
+  // 29.08.2026 – siehe docs/termine-kontakt-auftrag-analyse.md). Das Anlegeformular ist ein
+  // Overlay über der Karte: der Reiter wechselt nicht, nach dem Speichern steht man wieder an
+  // derselben Stelle. Direkt danach öffnet sich das Auftragsfenster für Fahrzeug und Leistungen.
+  const [neuerAuftragKundeId, setNeuerAuftragKundeId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
   //
@@ -186,6 +192,9 @@ export default function HomePage() {
     (auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
     (kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
   const auftragFahrzeugeQuery = useKundeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, sitzungBereit);
+  // Aus derselben Nachbarschaft wie `offenerAuftrag` und aus demselben Grund: die Ableitung
+  // liest den Zustand, eine Deklaration danach wäre ein Zugriff vor der Initialisierung.
+  const neuerAuftragKunde = (kundenQuery.data ?? KEINE_KUNDEN).find((c) => c.id === neuerAuftragKundeId);
 
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
   const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
@@ -679,23 +688,13 @@ export default function HomePage() {
       <div class="pline small">Letzter Kontakt: ${cust.last_contact ? formatDate(cust.last_contact) : "–"}</div>
       ${nextOrd ? `<div class="pline small">📅 Nächster Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}</div>` : ""}
       <hr>
+      <button id="btnNewOrder" class="btn-primary btn-block" style="margin-bottom:10px;">+ Auftrag anlegen</button>
       <div class="field" style="margin-bottom:6px;">
         <label>Kontaktiert am</label>
-        <input type="date" id="popupContactDate" value="${cust.last_contact || todayStr()}">
-      </div>
-      <div class="checkbox-row">
-        <input type="checkbox" id="chkAppt">
-        <label for="chkAppt">Termin dabei vereinbart</label>
-      </div>
-      <div id="apptFields">
-        <div class="row" style="margin-bottom:4px;">
-          <div class="field" style="margin-bottom:0;"><label>Termin-Datum</label><input type="date" id="popupApptDate" value="${todayStr()}"></div>
-          <div class="field" style="margin-bottom:0;"><label>Uhrzeit (optional)</label><input type="time" id="popupApptTime"></div>
-        </div>
-        <div class="field" style="margin-bottom:0;"><label>Was ist zu tun?</label><textarea id="popupApptDesc"></textarea></div>
+        <input type="date" id="popupContactDate" value="${todayStr()}">
       </div>
       <div style="display:flex;gap:6px;margin-bottom:6px;">
-        <button id="btnMarkContacted" style="flex:1" class="btn-green">✔ Kontaktiert speichern</button>
+        <button id="btnMarkContacted" style="flex:1" class="btn-green">✔ Kontakt bestätigen</button>
         <button id="btnMarkOpen" style="flex:1" class="btn-secondary">Auf offen setzen</button>
       </div>
       <button id="btnEditCust" class="btn-secondary btn-block">✏️ Kundendaten &amp; Aufträge bearbeiten</button>
@@ -704,20 +703,17 @@ export default function HomePage() {
   }
 
   function attachPopupHandlers(customerId: string, marker: any) {
-    const chkAppt = document.getElementById("chkAppt") as HTMLInputElement | null;
-    const apptFields = document.getElementById("apptFields");
-    if (chkAppt && apptFields) {
-      chkAppt.onchange = () => apptFields.classList.toggle("show", chkAppt.checked);
-    }
+    const bN = document.getElementById("btnNewOrder");
     const bC = document.getElementById("btnMarkContacted");
     const bO = document.getElementById("btnMarkOpen");
     const bE = document.getElementById("btnEditCust");
+    // Auftrag anlegen und Kontakt bestätigen sind seit 29.08.2026 zwei getrennte Handlungen.
+    // Der Auftrag öffnet das gewohnte Anlegeformular als Overlay über der Karte – kein
+    // Reiterwechsel, nach dem Speichern steht man wieder hier.
+    if (bN) bN.onclick = () => { setNeuerAuftragKundeId(customerId); marker.closePopup(); };
     if (bC) bC.onclick = async () => {
       const contactDate = (document.getElementById("popupContactDate") as HTMLInputElement).value || todayStr();
-      const apptDate = chkAppt?.checked ? (document.getElementById("popupApptDate") as HTMLInputElement).value : null;
-      const apptTime = chkAppt?.checked ? (document.getElementById("popupApptTime") as HTMLInputElement).value : "";
-      const apptDesc = chkAppt?.checked ? (document.getElementById("popupApptDesc") as HTMLInputElement).value : "";
-      await markContacted(customerId, contactDate, apptDate, apptTime, apptDesc);
+      await markContacted(customerId, contactDate);
       marker.closePopup();
     };
     if (bO) bO.onclick = async () => { await markOpen(customerId); marker.closePopup(); };
@@ -750,16 +746,15 @@ export default function HomePage() {
   }
 
   // ---------------------------------------------------------------- CRUD
-  async function markContacted(id: string, contactDate: string, apptDate: string | null, apptTime: string, apptDesc: string) {
-    const cust = customers.find((c) => c.id === id);
-    if (!cust) return;
-    let note = "Telefonisch kontaktiert";
-    if (apptDate) note += ` – Termin vereinbart am ${formatDate(apptDate)}${apptTime ? ", " + apptTime + " Uhr" : ""}`;
-    await markCustomerContacted(supabase, id, contactDate, note);
-    if (apptDate) {
-      await insertOrder(supabase, { customerId: id, title: terminTitel(cust.name), description: apptDesc || "", orderDate: apptDate, time: apptTime, status: "offen" });
-      await refreshOrders();
-    }
+  // Kontakt bestätigen – und sonst nichts. Bis zum 29.08.2026 hing an dieser Funktion noch ein
+  // Ankreuzfeld "Termin dabei vereinbart", das im selben Zug einen Auftrag anlegte. Das hat zwei
+  // Dinge verbunden, die nicht zusammengehören: ein Auftrag entsteht auch ohne Anruf (Kunde
+  // steht vor Ort, Anschlussauftrag), und ein Anruf führt oft zu keinem Auftrag. Vor allem aber
+  // setzte jede Auftragsanlage `last_contact` – und daran hängt die Wiedervorlage-Uhr. Auftrag
+  // anlegen geht jetzt über denselben Weg wie überall: das Auftragsformular.
+  // Siehe docs/termine-kontakt-auftrag-analyse.md.
+  async function markContacted(id: string, contactDate: string) {
+    await markCustomerContacted(supabase, id, contactDate, "Kontaktiert");
     await refreshCustomers();
     if (selectedId === id) loadHistory(id);
   }
@@ -853,6 +848,10 @@ export default function HomePage() {
     const id = await insertOrder(supabase, { ...fields, title: fields.title.trim() || terminTitel(kunde?.name) });
     if (id) await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
+    // Die Id geht an den Aufrufer zurück, damit er den frisch angelegten Auftrag sofort öffnen
+    // kann – ohne sie müsste er ihn in der Liste wiederfinden, was bei gleichnamigen Aufträgen
+    // am selben Tag nicht eindeutig ist.
+    return id;
   }
   async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
     await updateOrderById(supabase, id, fields);
@@ -1227,6 +1226,15 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Termine = SCHNELLSICHT auf dieselben Aufträge, die der Reiter "Aufträge" ausführlich
+            zeigt: wann bin ich wo, bei wem, mit wem. Keine zweite Datenquelle, keine zweite
+            Wahrheit – nur eine andere Tiefe (siehe docs/termine-kontakt-auftrag-analyse.md).
+
+            Der Klick auf eine Zeile öffnet seit 29.08.2026 das AUFTRAGSFENSTER und nicht mehr
+            das Kundenfenster. Vorher führte aus dem Reiter, der nach dem Termin benannt ist,
+            kein einziger Weg zum dazugehörigen Auftrag – das war die Hauptursache für den
+            Eindruck, Termin und Auftrag seien nicht verknüpft. Der Kunde bleibt über eine
+            eigene Schaltfläche in der Zeile erreichbar. */}
         {tab === "termine" && canView("termine") && (
           <div className="tabpanel active">
             <div className="checkbox-row" style={{ marginTop: 0 }}>
@@ -1243,11 +1251,16 @@ export default function HomePage() {
                     {apptRows.map(({ cust, order, past }) => {
                       const empNames = employeeNamesFor(order.id);
                       return (
-                        <tr key={order.id} className={past ? "past" : ""} onClick={() => openDetail(cust.id)}>
+                        <tr key={order.id} className={`klickbar${past ? " past" : ""}`} onClick={() => setOffenerAuftragId(order.id)} title="Auftrag öffnen">
                           <td className="date-cell">{formatOrderDateTime(order)}{past ? " (vergangen)" : ""}</td>
                           <td>{cust.name}<br /><span className="small">{cust.address}</span></td>
-                          <td>{order.title}{order.description ? ` – ${order.description}` : ""}{empNames !== "–" ? <><br /><span className="small">👤 {empNames}</span></> : ""}</td>
+                          <td>
+                            <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>{" "}
+                            {order.title}
+                            {empNames !== "–" && <><br /><span className="small">👤 {empNames}</span></>}
+                          </td>
                           <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
+                            <button className="call-icon-btn small" title="Kundenfenster öffnen" onClick={() => openDetail(cust.id)}>👤</button>
                             {cust.address.trim() && (
                               <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => openNavMenu(e, cust)}>
                                 <IconNavPin />
@@ -1256,6 +1269,7 @@ export default function HomePage() {
                             {getPhoneNumbers(cust).length > 0 && (
                               <button
                                 className="call-icon-btn small"
+                                title="Anrufen"
                                 onClick={(e) => {
                                   const rect = (e.target as HTMLElement).getBoundingClientRect();
                                   setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
@@ -1441,7 +1455,6 @@ export default function HomePage() {
             isSuperAdmin={isSuperAdmin}
             userEmail={userEmail}
             onLogout={handleLogout}
-            onOpenAdmin={() => setTab("admin")}
           />
         )}
 
@@ -1537,6 +1550,24 @@ export default function HomePage() {
         </>
       )}
 
+      {/* Neuer Auftrag aus dem Karten-Popup. Liegt als Overlay über der Karte, deshalb bleibt
+          der Reiter stehen und die Karte behält Ausschnitt und Zoom. Nach dem Speichern geht
+          direkt das Auftragsfenster auf, damit Fahrzeug und Leistungen an derselben Stelle
+          eingetragen werden können, an der man ohnehin schon steht. */}
+      {neuerAuftragKunde && (
+        <OrderModal
+          customers={customers}
+          employees={employees}
+          festerKunde={neuerAuftragKunde}
+          onClose={() => setNeuerAuftragKundeId(null)}
+          onAdd={async (fields) => {
+            const id = await addOrder(fields);
+            if (id) setOffenerAuftragId(id);
+            return id;
+          }}
+        />
+      )}
+
       {offenerAuftrag && (
         <AuftragModal
           order={offenerAuftrag}
@@ -1583,7 +1614,7 @@ export default function HomePage() {
           warehouses={warehouses}
           onClose={() => setSelectedId(null)}
           onSaveFields={(fields) => updateCustomerFields(selectedId, fields)}
-          onMarkContacted={(contactDate, apptDate, apptTime, apptDesc) => markContacted(selectedId, contactDate, apptDate, apptTime, apptDesc)}
+          onMarkContacted={(contactDate) => markContacted(selectedId, contactDate)}
           onMarkOpen={() => markOpen(selectedId)}
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}

@@ -15,7 +15,7 @@ import { OrderModal } from "./OrderModal";
 // entfallen; es war für die Positionserfassung ohnehin zu klein.
 export function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
-  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
+  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<string | undefined>;
   onDelete: (id: string) => Promise<void>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
@@ -146,7 +146,22 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
         </div>
       </div>
 
-      {showAdd && !isTechniker && <OrderModal customers={customers} employees={employees} onClose={() => setShowAdd(false)} onAdd={onAdd} />}
+      {/* Nach dem Anlegen geht der frische Auftrag direkt auf – hier genauso wie beim Weg über
+          das Karten-Popup. Ein neu angelegter Auftrag ist nie fertig: Fahrzeug und Leistungen
+          fehlen noch, und wer ihn erst in der Liste wiedersuchen muss, trägt sie oft gar nicht
+          nach. Siehe docs/termine-kontakt-auftrag-analyse.md. */}
+      {showAdd && !isTechniker && (
+        <OrderModal
+          customers={customers}
+          employees={employees}
+          onClose={() => setShowAdd(false)}
+          onAdd={async (fields) => {
+            const id = await onAdd(fields);
+            if (id) onOpenOrder(id);
+            return id;
+          }}
+        />
+      )}
     </div>
   );
 }

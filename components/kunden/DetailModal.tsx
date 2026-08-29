@@ -21,7 +21,7 @@ export function DetailModal(props: {
   onRemoveOrderArticle: (id: string) => Promise<void>;
   onClose: () => void;
   onSaveFields: (f: Partial<Customer>) => void;
-  onMarkContacted: (contactDate: string, apptDate: string | null, apptTime: string, apptDesc: string) => void;
+  onMarkContacted: (contactDate: string) => void;
   onMarkOpen: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
@@ -39,11 +39,11 @@ export function DetailModal(props: {
   const [mobile, setMobile] = useState(cust.phone_mobile || "");
   const [landline, setLandline] = useState(cust.phone_landline || "");
   const [note, setNote] = useState(cust.note || "");
-  const [contactDate, setContactDate] = useState(cust.last_contact || todayStr());
-  const [wantAppt, setWantAppt] = useState(false);
-  const [apptDate, setApptDate] = useState(todayStr());
-  const [apptTime, setApptTime] = useState("");
-  const [apptDesc, setApptDesc] = useState("");
+  // Vorbelegt mit HEUTE, nicht mit dem letzten Kontakt. Vorher stand hier
+  // `cust.last_contact || todayStr()` – bei einem Kunden, der zuletzt im März dran war, bot das
+  // Formular also März an, und ein unachtsames Speichern datierte den heutigen Anruf ein halbes
+  // Jahr zurück. Der letzte Kontakt steht ohnehin darüber in der Historie.
+  const [contactDate, setContactDate] = useState(todayStr());
 
   const color = effectiveColor(cust, props.periodMonths);
   const custOrders = props.orders.slice().sort((a, b) => a.order_date.localeCompare(b.order_date));
@@ -89,27 +89,18 @@ export function DetailModal(props: {
         </div>
         <AddVehicleInline tireStorages={props.tireStorages} storageSlots={props.storageSlots} warehouses={props.warehouses} onAdd={props.onAddVehicle} />
 
+        {/* Kontakt erfassen heißt hier: festhalten, dass ein Kontakt stattgefunden hat – mehr nicht.
+            Das frühere Ankreuzfeld "Dabei einen Termin vereinbaren" ist weg; ein Auftrag wird
+            unten unter "Aufträge & Termine" angelegt, mit allem, was dazugehört. Siehe
+            docs/termine-kontakt-auftrag-analyse.md. */}
         <h4>Kontakt erfassen</h4>
         <div className="field" style={{ marginBottom: 6 }}>
           <label>Kontaktiert am</label>
           <input type="date" value={contactDate} onChange={(e) => setContactDate(e.target.value)} />
         </div>
-        <div className="checkbox-row">
-          <input type="checkbox" checked={wantAppt} onChange={(e) => setWantAppt(e.target.checked)} />
-          <label>Dabei einen Termin vereinbaren</label>
-        </div>
-        {wantAppt && (
-          <div id="apptFields" className="show">
-            <div className="row" style={{ marginBottom: 4 }}>
-              <div className="field" style={{ marginBottom: 0 }}><label>Termin-Datum</label><input type="date" value={apptDate} onChange={(e) => setApptDate(e.target.value)} /></div>
-              <div className="field" style={{ marginBottom: 0 }}><label>Uhrzeit (optional)</label><input type="time" value={apptTime} onChange={(e) => setApptTime(e.target.value)} /></div>
-            </div>
-            <div className="field" style={{ marginBottom: 0 }}><label>Was ist zu tun?</label><textarea value={apptDesc} onChange={(e) => setApptDesc(e.target.value)} /></div>
-          </div>
-        )}
         <div className="row" style={{ marginTop: 6 }}>
-          <button className="btn-green" onClick={() => props.onMarkContacted(contactDate, wantAppt ? apptDate : null, wantAppt ? apptTime : "", wantAppt ? apptDesc : "")}>
-            ✔ Kontaktiert speichern
+          <button className="btn-green" onClick={() => props.onMarkContacted(contactDate)}>
+            ✔ Kontakt bestätigen
           </button>
           <button className="btn-secondary" onClick={props.onMarkOpen}>Auf offen setzen</button>
         </div>
