@@ -118,3 +118,18 @@ export const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
 // Farbpalette für Mitarbeiter-Punkte im Kalender – Farbe pro Mitarbeiter ist stabil nach
 // Reihenfolge in der Mitarbeiterliste, siehe employeeColorFor() in app/page.tsx.
 export const EMP_COLORS = ["#FF5A1F", "#1E9B6E", "#1E3A5F", "#8a5cf6", "#e0447a", "#c9a227", "#2f8fd1", "#a15c2e"];
+
+// Die Filter über der Kundenliste – Reihenfolge, Beschriftung und Schlüssel an einer Stelle
+// (Konstanten-Regel, siehe docs/README.md). Vorher standen die sechs Knöpfe als sechs fast
+// gleiche Zeilen im JSX; wer einen Zustand ergänzt, hätte ihn an drei Stellen nachtragen
+// müssen: Knopf, Filterbedingung und Zählung.
+export type KundenFilter = "all" | "offen" | "ok" | "wiedervorlage" | "kein_interesse" | "nogeo";
+
+export const KUNDEN_FILTER: { wert: KundenFilter; text: string }[] = [
+  { wert: "all", text: "Alle" },
+  { wert: "offen", text: "Offen" },
+  { wert: "ok", text: "Kontaktiert" },
+  { wert: "wiedervorlage", text: "Wiedervorlage" },
+  { wert: "kein_interesse", text: "Kein Interesse" },
+  { wert: "nogeo", text: "Ohne Karte" },
+];

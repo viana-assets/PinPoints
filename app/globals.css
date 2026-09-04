@@ -782,3 +782,11 @@ tr.klickbar:hover { background: var(--hover); }
 .adr-pruef-liste li{display:flex;align-items:center;justify-content:space-between;gap:10px;
   font-size:13px;padding:5px 8px;border-radius:8px;background:var(--hover);}
 .adr-pruef-liste button{flex:0 0 auto;padding:4px 10px;font-size:12px;}
+
+/* ---------------- Trefferzahl am Filterknopf ---------------- */
+/* Dezent gehalten: die Zahl ist eine Nebeninformation, die Beschriftung bleibt die Hauptsache.
+   Tabellenziffern, damit die Knöpfe beim Tippen im Suchfeld nicht in der Breite zappeln, wenn
+   aus einer 8 eine 11 wird. */
+.chip .chip-zahl{margin-left:6px;font-size:11px;font-weight:600;opacity:.62;
+  font-variant-numeric:tabular-nums;}
+.chip.active .chip-zahl{opacity:.8;}

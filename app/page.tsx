@@ -14,7 +14,7 @@ import {
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
-import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
+import { KUNDEN_FILTER, type KundenFilter, ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
@@ -142,7 +142,7 @@ export default function HomePage() {
   });
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "offen" | "ok" | "wiedervorlage" | "kein_interesse" | "nogeo">("all");
+  const [filter, setFilter] = useState<KundenFilter>("all");
   const [plzFilter, setPlzFilter] = useState("");
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const [onlyUpcoming, setOnlyUpcoming] = useState(true);
@@ -1029,7 +1029,12 @@ export default function HomePage() {
   // localeCompare ist nicht billig – ohne Zwischenspeicherung würde das bei jedem Rendern der
   // Komponente erneut passieren, also auch beim Öffnen eines Popovers.
   const activeCustomers = useMemo(() => customers.filter((c) => c.active !== false), [customers]);
-  const listItems = useMemo(
+  // Alle Filter AUSSER dem Zustandsfilter. Dieser Zwischenstand ist die Grundlage für die
+  // Zahlen an den Filterknöpfen: dort soll stehen, wie viele Kunden ein Klick übrig ließe –
+  // also gerechnet auf dem, was Suche, Buchstabe und Postleitzahl schon eingegrenzt haben,
+  // aber ohne den Zustandsfilter selbst. Rechnete man ihn mit, stünde am aktiven Knopf seine
+  // eigene Trefferzahl und an allen anderen eine Null.
+  const vorgefiltert = useMemo(
     () =>
       activeCustomers
         .filter((c) => {
@@ -1042,6 +1047,33 @@ export default function HomePage() {
             || (c.company || "").toLowerCase().includes(s)
             || (c.email || "").toLowerCase().includes(s);
         })
+        .filter((c) => !letterFilter || c.name.trim().charAt(0).toUpperCase() === letterFilter)
+        .filter((c) => {
+          if (!plzFilter.trim()) return true;
+          const match = c.address.match(/\b\d{5}\b/);
+          return !!match && match[0].startsWith(plzFilter.trim());
+        }),
+    [activeCustomers, search, letterFilter, plzFilter]
+  );
+
+  // Ein Durchlauf für alle sechs Zahlen statt sechs Durchläufe. Bei 4500 Kunden ist das der
+  // Unterschied zwischen einmal und sechsmal Rechnen bei jedem Tastendruck im Suchfeld.
+  const filterZahlen = useMemo(() => {
+    const z = { all: vorgefiltert.length, offen: 0, ok: 0, wiedervorlage: 0, kein_interesse: 0, nogeo: 0 };
+    vorgefiltert.forEach((c) => {
+      if (c.lat == null) z.nogeo++;
+      const farbe = effectiveColor(c, settings.period_months);
+      if (farbe === "red") z.offen++;
+      else if (farbe === "green") z.ok++;
+      else if (farbe === "orange") z.wiedervorlage++;
+      else z.kein_interesse++;
+    });
+    return z;
+  }, [vorgefiltert, settings.period_months]);
+
+  const listItems = useMemo(
+    () =>
+      vorgefiltert
         .filter((c) => {
           if (filter === "all") return true;
           if (filter === "nogeo") return c.lat == null;
@@ -1052,14 +1084,8 @@ export default function HomePage() {
           if (filter === "kein_interesse") return color === "kein-interesse";
           return true;
         })
-        .filter((c) => !letterFilter || c.name.trim().charAt(0).toUpperCase() === letterFilter)
-        .filter((c) => {
-          if (!plzFilter.trim()) return true;
-          const match = c.address.match(/\b\d{5}\b/);
-          return !!match && match[0].startsWith(plzFilter.trim());
-        })
         .sort((a, b) => a.name.localeCompare(b.name, "de")),
-    [activeCustomers, search, filter, letterFilter, plzFilter, settings.period_months]
+    [vorgefiltert, filter, settings.period_months]
   );
   // Nur ein Ausschnitt der Treffer landet im Dokument, nachladbar per Knopf am Listenende.
   // Gefiltert und gezählt wird weiterhin über alle Kunden.
@@ -1310,13 +1336,20 @@ export default function HomePage() {
         {tab === "list" && canView("kunden") && (
           <div className="tabpanel active">
             <input id="search" type="text" placeholder="Kunde oder Adresse suchen…" value={search} onChange={(e) => setSearch(e.target.value)} />
+            {/* Die Zahl steht an JEDEM Knopf, nicht nur am aktiven. So sieht man, was ein Klick
+                bringen würde, bevor man klickt – und dass unter „Ohne Karte" noch etwas liegt,
+                ohne erst dorthin zu wechseln. */}
             <div className="filterbar">
-              <button type="button" className={"chip" + (filter === "all" ? " active" : "")} onClick={() => setFilter("all")}>Alle</button>
-              <button type="button" className={"chip" + (filter === "offen" ? " active" : "")} onClick={() => setFilter("offen")}>Offen</button>
-              <button type="button" className={"chip" + (filter === "ok" ? " active" : "")} onClick={() => setFilter("ok")}>Kontaktiert</button>
-              <button type="button" className={"chip" + (filter === "wiedervorlage" ? " active" : "")} onClick={() => setFilter("wiedervorlage")}>Wiedervorlage</button>
-              <button type="button" className={"chip" + (filter === "kein_interesse" ? " active" : "")} onClick={() => setFilter("kein_interesse")}>Kein Interesse</button>
-              <button type="button" className={"chip" + (filter === "nogeo" ? " active" : "")} onClick={() => setFilter("nogeo")}>Ohne Karte</button>
+              {KUNDEN_FILTER.map(({ wert, text }) => (
+                <button
+                  key={wert}
+                  type="button"
+                  className={"chip" + (filter === wert ? " active" : "")}
+                  onClick={() => setFilter(wert)}
+                >
+                  {text}<span className="chip-zahl">{filterZahlen[wert]}</span>
+                </button>
+              ))}
             </div>
             <input
               className="plz-input"
