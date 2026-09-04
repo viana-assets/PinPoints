@@ -1,80 +1,113 @@
 import { useState } from "react";
-import type { Employee } from "@/lib/types";
-import { todayStr } from "@/lib/helpers";
+import { AdressFeld } from "@/components/AdressFeld";
 
-// Formular "Neuer Kunde" (Tab "Neu"): legt einen Kunden an und kann optional im selben
-// Schritt gleich einen ersten Auftrag mit anlegen. Ausgelagert aus app/page.tsx,
-// siehe docs/roadmap.md Phase 2.
-export function AddCustomerForm({ onAdd, employees }: {
+// Formular "Neuer Kunde".
+//
+// Es hat GENAU DIESELBEN Felder wie das Kundenfenster – Firma, Anrede, Name, Adresse,
+// Rufnummern, E-Mail, Notiz. Vorher fehlten hier Firma, Anrede und E-Mail: ein Kunde, den man
+// hier anlegte, musste anschließend noch einmal geöffnet werden, um zu vervollständigen, was
+// beim Anlegen schon bekannt war.
+//
+// Der frühere Block "Gleich einen Auftrag anlegen" (Titel, Beschreibung, Datum, Uhrzeit,
+// Mitarbeiter) ist entfallen. Er war die dritte von vier verschiedenen Masken für dieselbe
+// Sache und konnte als einzige keine Leistungen erfassen. An seiner Stelle steht ein
+// Ankreuzfeld: ist es gesetzt, öffnet sich nach dem Anlegen das vollständige Auftragsfenster –
+// dasselbe wie überall sonst. Siehe docs/auftragsablauf.md.
+export function AddCustomerForm({ onAdd }: {
   onAdd: (f: {
     name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
-    orderTitle: string; orderDescription: string; orderDate: string; orderTime: string; assignedEmployeeId: string;
+    company: string; email: string; anrede: "" | "Herr" | "Frau";
+    koordinate: { lat: number; lng: number } | null;
+    auftragAnlegen: boolean;
   }) => Promise<boolean>;
-  employees: Employee[];
 }) {
+  const [company, setCompany] = useState("");
+  const [anrede, setAnrede] = useState<"" | "Herr" | "Frau">("");
   const [name, setName] = useState("");
   const [address, setAddress] = useState("");
+  const [koordinate, setKoordinate] = useState<{ lat: number; lng: number } | null>(null);
   const [mobile, setMobile] = useState("");
   const [landline, setLandline] = useState("");
+  const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
+  const [auftragAnlegen, setAuftragAnlegen] = useState(false);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  // Ruft z. B. ein neuer Kunde direkt an, kann im gleichen Zug schon der passende
-  // Auftrag angelegt werden – Titel leer lassen, wenn (noch) kein Auftrag ansteht.
-  const [orderTitle, setOrderTitle] = useState("");
-  const [orderDesc, setOrderDesc] = useState("");
-  const [orderDate, setOrderDate] = useState(todayStr());
-  const [orderTime, setOrderTime] = useState("");
-  const [empId, setEmpId] = useState("");
+  function leeren() {
+    setCompany(""); setAnrede(""); setName(""); setAddress(""); setKoordinate(null);
+    setMobile(""); setLandline(""); setEmail(""); setNote(""); setAuftragAnlegen(false);
+  }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
+  async function speichern() {
     if (!name.trim() || !address.trim()) {
       setStatus({ text: "Bitte Name und Adresse angeben.", ok: false });
       return;
     }
     setBusy(true);
-    setStatus({ text: "Suche Adresse auf der Karte…", ok: true });
-    const found = await onAdd({
-      name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(), phone_landline: landline.trim(), note: note.trim(),
-      orderTitle, orderDescription: orderDesc, orderDate, orderTime, assignedEmployeeId: empId,
+    // Nur wenn die Adresse von Hand getippt wurde, muss noch nachgeschlagen werden – bei einem
+    // angenommenen Vorschlag liegt die Koordinate schon vor.
+    setStatus({ text: koordinate ? "Wird angelegt …" : "Suche Adresse auf der Karte …", ok: true });
+    const gefunden = await onAdd({
+      name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(),
+      phone_landline: landline.trim(), note: note.trim(),
+      company: company.trim(), email: email.trim(), anrede,
+      koordinate, auftragAnlegen,
     });
     setBusy(false);
-    setStatus(found
-      ? { text: orderTitle.trim() ? "✔ Kunde und Auftrag angelegt, Kunde auf Karte platziert." : "✔ Kunde hinzugefügt und auf Karte platziert.", ok: true }
-      : { text: "Adresse nicht gefunden – Kunde wurde ohne Kartenposition angelegt.", ok: false });
-    setName(""); setAddress(""); setMobile(""); setLandline(""); setNote("");
-    setOrderTitle(""); setOrderDesc(""); setOrderDate(todayStr()); setOrderTime(""); setEmpId("");
+    leeren();
+    setStatus(gefunden
+      ? { text: "Kunde angelegt und auf der Karte platziert.", ok: true }
+      : { text: "Kunde angelegt – Adresse nicht gefunden, er liegt unter „Ohne Karte“.", ok: false });
   }
 
   return (
-    <form className="tabpanel active" onSubmit={submit}>
-      <div className="field"><label>Name des Kunden *</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Müller GmbH" /></div>
-      <div className="field"><label>Adresse * (Straße, PLZ Ort)</label><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="z. B. Fürther Str. 12, 90429 Nürnberg" /></div>
-      <div className="field"><label>Mobil (optional)</label><input type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="0151 …" /></div>
-      <div className="field"><label>Festnetz (optional)</label><input type="text" value={landline} onChange={(e) => setLandline(e.target.value)} placeholder="0911 …" /></div>
-      <div className="field"><label>Notiz (optional)</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Winterreifen 205/55 R16" /></div>
+    <div className="tabpanel active">
+      <h3 style={{ marginTop: 0 }}>Neuer Kunde</h3>
 
-      <hr />
-      <h4 style={{ margin: "0 0 2px" }}>Gleich einen Auftrag anlegen (optional)</h4>
-      <div className="small" style={{ marginBottom: 6 }}>Z. B. wenn der Kunde gerade selbst anruft – Titel leer lassen, wenn noch kein Auftrag ansteht.</div>
-      <div className="field"><label>Titel</label><input type="text" value={orderTitle} onChange={(e) => setOrderTitle(e.target.value)} placeholder="z. B. Reifenwechsel Winter" /></div>
-      <div className="field"><label>Beschreibung (optional)</label><textarea value={orderDesc} onChange={(e) => setOrderDesc(e.target.value)} /></div>
+      <div className="field"><label>Firma (leer bei Privatpersonen)</label>
+        <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="z. B. Müller GmbH" />
+      </div>
       <div className="row">
-        <div className="field"><label>Datum</label><input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></div>
-        <div className="field"><label>Uhrzeit (optional)</label><input type="time" value={orderTime} onChange={(e) => setOrderTime(e.target.value)} /></div>
+        <div className="field" style={{ flex: "0 0 110px" }}>
+          <label>Anrede</label>
+          <select value={anrede} onChange={(e) => setAnrede(e.target.value as "" | "Herr" | "Frau")}>
+            <option value="">–</option>
+            <option value="Herr">Herr</option>
+            <option value="Frau">Frau</option>
+          </select>
+        </div>
+        <div className="field" style={{ flex: 1 }}>
+          <label>{company ? "Ansprechpartner *" : "Name *"}</label>
+          <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="z. B. Anna Müller" />
+        </div>
       </div>
       <div className="field">
-        <label>Mitarbeiter (optional)</label>
-        <select value={empId} onChange={(e) => setEmpId(e.target.value)}>
-          <option value="">Kein Mitarbeiter</option>
-          {employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
-        </select>
+        <label>Adresse * (Straße, PLZ Ort)</label>
+        <AdressFeld
+          wert={address}
+          onChange={(v) => { setAddress(v); setKoordinate(null); }}
+          onVorschlagGewaehlt={(v) => setKoordinate({ lat: v.lat, lng: v.lng })}
+          platzhalter="z. B. Fürther Str. 12, 90429 Nürnberg"
+        />
+      </div>
+      <div className="row">
+        <div className="field"><label>Mobil (optional)</label><input type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} placeholder="0151 …" /></div>
+        <div className="field"><label>Festnetz (optional)</label><input type="text" value={landline} onChange={(e) => setLandline(e.target.value)} placeholder="0911 …" /></div>
+      </div>
+      <div className="field"><label>E-Mail (optional)</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+      <div className="field"><label>Notiz (optional)</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Winterreifen 205/55 R16" /></div>
+
+      <div className="checkbox-row">
+        <input type="checkbox" id="gleichAuftrag" checked={auftragAnlegen} onChange={(e) => setAuftragAnlegen(e.target.checked)} />
+        <label htmlFor="gleichAuftrag">Direkt einen Auftrag anlegen (das Auftragsfenster öffnet sich danach)</label>
       </div>
 
-      <button className="btn-primary btn-block" type="submit" disabled={busy}>Kunde hinzufügen &amp; auf Karte platzieren</button>
-      {status && <div className="small" style={{ color: status.ok ? "var(--green)" : "var(--red)" }}>{status.text}</div>}
-    </form>
+      {status && <div className={status.ok ? "login-info" : "login-error"}>{status.text}</div>}
+
+      <button className="btn-primary btn-block" disabled={busy} onClick={speichern}>
+        {busy ? "Wird angelegt …" : "Kunde hinzufügen & auf Karte platzieren"}
+      </button>
+    </div>
   );
 }

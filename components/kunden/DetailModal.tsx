@@ -5,8 +5,8 @@ import type {
 } from "@/lib/types";
 import { todayStr, formatDate, effectiveColor, KUNDEN_ZUSTAND_LABEL, getPhoneNumbers } from "@/lib/helpers";
 import { VehicleRow, AddVehicleInline } from "./VehicleSection";
+import { AdressFeld } from "@/components/AdressFeld";
 import { CustomerOrderRow } from "./CustomerOrderRow";
-import { AddOrderInline } from "./AddOrderInline";
 
 // Das große Kunden-Detailfenster (Modal): Kundendaten, Fahrzeuge, Kontakt erfassen,
 // Aufträge & Termine (inkl. Leistungen/Artikel je Auftrag), Kontakt-Historie, sowie
@@ -25,7 +25,10 @@ export function DetailModal(props: {
   onMarkOpen: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
-  onAddOrder: (fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
+  // Legt einen Auftrag für diesen Kunden an und öffnet das vollständige Auftragsfenster.
+  // Kein eigenes Formular mehr an dieser Stelle: es war die dritte von vier Masken für
+  // dieselbe Sache und konnte als einzige keine Leistungen erfassen (docs/auftragsablauf.md).
+  onNeuerAuftrag: () => void;
   onUpdateOrder: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
   onDeleteOrder: (id: string) => void;
   onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
@@ -39,6 +42,9 @@ export function DetailModal(props: {
   const [anrede, setAnrede] = useState<"" | "Herr" | "Frau">(cust.anrede || "");
   const [email, setEmail] = useState(cust.email || "");
   const [address, setAddress] = useState(cust.address);
+  // Koordinate aus einem angenommenen Vorschlag. Null heißt: von Hand getippt – dann bestimmt
+  // die Speicherfunktion die Position wie bisher selbst.
+  const [koordinate, setKoordinate] = useState<{ lat: number; lng: number } | null>(null);
   const [mobile, setMobile] = useState(cust.phone_mobile || "");
   const [landline, setLandline] = useState(cust.phone_landline || "");
   const [note, setNote] = useState(cust.note || "");
@@ -73,7 +79,18 @@ export function DetailModal(props: {
           </div>
           <div className="field" style={{ flex: 1 }}><label>{company ? "Ansprechpartner" : "Name"}</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} /></div>
         </div>
-        <div className="field"><label>Adresse</label><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
+        {/* Wird ein Vorschlag angenommen, kommt die Koordinate gleich mit und wird zusammen
+            mit den übrigen Feldern gespeichert. Ohne das würde beim Speichern erneut
+            geokodiert – mit demselben Ergebnis, aber einer weiteren Anfrage nach draußen. */}
+        <div className="field">
+          <label>Adresse</label>
+          <AdressFeld
+            wert={address}
+            onChange={(v) => { setAddress(v); setKoordinate(null); }}
+            onVorschlagGewaehlt={(v) => setKoordinate({ lat: v.lat, lng: v.lng })}
+            platzhalter="z. B. Fürther Str. 12, 90429 Nürnberg"
+          />
+        </div>
         <div className="row">
           <div className="field"><label>Mobil</label><input type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} /></div>
           <div className="field"><label>Festnetz</label><input type="text" value={landline} onChange={(e) => setLandline(e.target.value)} /></div>
@@ -90,6 +107,7 @@ export function DetailModal(props: {
             company: company.trim() || null,
             email: email.trim() || null,
             anrede: anrede || null,
+            ...(koordinate ? { lat: koordinate.lat, lng: koordinate.lng } : {}),
           })}
         >
           💾 Kundendaten speichern
@@ -152,7 +170,9 @@ export function DetailModal(props: {
             />
           ))}
         </div>
-        <AddOrderInline employees={props.employees} kundenName={props.customer.name} onAdd={props.onAddOrder} />
+        <button className="btn-secondary btn-block" onClick={props.onNeuerAuftrag}>
+          + Auftrag / Termin hinzufügen
+        </button>
 
         <h4>Kontakt-Historie</h4>
         {props.history.length === 0 && <div className="small">Noch keine Kontakt-Historie</div>}

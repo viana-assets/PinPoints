@@ -1,78 +1,49 @@
 import { useState } from "react";
-import type { Customer, Employee, OrderStatus } from "@/lib/types";
-import { terminTitel, todayStr } from "@/lib/helpers";
+import type { Customer } from "@/lib/types";
 import { CustomerPicker } from "@/components/CustomerPicker";
-import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 
-// Modal zum Anlegen eines neuen Auftrags aus dem Aufträge-Tab heraus. Es gibt es nur hier,
-// weil an dieser Stelle der Kunde noch fehlt und erst ausgewählt werden muss.
+// Kundenauswahl vor dem Anlegen eines Auftrags – aus dem Aufträge-Tab heraus.
 //
-// Überall dort, wo der Kunde schon feststeht – Karten-Popup, Kundenfenster –, gibt es dieses
-// Zwischenformular bewusst NICHT: dort wird die Auftragszeile sofort angelegt und direkt das
-// vollständige Auftragsfenster geöffnet. Grund ist kein Geschmack, sondern das Datenmodell:
-// Leistungen und Positionen hängen an einer Auftrags-Id, ein Formular ohne gespeicherte Zeile
-// könnte sie gar nicht anbieten. Siehe docs/termine-kontakt-auftrag-analyse.md.
+// Es gibt dieses Fenster nur noch, weil an dieser Stelle der Kunde fehlt und ein Auftrag ohne
+// Kunden nicht existieren kann. Alles Weitere – Titel, Termin, Fahrzeug, Mitarbeiter,
+// Leistungen, Notiz – wird im Auftragsfenster erfasst, das sich unmittelbar danach öffnet.
 //
-// Kein Status-Auswahlfeld: ein neu angelegter Auftrag ist immer "offen". Zustände werden seit
-// Migration 20 nicht ausgewählt, sondern durch Handlungen erreicht (docs/auftragsablauf.md) –
-// ein Auswahlfeld, mit dem man einen Auftrag direkt als "erledigt" anlegen kann, widersprach
-// genau dem und hätte am Trigger ohnehin keinen Abschluss-Zeitstempel erzeugt.
-export function OrderModal({ customers, employees, onClose, onAdd }: {
-  customers: Customer[]; employees: Employee[];
+// Vorher fragte diese Maske zusätzlich Titel, Beschreibung, Datum, Uhrzeit und Mitarbeiter ab.
+// Das war die zweite von vier verschiedenen Masken für dieselbe Sache und konnte – wie die
+// anderen drei – keine Leistungen erfassen. Wer einen Auftrag anlegte, musste ihn danach noch
+// einmal öffnen. Siehe docs/auftragsablauf.md.
+export function OrderModal({ customers, onClose, onWeiter }: {
+  customers: Customer[];
   onClose: () => void;
-  // Gibt die Id des angelegten Auftrags zurück, damit der Aufrufer ihn sofort öffnen kann.
-  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<string | undefined>;
+  onWeiter: (customerId: string) => Promise<void>;
 }) {
   const [customerId, setCustomerId] = useState("");
-  const [title, setTitle] = useState("");
-  // Sobald ein Kunde gewählt ist, wird der Titel mit "Termin – ‹Kunde›" vorbelegt – aber nur,
-  // solange der Nutzer nichts Eigenes hineingeschrieben hat. Sonst würde ein Kundenwechsel
-  // seinen Text überschreiben.
-  const [titelVonHand, setTitelVonHand] = useState(false);
-  const [description, setDescription] = useState("");
-  const [orderDate, setOrderDate] = useState(todayStr());
-  const [time, setTime] = useState("");
-  const [empIds, setEmpIds] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [laeuft, setLaeuft] = useState(false);
 
-  async function save() {
-    if (!customerId || !title.trim()) return;
-    setSaving(true);
-    await onAdd({ customerId, title: title.trim(), description, orderDate, time, status: "offen", assignedEmployeeIds: empIds });
-    setSaving(false);
-    onClose();
+  async function weiter() {
+    if (!customerId || laeuft) return;
+    setLaeuft(true);
+    try {
+      await onWeiter(customerId);
+      onClose();
+    } finally {
+      setLaeuft(false);
+    }
   }
 
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box" style={{ position: "relative" }}>
+      <div className="modal-box" style={{ position: "relative", maxWidth: 460 }}>
         <button className="modal-close" onClick={onClose}>✕</button>
         <h2>Neuer Auftrag</h2>
-        <CustomerPicker
-          customers={customers}
-          value={customerId}
-          onChange={(id) => {
-            setCustomerId(id);
-            if (!titelVonHand) setTitle(terminTitel(customers.find((c) => c.id === id)?.name));
-          }}
-        />
-        <div className="field"><label>Titel *</label><input type="text" value={title} onChange={(e) => { setTitle(e.target.value); setTitelVonHand(true); }} placeholder="z. B. Reifenwechsel Sommer/Winter" /></div>
-        <div className="field"><label>Beschreibung (optional)</label><textarea value={description} onChange={(e) => setDescription(e.target.value)} /></div>
-        <div className="row">
-          <div className="field"><label>Datum</label><input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} /></div>
-          <div className="field"><label>Uhrzeit (optional)</label><input type="time" value={time} onChange={(e) => setTime(e.target.value)} /></div>
-        </div>
-        <div className="field">
-          <label>Mitarbeiter (optional, mehrere möglich)</label>
-          <EmployeeCheckboxList employees={employees} value={empIds} onChange={setEmpIds} />
-        </div>
-        <button className="btn-primary btn-block" disabled={!customerId || !title.trim() || saving} onClick={save}>
-          Auftrag anlegen
+        <p className="small" style={{ marginTop: 0 }}>
+          Für welchen Kunden? Danach öffnet sich das Auftragsfenster mit Termin, Fahrzeug,
+          Mitarbeitern und Leistungen.
+        </p>
+        <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />
+        <button className="btn-primary btn-block" style={{ marginTop: 10 }} disabled={!customerId || laeuft} onClick={weiter}>
+          {laeuft ? "Wird angelegt …" : "Weiter zum Auftrag"}
         </button>
-        <div className="small" style={{ marginTop: 6, textAlign: "center" }}>
-          Fahrzeug und Leistungen trägst du gleich danach im Auftragsfenster ein, das sich
-          automatisch öffnet.
-        </div>
       </div>
     </div>
   );

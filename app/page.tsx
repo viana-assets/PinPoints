@@ -842,20 +842,16 @@ export default function HomePage() {
   }
   async function addCustomer(fields: {
     name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
-    orderTitle: string; orderDescription: string; orderDate: string; orderTime: string; assignedEmployeeId: string;
+    company: string; email: string; anrede: "" | "Herr" | "Frau";
+    koordinate: { lat: number; lng: number } | null;
+    auftragAnlegen: boolean;
   }) {
     const { id: createdId, lat } = await insertCustomer(supabase, fields);
-    // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist im gleichen Zug meist auch
-    // schon klar, worum es geht – deshalb kann direkt ein passender Auftrag mit angelegt werden.
-    if (createdId && fields.orderTitle.trim()) {
-      const createdOrderId = await insertOrder(supabase, {
-        customerId: createdId, title: fields.orderTitle.trim(), description: fields.orderDescription,
-        orderDate: fields.orderDate || todayStr(), time: fields.orderTime, status: "offen",
-      });
-      if (createdOrderId && fields.assignedEmployeeId) await setOrderEmployees(createdOrderId, [fields.assignedEmployeeId]);
-      await refreshOrders();
-    }
     await refreshCustomers();
+    // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist meist auch schon klar, worum es
+    // geht. Statt eines eigenen kleinen Auftragsformulars hier führt der Weg über dieselbe
+    // Maske wie überall: Zeile anlegen, vollständiges Auftragsfenster öffnen.
+    if (createdId && fields.auftragAnlegen) await neuenAuftragAnlegen(createdId);
     return lat != null;
   }
   // ---------------------------------------------------------------- Lager-Modul
@@ -1457,7 +1453,7 @@ export default function HomePage() {
             orders={orders}
             employees={employees}
             orderEmployees={orderEmployees}
-            onAdd={addOrder}
+            onNeuerAuftrag={neuenAuftragAnlegen}
             onDelete={deleteOrder}
             onEditEmployees={openEmpMenu}
             employeeNamesFor={employeeNamesFor}
@@ -1608,7 +1604,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "add" && canView("neuer_kunde") && <AddCustomerForm onAdd={addCustomer} employees={employees} />}
+        {tab === "add" && canView("neuer_kunde") && <AddCustomerForm onAdd={addCustomer} />}
 
         {tab === "settings" && canView("einstellungen") && (
           <SettingsPanel
@@ -1783,7 +1779,7 @@ export default function HomePage() {
           onMarkOpen={() => markOpen(selectedId)}
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}
-          onAddOrder={(fields) => addOrder({ ...fields, customerId: selectedId })}
+          onNeuerAuftrag={() => { void neuenAuftragAnlegen(selectedId); }}
           onUpdateOrder={updateOrder}
           onDeleteOrder={deleteOrder}
           onAddVehicle={(fields) => addVehicle(selectedId, fields)}
@@ -1865,9 +1861,9 @@ function escapeHtml(str: string): string {
 // ArticleAssignPanel ist ausgelagert nach components/auftraege/ArticleAssignPanel.tsx
 // (siehe Importe oben, docs/roadmap.md Phase 2).
 
-// DetailModal, CustomerOrderRow, AddOrderInline sowie die Fahrzeug-Komponenten
+// DetailModal, CustomerOrderRow sowie die Fahrzeug-Komponenten
 // (VehicleRow, AddVehicleInline) sind ausgelagert nach components/kunden/DetailModal.tsx,
-// components/kunden/CustomerOrderRow.tsx, components/kunden/AddOrderInline.tsx und
+// components/kunden/CustomerOrderRow.tsx und
 // components/kunden/VehicleSection.tsx (siehe Importe oben, docs/roadmap.md Phase 2).
 
 // CustomerPicker ist ausgelagert nach components/CustomerPicker.tsx (siehe Importe oben, docs/roadmap.md Phase 2).

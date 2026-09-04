@@ -13,9 +13,11 @@ import { OrderModal } from "./OrderModal";
 // Status ist deshalb nur noch ein farbiges Kennzeichen und kein Auswahlfeld mehr – man wählt
 // nicht "erledigt", man schließt den Auftrag ab. Das frühere Leistungen-Popover ist ersatzlos
 // entfallen; es war für die Positionserfassung ohnehin zu klein.
-export function AuftraegePanel({ customers, orders, employees, orderEmployees, onAdd, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
+export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
-  onAdd: (fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<string | undefined>;
+  // Legt für den gewählten Kunden einen Auftrag an und öffnet das Auftragsfenster – derselbe
+  // Weg wie im Karten-Popup und im Kundenfenster (docs/auftragsablauf.md).
+  onNeuerAuftrag: (customerId: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
@@ -153,13 +155,8 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
       {showAdd && !isTechniker && (
         <OrderModal
           customers={customers}
-          employees={employees}
           onClose={() => setShowAdd(false)}
-          onAdd={async (fields) => {
-            const id = await onAdd(fields);
-            if (id) onOpenOrder(id);
-            return id;
-          }}
+          onWeiter={onNeuerAuftrag}
         />
       )}
     </div>

@@ -115,21 +115,35 @@ export async function updateCustomerFieldsById(supabase: SupabaseClient, id: str
 // Auftrag im gleichen Zug mit angelegt werden kann und ob eine Kartenposition gefunden wurde.
 export async function insertCustomer(supabase: SupabaseClient, fields: {
   name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
+  company: string; email: string; anrede: "" | "Herr" | "Frau";
+  // Aus einem angenommenen Adressvorschlag (Migration 25). Ist sie da, entfällt die
+  // Geokodierung – die Koordinate stammt dann aus demselben Treffer wie der Adresstext und
+  // kann gar nicht dazu unpassend sein.
+  koordinate?: { lat: number; lng: number } | null;
 }): Promise<{ id: string | undefined; lat: number | null; lng: number | null }> {
-  let lat: number | null = null;
-  let lng: number | null = null;
-  try {
-    const res = await geocodeAddress(fields.address);
-    if (res) { lat = res.lat; lng = res.lng; }
-  } catch {
-    // siehe oben – ohne Kartenposition anlegen ist besser als gar nicht anlegen.
+  let lat: number | null = fields.koordinate?.lat ?? null;
+  let lng: number | null = fields.koordinate?.lng ?? null;
+  if (lat === null) {
+    try {
+      const res = await geocodeAddress(fields.address);
+      if (res) { lat = res.lat; lng = res.lng; }
+    } catch {
+      // siehe oben – ohne Kartenposition anlegen ist besser als gar nicht anlegen.
+    }
   }
   const { name, address, phone_mobile, phone_landline, note } = fields;
   const created = await qOne<{ id: string }>(
     "Der Kunde konnte nicht angelegt werden",
     supabase
       .from("customers")
-      .insert({ name, address, phone_mobile, phone_landline, note, lat, lng, status: "offen", active: true })
+      .insert({
+        name, address, phone_mobile, phone_landline, note, lat, lng, status: "offen", active: true,
+        // Leere Felder als null, nicht als leere Zeichenkette – sonst stünde "" neben null für
+        // dieselbe Aussage, und die Prüfbedingung auf `anrede` lehnt "" ohnehin ab.
+        company: fields.company.trim() || null,
+        email: fields.email.trim() || null,
+        anrede: fields.anrede || null,
+      })
       .select("id")
       .single()
   );
@@ -143,18 +157,36 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
 // Alle Kunden, die eine Adresse haben, aber keine Kartenposition. Bewusst nur die beiden
 // Felder, die der Lauf braucht: bei einigen hundert Zeilen ist das der Unterschied zwischen
 // einer schlanken Liste und dem halben Kundenstamm im Arbeitsspeicher.
-export async function fetchKundenOhneKoordinaten(supabase: SupabaseClient): Promise<{ id: string; address: string }[]> {
-  return fetchPaged<{ id: string; address: string }>(
+// Kunden mit Adresse, aber ohne Kartenposition. Benutzt von beiden Werkzeugen unter
+// Admin → Wartung: dem Sammellauf (braucht nur die Adresse) und der Korrekturliste (braucht
+// zusätzlich den Namen). Bewusst EINE Abfrage mit drei Spalten statt zweier Varianten – der
+// Name ist ein Textfeld, und zwei Abfragen für denselben Zweck laufen mit der Zeit auseinander.
+export async function fetchKundenOhneKoordinaten(
+  supabase: SupabaseClient
+): Promise<{ id: string; address: string; name: string }[]> {
+  return fetchPaged<{ id: string; address: string; name: string }>(
     "Die Kunden ohne Kartenposition konnten nicht geladen werden",
     (von, bis) =>
       supabase
         .from("customers")
-        .select("id,address")
+        .select("id,address,name")
         .is("lat", null)
         .is("deleted_at", null)
         .neq("address", "")
         .order("name")
         .range(von, bis)
+  );
+}
+
+// Adresse UND Koordinate in einem Schreibvorgang. Getrennt zu speichern hieße, einen Moment
+// lang eine Adresse mit der Position der alten zu haben – und wenn der zweite Schreibvorgang
+// scheitert, bliebe es dabei.
+export async function uebernehmeAdresse(
+  supabase: SupabaseClient, id: string, address: string, lat: number, lng: number
+): Promise<void> {
+  await qWrite(
+    "Die Adresse konnte nicht übernommen werden",
+    supabase.from("customers").update({ address, lat, lng }).eq("id", id)
   );
 }
 

@@ -754,3 +754,31 @@ tr.klickbar:hover { background: var(--hover); }
 /* ---------------- Fortschrittsbalken (Sammellauf Geokodierung) ---------------- */
 .fortschritt{height:8px;border-radius:99px;background:var(--hover);overflow:hidden;margin-bottom:6px;}
 .fortschritt-balken{height:100%;background:var(--accent);border-radius:99px;transition:width .2s linear;}
+
+/* ---------------- Adressfeld mit Vorschlägen ---------------- */
+.adressfeld{position:relative;}
+.adressfeld-laedt{position:absolute;right:10px;top:9px;font-size:11px;color:var(--muted);
+  pointer-events:none;}
+/* Die Liste liegt ÜBER dem folgenden Inhalt statt ihn wegzuschieben: ein Formular, das beim
+   Tippen in der Höhe springt, verliert unter dem Finger die Stelle, auf die man zielt. */
+.adressfeld-liste{position:absolute;z-index:1200;left:0;right:0;top:calc(100% + 3px);margin:0;
+  padding:4px;list-style:none;background:var(--panel);border:1px solid var(--border);
+  border-radius:12px;box-shadow:0 12px 28px -12px rgba(43,38,32,.45);max-height:240px;
+  overflow-y:auto;}
+.adressfeld-liste li{margin:0;}
+.adressfeld-liste button{display:flex;flex-direction:column;align-items:flex-start;gap:1px;
+  width:100%;text-align:left;background:none;border:none;box-shadow:none;padding:7px 9px;
+  border-radius:8px;font-family:var(--font-body);}
+.adressfeld-liste button:hover{background:var(--hover);}
+.av-zeile1{font-size:13px;font-weight:700;color:var(--text);}
+.av-zeile2{font-size:11.5px;font-weight:500;color:var(--muted);}
+
+/* ---------------- Adressen prüfen (Admin → Wartung) ---------------- */
+.adr-pruef{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;
+  background:var(--panel);}
+.adr-pruef.erledigt{opacity:.55;}
+.adr-pruef-kopf{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+.adr-pruef-liste{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;}
+.adr-pruef-liste li{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:13px;padding:5px 8px;border-radius:8px;background:var(--hover);}
+.adr-pruef-liste button{flex:0 0 auto;padding:4px 10px;font-size:12px;}

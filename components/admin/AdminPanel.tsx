@@ -5,6 +5,7 @@ import { ROLE_LABEL } from "@/lib/constants";
 import { IconAdmin, IconTrash } from "@/components/icons";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { GeokodierLauf } from "./GeokodierLauf";
+import { AdressenPruefen } from "./AdressenPruefen";
 
 // Admin-Modul: Nutzerverwaltung – als eigener Tab statt separater Seite, damit man wie bei
 // Termine einfach das Fenster wechselt statt zu navigieren. Bündelt zusätzlich die
@@ -33,6 +34,10 @@ export function AdminPanel({
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung">("users");
+  // Zähler, der die Korrekturliste neu aufbaut. Sie lädt ihre Kunden beim Einhängen einmal;
+  // nach einem Sammellauf oder mehreren Übernahmen ist die Liste veraltet, und ein Zähler als
+  // `key` ist der ehrlichste Weg, sie von vorn beginnen zu lassen.
+  const [wartungStand, setWartungStand] = useState(0);
 
   useEffect(() => {
     (async () => {
@@ -119,9 +124,20 @@ export function AdminPanel({
 
         {adminTab === "wartung" ? (
           /* Wartung sammelt Läufe, die über den ganzen Bestand gehen und deshalb nirgends in
-             den Fachmodulen hingehören. Bisher ist das nur die Geokodierung; kommt später ein
-             Sammellauf dazu (Adressabgleich, Dublettensuche), ist der Platz dafür da. */
-          <GeokodierLauf supabase={supabase} />
+             den Fachmodulen hingehören.
+
+             Die Reihenfolge ist die Arbeitsreihenfolge: erst der Sammellauf, der alles
+             verortet, was sich ohne Zutun verorten lässt – danach die Korrekturliste für den
+             Rest. Andersherum arbeitete man Adressen von Hand durch, die der Sammellauf eine
+             Minute später ohnehin gefunden hätte. `wartungStand` zwingt die Korrekturliste
+             nach einer Übernahme zum Neuaufbau, sonst stünden dort erledigte Zeilen weiter. */
+          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <GeokodierLauf supabase={supabase} />
+            <AdressenPruefen key={wartungStand} supabase={supabase} onFertig={() => undefined} />
+            <button type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setWartungStand((n) => n + 1)}>
+              Liste neu aufbauen
+            </button>
+          </div>
         ) : adminTab === "modules" && isSuperAdmin ? (
           <PermissionMatrix modulePermissions={modulePermissions} onUpdateModulePermissions={onUpdateModulePermissions} />
         ) : (
