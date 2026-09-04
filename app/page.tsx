@@ -6,11 +6,11 @@ import { createClient } from "@/lib/supabaseClient";
 import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
-  Article, ArticlePrice, OrderArticle,
+  Article, ArticlePrice, OrderArticle, KontaktErgebnis,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
-  effectiveColor, telHref, getPhoneNumbers, navigationUrls,
+  effectiveColor, KUNDEN_ZUSTAND_LABEL, type KundenZustand, telHref, getPhoneNumbers, navigationUrls,
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
@@ -29,6 +29,7 @@ import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
 import { AuftragModal } from "@/components/auftraege/AuftragModal";
+import { KontaktModal } from "@/components/kunden/KontaktModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
@@ -85,6 +86,16 @@ const KEINE_ZUORDNUNGEN: Record<string, string[]> = {};
 // jemand ganz herauszoomt.
 const MAX_MARKER = 600;
 
+// Farben der Kartenmarker je Kundenzustand. Sie stehen hier und nicht als CSS-Variable, weil
+// der Marker als HTML-Zeichenkette in einem Leaflet-divIcon entsteht – dort greift kein
+// Stylesheet der App. Die Werte entsprechen den Tokens --green / --accent / --red aus
+// globals.css; wer sie dort ändert, ändert sie hier mit (siehe docs/konstanten-register.md).
+const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse">, string> = {
+  green: "#2f9e5c",
+  orange: "#FF5A1F",
+  red: "#e0483f",
+};
+
 // Wie viele Kundenzeilen auf einmal gezeichnet werden. Die Suche filtert weiterhin über den
 // gesamten Bestand – begrenzt ist nur, wie viele Treffer gleichzeitig im Dokument stehen.
 // Ohne diese Grenze legt der Browser bei ~4500 Kunden ebenso viele Zeilen an, was das Scrollen
@@ -131,7 +142,7 @@ export default function HomePage() {
   });
 
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<"all" | "offen" | "ok" | "nogeo">("all");
+  const [filter, setFilter] = useState<"all" | "offen" | "ok" | "wiedervorlage" | "kein_interesse" | "nogeo">("all");
   const [plzFilter, setPlzFilter] = useState("");
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const [onlyUpcoming, setOnlyUpcoming] = useState(true);
@@ -159,6 +170,8 @@ export default function HomePage() {
   // Lagerplatz aus einem gescannten QR-Aufkleber (?lagerplatz=…, siehe lib/lagerplatzCode.ts).
   // Wird beim Start einmal aus der Adresszeile gelesen und danach an das Lager-Modul gereicht.
   const [gescannterLagerplatzId, setGescannterLagerplatzId] = useState<string | null>(null);
+  // Kunde, für den der Kontaktdialog offen ist (Migration 23).
+  const [kontaktKundeId, setKontaktKundeId] = useState<string | null>(null);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
   //
@@ -204,6 +217,9 @@ export default function HomePage() {
     (auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
     (kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
   const auftragFahrzeugeQuery = useKundeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, sitzungBereit);
+  // Aus derselben Nachbarschaft wie `offenerAuftrag` und aus demselben Grund: die Ableitung
+  // liest den Zustand, eine Deklaration danach wäre ein Zugriff vor der Initialisierung.
+  const kontaktKunde = (kundenQuery.data ?? KEINE_KUNDEN).find((c) => c.id === kontaktKundeId);
 
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
   const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
@@ -620,9 +636,26 @@ export default function HomePage() {
   }
 
   // ---------------------------------------------------------------- Marker synchronisieren
-  function makeIcon(color: "red" | "green") {
+  // Vier Zustände, vier Marker (Migration 23, siehe docs/kunden-und-karte.md).
+  //
+  // „Kein Interesse" ist bewusst KEIN weiterer farbiger Tropfen, sondern ein weißer Punkt mit
+  // rotem Kreuz: er soll sich auf einen Blick von allem unterscheiden, was noch anzurufen ist.
+  // Farbe allein trägt das nicht – Rot und Orange nebeneinander sind für einen Teil der
+  // Bevölkerung kaum unterscheidbar, und auf einer bunten Karte gehen Farbnuancen unter. Die
+  // Form ist der Unterschied, die Farbe die Bestätigung.
+  function makeIcon(zustand: KundenZustand) {
     const L = leafletRef.current;
-    const bg = color === "green" ? "#2f9e5c" : "#e0483f";
+    if (zustand === "kein-interesse") {
+      return L.divIcon({
+        className: "custom-pin",
+        html: `<div style="width:22px;height:22px;border-radius:50%;background:#fff;
+                border:2px solid ${MARKER_FARBE.red};box-shadow:0 1px 4px rgba(0,0,0,.4);
+                display:flex;align-items:center;justify-content:center;
+                color:${MARKER_FARBE.red};font:700 14px/1 sans-serif;">✕</div>`,
+        iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -11],
+      });
+    }
+    const bg = MARKER_FARBE[zustand];
     return L.divIcon({
       className: "custom-pin",
       html: `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:${bg};
@@ -695,24 +728,24 @@ export default function HomePage() {
     const phoneLines = getPhoneNumbers(cust).map(n => `<div class="pline">📞 ${escapeHtml(n.label)}: ${escapeHtml(n.number)}</div>`).join("");
     div.innerHTML = `
       <div class="header-row">
-        <h3>${escapeHtml(cust.name)} <span class="badge ${color}">${color === "green" ? "kontaktiert" : "offen"}</span></h3>
+        <h3>${escapeHtml(cust.company || cust.name)} <span class="badge ${color}">${KUNDEN_ZUSTAND_LABEL[color]}</span></h3>
         ${buildCallIconHtml(cust)}
       </div>
+      ${cust.company ? `<div class="pline">👤 ${escapeHtml(cust.name)}</div>` : ""}
       <div class="pline">📍 ${escapeHtml(cust.address)}</div>
+      ${cust.email ? `<div class="pline">✉️ ${escapeHtml(cust.email)}</div>` : ""}
       ${phoneLines}
       ${cust.note ? `<div class="pline">📝 ${escapeHtml(cust.note)}</div>` : ""}
       <div class="pline small">Letzter Kontakt: ${cust.last_contact ? formatDate(cust.last_contact) : "–"}</div>
       ${nextOrd ? `<div class="pline small">📅 Nächster Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}</div>` : ""}
+      ${cust.wiedervorlage_am && color === "orange" ? `<div class="pline small">🔁 Wiedervorlage am ${formatDate(cust.wiedervorlage_am)}</div>` : ""}
       <hr>
       <button id="btnNewOrder" class="btn-primary btn-block" style="margin-bottom:10px;">+ Auftrag anlegen</button>
-      <div class="field" style="margin-bottom:6px;">
-        <label>Kontaktiert am</label>
-        <input type="date" id="popupContactDate" value="${todayStr()}">
-      </div>
       <div style="display:flex;gap:6px;margin-bottom:6px;">
         <button id="btnMarkContacted" style="flex:1" class="btn-green">✔ Kontakt bestätigen</button>
         <button id="btnMarkOpen" style="flex:1" class="btn-secondary">Auf offen setzen</button>
       </div>
+      ${color === "kein-interesse" ? `<button id="btnDeactivate" class="btn-secondary btn-block" style="margin-bottom:6px;color:#b33;">Kunde deaktivieren</button>` : ""}
       <button id="btnEditCust" class="btn-secondary btn-block">✏️ Kundendaten &amp; Aufträge bearbeiten</button>
     `;
     return div;
@@ -727,12 +760,15 @@ export default function HomePage() {
     // Der Auftrag öffnet das gewohnte Anlegeformular als Overlay über der Karte – kein
     // Reiterwechsel, nach dem Speichern steht man wieder hier.
     if (bN) bN.onclick = () => { marker.closePopup(); void neuenAuftragAnlegen(customerId); };
-    if (bC) bC.onclick = async () => {
-      const contactDate = (document.getElementById("popupContactDate") as HTMLInputElement).value || todayStr();
-      await markContacted(customerId, contactDate);
-      marker.closePopup();
-    };
+    // „Kontakt bestätigen" öffnet den Kontaktdialog, statt direkt zu speichern: erst dort wird
+    // festgehalten, WAS herausgekommen ist (Migration 23). Das Kontaktdatum steht ebenfalls
+    // dort – ein zweites Datumsfeld im Popup wäre eine zweite Stelle für dieselbe Angabe.
+    if (bC) bC.onclick = () => { marker.closePopup(); setKontaktKundeId(customerId); };
     if (bO) bO.onclick = async () => { await markOpen(customerId); marker.closePopup(); };
+    // Erscheint nur bei „kein Interesse": das Deaktivieren bleibt ein eigener, bewusster
+    // Schritt und passiert nicht als Nebenwirkung des Anrufergebnisses (siehe Migration 23).
+    const bD = document.getElementById("btnDeactivate");
+    if (bD) bD.onclick = async () => { await setActive(customerId, false); marker.closePopup(); };
     if (bE) bE.onclick = () => { setSelectedId(customerId); loadHistory(customerId); marker.closePopup(); };
     attachCallIconHandler();
   }
@@ -769,10 +805,21 @@ export default function HomePage() {
   // setzte jede Auftragsanlage `last_contact` – und daran hängt die Wiedervorlage-Uhr. Auftrag
   // anlegen geht jetzt über denselben Weg wie überall: das Auftragsformular.
   // Siehe docs/termine-kontakt-auftrag-analyse.md.
-  async function markContacted(id: string, contactDate: string) {
-    await markCustomerContacted(supabase, id, contactDate, "Kontaktiert");
+  // Kunde, für den gerade der Kontaktdialog offen ist (Migration 23). Der Dialog ersetzt das
+  // frühere „Kontaktiert speichern", das nur festhielt, DASS telefoniert wurde.
+  // Siehe docs/kunden-und-karte.md.
+  async function kontaktFesthalten(id: string, ergebnis: KontaktErgebnis, contactDate: string, wiedervorlageAm: string | null) {
+    const notiz =
+      ergebnis === "auftrag" ? "Kontaktiert – Auftrag vereinbart"
+      : ergebnis === "wiedervorlage" ? `Kontaktiert – Wiedervorlage am ${formatDate(wiedervorlageAm || contactDate)}`
+      : "Kontaktiert – kein Interesse";
+    await markCustomerContacted(supabase, id, contactDate, notiz, ergebnis, wiedervorlageAm);
     await refreshCustomers();
     if (selectedId === id) loadHistory(id);
+    setKontaktKundeId(null);
+    // „Auftrag anlegen" führt direkt weiter ins Auftragsfenster – der Kontakt ist zu diesem
+    // Zeitpunkt bereits geschrieben, es geht also nichts verloren, falls dort abgebrochen wird.
+    if (ergebnis === "auftrag") await neuenAuftragAnlegen(id);
   }
   async function markOpen(id: string) {
     await markCustomerOpen(supabase, id);
@@ -989,13 +1036,24 @@ export default function HomePage() {
   const listItems = useMemo(
     () =>
       activeCustomers
-        .filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()) || c.address.toLowerCase().includes(search.toLowerCase()))
+        .filter((c) => {
+          if (!search) return true;
+          const s = search.toLowerCase();
+          // Firma und E-Mail gehören mit in die Suche: sonst findet man einen Geschäftskunden
+          // nur über den Ansprechpartner, dessen Namen im Alltag niemand parat hat.
+          return c.name.toLowerCase().includes(s)
+            || c.address.toLowerCase().includes(s)
+            || (c.company || "").toLowerCase().includes(s)
+            || (c.email || "").toLowerCase().includes(s);
+        })
         .filter((c) => {
           if (filter === "all") return true;
           if (filter === "nogeo") return c.lat == null;
           const color = effectiveColor(c, settings.period_months);
           if (filter === "offen") return color === "red";
           if (filter === "ok") return color === "green";
+          if (filter === "wiedervorlage") return color === "orange";
+          if (filter === "kein_interesse") return color === "kein-interesse";
           return true;
         })
         .filter((c) => !letterFilter || c.name.trim().charAt(0).toUpperCase() === letterFilter)
@@ -1260,6 +1318,8 @@ export default function HomePage() {
               <button type="button" className={"chip" + (filter === "all" ? " active" : "")} onClick={() => setFilter("all")}>Alle</button>
               <button type="button" className={"chip" + (filter === "offen" ? " active" : "")} onClick={() => setFilter("offen")}>Offen</button>
               <button type="button" className={"chip" + (filter === "ok" ? " active" : "")} onClick={() => setFilter("ok")}>Kontaktiert</button>
+              <button type="button" className={"chip" + (filter === "wiedervorlage" ? " active" : "")} onClick={() => setFilter("wiedervorlage")}>Wiedervorlage</button>
+              <button type="button" className={"chip" + (filter === "kein_interesse" ? " active" : "")} onClick={() => setFilter("kein_interesse")}>Kein Interesse</button>
               <button type="button" className={"chip" + (filter === "nogeo" ? " active" : "")} onClick={() => setFilter("nogeo")}>Ohne Karte</button>
             </div>
             <input
@@ -1299,7 +1359,10 @@ export default function HomePage() {
                   <div key={c.id} className="cust-item" onClick={() => openDetail(c.id)}>
                     <div className={`dot ${color}`}></div>
                     <div className="info">
-                      <div className="name">{c.name}</div>
+                      {/* Bei Firmenkunden ist der Firmenname die Hauptangabe, der Name der
+                          Ansprechpartner darunter (Migration 24). */}
+                      <div className="name">{c.company || c.name}</div>
+                      {c.company && <div className="meta">👤 {c.name}</div>}
                       <div className="addr">{c.address}</div>
                       {/* Die Einstellung "Zeilenanzeige" soll immer greifen, unabhängig davon, ob
                           ein Termin ansteht – ein anstehender Termin wird deshalb zusätzlich
@@ -1650,6 +1713,19 @@ export default function HomePage() {
         </>
       )}
 
+      {/* Kontaktdialog (Migration 23) – aus dem Karten-Popup wie aus dem Kundenfenster derselbe.
+          Er liegt hier auf oberster Ebene und nicht in einem der beiden, damit es ihn genau
+          einmal gibt: die Kontaktmaske existierte schon einmal doppelt und ist auseinander-
+          gelaufen (docs/termine-kontakt-auftrag-analyse.md). */}
+      {kontaktKunde && (
+        <KontaktModal
+          customer={kontaktKunde}
+          periodMonths={settings.period_months}
+          onClose={() => setKontaktKundeId(null)}
+          onSpeichern={(ergebnis, datum, wiedervorlage) => kontaktFesthalten(kontaktKunde.id, ergebnis, datum, wiedervorlage)}
+        />
+      )}
+
       {offenerAuftrag && (
         <AuftragModal
           order={offenerAuftrag}
@@ -1703,7 +1779,7 @@ export default function HomePage() {
           warehouses={warehouses}
           onClose={() => setSelectedId(null)}
           onSaveFields={(fields) => updateCustomerFields(selectedId, fields)}
-          onMarkContacted={(contactDate) => markContacted(selectedId, contactDate)}
+          onMarkContacted={() => setKontaktKundeId(selectedId)}
           onMarkOpen={() => markOpen(selectedId)}
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}

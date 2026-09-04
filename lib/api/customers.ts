@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ContactHistoryEntry, Customer } from "@/lib/types";
+import type { ContactHistoryEntry, Customer, KontaktErgebnis } from "@/lib/types";
 import { geocodeAddress } from "@/lib/helpers";
 import { fetchPaged, q, qOne, qWrite } from "./client";
 
@@ -26,10 +26,29 @@ export async function fetchContactHistory(supabase: SupabaseClient, customerId: 
   return data || [];
 }
 
-export async function markCustomerContacted(supabase: SupabaseClient, id: string, contactDate: string, note: string): Promise<void> {
+// Ein Kontakt wird immer mit seinem ERGEBNIS festgehalten (Migration 23). Beides in einem
+// Aufruf, weil es fachlich ein Vorgang ist: es gibt keinen Kontakt ohne Ergebnis und kein
+// Ergebnis ohne Kontakt. Zwei getrennte Funktionen könnten auseinanderlaufen und einen Kunden
+// hinterlassen, der als kontaktiert gilt, aber kein Ergebnis trägt.
+export async function markCustomerContacted(
+  supabase: SupabaseClient,
+  id: string,
+  contactDate: string,
+  note: string,
+  ergebnis: KontaktErgebnis,
+  wiedervorlageAm: string | null
+): Promise<void> {
   await qWrite(
     "Der Kontakt konnte nicht gespeichert werden",
-    supabase.from("customers").update({ status: "kontaktiert", last_contact: contactDate }).eq("id", id)
+    supabase.from("customers").update({
+      status: "kontaktiert",
+      last_contact: contactDate,
+      kontakt_ergebnis: ergebnis,
+      // Immer mitgeschrieben, auch als null: sonst bliebe die Wiedervorlage eines früheren
+      // Anrufs stehen, obwohl der Kunde inzwischen einen Auftrag erteilt oder abgesagt hat –
+      // und die Karte zeigte weiter orange.
+      wiedervorlage_am: wiedervorlageAm,
+    }).eq("id", id)
   );
   await qWrite(
     "Der Eintrag in der Kontakt-Historie konnte nicht gespeichert werden",
@@ -37,10 +56,13 @@ export async function markCustomerContacted(supabase: SupabaseClient, id: string
   );
 }
 
+// „Auf offen setzen" räumt auch das Ergebnis ab: der Kunde soll wieder auf der Anrufliste
+// stehen, und ein stehengebliebenes „kein Interesse" oder eine alte Wiedervorlage würden ihn
+// auf der Karte weiterhin aus dieser Liste heraushalten.
 export async function markCustomerOpen(supabase: SupabaseClient, id: string): Promise<void> {
   await qWrite(
     "Der Kunde konnte nicht auf offen gesetzt werden",
-    supabase.from("customers").update({ status: "offen" }).eq("id", id)
+    supabase.from("customers").update({ status: "offen", kontakt_ergebnis: null, wiedervorlage_am: null }).eq("id", id)
   );
 }
 
@@ -112,4 +134,33 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
       .single()
   );
   return { id: created.id, lat, lng };
+}
+
+// ---------------------------------------------------------------------------------------
+// Sammellauf Geokodierung (siehe components/admin/GeokodierLauf.tsx)
+// ---------------------------------------------------------------------------------------
+
+// Alle Kunden, die eine Adresse haben, aber keine Kartenposition. Bewusst nur die beiden
+// Felder, die der Lauf braucht: bei einigen hundert Zeilen ist das der Unterschied zwischen
+// einer schlanken Liste und dem halben Kundenstamm im Arbeitsspeicher.
+export async function fetchKundenOhneKoordinaten(supabase: SupabaseClient): Promise<{ id: string; address: string }[]> {
+  return fetchPaged<{ id: string; address: string }>(
+    "Die Kunden ohne Kartenposition konnten nicht geladen werden",
+    (von, bis) =>
+      supabase
+        .from("customers")
+        .select("id,address")
+        .is("lat", null)
+        .is("deleted_at", null)
+        .neq("address", "")
+        .order("name")
+        .range(von, bis)
+  );
+}
+
+export async function setzeKundenKoordinaten(supabase: SupabaseClient, id: string, lat: number, lng: number): Promise<void> {
+  await qWrite(
+    "Die Kartenposition konnte nicht gespeichert werden",
+    supabase.from("customers").update({ lat, lng }).eq("id", id)
+  );
 }

@@ -43,9 +43,36 @@ export function isContactedActive(cust: Customer, periodMonths: number): boolean
   return new Date() < limit;
 }
 
-export function effectiveColor(cust: Customer, periodMonths: number): "green" | "red" {
+// Die vier Zustände, in denen ein Kunde auf Karte und Liste erscheinen kann (Migration 23).
+// Der Name „Farbe" ist historisch – gemeint ist der Zustand, die Farbe ist nur seine Anzeige.
+export type KundenZustand = "green" | "orange" | "red" | "kein-interesse";
+
+// Welcher Zustand gilt für diesen Kunden? Die Reihenfolge der Prüfungen ist die Aussage:
+//
+//  1. „Kein Interesse" schlägt alles. Wer abgesagt hat, gehört nicht auf die Anrufliste, egal
+//     wie lange der letzte Kontakt her ist.
+//  2. Eine Wiedervorlage in der ZUKUNFT ist orange: eingeplant, aber noch nicht dran.
+//     Ist der Stichtag erreicht, fällt der Kunde durch – und landet unten bei „fällig/rot".
+//     Genau das ist der Sinn einer Wiedervorlage: sie taucht von selbst wieder auf.
+//  3. Sonst gilt wie bisher der Wiedervorlage-Zeitraum aus den Einstellungen.
+//
+// `heute` ist überschreibbar, damit sich die Stichtagsgrenze prüfen lässt, ohne die Systemzeit
+// zu verstellen (siehe tests/kundenzustand.test.ts).
+export function effectiveColor(cust: Customer, periodMonths: number, heute: string = todayStr()): KundenZustand {
+  if (cust.kontakt_ergebnis === "kein_interesse") return "kein-interesse";
+  if (cust.wiedervorlage_am && cust.wiedervorlage_am > heute) return "orange";
+  if (cust.wiedervorlage_am) return "red";
   return isContactedActive(cust, periodMonths) ? "green" : "red";
 }
+
+// Beschriftung der Zustände – einmal zentral, damit Karte, Liste und Kundenfenster nicht drei
+// verschiedene Wörter für dasselbe benutzen.
+export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
+  green: "kontaktiert",
+  orange: "Wiedervorlage",
+  red: "offen",
+  "kein-interesse": "kein Interesse",
+};
 
 export function telHref(phone: string | null | undefined): string {
   return (phone || "").replace(/[^\d+]/g, "");

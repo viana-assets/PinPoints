@@ -1,6 +1,20 @@
+// Ergebnis eines Kundenkontakts (Migration 23). Bewusst schlank gehalten: das sind die drei
+// Ausgänge, die ein Anruf im Alltag tatsächlich hat. Die erlaubten Werte stehen zusätzlich als
+// Prüfbedingung in der Datenbank, damit kein direkter API-Aufruf einen vierten erfindet.
+export type KontaktErgebnis = "auftrag" | "wiedervorlage" | "kein_interesse";
+
 export type Customer = {
   id: string;
+  // Anzeigename. Bei einer Firma steht hier der Ansprechpartner, der Firmenname in `company`.
   name: string;
+  // Firmenname (Migration 24), leer bei Privatpersonen. Bewusst keine eigene Firmen-Tabelle:
+  // solange je Firma ein Ansprechpartner reicht, wäre sie eine Verknüpfung ohne Gegenwert.
+  company: string | null;
+  // "Herr" / "Frau" (Migration 24). Getrennt vom Namen, weil eine Anrede im Namensfeld die
+  // alphabetische Sortierung verfälscht und in Anschreiben (Roadmap Phase 5) einzeln gebraucht
+  // wird.
+  anrede: "Herr" | "Frau" | null;
+  email: string | null;
   address: string;
   phone_mobile: string | null;
   phone_landline: string | null;
@@ -9,6 +23,12 @@ export type Customer = {
   lng: number | null;
   status: "offen" | "kontaktiert";
   last_contact: string | null; // YYYY-MM-DD
+  // Was beim letzten Kontakt herauskam (Migration 23). Null heißt „noch nichts festgehalten" –
+  // so sind alle Datensätze von vor der Migration.
+  kontakt_ergebnis: KontaktErgebnis | null;
+  // Ab wann der Kunde wieder auf der Anrufliste stehen soll. Bis dahin ist er auf der Karte
+  // orange, danach wieder fällig – siehe `effectiveColor()` in lib/helpers.ts.
+  wiedervorlage_am: string | null; // YYYY-MM-DD
   active: boolean;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
   // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen

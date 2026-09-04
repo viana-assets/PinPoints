@@ -160,6 +160,16 @@
   .dot.red{background:var(--red);}
   .dot.green{background:var(--green);}
   .dot.gray{background:#c7cbd1;}
+  /* Zustände aus Migration 23. Orange = Wiedervorlage eingeplant. „Kein Interesse" ist bewusst
+     keine weitere Farbe, sondern eine andere FORM: weißer Punkt mit rotem Rand und Kreuz.
+     Rot und Orange nebeneinander sind für einen Teil der Bevölkerung kaum zu unterscheiden –
+     die Form trägt die Aussage, die Farbe bestätigt sie nur. */
+  .dot.orange{background:var(--accent);}
+  .dot.kein-interesse{background:#ffffff;border:2px solid var(--red);position:relative;
+    width:12px;height:12px;margin-top:3px;}
+  .dot.kein-interesse::after{content:"✕";position:absolute;inset:0;display:flex;
+    align-items:center;justify-content:center;color:var(--red);font-size:8px;font-weight:700;
+    line-height:1;}
   .cust-item .info{flex:1;min-width:0;}
   .cust-item .name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .cust-item .addr{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
@@ -260,6 +270,9 @@
   .badge.red{background:var(--red-bg);color:var(--red);}
   .badge.green{background:var(--green-bg);color:var(--green);}
   .badge.orange{background:var(--accent-bg);color:var(--accent);}
+  /* Kundenzustand "kein Interesse" (Migration 23) – im Text-Kennzeichen genügt die Farbe,
+     die unterscheidende Form trägt der Kartenmarker. */
+  .badge.kein-interesse{background:#ffffff;color:var(--red);border:1px solid var(--red);}
   /* Storniert: bewusst grau und unauffällig – der Auftrag ist erledigt im Sinne von
      "abgehakt", aber nicht im Sinne von "geleistet". */
   .badge.grau{background:rgba(0,0,0,.06);color:#6b6259;}
@@ -723,3 +736,21 @@ tr.klickbar:hover { background: var(--hover); }
   background:var(--accent-bg);border:1px solid color-mix(in srgb, var(--accent) 35%, transparent);
   font-size:13px;font-weight:600;}
 .auftrag-nachfrage-knoepfe{display:flex;gap:6px;flex-wrap:wrap;}
+
+/* ---------------- Kontaktdialog: die drei Ausgänge ---------------- */
+/* Große Auswahlflächen statt Optionsfelder: der Dialog wird oft am Telefon und einhändig auf
+   dem Handy bedient, und jeder Ausgang braucht ohnehin eine Erklärungszeile – ein Optionsfeld
+   daneben wäre nur zusätzliches Ziel für denselben Klick. */
+.ausgang-liste{display:flex;flex-direction:column;gap:8px;margin-top:4px;}
+.ausgang{display:flex;flex-direction:column;align-items:flex-start;gap:3px;text-align:left;
+  padding:11px 13px;border-radius:12px;background:var(--panel);border:1.5px solid var(--border);
+  box-shadow:0 2px 6px -3px rgba(43,38,32,.16);transition:border-color .15s ease,background .15s ease;}
+.ausgang:hover{border-color:color-mix(in srgb, var(--accent) 45%, var(--border));}
+.ausgang.gewaehlt{border-color:var(--accent);background:var(--accent-bg);}
+.ausgang-titel{font-size:14px;font-weight:700;color:var(--text);}
+.ausgang.gewaehlt .ausgang-titel{color:var(--accent);}
+.ausgang-erklaerung{font-size:11.5px;font-weight:500;color:var(--muted);line-height:1.35;}
+
+/* ---------------- Fortschrittsbalken (Sammellauf Geokodierung) ---------------- */
+.fortschritt{height:8px;border-radius:99px;background:var(--hover);overflow:hidden;margin-bottom:6px;}
+.fortschritt-balken{height:100%;background:var(--accent);border-radius:99px;transition:width .2s linear;}

@@ -3,7 +3,7 @@ import type {
   Article, Customer, ContactHistoryEntry, Employee, Order, OrderArticle, OrderStatus,
   StorageSlot, TireStorage, Vehicle, Warehouse,
 } from "@/lib/types";
-import { todayStr, formatDate, effectiveColor, getPhoneNumbers } from "@/lib/helpers";
+import { todayStr, formatDate, effectiveColor, KUNDEN_ZUSTAND_LABEL, getPhoneNumbers } from "@/lib/helpers";
 import { VehicleRow, AddVehicleInline } from "./VehicleSection";
 import { CustomerOrderRow } from "./CustomerOrderRow";
 import { AddOrderInline } from "./AddOrderInline";
@@ -21,7 +21,7 @@ export function DetailModal(props: {
   onRemoveOrderArticle: (id: string) => Promise<void>;
   onClose: () => void;
   onSaveFields: (f: Partial<Customer>) => void;
-  onMarkContacted: (contactDate: string) => void;
+  onMarkContacted: () => void;
   onMarkOpen: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
@@ -35,15 +35,13 @@ export function DetailModal(props: {
 }) {
   const { customer: cust } = props;
   const [name, setName] = useState(cust.name);
+  const [company, setCompany] = useState(cust.company || "");
+  const [anrede, setAnrede] = useState<"" | "Herr" | "Frau">(cust.anrede || "");
+  const [email, setEmail] = useState(cust.email || "");
   const [address, setAddress] = useState(cust.address);
   const [mobile, setMobile] = useState(cust.phone_mobile || "");
   const [landline, setLandline] = useState(cust.phone_landline || "");
   const [note, setNote] = useState(cust.note || "");
-  // Vorbelegt mit HEUTE, nicht mit dem letzten Kontakt. Vorher stand hier
-  // `cust.last_contact || todayStr()` – bei einem Kunden, der zuletzt im März dran war, bot das
-  // Formular also März an, und ein unachtsames Speichern datierte den heutigen Anruf ein halbes
-  // Jahr zurück. Der letzte Kontakt steht ohnehin darüber in der Historie.
-  const [contactDate, setContactDate] = useState(todayStr());
 
   const color = effectiveColor(cust, props.periodMonths);
   const custOrders = props.orders.slice().sort((a, b) => a.order_date.localeCompare(b.order_date));
@@ -53,21 +51,47 @@ export function DetailModal(props: {
       <div className="modal-box" style={{ position: "relative" }}>
         <button className="modal-close" onClick={props.onClose}>✕</button>
         <div className="header-row" style={{ paddingRight: 34 }}>
-          <h2 style={{ flex: 1 }}>Kunde bearbeiten <span className={`badge ${color}`}>{color === "green" ? "kontaktiert" : "offen"}</span></h2>
+          <h2 style={{ flex: 1 }}>Kunde bearbeiten <span className={`badge ${color}`}>{KUNDEN_ZUSTAND_LABEL[color]}</span></h2>
           {getPhoneNumbers(cust).length > 0 && (
             <button className="call-icon-btn" onClick={() => props.onCall(cust)}>📞</button>
           )}
         </div>
 
         <h4>Kundendaten</h4>
-        <div className="field"><label>Name</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} /></div>
+        {/* Firma steht ÜBER dem Namen, weil sie bei Geschäftskunden die Hauptangabe ist und der
+            Name dort den Ansprechpartner trägt (Migration 24). Bei Privatpersonen bleibt das
+            Feld leer – dann ist der Name die Hauptangabe. */}
+        <div className="field"><label>Firma (leer bei Privatpersonen)</label><input type="text" value={company} onChange={(e) => setCompany(e.target.value)} /></div>
+        <div className="row">
+          <div className="field" style={{ flex: "0 0 110px" }}>
+            <label>Anrede</label>
+            <select value={anrede} onChange={(e) => setAnrede(e.target.value as "" | "Herr" | "Frau")}>
+              <option value="">–</option>
+              <option value="Herr">Herr</option>
+              <option value="Frau">Frau</option>
+            </select>
+          </div>
+          <div className="field" style={{ flex: 1 }}><label>{company ? "Ansprechpartner" : "Name"}</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} /></div>
+        </div>
         <div className="field"><label>Adresse</label><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} /></div>
         <div className="row">
           <div className="field"><label>Mobil</label><input type="text" value={mobile} onChange={(e) => setMobile(e.target.value)} /></div>
           <div className="field"><label>Festnetz</label><input type="text" value={landline} onChange={(e) => setLandline(e.target.value)} /></div>
         </div>
+        <div className="field"><label>E-Mail</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div className="field"><label>Notiz</label><textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>
-        <button className="btn-primary btn-block" onClick={() => props.onSaveFields({ name, address, phone_mobile: mobile, phone_landline: landline, note })}>
+        <button
+          className="btn-primary btn-block"
+          onClick={() => props.onSaveFields({
+            name, address, phone_mobile: mobile, phone_landline: landline, note,
+            // Leere Felder als null und nicht als leere Zeichenkette: sonst stünde in der
+            // Datenbank "" neben null für dieselbe Aussage, und jede Abfrage müsste beides
+            // abfangen. Die Anrede hat zudem eine Prüfbedingung, die "" ablehnt.
+            company: company.trim() || null,
+            email: email.trim() || null,
+            anrede: anrede || null,
+          })}
+        >
           💾 Kundendaten speichern
         </button>
         {cust.lat == null && <div className="small" style={{ color: "var(--red)", marginTop: 4 }}>Für diesen Kunden gibt es noch keine Kartenposition.</div>}
@@ -89,17 +113,20 @@ export function DetailModal(props: {
         </div>
         <AddVehicleInline tireStorages={props.tireStorages} storageSlots={props.storageSlots} warehouses={props.warehouses} onAdd={props.onAddVehicle} />
 
-        {/* Kontakt erfassen heißt hier: festhalten, dass ein Kontakt stattgefunden hat – mehr nicht.
-            Das frühere Ankreuzfeld "Dabei einen Termin vereinbaren" ist weg; ein Auftrag wird
-            unten unter "Aufträge & Termine" angelegt, mit allem, was dazugehört. Siehe
-            docs/termine-kontakt-auftrag-analyse.md. */}
+        {/* Kontakt erfassen öffnet denselben Dialog wie auf der Karte (Migration 23): dort wird
+            festgehalten, was bei dem Kontakt herauskam – Auftrag, Wiedervorlage oder kein
+            Interesse – samt Kontaktdatum. Bewusst EIN Dialog für beide Wege: die Maske gab es
+            hier und im Karten-Popup schon einmal doppelt, in zwei verschiedenen Techniken, und
+            ist dabei auseinandergelaufen (docs/termine-kontakt-auftrag-analyse.md). */}
         <h4>Kontakt erfassen</h4>
-        <div className="field" style={{ marginBottom: 6 }}>
-          <label>Kontaktiert am</label>
-          <input type="date" value={contactDate} onChange={(e) => setContactDate(e.target.value)} />
-        </div>
+        {cust.kontakt_ergebnis && (
+          <div className="small" style={{ marginBottom: 6 }}>
+            Zuletzt: {KUNDEN_ZUSTAND_LABEL[color]}
+            {cust.wiedervorlage_am ? ` – wieder anrufen am ${formatDate(cust.wiedervorlage_am)}` : ""}
+          </div>
+        )}
         <div className="row" style={{ marginTop: 6 }}>
-          <button className="btn-green" onClick={() => props.onMarkContacted(contactDate)}>
+          <button className="btn-green" onClick={props.onMarkContacted}>
             ✔ Kontakt bestätigen
           </button>
           <button className="btn-secondary" onClick={props.onMarkOpen}>Auf offen setzen</button>

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabaseClient";
 import { ROLE_LABEL } from "@/lib/constants";
 import { IconAdmin, IconTrash } from "@/components/icons";
 import { PermissionMatrix } from "./PermissionMatrix";
+import { GeokodierLauf } from "./GeokodierLauf";
 
 // Admin-Modul: Nutzerverwaltung – als eigener Tab statt separater Seite, damit man wie bei
 // Termine einfach das Fenster wechselt statt zu navigieren. Bündelt zusätzlich die
@@ -31,7 +32,7 @@ export function AdminPanel({
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [adminTab, setAdminTab] = useState<"users" | "modules">("users");
+  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung">("users");
 
   useEffect(() => {
     (async () => {
@@ -104,7 +105,7 @@ export function AdminPanel({
           <div className="mh-icon"><IconAdmin /></div>
           <div className="mh-text">
             <h2>Admin</h2>
-            <p>Nutzerverwaltung und Modulverwaltung.</p>
+            <p>Nutzerverwaltung, Modulverwaltung und Wartung.</p>
           </div>
         </div>
 
@@ -113,9 +114,15 @@ export function AdminPanel({
           {isSuperAdmin && (
             <button type="button" className={`chip ${adminTab === "modules" ? "active" : ""}`} onClick={() => setAdminTab("modules")}>Modulverwaltung</button>
           )}
+          <button type="button" className={`chip ${adminTab === "wartung" ? "active" : ""}`} onClick={() => setAdminTab("wartung")}>Wartung</button>
         </div>
 
-        {adminTab === "modules" && isSuperAdmin ? (
+        {adminTab === "wartung" ? (
+          /* Wartung sammelt Läufe, die über den ganzen Bestand gehen und deshalb nirgends in
+             den Fachmodulen hingehören. Bisher ist das nur die Geokodierung; kommt später ein
+             Sammellauf dazu (Adressabgleich, Dublettensuche), ist der Platz dafür da. */
+          <GeokodierLauf supabase={supabase} />
+        ) : adminTab === "modules" && isSuperAdmin ? (
           <PermissionMatrix modulePermissions={modulePermissions} onUpdateModulePermissions={onUpdateModulePermissions} />
         ) : (
         <>
