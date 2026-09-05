@@ -694,12 +694,15 @@ export default function HomePage() {
         marker.setIcon(makeIcon(color));
         marker.setLatLng([cust.lat, cust.lng]);
         marker.setTooltipContent(tooltip);
-        marker.setPopupContent(() => buildPopupEl(cust.id));
+        // Bewusst KEIN setPopupContent hier: bindPopup() bekommt unten eine Funktion, die
+        // Leaflet bei jedem Öffnen neu auswertet – der Inhalt ist also ohnehin frisch. Der
+        // Aufruf an dieser Stelle hat den Inhalt eines GEÖFFNETEN Popups mitten im Betrieb
+        // neu aufgebaut (syncMarkers läuft bei jedem moveend, und Leaflet schiebt die Karte
+        // beim Öffnen selbst zurecht) und damit die sichtbaren Schaltflächen ausgetauscht.
       } else {
         marker = L.marker([cust.lat, cust.lng], { icon: makeIcon(color) });
         marker.bindTooltip(tooltip, { className: "cust-tip" });
         marker.bindPopup(() => buildPopupEl(cust.id), { minWidth: 240 });
-        marker.on("popupopen", () => attachPopupHandlers(cust.id, marker));
         marker.addTo(markerLayerRef.current);
         markerIndexRef.current[cust.id] = marker;
       }
@@ -740,61 +743,89 @@ export default function HomePage() {
       ${nextOrd ? `<div class="pline small">📅 Nächster Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}</div>` : ""}
       ${cust.wiedervorlage_am && color === "orange" ? `<div class="pline small">🔁 Wiedervorlage am ${formatDate(cust.wiedervorlage_am)}</div>` : ""}
       <hr>
-      <button id="btnNewOrder" class="btn-primary btn-block" style="margin-bottom:10px;">+ Auftrag anlegen</button>
+      <button type="button" data-popup-aktion="neuer-auftrag" data-kunde="${cust.id}" class="btn-primary btn-block" style="margin-bottom:10px;">+ Auftrag anlegen</button>
       <div style="display:flex;gap:6px;margin-bottom:6px;">
-        <button id="btnMarkContacted" style="flex:1" class="btn-green">✔ Kontakt bestätigen</button>
-        <button id="btnMarkOpen" style="flex:1" class="btn-secondary">Auf offen setzen</button>
+        <button type="button" data-popup-aktion="kontakt" data-kunde="${cust.id}" style="flex:1" class="btn-green">✔ Kontakt bestätigen</button>
+        <button type="button" data-popup-aktion="offen" data-kunde="${cust.id}" style="flex:1" class="btn-secondary">Auf offen setzen</button>
       </div>
-      ${color === "kein-interesse" ? `<button id="btnDeactivate" class="btn-secondary btn-block" style="margin-bottom:6px;color:#b33;">Kunde deaktivieren</button>` : ""}
-      <button id="btnEditCust" class="btn-secondary btn-block">✏️ Kundendaten &amp; Aufträge bearbeiten</button>
+      ${color === "kein-interesse" ? `<button type="button" data-popup-aktion="deaktivieren" data-kunde="${cust.id}" class="btn-secondary btn-block" style="margin-bottom:6px;color:#b33;">Kunde deaktivieren</button>` : ""}
+      <button type="button" data-popup-aktion="bearbeiten" data-kunde="${cust.id}" class="btn-secondary btn-block">✏️ Kundendaten &amp; Aufträge bearbeiten</button>
     `;
     return div;
   }
 
-  function attachPopupHandlers(customerId: string, marker: any) {
-    const bN = document.getElementById("btnNewOrder");
-    const bC = document.getElementById("btnMarkContacted");
-    const bO = document.getElementById("btnMarkOpen");
-    const bE = document.getElementById("btnEditCust");
-    // Auftrag anlegen und Kontakt bestätigen sind seit 29.08.2026 zwei getrennte Handlungen.
-    // Der Auftrag öffnet das gewohnte Anlegeformular als Overlay über der Karte – kein
-    // Reiterwechsel, nach dem Speichern steht man wieder hier.
-    if (bN) bN.onclick = () => { marker.closePopup(); void neuenAuftragAnlegen(customerId); };
-    // „Kontakt bestätigen" öffnet den Kontaktdialog, statt direkt zu speichern: erst dort wird
-    // festgehalten, WAS herausgekommen ist (Migration 23). Das Kontaktdatum steht ebenfalls
-    // dort – ein zweites Datumsfeld im Popup wäre eine zweite Stelle für dieselbe Angabe.
-    if (bC) bC.onclick = () => { marker.closePopup(); setKontaktKundeId(customerId); };
-    if (bO) bO.onclick = async () => { await markOpen(customerId); marker.closePopup(); };
-    // Erscheint nur bei „kein Interesse": das Deaktivieren bleibt ein eigener, bewusster
-    // Schritt und passiert nicht als Nebenwirkung des Anrufergebnisses (siehe Migration 23).
-    const bD = document.getElementById("btnDeactivate");
-    if (bD) bD.onclick = async () => { await setActive(customerId, false); marker.closePopup(); };
-    if (bE) bE.onclick = () => { setSelectedId(customerId); loadHistory(customerId); marker.closePopup(); };
-    attachCallIconHandler();
-  }
-
-  function buildCallIconHtml(cust: Customer, small = false): string {
-    const nums = getPhoneNumbers(cust);
-    if (!nums.length) return "";
-    return `<button type="button" class="call-icon-btn${small ? " small" : ""}" data-call-cust="${cust.id}" title="Anrufen">📞</button>`;
-  }
-  function attachCallIconHandler() {
-    document.querySelectorAll("[data-call-cust]").forEach((btn) => {
-      (btn as HTMLElement).onclick = (e) => {
-        e.stopPropagation();
-        const id = (btn as HTMLElement).dataset.callCust!;
-        const cust = liveRef.current.customers.find((c) => c.id === id);
+  // Popup-Schaltflächen: EIN Zuhörer am Dokument statt je Schaltfläche einer.
+  //
+  // Vorher hingen die Handler direkt an den Elementen (Ereignis „popupopen" → getElementById
+  // → .onclick). Am Handy war im Popup deshalb nichts anklickbar: Leaflet schiebt die Karte
+  // beim Öffnen zurecht, damit das Popup ins Bild passt. Das löst „moveend" aus, „moveend"
+  // ruft syncMarkers, und syncMarkers baute den Popup-Inhalt neu auf – die sichtbaren
+  // Schaltflächen waren danach andere DOM-Elemente als die, an denen die Handler hingen. Am
+  // Desktop ist genug Platz, das Popup passt ohne Verschieben, dort fiel es nie auf.
+  //
+  // Ein Zuhörer am Dokument kann das nicht passieren: er sucht die Schaltfläche erst im
+  // Moment des Klicks. Leaflet hält Klicks aus dem Popup-Inhalt nicht auf – sein
+  // disableClickPropagation stoppt mousedown/touchstart/dblclick/contextmenu, nicht „click".
+  //
+  // Die eigentliche Handlung steht in einer Ref, die bei jedem Rendern neu gesetzt wird
+  // (gleiche Technik wie liveRef weiter oben): der Zuhörer wird nur einmal angemeldet, greift
+  // aber trotzdem nie auf veraltete Zustände zu.
+  const popupAktionRef = useRef<(aktion: string, kundenId: string, ziel: HTMLElement) => void>(() => {});
+  popupAktionRef.current = (aktion, kundenId, ziel) => {
+    const popupSchliessen = () => mapRef.current?.closePopup();
+    switch (aktion) {
+      // Auftrag anlegen und Kontakt bestätigen sind seit 29.08.2026 zwei getrennte
+      // Handlungen. Der Auftrag öffnet das gewohnte Anlegeformular als Overlay über der
+      // Karte – kein Reiterwechsel, nach dem Speichern steht man wieder hier.
+      case "neuer-auftrag":
+        popupSchliessen(); void neuenAuftragAnlegen(kundenId); return;
+      // „Kontakt bestätigen" öffnet den Kontaktdialog, statt direkt zu speichern: erst dort
+      // wird festgehalten, WAS herausgekommen ist (Migration 23). Das Kontaktdatum steht
+      // ebenfalls dort – ein zweites Datumsfeld im Popup wäre eine zweite Stelle für
+      // dieselbe Angabe.
+      case "kontakt":
+        popupSchliessen(); setKontaktKundeId(kundenId); return;
+      case "offen":
+        popupSchliessen(); void markOpen(kundenId); return;
+      // Erscheint nur bei „kein Interesse": das Deaktivieren bleibt ein eigener, bewusster
+      // Schritt und passiert nicht als Nebenwirkung des Anrufergebnisses (Migration 23).
+      case "deaktivieren":
+        popupSchliessen(); void setActive(kundenId, false); return;
+      case "bearbeiten":
+        popupSchliessen(); setSelectedId(kundenId); void loadHistory(kundenId); return;
+      case "anrufen": {
+        const cust = liveRef.current.customers.find((c) => c.id === kundenId);
         if (!cust) return;
         const nums = getPhoneNumbers(cust);
+        // Eine Nummer: direkt wählen. Mehrere: erst fragen, welche.
         if (nums.length <= 1) {
           if (nums.length === 1) window.location.href = "tel:" + telHref(nums[0].number);
           return;
         }
-        const rect = (btn as HTMLElement).getBoundingClientRect();
+        const rect = ziel.getBoundingClientRect();
         setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
         setCallMenuFor(cust);
-      };
-    });
+        return;
+      }
+    }
+  };
+
+  useEffect(() => {
+    function beiKlick(e: MouseEvent) {
+      const ausloeser = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-popup-aktion]") : null;
+      const kundenId = ausloeser?.dataset.kunde;
+      if (!ausloeser || !kundenId) return;
+      e.stopPropagation();
+      popupAktionRef.current(ausloeser.dataset.popupAktion || "", kundenId, ausloeser);
+    }
+    document.addEventListener("click", beiKlick);
+    return () => document.removeEventListener("click", beiKlick);
+  }, []);
+
+  function buildCallIconHtml(cust: Customer, small = false): string {
+    const nums = getPhoneNumbers(cust);
+    if (!nums.length) return "";
+    return `<button type="button" class="call-icon-btn${small ? " small" : ""}" data-popup-aktion="anrufen" data-kunde="${cust.id}" title="Anrufen">📞</button>`;
   }
 
   // ---------------------------------------------------------------- CRUD

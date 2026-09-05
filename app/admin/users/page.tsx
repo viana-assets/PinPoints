@@ -88,7 +88,7 @@ export default function UsersAdminPage() {
                 <tr key={p.id}>
                   <td>{p.email || "–"}{p.id === ownUserId ? <span className="small"> (Du)</span> : ""}</td>
                   <td>
-                    <select value={p.role} onChange={(e) => changeRole(p.id, e.target.value as Role)} style={{ padding: "3px 6px", fontSize: 11.5 }}>
+                    <select value={p.role} onChange={(e) => changeRole(p.id, e.target.value as Role)} className="feld-kompakt">
                       <option value="user">{ROLE_LABEL.user}</option>
                       <option value="techniker">{ROLE_LABEL.techniker}</option>
                       <option value="admin">{ROLE_LABEL.admin}</option>

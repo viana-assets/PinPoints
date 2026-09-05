@@ -117,6 +117,11 @@
   input:focus, textarea:focus, select:focus{outline:none;border-color:var(--accent);
     box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);}
   textarea{resize:vertical;min-height:50px;}
+  /* Kleine Eingabefelder in Tabellen (Rolle, Artikelnummer, Techniker-Notiz). Bewusst eine
+     Klasse statt style={{fontSize:11.5}} an der Einbaustelle: eine Schriftgröße direkt am
+     Element schlägt jede Regel im Stilblatt – auch die Handy-Regel am Dateiende, die genau
+     diese Felder auf 16px hebt, damit iOS beim Antippen nicht hineinzoomt. */
+  .feld-kompakt{padding:3px 6px;font-size:11.5px;}
   .field{margin-bottom:8px;}
   button{cursor:pointer;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;
     font-family:var(--font-body);}
@@ -345,7 +350,14 @@
     html, body{ overflow:hidden; }
     /* Am Handy nur eine Spalte: Inhalt oben, Navigationsleiste unten. Die Karte liegt fest
        positioniert darüber und ist deshalb gar kein Rasterelement. */
-    #app{grid-template-columns:1fr;grid-template-rows:1fr 58px;height:100vh;height:100dvh;}
+    /* Bewusst ohne 100vh/100dvh: iOS Safari löst diese Einheiten beim ersten Layout
+       gelegentlich zu klein auf – typisch, wenn die Seite aus einer anderen App heraus
+       geöffnet wird – und rechnet sie danach nicht neu, weil kein resize-Ereignis kommt.
+       Die Seite blieb dadurch zu kurz, bis man einmal die App gewechselt hat. Eine fest
+       positionierte Hülle braucht überhaupt keine gemessene Einheit und füllt den
+       sichtbaren Bereich immer. Gleiche Technik wie bei #map ein paar Zeilen weiter unten. */
+    #app{position:fixed;top:0;right:0;bottom:0;left:0;width:auto;height:auto;
+      grid-template-columns:1fr;grid-template-rows:1fr 58px;}
     #app.vollseite{grid-template-columns:1fr;}
     #iconNav{width:auto;height:58px;min-width:0;flex-direction:row;align-items:stretch;
       justify-content:space-around;padding:0;gap:0;order:3;border-top:1px solid var(--border);border-right:none;
@@ -790,3 +802,25 @@ tr.klickbar:hover { background: var(--hover); }
 .chip .chip-zahl{margin-left:6px;font-size:11px;font-weight:600;opacity:.62;
   font-variant-numeric:tabular-nums;}
 .chip.active .chip-zahl{opacity:.8;}
+
+/* ---------------- Eingabefelder am Handy: 16px, damit iOS nicht hineinzoomt ----------------
+   iOS Safari vergrößert die Seite automatisch, sobald man ein Eingabefeld antippt, dessen
+   Schriftgröße unter 16px liegt – und zoomt danach nie von selbst zurück. Genau das passierte
+   bei „Kunde suchen": Feld antippen, Seite bleibt vergrößert, man muss von Hand herauszoomen,
+   und beim nächsten Feld geht es wieder los. 16px verhindert das Hineinzoomen von vornherein.
+
+   Bewusst NICHT über maximum-scale/user-scalable im Viewport-Tag gelöst: das schaltet das
+   Vergrößern auch dort ab, wo es jemand zum Lesen braucht, und ist damit eine Barriere statt
+   einer Reparatur.
+
+   Steht am Dateiende, weil einzelne spätere Regeln (.login-box input) dieselbe Spezifität
+   haben – bei Gleichstand gewinnt die zuletzt notierte Regel. */
+@media (max-width: 700px){
+  /* Absichtlich über eine Ausschlussliste statt über eine Aufzählung der Textarten: ein
+     <input> ohne type-Angabe ist ein Textfeld und würde in einer Aufzählung fehlen. Erfasst
+     sind damit alle Felder, in die man schreibt; ausgenommen nur die, die gar keine
+     Tastatur öffnen. Der Selektor ist zugleich spezifischer als .plz-input, .feld-kompakt
+     und .login-box input und gewinnt deshalb gegen deren kleinere Schriftgrößen. */
+  input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=color]),
+  textarea, select{font-size:16px;}
+}

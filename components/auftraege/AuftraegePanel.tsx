@@ -120,7 +120,8 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                             type="text"
                             defaultValue={o.techniker_notiz || ""}
                             placeholder="Notiz…"
-                            style={{ padding: "3px 6px", fontSize: 11.5, width: 140 }}
+                            className="feld-kompakt"
+                            style={{ width: 140 }}
                             onBlur={(e) => { if (e.target.value !== (o.techniker_notiz || "")) onUpdateTechnikerNotiz(o.id, e.target.value); }}
                           />
                         ) : (

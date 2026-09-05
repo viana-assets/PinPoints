@@ -84,7 +84,8 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
                       <input
                         type="number"
                         defaultValue={a.article_number}
-                        style={{ width: 70, padding: "3px 6px", fontSize: 11.5 }}
+                        className="feld-kompakt"
+                        style={{ width: 70 }}
                         onBlur={(e) => {
                           const val = parseInt(e.target.value, 10);
                           if (!isNaN(val) && val !== a.article_number) onUpdateArticleNumber(a.id, val);
