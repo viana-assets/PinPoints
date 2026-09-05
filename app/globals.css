@@ -330,6 +330,9 @@
   .nav-icon-btn svg{width:22px;height:22px;flex:0 0 auto;}
   .nav-icon-btn.small{width:24px;height:24px;}
   .nav-icon-btn.small svg{width:20px;height:20px;}
+  /* Pin in einer Kundenzeile: rechts außen, ohne den Abstand, den der Pin in Tabellenzellen
+     zum nächsten Symbol braucht. Oben ausgerichtet wie der Farbpunkt links. */
+  .zeilen-nav{margin-right:0;margin-top:1px;align-self:flex-start;}
   .call-menu{position:fixed;z-index:20000;background:var(--panel);border:1px solid var(--border);border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.22);padding:6px;min-width:170px;
     max-height:min(360px, calc(100vh - 24px));overflow-y:auto;}

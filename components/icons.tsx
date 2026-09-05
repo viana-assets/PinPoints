@@ -146,13 +146,23 @@ export function IconArtikel() {
 //
 // Die Maße stehen zusätzlich als Attribute am Element, damit der Pin auch dann eine sinnvolle
 // Größe hat, wenn die CSS-Regel dazu einmal nicht greift.
+//
+// Form und Farbe stehen als Konstanten daneben, weil es den Pin ZWEIMAL geben muss: als
+// React-Element für die Listen und als HTML-Zeichenkette für das Karten-Popup, das Leaflet
+// baut und nicht React (app/page.tsx, buildPopupEl). Zwei getrennt gepflegte Pfade wären
+// zwei Pins, die irgendwann unterschiedlich aussehen.
+const NAV_PIN_PFAD = "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z";
+const NAV_PIN_FARBE = "#FF5A1F";
+
+export function navPinSvgHtml(groesse = 22): string {
+  return `<svg viewBox="0 0 24 24" width="${groesse}" height="${groesse}" aria-hidden="true">`
+    + `<path d="${NAV_PIN_PFAD}" fill="${NAV_PIN_FARBE}"/><circle cx="12" cy="9" r="3.05" fill="#fff"/></svg>`;
+}
+
 export function IconNavPin() {
   return (
     <svg viewBox="0 0 24 24" width="22" height="22">
-      <path
-        d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Z"
-        fill="#FF5A1F"
-      />
+      <path d={NAV_PIN_PFAD} fill={NAV_PIN_FARBE} />
       <circle cx="12" cy="9" r="3.05" fill="#fff" />
     </svg>
   );

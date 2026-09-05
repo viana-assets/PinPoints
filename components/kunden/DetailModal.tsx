@@ -6,6 +6,7 @@ import type {
 import { todayStr, formatDate, effectiveColor, KUNDEN_ZUSTAND_LABEL, getPhoneNumbers } from "@/lib/helpers";
 import { VehicleRow, AddVehicleInline } from "./VehicleSection";
 import { AdressFeld } from "@/components/AdressFeld";
+import { IconNavPin } from "@/components/icons";
 import { CustomerOrderRow } from "./CustomerOrderRow";
 
 // Das große Kunden-Detailfenster (Modal): Kundendaten, Fahrzeuge, Kontakt erfassen,
@@ -35,6 +36,7 @@ export function DetailModal(props: {
   onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
   onDeleteVehicle: (id: string) => void;
   onCall: (cust: Customer) => void;
+  onNavigate: (e: React.MouseEvent, cust: Customer) => void;
 }) {
   const { customer: cust } = props;
   const [name, setName] = useState(cust.name);
@@ -58,6 +60,11 @@ export function DetailModal(props: {
         <button className="modal-close" onClick={props.onClose}>✕</button>
         <div className="header-row" style={{ paddingRight: 34 }}>
           <h2 style={{ flex: 1 }}>Kunde bearbeiten <span className={`badge ${color}`}>{KUNDEN_ZUSTAND_LABEL[color]}</span></h2>
+          {cust.address.trim() && (
+            <button className="call-icon-btn nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => props.onNavigate(e, cust)}>
+              <IconNavPin />
+            </button>
+          )}
           {getPhoneNumbers(cust).length > 0 && (
             <button className="call-icon-btn" onClick={() => props.onCall(cust)}>📞</button>
           )}

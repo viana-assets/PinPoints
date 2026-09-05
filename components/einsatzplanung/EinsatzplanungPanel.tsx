@@ -3,13 +3,13 @@ import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
 import { todayStr, formatDate, formatOrderDateTime, orderDateTime } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
-import { IconEinsatzplanung, IconTrash } from "@/components/icons";
+import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, isTechniker, onUpdateTechnikerNotiz }: {
+export function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
@@ -19,6 +19,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
   onOpenOrder: (orderId: string) => void;
   onOpenCustomer: (customerId: string) => void;
   onDelete: (id: string) => Promise<void>;
+  // Navigation zum Kunden (Google Maps / Apple Karten) – dieselbe Schaltfläche wie im
+  // Aufträge-Tab, im Kundenfenster und im Karten-Popup.
+  onNavigate: (e: React.MouseEvent, cust: Customer) => void;
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), darf
   // in der Oberfläche zusätzlich keine Mitarbeiter-/Leistungen-Zuordnung oder Löschung anstoßen –
   // nur Status und die eigene Techniker-Notiz, siehe AuftraegePanel für dasselbe Muster.
@@ -179,13 +182,20 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                             <td className="date-cell">{o.time || "–"}</td>
                             <td>
                               {cust ? (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
-                                  style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
-                                >
-                                  {cust.name}
-                                </button>
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
+                                    style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
+                                  >
+                                    {cust.name}
+                                  </button>
+                                  {cust.address.trim() && (
+                                    <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => onNavigate(e, cust)}>
+                                      <IconNavPin />
+                                    </button>
+                                  )}
+                                </>
                               ) : "–"}
                             </td>
                             <td>{o.title}</td>
@@ -236,6 +246,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                       <td className="date-cell">{formatOrderDateTime(o)}</td>
                       <td>
                         {cust ? (
+                          <>
                           <button
                             type="button"
                             onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
@@ -243,7 +254,13 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                           >
                             {cust.name}
                           </button>
-                        ) : "–"}
+                          {cust.address.trim() && (
+                            <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => onNavigate(e, cust)}>
+                              <IconNavPin />
+                            </button>
+                          )}
+                        </>
+                      ) : "–"}
                       </td>
                       <td>{o.title}</td>
                       <td onClick={(e) => e.stopPropagation()}>

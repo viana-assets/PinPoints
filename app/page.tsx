@@ -19,7 +19,7 @@ import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode"
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
   IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
-  IconNavPin, IconMarke,
+  IconNavPin, IconMarke, navPinSvgHtml,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -732,6 +732,7 @@ export default function HomePage() {
     div.innerHTML = `
       <div class="header-row">
         <h3>${escapeHtml(cust.company || cust.name)} <span class="badge ${color}">${KUNDEN_ZUSTAND_LABEL[color]}</span></h3>
+        ${buildNavIconHtml(cust)}
         ${buildCallIconHtml(cust)}
       </div>
       ${cust.company ? `<div class="pline">👤 ${escapeHtml(cust.name)}</div>` : ""}
@@ -793,6 +794,16 @@ export default function HomePage() {
         popupSchliessen(); void setActive(kundenId, false); return;
       case "bearbeiten":
         popupSchliessen(); setSelectedId(kundenId); void loadHistory(kundenId); return;
+      // Navigation: dasselbe Menü (Google Maps / Apple Karten) wie in den Auftrags- und
+      // Kundenlisten. Das Popup bleibt offen – wer das Menü wegtippt, steht wieder beim Kunden.
+      case "navigieren": {
+        const cust = liveRef.current.customers.find((c) => c.id === kundenId);
+        if (!cust) return;
+        const rect = ziel.getBoundingClientRect();
+        setNavMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
+        setNavMenuFor(cust);
+        return;
+      }
       case "anrufen": {
         const cust = liveRef.current.customers.find((c) => c.id === kundenId);
         if (!cust) return;
@@ -821,6 +832,14 @@ export default function HomePage() {
     document.addEventListener("click", beiKlick);
     return () => document.removeEventListener("click", beiKlick);
   }, []);
+
+  // Navigations-Pin im Karten-Popup. Gleiche Schaltfläche wie in den Listen, nur als
+  // HTML-Zeichenkette, weil Leaflet-Popups nicht von React gebaut werden. Die Pin-Form kommt
+  // aus components/icons.tsx – eine Quelle für beide Fassungen.
+  function buildNavIconHtml(cust: Customer): string {
+    if (!cust.address.trim()) return "";
+    return `<button type="button" class="call-icon-btn small nav-icon-btn" data-popup-aktion="navigieren" data-kunde="${cust.id}" title="Navigation starten (Google Maps / Apple Karten)">${navPinSvgHtml(20)}</button>`;
+  }
 
   function buildCallIconHtml(cust: Customer, small = false): string {
     const nums = getPhoneNumbers(cust);
@@ -1432,6 +1451,18 @@ export default function HomePage() {
                         <div className="meta">📅 Termin: {formatDate(nextOrd.order_date)}</div>
                       )}
                     </div>
+                    {/* Navigation direkt aus der Liste: der häufigste nächste Schritt vor Ort
+                        ist hinfahren, nicht das Kundenfenster öffnen. openNavMenu hält den
+                        Klick auf, die Zeile öffnet also nicht zusätzlich das Fenster. */}
+                    {c.address.trim() && (
+                      <button
+                        className="call-icon-btn small nav-icon-btn zeilen-nav"
+                        title="Navigation starten (Google Maps / Apple Karten)"
+                        onClick={(e) => openNavMenu(e, c)}
+                      >
+                        <IconNavPin />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -1570,6 +1601,7 @@ export default function HomePage() {
             onOpenCustomer={openDetail}
             onOpenOrder={setOffenerAuftragId}
             onDelete={deleteOrder}
+            onNavigate={openNavMenu}
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
           />
@@ -1849,6 +1881,7 @@ export default function HomePage() {
           onAddVehicle={(fields) => addVehicle(selectedId, fields)}
           onUpdateVehicle={updateVehicle}
           onDeleteVehicle={deleteVehicle}
+          onNavigate={openNavMenu}
           onCall={(cust) => {
             const nums = getPhoneNumbers(cust);
             if (nums.length === 1) window.location.href = "tel:" + telHref(nums[0].number);
