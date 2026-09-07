@@ -74,6 +74,14 @@ export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
   "kein-interesse": "kein Interesse",
 };
 
+
+// Reihenfolge in Legenden und Auswahlen: nach Dringlichkeit, nicht alphabetisch und nicht in
+// der Reihenfolge, in der die Zustände zufällig im Typ stehen. Wer eine Liste der Zustände
+// braucht, nimmt diese – damit sie überall gleich sortiert erscheint.
+export const KUNDEN_ZUSTAND_REIHENFOLGE: readonly KundenZustand[] = [
+  "red", "orange", "green", "kein-interesse",
+];
+
 export function telHref(phone: string | null | undefined): string {
   return (phone || "").replace(/[^\d+]/g, "");
 }
