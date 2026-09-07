@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { UserSettings } from "@/lib/types";
+import { PwaInstallieren } from "@/components/PwaInstallieren";
 
 // Tab "Einstellungen": Anzeige-/Wiedervorlage-Präferenzen, Nutzerinfo, Logout.
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
@@ -29,6 +30,11 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userE
         <input type="number" min={1} max={24} value={period} onChange={(e) => setPeriod(parseInt(e.target.value, 10) || 3)} />
       </div>
       <button className="btn-primary btn-block" onClick={() => onChange({ period_months: period })}>Speichern</button>
+      <hr />
+      {/* Der Weg zur Installation steht hier und nicht als Hinweisbalken auf der Karte: Er
+          wird einmal pro Gerät gebraucht, nicht bei jedem Öffnen. Wer ihn sucht, sucht ihn
+          in den Einstellungen. */}
+      <PwaInstallieren />
       <hr />
       <div className="small">Angemeldet als {userEmail}{isSuperAdmin ? " (Superadmin)" : isAdmin ? " (Admin)" : ""}</div>
       <button className="btn-secondary btn-block" style={{ marginTop: 8 }} onClick={onLogout}>Abmelden</button>

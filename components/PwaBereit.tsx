@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { pwaInstallationBeobachten } from "@/lib/pwaInstallation";
 
 // Meldet den Service Worker an und zeigt einen Hinweisbalken, sobald eine neue Fassung
 // bereitliegt. Siehe docs/pwa-plan.md, Stufe 2.
@@ -12,6 +13,11 @@ import { useEffect, useState } from "react";
 // halb ausgefüllten Auftragsfenster verliert die Eingabe. Deshalb entscheidet der Nutzer.
 export function PwaBereit() {
   const [wartendeFassung, setWartendeFassung] = useState<ServiceWorker | null>(null);
+
+  // Das Angebot des Browsers zur Installation kommt kurz nach dem Laden und nur einmal.
+  // Hier zuzuhören ist der früheste Zeitpunkt, den die Anwendung hat – der Knopf in den
+  // Einstellungen holt es sich später aus lib/pwaInstallation.ts ab.
+  useEffect(() => { pwaInstallationBeobachten(); }, []);
 
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
