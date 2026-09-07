@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keine Verbindung – Viana PinPoints</title>
+<!-- Diese Seite MUSS ohne Netz vollständig funktionieren: keine Schriften, keine Bilder,
+     keine Skripte von außen. Deshalb steht hier alles inline und in Systemschriften. -->
+<style>
+  :root{color-scheme:light;}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;
+    padding:24px;background:#F2EFE9;color:#241d13;
+    font-family:"Segoe UI",-apple-system,BlinkMacSystemFont,Arial,sans-serif;}
+  .kasten{background:#fff;border:1px solid #e2dbcd;border-radius:18px;padding:28px 24px;
+    max-width:340px;width:100%;text-align:center;box-shadow:0 20px 50px -22px rgba(15,23,42,.3);}
+  h1{font-size:19px;margin:0 0 8px;}
+  p{font-size:14px;line-height:1.5;color:#6b6455;margin:0 0 18px;}
+  button{width:100%;padding:12px 16px;border:none;border-radius:12px;background:#FF5A1F;
+    color:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer;}
+  .klein{font-size:12px;color:#8a7f6b;margin:14px 0 0;}
+</style>
+</head>
+<body>
+  <div class="kasten">
+    <h1>Keine Verbindung</h1>
+    <p>Viana PinPoints braucht gerade eine Internetverbindung. Sobald du wieder Empfang hast,
+       geht es weiter.</p>
+    <button type="button" onclick="location.reload()">Erneut versuchen</button>
+    <p class="klein">Bereits geladene Ansichten bleiben offen, solange du die App nicht schließt.</p>
+  </div>
+</body>
+</html>

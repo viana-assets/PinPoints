@@ -43,5 +43,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  // Die PWA-Dateien müssen OHNE Anmeldung erreichbar sein. Ohne diese Ausnahmen liefert die
+  // Middleware auf /sw.js eine Umleitung zur Anmeldeseite – der Browser lehnt die Anmeldung
+  // des Service Workers dann ab (falscher Inhaltstyp), und zwar stillschweigend. Dasselbe
+  // gilt für das Manifest, die Symbole und die Offline-Seite, die ja gerade dann gebraucht
+  // wird, wenn nichts anderes geht.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|apple-touch-icon.png|icons/).*)",
+  ],
 };

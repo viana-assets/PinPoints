@@ -8,10 +8,31 @@ import "leaflet/dist/leaflet.css";
 import HashSessionHandler from "./auth/HashSessionHandler";
 import { Providers } from "./providers";
 import { MARKE_FAVICON } from "@/components/icons";
+import { PwaBereit } from "@/components/PwaBereit";
+import type { Viewport } from "next";
 
 export const metadata = {
   title: "Viana PinPoints",
-  description: "Viana PinPoints",
+  description: "Kunden, Termine und Aufträge im mobilen Reifenservice",
+  // Macht die Anwendung installierbar (docs/pwa-plan.md, Stufe 1).
+  manifest: "/manifest.webmanifest",
+  // iOS liest weder Name noch Symbol aus dem Manifest – dafür sind diese Angaben da.
+  // `statusBarStyle: "default"` ist bewusst gewählt: bei "black-translucent" rutscht der
+  // Inhalt unter die Statusleiste und müsste überall um env(safe-area-inset-top) versetzt
+  // werden. Das ist eine ganze Klasse von Fehlern, die wir uns hier sparen.
+  appleWebApp: { capable: true, title: "PinPoints", statusBarStyle: "default" as const },
+  icons: { apple: "/apple-touch-icon.png" },
+};
+
+// Eigener Export statt eines <meta>-Elements im Kopf: Next.js setzt beides zusammen und
+// warnt, wenn man ihm dabei ins Handwerk pfuscht. `viewportFit: "cover"` lässt die Seite im
+// installierten Zustand bis an die Bildschirmkanten laufen – die Navigationsleiste unten
+// fängt den Bereich der Home-Anzeige über env(safe-area-inset-bottom) ab (globals.css).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#F2EFE9",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -29,10 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
           href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Karla:wght@400;500;600;700&display=swap"
         />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
       </head>
       <body>
         <HashSessionHandler />
+        <PwaBereit />
         <Providers>{children}</Providers>
       </body>
     </html>
