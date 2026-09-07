@@ -35,7 +35,7 @@ export function DetailModal(props: {
   onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
   onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
   onDeleteVehicle: (id: string) => void;
-  onCall: (cust: Customer) => void;
+  onCall: (e: React.MouseEvent, cust: Customer) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
 }) {
   const { customer: cust } = props;
@@ -66,7 +66,7 @@ export function DetailModal(props: {
             </button>
           )}
           {getPhoneNumbers(cust).length > 0 && (
-            <button className="call-icon-btn" onClick={() => props.onCall(cust)}>📞</button>
+            <button className="call-icon-btn" title="Anrufen" onClick={(e) => props.onCall(e, cust)}>📞</button>
           )}
         </div>
 

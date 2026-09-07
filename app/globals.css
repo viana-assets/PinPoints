@@ -85,6 +85,34 @@
     font-size:12.5px;font-weight:600;color:var(--text);background:var(--panel);border:none;
     font-family:inherit;user-select:none;}
   .map-style-toggle:hover{background:var(--hover);}
+  .map-style-toggle svg{width:16px;height:16px;flex:0 0 auto;}
+
+  /* ---------------- Zustandsfilter auf der Karte (oben rechts) ----------------
+     Gleiche Optik wie der Kartenansicht-Schalter unten links: es ist dieselbe Art
+     Bedienelement, nur in der anderen Ecke. Fest positioniert und NICHT innerhalb von #map,
+     weil Leaflet Zieh-Gesten am Kartencontainer abgreift – ein Kind darin würde beim Wischen
+     die Karte mitziehen. Die Kartenspalte reicht bis an den oberen Fensterrand, deshalb liegt
+     "oben rechts im Fenster" genau auf der Karte. */
+  #kartenFilter{position:fixed;top:12px;right:12px;z-index:900;width:max-content;}
+  .kartenfilter-badge{background:var(--accent);color:#fff;border-radius:999px;font-size:10.5px;
+    font-weight:700;min-width:17px;height:17px;display:inline-flex;align-items:center;
+    justify-content:center;padding:0 5px;}
+  .karten-filter-liste{border-top:1px solid var(--border);}
+  .karten-filter-zeile{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;
+    background:var(--panel);border:none;border-radius:0;font-family:inherit;font-size:12.5px;
+    font-weight:600;color:var(--text);cursor:pointer;text-align:left;}
+  .karten-filter-zeile:hover{background:var(--hover);}
+  /* Ausgeblendet heißt blass, nicht weg: die Zeile bleibt lesbar, damit man sieht, was fehlt. */
+  .karten-filter-zeile.aus{opacity:.45;}
+  .karten-filter-zeile .haken{width:12px;text-align:center;color:var(--green);}
+  .karten-filter-zeile .dot{margin-top:0;}
+  .karten-filter-zeile .zahl{margin-left:auto;padding-left:10px;color:var(--muted);
+    font-size:11.5px;font-weight:600;}
+  .karten-filter-alle{display:block;width:100%;padding:7px 12px;border:none;border-radius:0;
+    border-top:1px solid var(--border);background:var(--panel);font-family:inherit;
+    font-size:11.5px;font-weight:600;color:var(--accent);cursor:pointer;text-align:left;}
+  .karten-filter-alle:hover{background:var(--hover);}
+  .karten-filter-alle:disabled{color:var(--muted);cursor:default;background:var(--panel);}
   .map-style-icon{display:flex;color:var(--muted);}
   .map-style-panel{display:none;border-top:1px solid var(--border);padding:6px;min-width:196px;}
   .map-style-panel.open{display:block;}
@@ -330,9 +358,12 @@
   .nav-icon-btn svg{width:22px;height:22px;flex:0 0 auto;}
   .nav-icon-btn.small{width:24px;height:24px;}
   .nav-icon-btn.small svg{width:20px;height:20px;}
-  /* Pin in einer Kundenzeile: rechts außen, ohne den Abstand, den der Pin in Tabellenzellen
-     zum nächsten Symbol braucht. Oben ausgerichtet wie der Farbpunkt links. */
-  .zeilen-nav{margin-right:0;margin-top:1px;align-self:flex-start;}
+  /* Handlungen am rechten Rand einer Kundenzeile (Navigation, Anrufen). Eigener Kasten,
+     damit die Symbole einen gleichmäßigen Abstand haben und oben ausgerichtet stehen wie der
+     Farbpunkt links – unabhängig davon, wie viele Zeilen die Kundenangaben brauchen. */
+  .zeilen-aktionen{display:flex;align-items:center;gap:6px;flex:0 0 auto;align-self:flex-start;
+    margin-top:1px;}
+  .zeilen-aktionen .nav-icon-btn{margin-right:0;}
   .call-menu{position:fixed;z-index:20000;background:var(--panel);border:1px solid var(--border);border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.22);padding:6px;min-width:170px;
     max-height:min(360px, calc(100vh - 24px));overflow-y:auto;}
@@ -379,6 +410,9 @@
     #map.mobile-visible{display:block;}
     #sidebar.mobile-hidden{display:none;}
     #mapToggleBtn{display:flex;bottom:74px;right:16px;}
+    /* Am Handy liegt die Karte über allem oder gar nicht da – der Filter folgt ihr. */
+    #kartenFilter{display:none;}
+    #kartenFilter.mobile-sichtbar{display:block;}
     .modal-box{width:100%;max-width:100%;height:100%;max-height:100%;border-radius:0;}
     .modal-overlay{align-items:stretch;}
     .call-menu{min-width:min(220px, 90vw);}

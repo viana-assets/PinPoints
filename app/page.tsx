@@ -10,7 +10,8 @@ import type {
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
-  effectiveColor, KUNDEN_ZUSTAND_LABEL, type KundenZustand, telHref, getPhoneNumbers, navigationUrls,
+  effectiveColor, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
+  getPhoneNumbers, navigationUrls,
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
@@ -19,7 +20,7 @@ import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode"
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
   IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
-  IconNavPin, IconMarke, navPinSvgHtml,
+  IconNavPin, IconMarke, IconFilter, navPinSvgHtml,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -146,6 +147,16 @@ export default function HomePage() {
   const [plzFilter, setPlzFilter] = useState("");
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
   const [onlyUpcoming, setOnlyUpcoming] = useState(true);
+
+  // Welche Zustände auf der Karte zu sehen sind, dazu der Auf-/Zu-Zustand des Schalters oben
+  // rechts auf der Karte. Bewusst nur Sitzungszustand und NICHT in den Einstellungen: das ist
+  // eine Ansichtssache für den Moment ("zeig mir nur die offenen"), keine Grundeinstellung.
+  // Nach einem Neuladen ist wieder alles sichtbar – ein vergessener Filter kann so nicht
+  // dauerhaft Kunden verstecken, die man später vermisst.
+  const [sichtbareZustaende, setSichtbareZustaende] = useState<KundenZustand[]>(
+    () => [...KUNDEN_ZUSTAND_REIHENFOLGE]
+  );
+  const [kartenFilterOffen, setKartenFilterOffen] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Der gerade geöffnete Auftrag (Migration 20, docs/auftragsablauf.md). Er ersetzt das frühere
@@ -320,8 +331,8 @@ export default function HomePage() {
 
   // Aktuelle Daten/Handler als Ref, damit Leaflet-Popup-Callbacks (die außerhalb
   // des React-Renderzyklus leben) nie mit veralteten Closures arbeiten.
-  const liveRef = useRef({ customers, orders, settings });
-  liveRef.current = { customers, orders, settings };
+  const liveRef = useRef({ customers, orders, settings, sichtbareZustaende });
+  liveRef.current = { customers, orders, settings, sichtbareZustaende };
   const saveSettingsRef = useRef<(patch: Partial<UserSettings>) => Promise<void>>(async () => {});
 
   // Jede Funktion in lib/api wirft bei einem Supabase-Fehler eine ApiError (siehe
@@ -562,6 +573,8 @@ export default function HomePage() {
       // Auch nach einer Größenänderung neu bestimmen: kommt die Karte aus einem
       // Vollseiten-Modul zurück, ist der sichtbare Ausschnitt ein anderer als vorher.
       map.on("resize", syncMarkers);
+      // Wer auf die Karte tippt, will die Karte – nicht das offene Filterfeld darüber.
+      map.on("click", () => setKartenFilterOffen(false));
       syncMarkers();
     }
     void tryInit();
@@ -667,7 +680,7 @@ export default function HomePage() {
   function syncMarkers() {
     const L = leafletRef.current;
     if (!L || !markerLayerRef.current) return;
-    const { customers: custs, orders: ords, settings: s } = liveRef.current;
+    const { customers: custs, orders: ords, settings: s, sichtbareZustaende: sichtbar } = liveRef.current;
     // Nur zeichnen, was im Bild ist (Roadmap Phase 10). Bei ~4500 Kunden legte Leaflet vorher
     // 4500 DOM-Elemente an, von denen fast alle außerhalb des Ausschnitts lagen – Zoomen und
     // Verschieben wurden dadurch spürbar zäh. `pad` nimmt einen Rand mit, damit beim Schieben
@@ -680,10 +693,14 @@ export default function HomePage() {
     custs.forEach((cust) => {
       if (cust.active === false || cust.lat == null || cust.lng == null) return;
       if (grenzen && !grenzen.contains([cust.lat, cust.lng])) return;
+      // Ausgeblendete Zustände fallen VOR der Obergrenze raus: sonst würden unsichtbare Nadeln
+      // das Kontingent aufbrauchen und der Hinweis "weitere Kunden in diesem Ausschnitt"
+      // zählte Kunden mit, die man gar nicht sehen will.
+      const color = effectiveColor(cust, s.period_months);
+      if (!sichtbar.includes(color)) return;
       if (gezeichnet >= MAX_MARKER) { ausgelassen++; return; }
       gezeichnet++;
       seen.add(cust.id);
-      const color = effectiveColor(cust, s.period_months);
       const nextOrd = nextOrder(ordersForLive(cust.id, ords));
       let tooltip = `<b>${escapeHtml(cust.name)}</b><br>${escapeHtml(cust.address)}<br>` +
         (cust.status === "kontaktiert" && cust.last_contact ? `Letzter Kontakt: ${formatDate(cust.last_contact)}` : "Noch nicht kontaktiert");
@@ -718,7 +735,7 @@ export default function HomePage() {
   function ordersForLive(customerId: string, ords: Order[]) {
     return ords.filter((o) => o.customer_id === customerId);
   }
-  useEffect(() => { syncMarkers(); }, [customers, orders, settings.period_months]);
+  useEffect(() => { syncMarkers(); }, [customers, orders, settings.period_months, sichtbareZustaende]);
 
   // ---------------------------------------------------------------- Popup-Inhalt (imperativ, wie im Original)
   function buildPopupEl(customerId: string): HTMLElement {
@@ -807,15 +824,7 @@ export default function HomePage() {
       case "anrufen": {
         const cust = liveRef.current.customers.find((c) => c.id === kundenId);
         if (!cust) return;
-        const nums = getPhoneNumbers(cust);
-        // Eine Nummer: direkt wählen. Mehrere: erst fragen, welche.
-        if (nums.length <= 1) {
-          if (nums.length === 1) window.location.href = "tel:" + telHref(nums[0].number);
-          return;
-        }
-        const rect = ziel.getBoundingClientRect();
-        setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
-        setCallMenuFor(cust);
+        anrufAusloesen(cust, ziel.getBoundingClientRect());
         return;
       }
     }
@@ -1121,6 +1130,19 @@ export default function HomePage() {
     return z;
   }, [vorgefiltert, settings.period_months]);
 
+  // Zahlen für den Kartenfilter: gezählt wird, was überhaupt auf der Karte landen kann – also
+  // aktive Kunden MIT Position. Bewusst ohne Such- und Buchstabenfilter, denn die betreffen nur
+  // die Liste; die Karte zeigt immer alle. Sonst stünde am Schalter eine Zahl, die nicht zu dem
+  // passt, was man vor sich sieht.
+  const kartenZahlen = useMemo(() => {
+    const z: Record<KundenZustand, number> = { red: 0, orange: 0, green: 0, "kein-interesse": 0 };
+    activeCustomers.forEach((c) => {
+      if (c.lat == null || c.lng == null) return;
+      z[effectiveColor(c, settings.period_months)]++;
+    });
+    return z;
+  }, [activeCustomers, settings.period_months]);
+
   const listItems = useMemo(
     () =>
       vorgefiltert
@@ -1223,6 +1245,24 @@ export default function HomePage() {
     const margin = 8;
     if (buttonRect.bottom + 4 + estHeight <= window.innerHeight - margin) return buttonRect.bottom + 4;
     return Math.max(margin, buttonRect.top - 4 - estHeight);
+  }
+
+  // Anrufen – die einzige Stelle, an der das entschieden wird. Eine Nummer: sofort wählen,
+  // ohne Zwischenfrage. Mehrere: erst fragen, welche. Das stand bis zum 05.09.2026 an drei
+  // Stellen fast gleich im Code, mit drei verschiedenen Verhaltensweisen – im Kundenfenster
+  // erschien das Menü sogar immer an derselben Bildschirmecke statt am Knopf.
+  function anrufAusloesen(cust: Customer, rect: DOMRect) {
+    const nums = getPhoneNumbers(cust);
+    if (nums.length <= 1) {
+      if (nums.length === 1) window.location.href = "tel:" + telHref(nums[0].number);
+      return;
+    }
+    setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
+    setCallMenuFor(cust);
+  }
+  function openCallMenu(e: React.MouseEvent, cust: Customer) {
+    e.stopPropagation();
+    anrufAusloesen(cust, (e.currentTarget as HTMLElement).getBoundingClientRect());
   }
 
   // Navigations-Button in Auftrags-/Termin-Zeilen: fragt per kleinem Menü (wie beim
@@ -1451,18 +1491,24 @@ export default function HomePage() {
                         <div className="meta">📅 Termin: {formatDate(nextOrd.order_date)}</div>
                       )}
                     </div>
-                    {/* Navigation direkt aus der Liste: der häufigste nächste Schritt vor Ort
-                        ist hinfahren, nicht das Kundenfenster öffnen. openNavMenu hält den
-                        Klick auf, die Zeile öffnet also nicht zusätzlich das Fenster. */}
-                    {c.address.trim() && (
-                      <button
-                        className="call-icon-btn small nav-icon-btn zeilen-nav"
-                        title="Navigation starten (Google Maps / Apple Karten)"
-                        onClick={(e) => openNavMenu(e, c)}
-                      >
-                        <IconNavPin />
-                      </button>
-                    )}
+                    {/* Hinfahren und anrufen direkt aus der Liste: das sind die beiden
+                        Handlungen, die im Außendienst auf eine Kundenzeile folgen – nicht das
+                        Öffnen des Kundenfensters. Beide Handler halten den Klick auf, die Zeile
+                        öffnet also nicht zusätzlich das Fenster. */}
+                    <div className="zeilen-aktionen">
+                      {c.address.trim() && (
+                        <button
+                          className="call-icon-btn small nav-icon-btn"
+                          title="Navigation starten (Google Maps / Apple Karten)"
+                          onClick={(e) => openNavMenu(e, c)}
+                        >
+                          <IconNavPin />
+                        </button>
+                      )}
+                      {getPhoneNumbers(c).length > 0 && (
+                        <button className="call-icon-btn small" title="Anrufen" onClick={(e) => openCallMenu(e, c)}>📞</button>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -1519,15 +1565,7 @@ export default function HomePage() {
                               </button>
                             )}
                             {getPhoneNumbers(cust).length > 0 && (
-                              <button
-                                className="call-icon-btn small"
-                                title="Anrufen"
-                                onClick={(e) => {
-                                  const rect = (e.target as HTMLElement).getBoundingClientRect();
-                                  setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
-                                  setCallMenuFor(cust);
-                                }}
-                              >📞</button>
+                              <button className="call-icon-btn small" title="Anrufen" onClick={(e) => openCallMenu(e, cust)}>📞</button>
                             )}
                           </td>
                         </tr>
@@ -1746,6 +1784,64 @@ export default function HomePage() {
         )}
       </div>
 
+      {/* Zustandsfilter der Karte, oben rechts. Steht als Geschwister von #map und nicht darin:
+          ein Kind des Leaflet-Containers würde beim Wischen die Karte mitziehen, weil Leaflet
+          seine Zieh-Geste am Container abgreift. Am Handy ist er der einzige Weg zu dieser
+          Auswahl – dort sieht man die Kundenliste nicht, während die Karte offen ist. Am
+          Desktop steht er trotzdem: sonst gäbe es eine Auswahl, die man am Handy trifft und am
+          Rechner nicht mehr findet. */}
+      {!fullPageTabs && (
+        <div id="kartenFilter" className={"map-style-control" + (mobileMapVisible ? " mobile-sichtbar" : "")}>
+          <button
+            type="button"
+            className="map-style-toggle"
+            onClick={() => setKartenFilterOffen((o) => !o)}
+            aria-expanded={kartenFilterOffen}
+            title="Nadeln nach Zustand ein- und ausblenden"
+          >
+            <IconFilter />
+            <span>Nadeln</span>
+            {sichtbareZustaende.length < KUNDEN_ZUSTAND_REIHENFOLGE.length && (
+              <span className="kartenfilter-badge">{KUNDEN_ZUSTAND_REIHENFOLGE.length - sichtbareZustaende.length}</span>
+            )}
+          </button>
+          {kartenFilterOffen && (
+            <div className="karten-filter-liste">
+              {KUNDEN_ZUSTAND_REIHENFOLGE.map((zustand) => {
+                const an = sichtbareZustaende.includes(zustand);
+                return (
+                  <button
+                    key={zustand}
+                    type="button"
+                    className={"karten-filter-zeile" + (an ? "" : " aus")}
+                    onClick={() =>
+                      setSichtbareZustaende((bisher) =>
+                        bisher.includes(zustand) ? bisher.filter((z) => z !== zustand) : [...bisher, zustand]
+                      )
+                    }
+                  >
+                    <span className="haken">{an ? "✓" : ""}</span>
+                    <span className={`dot ${zustand}`}></span>
+                    <span>{KUNDEN_ZUSTAND_LABEL[zustand]}</span>
+                    <span className="zahl">{kartenZahlen[zustand]}</span>
+                  </button>
+                );
+              })}
+              {/* Ein Weg zurück, ohne vier Mal zu tippen – und zugleich die Antwort auf
+                  "warum fehlt hier eine Nadel?". */}
+              <button
+                type="button"
+                className="karten-filter-alle"
+                onClick={() => setSichtbareZustaende([...KUNDEN_ZUSTAND_REIHENFOLGE])}
+                disabled={sichtbareZustaende.length === KUNDEN_ZUSTAND_REIHENFOLGE.length}
+              >
+                Alle einblenden
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {!fullPageTabs && (
         <button id="mapToggleBtn" type="button" onClick={toggleMobileMap} title={mobileMapVisible ? "Liste anzeigen" : "Karte anzeigen"}>
           {mobileMapVisible ? <IconKunden /> : <IconMap />}
@@ -1882,11 +1978,7 @@ export default function HomePage() {
           onUpdateVehicle={updateVehicle}
           onDeleteVehicle={deleteVehicle}
           onNavigate={openNavMenu}
-          onCall={(cust) => {
-            const nums = getPhoneNumbers(cust);
-            if (nums.length === 1) window.location.href = "tel:" + telHref(nums[0].number);
-            else if (nums.length > 1) { setCallMenuPos({ top: 80, left: 80 }); setCallMenuFor(cust); }
-          }}
+          onCall={openCallMenu}
         />
       )}
 
