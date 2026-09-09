@@ -48,9 +48,14 @@ export function Providers({ children }: { children: React.ReactNode }) {
             // Fehler werden zentral angezeigt (siehe app/page.tsx), nicht stillschweigend
             // wiederholt. Ein einziger erneuter Versuch fängt kurze Netzaussetzer ab.
             retry: 1,
-            // Beim Zurückkehren ins Fenster nicht automatisch neu laden – die Anwendung wird
-            // im Außendienst am Handy benutzt, dort ist jeder unnötige Abruf teuer.
-            refetchOnWindowFocus: false,
+            // Beim Zurückkehren ins Fenster neu laden – aber nur, was älter ist als
+            // `staleTime` (eine Minute, siehe lib/queries/hooks.ts). Bis 09.09.2026 stand hier
+            // `false`, um im Außendienst Daten zu sparen. Die Rechnung ging nicht auf: eine
+            // installierte App wird am Handy nie geschlossen, sondern nur weggelegt und wieder
+            // hervorgeholt – ohne Neuladen beim Hervorholen zeigte sie stundenlang den Stand
+            // vom Vormittag, während am Rechner längst neue Aufträge standen. Ein Abruf pro
+            // Minute und nur für die gerade sichtbaren Listen ist der bessere Handel.
+            refetchOnWindowFocus: true,
             // Muss mindestens so lang sein wie das Höchstalter des Speichers: ein Bestand,
             // den der Zwischenspeicher nach fünf Minuten wegwirft (Voreinstellung), wird beim
             // nächsten Start gar nicht erst wiederhergestellt.

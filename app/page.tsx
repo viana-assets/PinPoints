@@ -1929,6 +1929,8 @@ export default function HomePage() {
             isSuperAdmin={isSuperAdmin}
             userEmail={userEmail}
             datenStand={kundenQuery.dataUpdatedAt}
+            onAktualisieren={() => { void queryClient.invalidateQueries(); }}
+            laedt={kundenQuery.isFetching || auftraegeQuery.isFetching}
             onLogout={handleLogout}
           />
         )}

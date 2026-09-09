@@ -12,12 +12,16 @@ import { standText } from "@/components/OfflineHinweis";
 // dort als eigener Reiter erreichbar – ein zweiter Weg an anderer Stelle macht die
 // Einstellungen unübersichtlich und lässt offen, welcher der "richtige" ist. `isAdmin` bleibt
 // als Prop, weil die Zeile "Angemeldet als …" die Rolle mit ausweist.
-export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, datenStand, onLogout }: {
+export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, datenStand, onAktualisieren, laedt, onLogout }: {
   settings: UserSettings; onChange: (p: Partial<UserSettings>) => void; isAdmin: boolean; isSuperAdmin: boolean; userEmail: string;
   // Wann der Kundenbestand zuletzt wirklich vom Server kam. Steht hier dauerhaft und nicht nur
   // im Offline-Balken: Wer wissen will, wie frisch seine Daten sind, sucht das in den
   // Einstellungen – und nicht erst dann, wenn ohnehin gerade kein Netz da ist.
   datenStand?: number;
+  // Alles neu vom Server holen. Der Knopf steht neben dem Stand, weil genau dort die Frage
+  // entsteht: „das ist alt – wie komme ich an den aktuellen Stand?"
+  onAktualisieren: () => void;
+  laedt?: boolean;
   onLogout: () => void;
 }) {
   const [period, setPeriod] = useState(settings.period_months);
@@ -47,6 +51,14 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userE
       <hr />
       <div className="small">
         Daten zuletzt geladen: {datenStand ? standText(datenStand) : "noch nicht"}
+      </div>
+      <button className="btn-secondary btn-block" style={{ marginTop: 6 }} disabled={laedt} onClick={onAktualisieren}>
+        {laedt ? "Wird geladen…" : "Jetzt aktualisieren"}
+      </button>
+      <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+        Die App lädt beim Öffnen und beim Zurückholen aus dem Hintergrund automatisch nach.
+        Benachrichtigungen hängen nicht davon ab – die verschickt der Server aus der Datenbank,
+        auch wenn dieses Gerät gerade einen älteren Stand anzeigt.
       </div>
       <hr />
       <div className="small">Angemeldet als {userEmail}{isSuperAdmin ? " (Superadmin)" : isAdmin ? " (Admin)" : ""}</div>
