@@ -17,7 +17,7 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v1";
+const FASSUNG = "v2";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 const OFFLINE_SEITE = "/offline.html";
 const HUELLE = "/";
@@ -45,6 +45,58 @@ self.addEventListener("activate", (ereignis) => {
 
 self.addEventListener("message", (ereignis) => {
   if (ereignis.data === "UEBERNIMM") self.skipWaiting();
+});
+
+// ---------------------------------------------------------------- Benachrichtigungen
+//
+// Der Inhalt kommt verschlüsselt vom eigenen Server (app/api/push/*). Apple und Google leiten
+// ihn nur weiter und können ihn nicht lesen; sichtbar wird er erst hier.
+//
+// `userVisibleOnly` ist bei der Anmeldung Pflicht: Jede empfangene Nachricht MUSS zu einer
+// angezeigten Meldung führen. Wer hier nichts anzeigt, bekommt vom Browser irgendwann die
+// Erlaubnis entzogen – deshalb steht am Ende immer ein showNotification, auch wenn die Daten
+// unlesbar sind.
+self.addEventListener("push", (ereignis) => {
+  let daten = {};
+  try {
+    daten = ereignis.data ? ereignis.data.json() : {};
+  } catch {
+    daten = {};
+  }
+  const titel = daten.titel || "Viana PinPoints";
+  ereignis.waitUntil(
+    self.registration.showNotification(titel, {
+      body: daten.text || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      // Die Zieladresse reist mit der Meldung und wird beim Antippen unten ausgewertet.
+      data: { url: daten.url || "/" },
+      // Gleiche Kennung ersetzt eine noch offene Meldung, statt eine zweite daneben zu legen –
+      // zwei Erinnerungen zu demselben Termin wären nur Lärm.
+      tag: daten.kennung || undefined,
+    })
+  );
+});
+
+// Antippen soll dort landen, wo man weiterarbeitet – nicht auf der Startseite. Ist die App
+// schon offen, wird dieses Fenster nach vorn geholt und umgeleitet, statt ein zweites zu
+// öffnen: zwei Fenster derselben App nebeneinander sind eine sichere Quelle für Verwirrung.
+self.addEventListener("notificationclick", (ereignis) => {
+  ereignis.notification.close();
+  const ziel = (ereignis.notification.data && ereignis.notification.data.url) || "/";
+  ereignis.waitUntil(
+    (async () => {
+      const fenster = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const f of fenster) {
+        if (new URL(f.url).origin === self.location.origin) {
+          await f.focus();
+          if ("navigate" in f) await f.navigate(ziel).catch(() => {});
+          return;
+        }
+      }
+      await self.clients.openWindow(ziel);
+    })()
+  );
 });
 
 self.addEventListener("fetch", (ereignis) => {
