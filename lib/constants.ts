@@ -125,6 +125,18 @@ export const EMP_COLORS = ["#FF5A1F", "#1E9B6E", "#1E3A5F", "#8a5cf6", "#e0447a"
 // müssen: Knopf, Filterbedingung und Zählung.
 export type KundenFilter = "all" | "offen" | "ok" | "wiedervorlage" | "kein_interesse" | "nogeo";
 
+// Zeitraum-Filter des Termine-Reiters. Steht hier und nicht in app/page.tsx, weil Liste UND
+// Karte damit gefiltert werden – zwei Stellen, eine Werteliste (Konstanten-Regel).
+export type TerminFilter = "heute" | "morgen" | "woche" | "anstehend" | "alle";
+
+export const TERMIN_FILTER: { wert: TerminFilter; text: string }[] = [
+  { wert: "heute", text: "Heute" },
+  { wert: "morgen", text: "Morgen" },
+  { wert: "woche", text: "7 Tage" },
+  { wert: "anstehend", text: "Anstehend" },
+  { wert: "alle", text: "Alle" },
+];
+
 export const KUNDEN_FILTER: { wert: KundenFilter; text: string }[] = [
   { wert: "all", text: "Alle" },
   { wert: "offen", text: "Offen" },

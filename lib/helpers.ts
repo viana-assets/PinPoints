@@ -138,6 +138,29 @@ export function currentArticlePrice(prices: ArticlePrice[], onDate?: string): Ar
   return candidates[0] || null;
 }
 
+// Prüft, ob ein geänderter Preiszeitraum sich mit einem anderen Preis DESSELBEN Artikels
+// überschneidet – die eigene Zeile (`priceId`) bleibt dabei außen vor. Die Datenbank lehnt
+// Überschneidungen seit Migration 18 ohnehin ab; hier geht es darum, das vorher zu merken und
+// verständlich zu melden statt einen Constraint-Namen anzuzeigen. `valid_to = null` heißt
+// "bis auf Weiteres" und wird als fernes Datum behandelt.
+export const OFFENES_ENDE = "9999-12-31";
+
+export function preisZeitraumKollision(
+  prices: ArticlePrice[],
+  priceId: string,
+  articleId: string,
+  validFrom: string,
+  validTo: string | null
+): boolean {
+  return prices.some(
+    (p) =>
+      p.id !== priceId &&
+      p.article_id === articleId &&
+      p.valid_from <= (validTo ?? OFFENES_ENDE) &&
+      (p.valid_to ?? OFFENES_ENDE) >= validFrom
+  );
+}
+
 // Netto-, MwSt.- und Brutto-Summe der einem Auftrag zugeordneten Artikel-Positionen, jeweils
 // unter Berücksichtigung von Menge und individuellem Rabatt je Position.
 export function orderArticleTotals(rows: OrderArticle[]): { net: number; vat: number; gross: number } {

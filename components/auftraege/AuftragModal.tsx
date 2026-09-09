@@ -124,6 +124,16 @@ export function AuftragModal({
   const fahrzeug = vehicles.find((v) => v.id === fahrzeugId);
   const feldeAendern = !gesperrt && !isTechniker;
 
+  // Die Uhrzeit ist Pflicht, sobald jemand die Auftragsfelder überhaupt ändern darf.
+  //
+  // Warum nicht in der Datenbank erzwungen: Der Auftrag entsteht mit einem Klick auf der Karte
+  // und ist in dieser Sekunde noch ohne Uhrzeit – eine NOT-NULL-Bedingung würde genau diesen
+  // Weg verbauen. Die Regel greift deshalb dort, wo die Angabe hingehört: beim Speichern.
+  //
+  // Warum an `feldeAendern` gebunden: Ein Techniker darf nur seine Notiz schreiben. Ihn wegen
+  // einer fehlenden Uhrzeit auszusperren, die er gar nicht setzen darf, wäre eine Sackgasse.
+  const zeitFehlt = feldeAendern && !zeit.trim();
+
   function fahrzeugText(v: Vehicle): string {
     return [v.license_plate, v.make_model, v.tire_size].filter(Boolean).join(" · ") || "Fahrzeug ohne Angaben";
   }
@@ -186,7 +196,13 @@ export function AuftragModal({
               <span className="gespeichert-haken" role="status">✓ Gespeichert</span>
             )}
             {geaendert && !gesperrt && (
-              <button type="button" className="btn-primary" onClick={speichern} disabled={speichert}>
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={speichern}
+                disabled={speichert || zeitFehlt}
+                title={zeitFehlt ? "Bitte zuerst eine Uhrzeit eintragen." : undefined}
+              >
                 {speichert ? "Speichert …" : "Speichern"}
               </button>
             )}
@@ -200,7 +216,7 @@ export function AuftragModal({
             <div className="auftrag-nachfrage-knoepfe">
               <button type="button" className="btn-secondary" onClick={() => setSchliessenNachfrage(false)}>Zurück</button>
               <button type="button" className="btn-secondary" style={{ color: "#b33" }} onClick={onClose}>Verwerfen</button>
-              <button type="button" className="btn-primary" disabled={speichert} onClick={async () => { await speichern(); onClose(); }}>
+              <button type="button" className="btn-primary" disabled={speichert || zeitFehlt} onClick={async () => { await speichern(); onClose(); }}>
                 Speichern und schließen
               </button>
             </div>
@@ -269,10 +285,23 @@ export function AuftragModal({
                   <div className="field" style={{ flex: 1 }}><label>Datum</label>
                     <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
                   </div>
-                  <div className="field" style={{ flex: 1 }}><label>Uhrzeit (optional)</label>
-                    <input type="time" value={zeit} onChange={(e) => setZeit(e.target.value)} />
+                  <div className="field" style={{ flex: 1 }}>
+                    <label>Uhrzeit</label>
+                    <input
+                      type="time"
+                      value={zeit}
+                      onChange={(e) => setZeit(e.target.value)}
+                      aria-invalid={zeitFehlt}
+                      className={zeitFehlt ? "feld-fehlt" : undefined}
+                    />
                   </div>
                 </div>
+                {zeitFehlt && (
+                  <div className="hinweis-pflicht">
+                    Ohne Uhrzeit lässt sich der Auftrag nicht speichern. Wird sie jetzt nicht
+                    festgehalten, muss der Kunde später noch einmal angerufen werden.
+                  </div>
+                )}
                 <div className="field"><label>Beschreibung</label>
                   <textarea value={beschreibung} onChange={(e) => setBeschreibung(e.target.value)} />
                 </div>

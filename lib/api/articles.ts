@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Article, ArticlePrice } from "@/lib/types";
-import { currentArticlePrice, DEFAULT_VAT_RATE } from "@/lib/helpers";
+import { currentArticlePrice, preisZeitraumKollision, DEFAULT_VAT_RATE } from "@/lib/helpers";
 import { fetchPaged, qWrite } from "./client";
 
 // Datenzugriffsschicht für das Artikelstammdatenbuch (Migration 12): Artikel, Preis-Historie
@@ -79,6 +79,71 @@ export async function insertArticlePrice(
     "Der neue Preis konnte nicht gespeichert werden",
     supabase.from("article_prices").insert({ article_id: articleId, net_price: netPrice, vat_rate: vatRate, valid_from: validFrom })
   );
+}
+
+// Korrigiert einen bereits erfassten Preis. Gedacht für den Tippfehler unmittelbar nach der
+// Eingabe – ohne diese Möglichkeit bliebe nur, einen zweiten Preis "ab morgen" nachzuschieben
+// und die falsche Zeile für immer in der Historie stehen zu lassen.
+//
+// Für schon geschriebene Auftragspositionen ist das ungefährlich: die speichern ihren Preis als
+// Schnappschuss (siehe insertOrderArticle), eine Korrektur hier wirkt also nicht rückwirkend auf
+// bestehende Aufträge. Wer einen Auftrag zum korrigierten Preis will, entfernt die Position und
+// ordnet sie neu zu.
+//
+// Überschneidungen werden vorher abgefangen und als Text gemeldet: die Datenbank lehnt sie seit
+// Migration 18 ohnehin ab (article_prices_kein_ueberlapp), aber mit einer Meldung, die niemand
+// versteht.
+export async function updateArticlePrice(
+  supabase: SupabaseClient,
+  existingPrices: ArticlePrice[],
+  priceId: string,
+  netPrice: number,
+  vatRate: number,
+  validFrom: string,
+  validTo: string | null
+): Promise<{ error?: string }> {
+  const eigen = existingPrices.find((p) => p.id === priceId);
+  if (!eigen) return { error: "Dieser Preis wurde zwischenzeitlich entfernt." };
+  if (validTo && validTo < validFrom) return { error: "Das Enddatum liegt vor dem Startdatum." };
+
+  if (preisZeitraumKollision(existingPrices, priceId, eigen.article_id, validFrom, validTo)) {
+    return { error: "Dieser Zeitraum überschneidet sich mit einem anderen Preis dieses Artikels." };
+  }
+
+  await qWrite(
+    "Der Preis konnte nicht geändert werden",
+    supabase
+      .from("article_prices")
+      .update({ net_price: netPrice, vat_rate: vatRate, valid_from: validFrom, valid_to: validTo })
+      .eq("id", priceId)
+  );
+  return {};
+}
+
+// Entfernt eine Preiszeile ganz – für den Fall, dass sie versehentlich angelegt wurde. Der
+// unmittelbare Vorgänger wird dabei wieder geöffnet (übernimmt das Ende der gelöschten Zeile),
+// sonst entstünde eine Lücke, in der der Artikel gar keinen Preis hätte.
+export async function deleteArticlePrice(
+  supabase: SupabaseClient,
+  existingPrices: ArticlePrice[],
+  priceId: string
+): Promise<void> {
+  const eigen = existingPrices.find((p) => p.id === priceId);
+  await qWrite(
+    "Der Preis konnte nicht entfernt werden",
+    supabase.from("article_prices").delete().eq("id", priceId)
+  );
+  if (!eigen) return;
+
+  const vorgaenger = existingPrices
+    .filter((p) => p.id !== priceId && p.article_id === eigen.article_id && p.valid_from < eigen.valid_from)
+    .sort((a, b) => b.valid_from.localeCompare(a.valid_from))[0];
+  if (vorgaenger) {
+    await qWrite(
+      "Der vorherige Preiszeitraum konnte nicht wieder geöffnet werden",
+      supabase.from("article_prices").update({ valid_to: eigen.valid_to }).eq("id", vorgaenger.id)
+    );
+  }
 }
 
 // Legt eine Auftrags-Artikelzeile an, mit dem aktuell gültigen Preis (aus `existingPrices`) als

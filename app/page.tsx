@@ -15,7 +15,10 @@ import {
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
-import { KUNDEN_FILTER, type KundenFilter, ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS } from "@/lib/constants";
+import {
+  KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
+  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS,
+} from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
@@ -47,6 +50,7 @@ import {
 } from "@/lib/api/lager";
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
+  updateArticlePrice as updateArticlePriceApi, deleteArticlePrice as deleteArticlePriceApi,
   insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleDiscountById, deleteOrderArticleById,
 } from "@/lib/api/articles";
 import {
@@ -148,7 +152,8 @@ export default function HomePage() {
   const [filter, setFilter] = useState<KundenFilter>("all");
   const [plzFilter, setPlzFilter] = useState("");
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
-  const [onlyUpcoming, setOnlyUpcoming] = useState(true);
+  // Zeitraum des Termine-Reiters. Steuert Liste UND Kartennadeln – siehe terminKundenIds.
+  const [terminFilter, setTerminFilter] = useState<TerminFilter>("anstehend");
 
   // Welche Zustände auf der Karte zu sehen sind, dazu der Auf-/Zu-Zustand des Schalters oben
   // rechts auf der Karte. Bewusst nur Sitzungszustand und NICHT in den Einstellungen: das ist
@@ -354,6 +359,9 @@ export default function HomePage() {
   // des React-Renderzyklus leben) nie mit veralteten Closures arbeiten.
   const liveRef = useRef({ customers, orders, settings, sichtbareZustaende });
   liveRef.current = { customers, orders, settings, sichtbareZustaende };
+  // Getrennt von liveRef, weil die Menge erst weiter unten entsteht (sie hängt an den
+  // gefilterten Terminen) – und syncMarkers läuft außerhalb des React-Renderzyklus.
+  const terminKundenRef = useRef<Set<string> | null>(null);
   const saveSettingsRef = useRef<(patch: Partial<UserSettings>) => Promise<void>>(async () => {});
 
   // Jede Funktion in lib/api wirft bei einem Supabase-Fehler eine ApiError (siehe
@@ -496,6 +504,18 @@ export default function HomePage() {
   }
   async function addArticlePrice(articleId: string, netPrice: number, vatRate: number, validFrom: string) {
     await insertArticlePrice(supabase, articlePrices, articleId, netPrice, vatRate, validFrom);
+    await refreshArticlePrices();
+  }
+  // Korrektur einer bestehenden Preiszeile (Tippfehler). Ein abgelehnter Zeitraum ist ein
+  // Bedienfehler und kommt als Text zurück an die Eingabemaske – nicht als Störungsmeldung.
+  async function updateArticlePrice(priceId: string, netPrice: number, vatRate: number, validFrom: string, validTo: string | null): Promise<string | null> {
+    const { error } = await updateArticlePriceApi(supabase, articlePrices, priceId, netPrice, vatRate, validFrom, validTo);
+    if (error) return error;
+    await refreshArticlePrices();
+    return null;
+  }
+  async function deleteArticlePrice(priceId: string) {
+    await deleteArticlePriceApi(supabase, articlePrices, priceId);
     await refreshArticlePrices();
   }
   async function addOrderArticle(orderId: string, articleId: string, quantity: number, discountPercent: number) {
@@ -754,6 +774,9 @@ export default function HomePage() {
       // zählte Kunden mit, die man gar nicht sehen will.
       const color = effectiveColor(cust, s.period_months);
       if (!sichtbar.includes(color)) return;
+      // Im Reiter „Termine" bleiben alle Kunden ohne Termin im gewählten Zeitraum außen vor.
+      const nurTermine = terminKundenRef.current;
+      if (nurTermine && !nurTermine.has(cust.id)) return;
       if (gezeichnet >= MAX_MARKER) { ausgelassen++; return; }
       gezeichnet++;
       seen.add(cust.id);
@@ -1253,15 +1276,62 @@ export default function HomePage() {
     [tireStorages]
   );
 
-  const apptRows = useMemo(
+  // Alle Termine (= Aufträge mit Datum) aktiver Kunden, chronologisch. Der Zeitraumfilter
+  // greift erst danach, damit an jedem Filterknopf seine eigene Trefferzahl stehen kann –
+  // dasselbe Muster wie bei den Kundenfiltern.
+  const alleTermine = useMemo(
     () =>
       customers
         .filter((c) => c.active !== false)
         .flatMap((c) => (auftraegeJeKunde[c.id] || KEINE_AUFTRAEGE).map((o) => ({ cust: c, order: o, past: isOrderPast(o) })))
-        .filter((r) => !onlyUpcoming || !r.past)
         .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime()),
-    [customers, auftraegeJeKunde, onlyUpcoming]
+    [customers, auftraegeJeKunde]
   );
+
+  function imZeitraum(r: { order: Order; past: boolean }, wert: TerminFilter): boolean {
+    if (wert === "alle") return true;
+    if (wert === "anstehend") return !r.past;
+    const heute = todayStr();
+    if (wert === "heute") return r.order.order_date === heute;
+    const morgen = new Date(heute + "T00:00:00");
+    morgen.setDate(morgen.getDate() + 1);
+    const morgenStr = morgen.toISOString().slice(0, 10);
+    if (wert === "morgen") return r.order.order_date === morgenStr;
+    // 7 Tage: ab heute, sieben Tage nach vorn – die Woche, die man planen kann.
+    const grenze = new Date(heute + "T00:00:00");
+    grenze.setDate(grenze.getDate() + 7);
+    return r.order.order_date >= heute && r.order.order_date <= grenze.toISOString().slice(0, 10);
+  }
+
+  const apptRows = useMemo(
+    () => alleTermine.filter((r) => imZeitraum(r, terminFilter)),
+    [alleTermine, terminFilter]
+  );
+
+  const terminZahlen = useMemo(() => {
+    const z = { heute: 0, morgen: 0, woche: 0, anstehend: 0, alle: alleTermine.length };
+    alleTermine.forEach((r) => {
+      if (imZeitraum(r, "heute")) z.heute++;
+      if (imZeitraum(r, "morgen")) z.morgen++;
+      if (imZeitraum(r, "woche")) z.woche++;
+      if (!r.past) z.anstehend++;
+    });
+    return z;
+  }, [alleTermine]);
+
+  // Welche Kunden gehören zu den gerade sichtbaren Terminen? Im Reiter „Termine" zeigt die
+  // Karte nur diese – sonst stünden dort weiterhin alle 300 Kunden und die Frage „wo liegen
+  // meine Termine morgen" bliebe unbeantwortet. `null` heißt: keine Einschränkung.
+  const terminKundenIds = useMemo(
+    () => (tab === "termine" ? new Set(apptRows.map((r) => r.cust.id)) : null),
+    [tab, apptRows]
+  );
+  terminKundenRef.current = terminKundenIds;
+  // Eigener Effekt und nicht als weitere Abhängigkeit oben: `terminKundenIds` entsteht erst
+  // hier, der Karteneffekt steht viel weiter oben bei den übrigen Karten-Sachen. Ein Hook, der
+  // eine noch nicht deklarierte Variable liest, ist zur Laufzeit ein Fehler – und einer, den
+  // TypeScript nur sieht, weil die Abhängigkeitsliste ihn direkt nennt.
+  useEffect(() => { syncMarkers(); }, [terminKundenIds]);
 
   // Aufruf über einen QR-Aufkleber am Regal: die App öffnet sich mit ?lagerplatz=‹Kennung›.
   // Bewusst über `window.location` statt `useSearchParams()`: dieser Baum ist vollständig auf
@@ -1603,13 +1673,31 @@ export default function HomePage() {
             eigene Schaltfläche in der Zeile erreichbar. */}
         {tab === "termine" && canView("termine") && (
           <div className="tabpanel active">
-            <div className="checkbox-row" style={{ marginTop: 0 }}>
-              <input type="checkbox" checked={onlyUpcoming} onChange={(e) => setOnlyUpcoming(e.target.checked)} />
-              <label>Nur anstehende Termine zeigen</label>
+            {/* Zeitraum statt Häkchen: „Nur anstehende" beantwortete die eigentliche Frage
+                nicht – die lautet „wo bin ich heute" bzw. „wie liegen die Termine der Woche".
+                Die Auswahl steuert zugleich die Nadeln auf der Karte. */}
+            <div className="filterbar">
+              {TERMIN_FILTER.map(({ wert, text }) => (
+                <button
+                  key={wert}
+                  type="button"
+                  className={"chip" + (terminFilter === wert ? " active" : "")}
+                  onClick={() => setTerminFilter(wert)}
+                >
+                  {text}<span className="chip-zahl">{terminZahlen[wert]}</span>
+                </button>
+              ))}
+            </div>
+            <div className="small" style={{ marginTop: -2 }}>
+              Die Karte zeigt in diesem Reiter nur die Kunden mit Terminen aus dem gewählten
+              Zeitraum.
             </div>
             <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
               {apptRows.length === 0 ? (
-                <div className="empty">Keine Termine gefunden.</div>
+                <div className="empty">
+                  Keine Termine in diesem Zeitraum.
+                  {terminZahlen.alle > 0 && terminFilter !== "alle" && ' Unter "Alle" stehen ältere.'}
+                </div>
               ) : (
                 <table className="appt-table">
                   <thead><tr><th>Termin</th><th>Kunde</th><th>Auftrag</th><th></th></tr></thead>
@@ -1841,6 +1929,8 @@ export default function HomePage() {
             onUpdateArticle={updateArticle}
             onUpdateArticleNumber={updateArticleNumber}
             onAddArticlePrice={addArticlePrice}
+            onUpdateArticlePrice={updateArticlePrice}
+            onDeleteArticlePrice={deleteArticlePrice}
           />
         )}
       </div>
@@ -1851,6 +1941,9 @@ export default function HomePage() {
             heruntergeladen werden (siehe docs/pwa-plan.md). */}
         {istOffline && (
           <div className="map-hinweis">Offline – der Kartenhintergrund fehlt. Die Nadeln stammen aus dem gespeicherten Stand.</div>
+        )}
+        {tab === "termine" && terminKundenIds?.size === 0 && !istOffline && (
+          <div className="map-hinweis">Keine Termine im gewählten Zeitraum.</div>
         )}
         {ausgelasseneMarker > 0 && !fullPageTabs && (
           <div className="map-hinweis">

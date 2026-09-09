@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { currentArticlePrice, orderArticleTotals, terminTitel, DEFAULT_VAT_RATE } from "@/lib/helpers";
+import { currentArticlePrice, orderArticleTotals, preisZeitraumKollision, terminTitel, DEFAULT_VAT_RATE } from "@/lib/helpers";
 import type { ArticlePrice, OrderArticle } from "@/lib/types";
 
 // Diese Funktionen tragen später die Rechnungsstellung (docs/roadmap.md Phase 5). Ein Fehler
@@ -113,5 +113,37 @@ describe("terminTitel", () => {
 
   it("entfernt überflüssigen Leerraum um den Namen", () => {
     expect(terminTitel("  Daniel Hartman  ")).toBe("Termin – Daniel Hartman");
+  });
+});
+
+// Preiskorrektur (Tippfehler direkt nach der Eingabe): die Prüfung muss dieselbe Grenze ziehen
+// wie der Datenbank-Constraint aus Migration 18 – sonst sieht der Nutzer eine unverständliche
+// Constraint-Meldung statt eines Satzes.
+describe("preisZeitraumKollision", () => {
+  const bestand = [
+    preis({ id: "alt", valid_from: "2026-01-01", valid_to: "2026-05-31" }),
+    preis({ id: "neu", valid_from: "2026-06-01", valid_to: null }),
+    preis({ id: "fremd", article_id: "a2", valid_from: "2026-01-01", valid_to: null }),
+  ];
+
+  it("erlaubt das Ändern der eigenen Zeile in ihrem eigenen Zeitraum", () => {
+    expect(preisZeitraumKollision(bestand, "alt", "a1", "2026-01-01", "2026-05-31")).toBe(false);
+  });
+
+  it("erlaubt das Verschieben in eine freie Lücke", () => {
+    const mitLuecke = [preis({ id: "neu", valid_from: "2026-06-01", valid_to: null })];
+    expect(preisZeitraumKollision(mitLuecke, "alt", "a1", "2026-01-01", "2026-05-31")).toBe(false);
+  });
+
+  it("erkennt die Überschneidung um einen einzigen Tag", () => {
+    expect(preisZeitraumKollision(bestand, "alt", "a1", "2026-01-01", "2026-06-01")).toBe(true);
+  });
+
+  it("behandelt ein offenes Ende als bis auf Weiteres", () => {
+    expect(preisZeitraumKollision(bestand, "alt", "a1", "2026-01-01", null)).toBe(true);
+  });
+
+  it("stört sich nicht an einem anderen Artikel", () => {
+    expect(preisZeitraumKollision(bestand, "fremd", "a2", "2026-03-01", null)).toBe(false);
   });
 });

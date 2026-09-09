@@ -34,7 +34,19 @@ export async function POST() {
     .from("push_geraete")
     .select("endpoint,p256dh,auth")
     .eq("profile_id", user.id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // Fehlt die Tabelle, ist keine Migration gelaufen – das gehört im Klartext gesagt, sonst
+    // sucht man den Fehler beim Push-Dienst statt in der Datenbank.
+    const fehlt = error.code === "PGRST205" || /push_geraete/.test(error.message);
+    return NextResponse.json(
+      {
+        error: fehlt
+          ? "Auf dem Server fehlt die Tabelle push_geraete – Migration 26 wurde in Supabase noch nicht ausgeführt."
+          : error.message,
+      },
+      { status: 500 }
+    );
+  }
   if (!geraete || geraete.length === 0) {
     return NextResponse.json({ error: "Für dieses Konto ist kein Gerät angemeldet." }, { status: 400 });
   }

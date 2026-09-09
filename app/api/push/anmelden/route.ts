@@ -33,7 +33,20 @@ export async function POST(request: Request) {
       },
       { onConflict: "endpoint" }
     );
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // PGRST205 heißt: die Tabelle gibt es (noch) nicht. Das ist kein Rätsel, sondern eine
+    // vergessene Migration – also auch so benennen, statt die rohe PostgREST-Meldung
+    // durchzureichen.
+    const fehlt = error.code === "PGRST205" || /push_geraete/.test(error.message);
+    return NextResponse.json(
+      {
+        error: fehlt
+          ? "Auf dem Server fehlt die Tabelle push_geraete – Migration 26 wurde in Supabase noch nicht ausgeführt."
+          : error.message,
+      },
+      { status: 500 }
+    );
+  }
 
   return NextResponse.json({ ok: true });
 }

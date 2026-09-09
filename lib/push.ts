@@ -60,7 +60,29 @@ export async function pushLage(): Promise<PushLage> {
 
   const anmeldung = await navigator.serviceWorker.ready;
   const vorhanden = await anmeldung.pushManager.getSubscription();
-  return vorhanden ? "an" : "aus";
+  if (!vorhanden) return "aus";
+
+  // Ein Abo im Browser allein heißt noch nicht, dass der Server das Gerät kennt – schlug das
+  // Speichern fehl, stand hier trotzdem „angemeldet". Deshalb wird gegengeprüft. Antwortet der
+  // Server gar nicht (offline), bleibt es bei „an": eine fehlende Verbindung ist kein Beleg
+  // dafür, dass die Anmeldung weg ist.
+  return (await serverKenntGeraet(vorhanden.endpoint)) === false ? "aus" : "an";
+}
+
+/** true/false vom Server, null wenn er nicht erreichbar war. */
+async function serverKenntGeraet(endpoint: string): Promise<boolean | null> {
+  try {
+    const antwort = await fetch("/api/push/status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint }),
+    });
+    if (!antwort.ok) return antwort.status === 500 ? false : null;
+    const { angemeldet } = await antwort.json();
+    return Boolean(angemeldet);
+  } catch {
+    return null;
+  }
 }
 
 /** Meldet dieses Gerät an. Muss aus einer Nutzergeste heraus aufgerufen werden. */
@@ -92,6 +114,10 @@ export async function geraetAnmelden(): Promise<{ ok: true } | { ok: false; grun
   });
   if (!antwort.ok) {
     const { error } = await antwort.json().catch(() => ({ error: null }));
+    // Wichtig: das Abo im Browser wieder zurücknehmen. Sonst bliebe ein Abo bestehen, von dem
+    // der Server nichts weiß – die Einstellungen meldeten „angemeldet", und beim Test käme nie
+    // etwas an. Lieber ehrlich „nicht angemeldet" anzeigen.
+    await abo.unsubscribe().catch(() => {});
     return { ok: false, grund: error || "Das Gerät konnte nicht gespeichert werden." };
   }
   return { ok: true };

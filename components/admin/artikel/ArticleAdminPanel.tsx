@@ -15,13 +15,15 @@ import { ArticleDetailEditor } from "./ArticleDetailEditor";
 // überschreibbar – für unterschiedliche Artikel(-gruppen) mit eigenen Nummernfolgen (z. B.
 // eigene Nummernkreise je Kategorie), siehe onUpdateArticleNumber. Die Unique-Constraint aus
 // Migration 14 verhindert weiterhin doppelt vergebene Nummern.
-export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onUpdateArticleNumber, onAddArticlePrice }: {
+export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onUpdateArticleNumber, onAddArticlePrice, onUpdateArticlePrice, onDeleteArticlePrice }: {
   articles: Article[];
   articlePrices: ArticlePrice[];
   onAddArticle: (shortName: string, longName: string) => Promise<void>;
   onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }) => Promise<void>;
   onUpdateArticleNumber: (id: string, articleNumber: number) => Promise<void>;
   onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
+  onUpdateArticlePrice: (priceId: string, netPrice: number, vatRate: number, validFrom: string, validTo: string | null) => Promise<string | null>;
+  onDeleteArticlePrice: (priceId: string) => Promise<void>;
 }) {
   const [newShort, setNewShort] = useState("");
   const [newLong, setNewLong] = useState("");
@@ -112,7 +114,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
                   {openId === a.id && (
                     <tr>
                       <td colSpan={6} style={{ background: "rgba(0,0,0,.02)" }}>
-                        <ArticleDetailEditor article={a} prices={prices} onUpdateArticle={onUpdateArticle} onAddPrice={onAddArticlePrice} />
+                        <ArticleDetailEditor article={a} prices={prices} onUpdateArticle={onUpdateArticle} onAddPrice={onAddArticlePrice} onUpdatePrice={onUpdateArticlePrice} onDeletePrice={onDeleteArticlePrice} />
                       </td>
                     </tr>
                   )}

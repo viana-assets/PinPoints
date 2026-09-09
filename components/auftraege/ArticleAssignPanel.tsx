@@ -27,6 +27,13 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
   const [discount, setDiscount] = useState("0");
   const totals = orderArticleTotals(rows);
 
+  // Mengen sind bei allen Leistungen Stückzahlen – halbe Reifenwechsel gibt es nicht. Deshalb
+  // ganze Zahlen, mindestens 1: mit step="0.01" zählten die Pfeiltasten in Hundertstel-Schritten.
+  function ganzeMenge(text: string): number {
+    const zahl = Math.round(parseFloat(text.replace(",", ".")));
+    return isNaN(zahl) || zahl < 1 ? 1 : zahl;
+  }
+
   return (
     <div>
       <div className="small" style={{ fontWeight: 700, padding: "2px 0 4px" }}>Leistungen / Artikel</div>
@@ -45,8 +52,8 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
                   <td>
                     {gesperrt ? r.quantity : (
                       <input
-                        type="number" min={0.01} step="0.01" value={r.quantity} style={{ width: 56 }}
-                        onChange={(e) => onUpdateQty(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
+                        type="number" min={1} step={1} value={r.quantity} style={{ width: 56 }}
+                        onChange={(e) => onUpdateQty(r.id, ganzeMenge(e.target.value))}
                       />
                     )}
                   </td>
@@ -90,7 +97,7 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
           </div>
           <div className="field" style={{ flex: 1, marginBottom: 0 }}>
             <label>Menge</label>
-            <input type="number" min={0.01} step="0.01" value={qty} onChange={(e) => setQty(e.target.value)} />
+            <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
           </div>
           <div className="field" style={{ flex: 1, marginBottom: 0 }}>
             <label>Rabatt %</label>
@@ -102,7 +109,7 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
             style={{ flex: "0 0 auto" }}
             onClick={() => {
               if (!articleId) return;
-              onAdd(orderId, articleId, parseFloat(qty.replace(",", ".")) || 1, parseFloat(discount.replace(",", ".")) || 0);
+              onAdd(orderId, articleId, ganzeMenge(qty), parseFloat(discount.replace(",", ".")) || 0);
               setArticleId(""); setQty("1"); setDiscount("0");
             }}
           >
