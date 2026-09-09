@@ -32,7 +32,7 @@ export function useIstOffline(): boolean {
 // Wann wurde der angezeigte Bestand zuletzt wirklich geladen? Ohne diese Angabe weiß niemand,
 // ob er auf Daten von vor zehn Minuten oder von vor drei Tagen schaut – und genau das
 // entscheidet, ob man danach handeln darf.
-function standText(zeitpunkt: number): string {
+export function standText(zeitpunkt: number): string {
   const d = new Date(zeitpunkt);
   const uhrzeit = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" });
   const heute = new Date();
@@ -51,12 +51,18 @@ function standText(zeitpunkt: number): string {
 //
 // Der Balken liegt über der Karte (z-index), aber unter den Dialogen: Er soll immer sichtbar
 // sein, darf aber kein offenes Fenster überdecken.
-export function OfflineHinweis({ standVon }: { standVon?: number }) {
-  const offline = useIstOffline();
-  if (!offline) return null;
+// `offline` kommt von außen, weil die Angabe des Browsers allein nicht reicht: auf iOS meldet
+// `navigator.onLine` auch im Flugmodus gelegentlich weiterhin "online". app/page.tsx bildet
+// den Zustand aus drei Quellen (Browser, angehaltene Abfrage, gescheiterter Abruf) und reicht
+// ihn hierher. Fehlt die Angabe, gilt weiterhin das Browser-Signal.
+export function OfflineHinweis({ standVon, offline }: { standVon?: number; offline?: boolean }) {
+  const offlineLautBrowser = useIstOffline();
+  if (!(offline ?? offlineLautBrowser)) return null;
   return (
     <div className="offline-hinweis" role="status">
-      {standVon ? `Offline – ${standText(standVon)}` : "Offline – es sind keine gespeicherten Daten vorhanden."}
+      {standVon
+        ? `Offline – angezeigt wird der ${standText(standVon)}`
+        : "Offline – es sind keine gespeicherten Daten vorhanden."}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { UserSettings } from "@/lib/types";
 import { PwaInstallieren } from "@/components/PwaInstallieren";
+import { standText } from "@/components/OfflineHinweis";
 
 // Tab "Einstellungen": Anzeige-/Wiedervorlage-Präferenzen, Nutzerinfo, Logout.
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
@@ -10,8 +11,13 @@ import { PwaInstallieren } from "@/components/PwaInstallieren";
 // dort als eigener Reiter erreichbar – ein zweiter Weg an anderer Stelle macht die
 // Einstellungen unübersichtlich und lässt offen, welcher der "richtige" ist. `isAdmin` bleibt
 // als Prop, weil die Zeile "Angemeldet als …" die Rolle mit ausweist.
-export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, onLogout }: {
-  settings: UserSettings; onChange: (p: Partial<UserSettings>) => void; isAdmin: boolean; isSuperAdmin: boolean; userEmail: string; onLogout: () => void;
+export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, datenStand, onLogout }: {
+  settings: UserSettings; onChange: (p: Partial<UserSettings>) => void; isAdmin: boolean; isSuperAdmin: boolean; userEmail: string;
+  // Wann der Kundenbestand zuletzt wirklich vom Server kam. Steht hier dauerhaft und nicht nur
+  // im Offline-Balken: Wer wissen will, wie frisch seine Daten sind, sucht das in den
+  // Einstellungen – und nicht erst dann, wenn ohnehin gerade kein Netz da ist.
+  datenStand?: number;
+  onLogout: () => void;
 }) {
   const [period, setPeriod] = useState(settings.period_months);
   return (
@@ -35,6 +41,10 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userE
           wird einmal pro Gerät gebraucht, nicht bei jedem Öffnen. Wer ihn sucht, sucht ihn
           in den Einstellungen. */}
       <PwaInstallieren />
+      <hr />
+      <div className="small">
+        Daten zuletzt geladen: {datenStand ? standText(datenStand) : "noch nicht"}
+      </div>
       <hr />
       <div className="small">Angemeldet als {userEmail}{isSuperAdmin ? " (Superadmin)" : isAdmin ? " (Admin)" : ""}</div>
       <button className="btn-secondary btn-block" style={{ marginTop: 8 }} onClick={onLogout}>Abmelden</button>

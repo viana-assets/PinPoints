@@ -160,9 +160,9 @@ export default function HomePage() {
   );
   const [kartenFilterOffen, setKartenFilterOffen] = useState(false);
 
-  // Ohne Netz bleiben Kundenliste und Karte leer – ohne Erklärung sieht das aus wie ein
-  // Fehler. Der Zustand steuert deshalb auch die Leertexte, nicht nur den Balken oben.
-  const istOffline = useIstOffline();
+  // Erste Quelle für "kein Netz": die Angabe des Browsers. Sie allein reicht nicht – siehe
+  // die Ableitung von `istOffline` weiter unten, sobald die Kundenabfrage bekannt ist.
+  const offlineLautBrowser = useIstOffline();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Der gerade geöffnete Auftrag (Migration 20, docs/auftragsablauf.md). Er ersetzt das frühere
@@ -214,6 +214,21 @@ export default function HomePage() {
   const brauchtLager = tab === "lager" || kundeOffen || offenerAuftragId !== null;
 
   const kundenQuery = useKunden(supabase, sitzungBereit);
+  // "Kein Netz" aus DREI Quellen, weil keine für sich zuverlässig ist:
+  //
+  //  1. `navigator.onLine` – meldet auf iOS auch im Flugmodus gelegentlich weiterhin "online".
+  //     Verlässt man sich allein darauf, bleibt der Hinweis genau dort aus, wo er gebraucht
+  //     wird. (Gemeldet am 09.09.2026: Flugmodus an, Balken kam nicht.)
+  //  2. `fetchStatus === "paused"` – TanStack Query hält Abfragen an, wenn es selbst kein Netz
+  //     sieht.
+  //  3. `isError` – der Abruf ist tatsächlich gescheitert. Das ist der ehrlichste Beleg
+  //     überhaupt: hier wurde es versucht und es kam nichts an.
+  //
+  // Sobald der Browser wieder "online" meldet, werden die Bestände neu geholt (Effekt weiter
+  // unten) – sonst bliebe der Fehlerzustand aus Quelle 3 hängen, obwohl längst wieder Empfang
+  // da ist.
+  const istOffline =
+    offlineLautBrowser || kundenQuery.fetchStatus === "paused" || kundenQuery.isError;
   const auftraegeQuery = useAuftraege(supabase, auftragsFenster, sitzungBereit);
   const mitarbeiterQuery = useMitarbeiter(supabase, sitzungBereit && brauchtMitarbeiter);
   const artikelQuery = useArtikel(supabase, sitzungBereit && brauchtArtikel);
@@ -566,6 +581,18 @@ export default function HomePage() {
     beobachter.observe(el);
     return () => beobachter.disconnect();
   }, [loading]);
+
+  // Kommt das Netz zurück, gilt der gespeicherte Stand als überholt: alle Bestände werden für
+  // ungültig erklärt und die gerade sichtbaren neu geholt. Ohne das säße man nach dem
+  // Verlassen des Funklochs weiter auf den alten Daten, bis irgendetwas anderes ein Neuladen
+  // auslöst.
+  useEffect(() => {
+    function beiRueckkehrDesNetzes() {
+      void queryClient.invalidateQueries();
+    }
+    window.addEventListener("online", beiRueckkehrDesNetzes);
+    return () => window.removeEventListener("online", beiRueckkehrDesNetzes);
+  }, [queryClient]);
 
   // Rückkehr aus dem Verlaufsspeicher (Zurück-Taste, Wischgeste): dabei ändert sich die
   // Containergröße nicht, der ResizeObserver feuert also nicht – Leaflet braucht hier trotzdem
@@ -1357,7 +1384,7 @@ export default function HomePage() {
 
   return (
     <div id="app" ref={appRef} className={fullPageTabs ? "vollseite" : undefined}>
-      <OfflineHinweis standVon={kundenQuery.dataUpdatedAt} />
+      <OfflineHinweis standVon={kundenQuery.dataUpdatedAt} offline={istOffline} />
       <nav id="iconNav">
         {/* Bildmarke UND Schriftzug. Der Schriftzug ist echter Text, nicht Teil des Bildes:
             er steht damit in der Hausschrift, bleibt bei jeder Vergrößerung scharf, ist
@@ -1788,6 +1815,7 @@ export default function HomePage() {
             isAdmin={isAdmin}
             isSuperAdmin={isSuperAdmin}
             userEmail={userEmail}
+            datenStand={kundenQuery.dataUpdatedAt}
             onLogout={handleLogout}
           />
         )}
