@@ -48,7 +48,15 @@ export const config = {
   // des Service Workers dann ab (falscher Inhaltstyp), und zwar stillschweigend. Dasselbe
   // gilt für das Manifest, die Symbole und die Offline-Seite, die ja gerade dann gebraucht
   // wird, wenn nichts anderes geht.
+  //
+  // Ebenfalls ausgenommen: `api/push/senden`. Diese Route ruft kein Mensch auf, sondern der
+  // Zeitgeber der Datenbank (Migration 28) – ohne Sitzung und ohne Cookies. Die Middleware
+  // schickte ihn deshalb auf /login um, und weil eine Umleitung mit 307 die Methode behält,
+  // kam dort ein POST auf einer Seite an, die nur GET kennt: Antwort 405, jede Minute, ohne
+  // dass irgendwo ein Fehler zu sehen war. Die Route prüft sich selbst über das gemeinsame
+  // Geheimnis im Kopffeld – das ist für einen Aufruf ohne Mensch die richtige Prüfung, eine
+  // Sitzung kann es hier gar nicht geben.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|apple-touch-icon.png|icons/).*)",
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|offline.html|apple-touch-icon.png|icons/|api/push/senden).*)",
   ],
 };
