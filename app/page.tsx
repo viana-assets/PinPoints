@@ -17,7 +17,7 @@ import {
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
-  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS, KUNDE_PARAMETER,
+  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import {
@@ -1353,22 +1353,58 @@ export default function HomePage() {
     setTab("lager");
   }, []);
 
-  // Aufruf aus einer angetippten Terminerinnerung: `/?kunde=‹id›` öffnet direkt das
-  // Kundenfenster (docs/benachrichtigungen-plan.md, Teil 5). Gleiches Muster wie beim
-  // QR-Aufkleber darüber, inklusive Bereinigen der Adresszeile – sonst springt ein Neuladen
-  // Wochen später wieder auf denselben Kunden.
+  // Ziel einer angetippten Terminerinnerung öffnen (docs/benachrichtigungen-plan.md, Teil 5).
   //
-  // Der Aufruf ist auch dann richtig, wenn die Kundenliste noch lädt: `openDetail` merkt sich
-  // die Kennung, das Fenster erscheint, sobald der Bestand da ist.
+  // `auftrag` hat Vorrang vor `kunde`: Der Techniker steht im Auto und braucht diesen einen
+  // Termin mit Fahrzeug, Leistungen, Navigation und Anruf – nicht die Kundenakte.
+  //
+  // Der Aufruf ist auch dann richtig, wenn die Listen noch laden: beide Fenster merken sich die
+  // Kennung und erscheinen, sobald der Bestand da ist.
+  function zielOeffnen(parameter: URLSearchParams): void {
+    const auftragId = parameter.get(AUFTRAG_PARAMETER);
+    if (auftragId) {
+      setOffenerAuftragId(auftragId);
+      return;
+    }
+    const kundenId = parameter.get(KUNDE_PARAMETER);
+    if (kundenId) {
+      openDetail(kundenId);
+      setTab("list");
+    }
+  }
+
+  // Weg 1: Die App war geschlossen. Der Service Worker hat ein Fenster mit `?auftrag=…`
+  // geöffnet, hier wird der Parameter gelesen. Die Adresszeile wird sofort bereinigt – sonst
+  // landet der Parameter in Lesezeichen und im Verlauf, und ein Neuladen springt Wochen später
+  // wieder auf denselben Auftrag.
   useEffect(() => {
     const parameter = new URLSearchParams(window.location.search);
-    const id = parameter.get(KUNDE_PARAMETER);
-    if (!id) return;
-    parameter.delete(KUNDE_PARAMETER);
-    const rest = parameter.toString();
+    if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER)) return;
+    const uebrig = new URLSearchParams(window.location.search);
+    uebrig.delete(AUFTRAG_PARAMETER);
+    uebrig.delete(KUNDE_PARAMETER);
+    const rest = uebrig.toString();
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
-    openDetail(id);
-    setTab("list");
+    zielOeffnen(parameter);
+  }, []);
+
+  // Weg 2: Die App lief schon (auf dem Handy der Normalfall – sie wird weggelegt, nicht
+  // geschlossen). Dann schickt der Service Worker das Ziel als Nachricht hierher, statt das
+  // Fenster umzulenken: `client.navigate()` bewirkt in der installierten App auf iOS nichts,
+  // die App kam schlicht dort wieder hoch, wo sie zuletzt war.
+  useEffect(() => {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+    function beiNachricht(ereignis: MessageEvent) {
+      const daten = ereignis.data;
+      if (!daten || daten.typ !== "BENACHRICHTIGUNG_ZIEL" || typeof daten.url !== "string") return;
+      try {
+        zielOeffnen(new URL(daten.url, window.location.origin).searchParams);
+      } catch {
+        // Eine unbrauchbare Adresse ist kein Grund, die Anwendung zu stören.
+      }
+    }
+    navigator.serviceWorker.addEventListener("message", beiNachricht);
+    return () => navigator.serviceWorker.removeEventListener("message", beiNachricht);
   }, []);
 
   function openDetail(id: string) {
@@ -2139,6 +2175,7 @@ export default function HomePage() {
           onUpdateArticleDiscount={updateOrderArticleDiscount}
           onRemoveArticle={removeOrderArticle}
           onNavigate={openNavMenu}
+          onCall={openCallMenu}
         />
       )}
 

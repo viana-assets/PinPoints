@@ -17,7 +17,7 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v2";
+const FASSUNG = "v3";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 const OFFLINE_SEITE = "/offline.html";
 const HUELLE = "/";
@@ -79,8 +79,15 @@ self.addEventListener("push", (ereignis) => {
 });
 
 // Antippen soll dort landen, wo man weiterarbeitet – nicht auf der Startseite. Ist die App
-// schon offen, wird dieses Fenster nach vorn geholt und umgeleitet, statt ein zweites zu
-// öffnen: zwei Fenster derselben App nebeneinander sind eine sichere Quelle für Verwirrung.
+// schon offen, wird dieses Fenster nach vorn geholt, statt ein zweites zu öffnen: zwei Fenster
+// derselben App nebeneinander sind eine sichere Quelle für Verwirrung.
+//
+// Die Zieladresse wird dem laufenden Fenster als NACHRICHT geschickt, nicht per
+// `client.navigate()` angesteuert. Grund (gemessen am 09.09.2026 auf dem iPhone): In der
+// installierten App auf iOS bewirkt `navigate()` nichts – die App kam einfach dort wieder hoch,
+// wo sie zuletzt war, und die Meldung führte ins Leere. Eine Nachricht kommt dagegen überall
+// an; die Anwendung öffnet daraufhin selbst das richtige Fenster, ohne neu zu laden. Das ist
+// obendrein schneller und verliert keine halb ausgefüllte Eingabe.
 self.addEventListener("notificationclick", (ereignis) => {
   ereignis.notification.close();
   const ziel = (ereignis.notification.data && ereignis.notification.data.url) || "/";
@@ -90,10 +97,12 @@ self.addEventListener("notificationclick", (ereignis) => {
       for (const f of fenster) {
         if (new URL(f.url).origin === self.location.origin) {
           await f.focus();
-          if ("navigate" in f) await f.navigate(ziel).catch(() => {});
+          f.postMessage({ typ: "BENACHRICHTIGUNG_ZIEL", url: ziel });
           return;
         }
       }
+      // Kein Fenster offen: Dann wird eines geöffnet, und die Anwendung liest das Ziel beim
+      // Start aus der Adresszeile – derselbe Weg wie beim QR-Aufkleber am Lagerregal.
       await self.clients.openWindow(ziel);
     })()
   );

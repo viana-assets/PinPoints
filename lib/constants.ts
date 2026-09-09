@@ -155,7 +155,12 @@ export const KUNDEN_FILTER: { wert: KundenFilter; text: string }[] = [
 export const VORLAUF_MINUTEN = 5;
 export const ZEITZONE = "Europe/Berlin";
 
-// Adressparameter, mit dem eine angetippte Benachrichtigung direkt das Kundenfenster öffnet
-// (`/?kunde=‹id›`). Gegenstück zu LAGERPLATZ_PARAMETER in lib/lagerplatzCode.ts – dasselbe
-// Muster wie beim QR-Aufkleber am Regal.
+// Adressparameter, mit denen eine angetippte Benachrichtigung direkt das richtige Fenster
+// öffnet. Gegenstück zu LAGERPLATZ_PARAMETER in lib/lagerplatzCode.ts – dasselbe Muster wie
+// beim QR-Aufkleber am Regal.
+//
+// Die Terminerinnerung benutzt `auftrag`: Der Techniker steht im Auto und braucht Fahrzeug,
+// Leistungen und die Navigation zu DIESEM Termin – nicht die Kundenakte mit allen Aufträgen
+// der letzten Jahre. `kunde` bleibt bestehen, weil es ohne Auftrag trotzdem sinnvoll ist.
 export const KUNDE_PARAMETER = "kunde";
+export const AUFTRAG_PARAMETER = "auftrag";

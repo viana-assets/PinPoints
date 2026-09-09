@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Article, Customer, Employee, Order, OrderArticle, OrderStatus, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
-import { formatDate, formatOrderDateTime } from "@/lib/helpers";
+import { formatDate, formatOrderDateTime, getPhoneNumbers } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "./ArticleAssignPanel";
@@ -23,7 +23,7 @@ export function AuftragModal({
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds,
   onClose, onSaveFields, onSetVehicle, onUpdateTechnikerNotiz, onSetStatus, onDelete,
-  onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate,
+  onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen,
 }: {
   order: Order;
@@ -58,6 +58,9 @@ export function AuftragModal({
   onUpdateArticleDiscount: (id: string, discountPercent: number) => Promise<void>;
   onRemoveArticle: (id: string) => Promise<void>;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
+  // Anrufen direkt aus dem Auftragsfenster. Es ist der Bildschirm, auf dem eine angetippte
+  // Terminerinnerung landet – wer dort steht, will genau zwei Dinge: hinfahren oder anrufen.
+  onCall: (e: React.MouseEvent, cust: Customer) => void;
   onEinlagern: (lagerplatzId: string) => Promise<void>;
   onEinlagerungEntfernen: (einlagerungId: string) => Promise<void>;
 }) {
@@ -240,11 +243,16 @@ export function AuftragModal({
                   <b>{customer.name}</b>
                   {customer.address.trim() && <div className="small">{customer.address}</div>}
                 </div>
-                {customer.address.trim() && (
-                  <button className="call-icon-btn small nav-icon-btn" title="Navigation starten" onClick={(e) => onNavigate(e, customer)}>
-                    <IconNavPin />
-                  </button>
-                )}
+                <div style={{ display: "flex", gap: 6, flex: "0 0 auto" }}>
+                  {customer.address.trim() && (
+                    <button className="call-icon-btn small nav-icon-btn" title="Navigation starten" onClick={(e) => onNavigate(e, customer)}>
+                      <IconNavPin />
+                    </button>
+                  )}
+                  {getPhoneNumbers(customer).length > 0 && (
+                    <button className="call-icon-btn small" title="Anrufen" onClick={(e) => onCall(e, customer)}>📞</button>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="small">Kunde nicht gefunden.</div>

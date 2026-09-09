@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabaseServer";
 import { erinnerungFaellig, minutenAusUhrzeit } from "@/lib/helpers";
-import { KUNDE_PARAMETER, VORLAUF_MINUTEN, ZEITZONE } from "@/lib/constants";
+import { AUFTRAG_PARAMETER, VORLAUF_MINUTEN, ZEITZONE } from "@/lib/constants";
 
 // Terminerinnerung: verschickt die Meldung „Termin in 5 Minuten" an die zugeordneten
 // Techniker (docs/benachrichtigungen-plan.md, Teile 3 bis 5).
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
   // wirklicher Fall – falls doch, ist es hier zu erweitern und nicht anderswo.
   const { data: auftraege, error: auftragsFehler } = await supabase
     .from("orders")
-    .select("id,title,time,customer_id")
+    .select("id,title,order_date,time,customer_id")
     .eq("order_date", datum)
     .in("status", ["offen", "in_arbeit"])
     .is("deleted_at", null)
@@ -101,14 +101,31 @@ export async function POST(request: Request) {
   const kontoZuMitarbeiter = new Map<string, string>();
   (mitarbeiter || []).forEach((m) => { if (m.profile_id) kontoZuMitarbeiter.set(m.id, m.profile_id); });
 
-  // Paare (Auftrag, Konto) – ein Auftrag mit zwei Technikern erzeugt zwei Erinnerungen, ein
-  // Techniker mit zwei Terminen um dieselbe Zeit bekommt zwei Meldungen. Beides ist gewollt.
-  const paare: { order_id: string; profile_id: string }[] = [];
+  // Tripel (Auftrag, Konto, Terminzeitpunkt) – ein Auftrag mit zwei Technikern erzeugt zwei
+  // Erinnerungen, ein Techniker mit zwei Terminen um dieselbe Zeit bekommt zwei Meldungen.
+  // Beides ist gewollt.
+  //
+  // Der Terminzeitpunkt gehört seit Migration 29 dazu: Wird ein Termin verschoben, ist das ein
+  // neuer Eintrag und bekommt seine eigene Erinnerung. Ohne ihn blieb ein verschobener Termin
+  // für immer stumm, weil zu diesem Auftrag schon einmal gesendet worden war.
+  // Die Uhrzeit wird aus den geprüften Minuten wieder zusammengesetzt statt roh übernommen:
+  // `orders.time` ist eine Textspalte, und ein „16:45:00" von Hand ergäbe sonst einen
+  // ungültigen Zeitstempel.
+  const zeitpunktVon = new Map(
+    faellig.map((a) => {
+      const m = minutenAusUhrzeit(a.time) ?? 0;
+      const hh = String(Math.floor(m / 60)).padStart(2, "0");
+      const mm = String(m % 60).padStart(2, "0");
+      return [a.id, `${a.order_date}T${hh}:${mm}:00`];
+    })
+  );
+  const paare: { order_id: string; profile_id: string; termin: string }[] = [];
   (zuordnungen || []).forEach((z) => {
     const konto = kontoZuMitarbeiter.get(z.employee_id);
-    if (!konto) return;
+    const termin = zeitpunktVon.get(z.order_id);
+    if (!konto || !termin) return;
     if (paare.some((p) => p.order_id === z.order_id && p.profile_id === konto)) return;
-    paare.push({ order_id: z.order_id, profile_id: konto });
+    paare.push({ order_id: z.order_id, profile_id: konto, termin });
   });
   if (paare.length === 0) return NextResponse.json({ faellig: faellig.length, gesendet: 0 });
 
@@ -116,7 +133,7 @@ export async function POST(request: Request) {
   // "on conflict do nothing"; zurück kommen nur die tatsächlich geschriebenen Zeilen.
   const { data: neu, error: eintragFehler } = await supabase
     .from("push_versand")
-    .upsert(paare, { onConflict: "order_id,profile_id", ignoreDuplicates: true })
+    .upsert(paare, { onConflict: "order_id,profile_id,termin", ignoreDuplicates: true })
     .select("order_id,profile_id");
   if (eintragFehler) return NextResponse.json({ error: eintragFehler.message }, { status: 500 });
   if (!neu || neu.length === 0) return NextResponse.json({ faellig: faellig.length, gesendet: 0 });
@@ -152,8 +169,9 @@ export async function POST(request: Request) {
         // Name und Adresse stehen im Text, weil eine Meldung auf dem Sperrbildschirm oft die
         // einzige Information ist, die jemand im Vorbeigehen liest.
         text: [kunde?.name, kunde?.address, auftrag.title].filter(Boolean).join(" · "),
-        // Antippen führt direkt in das Kundenfenster (app/page.tsx wertet den Parameter aus).
-        url: `/?${KUNDE_PARAMETER}=${auftrag.customer_id}`,
+        // Antippen führt direkt in das Auftragsfenster (app/page.tsx wertet den Parameter
+        // aus): dort stehen Fahrzeug, Leistungen und die Knöpfe für Navigation und Anruf.
+        url: `/?${AUFTRAG_PARAMETER}=${auftrag.id}`,
         // Gleiche Kennung ersetzt eine noch offene Meldung zum selben Auftrag.
         kennung: `termin-${auftrag.id}`,
       });
