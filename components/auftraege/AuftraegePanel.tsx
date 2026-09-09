@@ -46,7 +46,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
 
   return (
     <div className="tabpanel active">
-      <div className="module-page" style={{ display: "flex", flexDirection: "column", gap: 10, flex: 1, minHeight: 0 }}>
+      <div className="module-page modul-flaeche">
         <div className="module-header">
           <div className="mh-icon"><IconAuftraege /></div>
           <div className="mh-text">
@@ -75,7 +75,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
         )}
         <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
 
-        <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
+        <div className="modul-tabelle">
           {filteredOrders.length === 0 ? (
             <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
           ) : (

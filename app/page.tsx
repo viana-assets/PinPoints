@@ -25,6 +25,8 @@ import {
 import { NavItem } from "@/components/NavItem";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
+import { OfflineHinweis, useIstOffline } from "@/components/OfflineHinweis";
+import { datenSpeicherLeeren } from "@/app/providers";
 import { AddCustomerForm } from "@/components/kunden/AddCustomerForm";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
@@ -157,6 +159,10 @@ export default function HomePage() {
     () => [...KUNDEN_ZUSTAND_REIHENFOLGE]
   );
   const [kartenFilterOffen, setKartenFilterOffen] = useState(false);
+
+  // Ohne Netz bleiben Kundenliste und Karte leer – ohne Erklärung sieht das aus wie ein
+  // Fehler. Der Zustand steuert deshalb auch die Leertexte, nicht nur den Balken oben.
+  const istOffline = useIstOffline();
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Der gerade geöffnete Auftrag (Migration 20, docs/auftragsablauf.md). Er ersetzt das frühere
@@ -366,19 +372,42 @@ export default function HomePage() {
   // ---------------------------------------------------------------- Initial-Load
   useEffect(() => {
     (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      // `getUser()` fragt beim Server nach und schlägt ohne Netz fehl. Genau dann darf die
+      // Anwendung NICHT zur Anmeldeseite springen: die ist ohne Netz nicht bedienbar, und der
+      // Techniker in der Tiefgarage stünde vor einer Anmeldemaske, die er nicht ausfüllen
+      // kann. `getSession()` liest die gespeicherte Sitzung ohne Netzzugriff – reicht, um zu
+      // wissen, WER angemeldet ist, und mehr braucht es offline nicht. Die Datenbank prüft
+      // die Berechtigung ohnehin bei jedem Schreibzugriff selbst (Row-Level-Security).
+      let user = null;
+      try {
+        user = (await supabase.auth.getUser()).data.user ?? null;
+      } catch { /* kein Netz – unten weiter über die gespeicherte Sitzung */ }
+      if (!user) {
+        try {
+          user = (await supabase.auth.getSession()).data.session?.user ?? null;
+        } catch { /* auch das kann ohne Netz fehlschlagen */ }
+      }
       if (!user) { router.push("/login"); return; }
       setUserEmail(user.email || "");
 
-      const role = await fetchOwnRole(supabase, user.id);
-      setIsAdmin(role === "admin" || role === "superadmin");
-      setIsSuperAdmin(role === "superadmin");
-      if (role) setMyRole(role);
+      // Rolle und Einstellungen kommen aus der Datenbank und fehlen deshalb ohne Netz. Das
+      // darf den Start nicht aufhalten: ohne Rolle gilt die geringste Berechtigung, für die
+      // Einstellungen greifen die Voreinstellungen. Beides wird beim nächsten Start mit Netz
+      // wieder richtig geladen.
+      try {
+        const role = await fetchOwnRole(supabase, user.id);
+        setIsAdmin(role === "admin" || role === "superadmin");
+        setIsSuperAdmin(role === "superadmin");
+        if (role) setMyRole(role);
 
-      const settingsRow = await fetchOrCreateUserSettings(supabase, user.id);
-      if (settingsRow) setSettings(settingsRow);
+        const settingsRow = await fetchOrCreateUserSettings(supabase, user.id);
+        if (settingsRow) setSettings(settingsRow);
+      } catch (e) {
+        if (typeof navigator !== "undefined" && navigator.onLine) throw e;
+      }
 
       // Ab hier ist das Zugriffstoken frisch – jetzt dürfen die Datenabfragen loslaufen.
+      // Auch offline: die Abfragen holen dann nichts, liefern aber den gespeicherten Stand.
       setSitzungBereit(true);
 
       // Ab hier nichts mehr laden: die Datenbestände hängen an den Abfragen weiter oben und
@@ -1079,6 +1108,11 @@ export default function HomePage() {
   saveSettingsRef.current = saveSettingsPatch;
   async function handleLogout() {
     await supabase.auth.signOut();
+    // Der offline gespeicherte Datenbestand gehört zur Anmeldung, nicht zum Gerät. Ohne
+    // dieses Leeren läge der Kundenbestand des Vorgängers auf einem weitergegebenen oder
+    // verlorenen Handy weiter herum (siehe app/providers.tsx).
+    await datenSpeicherLeeren();
+    queryClient.clear();
     router.push("/login");
   }
 
@@ -1323,6 +1357,7 @@ export default function HomePage() {
 
   return (
     <div id="app" ref={appRef} className={fullPageTabs ? "vollseite" : undefined}>
+      <OfflineHinweis standVon={kundenQuery.dataUpdatedAt} />
       <nav id="iconNav">
         {/* Bildmarke UND Schriftzug. Der Schriftzug ist echter Text, nicht Teil des Bildes:
             er steht damit in der Hausschrift, bleibt bei jeder Vergrößerung scharf, ist
@@ -1470,7 +1505,13 @@ export default function HomePage() {
               ))}
             </div>
             <div id="customerList">
-              {listItems.length === 0 && <div className="empty">Keine Kunden gefunden.</div>}
+              {listItems.length === 0 && (
+                <div className="empty">
+                  {istOffline
+                    ? "Offline und kein gespeicherter Stand vorhanden – bitte einmal mit Netz öffnen."
+                    : "Keine Kunden gefunden."}
+                </div>
+              )}
               {sichtbareListItems.map((c) => {
                 const color = c.lat == null ? "gray" : effectiveColor(c, settings.period_months);
                 const nextOrd = nextOrder(ordersFor(c.id));
@@ -1777,6 +1818,12 @@ export default function HomePage() {
       </div>
 
       <div id="map" ref={mapDivRef} className={mobileMapVisible ? "mobile-visible" : ""}>
+        {/* Die Nadeln kommen aus dem gespeicherten Bestand und sind auch offline da – die
+            Kartenkacheln nicht: die liegen bei OpenStreetMap und dürfen nicht auf Vorrat
+            heruntergeladen werden (siehe docs/pwa-plan.md). */}
+        {istOffline && (
+          <div className="map-hinweis">Offline – der Kartenhintergrund fehlt. Die Nadeln stammen aus dem gespeicherten Stand.</div>
+        )}
         {ausgelasseneMarker > 0 && !fullPageTabs && (
           <div className="map-hinweis">
             {ausgelasseneMarker} weitere Kunden in diesem Ausschnitt – zum Anzeigen näher heranzoomen.
