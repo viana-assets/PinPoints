@@ -7,6 +7,25 @@ import { createClient } from "@/lib/supabaseServer";
 // deshalb die Adresse beim Push-Dienst (`endpoint`), nicht die Person: meldet sich auf
 // demselben Handy ein anderer an, zieht die Zeile mit um, statt dass zwei entstehen und der
 // Vorgänger weiter Benachrichtigungen bekommt.
+// Kennung des Supabase-Projekts, mit dem diese Bereitstellung spricht (aus der URL
+// `https://<kennung>.supabase.co`). Sie steht ohnehin im Browser-Bündel und ist kein Geheimnis.
+// Sie gehört in die Fehlermeldung, weil genau hier der Verwechslungsfehler sitzt: eine Migration
+// im falschen Projekt auszuführen sieht von außen genauso aus wie eine vergessene Migration.
+function datenbankKennung(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const treffer = url.match(/https:\/\/([a-z0-9]+)\.supabase\.co/i);
+  return treffer ? treffer[1] : "unbekannt";
+}
+
+function tabelleFehltText(): string {
+  return (
+    "Die Tabelle push_geraete ist in der Datenbank dieser App nicht sichtbar (Projekt " +
+    datenbankKennung() +
+    "). Entweder wurde Migration 26 in einem anderen Supabase-Projekt ausgeführt, oder der " +
+    "Schema-Zwischenspeicher ist veraltet – dann hilft: notify pgrst, 'reload schema';"
+  );
+}
+
 export async function POST(request: Request) {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -41,7 +60,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error: fehlt
-          ? "Auf dem Server fehlt die Tabelle push_geraete – Migration 26 wurde in Supabase noch nicht ausgeführt."
+          ? tabelleFehltText()
           : error.message,
       },
       { status: 500 }

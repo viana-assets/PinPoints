@@ -145,3 +145,17 @@ export const KUNDEN_FILTER: { wert: KundenFilter; text: string }[] = [
   { wert: "kein_interesse", text: "Kein Interesse" },
   { wert: "nogeo", text: "Ohne Karte" },
 ];
+
+// ---------------------------------------------------------------- Terminerinnerung
+//
+// Wie viele Minuten vor dem Termin die Erinnerung rausgeht, und in welcher Zeitzone die
+// Uhrzeiten an den Aufträgen gemeint sind. Beides braucht die Versandroute
+// (app/api/push/senden) – die Zeitzone deshalb, weil der Server in UTC läuft, die Uhrzeit am
+// Auftrag aber die Uhr an der Wand meint. Siehe docs/benachrichtigungen-plan.md.
+export const VORLAUF_MINUTEN = 5;
+export const ZEITZONE = "Europe/Berlin";
+
+// Adressparameter, mit dem eine angetippte Benachrichtigung direkt das Kundenfenster öffnet
+// (`/?kunde=‹id›`). Gegenstück zu LAGERPLATZ_PARAMETER in lib/lagerplatzCode.ts – dasselbe
+// Muster wie beim QR-Aufkleber am Regal.
+export const KUNDE_PARAMETER = "kunde";

@@ -16,6 +16,25 @@ export const runtime = "nodejs"; // web-push braucht Node-Krypto, nicht die Edge
 
 type Geraet = { endpoint: string; p256dh: string; auth: string };
 
+// Kennung des Supabase-Projekts, mit dem diese Bereitstellung spricht (aus der URL
+// `https://<kennung>.supabase.co`). Sie steht ohnehin im Browser-Bündel und ist kein Geheimnis.
+// Sie gehört in die Fehlermeldung, weil genau hier der Verwechslungsfehler sitzt: eine Migration
+// im falschen Projekt auszuführen sieht von außen genauso aus wie eine vergessene Migration.
+function datenbankKennung(): string {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const treffer = url.match(/https:\/\/([a-z0-9]+)\.supabase\.co/i);
+  return treffer ? treffer[1] : "unbekannt";
+}
+
+function tabelleFehltText(): string {
+  return (
+    "Die Tabelle push_geraete ist in der Datenbank dieser App nicht sichtbar (Projekt " +
+    datenbankKennung() +
+    "). Entweder wurde Migration 26 in einem anderen Supabase-Projekt ausgeführt, oder der " +
+    "Schema-Zwischenspeicher ist veraltet – dann hilft: notify pgrst, 'reload schema';"
+  );
+}
+
 export async function POST() {
   const oeffentlich = process.env.VAPID_PUBLIC_KEY;
   const geheim = process.env.VAPID_PRIVATE_KEY;
@@ -41,7 +60,7 @@ export async function POST() {
     return NextResponse.json(
       {
         error: fehlt
-          ? "Auf dem Server fehlt die Tabelle push_geraete – Migration 26 wurde in Supabase noch nicht ausgeführt."
+          ? tabelleFehltText()
           : error.message,
       },
       { status: 500 }

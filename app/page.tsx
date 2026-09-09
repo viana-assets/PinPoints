@@ -17,7 +17,7 @@ import {
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
-  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS,
+  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS, KUNDE_PARAMETER,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import {
@@ -1353,6 +1353,24 @@ export default function HomePage() {
     setTab("lager");
   }, []);
 
+  // Aufruf aus einer angetippten Terminerinnerung: `/?kunde=‹id›` öffnet direkt das
+  // Kundenfenster (docs/benachrichtigungen-plan.md, Teil 5). Gleiches Muster wie beim
+  // QR-Aufkleber darüber, inklusive Bereinigen der Adresszeile – sonst springt ein Neuladen
+  // Wochen später wieder auf denselben Kunden.
+  //
+  // Der Aufruf ist auch dann richtig, wenn die Kundenliste noch lädt: `openDetail` merkt sich
+  // die Kennung, das Fenster erscheint, sobald der Bestand da ist.
+  useEffect(() => {
+    const parameter = new URLSearchParams(window.location.search);
+    const id = parameter.get(KUNDE_PARAMETER);
+    if (!id) return;
+    parameter.delete(KUNDE_PARAMETER);
+    const rest = parameter.toString();
+    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    openDetail(id);
+    setTab("list");
+  }, []);
+
   function openDetail(id: string) {
     setSelectedId(id);
     loadHistory(id);
@@ -1706,7 +1724,14 @@ export default function HomePage() {
                       const empNames = employeeNamesFor(order.id);
                       return (
                         <tr key={order.id} className={`klickbar${past ? " past" : ""}`} onClick={() => setOffenerAuftragId(order.id)} title="Auftrag öffnen">
-                          <td className="date-cell">{formatOrderDateTime(order)}{past ? " (vergangen)" : ""}</td>
+                          {/* Datum, Uhrzeit und der Hinweis „vergangen" untereinander statt in
+                              einer Zeile: nebeneinander zwang die Spalte in eine Breite, die auf
+                              dem Handy die halbe Liste auffraß. */}
+                          <td className="date-cell">
+                            <div>{formatDate(order.order_date)}</div>
+                            {order.time && <div className="date-zeit">{order.time} Uhr</div>}
+                            {past && <div className="date-vergangen">vergangen</div>}
+                          </td>
                           <td>{cust.name}<br /><span className="small">{cust.address}</span></td>
                           <td>
                             <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>{" "}

@@ -377,6 +377,10 @@
   .appt-table tr:hover td{background:var(--hover);}
   .appt-table .past{color:var(--muted);}
   .appt-table .date-cell{font-weight:700;white-space:nowrap;}
+  /* Termin-Spalte: drei Zeilen untereinander (Datum / Uhrzeit / vergangen). Uhrzeit und
+     Hinweis treten zurück, damit das Datum die Zeile anführt. */
+  .appt-table .date-cell .date-zeit{font-weight:600;color:var(--muted);}
+  .appt-table .date-cell .date-vergangen{font-weight:400;font-size:11.5px;color:var(--muted);}
   .appt-table .date-cell.overdue{color:var(--red);}
   .appt-table .date-cell.soon{color:var(--green);}
   a.btn-primary, a.btn-secondary, a.btn-green, a.btn-red{display:inline-block;cursor:pointer;border:none;

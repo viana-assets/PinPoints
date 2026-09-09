@@ -138,6 +138,38 @@ export function currentArticlePrice(prices: ArticlePrice[], onDate?: string): Ar
   return candidates[0] || null;
 }
 
+// ---------------------------------------------------------------- Terminerinnerung
+//
+// Die Uhrzeit eines Auftrags als Minuten seit Mitternacht. null, wenn nichts oder Unsinn
+// dransteht – ein Auftrag ohne Uhrzeit ist kein Termin und bekommt keine Erinnerung.
+export function minutenAusUhrzeit(zeit: string | null): number | null {
+  if (!zeit) return null;
+  const treffer = /^(\d{1,2}):(\d{2})/.exec(zeit.trim());
+  if (!treffer) return null;
+  const stunde = parseInt(treffer[1], 10);
+  const minute = parseInt(treffer[2], 10);
+  if (stunde > 23 || minute > 59) return null;
+  return stunde * 60 + minute;
+}
+
+// Ist jetzt der Moment, die Erinnerung an diesen Termin zu verschicken? Beide Zeiten sind
+// Minuten seit Mitternacht desselben Tages.
+//
+// Das Fenster ist absichtlich breiter als eine Minute: fällt ein Lauf des Zeitgebers aus,
+// holt der nächste die Erinnerung nach. Nach hinten ist es dagegen zu: eine Erinnerung an
+// einen Termin, der schon läuft, ist keine Erinnerung mehr, sondern ein Vorwurf. Dass im
+// Fenster nur EINE Meldung entsteht, regelt nicht diese Funktion, sondern der eindeutige
+// Schlüssel in `push_versand` (Migration 27).
+export function erinnerungFaellig(
+  terminMinuten: number,
+  jetztMinuten: number,
+  vorlaufMinuten: number,
+  fensterMinuten: number
+): boolean {
+  const rest = terminMinuten - jetztMinuten;
+  return rest <= vorlaufMinuten && rest >= vorlaufMinuten - fensterMinuten;
+}
+
 // Prüft, ob ein geänderter Preiszeitraum sich mit einem anderen Preis DESSELBEN Artikels
 // überschneidet – die eigene Zeile (`priceId`) bleibt dabei außen vor. Die Datenbank lehnt
 // Überschneidungen seit Migration 18 ohnehin ab; hier geht es darum, das vorher zu merken und
