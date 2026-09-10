@@ -142,6 +142,12 @@
   input[type=text], input[type=number], input[type=date], input[type=time], input[type=email], input[type=password], textarea, select{
     width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;
     font-family:var(--font-body);background:var(--input-bg);color:var(--text);}
+  /* Safari gibt Datums- und Uhrzeitfeldern eine eigene, großzügige Mindestbreite mit. In
+     einer zweispaltigen Zeile drückt die das rechte Feld über den Rand hinaus, obwohl
+     `width:100%` dasteht. Zusammen mit `min-width:0` an `.row > *` weiter unten darf das Feld
+     schrumpfen und die Zeile passt. Am Schreibtisch fällt das nie auf: Chrome und Firefox
+     zeichnen dieselben Felder deutlich schmaler. */
+  input[type=date], input[type=time]{min-width:0;}
   input:focus, textarea:focus, select:focus{outline:none;border-color:var(--accent);
     box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);}
   textarea{resize:vertical;min-height:50px;}
@@ -166,7 +172,14 @@
   .btn-red{background:var(--red);color:#fff;}
   .btn-block{width:100%;}
   .row{display:flex;gap:8px;}
-  .row > *{flex:1;}
+  /* `min-width:0` ist hier kein Feinschliff, sondern der Grund, warum die Zeile überhaupt
+     zusammenpasst: Ein Flex-Element darf sich standardmäßig NICHT unter seine Inhaltsbreite
+     verkleinern. Datums- und Uhrzeitfelder bringen auf iOS eine große Mindestbreite mit
+     (Datumsformat plus Auswahlsymbol), also wuchs die Zeile über den Rand hinaus und das
+     rechte Feld stand weiter außen als alle anderen Felder darüber – gemeldet am 10.09.2026
+     aus dem Auftragsfenster. Mit `min-width:0` dürfen beide Felder schrumpfen und teilen sich
+     die Breite wie vorgesehen. */
+  .row > *{flex:1;min-width:0;}
   hr{border:none;border-top:1px solid var(--border);margin:8px 0;}
   .stats{display:flex;gap:8px;flex-wrap:wrap;}
   .stat{flex:1;min-width:70px;background:var(--stat-bg);border:none;border-radius:14px;
