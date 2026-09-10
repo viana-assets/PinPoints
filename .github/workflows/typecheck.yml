@@ -28,8 +28,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-          cache-dependency-path: viana-pinpoints/package-lock.json
+      # Kein `cache: npm`. Das Zwischenspeichern der Pakete braucht einen Pfad zur
+      # package-lock.json, und findet es ihn nicht, bricht der Lauf schon HIER ab – mit
+      # „Some specified paths were not resolved", also ohne ein Wort über den eigentlichen
+      # Code. Genau das ist am 10.09.2026 passiert. Der Zeitgewinn liegt bei wenigen
+      # Sekunden; eine Prüfkette, die aus Bequemlichkeitsgründen scheitern kann, ist den
+      # Preis nicht wert.
+      #
+      # `npm ci` braucht die package-lock.json weiterhin – fehlt sie, sagt es das aber
+      # unmissverständlich, statt eine Pfadmeldung zu zeigen.
       - run: npm ci
       - run: npx tsc --noEmit
       - run: npm run lint
