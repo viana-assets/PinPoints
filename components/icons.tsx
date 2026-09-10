@@ -85,6 +85,18 @@ export function IconLager() {
     </svg>
   );
 }
+// Saisonliste: ein Reifen (Kreis mit Profil) – das Sinnbild des Reifenhotels. Bewusst kein
+// Sonne/Schneeflocke-Paar: zwei Motive in 24 Pixeln werden zu Grafikbrei.
+export function IconSaison() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3.6" />
+      <path d="M12 3v3.2M12 17.8V21M3 12h3.2M17.8 12H21" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconAuftraege() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">

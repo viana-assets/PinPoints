@@ -138,6 +138,30 @@ export function currentArticlePrice(prices: ArticlePrice[], onDate?: string): Ar
   return candidates[0] || null;
 }
 
+// ---------------------------------------------------------------- Saisonliste
+//
+// Die Postleitzahl aus der einzeiligen Adresse („Rehhofstraße 16, 90482 Nürnberg"). Es gibt
+// kein eigenes PLZ-Feld an den Kunden, und eines nachzurüsten hieße, 424 gewachsene Adressen
+// zu zerlegen – für einen Filter, der mit dieser Zeile auskommt. Gesucht wird eine
+// fünfstellige Zahl, die nicht Teil einer längeren Zahl ist; die Hausnummer davor stört
+// deshalb nicht.
+export function plzAus(adresse: string | null): string | null {
+  if (!adresse) return null;
+  const treffer = /(?<!\d)(\d{5})(?!\d)/.exec(adresse);
+  return treffer ? treffer[1] : null;
+}
+
+// Welche Saison steht als Nächstes an? Im Herbst brauchen die Kunden ihre WINTERreifen – die
+// bei uns liegen. Im Frühjahr die Sommerreifen. Der Vorschlag ist nur die Voreinstellung der
+// Liste; umschalten kann man jederzeit.
+//
+// Die Grenzen sind bewusst großzügig: Der Wechsel läuft über Wochen, und wer im Juli schon
+// plant, will die Winterliste sehen, nicht die vom letzten Frühjahr.
+export function naechsteSaison(datum: Date = new Date()): "sommer" | "winter" {
+  const monat = datum.getMonth() + 1; // 1 = Januar
+  return monat >= 8 || monat <= 1 ? "winter" : "sommer";
+}
+
 // ---------------------------------------------------------------- Terminerinnerung
 //
 // Die Uhrzeit eines Auftrags als Minuten seit Mitternacht. null, wenn nichts oder Unsinn

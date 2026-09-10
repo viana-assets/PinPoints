@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContactHistoryEntry, Customer, KontaktErgebnis } from "@/lib/types";
 import { geocodeAddress } from "@/lib/helpers";
-import { fetchPaged, q, qOne, qWrite } from "./client";
+import { ApiError, fetchPaged, q, qOne, qWrite } from "./client";
 
 // Datenzugriffsschicht für Kunden und deren Kontakt-Historie. Reine Supabase-Wrapper ohne
 // React-State – siehe lib/api/employees.ts für das Muster. Ausgelagert aus app/page.tsx,
@@ -54,6 +54,37 @@ export async function markCustomerContacted(
     "Der Eintrag in der Kontakt-Historie konnte nicht gespeichert werden",
     supabase.from("contact_history").insert({ customer_id: id, date: contactDate, note })
   );
+}
+
+// Setzt bei vielen Kunden auf einmal die Wiedervorlage – der Knopf unter der Saisonliste
+// („Anrufliste erzeugen", docs/lager-ausbaukonzept.md D1).
+//
+// Bewusst NUR das Datum, nicht der Kontaktstatus: Ein Anruf hat noch nicht stattgefunden, es
+// wird nur vorgemerkt. Wer den Status mitsetzte, hätte 300 Kunden als kontaktiert stehen,
+// ohne dass jemand mit ihnen gesprochen hat – das ist genau die Sorte Zahl, die eine
+// Anwendung unglaubwürdig macht.
+//
+// In Blöcken von 200, weil eine `in`-Liste mit mehreren hundert Kennungen in der URL landet
+// und dort irgendwann abgeschnitten wird – und zwar ohne Fehlermeldung, nur mit weniger
+// getroffenen Zeilen.
+export async function setWiedervorlageBulk(
+  supabase: SupabaseClient,
+  kundenIds: string[],
+  datum: string
+): Promise<number> {
+  const BLOCK = 200;
+  let geschrieben = 0;
+  for (let i = 0; i < kundenIds.length; i += BLOCK) {
+    const block = kundenIds.slice(i, i + BLOCK);
+    const { data, error } = await supabase
+      .from("customers")
+      .update({ wiedervorlage_am: datum })
+      .in("id", block)
+      .select("id");
+    if (error) throw new ApiError("Die Wiedervorlagen konnten nicht gesetzt werden", error);
+    geschrieben += data?.length ?? 0;
+  }
+  return geschrieben;
 }
 
 // „Auf offen setzen" räumt auch das Ergebnis ab: der Kunde soll wieder auf der Anrufliste

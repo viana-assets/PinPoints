@@ -11,6 +11,7 @@ import type {
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
   effectiveColor, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
+  plzAus, naechsteSaison,
   getPhoneNumbers, navigationUrls,
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
@@ -23,7 +24,7 @@ import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode"
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
-  IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
+  IconMap, IconLager, IconSaison, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
   IconNavPin, IconMarke, IconFilter, navPinSvgHtml,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
@@ -40,6 +41,7 @@ import { KontaktModal } from "@/components/kunden/KontaktModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
+import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
@@ -61,7 +63,7 @@ import {
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
 import {
-  markCustomerContacted, markCustomerOpen,
+  markCustomerContacted, markCustomerOpen, setWiedervorlageBulk,
   setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
 } from "@/lib/api/customers";
 import { upsertModulePermissions } from "@/lib/api/permissions";
@@ -110,7 +112,7 @@ const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse">, string> = {
 // und jedes Tippen im Suchfeld spürbar verzögert.
 const LISTEN_SCHRITT = 200;
 
-type TabKey = "dashboard" | "list" | "termine" | "lager" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "more";
+type TabKey = "dashboard" | "list" | "termine" | "lager" | "saison" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "more";
 
 export default function HomePage() {
   const router = useRouter();
@@ -195,6 +197,13 @@ export default function HomePage() {
   const [gescannterLagerplatzId, setGescannterLagerplatzId] = useState<string | null>(null);
   // Kunde, für den der Kontaktdialog offen ist (Migration 23).
   const [kontaktKundeId, setKontaktKundeId] = useState<string | null>(null);
+  // Saisonliste (docs/lager-ausbaukonzept.md D1). Die Voreinstellung folgt dem Jahreslauf:
+  // im Herbst die Winterliste, im Frühjahr die Sommerliste – wer die Liste öffnet, sieht
+  // meistens sofort die richtige.
+  const [saisonFilter, setSaisonFilter] = useState<Saison | "alle">(() => naechsteSaison());
+  const [saisonPlz, setSaisonPlz] = useState("");
+  const [saisonNurFaellige, setSaisonNurFaellige] = useState(false);
+  const [saisonSchreibt, setSaisonSchreibt] = useState(false);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
   //
@@ -217,7 +226,7 @@ export default function HomePage() {
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
-  const brauchtLager = tab === "lager" || kundeOffen || offenerAuftragId !== null;
+  const brauchtLager = tab === "lager" || tab === "saison" || kundeOffen || offenerAuftragId !== null;
 
   const kundenQuery = useKunden(supabase, sitzungBereit);
   // "Kein Netz" aus DREI Quellen, weil keine für sich zuverlässig ist:
@@ -245,7 +254,7 @@ export default function HomePage() {
   // Alle Kundenfahrzeuge – nur fürs Lager-Modul. Dort steht kein einzelner Kunde im
   // Mittelpunkt, sondern viele Sätze nebeneinander, und jeder gehört zu einem Auto
   // (Migration 30).
-  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && tab === "lager");
+  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison"));
   const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && tab === "dashboard");
   const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
   const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId, sitzungBereit);
@@ -272,6 +281,7 @@ export default function HomePage() {
   const storageSlots = lagerplaetzeQuery.data ?? KEINE_LAGERPLAETZE;
   const tireStorages = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
   const vehicles = kundeFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
+  const alleFahrzeuge = alleFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
   const history = historieQuery.data ?? KEINE_HISTORIE;
   const modulePermissions = modulrechteQuery.data ?? KEINE_ZUORDNUNGEN;
 
@@ -1333,13 +1343,56 @@ export default function HomePage() {
     return z;
   }, [alleTermine]);
 
-  // Welche Kunden gehören zu den gerade sichtbaren Terminen? Im Reiter „Termine" zeigt die
-  // Karte nur diese – sonst stünden dort weiterhin alle 300 Kunden und die Frage „wo liegen
-  // meine Termine morgen" bliebe unbeantwortet. `null` heißt: keine Einschränkung.
-  const terminKundenIds = useMemo(
-    () => (tab === "termine" ? new Set(apptRows.map((r) => r.cust.id)) : null),
-    [tab, apptRows]
-  );
+  // ---------------------------------------------------------------- Saisonliste
+  //
+  // Eine Sicht auf die aktiven Einlagerungen, keine zweite Datenhaltung: Satz + Saison + Kunde
+  // + Fahrzeug + Platz. Sie entsteht vollständig aus dem Feld, das Migration 30 gebracht hat.
+  //
+  // Sätze OHNE Saison verschwinden nicht, sie tauchen unter „Alle" auf. Sie stillschweigend
+  // wegzufiltern hieße, eine Lücke unsichtbar zu machen – und die Liste behauptete
+  // Vollständigkeit, die sie nicht hat.
+  const saisonZeilen = useMemo<SaisonZeile[]>(() => {
+    if (tab !== "saison") return [];
+    const kundeNach = new Map(customers.map((c) => [c.id, c]));
+    const fahrzeugNach = new Map(alleFahrzeuge.map((v) => [v.id, v]));
+    const platzNach = new Map(storageSlots.map((sl) => [sl.id, sl]));
+
+    return tireStorages
+      .filter((ts) => !ts.removed_at)
+      .map((ts) => ({
+        einlagerung: ts,
+        cust: kundeNach.get(ts.customer_id),
+        vehicle: ts.vehicle_id ? fahrzeugNach.get(ts.vehicle_id) ?? null : null,
+        slot: platzNach.get(ts.storage_slot_id) ?? null,
+      }))
+      // Ohne Kunden keine Zeile: der Kunde kann gelöscht (Migration 19) oder außerhalb des
+      // geladenen Bestands sein. Eine Zeile ohne Namen hilft niemandem beim Telefonieren.
+      .filter((z): z is SaisonZeile => Boolean(z.cust))
+      .filter((z) => (saisonFilter === "alle" ? true : z.einlagerung.saison === saisonFilter))
+      .filter((z) => (saisonPlz ? (plzAus(z.cust.address) || "").startsWith(saisonPlz) : true))
+      .filter((z) => (saisonNurFaellige ? effectiveColor(z.cust, settings.period_months) === "red" : true))
+      .sort((a, b) => a.cust.name.localeCompare(b.cust.name, "de"));
+  }, [tab, tireStorages, customers, alleFahrzeuge, storageSlots, saisonFilter, saisonPlz, saisonNurFaellige, settings.period_months]);
+
+  async function saisonWiedervorlageSetzen(kundenIds: string[], datum: string) {
+    setSaisonSchreibt(true);
+    try {
+      await setWiedervorlageBulk(supabase, kundenIds, datum);
+      await neuLaden(qk.kunden());
+    } finally {
+      setSaisonSchreibt(false);
+    }
+  }
+
+  // Welche Kunden zeigt die Karte? In „Termine" die mit Terminen im gewählten Zeitraum, in
+  // „Saisonliste" die mit passendem eingelagerten Satz – sonst stünden dort weiterhin alle
+  // 424 Kunden und die eigentliche Frage bliebe unbeantwortet. `null` heißt: keine
+  // Einschränkung.
+  const terminKundenIds = useMemo(() => {
+    if (tab === "termine") return new Set(apptRows.map((r) => r.cust.id));
+    if (tab === "saison") return new Set(saisonZeilen.map((z) => z.cust.id));
+    return null;
+  }, [tab, apptRows, saisonZeilen]);
   terminKundenRef.current = terminKundenIds;
   // Eigener Effekt und nicht als weitere Abhängigkeit oben: `terminKundenIds` entsteht erst
   // hier, der Karteneffekt steht viel weiter oben bei den übrigen Karten-Sachen. Ein Hook, der
@@ -1544,7 +1597,7 @@ export default function HomePage() {
   // Hauptnavigation: Dashboard/Kunden/Aufträge sind immer sichtbar. Alles andere ist auf dem
   // Desktop Teil der breiten Seitenleiste (wie in einem ERP-System), auf dem Handy dagegen
   // hinter "Weitere" versteckt, damit die schmale Leiste dort nicht überladen wirkt.
-  const SECONDARY_TABS: TabKey[] = ["termine", "lager", "einsatzplanung", "add", "inactive", "artikel", "admin", "settings"];
+  const SECONDARY_TABS: TabKey[] = ["termine", "lager", "saison", "einsatzplanung", "add", "inactive", "artikel", "admin", "settings"];
   const isMoreActive = SECONDARY_TABS.includes(tab);
 
   return (
@@ -1567,6 +1620,7 @@ export default function HomePage() {
         <div className="nav-divider nav-secondary" />
         {canView("termine") && <NavItem className="nav-secondary" active={tab === "termine"} onClick={() => setTab("termine")} icon={<IconTermine />} label="Termine" />}
         {canView("lager") && <NavItem className="nav-secondary" active={tab === "lager"} onClick={() => setTab("lager")} icon={<IconLager />} label="Lager" />}
+        {canView("saison") && <NavItem className="nav-secondary" active={tab === "saison"} onClick={() => setTab("saison")} icon={<IconSaison />} label="Saisonliste" />}
         {canView("einsatzplanung") && <NavItem className="nav-secondary" active={tab === "einsatzplanung"} onClick={() => setTab("einsatzplanung")} icon={<IconEinsatzplanung />} label="Einsatzplanung" />}
         {canView("neuer_kunde") && <NavItem className="nav-secondary" active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neuer Kunde" />}
         {canView("inaktive_kunden") && <NavItem className="nav-secondary" active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktive Kunden" />}
@@ -1858,10 +1912,29 @@ export default function HomePage() {
           </>
         )}
 
+        {tab === "saison" && canView("saison") && (
+          <SaisonPanel
+            zeilen={saisonZeilen}
+            gesamtAktiv={tireStorages.filter((ts) => !ts.removed_at).length}
+            saison={saisonFilter}
+            onSaisonChange={setSaisonFilter}
+            plz={saisonPlz}
+            onPlzChange={setSaisonPlz}
+            nurFaellige={saisonNurFaellige}
+            onNurFaelligeChange={setSaisonNurFaellige}
+            warehouses={warehouses}
+            onOpenCustomer={openDetail}
+            onCall={openCallMenu}
+            onNavigate={openNavMenu}
+            onWiedervorlage={saisonWiedervorlageSetzen}
+            schreibt={saisonSchreibt}
+          />
+        )}
+
         {tab === "lager" && canView("lager") && (
           <LagerPanel
             customers={customers}
-            vehicles={alleFahrzeugeQuery.data ?? KEINE_FAHRZEUGE}
+            vehicles={alleFahrzeuge}
             warehouses={warehouses}
             storageSlots={storageSlots}
             tireStorages={tireStorages}

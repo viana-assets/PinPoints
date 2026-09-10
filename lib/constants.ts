@@ -103,6 +103,9 @@ export const PERMISSION_DEFAULTS: Record<string, string[]> = {
   "action.lager.warehouse_edit": ["admin"],
   "action.lager.warehouse_delete": ["admin"],
   "view.einsatzplanung": ["admin", "techniker", "user"],
+  // Die Saisonliste ist eine Vertriebs- und Büroaufgabe (die halbjährliche Anrufliste), kein
+  // Werkzeug für unterwegs – deshalb ohne Techniker.
+  "view.saison": ["admin", "user"],
   "view.neuer_kunde": ["admin", "user"],
   "view.inaktive_kunden": ["admin", "user"],
   // "Artikel" (vorher "Artikelstamm" im Admin-Bereich, siehe docs/roadmap.md Phase 4) ist eine
