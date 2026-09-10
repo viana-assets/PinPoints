@@ -137,6 +137,19 @@ export function AuftragModal({
 
   const fahrzeug = vehicles.find((v) => v.id === fahrzeugId);
   const aktiveFirmenfahrzeuge = firmenfahrzeuge.filter((f) => f.aktiv);
+
+  // Wer bekommt fünf Minuten vor diesem Termin eine Erinnerung? Die Kette ist: zugeordneter
+  // Mitarbeiter → verknüpftes Benutzerkonto → angemeldetes Gerät. Die ersten zwei Glieder
+  // sind hier sichtbar, das dritte nicht – deshalb nennt der Hinweis nur, was hier fehlt, und
+  // behauptet nichts über den Rest.
+  const zugeordnete = employees.filter((e) => mitarbeiterIds.includes(e.id));
+  const mitKonto = zugeordnete.filter((e) => e.profile_id);
+  const erinnerungsHinweis =
+    zugeordnete.length === 0
+      ? "Kein Mitarbeiter zugeordnet – für diesen Termin bekommt niemand eine Erinnerung."
+      : mitKonto.length === 0
+        ? `${zugeordnete.length === 1 ? "Der zugeordnete Mitarbeiter hat" : "Die zugeordneten Mitarbeiter haben"} kein Benutzerkonto (Admin → Mitarbeiter) – ohne Konto gibt es keine Erinnerung.`
+        : null;
   function firmenfahrzeugLabel(f: Firmenfahrzeug): string {
     return [f.kennzeichen, f.bezeichnung].filter(Boolean).join(" · ");
   }
@@ -385,6 +398,17 @@ export function AuftragModal({
                 value={mitarbeiterIds}
                 onChange={setMitarbeiterIds}
               />
+            )}
+
+            {/* Hinweis zur Terminerinnerung (docs/benachrichtigungen-plan.md).
+                Sie geht an die zugeordneten Mitarbeiter – und nur an die, deren Name mit einem
+                Benutzerkonto verknüpft ist. Beides ist beim Anlegen leicht zu übersehen, und
+                das Ausbleiben einer Erinnerung merkt man erst, wenn sie fehlt. Deshalb steht
+                die Lücke hier, im Moment des Einteilens. */}
+            {zeit.trim() && erinnerungsHinweis && (
+              <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
+                {erinnerungsHinweis}
+              </div>
             )}
           </div>
 

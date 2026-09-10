@@ -17,7 +17,7 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v5";
+const FASSUNG = "v6";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 // Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
 // stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg
@@ -123,12 +123,17 @@ self.addEventListener("notificationclick", (ereignis) => {
 
       const fenster = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const f of fenster) {
-        if (new URL(f.url).origin === self.location.origin) {
+        if (new URL(f.url).origin !== self.location.origin) continue;
+        try {
           await f.focus();
           // Kommt die Nachricht an, holt die Anwendung das Ziel sofort ab; kommt sie nicht an,
           // findet sie es beim Sichtbarwerden im Speicher. Wer zuerst kommt, gewinnt.
           f.postMessage({ typ: "BENACHRICHTIGUNG_ZIEL", url: ziel });
           return;
+        } catch {
+          // `focus()` darf der Browser verweigern. Dann NICHT aufgeben, sondern unten ein
+          // Fenster öffnen – vorher führte die Ausnahme dazu, dass gar nichts mehr passierte.
+          break;
         }
       }
       // Kein Fenster offen: Dann wird eines geöffnet, und die Anwendung liest das Ziel beim

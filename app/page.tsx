@@ -1479,12 +1479,18 @@ export default function HomePage() {
     const auftragId = parameter.get(AUFTRAG_PARAMETER);
     if (auftragId) {
       setOffenerAuftragId(auftragId);
+      // UND neu laden. Sonst passiert bei genau dem wichtigsten Fall nichts Sichtbares: Der
+      // Auftrag wurde am Rechner angelegt, das Handy zeigt seinen gespeicherten Stand von
+      // vorhin und kennt ihn deshalb gar nicht – das Fenster hätte nichts anzuzeigen und
+      // bliebe stumm zu. Der Auftrag erscheint dann, sobald der Abruf zurück ist.
+      void auftraegeNeuLaden();
       return;
     }
     const kundenId = parameter.get(KUNDE_PARAMETER);
     if (kundenId) {
       openDetail(kundenId);
       setTab("list");
+      void neuLaden(qk.kunden());
     }
   }
 
@@ -1541,11 +1547,16 @@ export default function HomePage() {
     navigator.serviceWorker.addEventListener("message", beiNachricht);
     document.addEventListener("visibilitychange", beiSichtbar);
     window.addEventListener("focus", beiSichtbar);
+    // `pageshow` zusätzlich: Holt iOS eine eingefrorene Seite aus dem Vor-/Zurück-Speicher
+    // zurück, ist das kein Sichtbarkeitswechsel – dann feuert nur dieses Ereignis. Genau so
+    // kommt eine installierte App nach dem Antippen einer Meldung wieder nach vorn.
+    window.addEventListener("pageshow", beiSichtbar);
     void ausSpeicherNachsehen();
     return () => {
       navigator.serviceWorker.removeEventListener("message", beiNachricht);
       document.removeEventListener("visibilitychange", beiSichtbar);
       window.removeEventListener("focus", beiSichtbar);
+      window.removeEventListener("pageshow", beiSichtbar);
     };
   }, []);
 
