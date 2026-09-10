@@ -1,0 +1,16 @@
+node_modules
+.next
+.env
+.env.local
+.vercel
+*.log
+
+# Echte Kundendaten gehören NICHT ins Repository – auch nicht in ein privates.
+# `supabase/import/` enthält den Kundenimport mit Namen, Adressen und Telefonnummern
+# realer Personen. Ein Repository wird geklont, geteilt und liegt bei einem Dienstleister;
+# personenbezogene Daten haben dort nichts verloren (DSGVO, Datenminimierung). Die Dateien
+# bleiben lokal im OneDrive-Ordner, wo sie hingehören.
+supabase/import/
+
+# Hilfsordner beim Aufräumen: enthält Dateien, die entfernt werden sollen.
+_to_delete/
