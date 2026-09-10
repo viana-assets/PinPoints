@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabaseClient";
 import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
-  Article, ArticlePrice, OrderArticle, KontaktErgebnis, Saison,
+  Article, ArticlePrice, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
@@ -59,7 +59,7 @@ import {
 import {
   replaceOrderEmployees,
   insertOrder, updateOrderById, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
-  updateOrderVehicle,
+  updateOrderVehicle, updateOrderFirmenfahrzeug,
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
 import {
@@ -67,12 +67,17 @@ import {
   setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
 } from "@/lib/api/customers";
 import { upsertModulePermissions } from "@/lib/api/permissions";
+import {
+  insertFirmenfahrzeug, updateFirmenfahrzeugById, firmenfahrzeugAusmustern,
+  type FirmenfahrzeugFelder,
+} from "@/lib/api/firmenfahrzeuge";
 import { fetchOwnRole, fetchOrCreateUserSettings, updateUserSettings } from "@/lib/api/session";
 import { qk } from "@/lib/queries/keys";
 import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
   useMitarbeiter, useArtikel, useArtikelpreise,
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
+  useFirmenfahrzeuge,
 } from "@/lib/queries/hooks";
 
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
@@ -87,6 +92,7 @@ const KEINE_LAGER: Warehouse[] = [];
 const KEINE_LAGERPLAETZE: StorageSlot[] = [];
 const KEINE_EINLAGERUNGEN: TireStorage[] = [];
 const KEINE_FAHRZEUGE: Vehicle[] = [];
+const KEINE_FIRMENFAHRZEUGE: Firmenfahrzeug[] = [];
 const KEINE_HISTORIE: ContactHistoryEntry[] = [];
 const KEINE_ZUORDNUNGEN: Record<string, string[]> = {};
 
@@ -255,6 +261,12 @@ export default function HomePage() {
   // Mittelpunkt, sondern viele Sätze nebeneinander, und jeder gehört zu einem Auto
   // (Migration 30).
   const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison"));
+  // Die eigenen Transporter: kleine Stammdatenliste, gebraucht überall dort, wo ein Auftrag
+  // gezeigt oder eingeteilt wird (Migration 32).
+  const firmenfahrzeugeQuery = useFirmenfahrzeuge(
+    supabase,
+    sitzungBereit && (brauchtMitarbeiter || offenerAuftragId !== null)
+  );
   const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && tab === "dashboard");
   const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
   const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId, sitzungBereit);
@@ -282,6 +294,7 @@ export default function HomePage() {
   const tireStorages = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
   const vehicles = kundeFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
   const alleFahrzeuge = alleFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
+  const firmenfahrzeuge = firmenfahrzeugeQuery.data ?? KEINE_FIRMENFAHRZEUGE;
   const history = historieQuery.data ?? KEINE_HISTORIE;
   const modulePermissions = modulrechteQuery.data ?? KEINE_ZUORDNUNGEN;
 
@@ -1130,6 +1143,29 @@ export default function HomePage() {
     await updateOrderStatusById(supabase, id, status, grund);
     await refreshOrders();
   }
+  // Stammdaten der eigenen Transporter. Ein doppeltes Kennzeichen ist ein Bedienfehler und
+  // kommt als Text zurück in die Maske – nicht als Störungsmeldung über den ganzen Bildschirm.
+  async function firmenfahrzeugAnlegen(felder: FirmenfahrzeugFelder): Promise<string | null> {
+    const { error } = await insertFirmenfahrzeug(supabase, felder);
+    if (error) return error;
+    await neuLaden(qk.firmenfahrzeuge());
+    return null;
+  }
+  async function firmenfahrzeugAendern(id: string, felder: FirmenfahrzeugFelder): Promise<string | null> {
+    const { error } = await updateFirmenfahrzeugById(supabase, id, felder);
+    if (error) return error;
+    await neuLaden(qk.firmenfahrzeuge());
+    return null;
+  }
+  async function firmenfahrzeugStilllegen(id: string, aktiv: boolean) {
+    await firmenfahrzeugAusmustern(supabase, id, aktiv);
+    await neuLaden(qk.firmenfahrzeuge());
+  }
+
+  async function setOrderFirmenfahrzeug(id: string, firmenfahrzeugId: string | null) {
+    await updateOrderFirmenfahrzeug(supabase, id, firmenfahrzeugId);
+    await refreshOrders();
+  }
   async function setOrderVehicle(id: string, vehicleId: string | null) {
     await updateOrderVehicle(supabase, id, vehicleId);
     await refreshOrders();
@@ -1962,6 +1998,7 @@ export default function HomePage() {
           <FensterSchalter wert={auftragsFenster} onChange={setAuftragsFenster} laedt={auftraegeQuery.isFetching} />
           <EinsatzplanungPanel
             customers={customers}
+            firmenfahrzeuge={firmenfahrzeuge}
             orders={orders}
             employees={employees}
             orderEmployees={orderEmployees}
@@ -2096,6 +2133,10 @@ export default function HomePage() {
             onUpdateEmployeeProfileId={updateEmployeeProfile}
             modulePermissions={modulePermissions}
             onUpdateModulePermissions={updateModulePermissions}
+            firmenfahrzeuge={firmenfahrzeuge}
+            onFirmenfahrzeugAnlegen={firmenfahrzeugAnlegen}
+            onFirmenfahrzeugAendern={firmenfahrzeugAendern}
+            onFirmenfahrzeugAusmustern={firmenfahrzeugStilllegen}
           />
         )}
 
@@ -2282,7 +2323,9 @@ export default function HomePage() {
           onEinlagerungAngaben={einlagerungAngabenAendern}
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
+          firmenfahrzeuge={firmenfahrzeuge}
           onSetVehicle={setOrderVehicle}
+          onSetFirmenfahrzeug={setOrderFirmenfahrzeug}
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
           onSetStatus={updateOrderStatus}
           onDelete={deleteOrder}

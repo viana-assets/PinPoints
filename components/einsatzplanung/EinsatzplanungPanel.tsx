@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
+import type { Customer, Employee, Firmenfahrzeug, Order, OrderStatus } from "@/lib/types";
 import { todayStr, formatDate, formatOrderDateTime, orderDateTime } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
@@ -9,8 +9,11 @@ import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, orderEmployees, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
+  // Die eigenen Transporter (Migration 32): „welcher Wagen ist wann wo" ist dieselbe Frage
+  // wie „wer ist wann wo" – und wird deshalb an derselben Stelle beantwortet.
+  firmenfahrzeuge: Firmenfahrzeug[];
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
   employeeNamesFor: (orderId: string) => string;
   orderArticlesLabel: (orderId: string) => string;
@@ -32,6 +35,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [selectedDay, setSelectedDay] = useState<string | null>(todayStr());
   const [empFilter, setEmpFilter] = useState<"all" | string>("all");
+  // Zweiter Filter neben dem Mitarbeiter, mit derselben Bedienung. „Nicht eingeteilt" ist
+  // bewusst ein eigener Knopf: Das ist die Lücke, die man vor dem Tag schließen will.
+  const [fahrzeugFilter, setFahrzeugFilter] = useState<"all" | "ohne" | string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
   const [custFilter, setCustFilter] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "kunde" | "status">("date");
@@ -58,7 +64,18 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
     return employees.filter((e) => ids.has(e.id));
   }
 
-  const dayOrders = selectedDay ? ordersOn(selectedDay) : [];
+  function passtZumFahrzeug(o: Order): boolean {
+    if (fahrzeugFilter === "all") return true;
+    if (fahrzeugFilter === "ohne") return !o.firmenfahrzeug_id;
+    return o.firmenfahrzeug_id === fahrzeugFilter;
+  }
+  function fahrzeugText(id: string | null): string {
+    if (!id) return "nicht eingeteilt";
+    const f = firmenfahrzeuge.find((x) => x.id === id);
+    return f ? f.kennzeichen : "unbekanntes Fahrzeug";
+  }
+
+  const dayOrders = (selectedDay ? ordersOn(selectedDay) : []).filter(passtZumFahrzeug);
   const dayGroups: { employee: Employee | null; orders: Order[] }[] = [
     ...employees.map((emp) => ({ employee: emp, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).includes(emp.id)) })),
     { employee: null, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).length === 0) },
@@ -68,6 +85,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
   const listOrders = orders
     .filter((o) => statusFilter === "all" || o.status === statusFilter)
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
+    .filter(passtZumFahrzeug)
     .filter((o) => {
       if (!custFilter.trim()) return true;
       const cust = customers.find((c) => c.id === o.customer_id);
@@ -128,6 +146,24 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
           </div>
         )}
 
+        {firmenfahrzeuge.some((f) => f.aktiv) && (
+          <div className="filterbar">
+            <button type="button" className={`chip ${fahrzeugFilter === "all" ? "active" : ""}`} onClick={() => setFahrzeugFilter("all")}>Alle Fahrzeuge</button>
+            {firmenfahrzeuge.filter((f) => f.aktiv).map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                className={`chip ${fahrzeugFilter === f.id ? "active" : ""}`}
+                onClick={() => setFahrzeugFilter(f.id)}
+                title={f.bezeichnung || undefined}
+              >
+                {f.kennzeichen}
+              </button>
+            ))}
+            <button type="button" className={`chip ${fahrzeugFilter === "ohne" ? "active" : ""}`} onClick={() => setFahrzeugFilter("ohne")}>Nicht eingeteilt</button>
+          </div>
+        )}
+
         <div className="calendar-grid">
           <div className="calendar-row calendar-head">
             <div className="calendar-kw"></div>
@@ -173,7 +209,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                 <div key={g.employee?.id || "unassigned"}>
                   <h4 style={{ margin: "6px 0 2px", fontSize: 13 }}>{g.employee ? g.employee.name : "Nicht zugeordnet"} <span className="small">({g.orders.length})</span></h4>
                   <table className="appt-table">
-                    <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Titel</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Titel</th><th>Fahrzeug</th><th>Status</th></tr></thead>
                     <tbody>
                       {g.orders.map((o) => {
                         const cust = customers.find((c) => c.id === o.customer_id);
@@ -199,6 +235,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, orderEmploye
                               ) : "–"}
                             </td>
                             <td>{o.title}</td>
+                            <td className={o.firmenfahrzeug_id ? undefined : "small"}>{fahrzeugText(o.firmenfahrzeug_id)}</td>
                             <td><span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{statusLabel[o.status]}</span></td>
                           </tr>
                         );

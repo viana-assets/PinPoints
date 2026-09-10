@@ -5,6 +5,7 @@ import { qk } from "./keys";
 import { fetchCustomers, fetchContactHistory } from "@/lib/api/customers";
 import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsdaten } from "@/lib/api/orders";
 import { fetchEmployees } from "@/lib/api/employees";
+import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import {
@@ -63,6 +64,17 @@ export function useKundenAuftraege(supabase: SupabaseClient, kundeId: string | n
     queryKey: qk.kundeAuftraege(kundeId || "-"),
     queryFn: () => fetchOrdersFuerKunde(supabase, kundeId as string),
     enabled: aktiv && !!kundeId,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Die eigenen Transporter. Klein und selten geändert – wird überall dort gebraucht, wo ein
+// Auftrag eingeteilt oder angezeigt wird.
+export function useFirmenfahrzeuge(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.firmenfahrzeuge(),
+    queryFn: () => fetchFirmenfahrzeuge(supabase),
+    enabled: aktiv,
     staleTime: FRISCH_MS,
   });
 }

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Employee, Profile, Role } from "@/lib/types";
+import type { Employee, Firmenfahrzeug, Profile, Role } from "@/lib/types";
+import type { FirmenfahrzeugFelder } from "@/lib/api/firmenfahrzeuge";
 import { createClient } from "@/lib/supabaseClient";
 import { ROLE_LABEL } from "@/lib/constants";
 import { IconAdmin, IconTrash } from "@/components/icons";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { GeokodierLauf } from "./GeokodierLauf";
 import { AdressenPruefen } from "./AdressenPruefen";
+import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
 
 // Admin-Modul: Nutzerverwaltung – als eigener Tab statt separater Seite, damit man wie bei
 // Termine einfach das Fenster wechselt statt zu navigieren. Bündelt zusätzlich die
@@ -15,8 +17,13 @@ import { AdressenPruefen } from "./AdressenPruefen";
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
 export function AdminPanel({
   isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, onUpdateEmployeeProfileId, modulePermissions, onUpdateModulePermissions,
+  firmenfahrzeuge, onFirmenfahrzeugAnlegen, onFirmenfahrzeugAendern, onFirmenfahrzeugAusmustern,
 }: {
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
+  firmenfahrzeuge: Firmenfahrzeug[];
+  onFirmenfahrzeugAnlegen: (felder: FirmenfahrzeugFelder) => Promise<string | null>;
+  onFirmenfahrzeugAendern: (id: string, felder: FirmenfahrzeugFelder) => Promise<string | null>;
+  onFirmenfahrzeugAusmustern: (id: string, aktiv: boolean) => Promise<void>;
   onAddEmployee: (name: string) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
   onUpdateEmployeeProfileId: (employeeId: string, profileId: string | null) => Promise<void>;
@@ -198,6 +205,17 @@ export function AdminPanel({
             )}
           </>
         )}
+
+        <hr />
+        {/* Die eigenen Transporter (Migration 32). Sie stehen bei den Mitarbeitern und nicht
+            im Lager-Modul: Beides sind Stammdaten, die die Einsatzplanung braucht – wer fährt,
+            und womit. */}
+        <FirmenfahrzeugPanel
+          fahrzeuge={firmenfahrzeuge}
+          onAnlegen={onFirmenfahrzeugAnlegen}
+          onAendern={onFirmenfahrzeugAendern}
+          onAusmustern={onFirmenfahrzeugAusmustern}
+        />
 
         <hr />
         <h4 style={{ margin: 0 }}>Mitarbeiter (Einsatzplanung)</h4>

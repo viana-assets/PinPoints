@@ -125,6 +125,9 @@ export type Order = {
   // wird (z. B. "Rad hinten links nicht zugänglich") – getrennt von `description`, das der
   // Admin/Büro-seitige Auftragstext bleibt. Siehe Migration 13 + docs/roadmap.md Phase 4.
   techniker_notiz: string | null;
+  // Mit welchem eigenen Transporter der Auftrag gefahren wird (Migration 32). Null heißt
+  // „noch nicht eingeteilt" – und ist damit selbst eine Information für die Einsatzplanung.
+  firmenfahrzeug_id: string | null;
   // Wer hat wann abgeschlossen bzw. storniert – von der Datenbank gesetzt, nicht vom Client
   // (Migration 20). Ohne Zeitstempel und Person wäre ein Abschluss keine Abnahme.
   completed_at: string | null;
@@ -150,6 +153,20 @@ export type Employee = {
   name: string;
   profile_id: string | null;
   created_at: string;
+};
+
+// Eigener Transporter (Migration 32). Bewusst eine eigene Tabelle neben `Vehicle`: „Fahrzeug"
+// heißt im Kundenkontext das Auto des Kunden und im Einsatzkontext der eigene Wagen. Ein Typ
+// mit zwei Bedeutungen wird an fünfzig Stellen zu zwei Bedeutungen.
+export type Firmenfahrzeug = {
+  id: string;
+  kennzeichen: string;
+  bezeichnung: string | null;
+  notiz: string | null;
+  // Ausgemustert statt gelöscht – an alten Aufträgen hängt das Fahrzeug weiter.
+  aktiv: boolean;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Vehicle = {

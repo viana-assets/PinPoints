@@ -146,6 +146,16 @@ export async function updateOrderById(supabase: SupabaseClient, id: string, fiel
 
 // Nur das Fahrzeug ändern – im Auftragsfenster wird die Auswahl sofort gespeichert, ohne dass
 // dafür das ganze Formular abgeschickt werden muss.
+// Welcher eigene Transporter fährt diesen Auftrag (Migration 32)? Eigener Aufruf wie beim
+// Kundenfahrzeug: eine Einteilung ist eine Handlung für sich und soll nicht erst beim
+// Speichern des ganzen Auftragsfensters wirksam werden.
+export async function updateOrderFirmenfahrzeug(supabase: SupabaseClient, id: string, firmenfahrzeugId: string | null): Promise<void> {
+  await qWrite(
+    "Das Firmenfahrzeug konnte nicht zugeordnet werden",
+    supabase.from("orders").update({ firmenfahrzeug_id: firmenfahrzeugId }).eq("id", id)
+  );
+}
+
 export async function updateOrderVehicle(supabase: SupabaseClient, id: string, vehicleId: string | null): Promise<void> {
   await qWrite(
     "Das Fahrzeug konnte nicht gespeichert werden",

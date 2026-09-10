@@ -22,6 +22,7 @@ export const qk = {
   fahrzeuge: () => ["fahrzeuge"] as const,
 
   mitarbeiter: () => ["mitarbeiter"] as const,
+  firmenfahrzeuge: () => ["firmenfahrzeuge"] as const,
   artikel: () => ["artikel"] as const,
   artikelpreise: () => ["artikelpreise"] as const,
 

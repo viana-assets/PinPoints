@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Article, Customer, Employee, Order, OrderArticle, OrderStatus, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, Customer, Employee, Firmenfahrzeug, Order, OrderArticle, OrderStatus, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { formatDate, formatOrderDateTime, getPhoneNumbers } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -19,16 +19,20 @@ import { EinlagerungBlock } from "./EinlagerungBlock";
 // Positionen ein. Welche Übergänge erlaubt sind, entscheidet ein Trigger; diese Komponente zeigt
 // nur an, was gerade möglich ist.
 export function AuftragModal({
-  order, customer, vehicles, employees, assignedEmployeeIds, articles, orderArticles,
+  order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds,
-  onClose, onSaveFields, onSetVehicle, onUpdateTechnikerNotiz, onSetStatus, onDelete,
+  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete,
   onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
 }: {
   order: Order;
   customer: Customer | undefined;
   vehicles: Vehicle[];
+  // Die eigenen Transporter (Migration 32). Ausgemusterte sind mit dabei, damit ein alter
+  // Auftrag seinen Wagen weiterhin beim Namen nennen kann – zur Auswahl stehen unten nur die
+  // aktiven.
+  firmenfahrzeuge: Firmenfahrzeug[];
   employees: Employee[];
   assignedEmployeeIds: string[];
   articles: Article[];
@@ -50,6 +54,7 @@ export function AuftragModal({
   onClose: () => void;
   onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
   onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
+  onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
   onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
@@ -85,6 +90,7 @@ export function AuftragModal({
   const [zeit, setZeit] = useState(order.time || "");
   const [beschreibung, setBeschreibung] = useState(order.description || "");
   const [fahrzeugId, setFahrzeugId] = useState(order.vehicle_id || "");
+  const [firmenfahrzeugId, setFirmenfahrzeugId] = useState(order.firmenfahrzeug_id || "");
   const [mitarbeiterIds, setMitarbeiterIds] = useState<string[]>(assignedEmployeeIds);
   const [notiz, setNotiz] = useState(order.techniker_notiz || "");
   const [speichert, setSpeichert] = useState(false);
@@ -103,6 +109,7 @@ export function AuftragModal({
     setZeit(order.time || "");
     setBeschreibung(order.description || "");
     setFahrzeugId(order.vehicle_id || "");
+    setFirmenfahrzeugId(order.firmenfahrzeug_id || "");
     setMitarbeiterIds(assignedEmployeeIds);
     setNotiz(order.techniker_notiz || "");
     setGespeichert(false);
@@ -118,6 +125,7 @@ export function AuftragModal({
     zeit !== (order.time || "") ||
     beschreibung !== (order.description || "") ||
     fahrzeugId !== (order.vehicle_id || "") ||
+    firmenfahrzeugId !== (order.firmenfahrzeug_id || "") ||
     notiz !== (order.techniker_notiz || "") ||
     !gleicheListe(mitarbeiterIds, assignedEmployeeIds);
   // Zwei Handlungen brauchen eine Begründung. Statt eines Browser-Dialogs klappt hier ein
@@ -128,6 +136,15 @@ export function AuftragModal({
   const [wiederGrund, setWiederGrund] = useState("");
 
   const fahrzeug = vehicles.find((v) => v.id === fahrzeugId);
+  const aktiveFirmenfahrzeuge = firmenfahrzeuge.filter((f) => f.aktiv);
+  function firmenfahrzeugLabel(f: Firmenfahrzeug): string {
+    return [f.kennzeichen, f.bezeichnung].filter(Boolean).join(" · ");
+  }
+  function firmenfahrzeugText(id: string | null): string {
+    if (!id) return "";
+    const f = firmenfahrzeuge.find((x) => x.id === id);
+    return f ? firmenfahrzeugLabel(f) : "Fahrzeug nicht auffindbar";
+  }
   const feldeAendern = !gesperrt && !isTechniker;
 
   // Die Uhrzeit ist Pflicht, sobald jemand die Auftragsfelder überhaupt ändern darf.
@@ -161,6 +178,7 @@ export function AuftragModal({
         assignedEmployeeIds: mitarbeiterIds,
       });
       if (fahrzeugId !== (order.vehicle_id || "")) await onSetVehicle(order.id, fahrzeugId || null);
+      if (firmenfahrzeugId !== (order.firmenfahrzeug_id || "")) await onSetFirmenfahrzeug(order.id, firmenfahrzeugId || null);
       if (notiz !== (order.techniker_notiz || "")) await onUpdateTechnikerNotiz(order.id, notiz);
       setGespeichert(true);
     } finally {
@@ -281,6 +299,36 @@ export function AuftragModal({
                 {fahrzeug.tire_dot_date && fahrzeug.tire_profile_mm != null ? " · " : ""}
                 {fahrzeug.tire_profile_mm != null ? `Profil ${fahrzeug.tire_profile_mm} mm` : ""}
               </div>
+            )}
+          </div>
+
+          {/* ---------------------------------------------------------------- Unser Fahrzeug */}
+          {/* Getrennt vom Block darüber, obwohl beides „Fahrzeug" heißt: Das eine ist das Auto
+              des Kunden (was wird gemacht), das andere unser Transporter (wer fährt hin, und
+              was ist geladen). Sie in einen Block zu legen wäre genau die Vermischung, wegen
+              der es zwei Tabellen gibt. Techniker sehen die Einteilung, ändern dürfen sie sie
+              nicht – das macht das Büro, und die Datenbank erzwingt es (Migration 32). */}
+          <div className="auftrag-block">
+            <div className="auftrag-block-titel">Unser Fahrzeug</div>
+            {gesperrt || isTechniker ? (
+              <div>{firmenfahrzeugText(order.firmenfahrzeug_id) || "– nicht eingeteilt –"}</div>
+            ) : aktiveFirmenfahrzeuge.length === 0 && !firmenfahrzeugId ? (
+              <div className="small">
+                Es sind noch keine Firmenfahrzeuge angelegt (Admin &rarr; Firmenfahrzeuge).
+              </div>
+            ) : (
+              <select value={firmenfahrzeugId} onChange={(e) => setFirmenfahrzeugId(e.target.value)}>
+                <option value="">– nicht eingeteilt –</option>
+                {aktiveFirmenfahrzeuge.map((f) => (
+                  <option key={f.id} value={f.id}>{firmenfahrzeugLabel(f)}</option>
+                ))}
+                {/* Ein inzwischen ausgemustertes Fahrzeug bleibt wählbar, solange es an
+                    diesem Auftrag hängt – sonst verschwände die Angabe beim nächsten
+                    Speichern stillschweigend. */}
+                {firmenfahrzeugId && !aktiveFirmenfahrzeuge.some((f) => f.id === firmenfahrzeugId) && (
+                  <option value={firmenfahrzeugId}>{firmenfahrzeugText(firmenfahrzeugId)} (ausgemustert)</option>
+                )}
+              </select>
             )}
           </div>
 
