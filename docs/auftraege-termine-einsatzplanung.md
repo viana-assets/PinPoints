@@ -152,3 +152,24 @@ Datum, Uhrzeit und der Hinweis „vergangen" stehen untereinander. Nebeneinander
 über `white-space:nowrap` eine Spaltenbreite, die auf dem Handy die halbe Liste auffraß –
 und die Zeile brach trotzdem irgendwo um. Formatierung über `.date-zeit` und
 `.date-vergangen` im Stilblatt, nicht über `style`-Attribute.
+
+## Unser Fahrzeug am Auftrag (Migration 32)
+
+Im Auftragsfenster gibt es zwei Blöcke, die beide „Fahrzeug" heißen könnten – deshalb heißen
+sie es nicht beide: **Fahrzeug** ist das Auto des Kunden (was wird gemacht), **Unser Fahrzeug**
+der eigene Transporter (wer fährt hin, und was ist geladen). Zwei getrennte Tabellen, zwei
+getrennte Blöcke; eine Tabelle mit zwei Bedeutungen wird an fünfzig Stellen zu zwei
+Bedeutungen.
+
+Die Einteilung macht das Büro: Techniker sehen sie, ändern dürfen sie sie nicht – das erzwingt
+der Spaltenschutz aus Migration 20/22, der über eine Positivliste änderbarer Spalten
+funktioniert und eine neue Spalte damit automatisch sperrt.
+
+In der **Einsatzplanung** gibt es eine zweite Filterleiste unter der der Mitarbeiter, mit
+derselben Bedienung: alle Fahrzeuge, je Kennzeichen, und **„Nicht eingeteilt"** als eigener
+Knopf – das ist die Lücke, die man vor dem Tag schließen will. In der Tagesliste steht das
+Kennzeichen als eigene Spalte.
+
+Ein ausgemustertes Fahrzeug bleibt an seinen alten Aufträgen sichtbar und im Auswahlfeld
+wählbar, solange es dort hängt – sonst verschwände die Angabe beim nächsten Speichern
+stillschweigend.

@@ -307,3 +307,41 @@ sichtbaren Listen. Zusätzlich steht in den Einstellungen neben dem Stand ein Kn
 **Wichtig für das Verständnis:** Der Zwischenspeicher betrifft nur, was dieses Gerät ANZEIGT.
 Terminerinnerungen verschickt der Server aus der Datenbank – ein Handy mit altem Stand bekommt
 sie trotzdem.
+
+## Warum das Handy tagelang auf einer alten Fassung stand (10.09.2026)
+
+Der Befund: Auf dem iPhone fehlten neue Reiter, es kam kein Balken „Neue Version verfügbar",
+und Benachrichtigungen blieben aus – obwohl mehrfach ausgeliefert worden war. Nirgends eine
+Fehlermeldung. Drei Ursachen, jede für sich lautlos:
+
+**1. Eine installierte App wird auf iOS nie geschlossen.** Sie wird weggelegt und
+hervorgeholt. Ein Seitenaufruf findet dabei nicht statt – und ohne Seitenaufruf prüft der
+Browser von sich aus nie, ob es eine neue Fassung gibt. Der Balken konnte gar nicht erscheinen.
+
+**2. Selbst beim Prüfen durfte der Browser sich selbst antworten.** `sw.js` wurde ohne
+besondere Vorgabe ausgeliefert und landete im HTTP-Zwischenspeicher. Beim Vergleich „ist die
+Datei neu?" bekam der Browser dann seine eigene alte Kopie zurück und fand erwartungsgemäß
+nichts Neues.
+
+**3. Eine fehlgeschlagene Installation verwirft die neue Fassung.** `install` legte die
+Offline-Seite in den Speicher; schlägt das fehl, gilt die ganze neue Fassung als kaputt und
+die alte läuft weiter – ohne Spur.
+
+Was dagegen jetzt gebaut ist:
+
+| Maßnahme | Wo |
+|---|---|
+| `Cache-Control: no-cache, no-store` für `/sw.js` | `next.config.mjs` |
+| `register("/sw.js", { updateViaCache: "none" })` | `components/PwaBereit.tsx` |
+| Aktives `update()` beim Start und bei jedem Hervorholen (höchstens 1×/Minute) | `components/PwaBereit.tsx` |
+| Installation scheitert nicht mehr an der Offline-Seite | `public/sw.js` |
+| Der Service Worker nennt auf Anfrage seine Fassung | `public/sw.js`, `lib/pwaAktualisierung.ts` |
+| Anzeige „App-Version" + Knopf „Nach neuer Version suchen" | `components/PwaFassung.tsx`, in den Einstellungen |
+
+**Die Lehre, die über diesen Fall hinausgeht:** Eine Aktualisierung, die niemand sehen kann,
+ist keine. Die Anzeige der laufenden Fassung kostet zwanzig Zeilen und beantwortet die Frage,
+für die vorher zwei Menschen geraten haben.
+
+**Einmalig nötig, um aus dem festgefahrenen Stand herauszukommen:** Die alte Fassung kennt
+weder den Knopf noch die aktive Prüfung. Sie muss also von Hand ersetzt werden – App vom
+Startbildschirm löschen und über Safari neu installieren. Danach greifen die Maßnahmen oben.

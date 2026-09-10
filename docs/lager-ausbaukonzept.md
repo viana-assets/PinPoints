@@ -1,7 +1,12 @@
 # Lager und Bestand – Ausbaukonzept
 
-Stand 07.09.2026. Vorschläge, nichts davon ist gebaut. Zweck: eine Entscheidungsgrundlage,
-was das Lager-Modul werden soll – und in welcher Reihenfolge.
+Stand 07.09.2026, fortgeschrieben am 10.09.2026. Zweck: eine Entscheidungsgrundlage, was das
+Lager-Modul werden soll – und in welcher Reihenfolge.
+
+**Umsetzungsstand:** Die Schritte 1 bis 3 der Reihenfolge unten sind gebaut – A2 (Satz gehört
+zum Fahrzeug), A3 + D1 (Saison und Saisonliste), C1 + C2 (Firmenfahrzeuge als Stammdaten und
+am Auftrag). Migrationen 30, 31 und 32, siehe `lager.md`. Offen: A1 (Räder einzeln), Block B
+(Handelsware), C3 (Transporter als Lagerort), E1 (Inventur).
 
 ## Zuerst: drei Lücken im heutigen Modell
 

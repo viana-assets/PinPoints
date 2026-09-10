@@ -17,7 +17,7 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v4";
+const FASSUNG = "v5";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 // Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
 // stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg
@@ -32,7 +32,13 @@ const SCHRIFT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", (ereignis) => {
   ereignis.waitUntil(
-    caches.open(SPEICHER).then((speicher) => speicher.add(OFFLINE_SEITE))
+    // `.catch()` ist hier keine Schlamperei, sondern Absicht: Schlägt EIN Teil der Installation
+    // fehl (etwa weil /offline.html gerade nicht ausgeliefert wird), gilt die ganze neue Fassung
+    // als kaputt und wird verworfen – die alte läuft dann still weiter, womöglich monatelang.
+    // Die Offline-Seite ist ein Komfort; sie darf keine Aktualisierung verhindern.
+    caches.open(SPEICHER)
+      .then((speicher) => speicher.add(OFFLINE_SEITE))
+      .catch(() => {})
   );
 });
 
@@ -54,6 +60,14 @@ self.addEventListener("activate", (ereignis) => {
 
 self.addEventListener("message", (ereignis) => {
   if (ereignis.data === "UEBERNIMM") self.skipWaiting();
+
+  // Welche Fassung läuft hier eigentlich? Ohne diese Antwort lässt sich am Handy nicht
+  // unterscheiden, ob eine Aktualisierung nicht ankam oder nur nichts Sichtbares enthielt –
+  // eine Entwicklerkonsole gibt es dort nicht. Die Antwort geht über den mitgeschickten Kanal
+  // zurück; eine ältere Fassung antwortet gar nicht, und genau das ist dann die Auskunft.
+  if (ereignis.data === "WELCHE_FASSUNG" && ereignis.ports && ereignis.ports[0]) {
+    ereignis.ports[0].postMessage(FASSUNG);
+  }
 });
 
 // ---------------------------------------------------------------- Benachrichtigungen

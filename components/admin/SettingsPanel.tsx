@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { UserSettings } from "@/lib/types";
 import { PwaInstallieren } from "@/components/PwaInstallieren";
 import { PushEinstellung } from "@/components/PushEinstellung";
+import { PwaFassung } from "@/components/PwaFassung";
 import { standText } from "@/components/OfflineHinweis";
 
 // Tab "Einstellungen": Anzeige-/Wiedervorlage-Präferenzen, Nutzerinfo, Logout.
@@ -46,6 +47,8 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userE
           wird einmal pro Gerät gebraucht, nicht bei jedem Öffnen. Wer ihn sucht, sucht ihn
           in den Einstellungen. */}
       <PwaInstallieren />
+      <hr />
+      <PwaFassung />
       <hr />
       <PushEinstellung />
       <hr />

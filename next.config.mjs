@@ -44,7 +44,21 @@ const nextConfig = {
   // Verrät nicht mehr die eingesetzte Next.js-Version.
   poweredByHeader: false,
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Der Service Worker darf NIE aus dem Browser-Zwischenspeicher kommen. Sonst prüft das
+      // Handy beim Start zwar pflichtgemäß auf eine neue Fassung, bekommt dabei aber die alte
+      // Datei aus dem eigenen Speicher zurück – und die App bleibt beliebig lange auf einem
+      // Stand von vor Wochen stehen, ohne dass irgendwo ein Fehler auftaucht. Genau das ist am
+      // 10.09.2026 passiert (siehe docs/pwa-plan.md).
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
   },
 };
 

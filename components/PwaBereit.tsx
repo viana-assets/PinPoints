@@ -23,6 +23,7 @@ export function PwaBereit() {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
 
     let beendet = false;
+    const aufraeumer: (() => void)[] = [];
     // `controllerchange` feuert, wenn die wartende Fassung übernommen hat. Das Neuladen
     // steht hier und nicht am Knopf: so lädt die Seite erst neu, wenn der neue Worker
     // tatsächlich das Steuer hat, und nicht Sekundenbruchteile davor.
@@ -34,11 +35,33 @@ export function PwaBereit() {
     }
     navigator.serviceWorker.addEventListener("controllerchange", beiWechsel);
 
+    // `updateViaCache: "none"`: Beim Prüfen auf eine neue Fassung darf der Browser die Datei
+    // sw.js NICHT aus seinem eigenen Zwischenspeicher beantworten. Sonst vergleicht er die
+    // alte Fassung mit sich selbst, findet nichts Neues – und das Handy bleibt wochenlang auf
+    // einem Stand von gestern, ohne dass irgendwo ein Fehler auftaucht.
     navigator.serviceWorker
-      .register("/sw.js")
+      .register("/sw.js", { updateViaCache: "none" })
       .then((anmeldung) => {
         if (beendet) return;
         if (anmeldung.waiting) setWartendeFassung(anmeldung.waiting);
+
+        // Aktiv nachfragen, statt auf den Browser zu hoffen: Eine installierte App auf iOS
+        // wird nie geschlossen, sondern weggelegt und hervorgeholt. Ohne echten Seitenaufruf
+        // prüft der Browser von sich aus nie wieder – hier passiert es beim Start und bei
+        // jedem Hervorholen, höchstens einmal pro Minute.
+        let zuletztGeprueft = 0;
+        const pruefen = () => {
+          if (document.visibilityState !== "visible") return;
+          const jetzt = Date.now();
+          if (jetzt - zuletztGeprueft < 60_000) return;
+          zuletztGeprueft = jetzt;
+          anmeldung.update().catch(() => {});
+          if (anmeldung.waiting) setWartendeFassung(anmeldung.waiting);
+        };
+        pruefen();
+        document.addEventListener("visibilitychange", pruefen);
+        aufraeumer.push(() => document.removeEventListener("visibilitychange", pruefen));
+
         anmeldung.addEventListener("updatefound", () => {
           const neue = anmeldung.installing;
           if (!neue) return;
@@ -58,6 +81,7 @@ export function PwaBereit() {
     return () => {
       beendet = true;
       navigator.serviceWorker.removeEventListener("controllerchange", beiWechsel);
+      aufraeumer.forEach((f) => f());
     };
   }, []);
 

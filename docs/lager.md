@@ -4,7 +4,7 @@ Eigener Top-Level-Tab `tab === "lager"`: zweistufige Navigation wie ein eigenes 
 erst Kartenübersicht aller Lager mit Auslastungsbalken und Lageradresse (`LagerPanel`,
 Ebene 1), dann nach Klick auf ein Lager (Breadcrumb "Lager › {Name}") die Lagerplätze als
 Karten-Grid mit Belegt/Frei-Status (Ebene 2). Klick auf einen Lagerplatz öffnet
-`TireAssignModal`: Kunde+DOT-Datum+Profiltiefe zuordnen/ändern/entfernen, plus **Historie**
+`TireAssignModal`: Kunde+Fahrzeug+Saison+DOT-Datum+Profiltiefe zuordnen/ändern/entfernen, plus **Historie**
 des Lagerplatzes (frühere Einlagerungen, Migration 06 – Entfernen ist ein Soft-Delete über
 `tire_storage.removed_at`, nicht `delete`).
 
@@ -139,3 +139,84 @@ Platz (`springeZuLagerplatzId`).
 Gelesen wird über `window.location` statt `useSearchParams()`: dieser Baum ist vollständig auf
 dem Client zuhause, und `useSearchParams` verlangte in Next 14 eine Suspense-Grenze und machte
 die Seite dynamisch – Aufwand ohne Gegenwert für einen einzelnen Parameter.
+
+---
+
+## Der Satz gehört zum Fahrzeug und hat eine Saison (Migration 30)
+
+Zwei Felder an `tire_storage`, aus denen der Rest des Lagerausbaus lebt
+(`lager-ausbaukonzept.md`, Schritte A2 und A3):
+
+**`vehicle_id` – das Kundenfahrzeug.** Vorher hing ein Satz nur am Kunden. Ein Kunde mit zwei
+Autos hatte zwei Sätze, an beiden stand derselbe Name, und welcher auf A-12 liegt, wusste nur,
+wer dabei war. Der Kunde bleibt zusätzlich gespeichert: ein Fahrzeug kann den Halter wechseln,
+die Einlagerung gehört dann trotzdem noch der Person, die sie gebracht hat.
+
+**`saison` – Sommer, Winter oder Ganzjahr.** Feste Werteliste, in der Datenbank per Prüfregel,
+im Code als `SAISON_LABEL`/`SAISON_LISTE` in `lib/constants.ts`. Ein Feld, aus dem die
+Saisonliste entsteht – die halbjährliche Anrufliste.
+
+**Was entfallen ist:** `vehicles.stored_tire_storage_id`, der Rückweg vom Fahrzeug zum Satz.
+Er war optional und von Hand zu pflegen – eine zweite Wahrheit neben der ersten. Jetzt zeigt
+genau eine Richtung: Satz → Fahrzeug. Das Kundenfenster liest die Einlagerung darüber
+(`tire_storage.vehicle_id === vehicle.id`) und zeigt sie nur noch an, statt sie pflegen zu
+lassen.
+
+**Zwei Regeln in der Datenbank, nicht in der Oberfläche:**
+
+1. Das Fahrzeug muss dem Kunden der Einlagerung gehören. Die Auswahl bietet ohnehin nur die
+   Fahrzeuge des gewählten Kunden an – aber die Regel gehört dorthin, wo sie nicht umgangen
+   werden kann. Beim Kundenwechsel im Zuordnungsfenster wird das Fahrzeug deshalb auch im
+   Formular zurückgesetzt.
+2. Ein Auftrag mit aktiver Einlagerung lässt sich erst abschließen, wenn Fahrzeug **und**
+   Saison stehen. Dieselbe Linie wie die Lagerplatz-Pflicht aus Migration 22: wenige, scharfe
+   Regeln, jeweils im Moment des Abschließens – statt zwanzig Pflichtfelder beim Anlegen, die
+   unter Zeitdruck mit „xxx" gefüllt werden.
+
+**Wo es erfasst wird.** Im Auftragsfenster direkt unter dem Lagerplatz, sobald einer belegt
+ist: Fahrzeug als Auswahl (nur die Autos dieses Kunden), Saison als drei Chips. Der Techniker
+hat den Satz in der Hand und das Auto vor sich – fünf Minuten später weiß es niemand mehr.
+Im Lager-Modul stehen dieselben zwei Felder im Zuordnungsfenster.
+
+**Fehlende Angaben bei Altbeständen** waren beim Umstieg kein Thema (0 eingelagerte Sätze am
+10.09.2026). Die Migration trägt trotzdem nach, was eindeutig ist: den alten Rückweg und – bei
+Kunden mit genau einem Fahrzeug – dieses Fahrzeug. Bei zwei Fahrzeugen wird bewusst nicht
+geraten; eine falsche Zuordnung ist schlechter als eine fehlende, weil sie niemand mehr prüft.
+
+---
+
+## Die Saisonliste (Migration 30/31, eigener Reiter)
+
+Die Frage, die dieses Geschäft zweimal im Jahr stellt: *Welche Kunden haben Winterreifen bei
+uns liegen, die sie in sechs Wochen brauchen?* Bisher war sie nur zu beantworten, indem jemand
+das Regal abgeht. Die Liste ist **kein neuer Datenbestand**, sondern eine Sicht auf den
+vorhandenen: aktive Einlagerungen + Saison + Kunde + Fahrzeug + Platz.
+
+**Voreinstellung folgt dem Jahreslauf.** `naechsteSaison()` in `lib/helpers.ts`: ab August bis
+Januar die Winterliste, sonst die Sommerliste. Wer die Liste öffnet, sieht meistens sofort die
+richtige – umschalten geht jederzeit.
+
+**Filter:** Saison, Postleitzahl (Präfix) und „nur fällige". Es gibt kein PLZ-Feld an den
+Kunden; `plzAus()` liest sie aus der einzeiligen Adresse und lässt sich dabei von Hausnummern
+nicht täuschen (`tests/saisonliste.test.ts`).
+
+**Sätze ohne Saison verschwinden nicht** – sie erscheinen unter „Alle". Sie wegzufiltern hieße,
+eine Lücke unsichtbar zu machen; die Liste behauptete dann eine Vollständigkeit, die sie nicht
+hat.
+
+**Die Karte zeigt in diesem Reiter nur die Kunden aus der Liste**, dieselbe Mechanik wie im
+Termine-Reiter. Damit ist die Anrufliste zugleich eine Gebietskarte: wer in 90482 anruft, sieht
+sofort, wer noch in der Nähe liegt.
+
+**„Anrufliste erzeugen"** setzt bei allen Kunden der Liste die Wiedervorlage auf ein wählbares
+Datum (Vorschlag: in sechs Wochen). Zwei Entscheidungen dabei:
+
+* **Nur das Datum, nicht der Kontaktstatus.** Es wurde ja noch nicht angerufen. Wer den Status
+  mitsetzte, hätte 300 Kunden als kontaktiert stehen, ohne dass jemand mit ihnen gesprochen
+  hat – genau die Sorte Zahl, die eine Anwendung unglaubwürdig macht.
+* **Je Kunde, nicht je Satz.** Ein Kunde mit zwei Autos hat zwei Sätze und steht trotzdem
+  einmal auf der Liste.
+
+Geschrieben wird in Blöcken von 200 Kennungen (`setWiedervorlageBulk`): eine `in`-Liste mit
+mehreren hundert Einträgen landet in der Adresszeile und wird dort irgendwann abgeschnitten –
+ohne Fehlermeldung, nur mit weniger getroffenen Zeilen.

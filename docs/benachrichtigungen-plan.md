@@ -105,12 +105,29 @@ Kundenakte mit allen Aufträgen der letzten Jahre ist dann ein Umweg. Die Meldun
 Anruf-Knopf.
 
 Zweitens passierte beim Antippen gar nichts: Die App kam dort wieder hoch, wo sie zuletzt war.
-Grund ist `client.navigate()` im Service Worker – in der installierten App auf iOS bewirkt es
-nichts, und zwar ohne Fehlermeldung. Der Service Worker holt das Fenster jetzt nach vorn und
-schickt ihm das Ziel als **Nachricht** (`postMessage`); die Anwendung öffnet daraufhin selbst
-das richtige Fenster. Das funktioniert überall, ist schneller und verliert keine halb
-ausgefüllte Eingabe. Nur wenn gar kein Fenster offen ist, wird eines mit der Adresse geöffnet –
-dann greift derselbe Weg wie beim QR-Aufkleber am Regal.
+Der erste Erklärungsversuch war `client.navigate()` – das bewirkt in der installierten App auf
+iOS tatsächlich nichts, ohne Fehlermeldung. Der Ersatz durch eine Nachricht (`postMessage`) hat
+es aber ebenfalls nicht gelöst: iOS friert eine App im Hintergrund ein, und eine Nachricht an
+ein eingefrorenes Fenster kann verworfen werden.
+
+**Deshalb jetzt drei Wege statt einem** (`public/sw.js` + `lib/benachrichtigungZiel.ts`):
+
+1. Der Service Worker legt das Ziel ZUERST in der Cache Storage ab – der einzige Speicher, den
+   Service Worker und Anwendung sicher beide erreichen.
+2. Dann versucht er weiterhin die schnelle Nachricht an ein laufendes Fenster.
+3. Die Anwendung sieht beim Sichtbarwerden (`visibilitychange`, `focus`) im Speicher nach.
+
+Wer zuerst kommt, gewinnt: `zielAbholen()` entfernt den Eintrag, der zweite Weg läuft ins
+Leere. Ein Eintrag älter als fünf Minuten wird verworfen – wer antippt und das Handy weglegt,
+soll nicht Stunden später in einem alten Auftrag landen. Ist gar kein Fenster offen, wird eines
+mit der Adresse geöffnet – derselbe Weg wie beim QR-Aufkleber am Regal.
+
+**Und eine Spur zum Nachsehen.** Auf einem iPhone gibt es keine Entwicklerkonsole; ein stiller
+Fehlschlag sieht dort genauso aus wie ein Ereignis, das nie ausgelöst wurde. Der Service Worker
+schreibt deshalb bei jedem Antippen zusätzlich einen Protokolleintrag, der nicht abgeholt wird.
+Die Einstellungen zeigen ihn als „Zuletzt angetippt: HH:MM → /?auftrag=…". Bleibt die Zeile
+leer, obwohl getippt wurde, kam das Ereignis nicht beim Service Worker an – dann liegt es an
+iOS und nicht an diesem Code.
 
 **Die Sperre gilt je Termin, nicht je Auftrag (Migration 29).** Der erste Entwurf sperrte auf
 (Auftrag, Person): einmal gesendet, nie wieder. Beim Testen fällt das sofort auf – man

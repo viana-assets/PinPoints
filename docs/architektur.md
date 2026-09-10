@@ -2,7 +2,7 @@
 
 ## Tech-Stack
 
-- **Next.js 14** (App Router), TypeScript, Client Components für die Hauptlogik.
+- **Next.js 16** (App Router), React 19, TypeScript, Client Components für die Hauptlogik.
 - **Supabase**: Postgres + Auth (Invite-only, kein öffentliches Signup) + RLS.
   `@supabase/ssr` für Browser-/Server-Clients.
 - **Leaflet** als npm-Abhängigkeit (`leaflet` + `@types/leaflet`), CSS in `app/layout.tsx`,
@@ -117,7 +117,7 @@ viana-pinpoints/
   supabase/
     migrations/                 Durchnummerierte SQL-Migrationsdateien, siehe README.md dort
   docs/                          Diese Dokumentation, siehe docs/README.md
-  middleware.ts                  Auth-Gate für geschützte Routen
+  proxy.ts                       Auth-Gate für geschützte Routen (bis Next.js 16: middleware.ts)
 ```
 
 ## `app/page.tsx` nach Phase 2 + 3

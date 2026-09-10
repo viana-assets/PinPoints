@@ -644,3 +644,37 @@ Zum Scharfschalten fehlen drei Handgriffe von Hand (Migrationen 27/28, Geheimnis
 in `private.push_konfiguration`) – die Schritte, die Kontrollabfragen und die Begründungen
 stehen in `benachrichtigungen-plan.md`. Offen bleibt die eigentliche Frage des Vortests:
 kommt die Meldung bei gesperrtem Bildschirm und im Fokus „Fahren" an?
+
+## Phase 15 – Sprung auf Next.js 16 (erledigt am 10.09.2026)
+
+Anlass war `npm audit`: zwei Schwachstellen in den Produktivabhängigkeiten (eine kritisch, eine
+hoch), beide nur durch einen Versionssprung zu beheben – Next.js 14.2.35 bekommt keine
+Sicherheitskorrekturen mehr. Danach: **0 Schwachstellen**, auch in den Entwicklungspaketen.
+
+Was sich geändert hat, und warum es nicht nur eine Zahl in `package.json` war:
+
+| Vorher | Nachher | Grund |
+|---|---|---|
+| Next 14.2.35, React 18 | Next 16.3.4, React 19 | Die Korrekturen gibt es erst ab 16. |
+| `cookies()` synchron | `await cookies()` | Seit Next 15 ein Versprechen. `createClient()` in `lib/supabaseServer.ts` ist deshalb `async`; alle sieben Routen rufen es mit `await` auf. |
+| `middleware.ts` | `proxy.ts` | Umbenannt per offiziellem Codemod. Inhalt unverändert, `config.matcher` gilt weiter. |
+| `next lint` | `eslint .` | `next lint` gibt es in 16 nicht mehr. |
+| `.eslintrc.json` | `eslint.config.mjs` | ESLint 9 liest das alte Format nicht mehr. Beide alten Dateien wurden entfernt. |
+| Vitest 2 | Vitest 5 | Nur Entwicklung, aber mit eigenen Meldungen; braucht Node ≥ 22.12 – die GitHub-Action läuft deshalb jetzt auf Node 22. |
+
+**Zwei Lint-Regeln stehen bewusst auf „Hinweis" statt „Fehler"** (`react-hooks/set-state-in-effect`
+und `react-hooks/refs`, beide neu in eslint-config-next 16). Sie treffen in diesem Projekt
+durchweg zwei absichtliche Muster: einen Wert nachtragen, den es auf dem Server nicht gibt
+(`window.location.origin`, `navigator.onLine`), und „immer der neueste Rückruf in einer
+Referenz" (QrScanner, Karten-Popups). Als Fehler behandelt würden sie dazu verleiten, genau die
+Stellen kaputtzumachen, die vorher mühsam richtig gestellt wurden. Die Begründung steht in
+`eslint.config.mjs`; neue Treffer gehören einzeln angesehen.
+
+**Geprüft wurde nicht nur der Build**, sondern das Verhalten: die gebaute Anwendung wurde
+gestartet und abgefragt. `/` leitet weiterhin mit 307 auf `/login` um, `POST /api/push/senden`
+kommt weiterhin an der Route an (nicht auf der Anmeldeseite), `/sw.js` und das Manifest werden
+weiterhin ohne Anmeldung ausgeliefert. Genau diese vier Punkte hätte ein reiner Build nicht
+bemerkt.
+
+**Falls der Deploy scheitert:** In Vercel unter Settings → General die Node.js-Version prüfen –
+Next 16 verlangt mindestens 20.9, empfohlen ist 22.
