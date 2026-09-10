@@ -170,6 +170,26 @@ Alle fünf gehören zur Sanierung aus `docs/architektur-review-2026-08.md` (Road
   **Muss zusammen mit dem Code dieser Auslieferung laufen** (`app/api/push/senden` schreibt die
   neue Spalte mit). Braucht `27`.
 
+- `30_einlagerung_fahrzeug_und_saison.sql` – der eingelagerte Satz gehört ab jetzt zu einem
+  **Kundenfahrzeug** (`tire_storage.vehicle_id`) und hat eine **Saison** (`saison`:
+  sommer/winter/ganzjahr). Der alte Rückweg `vehicles.stored_tire_storage_id` entfällt – er
+  war eine zweite, von Hand gepflegte Wahrheit. Zwei Regeln kommen dazu: das Fahrzeug muss dem
+  Kunden der Einlagerung gehören (Trigger), und ein Auftrag mit Einlagerung lässt sich erst
+  abschließen, wenn Fahrzeug und Saison stehen (Trigger, wie die Lagerplatz-Pflicht aus 22).
+  **Muss zusammen mit dem Code dieser Auslieferung laufen.** Braucht `02`, `04`, `20`/`22`.
+  Konzept: `docs/lager-ausbaukonzept.md`, Schritte A2 und A3.
+
+- `31_saisonliste_berechtigung.sql` – nimmt `view.saison` in die Modulverwaltung auf. Die
+  Anwendung läuft auch ohne (dann greift der eingebaute Standard), aber der Superadmin könnte
+  das Modul sonst nicht freigeben oder entziehen. Braucht `09`/`10`.
+
+- `32_firmenfahrzeuge.sql` – neue Tabelle `firmenfahrzeuge` (die eigenen Transporter) und
+  `orders.firmenfahrzeug_id`. Bewusst getrennt von `vehicles`: „Fahrzeug" heißt im
+  Kundenkontext das Auto des Kunden und im Einsatzkontext der eigene Wagen. Kennzeichen sind
+  eindeutig (unabhängig von Groß-/Kleinschreibung und Leerzeichen), Pflegen nur
+  Admin/Superadmin, Lesen jeder Angemeldete. Ausgemustert statt gelöscht. Braucht `03`, `05`
+  und `18`. Konzept: `docs/lager-ausbaukonzept.md`, Block C.
+
 Nach dem Ausführen bitte hier nach oben unter "Bereits ausgeführt" verschieben.
 
 ## Welche Migrationen sind wirklich gelaufen?
@@ -239,6 +259,9 @@ Nummernreihenfolge ausführen. Die einzelnen Abhängigkeiten:
 - `26` braucht `profiles` (01) – sonst nichts.
 - `27` braucht `26` (dieselbe Sache), `orders` (03) und `profiles` (01).
 - `29` braucht `27` und muss zusammen mit dem passenden Anwendungscode laufen.
+- `30` braucht `02` (tire_storage), `04` (vehicles) und `20`/`22` (Auftragsablauf) und muss
+  zusammen mit dem passenden Anwendungscode laufen. Rücknahme stellt
+  `vehicles.stored_tire_storage_id` wieder her und befüllt es aus `vehicle_id`.
 - `28` braucht `27` und die Erweiterungen `pg_cron`/`pg_net`. Beim Zurücknehmen die umgekehrte
   Reihenfolge einhalten: erst `28` (Zeitgeber aus), dann `27` – sonst läuft der Versand jede
   Minute in eine fehlende Tabelle.

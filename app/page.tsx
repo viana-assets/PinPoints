@@ -22,12 +22,15 @@ import {
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
+// Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
+// die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
+// Marke, Filter.
 import {
-  IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
-  IconMap, IconLager, IconSaison, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
+  IconKunden, IconTermine, IconMap, IconLager, IconAuftraege, IconMore,
   IconNavPin, IconMarke, IconFilter, navPinSvgHtml,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
+import { MODULE, SEKUNDAERE_TABS, type TabKey } from "@/lib/module";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
 import { OfflineHinweis, useIstOffline } from "@/components/OfflineHinweis";
@@ -118,7 +121,8 @@ const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse">, string> = {
 // und jedes Tippen im Suchfeld spürbar verzögert.
 const LISTEN_SCHRITT = 200;
 
-type TabKey = "dashboard" | "list" | "termine" | "lager" | "saison" | "einsatzplanung" | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "more";
+// TabKey und die Modulliste stehen in lib/module.ts – EINE Liste für Seitenleiste und
+// Kachelseite „Weitere" (siehe dort, warum).
 
 export default function HomePage() {
   const router = useRouter();
@@ -587,6 +591,14 @@ export default function HomePage() {
   }
   function canView(moduleKey: string): boolean {
     return hasPermission("view." + moduleKey);
+  }
+  // Die Sichtbarkeitsregel eines Moduls aus lib/module.ts: `null` = immer, `"admin"` = nur
+  // Admin/Superadmin, sonst der Modulschlüssel. An einer Stelle, damit Seitenleiste und
+  // Kachelseite nicht auseinanderlaufen können.
+  function modulSichtbar(regel: string | null): boolean {
+    if (regel === null) return true;
+    if (regel === "admin") return isAdmin;
+    return canView(regel);
   }
   async function loadHistory(customerId: string) {
     neuLaden(qk.kundeHistorie(customerId));
@@ -1633,8 +1645,7 @@ export default function HomePage() {
   // Hauptnavigation: Dashboard/Kunden/Aufträge sind immer sichtbar. Alles andere ist auf dem
   // Desktop Teil der breiten Seitenleiste (wie in einem ERP-System), auf dem Handy dagegen
   // hinter "Weitere" versteckt, damit die schmale Leiste dort nicht überladen wirkt.
-  const SECONDARY_TABS: TabKey[] = ["termine", "lager", "saison", "einsatzplanung", "add", "inactive", "artikel", "admin", "settings"];
-  const isMoreActive = SECONDARY_TABS.includes(tab);
+  const isMoreActive = SEKUNDAERE_TABS.includes(tab);
 
   return (
     <div id="app" ref={appRef} className={fullPageTabs ? "vollseite" : undefined}>
@@ -1649,24 +1660,25 @@ export default function HomePage() {
           <IconMarke />
           <h1>Vi<span className="brand-accent">ana</span> PinPoints</h1>
         </div>
-        <NavItem active={tab === "dashboard"} onClick={() => setTab("dashboard")} icon={<IconDashboard />} label="Dashboard" />
-        {canView("kunden") && <NavItem active={tab === "list"} onClick={() => setTab("list")} icon={<IconKunden />} label="Kunden" />}
-        {canView("auftraege") && <NavItem active={tab === "auftraege"} onClick={() => setTab("auftraege")} icon={<IconAuftraege />} label="Aufträge" />}
-
-        <div className="nav-divider nav-secondary" />
-        {canView("termine") && <NavItem className="nav-secondary" active={tab === "termine"} onClick={() => setTab("termine")} icon={<IconTermine />} label="Termine" />}
-        {canView("lager") && <NavItem className="nav-secondary" active={tab === "lager"} onClick={() => setTab("lager")} icon={<IconLager />} label="Lager" />}
-        {canView("saison") && <NavItem className="nav-secondary" active={tab === "saison"} onClick={() => setTab("saison")} icon={<IconSaison />} label="Saisonliste" />}
-        {canView("einsatzplanung") && <NavItem className="nav-secondary" active={tab === "einsatzplanung"} onClick={() => setTab("einsatzplanung")} icon={<IconEinsatzplanung />} label="Einsatzplanung" />}
-        {canView("neuer_kunde") && <NavItem className="nav-secondary" active={tab === "add"} onClick={() => setTab("add")} icon={<IconNeu />} label="Neuer Kunde" />}
-        {canView("inaktive_kunden") && <NavItem className="nav-secondary" active={tab === "inactive"} onClick={() => setTab("inactive")} icon={<IconInaktiv />} label="Inaktive Kunden" />}
-        {canView("artikel") && <NavItem className="nav-secondary" active={tab === "artikel"} onClick={() => setTab("artikel")} icon={<IconArtikel />} label="Artikel" />}
-
-        <div className="nav-spacer nav-secondary" />
-        {isAdmin && (
-          <NavItem className="nav-secondary" active={tab === "admin"} onClick={() => setTab("admin")} icon={<IconAdmin />} label="Admin" />
-        )}
-        {canView("einstellungen") && <NavItem className="nav-secondary" active={tab === "settings"} onClick={() => setTab("settings")} icon={<IconSettings />} label="Einstellungen" />}
+        {/* Aus der Modulliste erzeugt (lib/module.ts). Vorher stand dieselbe Aufzählung hier
+            UND weiter unten auf der Kachelseite „Weitere" – zweimal von Hand gepflegt, und
+            genau deshalb fehlten am 10.09.2026 zwei Module auf dem Handy. */}
+        {MODULE.map((m) => {
+          if (!modulSichtbar(m.sichtbar)) return null;
+          return (
+            <Fragment key={m.tab}>
+              {m.trennerDavor === "linie" && <div className="nav-divider nav-secondary" />}
+              {m.trennerDavor === "abstand" && <div className="nav-spacer nav-secondary" />}
+              <NavItem
+                className={m.primaer ? undefined : "nav-secondary"}
+                active={tab === m.tab}
+                onClick={() => setTab(m.tab)}
+                icon={<m.Icon />}
+                label={m.label}
+              />
+            </Fragment>
+          );
+        })}
 
         <NavItem className="nav-more-btn" active={isMoreActive} onClick={() => setTab("more")} icon={<IconMore />} label="Weitere" />
       </nav>
@@ -2017,70 +2029,20 @@ export default function HomePage() {
 
         {tab === "more" && (
           <div className="tabpanel active">
+            {/* Dieselbe Liste wie die Seitenleiste (lib/module.ts), nur als Kacheln. Das
+                Dashboard fehlt bewusst: Es steht am Handy schon unten in der Leiste, und ein
+                zweiter Weg zum selben Ort auf derselben Seite ist keine Hilfe, sondern eine
+                Frage („warum zweimal?"). */}
             <div className="module-cards">
-              {canView("termine") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("termine")}>
-                  <div className="mc-icon"><IconTermine /></div>
+              {MODULE.filter((m) => !m.primaer && modulSichtbar(m.sichtbar)).map((m) => (
+                <div key={m.tab} className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab(m.tab)}>
+                  <div className="mc-icon"><m.Icon /></div>
                   <div className="mc-text">
-                    <div className="mc-title">Termine</div>
-                    <div className="mc-sub">Chronologische Terminübersicht (Aufträge mit Uhrzeit)</div>
+                    <div className="mc-title">{m.label}</div>
+                    <div className="mc-sub">{m.beschreibung}</div>
                   </div>
                 </div>
-              )}
-              {canView("lager") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
-                  <div className="mc-icon"><IconLager /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Lager</div>
-                    <div className="mc-sub">Lager &amp; Lagerplätze verwalten, Reifen zuordnen</div>
-                  </div>
-                </div>
-              )}
-              {canView("einsatzplanung") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("einsatzplanung")}>
-                  <div className="mc-icon"><IconEinsatzplanung /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Einsatzplanung</div>
-                    <div className="mc-sub">Aufträge nach Tag und Mitarbeiter planen</div>
-                  </div>
-                </div>
-              )}
-              {canView("neuer_kunde") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("add")}>
-                  <div className="mc-icon"><IconNeu /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Neuer Kunde</div>
-                    <div className="mc-sub">Kunden anlegen, optional gleich mit Auftrag</div>
-                  </div>
-                </div>
-              )}
-              {canView("inaktive_kunden") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("inactive")}>
-                  <div className="mc-icon"><IconInaktiv /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Inaktive Kunden</div>
-                    <div className="mc-sub">Deaktivierte Kunden ansehen &amp; reaktivieren</div>
-                  </div>
-                </div>
-              )}
-              {isAdmin && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("admin")}>
-                  <div className="mc-icon"><IconAdmin /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Admin</div>
-                    <div className="mc-sub">Nutzer einladen &amp; verwalten, Mitarbeiter</div>
-                  </div>
-                </div>
-              )}
-              {canView("einstellungen") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("settings")}>
-                  <div className="mc-icon"><IconSettings /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Settings</div>
-                    <div className="mc-sub">Anzeige, Wiedervorlage-Zeitraum, Abmelden</div>
-                  </div>
-                </div>
-              )}
+              ))}
             </div>
           </div>
         )}
