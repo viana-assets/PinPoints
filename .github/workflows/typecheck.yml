@@ -14,9 +14,12 @@ on:
 jobs:
   pruefen:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: viana-pinpoints
+    # KEIN `working-directory`. Im OneDrive liegt das Projekt in einem Unterordner
+    # `viana-pinpoints/`, im Repository dagegen direkt in der Wurzel – die Dateien wurden
+    # seinerzeit einzeln über die GitHub-Oberfläche hochgeladen, ohne diesen Ordner.
+    # Die Action lief deshalb ins Leere: „No such file or directory … /viana-pinpoints".
+    # Wandert das Projekt im Repository je in einen Unterordner, gehört hier
+    # `defaults: run: working-directory: <ordner>` wieder hin.
     env:
       # Platzhalter: der Build braucht die Variablen nur, damit die Supabase-Clients
       # initialisiert werden können – es wird nichts kontaktiert.
