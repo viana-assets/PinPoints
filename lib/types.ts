@@ -73,10 +73,20 @@ export type StorageSlot = {
   created_at: string;
 };
 
+// Saison eines eingelagerten Satzes (Migration 30). Aus diesem einen Feld entsteht die
+// Saisonliste: „Welche Kunden haben Winterreifen bei uns liegen?" Die Werteliste erzwingt
+// zusätzlich eine Prüfregel in der Datenbank – Freitext fiele sonst aus jeder Auswertung.
+export type Saison = "sommer" | "winter" | "ganzjahr";
+
 export type TireStorage = {
   id: string;
   storage_slot_id: string;
   customer_id: string;
+  // Zu welchem KUNDENFAHRZEUG der Satz gehört (Migration 30). Ein Kunde mit zwei Autos hat
+  // zwei Sätze; ohne dieses Feld stand an beiden nur derselbe Name. Null ist möglich für
+  // Altbestand – neue Einlagerungen brauchen es spätestens beim Abschluss des Auftrags.
+  vehicle_id: string | null;
+  saison: Saison | null;
   dot_date: string | null;
   profiltiefe_mm: number | null;
   note: string | null;
@@ -150,7 +160,6 @@ export type Vehicle = {
   tire_size: string | null;
   tire_dot_date: string | null;
   tire_profile_mm: number | null;
-  stored_tire_storage_id: string | null;
   note: string | null;
   created_at: string;
   updated_at: string;

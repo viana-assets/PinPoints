@@ -17,6 +17,10 @@ export const qk = {
   // Oberbegriff zum Ungültigmachen: trifft alle Zeitfenster auf einmal.
   auftraegeAlle: () => ["auftraege"] as const,
 
+  // Alle Fahrzeuge (Lager-Modul und Saisonliste). Getrennt von kundeFahrzeuge: das ist der
+  // Ausschnitt für EIN Kundenfenster, das hier der Vollabzug.
+  fahrzeuge: () => ["fahrzeuge"] as const,
+
   mitarbeiter: () => ["mitarbeiter"] as const,
   artikel: () => ["artikel"] as const,
   artikelpreise: () => ["artikelpreise"] as const,

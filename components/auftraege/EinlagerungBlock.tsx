@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { StorageSlot, TireStorage, Warehouse } from "@/lib/types";
+import type { Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import { QrScanner } from "@/components/QrScanner";
 
@@ -15,7 +16,7 @@ import { QrScanner } from "@/components/QrScanner";
 // zuverlässigste Art, A-12 statt A-21 zu treffen.
 
 export function EinlagerungBlock({
-  pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, onEinlagern, onEntfernen,
+  pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, onEinlagern, onEntfernen, onAngabenAendern,
 }: {
   // Steht im Auftrag eine Leistung mit dem Kennzeichen „braucht Lagerplatz"? Dann verlangt auch
   // die Datenbank vor dem Abschluss einen belegten Platz – dieser Block zeigt nur an, was dort
@@ -27,8 +28,13 @@ export function EinlagerungBlock({
   warehouses: Warehouse[];
   belegteSlotIds: Set<string>;
   gesperrt: boolean;
+  // Die Fahrzeuge des Kunden dieses Auftrags. Der Satz gehört seit Migration 30 zu einem
+  // Fahrzeug, nicht nur zu einer Person – bei einem Kunden mit zwei Autos ist das der
+  // Unterschied zwischen „irgendein Satz von Müller" und „der Wintersatz vom Kombi".
+  vehicles: Vehicle[];
   onEinlagern: (lagerplatzId: string) => Promise<void>;
   onEntfernen: (einlagerungId: string) => Promise<void>;
+  onAngabenAendern: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
 }) {
   const [wahl, setWahl] = useState("");
   const [scannerOffen, setScannerOffen] = useState(false);
@@ -47,6 +53,26 @@ export function EinlagerungBlock({
   }
 
   const belegterPlatz = einlagerung ? slots.find((s) => s.id === einlagerung.storage_slot_id) : null;
+
+  function fahrzeugName(v: Vehicle): string {
+    return [v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen";
+  }
+  function fahrzeugText(id: string | null): string {
+    if (!id) return "ohne Fahrzeug";
+    const v = vehicles.find((f) => f.id === id);
+    return v ? fahrzeugName(v) : "Fahrzeug nicht auffindbar";
+  }
+
+  async function angabenAendern(felder: { vehicleId?: string | null; saison?: Saison | null }) {
+    if (!einlagerung) return;
+    setLaeuft(true);
+    setMeldung(null);
+    try {
+      await onAngabenAendern(einlagerung.id, felder);
+    } finally {
+      setLaeuft(false);
+    }
+  }
 
   async function zuordnen(lagerplatzId: string) {
     setLaeuft(true);
@@ -84,14 +110,68 @@ export function EinlagerungBlock({
       {einlagerung && belegterPlatz ? (
         <>
           <div><b>{belegterPlatz.code}</b> <span className="small">· {lagerName(belegterPlatz.warehouse_id)}</span></div>
-          {!gesperrt && (
-            <button
-              type="button" className="btn-secondary" style={{ marginTop: 6 }}
-              disabled={laeuft}
-              onClick={() => onEntfernen(einlagerung.id)}
-            >
-              Einlagerung entfernen
-            </button>
+
+          {/* Fahrzeug und Saison stehen HIER und nicht in einem eigenen Fenster: Der Techniker
+              hat den Satz gerade in der Hand, das Auto steht vor ihm. Fünf Minuten später weiß
+              es niemand mehr. Beides ist Pflicht, aber erst beim Abschließen des Auftrags –
+              die Datenbank lehnt den Abschluss sonst ab (Migration 30). */}
+          {gesperrt ? (
+            <div className="small" style={{ marginTop: 4 }}>
+              {fahrzeugText(einlagerung.vehicle_id)} · {einlagerung.saison ? SAISON_LABEL[einlagerung.saison] : "ohne Saison"}
+            </div>
+          ) : (
+            <>
+              <div className="field" style={{ margin: "8px 0 4px" }}>
+                <label>Fahrzeug{einlagerung.vehicle_id ? "" : " – fehlt noch"}</label>
+                {vehicles.length === 0 ? (
+                  <div className="small">
+                    Für diesen Kunden ist kein Fahrzeug hinterlegt. Im Kundenfenster unter
+                    &bdquo;Fahrzeuge&ldquo; eines anlegen – ohne Fahrzeug lässt sich der Auftrag
+                    nicht abschließen.
+                  </div>
+                ) : (
+                  <select
+                    className={einlagerung.vehicle_id ? undefined : "feld-fehlt"}
+                    value={einlagerung.vehicle_id || ""}
+                    disabled={laeuft}
+                    onChange={(e) => void angabenAendern({ vehicleId: e.target.value || null })}
+                  >
+                    <option value="">– Fahrzeug wählen –</option>
+                    {vehicles.map((v) => (
+                      <option key={v.id} value={v.id}>{fahrzeugName(v)}</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              <div className="field" style={{ marginBottom: 0 }}>
+                <label>Saison{einlagerung.saison ? "" : " – fehlt noch"}</label>
+                {/* Segmentierte Knöpfe statt Auswahlliste: drei feste Werte, ein Tipp statt
+                    Aufklappen-Suchen-Tippen. Dieselbe Optik wie die Filterchips über der
+                    Kundenliste – ein Vokabular, nicht zwei. */}
+                <div className="filterbar" style={{ marginTop: 2 }}>
+                  {SAISON_LISTE.map((wert) => (
+                    <button
+                      key={wert}
+                      type="button"
+                      className={"chip" + (einlagerung.saison === wert ? " active" : "")}
+                      disabled={laeuft}
+                      onClick={() => void angabenAendern({ saison: einlagerung.saison === wert ? null : wert })}
+                    >
+                      {SAISON_LABEL[wert]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button" className="btn-secondary" style={{ marginTop: 8 }}
+                disabled={laeuft}
+                onClick={() => onEntfernen(einlagerung.id)}
+              >
+                Einlagerung entfernen
+              </button>
+            </>
           )}
         </>
       ) : einlagerung ? (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Article, Customer, Employee, Order, OrderArticle, OrderStatus, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, Customer, Employee, Order, OrderArticle, OrderStatus, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { formatDate, formatOrderDateTime, getPhoneNumbers } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -24,7 +24,7 @@ export function AuftragModal({
   einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds,
   onClose, onSaveFields, onSetVehicle, onUpdateTechnikerNotiz, onSetStatus, onDelete,
   onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate, onCall,
-  onEinlagern, onEinlagerungEntfernen,
+  onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
 }: {
   order: Order;
   customer: Customer | undefined;
@@ -63,6 +63,9 @@ export function AuftragModal({
   onCall: (e: React.MouseEvent, cust: Customer) => void;
   onEinlagern: (lagerplatzId: string) => Promise<void>;
   onEinlagerungEntfernen: (einlagerungId: string) => Promise<void>;
+  // Fahrzeug und Saison am eingelagerten Satz (Migration 30). Getrennt vom Zuordnen des
+  // Lagerplatzes: das eine ist eine Bewegung im Regal, das andere eine Beschreibung.
+  onEinlagerungAngaben: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
 }) {
   const gesperrt = istAbgeschlossen(order.status);
 
@@ -365,8 +368,10 @@ export function AuftragModal({
               warehouses={warehouses}
               belegteSlotIds={belegteSlotIds}
               gesperrt={gesperrt}
+              vehicles={vehicles}
               onEinlagern={onEinlagern}
               onEntfernen={onEinlagerungEntfernen}
+              onAngabenAendern={onEinlagerungAngaben}
             />
           )}
 

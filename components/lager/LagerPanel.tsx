@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Customer, StorageSlot, TireStorage, Warehouse } from "@/lib/types";
+import type { Customer, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { formatDate } from "@/lib/helpers";
 import { IconLager, IconTrash } from "@/components/icons";
 import { CustomerPicker } from "@/components/CustomerPicker";
@@ -47,15 +48,18 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
-  customers: Customer[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
+  customers: Customer[];
+  // Alle Kundenfahrzeuge. Das Lager-Modul arbeitet nicht mit einem geöffneten Kunden, sondern
+  // mit vielen Sätzen nebeneinander – deshalb hier der Vollabzug statt der Ausschnitt je Kunde.
+  vehicles: Vehicle[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
   onAddWarehouse: (fields: { name: string; address: string; note: string }) => Promise<string | undefined>;
   onUpdateWarehouse: (id: string, fields: { name: string; address: string; note: string }) => Promise<void>;
   onDeleteWarehouse: (id: string) => Promise<void>;
   onAddSlot: (warehouseId: string, code: string) => Promise<void>;
   onAddSlotsBulk: (warehouseId: string, codes: string[]) => Promise<void>;
   onDeleteSlot: (id: string) => Promise<void>;
-  onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) => Promise<void>;
+  onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
   onRemoveAssignment: (id: string) => Promise<void>;
   // Granulare Modul-Berechtigungen (von einem Superadmin im Admin-Tab unter
   // "Modulverwaltung" konfigurierbar) – jede Struktur-Aktion einzeln steuerbar, damit z. B.
@@ -396,6 +400,7 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
           assignment={currentAssignment(assignSlot.id)}
           history={historyFor(assignSlot.id)}
           onClose={() => setAssignSlot(null)}
+          vehicles={vehicles}
           onAssign={onAssignTire}
           onRemove={onRemoveAssignment}
         />
@@ -404,22 +409,35 @@ export function LagerPanel({ customers, warehouses, storageSlots, tireStorages, 
   );
 }
 
-function TireAssignModal({ slot, customers, assignment, history, onClose, onAssign, onRemove }: {
-  slot: StorageSlot; customers: Customer[]; assignment: TireStorage | null; history: TireStorage[];
+function TireAssignModal({ slot, customers, vehicles, assignment, history, onClose, onAssign, onRemove }: {
+  slot: StorageSlot; customers: Customer[]; vehicles: Vehicle[]; assignment: TireStorage | null; history: TireStorage[];
   onClose: () => void;
-  onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) => Promise<void>;
+  onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }) {
   const [customerId, setCustomerId] = useState(assignment?.customer_id || "");
+  const [vehicleId, setVehicleId] = useState(assignment?.vehicle_id || "");
+  const [saison, setSaison] = useState<Saison | "">(assignment?.saison || "");
   const [dotDate, setDotDate] = useState(assignment?.dot_date || "");
   const [profiltiefe, setProfiltiefe] = useState(assignment?.profiltiefe_mm != null ? String(assignment.profiltiefe_mm) : "");
   const [note, setNote] = useState(assignment?.note || "");
   const [saving, setSaving] = useState(false);
 
+  // Nur die Fahrzeuge des gewählten Kunden. Ein Satz kann nur zu einem Auto DIESES Kunden
+  // gehören – die Datenbank lehnt alles andere ab (Migration 30), und eine Auswahl, die
+  // Ungültiges anbietet, ist eine Einladung zum Fehler.
+  const kundenFahrzeuge = customerId ? vehicles.filter((v) => v.customer_id === customerId) : [];
+
   async function save() {
     if (!customerId) return;
     setSaving(true);
-    await onAssign({ id: assignment?.id, storageSlotId: slot.id, customerId, dotDate, profiltiefeMm: profiltiefe, note });
+    await onAssign({
+      id: assignment?.id, storageSlotId: slot.id, customerId,
+      dotDate, profiltiefeMm: profiltiefe, note,
+      // Beim Kundenwechsel darf kein Fahrzeug des Vorgängers hängenbleiben.
+      vehicleId: kundenFahrzeuge.some((v) => v.id === vehicleId) ? vehicleId : null,
+      saison: saison || null,
+    });
     setSaving(false);
     onClose();
   }
@@ -429,7 +447,45 @@ function TireAssignModal({ slot, customers, assignment, history, onClose, onAssi
       <div className="modal-box" style={{ position: "relative" }}>
         <button className="modal-close" onClick={onClose}>✕</button>
         <h2>Lagerplatz {slot.code}</h2>
-        <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />
+        <CustomerPicker customers={customers} value={customerId} onChange={(id) => { setCustomerId(id); setVehicleId(""); }} />
+
+        <div className="field">
+          <label>Fahrzeug</label>
+          {!customerId ? (
+            <div className="small">Zuerst den Kunden wählen.</div>
+          ) : kundenFahrzeuge.length === 0 ? (
+            <div className="small">
+              Für diesen Kunden ist kein Fahrzeug hinterlegt – im Kundenfenster unter
+              &bdquo;Fahrzeuge&ldquo; anlegen.
+            </div>
+          ) : (
+            <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
+              <option value="">– Fahrzeug wählen –</option>
+              {kundenFahrzeuge.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {[v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen"}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        <div className="field">
+          <label>Saison</label>
+          <div className="filterbar" style={{ marginTop: 2 }}>
+            {SAISON_LISTE.map((wert) => (
+              <button
+                key={wert}
+                type="button"
+                className={"chip" + (saison === wert ? " active" : "")}
+                onClick={() => setSaison(saison === wert ? "" : wert)}
+              >
+                {SAISON_LABEL[wert]}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="row">
           <div className="field">
             <label>DOT-Datum</label>
@@ -463,6 +519,7 @@ function TireAssignModal({ slot, customers, assignment, history, onClose, onAssi
                 return (
                   <div key={h.id} className="hist-entry">
                     <span className="he-cust">{cust ? cust.name : "Unbekannter Kunde"}</span>
+                    {h.saison ? ` · ${SAISON_LABEL[h.saison]}` : ""}
                     {h.dot_date ? ` · DOT ${h.dot_date}` : ""}
                     {h.profiltiefe_mm != null ? ` · Profil ${h.profiltiefe_mm} mm` : ""}
                     <br />

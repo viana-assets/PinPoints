@@ -7,7 +7,7 @@
 // stehen nur Konstanten, die von mehreren, fachlich unterschiedlichen Stellen in
 // app/page.tsx verwendet werden (Rollen, Berechtigungen, Auftragsstatus, Kalenderfarben).
 
-import type { OrderStatus, Role } from "./types";
+import type { OrderStatus, Role, Saison } from "./types";
 
 // ---------------------------------------------------------------- Rollen
 export const ROLE_LABEL: Record<Role, string> = {
@@ -164,3 +164,16 @@ export const ZEITZONE = "Europe/Berlin";
 // der letzten Jahre. `kunde` bleibt bestehen, weil es ohne Auftrag trotzdem sinnvoll ist.
 export const KUNDE_PARAMETER = "kunde";
 export const AUFTRAG_PARAMETER = "auftrag";
+
+// ---------------------------------------------------------------- Lager: Saison
+//
+// Die drei Saisonarten eines eingelagerten Satzes (Migration 30). Reihenfolge und Beschriftung
+// stehen genau hier, damit Auswahlknöpfe, Listenanzeige und Auswertung dieselben Wörter
+// benutzen. Die Datenbank kennt dieselben drei Werte als Prüfregel.
+export const SAISON_LABEL: Record<Saison, string> = {
+  sommer: "Sommer",
+  winter: "Winter",
+  ganzjahr: "Ganzjahr",
+};
+
+export const SAISON_LISTE: Saison[] = ["sommer", "winter", "ganzjahr"];

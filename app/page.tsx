@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabaseClient";
 import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
-  Article, ArticlePrice, OrderArticle, KontaktErgebnis,
+  Article, ArticlePrice, OrderArticle, KontaktErgebnis, Saison,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
@@ -47,7 +47,7 @@ import { insertVehicle, updateVehicleById, deleteVehicleById } from "@/lib/api/v
 import {
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
   insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById,
-  upsertTireAssignment, removeTireAssignmentById,
+  upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails,
 } from "@/lib/api/lager";
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
@@ -70,7 +70,7 @@ import { qk } from "@/lib/queries/keys";
 import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
   useMitarbeiter, useArtikel, useArtikelpreise,
-  useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte,
+  useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
 } from "@/lib/queries/hooks";
 
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
@@ -242,6 +242,10 @@ export default function HomePage() {
   const lagerQuery = useLager(supabase, sitzungBereit && brauchtLager);
   const lagerplaetzeQuery = useLagerplaetze(supabase, sitzungBereit && brauchtLager);
   const einlagerungenQuery = useEinlagerungen(supabase, sitzungBereit && brauchtLager);
+  // Alle Kundenfahrzeuge – nur fürs Lager-Modul. Dort steht kein einzelner Kunde im
+  // Mittelpunkt, sondern viele Sätze nebeneinander, und jeder gehört zu einem Auto
+  // (Migration 30).
+  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && tab === "lager");
   const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && tab === "dashboard");
   const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
   const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId, sitzungBereit);
@@ -1025,7 +1029,7 @@ export default function HomePage() {
     await refreshStorageSlots();
     await refreshTireStorages();
   }
-  async function assignTire(fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string }) {
+  async function assignTire(fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) {
     await upsertTireAssignment(supabase, fields);
     await refreshTireStorages();
   }
@@ -1095,6 +1099,15 @@ export default function HomePage() {
     await refreshTireStorages();
   }
 
+  // Fahrzeug und Saison am eingelagerten Satz (Migration 30). Eigener Weg neben
+  // `einlagernFuerAuftrag`: dort geht es um den Lagerplatz, hier um die Beschreibung des
+  // Satzes. Beides zusammenzulegen hieße, bei jeder Saisonänderung den Platz erneut zu
+  // schreiben.
+  async function einlagerungAngabenAendern(einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null }) {
+    await updateTireStorageDetails(supabase, einlagerungId, felder);
+    await refreshTireStorages();
+  }
+
   async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
     await updateOrderById(supabase, id, fields);
     await setOrderEmployees(id, fields.assignedEmployeeIds);
@@ -1136,13 +1149,13 @@ export default function HomePage() {
 
   // ---------------------------------------------------------------- Fahrzeuge
   async function addVehicle(customerId: string, fields: {
-    licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string;
+    licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string;
   }) {
     await insertVehicle(supabase, customerId, fields);
     await refreshVehicles();
   }
   async function updateVehicle(id: string, fields: {
-    licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string;
+    licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string;
   }) {
     await updateVehicleById(supabase, id, fields);
     await refreshVehicles();
@@ -1848,6 +1861,7 @@ export default function HomePage() {
         {tab === "lager" && canView("lager") && (
           <LagerPanel
             customers={customers}
+            vehicles={alleFahrzeugeQuery.data ?? KEINE_FAHRZEUGE}
             warehouses={warehouses}
             storageSlots={storageSlots}
             tireStorages={tireStorages}
@@ -2192,6 +2206,7 @@ export default function HomePage() {
           belegteSlotIds={belegteSlotIds}
           onEinlagern={(lagerplatzId) => einlagernFuerAuftrag(offenerAuftrag, lagerplatzId)}
           onEinlagerungEntfernen={removeTireAssignment}
+          onEinlagerungAngaben={einlagerungAngabenAendern}
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
           onSetVehicle={setOrderVehicle}

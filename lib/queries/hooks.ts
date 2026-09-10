@@ -5,7 +5,7 @@ import { qk } from "./keys";
 import { fetchCustomers, fetchContactHistory } from "@/lib/api/customers";
 import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsdaten } from "@/lib/api/orders";
 import { fetchEmployees } from "@/lib/api/employees";
-import { fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
+import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
@@ -63,6 +63,16 @@ export function useKundenAuftraege(supabase: SupabaseClient, kundeId: string | n
     queryKey: qk.kundeAuftraege(kundeId || "-"),
     queryFn: () => fetchOrdersFuerKunde(supabase, kundeId as string),
     enabled: aktiv && !!kundeId,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Alle Fahrzeuge – für Lager und Saisonliste, wo viele Sätze nebeneinander stehen.
+export function useFahrzeuge(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.fahrzeuge(),
+    queryFn: () => fetchVehicles(supabase),
+    enabled: aktiv,
     staleTime: FRISCH_MS,
   });
 }

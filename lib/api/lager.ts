@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { StorageSlot, TireStorage, Warehouse } from "@/lib/types";
+import type { Saison, StorageSlot, TireStorage, Warehouse } from "@/lib/types";
 import { ApiError, fetchPaged, qOne, qWrite } from "./client";
 
 // Datenzugriffsschicht für das Lager-Modul (Warehouses, Lagerplätze, Reifen-Einlagerung).
@@ -73,7 +73,7 @@ export async function deleteStorageSlotById(supabase: SupabaseClient, id: string
 // EINE aktive Belegung hat (removed_at is null). Versucht jemand parallel eine zweite
 // Einlagerung auf denselben Platz, lehnt die Datenbank das jetzt ab, statt zwei aktive Zeilen
 // entstehen zu lassen, von denen die Oberfläche willkürlich eine anzeigt.
-export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; orderId?: string | null }): Promise<void> {
+export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; orderId?: string | null; vehicleId?: string | null; saison?: Saison | null }): Promise<void> {
   const patch = {
     storage_slot_id: fields.storageSlotId,
     customer_id: fields.customerId,
@@ -81,6 +81,12 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
     profiltiefe_mm: fields.profiltiefeMm ? parseFloat(fields.profiltiefeMm.replace(",", ".")) : null,
     note: fields.note || null,
     updated_at: new Date().toISOString(),
+    // Fahrzeug und Saison (Migration 30) nur mitschreiben, wenn der Aufrufer sich dazu
+    // geäußert hat – aus demselben Grund wie bei `orderId` darunter: Der schnelle Weg im
+    // Auftragsfenster ordnet zuerst nur einen Lagerplatz zu und ergänzt den Rest danach. Würde
+    // er die Felder als "nicht gesetzt" mitschicken, löschte jede Platzänderung die Angaben.
+    ...(fields.vehicleId === undefined ? {} : { vehicle_id: fields.vehicleId }),
+    ...(fields.saison === undefined ? {} : { saison: fields.saison }),
     // Nur mitschreiben, wenn der Aufrufer sich dazu geäußert hat (Migration 22). Ohne diese
     // Unterscheidung würde das Lager-Modul, das keinen Auftrag kennt, beim Bearbeiten einer
     // Einlagerung deren Auftragsbezug stillschweigend auf null setzen.
@@ -97,6 +103,32 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
       supabase.from("tire_storage").insert(patch)
     );
   }
+}
+
+// Nur die beschreibenden Angaben eines bestehenden Satzes ändern – ohne den Lagerplatz
+// anzufassen. Getrennt von `upsertTireAssignment`, weil das im Alltag zwei verschiedene
+// Handlungen sind: „der Satz kommt auf A-12" ist eine Bewegung im Regal, „das ist der
+// Wintersatz vom N-AB 123" eine Beschreibung. Sie zusammenzulegen hieße, bei jeder
+// Beschreibung den Platz erneut zu schreiben – und bei jedem Tippfehler im Platz die
+// Beschreibung zu verlieren.
+export async function updateTireStorageDetails(
+  supabase: SupabaseClient,
+  id: string,
+  felder: { vehicleId?: string | null; saison?: Saison | null; dotDate?: string; profiltiefeMm?: string; note?: string }
+): Promise<void> {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  if (felder.vehicleId !== undefined) patch.vehicle_id = felder.vehicleId;
+  if (felder.saison !== undefined) patch.saison = felder.saison;
+  if (felder.dotDate !== undefined) patch.dot_date = felder.dotDate || null;
+  if (felder.profiltiefeMm !== undefined) {
+    patch.profiltiefe_mm = felder.profiltiefeMm ? parseFloat(felder.profiltiefeMm.replace(",", ".")) : null;
+  }
+  if (felder.note !== undefined) patch.note = felder.note || null;
+
+  await qWrite(
+    "Die Angaben zur Einlagerung konnten nicht gespeichert werden",
+    supabase.from("tire_storage").update(patch).eq("id", id)
+  );
 }
 
 // Soft-Delete: Zuordnung wird nur als "entfernt" markiert, nicht gelöscht, damit der

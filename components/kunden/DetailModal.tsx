@@ -32,8 +32,8 @@ export function DetailModal(props: {
   onNeuerAuftrag: () => void;
   onUpdateOrder: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
   onDeleteOrder: (id: string) => void;
-  onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
-  onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; storedTireStorageId: string; note: string }) => void;
+  onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string }) => void;
+  onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string }) => void;
   onDeleteVehicle: (id: string) => void;
   onCall: (e: React.MouseEvent, cust: Customer) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
