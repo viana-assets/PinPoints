@@ -8,8 +8,13 @@ import { cookies } from "next/headers";
 
 // Server-seitiger Supabase-Client für Server Components / Route Handler,
 // liest/schreibt die Auth-Session über Cookies.
-export function createClient() {
-  const cookieStore = cookies();
+//
+// Seit Next.js 15 liefert `cookies()` ein Versprechen statt der Cookies selbst – die Funktion
+// ist deshalb `async`, und jeder Aufruf muss `await createClient()` schreiben. Der Grund für
+// die Änderung in Next: die Anfrage-Daten sollen erst dann angefordert werden, wenn sie
+// wirklich gebraucht werden, statt das ganze Rendern vorher zu blockieren.
+export async function createClient() {
+  const cookieStore = await cookies();
   return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

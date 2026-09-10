@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabaseServer";
 // Entfernt die Push-Anmeldung eines Geräts. Nur die eigene – dafür sorgt zusätzlich die
 // Row-Level-Security (Migration 26), nicht nur die Bedingung hier.
 export async function POST(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
 

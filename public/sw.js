@@ -17,8 +17,14 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v3";
+const FASSUNG = "v4";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
+// Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
+// stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg
+// braucht. Ein Service Worker ist ein eigenes Skript und kann das Modul nicht einbinden.
+const ZIEL_SPEICHER = "pinpoints-ziel";
+const ZIEL_SCHLUESSEL = "/__benachrichtigung-ziel";
+const PROTOKOLL_SCHLUESSEL = "/__benachrichtigung-protokoll";
 const OFFLINE_SEITE = "/offline.html";
 const HUELLE = "/";
 
@@ -35,7 +41,10 @@ self.addEventListener("activate", (ereignis) => {
     (async () => {
       const namen = await caches.keys();
       await Promise.all(
-        namen.filter((name) => name.startsWith("pinpoints-") && name !== SPEICHER)
+        // ZIEL_SPEICHER ist ausgenommen: dort liegt kein Programmbestand, sondern die
+        // Übergabe an die Anwendung. Sie beim Aktualisieren wegzuwerfen hieße, ein gerade
+        // angetipptes Ziel zu verlieren.
+        namen.filter((name) => name.startsWith("pinpoints-") && name !== SPEICHER && name !== ZIEL_SPEICHER)
              .map((name) => caches.delete(name))
       );
       await self.clients.claim();
@@ -93,10 +102,17 @@ self.addEventListener("notificationclick", (ereignis) => {
   const ziel = (ereignis.notification.data && ereignis.notification.data.url) || "/";
   ereignis.waitUntil(
     (async () => {
+      // IMMER ZUERST hinterlegen, egal was danach klappt. Das ist der einzige Weg, der auch
+      // dann trägt, wenn die App im Hintergrund eingefroren war: Sie sieht beim Sichtbarwerden
+      // im Speicher nach. Erst danach werden die schnelleren Wege versucht.
+      await zielHinterlegen(ziel);
+
       const fenster = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       for (const f of fenster) {
         if (new URL(f.url).origin === self.location.origin) {
           await f.focus();
+          // Kommt die Nachricht an, holt die Anwendung das Ziel sofort ab; kommt sie nicht an,
+          // findet sie es beim Sichtbarwerden im Speicher. Wer zuerst kommt, gewinnt.
           f.postMessage({ typ: "BENACHRICHTIGUNG_ZIEL", url: ziel });
           return;
         }
@@ -107,6 +123,23 @@ self.addEventListener("notificationclick", (ereignis) => {
     })()
   );
 });
+
+// Legt das Ziel in der Cache Storage ab – dem einzigen Speicher, den Service Worker und
+// Anwendung sicher beide erreichen. Zusätzlich ein Protokolleintrag, der NICHT abgeholt wird:
+// Er beantwortet in den Einstellungen die Frage, ob das Antippen hier überhaupt ankam. Auf
+// einem iPhone gibt es keine Entwicklerkonsole – ohne diese Spur ist ein stiller Fehlschlag
+// nicht von einem nie ausgelösten Ereignis zu unterscheiden.
+async function zielHinterlegen(ziel) {
+  try {
+    const speicher = await caches.open(ZIEL_SPEICHER);
+    const inhalt = JSON.stringify({ url: ziel, zeit: Date.now() });
+    const kopf = { headers: { "Content-Type": "application/json" } };
+    await speicher.put(ZIEL_SCHLUESSEL, new Response(inhalt, kopf));
+    await speicher.put(PROTOKOLL_SCHLUESSEL, new Response(inhalt, kopf));
+  } catch {
+    // Ohne Speicher bleiben die anderen beiden Wege – kein Grund, hier abzubrechen.
+  }
+}
 
 self.addEventListener("fetch", (ereignis) => {
   const anfrage = ereignis.request;

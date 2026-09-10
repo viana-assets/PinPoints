@@ -20,6 +20,7 @@ import {
   ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
+import { zielAbholen } from "@/lib/benachrichtigungZiel";
 import {
   IconDashboard, IconKunden, IconTermine, IconModule, IconNeu, IconInaktiv, IconSettings, IconAdmin,
   IconMap, IconLager, IconAuftraege, IconBack, IconMore, IconEinsatzplanung, IconTrash, IconArtikel,
@@ -1389,22 +1390,49 @@ export default function HomePage() {
   }, []);
 
   // Weg 2: Die App lief schon (auf dem Handy der Normalfall – sie wird weggelegt, nicht
-  // geschlossen). Dann schickt der Service Worker das Ziel als Nachricht hierher, statt das
-  // Fenster umzulenken: `client.navigate()` bewirkt in der installierten App auf iOS nichts,
-  // die App kam schlicht dort wieder hoch, wo sie zuletzt war.
+  // geschlossen). Dann schickt der Service Worker das Ziel als Nachricht hierher.
+  //
+  // Weg 3 – und das ist der, der auf dem iPhone trägt: Der Service Worker legt das Ziel
+  // zusätzlich in der Cache Storage ab, und die Anwendung sieht dort nach, sobald sie sichtbar
+  // wird. Nötig, weil die beiden schnelleren Wege in der installierten App auf iOS versagen
+  // können: `client.navigate()` bewirkt dort nichts, und eine Nachricht an ein eingefrorenes
+  // Fenster kann verworfen werden. Beobachtet am 09.09.2026: Die App kam nach dem Antippen
+  // schlicht dort wieder hoch, wo sie zuletzt war.
+  //
+  // Doppelt geöffnet wird nichts: `zielAbholen` entfernt den Eintrag beim ersten Zugriff.
   useEffect(() => {
     if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
-    function beiNachricht(ereignis: MessageEvent) {
-      const daten = ereignis.data;
-      if (!daten || daten.typ !== "BENACHRICHTIGUNG_ZIEL" || typeof daten.url !== "string") return;
+
+    function zielAusAdresse(adresse: string) {
       try {
-        zielOeffnen(new URL(daten.url, window.location.origin).searchParams);
+        zielOeffnen(new URL(adresse, window.location.origin).searchParams);
       } catch {
         // Eine unbrauchbare Adresse ist kein Grund, die Anwendung zu stören.
       }
     }
+    function beiNachricht(ereignis: MessageEvent) {
+      const daten = ereignis.data;
+      if (!daten || daten.typ !== "BENACHRICHTIGUNG_ZIEL" || typeof daten.url !== "string") return;
+      void zielAbholen();
+      zielAusAdresse(daten.url);
+    }
+    async function ausSpeicherNachsehen() {
+      const adresse = await zielAbholen();
+      if (adresse) zielAusAdresse(adresse);
+    }
+    function beiSichtbar() {
+      if (document.visibilityState === "visible") void ausSpeicherNachsehen();
+    }
+
     navigator.serviceWorker.addEventListener("message", beiNachricht);
-    return () => navigator.serviceWorker.removeEventListener("message", beiNachricht);
+    document.addEventListener("visibilitychange", beiSichtbar);
+    window.addEventListener("focus", beiSichtbar);
+    void ausSpeicherNachsehen();
+    return () => {
+      navigator.serviceWorker.removeEventListener("message", beiNachricht);
+      document.removeEventListener("visibilitychange", beiSichtbar);
+      window.removeEventListener("focus", beiSichtbar);
+    };
   }, []);
 
   function openDetail(id: string) {

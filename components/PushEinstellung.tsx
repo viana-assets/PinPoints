@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { geraetAbmelden, geraetAnmelden, pushLage, testNachrichtSenden, type PushLage } from "@/lib/push";
+import { letztesAntippen } from "@/lib/benachrichtigungZiel";
 
 // Block „Benachrichtigungen" in den Einstellungen – Vortest für die Terminerinnerung
 // (docs/benachrichtigungen-plan.md).
@@ -13,6 +14,11 @@ export function PushEinstellung() {
   const [lage, setLage] = useState<PushLage | null>(null);
   const [laeuft, setLaeuft] = useState(false);
   const [meldung, setMeldung] = useState<string | null>(null);
+  // Spur des letzten Antippens (siehe lib/benachrichtigungZiel.ts). Auf einem iPhone gibt es
+  // keine Entwicklerkonsole – ohne diese Zeile lässt sich nicht unterscheiden, ob eine
+  // angetippte Meldung gar nicht ankam oder nur das Öffnen des Fensters scheiterte.
+  const [antippen, setAntippen] = useState<{ url: string; zeit: number } | null>(null);
+  useEffect(() => { void letztesAntippen().then(setAntippen); }, []);
 
   async function lageNeuBestimmen() {
     setLage(await pushLage());
@@ -111,6 +117,13 @@ export function PushEinstellung() {
         </button>
       )}
       {meldung && <div className="small" style={{ marginTop: 8 }}>{meldung}</div>}
+      {antippen && (
+        <div className="small" style={{ marginTop: 8, color: "var(--muted)" }}>
+          Zuletzt angetippt:{" "}
+          {new Date(antippen.zeit).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr
+          {" → "}{antippen.url}
+        </div>
+      )}
       {lage === "an" && (
         <div className="small" style={{ marginTop: 8, color: "var(--muted)" }}>
           Kommt nichts an, obwohl der Versand gemeldet wurde: iOS unterdrückt Mitteilungen im

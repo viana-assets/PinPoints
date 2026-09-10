@@ -12,7 +12,7 @@ const ASSIGNABLE_ROLES = ALL_ROLES;
 // mit einmaligem Link zu verschicken. Es gibt keine offene Registrierung.
 // Die Rolle "superadmin" darf nur ein Superadmin an eine Einladung vergeben.
 export async function POST(request: Request) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
     return NextResponse.json({ error: "Nicht angemeldet." }, { status: 401 });
