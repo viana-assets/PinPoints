@@ -354,10 +354,15 @@ export function AuftragModal({
                   <input type="text" value={titel} onChange={(e) => setTitel(e.target.value)} />
                 </div>
                 <div className="row">
-                  <div className="field" style={{ flex: 1 }}><label>Datum</label>
+                  {/* Kein `style={{flex:1}}` mehr: Ein Flex-Wert am Element schlägt jede
+                      Regel im Stilblatt – auch die Handy-Regel, die diese beiden Felder
+                      umbrechen lässt, wenn sie nebeneinander nicht mehr passen. Dieselbe
+                      Lehre wie bei der Schriftgröße und beim Modul-Layout: Layoutwerte
+                      gehören ins Stilblatt. `.row > *` setzt flex:1 ohnehin. */}
+                  <div className="field"><label>Datum</label>
                     <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
                   </div>
-                  <div className="field" style={{ flex: 1 }}>
+                  <div className="field">
                     <label>Uhrzeit</label>
                     <input
                       type="time"

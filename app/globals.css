@@ -931,6 +931,20 @@ tr.klickbar:hover { background: var(--hover); }
    Steht am Dateiende, weil einzelne spätere Regeln (.login-box input) dieselbe Spezifität
    haben – bei Gleichstand gewinnt die zuletzt notierte Regel. */
 @media (max-width: 700px){
+  /* Formularzeilen MIT Datums- oder Uhrzeitfeld brechen um, statt überzulaufen.
+     Der Fall: Datum + Uhrzeit nebeneinander im Auftragsfenster. Safari gibt diesen beiden
+     Feldern eine eigene Mindestbreite von rund 183px mit und unterschreitet sie nicht – auch
+     nicht mit `min-width:0` oder `width:100%`. Zusammen mit dem Abstand braucht das Paar rund
+     374px; im Auftragsfenster stehen auf dem iPhone aber nur 348px zur Verfügung, und der
+     Überschuss stand rechts über alle anderen Felder hinaus (gemeldet am 10.09.2026,
+     nachgemessen: Titel endet bei 389, Uhrzeit bei 402).
+     Die Wunschbreite von 190px entscheidet jetzt nach Platz: Passen beide nebeneinander,
+     bleiben sie nebeneinander; passen sie nicht, steht jedes für sich in voller Breite – und
+     alle Felder fluchten wieder. `:has()` grenzt das auf genau diese Zeilen ein; alle anderen
+     zweispaltigen Zeilen (zwei Textfelder etwa) bleiben, wie sie sind. */
+  .row:has(input[type=date]), .row:has(input[type=time]){flex-wrap:wrap;}
+  .row:has(input[type=date]) > .field, .row:has(input[type=time]) > .field{flex:1 1 190px;}
+
   /* Absichtlich über eine Ausschlussliste statt über eine Aufzählung der Textarten: ein
      <input> ohne type-Angabe ist ein Textfeld und würde in einer Aufzählung fehlen. Erfasst
      sind damit alle Felder, in die man schreibt; ausgenommen nur die, die gar keine
