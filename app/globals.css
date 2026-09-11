@@ -953,3 +953,42 @@ tr.klickbar:hover { background: var(--hover); }
   input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=color]),
   textarea, select{font-size:16px;}
 }
+
+/* ---------------- Radbild: die vier Räder eines eingelagerten Satzes ---------------- */
+/* Konzept: docs/lager-ausbaukonzept.md, A1. Ein angedeutetes Auto von oben mit vier
+   antippbaren Rädern. Die Andeutung genügt: Sie beantwortet „wo ist vorne?" und lenkt sonst
+   nicht ab – ein gezeichnetes Auto sähe bei jedem zweiten Fahrzeug falsch aus.
+
+   Die Farben meinen den ZUSTAND (Profiltiefe), nicht die Belegung – dieselbe Bedeutung wie
+   beim Kundenzustand, also kein zweites Vokabular für dieselben Farben. */
+.radbild{position:relative;width:min(260px, 100%);height:190px;margin:6px auto 0;}
+.radbild-karosserie{position:absolute;left:28%;right:28%;top:6%;bottom:6%;
+  border:2px dashed var(--border);border-radius:26px;background:var(--hover);}
+.radbild-vorne{position:absolute;top:6px;left:0;right:0;text-align:center;font-size:10.5px;
+  color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+.rad{position:absolute;width:60px;height:66px;border-radius:14px;border:2px solid var(--border);
+  background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:2px;padding:0;cursor:pointer;}
+.rad-vl{left:0;top:8px;}
+.rad-vr{right:0;top:8px;}
+.rad-hl{left:0;bottom:8px;}
+.rad-hr{right:0;bottom:8px;}
+.rad-pos{font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.04em;}
+.rad-wert{font-size:17px;font-weight:800;font-family:var(--font-brand);}
+/* „ohne" bleibt bewusst farblos: nicht gemessen ist keine Bewertung. */
+.rad-ohne{border-style:dashed;}
+.rad-gut{border-color:var(--green);background:var(--green-bg);}
+.rad-hinweis{border-color:var(--accent);background:var(--accent-bg);}
+.rad-kritisch{border-color:var(--red);background:var(--red-bg);}
+.rad-offen{box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);}
+
+.rad-eingabe{margin-top:10px;border:1px solid var(--border);border-radius:12px;padding:10px;
+  background:var(--panel);}
+.rad-eingabe-kopf{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+/* Große Flächen in 0,1-Schritten: gemessen wird im Stehen, mit Handschuhen, das Handy in einer
+   Hand. Eine Tastatur wäre hier der langsamste Weg. */
+.rad-stufen{display:flex;align-items:center;justify-content:center;gap:12px;}
+.rad-stufe{width:56px;height:56px;font-size:24px;font-weight:800;border-radius:14px;}
+.rad-wert-gross{min-width:110px;text-align:center;font-size:30px;font-weight:800;
+  font-family:var(--font-brand);border-radius:14px;padding:6px 10px;border:2px solid var(--border);}
+.rad-einheit{font-size:13px;font-weight:600;color:var(--muted);margin-left:4px;}

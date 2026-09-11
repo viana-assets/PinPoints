@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { Article, Customer, Employee, Firmenfahrzeug, Order, OrderArticle, OrderStatus, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { RadFelder } from "@/lib/api/lager";
 import { formatDate, formatOrderDateTime, getPhoneNumbers } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -21,10 +22,11 @@ import { EinlagerungBlock } from "./EinlagerungBlock";
 export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
-  einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds,
+  einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds, raeder,
   onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete,
   onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
+  onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
 }: {
   order: Order;
   customer: Customer | undefined;
@@ -70,7 +72,13 @@ export function AuftragModal({
   onEinlagerungEntfernen: (einlagerungId: string) => Promise<void>;
   // Fahrzeug und Saison am eingelagerten Satz (Migration 30). Getrennt vom Zuordnen des
   // Lagerplatzes: das eine ist eine Bewegung im Regal, das andere eine Beschreibung.
-  onEinlagerungAngaben: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
+  onEinlagerungAngaben: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) => Promise<void>;
+  // Die einzeln erfassten Räder dieses Satzes und ihre Pflege (Migration 33).
+  raeder: EingelagertesRad[];
+  onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
+  onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
+  onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
+  onRadEntfernen: (radId: string) => Promise<void>;
 }) {
   const gesperrt = istAbgeschlossen(order.status);
 
@@ -446,9 +454,14 @@ export function AuftragModal({
               belegteSlotIds={belegteSlotIds}
               gesperrt={gesperrt}
               vehicles={vehicles}
+              raeder={raeder}
               onEinlagern={onEinlagern}
               onEntfernen={onEinlagerungEntfernen}
               onAngabenAendern={onEinlagerungAngaben}
+              onErfassungsart={onErfassungsart}
+              onAnzahlRaeder={onAnzahlRaeder}
+              onRadSpeichern={onRadSpeichern}
+              onRadEntfernen={onRadEntfernen}
             />
           )}
 

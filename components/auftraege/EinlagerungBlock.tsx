@@ -1,6 +1,11 @@
 import { useState } from "react";
-import type { Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type {
+  EingelagertesRad, Erfassungsart, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse,
+} from "@/lib/types";
 import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
+import { profilText, satzProfilMm } from "@/lib/helpers";
+import { RadBild } from "@/components/lager/RadBild";
+import type { RadFelder } from "@/lib/api/lager";
 import { lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import { QrScanner } from "@/components/QrScanner";
 
@@ -16,7 +21,8 @@ import { QrScanner } from "@/components/QrScanner";
 // zuverlässigste Art, A-12 statt A-21 zu treffen.
 
 export function EinlagerungBlock({
-  pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, onEinlagern, onEntfernen, onAngabenAendern,
+  pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
+  onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
 }: {
   // Steht im Auftrag eine Leistung mit dem Kennzeichen „braucht Lagerplatz"? Dann verlangt auch
   // die Datenbank vor dem Abschluss einen belegten Platz – dieser Block zeigt nur an, was dort
@@ -34,7 +40,14 @@ export function EinlagerungBlock({
   vehicles: Vehicle[];
   onEinlagern: (lagerplatzId: string) => Promise<void>;
   onEntfernen: (einlagerungId: string) => Promise<void>;
-  onAngabenAendern: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
+  onAngabenAendern: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) => Promise<void>;
+  // Die einzeln erfassten Räder DIESES Satzes (Migration 33). Leer, solange der Satz auf
+  // Sammelmessung steht – dann gilt der eine Wert am Satz.
+  raeder: EingelagertesRad[];
+  onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
+  onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
+  onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
+  onRadEntfernen: (radId: string) => Promise<void>;
 }) {
   const [wahl, setWahl] = useState("");
   const [scannerOffen, setScannerOffen] = useState(false);
@@ -63,7 +76,26 @@ export function EinlagerungBlock({
     return v ? fahrzeugName(v) : "Fahrzeug nicht auffindbar";
   }
 
-  async function angabenAendern(felder: { vehicleId?: string | null; saison?: Saison | null }) {
+  async function erfassungsartSetzen(art: Erfassungsart) {
+    if (!einlagerung || einlagerung.erfassungsart === art) return;
+    // Zurück auf einen Sammelwert wirft die gemessenen Radzeilen weg – das ist echte
+    // Messarbeit, also einmal nachfragen. In die andere Richtung gibt es nichts zu verlieren.
+    if (art === "sammel" && raeder.length > 0) {
+      const sicher = window.confirm(
+        `Zurück auf einen Wert für den ganzen Satz? Die ${raeder.length} gemessenen Räder werden dabei gelöscht.`
+      );
+      if (!sicher) return;
+    }
+    setLaeuft(true);
+    setMeldung(null);
+    try {
+      await onErfassungsart(einlagerung.id, art);
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
+  async function angabenAendern(felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) {
     if (!einlagerung) return;
     setLaeuft(true);
     setMeldung(null);
@@ -118,6 +150,8 @@ export function EinlagerungBlock({
           {gesperrt ? (
             <div className="small" style={{ marginTop: 4 }}>
               {fahrzeugText(einlagerung.vehicle_id)} · {einlagerung.saison ? SAISON_LABEL[einlagerung.saison] : "ohne Saison"}
+              {" · "}Profil {profilText(satzProfilMm(einlagerung, raeder))}
+              {einlagerung.erfassungsart === "einzeln" ? " (schwächstes Rad)" : ""}
             </div>
           ) : (
             <>
@@ -163,6 +197,76 @@ export function EinlagerungBlock({
                   ))}
                 </div>
               </div>
+
+              {/* ------------------------------------------------ Profiltiefe */}
+              {/* Zwei verschiedene Aussagen, nie gleichzeitig (Migration 33): „der Satz hat
+                  etwa 4 mm" oder vier einzelne Werte. Die Sammelmessung ist der Normalfall –
+                  zehn Sekunden. Die Einzelmessung kostet eine Minute und ist dafür die
+                  Grundlage für ein Verkaufsgespräch („HL 3,1 mm"). */}
+              <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
+                <label>Profiltiefe</label>
+                <div className="filterbar" style={{ marginTop: 2 }}>
+                  <button
+                    type="button"
+                    className={"chip" + (einlagerung.erfassungsart !== "einzeln" ? " active" : "")}
+                    disabled={laeuft}
+                    onClick={() => void erfassungsartSetzen("sammel")}
+                  >
+                    Ein Wert für den Satz
+                  </button>
+                  <button
+                    type="button"
+                    className={"chip" + (einlagerung.erfassungsart === "einzeln" ? " active" : "")}
+                    disabled={laeuft}
+                    onClick={() => void erfassungsartSetzen("einzeln")}
+                  >
+                    Räder einzeln
+                  </button>
+                </div>
+              </div>
+
+              {einlagerung.erfassungsart === "einzeln" ? (
+                <RadBild
+                  raeder={raeder}
+                  anzahlRaeder={einlagerung.anzahl_raeder}
+                  gesperrt={laeuft}
+                  onSpeichern={(position, felder) => onRadSpeichern(einlagerung.id, position, felder)}
+                  onEntfernen={onRadEntfernen}
+                />
+              ) : (
+                <div className="field" style={{ marginTop: 6, marginBottom: 0, maxWidth: 200 }}>
+                  <input
+                    type="number" step="0.5" min="0" max="25" placeholder="z. B. 4,5"
+                    defaultValue={einlagerung.profiltiefe_mm ?? ""}
+                    disabled={laeuft}
+                    // Beim Verlassen speichern, nicht bei jedem Tastendruck: Sonst entsteht
+                    // für „4,5" unterwegs der Wert 4 – und der stünde eine Sekunde lang als
+                    // Wahrheit in der Datenbank.
+                    onBlur={(e) => void angabenAendern({ profiltiefeMm: e.target.value })}
+                  />
+                </div>
+              )}
+
+              {einlagerung.erfassungsart === "einzeln" && (
+                <div className="field" style={{ marginTop: 8, marginBottom: 0, maxWidth: 220 }}>
+                  <label>Räder in diesem Satz</label>
+                  {/* Nicht immer vier: „zwei weggeworfen, zwei eingelagert" ist ein realer
+                      Fall und soll kein Sonderfall im Kopf des Technikers bleiben. */}
+                  <input
+                    type="number" min={1} max={8} step={1}
+                    defaultValue={einlagerung.anzahl_raeder}
+                    disabled={laeuft}
+                    onBlur={(e) => {
+                      const zahl = Math.round(parseFloat(e.target.value));
+                      if (!isNaN(zahl) && zahl >= 1 && zahl <= 8 && zahl !== einlagerung.anzahl_raeder) {
+                        void onAnzahlRaeder(einlagerung.id, zahl);
+                      } else {
+                        e.target.value = String(einlagerung.anzahl_raeder);
+                      }
+                    }}
+                  />
+                </div>
+              )}
 
               <button
                 type="button" className="btn-secondary" style={{ marginTop: 8 }}

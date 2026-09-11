@@ -7,6 +7,7 @@ import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
   Article, ArticlePrice, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
+  EingelagertesRad, Erfassungsart, RadPosition,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
@@ -53,6 +54,7 @@ import {
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
   insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById,
   upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails,
+  insertRad, updateRadById, deleteRadById, setErfassungsart, setAnzahlRaeder, type RadFelder,
 } from "@/lib/api/lager";
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
@@ -80,7 +82,7 @@ import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
   useMitarbeiter, useArtikel, useArtikelpreise,
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
-  useFirmenfahrzeuge,
+  useFirmenfahrzeuge, useEingelagerteRaeder,
 } from "@/lib/queries/hooks";
 
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
@@ -96,6 +98,7 @@ const KEINE_LAGERPLAETZE: StorageSlot[] = [];
 const KEINE_EINLAGERUNGEN: TireStorage[] = [];
 const KEINE_FAHRZEUGE: Vehicle[] = [];
 const KEINE_FIRMENFAHRZEUGE: Firmenfahrzeug[] = [];
+const KEINE_RAEDER: EingelagertesRad[] = [];
 const KEINE_HISTORIE: ContactHistoryEntry[] = [];
 const KEINE_ZUORDNUNGEN: Record<string, string[]> = {};
 
@@ -261,6 +264,9 @@ export default function HomePage() {
   const lagerQuery = useLager(supabase, sitzungBereit && brauchtLager);
   const lagerplaetzeQuery = useLagerplaetze(supabase, sitzungBereit && brauchtLager);
   const einlagerungenQuery = useEinlagerungen(supabase, sitzungBereit && brauchtLager);
+  // Die einzeln gemessenen Räder (Migration 33). Gleiche Bedingung wie die Einlagerungen –
+  // sie gehören zusammen und werden nie getrennt gebraucht.
+  const raederQuery = useEingelagerteRaeder(supabase, sitzungBereit && brauchtLager);
   // Alle Kundenfahrzeuge – nur fürs Lager-Modul. Dort steht kein einzelner Kunde im
   // Mittelpunkt, sondern viele Sätze nebeneinander, und jeder gehört zu einem Auto
   // (Migration 30).
@@ -296,6 +302,7 @@ export default function HomePage() {
   const warehouses = lagerQuery.data ?? KEINE_LAGER;
   const storageSlots = lagerplaetzeQuery.data ?? KEINE_LAGERPLAETZE;
   const tireStorages = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
+  const eingelagerteRaeder = raederQuery.data ?? KEINE_RAEDER;
   const vehicles = kundeFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
   const alleFahrzeuge = alleFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
   const firmenfahrzeuge = firmenfahrzeugeQuery.data ?? KEINE_FIRMENFAHRZEUGE;
@@ -1138,9 +1145,39 @@ export default function HomePage() {
   // `einlagernFuerAuftrag`: dort geht es um den Lagerplatz, hier um die Beschreibung des
   // Satzes. Beides zusammenzulegen hieße, bei jeder Saisonänderung den Platz erneut zu
   // schreiben.
-  async function einlagerungAngabenAendern(einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null }) {
+  async function einlagerungAngabenAendern(einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) {
     await updateTireStorageDetails(supabase, einlagerungId, felder);
     await refreshTireStorages();
+  }
+
+  // ---------------------------------------------------------------- Räder (Migration 33)
+  //
+  // Sammelmessung oder Einzelerfassung – nie beides. Das Umschalten räumt in der richtigen
+  // Reihenfolge auf (siehe setErfassungsart in lib/api/lager.ts), damit niemand in eine
+  // Fehlermeldung der Datenbank läuft.
+  async function erfassungsartSetzen(einlagerungId: string, art: Erfassungsart) {
+    await setErfassungsart(supabase, einlagerungId, art);
+    await Promise.all([refreshTireStorages(), neuLaden(qk.eingelagerteRaeder())]);
+  }
+  async function anzahlRaederSetzen(einlagerungId: string, anzahl: number) {
+    await setAnzahlRaeder(supabase, einlagerungId, anzahl);
+    await refreshTireStorages();
+  }
+  // Ein Rad je Position: Gibt es die Position schon, wird sie geändert, sonst angelegt. Das
+  // Unterscheiden gehört hierher und nicht in die Oberfläche – dort wüsste man es nur, wenn
+  // man dieselbe Liste noch einmal durchsucht.
+  async function radSpeichern(einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) {
+    const vorhanden = eingelagerteRaeder.find((r) => r.tire_storage_id === einlagerungId && r.position === position);
+    if (vorhanden) {
+      await updateRadById(supabase, vorhanden.id, felder);
+    } else {
+      await insertRad(supabase, einlagerungId, { ...felder, position });
+    }
+    await neuLaden(qk.eingelagerteRaeder());
+  }
+  async function radEntfernen(radId: string) {
+    await deleteRadById(supabase, radId);
+    await neuLaden(qk.eingelagerteRaeder());
   }
 
   async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
@@ -2294,6 +2331,11 @@ export default function HomePage() {
           onEinlagern={(lagerplatzId) => einlagernFuerAuftrag(offenerAuftrag, lagerplatzId)}
           onEinlagerungEntfernen={removeTireAssignment}
           onEinlagerungAngaben={einlagerungAngabenAendern}
+          raeder={eingelagerteRaeder.filter((r) => r.tire_storage_id === einlagerungZuAuftrag(offenerAuftrag.id)?.id)}
+          onErfassungsart={erfassungsartSetzen}
+          onAnzahlRaeder={anzahlRaederSetzen}
+          onRadSpeichern={radSpeichern}
+          onRadEntfernen={radEntfernen}
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
           firmenfahrzeuge={firmenfahrzeuge}
