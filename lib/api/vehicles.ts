@@ -1,24 +1,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Vehicle } from "@/lib/types";
-import { fetchPaged, qWrite } from "./client";
+import { fetchPaged, qOne, qWrite } from "./client";
 
 // Datenzugriffsschicht für Fahrzeuge je Kunde. Reine Supabase-Wrapper ohne React-State –
 // siehe lib/api/employees.ts für das Muster. Ausgelagert aus app/page.tsx, siehe
 // docs/roadmap.md Phase 3.
 
 export type VehicleFields = {
-  licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string;
+  licensePlate: string; makeModel: string; tireSize: string; note: string;
 };
 
 // Aus den Formularfeldern (alles Strings) die Datenbankzeile bauen – einmal für Anlegen und
-// Ändern, damit die Umwandlung der Profiltiefe nicht zweimal dasteht.
+// Ändern.
 function toRow(fields: VehicleFields) {
   return {
     license_plate: fields.licensePlate || null,
     make_model: fields.makeModel || null,
     tire_size: fields.tireSize || null,
-    tire_dot_date: fields.tireDotDate || null,
-    tire_profile_mm: fields.tireProfileMm ? parseFloat(fields.tireProfileMm.replace(",", ".")) : null,
     note: fields.note || null,
   };
 }
@@ -42,11 +40,16 @@ export async function fetchVehiclesFuerKunde(supabase: SupabaseClient, customerI
   );
 }
 
-export async function insertVehicle(supabase: SupabaseClient, customerId: string, fields: VehicleFields): Promise<void> {
-  await qWrite(
+// Gibt die Kennung des angelegten Fahrzeugs zurück. Gebraucht wird sie dort, wo das Anlegen
+// nur der halbe Vorgang ist: Im Auftragsfenster soll das neue Auto dem eingelagerten Satz
+// gleich zugeordnet werden – sonst hätte der Techniker es angelegt und müsste es anschließend
+// noch in einer Auswahlliste suchen, in der genau ein Eintrag steht.
+export async function insertVehicle(supabase: SupabaseClient, customerId: string, fields: VehicleFields): Promise<string> {
+  const angelegt = await qOne<{ id: string }>(
     "Das Fahrzeug konnte nicht angelegt werden",
-    supabase.from("vehicles").insert({ customer_id: customerId, ...toRow(fields) })
+    supabase.from("vehicles").insert({ customer_id: customerId, ...toRow(fields) }).select("id").single()
   );
+  return angelegt.id;
 }
 
 export async function updateVehicleById(supabase: SupabaseClient, id: string, fields: VehicleFields): Promise<void> {

@@ -12,7 +12,7 @@ import type {
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
   effectiveColor, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
-  plzAus, naechsteSaison,
+  plzAus, naechsteSaison, raederNachSatz, satzProfilMm,
   getPhoneNumbers, navigationUrls,
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
@@ -20,6 +20,7 @@ import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } fr
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
   ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
+  PROFIL_KRITISCH_MM,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
@@ -216,6 +217,9 @@ export default function HomePage() {
   const [saisonFilter, setSaisonFilter] = useState<Saison | "alle">(() => naechsteSaison());
   const [saisonPlz, setSaisonPlz] = useState("");
   const [saisonNurFaellige, setSaisonNurFaellige] = useState(false);
+  // „Nur mit schwachem Profil" – der Filter, der aus der Anrufliste eine Verkaufsliste macht
+  // (docs/lager-ausbaukonzept.md, D2/D3).
+  const [saisonNurSchwach, setSaisonNurSchwach] = useState(false);
   const [saisonSchreibt, setSaisonSchreibt] = useState(false);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
@@ -1244,13 +1248,30 @@ export default function HomePage() {
 
   // ---------------------------------------------------------------- Fahrzeuge
   async function addVehicle(customerId: string, fields: {
-    licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string;
+    licensePlate: string; makeModel: string; tireSize: string; note: string;
   }) {
     await insertVehicle(supabase, customerId, fields);
     await refreshVehicles();
   }
+
+  // Fahrzeug aus dem Auftragsfenster heraus: anlegen UND dem eingelagerten Satz zuordnen.
+  // Beides in einem Schritt, weil es fachlich einer ist – der Techniker steht am Auto und
+  // sagt „das hier gehört zu diesem Satz".
+  async function fahrzeugAusAuftragAnlegen(orderId: string, kennzeichen: string, modell: string) {
+    const auftrag = orders.find((o) => o.id === orderId);
+    if (!auftrag) return;
+    const fahrzeugId = await insertVehicle(supabase, auftrag.customer_id, {
+      licensePlate: kennzeichen, makeModel: modell, tireSize: "", note: "",
+    });
+    await refreshVehicles();
+    const satz = einlagerungZuAuftrag(orderId);
+    if (satz) {
+      await updateTireStorageDetails(supabase, satz.id, { vehicleId: fahrzeugId });
+      await refreshTireStorages();
+    }
+  }
   async function updateVehicle(id: string, fields: {
-    licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string;
+    licensePlate: string; makeModel: string; tireSize: string; note: string;
   }) {
     await updateVehicleById(supabase, id, fields);
     await refreshVehicles();
@@ -1441,6 +1462,7 @@ export default function HomePage() {
     const kundeNach = new Map(customers.map((c) => [c.id, c]));
     const fahrzeugNach = new Map(alleFahrzeuge.map((v) => [v.id, v]));
     const platzNach = new Map(storageSlots.map((sl) => [sl.id, sl]));
+    const raederNach = raederNachSatz(eingelagerteRaeder);
 
     return tireStorages
       .filter((ts) => !ts.removed_at)
@@ -1449,6 +1471,7 @@ export default function HomePage() {
         cust: kundeNach.get(ts.customer_id),
         vehicle: ts.vehicle_id ? fahrzeugNach.get(ts.vehicle_id) ?? null : null,
         slot: platzNach.get(ts.storage_slot_id) ?? null,
+        raeder: raederNach.get(ts.id) ?? [],
       }))
       // Ohne Kunden keine Zeile: der Kunde kann gelöscht (Migration 19) oder außerhalb des
       // geladenen Bestands sein. Eine Zeile ohne Namen hilft niemandem beim Telefonieren.
@@ -1456,8 +1479,15 @@ export default function HomePage() {
       .filter((z) => (saisonFilter === "alle" ? true : z.einlagerung.saison === saisonFilter))
       .filter((z) => (saisonPlz ? (plzAus(z.cust.address) || "").startsWith(saisonPlz) : true))
       .filter((z) => (saisonNurFaellige ? effectiveColor(z.cust, settings.period_months) === "red" : true))
+      // Sätze ohne Messung fallen hier heraus – nicht, weil sie in Ordnung wären, sondern
+      // weil über sie nichts bekannt ist. Sie als „schwach" zu führen, wäre eine Behauptung.
+      .filter((z) => {
+        if (!saisonNurSchwach) return true;
+        const mm = satzProfilMm(z.einlagerung, z.raeder);
+        return mm != null && mm < PROFIL_KRITISCH_MM;
+      })
       .sort((a, b) => a.cust.name.localeCompare(b.cust.name, "de"));
-  }, [tab, tireStorages, customers, alleFahrzeuge, storageSlots, saisonFilter, saisonPlz, saisonNurFaellige, settings.period_months]);
+  }, [tab, tireStorages, eingelagerteRaeder, customers, alleFahrzeuge, storageSlots, saisonFilter, saisonPlz, saisonNurFaellige, saisonNurSchwach, settings.period_months]);
 
   async function saisonWiedervorlageSetzen(kundenIds: string[], datum: string) {
     setSaisonSchreibt(true);
@@ -2018,6 +2048,8 @@ export default function HomePage() {
             onPlzChange={setSaisonPlz}
             nurFaellige={saisonNurFaellige}
             onNurFaelligeChange={setSaisonNurFaellige}
+            nurSchwach={saisonNurSchwach}
+            onNurSchwachChange={setSaisonNurSchwach}
             warehouses={warehouses}
             onOpenCustomer={openDetail}
             onCall={openCallMenu}
@@ -2034,6 +2066,7 @@ export default function HomePage() {
             warehouses={warehouses}
             storageSlots={storageSlots}
             tireStorages={tireStorages}
+            eingelagerteRaeder={eingelagerteRaeder}
             onAddWarehouse={addWarehouse}
             onUpdateWarehouse={updateWarehouse}
             onDeleteWarehouse={deleteWarehouse}
@@ -2336,6 +2369,7 @@ export default function HomePage() {
           onAnzahlRaeder={anzahlRaederSetzen}
           onRadSpeichern={radSpeichern}
           onRadEntfernen={radEntfernen}
+          onFahrzeugAnlegen={(kennzeichen, modell) => fahrzeugAusAuftragAnlegen(offenerAuftrag.id, kennzeichen, modell)}
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
           firmenfahrzeuge={firmenfahrzeuge}

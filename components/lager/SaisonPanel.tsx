@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { Customer, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
-import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
-import { formatDate, todayStr } from "@/lib/helpers";
+import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import { PROFIL_KRITISCH_MM, SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
+import { formatDate, profilText, satzProfilMm, todayStr } from "@/lib/helpers";
 import { IconNavPin } from "@/components/icons";
+import { ProfilMarke } from "@/components/lager/ProfilMarke";
 
 // Die Saisonliste (docs/lager-ausbaukonzept.md, D1).
 //
@@ -20,10 +21,14 @@ export type SaisonZeile = {
   cust: Customer;
   vehicle: Vehicle | null;
   slot: StorageSlot | null;
+  // Die Räder dieses Satzes – leer bei Sammelerfassung. Sie kommen fertig zugeordnet aus
+  // app/page.tsx, damit die Liste nicht je Zeile den ganzen Radbestand durchsucht.
+  raeder: EingelagertesRad[];
 };
 
 export function SaisonPanel({
   zeilen, gesamtAktiv, saison, onSaisonChange, plz, onPlzChange, nurFaellige, onNurFaelligeChange,
+  nurSchwach, onNurSchwachChange,
   warehouses, onOpenCustomer, onCall, onNavigate, onWiedervorlage, schreibt,
 }: {
   zeilen: SaisonZeile[];
@@ -35,6 +40,8 @@ export function SaisonPanel({
   onPlzChange: (p: string) => void;
   nurFaellige: boolean;
   onNurFaelligeChange: (b: boolean) => void;
+  nurSchwach: boolean;
+  onNurSchwachChange: (b: boolean) => void;
   warehouses: Warehouse[];
   onOpenCustomer: (id: string) => void;
   onCall: (e: React.MouseEvent, cust: Customer) => void;
@@ -53,6 +60,13 @@ export function SaisonPanel({
   // Ein Kunde kann zwei Sätze liegen haben (zwei Autos). Für die Anrufliste zählt der Mensch,
   // nicht der Satz – sonst steht er zweimal auf der Liste und wird zweimal angerufen.
   const kundenIds = Array.from(new Set(zeilen.map((z) => z.cust.id)));
+
+  // Wie viele der angezeigten Sätze sind unter der kritischen Grenze? Dieselbe Regel wie im
+  // Filter – einmal formuliert, damit Zahl und Filter nicht auseinanderlaufen können.
+  const schwacheZeilen = zeilen.filter((z) => {
+    const mm = satzProfilMm(z.einlagerung, z.raeder);
+    return mm != null && mm < PROFIL_KRITISCH_MM;
+  }).length;
 
   function lagerName(slot: StorageSlot | null): string {
     if (!slot) return "Platz unbekannt";
@@ -92,6 +106,17 @@ export function SaisonPanel({
           />
           <label htmlFor="saison-nur-faellige">Nur fällige (rote Flagge)</label>
         </div>
+        {/* Der eigentliche Verkaufsanlass: nicht „wer hat Reifen bei uns", sondern „bei wem
+            reicht das Profil nicht mehr durch die nächste Saison". Erst seit Migration 33
+            beantwortbar, wenn einzeln gemessen wurde – bei Sammelwerten greift derselbe
+            Vergleich. */}
+        <div className="checkbox-row" style={{ margin: "0 0 6px" }}>
+          <input
+            type="checkbox" id="saison-nur-schwach"
+            checked={nurSchwach} onChange={(e) => onNurSchwachChange(e.target.checked)}
+          />
+          <label htmlFor="saison-nur-schwach">Nur mit schwachem Profil (unter {profilText(PROFIL_KRITISCH_MM)})</label>
+        </div>
       </div>
 
       {/* Die Kopfzeile ist die eigentliche Antwort. Sie steht deshalb als Satz da und nicht als
@@ -103,6 +128,14 @@ export function SaisonPanel({
             `${saison === "alle" ? "Reifen" : `${SAISON_LABEL[saison]}reifen`} bei uns liegen` +
             (zeilen.length !== kundenIds.length ? ` (${zeilen.length} Sätze)` : "")}
       </div>
+      {/* Die Zahl, die den Anruf lohnend macht – und zwar bevor jemand die Liste durchgeht.
+          Sie steht nur da, wenn nicht ohnehin danach gefiltert ist. */}
+      {!nurSchwach && schwacheZeilen > 0 && (
+        <div style={{ marginBottom: 4, color: "var(--red)", fontWeight: 700 }}>
+          Bei {schwacheZeilen} {schwacheZeilen === 1 ? "Satz" : "Sätzen"} liegt das schwächste Rad
+          unter {profilText(PROFIL_KRITISCH_MM)}.
+        </div>
+      )}
       <div className="small" style={{ marginBottom: 8 }}>
         Insgesamt aktiv eingelagert: {gesamtAktiv} {gesamtAktiv === 1 ? "Satz" : "Sätze"}. Die
         Karte zeigt in diesem Reiter nur die Kunden aus der Liste.
@@ -143,7 +176,11 @@ export function SaisonPanel({
         ) : (
           <table className="appt-table">
             <thead>
-              <tr><th>Kunde</th><th>Fahrzeug</th><th>Lagerplatz</th><th>Satz</th><th></th></tr>
+              {/* Profil steht bewusst an zweiter Stelle und nicht am Ende: Auf dem Handy
+                  scrollt die Tabelle waagerecht, und die hinterste Spalte ist dann genau die,
+                  die man nicht sieht. Die Lesereihenfolge ist damit auch die Reihenfolge der
+                  Fragen: wer – wie dringend – welches Auto – wo liegt es. */}
+              <tr><th>Kunde</th><th>Profil</th><th>Fahrzeug</th><th>Lagerplatz</th><th>Satz</th><th></th></tr>
             </thead>
             <tbody>
               {zeilen.map((z) => (
@@ -152,14 +189,14 @@ export function SaisonPanel({
                     <b>{z.cust.name}</b>
                     <div className="small">{z.cust.address}</div>
                   </td>
+                  <td style={{ whiteSpace: "nowrap" }}>
+                    <ProfilMarke satz={z.einlagerung} raeder={z.raeder} praefix="" />
+                  </td>
                   <td>{fahrzeugText(z.vehicle)}</td>
                   <td style={{ whiteSpace: "nowrap" }}>{lagerName(z.slot)}</td>
                   <td>
                     {z.einlagerung.saison ? SAISON_LABEL[z.einlagerung.saison] : "ohne Saison"}
-                    <div className="small">
-                      {z.einlagerung.dot_date ? `DOT ${z.einlagerung.dot_date}` : "DOT –"}
-                      {z.einlagerung.profiltiefe_mm != null ? ` · ${z.einlagerung.profiltiefe_mm} mm` : ""}
-                    </div>
+                    <div className="small">{z.einlagerung.dot_date ? `DOT ${z.einlagerung.dot_date}` : "DOT –"}</div>
                   </td>
                   <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
                     {z.cust.address.trim() && (

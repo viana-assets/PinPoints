@@ -26,7 +26,7 @@ export function AuftragModal({
   onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete,
   onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
-  onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
+  onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
 }: {
   order: Order;
   customer: Customer | undefined;
@@ -79,8 +79,23 @@ export function AuftragModal({
   onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
   onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
   onRadEntfernen: (radId: string) => Promise<void>;
+  // Legt ein Fahrzeug für den Kunden dieses Auftrags an und ordnet es dem eingelagerten Satz
+  // gleich zu – aus dem Auftrag heraus, ohne Umweg über das Kundenfenster.
+  onFahrzeugAnlegen: (kennzeichen: string, modell: string) => Promise<void>;
 }) {
   const gesperrt = istAbgeschlossen(order.status);
+
+  // Die Vorschau auf die Regeln, die beim Abschließen greifen (Migration 22 und 30). Sie steht
+  // hier oben und nicht im Fuß, weil sie dieselben Daten liest wie die Blöcke darüber – und
+  // damit es EINE Aufzählung gibt statt zweier, die auseinanderlaufen können.
+  //
+  // Der 11.09.2026 hat gezeigt, warum das nötig ist: Ohne Fahrzeug und Saison lehnte die
+  // Datenbank den Abschluss ab, die Meldung lag aber hinter dem Auftragsfenster – am Handy
+  // also unsichtbar. Von außen sah es aus, als täte der Knopf nichts.
+  const abschlussFehlt: string[] = [];
+  if (brauchtLagerplatz && !einlagerung) abschlussFehlt.push("Lagerplatz");
+  if (einlagerung && !einlagerung.vehicle_id) abschlussFehlt.push("Fahrzeug");
+  if (einlagerung && !einlagerung.saison) abschlussFehlt.push("Saison");
 
   // ---------------------------------------------------------------- Entwurf
   // Alle Angaben dieses Fensters werden ZUERST hier gesammelt und erst auf „Speichern"
@@ -314,13 +329,6 @@ export function AuftragModal({
                 {vehicles.map((v) => <option key={v.id} value={v.id}>{fahrzeugText(v)}</option>)}
               </select>
             )}
-            {fahrzeug && (fahrzeug.tire_dot_date || fahrzeug.tire_profile_mm != null) && (
-              <div className="small" style={{ marginTop: 4 }}>
-                {fahrzeug.tire_dot_date ? `DOT ${fahrzeug.tire_dot_date}` : ""}
-                {fahrzeug.tire_dot_date && fahrzeug.tire_profile_mm != null ? " · " : ""}
-                {fahrzeug.tire_profile_mm != null ? `Profil ${fahrzeug.tire_profile_mm} mm` : ""}
-              </div>
-            )}
           </div>
 
           {/* ---------------------------------------------------------------- Unser Fahrzeug */}
@@ -462,6 +470,7 @@ export function AuftragModal({
               onAnzahlRaeder={onAnzahlRaeder}
               onRadSpeichern={onRadSpeichern}
               onRadEntfernen={onRadEntfernen}
+              onFahrzeugAnlegen={onFahrzeugAnlegen}
             />
           )}
 
@@ -548,6 +557,16 @@ export function AuftragModal({
               <div className="auftrag-fuss-rechts">
                 {order.status === "offen" && (
                   <button type="button" className="btn-secondary" onClick={() => onSetStatus(order.id, "in_arbeit")}>Arbeit beginnen</button>
+                )}
+                {/* Was dem Abschluss noch im Weg steht, steht AM KNOPF – nicht nur weiter oben
+                    im Einlagerungsblock, den man dafür erst hochscrollen müsste. Der Knopf
+                    bleibt trotzdem anklickbar: Die Regel steht in der Datenbank (Migration 22
+                    und 30), und diese Zeile ist nur ihre Vorschau. Ein hier gesperrter Knopf
+                    würde behaupten, alle Bedingungen zu kennen – das tut er nicht. */}
+                {!gesperrt && abschlussFehlt.length > 0 && (
+                  <span className="hinweis-pflicht" style={{ alignSelf: "center" }}>
+                    Fehlt noch: {abschlussFehlt.join(", ")}
+                  </span>
                 )}
                 {!gesperrt && (
                   <button type="button" className="btn-green" onClick={() => onSetStatus(order.id, "erledigt")}>Auftrag abschließen</button>

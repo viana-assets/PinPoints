@@ -16,8 +16,13 @@ function tireStorageLabel(t: TireStorage, storageSlots: StorageSlot[], warehouse
     + (t.dot_date ? ` (DOT ${t.dot_date})` : "");
 }
 
+// Kennzeichen, Modell, Reifengröße, Notiz – mehr beschreibt das AUTO nicht.
+// DOT-Datum und Profiltiefe standen hier bis zum 11.09.2026 daneben. Sie beschreiben aber
+// einen Reifensatz, und der wechselt zweimal im Jahr: Nach dem ersten Wechsel war der Wert
+// am Fahrzeug still falsch – er sah aus wie eine Messung und war die von vorletzter Saison.
+// Beides steht jetzt am eingelagerten Satz (Migration 33/34, docs/lager.md).
 type VehicleFieldValues = {
-  licensePlate: string; makeModel: string; tireSize: string; tireDotDate: string; tireProfileMm: string; note: string;
+  licensePlate: string; makeModel: string; tireSize: string; note: string;
 };
 
 function VehicleFieldsForm({ values, onChangeField }: {
@@ -31,8 +36,6 @@ function VehicleFieldsForm({ values, onChangeField }: {
       </div>
       <div className="row" style={{ marginBottom: 4 }}>
         <input type="text" placeholder="Reifengröße z. B. 205/55 R16" value={values.tireSize} onChange={(e) => onChangeField("tireSize", e.target.value)} />
-        <input type="text" placeholder="DOT-Datum" value={values.tireDotDate} onChange={(e) => onChangeField("tireDotDate", e.target.value)} />
-        <input type="number" step="0.5" min="0" placeholder="Profil mm" value={values.tireProfileMm} onChange={(e) => onChangeField("tireProfileMm", e.target.value)} />
       </div>
       <textarea placeholder="Notiz (optional)" value={values.note} onChange={(e) => onChangeField("note", e.target.value)} />
     </>
@@ -48,8 +51,6 @@ export function VehicleRow({ vehicle, tireStorages, storageSlots, warehouses, on
     licensePlate: vehicle.license_plate || "",
     makeModel: vehicle.make_model || "",
     tireSize: vehicle.tire_size || "",
-    tireDotDate: vehicle.tire_dot_date || "",
-    tireProfileMm: vehicle.tire_profile_mm != null ? String(vehicle.tire_profile_mm) : "",
     note: vehicle.note || "",
   });
   // Seit Migration 30 zeigt die Verknüpfung nur noch in eine Richtung: Der eingelagerte Satz
@@ -76,9 +77,7 @@ export function VehicleRow({ vehicle, tireStorages, storageSlots, warehouses, on
     <div className="appt-item">
       <div><span className="appt-date">{vehicle.license_plate || "Ohne Kennzeichen"}</span>{vehicle.make_model ? " – " + vehicle.make_model : ""}</div>
       <div className="small">
-        {vehicle.tire_size ? `Reifen: ${vehicle.tire_size}` : "Keine Reifengröße hinterlegt"}
-        {vehicle.tire_dot_date ? ` · DOT ${vehicle.tire_dot_date}` : ""}
-        {vehicle.tire_profile_mm != null ? ` · Profil ${vehicle.tire_profile_mm} mm` : ""}
+        {vehicle.tire_size ? `Reifengröße: ${vehicle.tire_size}` : "Keine Reifengröße hinterlegt"}
       </div>
       {linked && <div className="small">Im Lager: {tireStorageLabel(linked, storageSlots, warehouses)}</div>}
       {vehicle.note && <div className="small">{vehicle.note}</div>}
@@ -95,7 +94,7 @@ export function AddVehicleInline({ tireStorages, storageSlots, warehouses, onAdd
   onAdd: (fields: VehicleFieldValues) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const empty: VehicleFieldValues = { licensePlate: "", makeModel: "", tireSize: "", tireDotDate: "", tireProfileMm: "", note: "" };
+  const empty: VehicleFieldValues = { licensePlate: "", makeModel: "", tireSize: "", note: "" };
   const [values, setValues] = useState<VehicleFieldValues>(empty);
 
   if (!open) {

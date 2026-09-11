@@ -572,11 +572,17 @@
    damit ein fehlgeschlagener Speichervorgang sichtbar wird, ohne den Arbeitsfluss zu stoppen.
    Bewusst kein modaler Dialog – der Nutzer soll seine Eingabe direkt korrigieren können, sie
    steht ja noch im Formular. */
+/* Die Fehlermeldung MUSS über allem liegen, was sie kommentiert.
+   Am 11.09.2026 lehnte die Datenbank einen Auftragsabschluss ab („Fahrzeug und Saison
+   fehlen") – die Meldung lag auf Ebene 4000, das Auftragsfenster auf 10000. Am Handy ist
+   dieses Fenster weiß und formatfüllend: Die Meldung war also nicht nur schwer zu sehen,
+   sondern gar nicht. Von außen sah es aus, als täte der Knopf nichts.
+   20001 heißt: über dem Fenster (10000), über dem Anruf-Menü (20000). */
 .fehler-hinweis {
   position: fixed;
   right: 16px;
   bottom: 16px;
-  z-index: 4000;
+  z-index: 20001;
   max-width: min(420px, calc(100vw - 32px));
   display: flex;
   align-items: flex-start;
@@ -604,8 +610,14 @@
 }
 .fehler-hinweis button:hover { color: #241d13; }
 @media (max-width: 700px) {
-  /* Über der mobilen Navigationsleiste bleiben. */
-  .fehler-hinweis { right: 12px; left: 12px; bottom: 78px; max-width: none; }
+  /* Am Handy OBEN statt unten. Unten sitzen die Navigationsleiste und – im Auftragsfenster –
+     der feste Fuß mit „Stornieren" und „Auftrag abschließen". Eine Meldung, die genau den
+     Knopf verdeckt, dessen Ablehnung sie erklärt, ist keine Hilfe. Oben ist am Handy nichts,
+     was man im selben Moment braucht. */
+  .fehler-hinweis {
+    right: 12px; left: 12px; bottom: auto; max-width: none;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+  }
 }
 
 /* Umschaltung des geladenen Auftrags-Zeitraums (Roadmap Phase 10). Sitzt über den beiden
@@ -943,7 +955,14 @@ tr.klickbar:hover { background: var(--hover); }
      alle Felder fluchten wieder. `:has()` grenzt das auf genau diese Zeilen ein; alle anderen
      zweispaltigen Zeilen (zwei Textfelder etwa) bleiben, wie sie sind. */
   .row:has(input[type=date]), .row:has(input[type=time]){flex-wrap:wrap;}
-  .row:has(input[type=date]) > .field, .row:has(input[type=time]) > .field{flex:1 1 190px;}
+  /* Nachtrag 11.09.2026: `flex:1 1 190px` hat zwar den Umbruch gebracht, aber beim Umbruch
+     zieht sich jedes Feld auf die volle Zeilenbreite. Safari zentriert den Wert dann in der
+     zu breiten Fläche – „10.09.2026" stand plötzlich mittig, während Titel und Beschreibung
+     links begannen. Deshalb: umbrechen ja, aber nicht mitwachsen (kein `flex-grow`), und die
+     Breite deckelt, was ein Datum bzw. eine Uhrzeit wirklich braucht. */
+  .row:has(input[type=date]) > .field, .row:has(input[type=time]) > .field{flex:0 1 190px;}
+  input[type=date]{max-width:190px;}
+  input[type=time]{max-width:140px;}
 
   /* Absichtlich über eine Ausschlussliste statt über eine Aufzählung der Textarten: ein
      <input> ohne type-Angabe ist ein Textfeld und würde in einer Aufzählung fehlen. Erfasst
@@ -992,3 +1011,15 @@ tr.klickbar:hover { background: var(--hover); }
 .rad-wert-gross{min-width:110px;text-align:center;font-size:30px;font-weight:800;
   font-family:var(--font-brand);border-radius:14px;padding:6px 10px;border:2px solid var(--border);}
 .rad-einheit{font-size:13px;font-weight:600;color:var(--muted);margin-left:4px;}
+
+/* Die Profiltiefe als Marke – in der Saisonliste, am Lagerplatz und in der Platz-Historie
+   (components/lager/ProfilMarke.tsx). Bewusst eine schmale Marke und keine zweite Ampel:
+   Sie steht in Tabellenzeilen neben Namen und Adressen und darf die nicht überstrahlen. */
+.profil-marke{display:inline-block;padding:1px 7px;border-radius:999px;border:1px solid var(--border);
+  font-size:11.5px;font-weight:700;white-space:nowrap;line-height:1.7;}
+.profil-ohne{color:var(--muted);border-style:dashed;font-weight:600;}
+.profil-gut{border-color:var(--green);background:var(--green-bg);color:var(--green);}
+.profil-hinweis{border-color:var(--accent);background:var(--accent-bg);color:var(--accent);}
+.profil-kritisch{border-color:var(--red);background:var(--red-bg);color:var(--red);}
+.profil-min{opacity:.7;font-weight:800;}
+.profil-warn{font-weight:800;}

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import type { Customer, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
-import { formatDate } from "@/lib/helpers";
+import { formatDate, raederNachSatz } from "@/lib/helpers";
 import { IconLager, IconTrash } from "@/components/icons";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
+import { ProfilMarke } from "./ProfilMarke";
+import { RadBild } from "./RadBild";
 
 // Lager-Modul: zwei Ebenen wie ein eigenständiges Modul – erst die Übersicht aller Lager
 // (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze, inkl. Reifen-
@@ -48,11 +50,14 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
   customers: Customer[];
   // Alle Kundenfahrzeuge. Das Lager-Modul arbeitet nicht mit einem geöffneten Kunden, sondern
   // mit vielen Sätzen nebeneinander – deshalb hier der Vollabzug statt der Ausschnitt je Kunde.
   vehicles: Vehicle[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
+  // Die einzeln gemessenen Räder (Migration 33). Hier nur zum Anzeigen: Bearbeitet werden sie
+  // im Auftragsfenster, wo der Satz in der Hand liegt.
+  eingelagerteRaeder: EingelagertesRad[];
   onAddWarehouse: (fields: { name: string; address: string; note: string }) => Promise<string | undefined>;
   onUpdateWarehouse: (id: string, fields: { name: string; address: string; note: string }) => Promise<void>;
   onDeleteWarehouse: (id: string) => Promise<void>;
@@ -117,6 +122,10 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   const [editName, setEditName] = useState(selectedWarehouse?.name || "");
   const [editAddress, setEditAddress] = useState(selectedWarehouse?.address || "");
   const [editNote, setEditNote] = useState(selectedWarehouse?.note || "");
+
+  // Einmal gruppieren statt je Lagerplatzkarte den ganzen Radbestand zu durchsuchen.
+  const raederJeSatz = raederNachSatz(eingelagerteRaeder);
+  const raederVon = (satzId: string): EingelagertesRad[] => raederJeSatz.get(satzId) ?? [];
 
   function currentAssignment(slotId: string): TireStorage | null {
     const matches = tireStorages.filter((t) => t.storage_slot_id === slotId && !t.removed_at);
@@ -354,9 +363,9 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                 {assignment && cust ? (
                   <>
                     <div className="sc-cust">{cust.name}</div>
-                    <div className="sc-meta">
-                      {assignment.dot_date ? `DOT ${assignment.dot_date}` : "DOT –"}
-                      {assignment.profiltiefe_mm != null ? ` · Profil ${assignment.profiltiefe_mm} mm` : ""}
+                    <div className="sc-meta">{assignment.dot_date ? `DOT ${assignment.dot_date}` : "DOT –"}</div>
+                    <div className="sc-meta" style={{ marginTop: 2 }}>
+                      <ProfilMarke satz={assignment} raeder={raederVon(assignment.id)} praefix="" />
                     </div>
                   </>
                 ) : (
@@ -399,6 +408,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           customers={customers}
           assignment={currentAssignment(assignSlot.id)}
           history={historyFor(assignSlot.id)}
+          raederFuer={raederVon}
           onClose={() => setAssignSlot(null)}
           vehicles={vehicles}
           onAssign={onAssignTire}
@@ -409,8 +419,11 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   );
 }
 
-function TireAssignModal({ slot, customers, vehicles, assignment, history, onClose, onAssign, onRemove }: {
+function TireAssignModal({ slot, customers, vehicles, assignment, history, raederFuer, onClose, onAssign, onRemove }: {
   slot: StorageSlot; customers: Customer[]; vehicles: Vehicle[]; assignment: TireStorage | null; history: TireStorage[];
+  // Die Räder eines Satzes – auch für die Historie, deren Räder beim Auslagern erhalten
+  // bleiben (entfernt wird die Einlagerung, nicht ihre Messwerte).
+  raederFuer: (satzId: string) => EingelagertesRad[];
   onClose: () => void;
   onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
@@ -427,6 +440,7 @@ function TireAssignModal({ slot, customers, vehicles, assignment, history, onClo
   // gehören – die Datenbank lehnt alles andere ab (Migration 30), und eine Auswahl, die
   // Ungültiges anbietet, ist eine Einladung zum Fehler.
   const kundenFahrzeuge = customerId ? vehicles.filter((v) => v.customer_id === customerId) : [];
+  const einzeln = (assignment?.erfassungsart ?? "sammel") === "einzeln";
 
   async function save() {
     if (!customerId) return;
@@ -491,11 +505,33 @@ function TireAssignModal({ slot, customers, vehicles, assignment, history, onClo
             <label>DOT-Datum</label>
             <input type="text" placeholder="z. B. 2523 (KW 25 / 2023)" value={dotDate} onChange={(e) => setDotDate(e.target.value)} />
           </div>
-          <div className="field">
-            <label>Profiltiefe (mm)</label>
-            <input type="number" step="0.5" min="0" placeholder="z. B. 6.5" value={profiltiefe} onChange={(e) => setProfiltiefe(e.target.value)} />
-          </div>
+          {/* Bei Einzelerfassung gibt es hier bewusst kein Eingabefeld: Die Profiltiefe steht
+              dann an den Rädern, und ein zweiter Wert am Satz ist in der Datenbank verboten
+              (Migration 33). Ein Feld anzubieten, dessen Inhalt beim Speichern abgelehnt wird,
+              wäre eine Falle. */}
+          {!einzeln && (
+            <div className="field">
+              <label>Profiltiefe (mm)</label>
+              <input type="number" step="0.5" min="0" placeholder="z. B. 6.5" value={profiltiefe} onChange={(e) => setProfiltiefe(e.target.value)} />
+            </div>
+          )}
         </div>
+
+        {einzeln && assignment && (
+          <div className="field">
+            <label>Profiltiefe – dieser Satz ist einzeln erfasst</label>
+            <RadBild
+              raeder={raederFuer(assignment.id)}
+              anzahlRaeder={assignment.anzahl_raeder ?? 4}
+              gesperrt
+              onSpeichern={async () => {}}
+              onEntfernen={async () => {}}
+            />
+            <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
+              Geändert wird das im Auftragsfenster – dort, wo der Satz in der Hand liegt.
+            </div>
+          </div>
+        )}
         <div className="field"><label>Notiz (optional)</label><textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>
         <button className="btn-primary btn-block" disabled={!customerId || saving} onClick={save}>
           {assignment ? "Zuordnung speichern" : "Reifen einlagern"}
@@ -521,7 +557,8 @@ function TireAssignModal({ slot, customers, vehicles, assignment, history, onClo
                     <span className="he-cust">{cust ? cust.name : "Unbekannter Kunde"}</span>
                     {h.saison ? ` · ${SAISON_LABEL[h.saison]}` : ""}
                     {h.dot_date ? ` · DOT ${h.dot_date}` : ""}
-                    {h.profiltiefe_mm != null ? ` · Profil ${h.profiltiefe_mm} mm` : ""}
+                    {" "}
+                    <ProfilMarke satz={h} raeder={raederFuer(h.id)} praefix="" />
                     <br />
                     eingelagert {formatDate(h.created_at.slice(0, 10))} · entfernt {h.removed_at ? formatDate(h.removed_at.slice(0, 10)) : "–"}
                   </div>

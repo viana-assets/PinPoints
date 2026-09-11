@@ -203,9 +203,11 @@ export type Vehicle = {
   customer_id: string;
   license_plate: string | null;
   make_model: string | null;
+  // Welche Reifengröße das Auto fährt – eine Eigenschaft des FAHRZEUGS, sie wechselt nicht
+  // mit dem Satz. DOT-Datum und Profiltiefe standen hier früher daneben und waren nach dem
+  // ersten Saisonwechsel still falsch; sie stehen seit Migration 33/34 am eingelagerten Satz
+  // bzw. am einzelnen Rad (siehe docs/lager.md).
   tire_size: string | null;
-  tire_dot_date: string | null;
-  tire_profile_mm: number | null;
   note: string | null;
   created_at: string;
   updated_at: string;

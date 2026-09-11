@@ -23,6 +23,7 @@ import { QrScanner } from "@/components/QrScanner";
 export function EinlagerungBlock({
   pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
   onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
+  onFahrzeugAnlegen,
 }: {
   // Steht im Auftrag eine Leistung mit dem Kennzeichen „braucht Lagerplatz"? Dann verlangt auch
   // die Datenbank vor dem Abschluss einen belegten Platz – dieser Block zeigt nur an, was dort
@@ -48,8 +49,15 @@ export function EinlagerungBlock({
   onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
   onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
   onRadEntfernen: (radId: string) => Promise<void>;
+  // Ein Fahrzeug direkt hier anlegen und dem Satz zuordnen. Der Techniker steht am Auto, im
+  // Auftrag – ihn dafür ins Kundenfenster und wieder zurück zu schicken, war der längste Weg
+  // für die kürzeste Eingabe (Kennzeichen + Modell).
+  onFahrzeugAnlegen: (kennzeichen: string, modell: string) => Promise<void>;
 }) {
   const [wahl, setWahl] = useState("");
+  const [neuesKennzeichen, setNeuesKennzeichen] = useState("");
+  const [neuesModell, setNeuesModell] = useState("");
+  const [fahrzeugFormOffen, setFahrzeugFormOffen] = useState(false);
   const [scannerOffen, setScannerOffen] = useState(false);
   const [meldung, setMeldung] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState(false);
@@ -157,13 +165,7 @@ export function EinlagerungBlock({
             <>
               <div className="field" style={{ margin: "8px 0 4px" }}>
                 <label>Fahrzeug{einlagerung.vehicle_id ? "" : " – fehlt noch"}</label>
-                {vehicles.length === 0 ? (
-                  <div className="small">
-                    Für diesen Kunden ist kein Fahrzeug hinterlegt. Im Kundenfenster unter
-                    &bdquo;Fahrzeuge&ldquo; eines anlegen – ohne Fahrzeug lässt sich der Auftrag
-                    nicht abschließen.
-                  </div>
-                ) : (
+                {vehicles.length > 0 && (
                   <select
                     className={einlagerung.vehicle_id ? undefined : "feld-fehlt"}
                     value={einlagerung.vehicle_id || ""}
@@ -175,6 +177,66 @@ export function EinlagerungBlock({
                       <option key={v.id} value={v.id}>{fahrzeugName(v)}</option>
                     ))}
                   </select>
+                )}
+
+                {/* Anlegen an Ort und Stelle. Nur Kennzeichen und Modell: Das ist, was am Auto
+                    abzulesen ist, während man davorsteht. Alles Weitere (Reifengröße, Notiz)
+                    steht im Kundenfenster und kann später nachgetragen werden – ein längeres
+                    Formular hier würde nur dazu führen, dass es gar nicht ausgefüllt wird. */}
+                {!fahrzeugFormOffen ? (
+                  <button
+                    type="button"
+                    className={"btn-secondary" + (vehicles.length === 0 ? " btn-block" : "")}
+                    style={vehicles.length === 0 ? { marginTop: 2 } : { marginTop: 4, padding: "3px 8px", fontSize: 12 }}
+                    disabled={laeuft}
+                    onClick={() => setFahrzeugFormOffen(true)}
+                  >
+                    {vehicles.length === 0 ? "+ Fahrzeug dieses Kunden anlegen" : "+ Weiteres Fahrzeug"}
+                  </button>
+                ) : (
+                  <div style={{ marginTop: 4 }}>
+                    <div className="row" style={{ marginBottom: 4 }}>
+                      <input
+                        type="text" placeholder="Kennzeichen, z. B. N-FS 2013" autoFocus
+                        value={neuesKennzeichen} onChange={(e) => setNeuesKennzeichen(e.target.value)}
+                      />
+                      <input
+                        type="text" placeholder="Marke / Modell"
+                        value={neuesModell} onChange={(e) => setNeuesModell(e.target.value)}
+                      />
+                    </div>
+                    <div className="appt-actions">
+                      <button
+                        type="button" className="btn-primary"
+                        disabled={laeuft || !neuesKennzeichen.trim()}
+                        onClick={async () => {
+                          setLaeuft(true);
+                          try {
+                            await onFahrzeugAnlegen(neuesKennzeichen.trim(), neuesModell.trim());
+                            setNeuesKennzeichen("");
+                            setNeuesModell("");
+                            setFahrzeugFormOffen(false);
+                          } finally {
+                            setLaeuft(false);
+                          }
+                        }}
+                      >
+                        Anlegen und zuordnen
+                      </button>
+                      <button
+                        type="button" className="btn-secondary" disabled={laeuft}
+                        onClick={() => { setNeuesKennzeichen(""); setNeuesModell(""); setFahrzeugFormOffen(false); }}
+                      >
+                        Abbrechen
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {vehicles.length === 0 && !fahrzeugFormOffen && (
+                  <div className="small" style={{ marginTop: 4 }}>
+                    Ohne Fahrzeug lässt sich der Auftrag nicht abschließen.
+                  </div>
                 )}
               </div>
 
