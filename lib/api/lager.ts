@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Saison, StorageSlot, TireStorage, Warehouse } from "@/lib/types";
+import type {
+  EingelagertesRad, Erfassungsart, Felge, RadPosition, Saison, StorageSlot, TireStorage, Warehouse,
+} from "@/lib/types";
 import { ApiError, fetchPaged, qOne, qWrite } from "./client";
 
 // Datenzugriffsschicht für das Lager-Modul (Warehouses, Lagerplätze, Reifen-Einlagerung).
@@ -155,4 +157,107 @@ export async function fetchLagerKennzahlen(supabase: SupabaseClient): Promise<{ 
   if (gesamt.error) throw new ApiError("Die Lager-Kennzahlen konnten nicht geladen werden", gesamt.error);
 
   return { belegt: belegt.count || 0, gesamt: gesamt.count || 0 };
+}
+
+// ---------------------------------------------------------------- Einzelne Räder (Migration 33)
+//
+// Die Räder hängen am Satz und werden nur bei `erfassungsart = "einzeln"` geführt. Die
+// Datenbank hält das auseinander (Trigger in Migration 33) – hier steht nur der Zugriff.
+
+export async function fetchEingelagerteRaeder(supabase: SupabaseClient): Promise<EingelagertesRad[]> {
+  return fetchPaged<EingelagertesRad>("Die eingelagerten Räder konnten nicht geladen werden", (von, bis) =>
+    supabase.from("eingelagerte_raeder").select("*").order("created_at").range(von, bis)
+  );
+}
+
+export type RadFelder = {
+  position: RadPosition | null;
+  reifengroesse: string;
+  dotDate: string;
+  profiltiefeMm: string;
+  felge: Felge | null;
+  sensor: boolean;
+  bemerkung: string;
+};
+
+function radZuZeile(felder: Partial<RadFelder>) {
+  const zeile: Record<string, unknown> = {};
+  if (felder.position !== undefined) zeile.position = felder.position;
+  if (felder.reifengroesse !== undefined) zeile.reifengroesse = felder.reifengroesse.trim() || null;
+  if (felder.dotDate !== undefined) zeile.dot_date = felder.dotDate.trim() || null;
+  if (felder.profiltiefeMm !== undefined) {
+    zeile.profiltiefe_mm = felder.profiltiefeMm ? parseFloat(felder.profiltiefeMm.replace(",", ".")) : null;
+  }
+  if (felder.felge !== undefined) zeile.felge = felder.felge;
+  if (felder.sensor !== undefined) zeile.sensor = felder.sensor;
+  if (felder.bemerkung !== undefined) zeile.bemerkung = felder.bemerkung.trim() || null;
+  return zeile;
+}
+
+export async function insertRad(
+  supabase: SupabaseClient,
+  tireStorageId: string,
+  felder: Partial<RadFelder>
+): Promise<void> {
+  await qWrite(
+    "Das Rad konnte nicht gespeichert werden",
+    supabase.from("eingelagerte_raeder").insert({ tire_storage_id: tireStorageId, ...radZuZeile(felder) })
+  );
+}
+
+export async function updateRadById(
+  supabase: SupabaseClient,
+  id: string,
+  felder: Partial<RadFelder>
+): Promise<void> {
+  await qWrite(
+    "Das Rad konnte nicht gespeichert werden",
+    supabase.from("eingelagerte_raeder").update({ ...radZuZeile(felder), updated_at: new Date().toISOString() }).eq("id", id)
+  );
+}
+
+// Hier wird wirklich gelöscht und nicht nur markiert: Eine Radzeile ist eine Messung, kein
+// Beleg. Wer sich vertippt hat, will sie weg haben – und der Satz selbst bleibt ja bestehen.
+export async function deleteRadById(supabase: SupabaseClient, id: string): Promise<void> {
+  await qWrite(
+    "Das Rad konnte nicht entfernt werden",
+    supabase.from("eingelagerte_raeder").delete().eq("id", id)
+  );
+}
+
+// Umschalten zwischen Sammelmessung und Einzelerfassung.
+//
+// Beim Wechsel auf „einzeln" muss der Sammelwert weichen – sonst stünden zwei Wahrheiten da,
+// und die Datenbank lehnt es ohnehin ab (Prüfregel aus Migration 33). Beim Wechsel zurück
+// verlangt sie, dass vorher die Radzeilen entfernt werden; diese Funktion erledigt das in der
+// richtigen Reihenfolge, statt den Nutzer in eine Fehlermeldung laufen zu lassen.
+export async function setErfassungsart(
+  supabase: SupabaseClient,
+  tireStorageId: string,
+  art: Erfassungsart
+): Promise<void> {
+  if (art === "sammel") {
+    await qWrite(
+      "Die Räder konnten nicht entfernt werden",
+      supabase.from("eingelagerte_raeder").delete().eq("tire_storage_id", tireStorageId)
+    );
+    await qWrite(
+      "Die Erfassungsart konnte nicht geändert werden",
+      supabase.from("tire_storage").update({ erfassungsart: "sammel", updated_at: new Date().toISOString() }).eq("id", tireStorageId)
+    );
+    return;
+  }
+  await qWrite(
+    "Die Erfassungsart konnte nicht geändert werden",
+    supabase.from("tire_storage")
+      .update({ erfassungsart: "einzeln", profiltiefe_mm: null, updated_at: new Date().toISOString() })
+      .eq("id", tireStorageId)
+  );
+}
+
+export async function setAnzahlRaeder(supabase: SupabaseClient, tireStorageId: string, anzahl: number): Promise<void> {
+  await qWrite(
+    "Die Anzahl der Räder konnte nicht gespeichert werden",
+    supabase.from("tire_storage").update({ anzahl_raeder: anzahl, updated_at: new Date().toISOString() }).eq("id", tireStorageId)
+  );
 }

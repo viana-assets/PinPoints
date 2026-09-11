@@ -10,6 +10,7 @@ import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
+  fetchEingelagerteRaeder,
 } from "@/lib/api/lager";
 import { fetchModulePermissions } from "@/lib/api/permissions";
 
@@ -162,6 +163,17 @@ export function useEinlagerungen(supabase: SupabaseClient, aktiv: boolean) {
 }
 
 // Für die Dashboard-Kachel: zwei count-Abfragen statt des kompletten Lagers.
+// Die einzeln erfassten Räder. Eine schmale Tabelle – vier Zeilen je Satz, nur bei
+// Einzelerfassung –, deshalb als Vollabzug wie die Einlagerungen selbst.
+export function useEingelagerteRaeder(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.eingelagerteRaeder(),
+    queryFn: () => fetchEingelagerteRaeder(supabase),
+    enabled: aktiv,
+    staleTime: FRISCH_MS,
+  });
+}
+
 export function useLagerKennzahlen(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.lagerKennzahlen(),

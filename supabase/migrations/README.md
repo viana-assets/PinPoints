@@ -190,6 +190,18 @@ Alle fünf gehören zur Sanierung aus `docs/architektur-review-2026-08.md` (Road
   Admin/Superadmin, Lesen jeder Angemeldete. Ausgemustert statt gelöscht. Braucht `03`, `05`
   und `18`. Konzept: `docs/lager-ausbaukonzept.md`, Block C.
 
+- `33_eingelagerte_raeder.sql` – die vier Räder eines Satzes einzeln. `tire_storage`
+  bekommt `erfassungsart` (`sammel`|`einzeln`, Standard `sammel`) und `anzahl_raeder`
+  (1–8, Standard 4); neue Tabelle `eingelagerte_raeder` mit Position (VL/VR/HL/HR, darf
+  leer bleiben), Reifengröße, DOT, Profiltiefe, Felge, Sensor, Bemerkung. Der Sammelwert
+  bleibt der Normalfall – **wichtig ist, dass es die Profiltiefe nur einmal gibt**: bei
+  `sammel` am Satz, bei `einzeln` an den Rädern, nie an beiden (Prüfregel
+  `tire_storage_kein_doppelter_profilwert`). Drei Regeln sichern das ab, alle in der
+  Datenbank: kein Rad an einem Sammel-Satz, nicht mehr Räder als `anzahl_raeder`, und kein
+  Rückweg auf `sammel`, solange Radzeilen existieren. Braucht `02` (tire_storage), `18`
+  (audit_log) und muss zusammen mit dem passenden Anwendungscode laufen. Konzept:
+  `docs/lager-ausbaukonzept.md`, A1.
+
 Nach dem Ausführen bitte hier nach oben unter "Bereits ausgeführt" verschieben.
 
 ## Welche Migrationen sind wirklich gelaufen?
@@ -259,6 +271,9 @@ Nummernreihenfolge ausführen. Die einzelnen Abhängigkeiten:
 - `26` braucht `profiles` (01) – sonst nichts.
 - `27` braucht `26` (dieselbe Sache), `orders` (03) und `profiles` (01).
 - `29` braucht `27` und muss zusammen mit dem passenden Anwendungscode laufen.
+- `33` braucht `02` (tire_storage) und `18` (audit_log). Beim Zurücknehmen gehen die
+  einzeln gemessenen Räder verloren – `33_rollback.sql` nennt im Kopf die Abfrage, mit der
+  sie sich vorher sichern lassen.
 - `30` braucht `02` (tire_storage), `04` (vehicles) und `20`/`22` (Auftragsablauf) und muss
   zusammen mit dem passenden Anwendungscode laufen. Rücknahme stellt
   `vehicles.stored_tire_storage_id` wieder her und befüllt es aus `vehicle_id`.

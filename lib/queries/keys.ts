@@ -29,6 +29,7 @@ export const qk = {
   lager: () => ["lager"] as const,
   lagerplaetze: () => ["lagerplaetze"] as const,
   einlagerungen: () => ["einlagerungen"] as const,
+  eingelagerteRaeder: () => ["eingelagerte-raeder"] as const,
   lagerKennzahlen: () => ["lager", "kennzahlen"] as const,
 
   modulrechte: () => ["modulrechte"] as const,

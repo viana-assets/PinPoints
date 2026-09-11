@@ -7,7 +7,7 @@
 // stehen nur Konstanten, die von mehreren, fachlich unterschiedlichen Stellen in
 // app/page.tsx verwendet werden (Rollen, Berechtigungen, Auftragsstatus, Kalenderfarben).
 
-import type { OrderStatus, Role, Saison } from "./types";
+import type { Felge, OrderStatus, RadPosition, Role, Saison } from "./types";
 
 // ---------------------------------------------------------------- Rollen
 export const ROLE_LABEL: Record<Role, string> = {
@@ -180,3 +180,39 @@ export const SAISON_LABEL: Record<Saison, string> = {
 };
 
 export const SAISON_LISTE: Saison[] = ["sommer", "winter", "ganzjahr"];
+
+// ---------------------------------------------------------------- Lager: Räder und Profil
+//
+// Die vier Positionen in der Reihenfolge, in der sie auch im Radbild stehen: vorne zuerst,
+// links vor rechts. Dieselbe Reihenfolge in Liste, Bild und Auswertung – sonst sucht man beim
+// Vergleichen jedes Mal neu.
+export const RAD_POSITIONEN: RadPosition[] = ["VL", "VR", "HL", "HR"];
+
+export const RAD_POSITION_LABEL: Record<RadPosition, string> = {
+  VL: "vorne links",
+  VR: "vorne rechts",
+  HL: "hinten links",
+  HR: "hinten rechts",
+};
+
+export const FELGE_LABEL: Record<Felge, string> = {
+  stahl: "Stahl",
+  alu: "Alu",
+  keine: "ohne Felge",
+};
+
+export const FELGEN: Felge[] = ["stahl", "alu", "keine"];
+
+// Grenzwerte für die Profiltiefe in Millimetern.
+//
+// 1,6 mm ist das gesetzliche Minimum für Sommerreifen – darunter darf ein Reifen nicht mehr
+// gefahren werden. Die beiden Werte hier liegen bewusst darüber: Sie sind keine Vorschrift,
+// sondern der Punkt, an dem man den Kunden ansprechen sollte. 4 mm gilt als Untergrenze für
+// Winterreifen und ist die übliche Empfehlung zum Wechseln; unter 3 mm wird es auch bei
+// Sommerreifen eng, lange bevor die 1,6 erreicht sind.
+//
+// Sie stehen hier und nicht im Code, weil sie an drei Stellen gebraucht werden (Radbild,
+// Liste, späterer Verkaufsanlass) – und weil ein Betrieb sie irgendwann anders sehen kann.
+export const PROFIL_GESETZLICH_MM = 1.6;
+export const PROFIL_KRITISCH_MM = 3;
+export const PROFIL_HINWEIS_MM = 4;

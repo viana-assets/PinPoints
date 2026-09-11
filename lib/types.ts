@@ -78,6 +78,32 @@ export type StorageSlot = {
 // zusätzlich eine Prüfregel in der Datenbank – Freitext fiele sonst aus jeder Auswertung.
 export type Saison = "sommer" | "winter" | "ganzjahr";
 
+// Wie wurde die Profiltiefe festgehalten (Migration 33)? Zwei verschiedene Aussagen, nie
+// gleichzeitig: „der Satz hat etwa 4 mm" (sammel) oder „VL 5,2 · VR 5,0 · HL 3,1 · HR 3,4"
+// (einzeln). Bei `einzeln` bleibt der Satzwert leer und wird für die Anzeige aus den Rädern
+// errechnet – das Minimum, denn das schwächste Rad entscheidet.
+export type Erfassungsart = "sammel" | "einzeln";
+
+// Position eines Rades am Auto. Null ist erlaubt: bei einem losen Ersatzrad weiß niemand mehr,
+// wo es saß.
+export type RadPosition = "VL" | "VR" | "HL" | "HR";
+
+export type Felge = "stahl" | "alu" | "keine";
+
+export type EingelagertesRad = {
+  id: string;
+  tire_storage_id: string;
+  position: RadPosition | null;
+  reifengroesse: string | null;
+  dot_date: string | null;
+  profiltiefe_mm: number | null;
+  felge: Felge | null;
+  sensor: boolean;
+  bemerkung: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type TireStorage = {
   id: string;
   storage_slot_id: string;
@@ -87,6 +113,9 @@ export type TireStorage = {
   // Altbestand – neue Einlagerungen brauchen es spätestens beim Abschluss des Auftrags.
   vehicle_id: string | null;
   saison: Saison | null;
+  // Migration 33. Bei „einzeln" ist `profiltiefe_mm` leer und die Räder gelten.
+  erfassungsart: Erfassungsart;
+  anzahl_raeder: number;
   dot_date: string | null;
   profiltiefe_mm: number | null;
   note: string | null;

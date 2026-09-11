@@ -138,6 +138,56 @@ export function currentArticlePrice(prices: ArticlePrice[], onDate?: string): Ar
   return candidates[0] || null;
 }
 
+// ---------------------------------------------------------------- Profiltiefe
+//
+// Die eine Zahl, die einen eingelagerten Satz beschreibt – egal, wie er erfasst wurde. Bei
+// Sammelmessung ist es der Wert am Satz, bei Einzelerfassung das Minimum der Räder: Das
+// schwächste Rad entscheidet, wann gewechselt werden muss, nicht der Durchschnitt. Ein
+// Mittelwert würde den Fall „drei Räder gut, eins durch" verschwinden lassen – also genau den
+// Fall, um dessentwillen einzeln gemessen wird.
+export function satzProfilMm(
+  satz: { erfassungsart?: "sammel" | "einzeln"; profiltiefe_mm: number | null },
+  raeder: { profiltiefe_mm: number | null }[] = []
+): number | null {
+  if ((satz.erfassungsart ?? "sammel") === "sammel") return satz.profiltiefe_mm;
+  const werte = raeder.map((r) => r.profiltiefe_mm).filter((w): w is number => w != null);
+  return werte.length === 0 ? null : Math.min(...werte);
+}
+
+export type ProfilLage = "ohne" | "gut" | "hinweis" | "kritisch";
+
+// Wie steht es um diese Profiltiefe? Drei Stufen statt einer Ampel mit fünf Farben: Der
+// Techniker braucht vor Ort nur zu wissen, ob er etwas ansprechen soll.
+export function profilLage(
+  mm: number | null,
+  grenzen: { hinweis: number; kritisch: number }
+): ProfilLage {
+  if (mm == null) return "ohne";
+  if (mm < grenzen.kritisch) return "kritisch";
+  if (mm < grenzen.hinweis) return "hinweis";
+  return "gut";
+}
+
+// Anzeige mit einer Nachkommastelle und Komma – „3,1 mm". `toFixed` allein liefert einen
+// Punkt, und 3.1 mm liest sich in einer deutschen Oberfläche falsch.
+export function profilText(mm: number | null): string {
+  return mm == null ? "–" : `${mm.toFixed(1).replace(".", ",")} mm`;
+}
+
+// Die Räder nach ihrem Satz gruppiert. Listen wie die Saisonliste oder das Lagerregal fragen
+// für jede Zeile nach den Rädern EINES Satzes; ohne diese Gruppierung wäre das je Zeile ein
+// Durchlauf durch alle Räder – bei 400 Sätzen also 400 × alle. Einmal gruppieren, dann
+// nachschlagen.
+export function raederNachSatz<T extends { tire_storage_id: string }>(raeder: T[]): Map<string, T[]> {
+  const nach = new Map<string, T[]>();
+  for (const rad of raeder) {
+    const liste = nach.get(rad.tire_storage_id);
+    if (liste) liste.push(rad);
+    else nach.set(rad.tire_storage_id, [rad]);
+  }
+  return nach;
+}
+
 // ---------------------------------------------------------------- Saisonliste
 //
 // Die Postleitzahl aus der einzeiligen Adresse („Rehhofstraße 16, 90482 Nürnberg"). Es gibt

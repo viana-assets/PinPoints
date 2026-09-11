@@ -50,7 +50,13 @@ with pruefungen(nr, was, vorhanden) as (
     ('26', 'Tabelle push_geraete',                (to_regclass('public.push_geraete') is not null)),
     ('27', 'Tabelle push_versand',                (to_regclass('public.push_versand') is not null)),
     ('28', 'Erweiterungen pg_cron + pg_net',      ((select count(*) from pg_extension where extname in ('pg_cron', 'pg_net')) = 2)),
-    ('29', 'push_versand.termin',                 exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'push_versand' and column_name = 'termin'))
+    ('29', 'push_versand.termin',                 exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'push_versand' and column_name = 'termin')),
+    ('30', 'tire_storage.vehicle_id + saison',    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'vehicle_id')
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'saison')),
+    ('31', 'Berechtigung view.saison',            exists (select 1 from public.module_permissions where module_key = 'view.saison')),
+    ('32', 'Tabelle firmenfahrzeuge',             to_regclass('public.firmenfahrzeuge') is not null),
+    ('33', 'Tabelle eingelagerte_raeder',         to_regclass('public.eingelagerte_raeder') is not null
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'erfassungsart'))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all
