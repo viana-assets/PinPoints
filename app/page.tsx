@@ -12,7 +12,7 @@ import type {
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
   effectiveColor, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
-  plzAus, naechsteSaison, raederNachSatz, satzProfilMm,
+  plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
   getPhoneNumbers, navigationUrls,
   formatEUR, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
@@ -228,6 +228,11 @@ export default function HomePage() {
   const [positionSetzenFuer, setPositionSetzenFuer] = useState<string | null>(null);
   const positionSetzenRef = useRef<string | null>(null);
   positionSetzenRef.current = positionSetzenFuer;
+  // Wohin die Karte springen soll, sobald sie sichtbar ist. Als Zustand und nicht als direkter
+  // setView-Aufruf, weil die Karte beim Reiterwechsel erst eine Größe bekommen muss – ein
+  // setView auf eine 0 Pixel breite Karte landet nirgends.
+  const [positionSetzenZiel, setPositionSetzenZiel] = useState<{ lat: number; lng: number } | null>(null);
+  const [positionSetzenSucht, setPositionSetzenSucht] = useState(false);
   const [saisonSchreibt, setSaisonSchreibt] = useState(false);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
@@ -429,6 +434,21 @@ export default function HomePage() {
     window.addEventListener("unhandledrejection", onRejection);
     return () => window.removeEventListener("unhandledrejection", onRejection);
   }, []);
+
+  // Die Karte an den Startpunkt schieben – erst NACH dem Rendern, weil sie beim Wechsel von
+  // einem Vollseiten-Reiter gerade erst eine Breite bekommt. invalidateSize() sagt Leaflet,
+  // dass es sich neu vermessen soll; ohne das rechnet es mit der alten Größe (oder mit 0) und
+  // der Ausschnitt sitzt daneben.
+  useEffect(() => {
+    if (!positionSetzenZiel) return;
+    const t = setTimeout(() => {
+      const karte = mapRef.current;
+      if (!karte) return;
+      karte.invalidateSize();
+      karte.setView([positionSetzenZiel.lat, positionSetzenZiel.lng], 18);
+    }, 150);
+    return () => clearTimeout(t);
+  }, [positionSetzenZiel]);
 
   // Nach jeder Änderung an Suche oder Filtern wieder von vorn zählen: sonst würde eine zuvor
   // aufgeklappte lange Liste eine neue, kurze Trefferliste unnötig groß halten.
@@ -1659,15 +1679,43 @@ export default function HomePage() {
 
   // Punkt setzen: starten, speichern, abbrechen. Drei kleine Funktionen statt einer großen,
   // weil sie an drei verschiedenen Stellen aufgerufen werden.
-  function positionSetzenStarten(kundenId: string) {
-    setSelectedId(null);            // Das Kundenfenster liegt sonst über der Karte.
-    setPositionSetzenFuer(kundenId);
-    setMobileMapVisible(true);      // Am Handy ist die Karte sonst gar nicht zu sehen.
+  async function positionSetzenStarten(kundenId: string) {
     const kunde = customers.find((c) => c.id === kundenId);
-    // Auf die vorhandene (ungefähre) Position zoomen, damit man nicht erst hinsuchen muss.
-    if (kunde?.lat != null && kunde.lng != null && mapRef.current) {
-      mapRef.current.setView([kunde.lat, kunde.lng], Math.max(mapRef.current.getZoom(), 17));
+    setSelectedId(null);            // Das Kundenfenster liegt sonst über der Karte.
+    // Die Karte legt sich als ganze Fläche über die Seite (CSS-Klasse `punkt-setzen`), statt
+    // den Reiter zu wechseln. Grund: Auf Reitern wie Admin, Lager oder Aufträge ist die
+    // Kartenspalte auf null zusammengeklappt – „tippe auf die Karte" wäre dort eine Anweisung
+    // ins Leere. Ein Reiterwechsel wiederum würde die Adressprüfung ausbauen und beim
+    // Zurückkommen ihre 53 Vorschläge neu suchen lassen. Die Karte steckt ohnehin immer im
+    // Seitengerüst; sie muss nur sichtbar werden.
+    setPositionSetzenFuer(kundenId);
+
+    // Der Startpunkt entscheidet, ob das Ganze etwas taugt: Ohne ihn stünde man irgendwo über
+    // Nürnberg und müsste die Straße selbst suchen.
+    if (kunde?.lat != null && kunde.lng != null) {
+      setPositionSetzenZiel({ lat: kunde.lat, lng: kunde.lng });
+      return;
     }
+    setPositionSetzenZiel(null);
+    if (!kunde?.address) return;
+    // Keine Position gespeichert – dann jetzt wenigstens die Straße suchen. Genau dafür gibt
+    // es seit Migration 35 den zweiten Versuch ohne Hausnummer: Er liefert die Straßenmitte,
+    // und von dort sind es ein paar Meter bis zum richtigen Haus.
+    setPositionSetzenSucht(true);
+    try {
+      const res = await geocodeAddress(kunde.address);
+      if (res) setPositionSetzenZiel({ lat: res.lat, lng: res.lng });
+    } catch {
+      // Kein Treffer, kein Dienst – dann bleibt die Karte, wo sie ist, und der Balken sagt es.
+    } finally {
+      setPositionSetzenSucht(false);
+    }
+  }
+
+  function positionSetzenBeenden(kundenId: string | null, kundeOeffnen: boolean) {
+    setPositionSetzenFuer(null);
+    setPositionSetzenZiel(null);
+    if (kundeOeffnen && kundenId) openDetail(kundenId);
   }
 
   async function positionAusKarteSpeichern(kundenId: string, lat: number, lng: number) {
@@ -1679,10 +1727,9 @@ export default function HomePage() {
       "Sie gilt ab dann als von Hand gesetzt und wird bei keinem Geokodier-Lauf mehr verändert."
     );
     if (!sicher) return;
-    setPositionSetzenFuer(null);
     await setzePositionVonHand(supabase, kundenId, lat, lng);
     await refreshCustomers();
-    openDetail(kundenId);           // Zurück dorthin, wo man hergekommen ist.
+    positionSetzenBeenden(kundenId, true);   // Zurück dorthin, wo man hergekommen ist.
   }
 
   function toggleMobileMap() {
@@ -1777,7 +1824,11 @@ export default function HomePage() {
   const isMoreActive = SEKUNDAERE_TABS.includes(tab);
 
   return (
-    <div id="app" ref={appRef} className={fullPageTabs ? "vollseite" : undefined}>
+    <div
+      id="app"
+      ref={appRef}
+      className={[fullPageTabs ? "vollseite" : "", positionSetzenFuer ? "punkt-setzen" : ""].filter(Boolean).join(" ") || undefined}
+    >
       <OfflineHinweis standVon={kundenQuery.dataUpdatedAt} offline={istOffline} />
       <nav id="iconNav">
         {/* Bildmarke UND Schriftzug. Der Schriftzug ist echter Text, nicht Teil des Bildes:
@@ -2474,21 +2525,30 @@ export default function HomePage() {
       {/* Solange ein Punkt gesetzt werden soll, erklärt ein Balken, was die Karte gerade von
           einem will – und bietet den Rückweg an. Ohne ihn wäre die Karte in einem Zustand,
           den man ihr nicht ansieht. */}
-      {positionSetzenFuer && (
-        <div className="karte-banner" role="status">
-          <span>
-            <b>Position setzen:</b>{" "}
-            {customers.find((c) => c.id === positionSetzenFuer)?.name || "Kunde"} – tippe auf die
-            Karte, wo das Fahrzeug steht.
-          </span>
-          <button
-            type="button" className="btn-secondary"
-            onClick={() => { const id = positionSetzenFuer; setPositionSetzenFuer(null); if (id) openDetail(id); }}
-          >
-            Abbrechen
-          </button>
-        </div>
-      )}
+      {positionSetzenFuer && (() => {
+        const kunde = customers.find((c) => c.id === positionSetzenFuer);
+        return (
+          <div className="karte-banner" role="status">
+            <span>
+              <b>Position setzen: {kunde?.name || "Kunde"}</b>
+              <br />
+              {kunde?.address || "ohne Adresse"}
+              <br />
+              {positionSetzenSucht
+                ? "Die Straße wird gesucht …"
+                : positionSetzenZiel
+                  ? "Tippe auf das Haus. Die Karte steht auf der Straße – die Hausnummer kennt der Kartendienst nicht."
+                  : "Die Straße war nicht auffindbar – bitte selbst hinsteuern und auf das Haus tippen."}
+            </span>
+            <button
+              type="button" className="btn-secondary"
+              onClick={() => positionSetzenBeenden(positionSetzenFuer, true)}
+            >
+              Abbrechen
+            </button>
+          </div>
+        );
+      })()}
 
       {fehler && (
         <div className="fehler-hinweis" role="alert">

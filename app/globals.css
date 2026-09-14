@@ -1066,3 +1066,21 @@ tr.klickbar:hover { background: var(--hover); }
   max-width:min(520px,calc(100vw - 24px));font-size:13.5px;}
 .karte-banner b{font-family:var(--font-brand);}
 .karte-banner button{flex:0 0 auto;}
+
+/* „Punkt setzen" (Migration 35): Die Karte legt sich über die ganze Seite.
+   Warum nicht einfach den Reiter wechseln? Weil die Kartenspalte auf Admin, Lager, Aufträge
+   und Artikel auf null zusammengeklappt ist (`#app.vollseite`) – dort gäbe es nichts zum
+   Antippen. Und weil ein Reiterwechsel die Adressprüfung ausbauen würde, die beim Zurückkommen
+   ihre Vorschläge alle neu suchen müsste. Die Karte steckt ohnehin im Seitengerüst; sie wird
+   hier nur sichtbar gemacht – auf jedem Reiter, am Rechner wie am Handy gleich. */
+#app.punkt-setzen #map{
+  display:block;
+  position:fixed;
+  inset:0;
+  z-index:20000;
+}
+/* Der Zeiger sagt, dass hier etwas zu tun ist – und nicht bloß eine Karte steht. */
+#app.punkt-setzen #map .leaflet-container{cursor:crosshair;}
+/* Was jetzt nicht gebraucht wird, ist auch nicht im Weg. */
+#app.punkt-setzen #mapToggleBtn,
+#app.punkt-setzen #kartenFilter{display:none;}
