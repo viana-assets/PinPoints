@@ -241,6 +241,26 @@ export async function setzeKundenKoordinaten(
   );
 }
 
+// Die Adresse EINES Kunden neu suchen lassen. Der Weg zwischen den beiden, die es bisher gab:
+// dem Sammellauf über alle Kunden (Admin) und dem Punkt von Hand auf der Karte.
+//
+// Gebraucht wird er, wenn die Adresse unverändert bleibt, die Position aber fehlt oder falsch
+// ist – etwa weil der Kartendienst beim Anlegen gerade nichts gefunden hat, oder weil er
+// inzwischen mehr weiß als damals. (Ändert sich die Adresse selbst, sucht
+// `updateCustomerFieldsById` ohnehin von allein.)
+//
+// `false` heißt: nichts gefunden, und der Kunde bleibt unverändert. Das ist ausdrücklich kein
+// Fehler – es ist eine Antwort, und der Aufrufer soll sie zeigen können. Ein Fehler beim
+// Kartendienst selbst fliegt dagegen weiter und landet im Fehlerband der App.
+export async function positionNeuSuchen(
+  supabase: SupabaseClient, id: string, address: string
+): Promise<boolean> {
+  const res = await geocodeAddress(address);
+  if (!res) return false;
+  await setzeKundenKoordinaten(supabase, id, res.lat, res.lng, res.genauigkeit);
+  return true;
+}
+
 // Position von Hand gesetzt (Migration 35). Das ist die genaueste Angabe im System: Sie kommt
 // von einem Menschen, der weiß, wo die Einfahrt ist – und sie wird deshalb von keinem
 // späteren Geokodier-Lauf überschrieben (siehe fetchKundenOhneKoordinaten: gesucht wird nach

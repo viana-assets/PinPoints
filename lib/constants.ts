@@ -78,6 +78,7 @@ export const PERMISSION_CATALOG: PermItem[] = [
   { key: "view.neuer_kunde", label: "Neuer Kunde" },
   { key: "view.inaktive_kunden", label: "Inaktive Kunden" },
   { key: "view.artikel", label: "Artikel" },
+  { key: "view.auswertung", label: "Auswertungen" },
   { key: "view.einstellungen", label: "Einstellungen" },
 ];
 
@@ -112,6 +113,10 @@ export const PERMISSION_DEFAULTS: Record<string, string[]> = {
   // eigene Kachel wie "Kunden"/"Neuer Kunde" – Pflegen bleibt laut RLS ohnehin nur
   // Admin/Superadmin vorbehalten (Migration 12), hier geht es nur um das Sehen der Übersicht.
   "view.artikel": ["admin", "user"],
+  // Auswertungen zeigen Umsatz, Steuer und gewährte Nachlässe – das ist eine Auskunft für die
+  // Geschäftsführung und das Büro, nicht für unterwegs. Deshalb von Anfang an ohne Techniker;
+  // freigeben lässt es sich jederzeit im Admin-Bereich unter „Modulverwaltung".
+  "view.auswertung": ["admin"],
   "view.einstellungen": ["admin", "techniker", "user"],
 };
 
@@ -238,3 +243,81 @@ export const DOT_ALT_JAHRE = 6;
 // oder der Kunde ist weg. Beides sollte jemand wissen. Bei einem Betrieb, der zweimal im Jahr
 // wechselt, ist ein Jahr ohne Bewegung ein ausgelassener Termin.
 export const LAGERDAUER_HINWEIS_TAGE = 365;
+
+// ---------------------------------------------------------------- Protokoll (Migration 36)
+//
+// Der Trigger schreibt Tabellen- und Spaltennamen, wie sie in der Datenbank heißen. Für
+// jemanden, der das Protokoll liest, ist „order_articles.net_price" keine Auskunft, sondern
+// eine Zumutung. Hier steht die Übersetzung – einmal, weil sie an zwei Stellen gebraucht
+// wird (Adminliste und Auftragsfenster).
+//
+// Was NICHT übersetzt ist, wird im Rohnamen angezeigt statt verschwiegen: Ein Feld, das
+// niemand benannt hat, ist immer noch eine Änderung, die stattgefunden hat.
+export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
+  orders: "Auftrag",
+  order_articles: "Leistung im Auftrag",
+  order_employees: "Mitarbeiter am Auftrag",
+  customers: "Kunde",
+  vehicles: "Fahrzeug",
+  contact_history: "Kontakteintrag",
+  tire_storage: "Einlagerung",
+  eingelagerte_raeder: "Einzelnes Rad",
+  storage_slots: "Lagerplatz",
+  warehouses: "Lager",
+  articles: "Artikel",
+  article_prices: "Artikelpreis",
+  firmenfahrzeuge: "Firmenfahrzeug",
+  employees: "Mitarbeiter",
+  profiles: "Zugang",
+  module_permissions: "Rechte",
+};
+
+export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
+  // Auftrag
+  order_number: "Auftragsnummer", title: "Titel", description: "Beschreibung",
+  status: "Status", order_date: "Datum", time: "Uhrzeit",
+  techniker_notiz: "Technikernotiz", cancel_reason: "Stornogrund",
+  reopen_reason: "Grund der Wiedereröffnung",
+  completed_at: "abgeschlossen am", completed_by: "abgeschlossen von",
+  cancelled_at: "storniert am", cancelled_by: "storniert von",
+  firmenfahrzeug_id: "Firmenfahrzeug", assigned_employee_id: "Mitarbeiter",
+  // Leistung
+  quantity: "Menge", net_price: "Nettopreis", vat_rate: "Steuersatz",
+  discount_percent: "Rabatt %", article_id: "Artikel",
+  // Kunde
+  name: "Name", company: "Firma", anrede: "Anrede", address: "Adresse",
+  email: "E-Mail", phone_mobile: "Mobil", phone_landline: "Festnetz",
+  last_contact: "letzter Kontakt", kontakt_ergebnis: "Kontaktergebnis",
+  wiedervorlage_am: "Wiedervorlage am", lat: "Breitengrad", lng: "Längengrad",
+  geo_genauigkeit: "Genauigkeit der Position", active: "aktiv",
+  // Fahrzeug / Lager
+  license_plate: "Kennzeichen", make_model: "Marke/Modell", tire_size: "Reifengröße",
+  code: "Platz-Code", saison: "Saison", dot_date: "DOT-Datum",
+  profiltiefe_mm: "Profiltiefe (mm)", erfassungsart: "Erfassungsart",
+  anzahl_raeder: "Anzahl Räder", position: "Radposition",
+  storage_slot_id: "Lagerplatz", removed_at: "ausgelagert am",
+  warehouse_id: "Lager", customer_id: "Kunde", vehicle_id: "Fahrzeug",
+  order_id: "Auftrag", employee_id: "Mitarbeiter",
+  // Zugänge und Rechte
+  role: "Rolle", module_key: "Berechtigung", roles: "Rollen", profile_id: "Zugang",
+  // Allgemein
+  note: "Notiz", deleted_at: "gelöscht am", created_at: "angelegt am",
+};
+
+// Wie viele Tage das Protokoll im Adminbereich standardmäßig zurückreicht. Ältere Einträge
+// bleiben erhalten und sind über den Datumsfilter erreichbar – die Voreinstellung soll nur
+// verhindern, dass die Seite beim Öffnen Monate lädt, die niemand angefragt hat.
+export const PROTOKOLL_TAGE_STANDARD = 90;
+
+// Wie lange ein Termin dauert, wenn niemand ein Ende gepflegt hat (Migration 37).
+//
+// Dieselbe Zahl steht in der Migration, die den Bestand nachträgt – wer sie ändert, ändert
+// sie an beiden Stellen. Sie ist eine ANNAHME und wird im Kalender auch so gezeichnet:
+// gestrichelte Unterkante, damit niemand die angenommene Stunde für eine Zusage hält.
+export const STANDARD_DAUER_MIN = 60;
+
+// Das Grundfenster der Tages- und Wochenansicht in Stunden. Es dehnt sich aus, sobald ein
+// Termin darüber hinausgeht, wird aber nie enger – sonst läge die Acht-Uhr-Linie an jedem Tag
+// woanders (siehe `zeitfenster()` in lib/calendar.ts).
+export const KALENDER_VON_STUNDE = 7;
+export const KALENDER_BIS_STUNDE = 19;

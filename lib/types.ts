@@ -159,6 +159,10 @@ export type Order = {
   status: OrderStatus;
   order_date: string;
   time: string | null; // HH:MM, optional
+  // Ende des Termins (Migration 37). Null heißt „kein Ende gepflegt" – der Kalender nimmt dann
+  // STANDARD_DAUER_MIN an und zeichnet die Unterkante gestrichelt, weil eine Annahme keine
+  // Zusage ist. Die Datenbank erzwingt: nur zusammen mit `time`, Form HH:MM, und nach `time`.
+  end_time: string | null;
   assigned_employee_id: string | null;
   // Freitext-Notiz, die ausschließlich von der zugeordneten Techniker-Rolle selbst gepflegt
   // wird (z. B. "Rad hinten links nicht zugänglich") – getrennt von `description`, das der
@@ -289,3 +293,32 @@ export type Profile = {
   role: Role;
   created_at: string;
 };
+
+// Ein Eintrag im Änderungsprotokoll. Die Tabelle stammt aus MIGRATION 18 und zeichnet seit
+// damals auf; Migration 36 hat sie nur sichtbar gemacht, drei fehlende Tabellen nachgezogen
+// und den Auftrags-/Kundenbezug als eigene Spalte ergänzt.
+//
+// `alt` und `neu` sind die VOLLSTÄNDIGEN Zeilen vor und nach der Änderung – so schreibt es
+// der Trigger aus 18. Was sich davon tatsächlich geändert hat, rechnet `protokollFelder()`
+// beim Anzeigen aus. Das ist Absicht: Die Aufzeichnung soll vollständig sein, die Anzeige
+// knapp, und beides gleichzeitig geht nur, wenn die Verkürzung nicht in der Datenbank
+// stattfindet.
+export type AuditAktion = "INSERT" | "UPDATE" | "DELETE";
+
+export type AuditEintrag = {
+  id: number;
+  tabelle: string;
+  datensatz_id: string | null;
+  aktion: AuditAktion;
+  alt: Record<string, unknown> | null;
+  neu: Record<string, unknown> | null;
+  // Kennung des Auslösers. Null bei Systemvorgängen ohne angemeldeten Menschen. Den Namen
+  // dazu liefert `protokoll_personen()` – `profiles` selbst darf nur der Superadmin lesen.
+  geaendert_von: string | null;
+  geaendert_am: string;
+  // Von der Datenbank berechnet (Migration 36), auch rückwirkend für alle Altzeilen.
+  auftrag_id: string | null;
+  kunde_id: string | null;
+};
+
+export type ProtokollPerson = { id: string; email: string | null };

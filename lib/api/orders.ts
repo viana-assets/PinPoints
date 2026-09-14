@@ -116,14 +116,14 @@ export async function replaceOrderEmployees(supabase: SupabaseClient, orderId: s
 // selbst, ob/welche Mitarbeiter im Anschluss zugeordnet werden (z. B. beim gleichzeitigen
 // Anlegen von Kunde + erstem Auftrag).
 export async function insertOrder(supabase: SupabaseClient, fields: {
-  customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus;
+  customerId: string; title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus;
   vehicleId?: string | null;
 }): Promise<string> {
   const created = await qOne<{ id: string }>(
     "Der Auftrag konnte nicht angelegt werden",
     supabase.from("orders").insert({
       customer_id: fields.customerId, title: fields.title, description: fields.description || null,
-      order_date: fields.orderDate, time: fields.time || null, status: fields.status,
+      order_date: fields.orderDate, time: fields.time || null, end_time: fields.endTime || null, status: fields.status,
       vehicle_id: fields.vehicleId || null,
     }).select("id").single()
   );
@@ -131,14 +131,18 @@ export async function insertOrder(supabase: SupabaseClient, fields: {
 }
 
 export async function updateOrderById(supabase: SupabaseClient, id: string, fields: {
-  title: string; description: string; orderDate: string; time: string; status: OrderStatus;
+  title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus;
   vehicleId?: string | null;
 }): Promise<void> {
   await qWrite(
     "Der Auftrag konnte nicht gespeichert werden",
     supabase.from("orders").update({
       title: fields.title, description: fields.description || null, order_date: fields.orderDate,
-      time: fields.time || null, status: fields.status,
+      time: fields.time || null,
+      // Leer heißt null und nicht "" – die Prüfregel aus Migration 37 lehnt eine leere
+      // Zeichenkette ab, weil sie nicht der Form HH:MM entspricht.
+      end_time: fields.endTime || null,
+      status: fields.status,
       ...(fields.vehicleId === undefined ? {} : { vehicle_id: fields.vehicleId || null }),
     }).eq("id", id)
   );

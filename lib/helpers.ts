@@ -532,3 +532,103 @@ export function handlungsgruende(
 
   return gruende;
 }
+
+// ---------------------------------------------------------------- Protokoll
+//
+// Der Trigger (Migration 36) schreibt rohe jsonb-Werte: null, true, "2026-09-20",
+// "3f2a8c1e-…", 12.50. Lesbar wird das erst hier. Die Regeln stehen in dieser Datei und nicht
+// in der Anzeige, weil dasselbe Protokoll an zwei Stellen erscheint – im Adminbereich und im
+// Auftragsfenster – und zwei Schreibweisen derselben Änderung zwei Wahrheiten wären.
+
+// Ein einzelner Wert aus dem Protokoll, für Menschen.
+//
+// Für Kennungen (UUID) wird bewusst GEKÜRZT und nicht weggelassen: Eine volle UUID sagt
+// niemandem etwas und verdrängt den Rest der Zeile, aber „auf irgendetwas verwiesen" wäre
+// eine Auskunft weniger, als dasteht. Die vollständige Kennung gehört in den Tooltip.
+export function protokollWert(wert: unknown): string {
+  if (wert == null) return "—";
+  if (typeof wert === "boolean") return wert ? "ja" : "nein";
+  if (typeof wert === "number") return wert.toLocaleString("de-DE");
+  if (typeof wert !== "string") return JSON.stringify(wert);
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(wert)) return formatDate(wert);
+  if (/^\d{4}-\d{2}-\d{2}T/.test(wert)) {
+    const d = new Date(wert);
+    if (!Number.isNaN(d.getTime())) {
+      return `${d.toLocaleDateString("de-DE")}, ${d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })} Uhr`;
+    }
+  }
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(wert)) {
+    return wert.slice(0, 8) + "…";
+  }
+  if (wert === "") return "—";
+  return wert.length > 120 ? wert.slice(0, 120) + " …" : wert;
+}
+
+// Was hat sich geändert? Der Trigger (Migration 18) legt die VOLLSTÄNDIGE Zeile vorher und
+// nachher ab; der Unterschied entsteht erst hier.
+//
+// Warum nicht in der Datenbank: Eine Aufzeichnung soll vollständig sein – wer später wissen
+// will, wie ein gelöschter Datensatz insgesamt aussah, findet es nur, wenn alles dasteht.
+// Eine ANZEIGE soll knapp sein. Beides zugleich geht nur, wenn die Verkürzung beim Lesen
+// passiert und nicht beim Schreiben.
+//
+// Ausgelassen werden `updated_at` und `updated_by`: Die schreibt derselbe Trigger-Satz bei
+// JEDER Änderung mit. Stünden sie in der Liste, hätte jeder Eintrag zwei Zeilen Rauschen –
+// und ein reines „nur der Zeitstempel hat sich bewegt" sähe aus wie eine echte Änderung.
+const PROTOKOLL_STILLE_FELDER = new Set(["updated_at", "updated_by", "id"]);
+
+export function protokollFelder(
+  alt: Record<string, unknown> | null | undefined,
+  neu: Record<string, unknown> | null | undefined,
+  labels: Record<string, string>
+): { feld: string; label: string; alt: string; neu: string; rohAlt: string; rohNeu: string }[] {
+  const a = alt ?? {};
+  const n = neu ?? {};
+  const namen = new Set([...Object.keys(a), ...Object.keys(n)]);
+  const zeilen: { feld: string; label: string; alt: string; neu: string; rohAlt: string; rohNeu: string }[] = [];
+
+  for (const feld of namen) {
+    if (PROTOKOLL_STILLE_FELDER.has(feld)) continue;
+    const vorher = a[feld];
+    const nachher = n[feld];
+    // JSON-Vergleich statt ===: Der Trigger liefert auch Objekte und Listen, und zwei gleiche
+    // Objekte sind nie dasselbe Objekt.
+    if (JSON.stringify(vorher ?? null) === JSON.stringify(nachher ?? null)) continue;
+    zeilen.push({
+      feld,
+      label: labels[feld] ?? feld,
+      alt: protokollWert(vorher),
+      neu: protokollWert(nachher),
+      rohAlt: vorher == null ? "" : String(vorher),
+      rohNeu: nachher == null ? "" : String(nachher),
+    });
+  }
+
+  // Alphabetisch nach Beschriftung, nicht in der Reihenfolge, in der Postgres die Spalten
+  // liefert: Wer zwei Einträge untereinander vergleicht, soll dieselbe Zeile an derselben
+  // Stelle finden.
+  return zeilen.sort((x, y) => x.label.localeCompare(y.label, "de"));
+}
+
+// Wer war das? Eine Kennung ohne Namen ist keine Antwort, und „unbekannt" wäre falsch: Ohne
+// angemeldeten Menschen war es tatsächlich das System (ein zeitgesteuerter Lauf, ein
+// Datenbankbefehl). Das ist eine Auskunft, keine Lücke.
+//
+// Die Namensliste kommt aus `protokoll_personen()`; ein inzwischen gelöschter Zugang steht
+// nicht mehr darin. Dann bleibt die gekürzte Kennung – weniger, als man will, aber wahr.
+export function protokollWer(
+  benutzerId: string | null | undefined,
+  personen: { id: string; email: string | null }[] = []
+): string {
+  if (!benutzerId) return "System";
+  const person = personen.find((p) => p.id === benutzerId);
+  return person?.email || benutzerId.slice(0, 8) + "…";
+}
+
+// Die drei Vorgänge, wie der Trigger sie schreibt – und wie ein Mensch sie liest.
+export const PROTOKOLL_AKTION_LABEL: Record<string, string> = {
+  INSERT: "angelegt",
+  UPDATE: "geändert",
+  DELETE: "gelöscht",
+};
