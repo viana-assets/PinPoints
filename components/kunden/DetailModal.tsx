@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Article, Customer, ContactHistoryEntry, Employee, Order, OrderArticle, OrderStatus,
   StorageSlot, TireStorage, Vehicle, Warehouse,
@@ -24,8 +24,15 @@ export function DetailModal(props: {
   // Adressen, die OpenStreetMap gar nicht oder nur ungenau kennt – Neubaugebiete,
   // Hinterhöfe, Gewerbezufahrten.
   onPositionSetzen: () => void;
+  // Lässt den Kartendienst die GESPEICHERTE Adresse dieses Kunden erneut suchen. Liefert
+  // `false`, wenn er nichts findet – das ist eine Antwort, kein Fehler, und wird als solche
+  // angezeigt.
+  onPositionSuchen: () => Promise<boolean>;
   onClose: () => void;
-  onSaveFields: (f: Partial<Customer>) => void;
+  // Gibt ein Versprechen zurück, damit der Knopf weiß, WANN gespeichert ist. Vorher war das
+  // eine Funktion ohne Rückgabe – der Knopf konnte nichts melden, und genau das war der
+  // Befund aus dem Betrieb: „wenn ich auf Kundendaten speichern klicke, passiert nichts."
+  onSaveFields: (f: Partial<Customer>) => Promise<void>;
   onMarkContacted: () => void;
   onMarkOpen: () => void;
   onToggleActive: () => void;
@@ -54,6 +61,57 @@ export function DetailModal(props: {
   const [mobile, setMobile] = useState(cust.phone_mobile || "");
   const [landline, setLandline] = useState(cust.phone_landline || "");
   const [note, setNote] = useState(cust.note || "");
+
+  // Was der Speichern-Knopf gerade sagt. „gespeichert" fällt nach ein paar Sekunden von
+  // selbst zurück – eine Bestätigung, die stehen bleibt, ist beim nächsten Blick eine Lüge.
+  const [speicherStand, setSpeicherStand] = useState<"bereit" | "speichert" | "gespeichert">("bereit");
+  const speicherUhr = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (speicherUhr.current) clearTimeout(speicherUhr.current); }, []);
+
+  // Dasselbe für die Positionssuche. „nichts" bleibt dagegen stehen, bis sich etwas ändert:
+  // Es ist keine Bestätigung, sondern ein Befund, den man lesen soll.
+  const [geoStand, setGeoStand] = useState<"bereit" | "sucht" | "nichts">("bereit");
+
+  // Gesucht wird immer die GESPEICHERTE Adresse, nie der Text im Feld. Sonst stünde am Kunden
+  // eine Position, die zu einer Adresse gehört, die so nirgends gespeichert ist – derselbe
+  // Fehler wie damals DOT-Datum am Fahrzeug: ein Wert an einem Träger, für den er nicht gilt.
+  const adresseGeaendert = address.trim() !== (cust.address || "").trim();
+
+  async function speichern() {
+    setSpeicherStand("speichert");
+    try {
+      await props.onSaveFields({
+        name, address, phone_mobile: mobile, phone_landline: landline, note,
+        // Leere Felder als null und nicht als leere Zeichenkette: sonst stünde in der
+        // Datenbank "" neben null für dieselbe Aussage, und jede Abfrage müsste beides
+        // abfangen. Die Anrede hat zudem eine Prüfbedingung, die "" ablehnt.
+        company: company.trim() || null,
+        email: email.trim() || null,
+        anrede: anrede || null,
+        ...(koordinate ? { lat: koordinate.lat, lng: koordinate.lng } : {}),
+      });
+      setSpeicherStand("gespeichert");
+      if (speicherUhr.current) clearTimeout(speicherUhr.current);
+      speicherUhr.current = setTimeout(() => setSpeicherStand("bereit"), 2500);
+    } catch (e) {
+      // Der Knopf wird wieder benutzbar – die Meldung selbst übernimmt das Fehlerband der
+      // App. Deshalb fliegt der Fehler weiter: es soll weiterhin EINE Stelle geben, die
+      // Fehler anzeigt, und nicht zwei mit womöglich verschiedenem Wortlaut.
+      setSpeicherStand("bereit");
+      throw e;
+    }
+  }
+
+  async function positionSuchen() {
+    setGeoStand("sucht");
+    try {
+      const gefunden = await props.onPositionSuchen();
+      setGeoStand(gefunden ? "bereit" : "nichts");
+    } catch (e) {
+      setGeoStand("bereit");
+      throw e;
+    }
+  }
 
   const color = effectiveColor(cust, props.periodMonths);
   const custOrders = props.orders.slice().sort((a, b) => a.order_date.localeCompare(b.order_date));
@@ -109,19 +167,13 @@ export function DetailModal(props: {
         <div className="field"><label>E-Mail</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
         <div className="field"><label>Notiz</label><textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>
         <button
-          className="btn-primary btn-block"
-          onClick={() => props.onSaveFields({
-            name, address, phone_mobile: mobile, phone_landline: landline, note,
-            // Leere Felder als null und nicht als leere Zeichenkette: sonst stünde in der
-            // Datenbank "" neben null für dieselbe Aussage, und jede Abfrage müsste beides
-            // abfangen. Die Anrede hat zudem eine Prüfbedingung, die "" ablehnt.
-            company: company.trim() || null,
-            email: email.trim() || null,
-            anrede: anrede || null,
-            ...(koordinate ? { lat: koordinate.lat, lng: koordinate.lng } : {}),
-          })}
+          className={"btn-primary btn-block" + (speicherStand === "gespeichert" ? " ist-gespeichert" : "")}
+          disabled={speicherStand === "speichert"}
+          onClick={() => { void speichern(); }}
         >
-          💾 Kundendaten speichern
+          {speicherStand === "speichert" ? "Speichert …"
+            : speicherStand === "gespeichert" ? "Gespeichert ✓"
+            : "💾 Kundendaten speichern"}
         </button>
         {/* Die Kartenposition und wie genau sie ist (Migration 35). Der Satz steht direkt unter
             dem Speichern-Knopf, weil er sich mit der Adresse ändert – und weil hier auch der
@@ -139,10 +191,35 @@ export function DetailModal(props: {
           ) : (
             <span className="small" style={{ color: "var(--muted)" }}>Position vom Kartendienst gefunden.</span>
           )}
+          <button
+            type="button" className="btn-secondary geo-knopf"
+            disabled={geoStand === "sucht" || adresseGeaendert}
+            title={adresseGeaendert
+              ? "Erst speichern – gesucht wird die gespeicherte Adresse."
+              : "Der Kartendienst sucht diese eine Adresse noch einmal."}
+            onClick={() => { void positionSuchen(); }}
+          >
+            {geoStand === "sucht" ? "Sucht …" : "Position suchen"}
+          </button>
           <button type="button" className="btn-secondary geo-knopf" onClick={props.onPositionSetzen}>
             {cust.lat == null ? "Position auf der Karte setzen" : "Position auf der Karte korrigieren"}
           </button>
         </div>
+        {/* Der Befund der Suche. Er steht UNTER der Zeile und nicht als kurzes Aufblitzen im
+            Knopf: „nichts gefunden" ist die Antwort auf eine Frage, die man gestellt hat –
+            die soll man in Ruhe lesen können, statt sie zu verpassen. */}
+        {geoStand === "nichts" && (
+          <div className="small" style={{ color: "var(--red)" }}>
+            Der Kartendienst findet zu dieser Adresse nichts. Setz die Position von Hand auf
+            der Karte.
+          </div>
+        )}
+        {adresseGeaendert && (
+          <div className="small" style={{ color: "var(--muted)" }}>
+            Die Adresse im Feld ist noch nicht gespeichert. Nach dem Speichern sucht die App
+            die Position von selbst.
+          </div>
+        )}
 
         <h4>Fahrzeuge</h4>
         <div>

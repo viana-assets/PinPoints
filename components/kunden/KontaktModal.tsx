@@ -59,7 +59,12 @@ export function KontaktModal({ customer, periodMonths, onClose, onSpeichern }: {
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    // „modal-kontakt" hebt dieses Fenster über das Kundenfenster, aus dem es geöffnet wird.
+    // Ohne die Klasse haben beide `z-index: 10000`, und bei gleichem Wert entscheidet die
+    // Reihenfolge im Dokument – dort steht das Kontaktfenster VOR dem Kundenfenster, lag also
+    // darunter. Aus dem Betrieb sah das so aus, als täte der Knopf nichts; erst beim
+    // Schließen des Kundenfensters kam es zum Vorschein.
+    <div className="modal-overlay modal-kontakt" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-box" style={{ position: "relative", maxWidth: 460 }}>
         <button className="modal-close" onClick={onClose}>✕</button>
         <h2>Kontakt mit {customer.name}</h2>

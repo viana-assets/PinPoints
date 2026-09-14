@@ -3,6 +3,7 @@ import type { Customer, Employee, Firmenfahrzeug, Order, OrderStatus } from "@/l
 import { todayStr, formatDate, formatOrderDateTime, orderDateTime } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
+import { RasterLegende, Stundenraster } from "./Stundenraster";
 import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
@@ -33,6 +34,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
 }) {
   const today = new Date();
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  // Monat, Woche oder Tag. Die drei sind derselbe Bestand in drei Auflösungen, kein eigener
+  // Zustand je Ansicht: Der ausgewählte Tag gilt in allen dreien und wandert beim Umschalten
+  // mit – sonst landet man beim Wechsel von „Monat, 20.9." unvermittelt wieder bei heute.
+  const [ansicht, setAnsicht] = useState<"monat" | "woche" | "tag">("monat");
   const [selectedDay, setSelectedDay] = useState<string | null>(todayStr());
   const [empFilter, setEmpFilter] = useState<"all" | string>("all");
   // Zweiter Filter neben dem Mitarbeiter, mit derselben Bedienung. „Nicht eingeteilt" ist
@@ -44,6 +49,31 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const statusLabel = ORDER_STATUS_LABEL;
   const monthLabel = monthCursor.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+
+  // Welche Tage das Raster zeigt: einen in der Tagesansicht, die ganze Mo–So-Woche in der
+  // Wochenansicht. Die Auswahl richtet sich nach demselben `selectedDay` wie der
+  // Monatskalender – es gibt nur EINEN ausgewählten Tag im Modul.
+  const rasterAnker = new Date(selectedDay || todayStr());
+  const rasterTage = ansicht === "woche"
+    ? Array.from({ length: 7 }, (_, i) => addDays(startOfWeekMonday(rasterAnker), i))
+    : [rasterAnker];
+  // Im Raster gelten dieselben Filter wie darunter in der Liste – eine Ansicht, die andere
+  // Aufträge zeigt als der Filter darüber verspricht, ist eine Falle.
+  const rasterAuftraege = orders.filter((o) => {
+    if (empFilter !== "all" && !(orderEmployees[o.id] || []).includes(empFilter)) return false;
+    if (fahrzeugFilter === "ohne" && o.firmenfahrzeug_id) return false;
+    if (fahrzeugFilter !== "all" && fahrzeugFilter !== "ohne" && o.firmenfahrzeug_id !== fahrzeugFilter) return false;
+    if (statusFilter !== "all" && o.status !== statusFilter) return false;
+    return true;
+  });
+  // Nur die Mitarbeiter, die im gezeigten Zeitraum überhaupt vorkommen – eine Legende mit
+  // acht Namen, von denen zwei zu sehen sind, erklärt nichts.
+  const rasterDatumsMenge = new Set(rasterTage.map(toDateStr));
+  const rasterMitarbeiterIds = [...new Set(
+    rasterAuftraege
+      .filter((o) => rasterDatumsMenge.has(o.order_date))
+      .flatMap((o) => orderEmployees[o.id] || [])
+  )];
 
   const monthEnd = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + 1, 0);
   const gridStart = startOfWeekMonday(monthCursor);
@@ -164,6 +194,34 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           </div>
         )}
 
+        <div className="filterbar" style={{ marginBottom: 2 }}>
+          <button type="button" className={`chip ${ansicht === "monat" ? "active" : ""}`} onClick={() => setAnsicht("monat")}>Monat</button>
+          <button type="button" className={`chip ${ansicht === "woche" ? "active" : ""}`} onClick={() => setAnsicht("woche")}>Woche</button>
+          <button type="button" className={`chip ${ansicht === "tag" ? "active" : ""}`} onClick={() => setAnsicht("tag")}>Tag</button>
+          {ansicht !== "monat" && (
+            <>
+              <button type="button" className="btn-secondary kal-blaettern" onClick={() => setSelectedDay(toDateStr(addDays(new Date(selectedDay || todayStr()), ansicht === "woche" ? -7 : -1)))}>‹</button>
+              <button type="button" className="btn-secondary kal-blaettern" onClick={() => setSelectedDay(todayStr())}>heute</button>
+              <button type="button" className="btn-secondary kal-blaettern" onClick={() => setSelectedDay(toDateStr(addDays(new Date(selectedDay || todayStr()), ansicht === "woche" ? 7 : 1)))}>›</button>
+            </>
+          )}
+        </div>
+
+        {ansicht !== "monat" && (
+          <>
+            <Stundenraster
+              tage={rasterTage}
+              auftraege={rasterAuftraege}
+              customers={customers}
+              employees={employees}
+              orderEmployees={orderEmployees}
+              onOeffnen={onOpenOrder}
+            />
+            <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} />
+          </>
+        )}
+
+        {ansicht === "monat" && (
         <div className="calendar-grid">
           <div className="calendar-row calendar-head">
             <div className="calendar-kw"></div>
@@ -198,8 +256,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
             </div>
           ))}
         </div>
+        )}
 
-        {selectedDay && (
+        {selectedDay && ansicht === "monat" && (
           <>
             <h4 style={{ margin: "6px 0 0" }}>Aufträge am {formatDate(selectedDay)} <span className="small">({dayOrders.length})</span></h4>
             {dayOrders.length === 0 ? (

@@ -588,6 +588,14 @@
    zweite, kleinere Maske aufzuklappen. Beide sind `.modal-overlay` auf Ebene 10000 – ohne
    diese Regel entschiede die Reihenfolge im Quelltext, welches oben liegt. */
 .modal-auftrag { z-index: 10001; }
+/* Das Kontaktfenster wird AUS dem Kundenfenster heraus geöffnet und gehört damit darüber.
+   Ohne eigenen Wert teilt es sich die 10000 von `.modal-overlay` mit dem Kundenfenster – und
+   bei gleichem z-index entscheidet die Reihenfolge im Dokument, die beim Schreiben unsichtbar
+   ist. Genau daran hing der Befund „Kontakt bestätigen macht nichts".
+
+   Regel daraus: Ein Fenster über einem Fenster braucht einen eigenen z-index. Gleicher Wert
+   heißt nicht „gleich wichtig", sondern „die Quelltextreihenfolge entscheidet". */
+.modal-kontakt { z-index: 10002; }
 
 .fehler-hinweis {
   position: fixed;
@@ -1057,10 +1065,28 @@ tr.klickbar:hover { background: var(--hover); }
 .profil-min{opacity:.7;font-weight:800;}
 .profil-warn{font-weight:800;}
 
+/* Der Speichern-Knopf, nachdem er gespeichert hat. Grün, weil Grün in dieser App „erledigt"
+   heißt – dasselbe Wort wie beim Kundenzustand und bei der Profiltiefe.
+
+   Der Zustand fällt nach 2,5 Sekunden von selbst zurück (siehe DetailModal). Eine
+   Bestätigung, die stehen bleibt, behauptet beim nächsten Blick etwas, das nicht mehr
+   stimmt: Sie sagt dann nicht „gerade gespeichert", sondern nur noch „irgendwann mal". */
+.btn-primary.ist-gespeichert,
+.btn-primary.ist-gespeichert:hover{background:var(--green);}
+/* Während gespeichert wird, ist der Knopf gesperrt – ein zweiter Klick würde denselben
+   Datensatz ein zweites Mal schreiben. Er soll dabei aber nicht wie kaputt aussehen. */
+.btn-primary:disabled{opacity:.75;cursor:default;}
+
 /* Kartenposition im Kundenfenster (Migration 35): Aussage links, Handlung rechts. */
 .geo-zeile{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px;}
 .geo-zeile > span{flex:1 1 220px;}
-.geo-knopf{flex:0 0 auto;padding:4px 10px;font-size:12px;}
+/* Rand, weil diese Knöpfe auf einer WEISSEN Fläche stehen. `.btn-secondary` ist weiß und
+   randlos – auf dem beigen Seitengrund ist das eine erkennbare Kachel, im Kundenfenster
+   dagegen unsichtbar: übrig bleibt fetter Text, den niemand für einen Knopf hält. Solange
+   hier nur ein Knopf stand, fiel es kaum auf; seit es zwei sind, sieht es nach zwei Zeilen
+   Überschrift aus. (Derselbe Ton-gilt-nicht-überall-Fehler wie bei der Freikontur.) */
+.geo-knopf{flex:0 0 auto;padding:4px 10px;font-size:12px;border:1px solid var(--border);}
+.geo-knopf:disabled{opacity:.5;cursor:default;}
 
 /* Der Punkt eines Kunden, dessen Position nur die Straßenmitte ist, sieht anders aus als
    einer, der stimmt: hohl statt gefüllt. Die FORM trägt die Aussage „ungefähr", die Farbe
@@ -1239,4 +1265,194 @@ tr.klickbar:hover { background: var(--hover); }
 @media (prefers-reduced-motion: reduce){
   .regalplatz{transition:none;}
   .regalplatz:hover{transform:none;}
+}
+
+/* ---------------------------------------------------------------------------
+   Protokoll (Migration 36) – im Adminbereich und im Auftragsfenster.
+
+   Eine Zeile ist zugeklappt eine Aussage und aufgeklappt der Beleg dazu. Beides gleichzeitig
+   zu zeigen macht eine Liste aus zweihundert Vorgängen unlesbar; nur die Aussage zu zeigen
+   macht sie wertlos.
+   --------------------------------------------------------------------------- */
+.protokoll-liste{display:flex;flex-direction:column;gap:4px;}
+.protokoll-zeile{border:1px solid var(--border);border-radius:9px;background:var(--panel);
+  overflow:hidden;}
+.protokoll-zeile.offen{border-color:var(--accent);}
+.pz-kopf{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;
+  gap:10px;width:100%;background:none;border:none;border-radius:0;text-align:left;
+  padding:7px 10px;font-weight:400;font-size:12.5px;}
+.pz-kopf:hover{background:var(--hover);}
+.pz-zeit{display:flex;flex-direction:column;line-height:1.25;font-variant-numeric:tabular-nums;
+  color:var(--muted);font-size:11.5px;}
+.pz-zeit .pz-uhr{font-weight:700;color:var(--text);}
+.pz-text{min-width:0;}
+.pz-rolle{color:var(--muted);}
+.pz-anzahl{color:var(--muted);}
+/* Die Handlung trägt die Farbe – gelöscht rot, angelegt grün, geändert neutral. Das ist
+   dieselbe Bedeutung wie überall sonst in der App und deshalb ohne Legende lesbar. */
+.pz-aktion{font-weight:700;}
+.pz-insert{color:var(--green);}
+.pz-delete{color:var(--red);}
+.pz-update{color:var(--text);}
+.pz-pfeil{color:var(--muted);}
+.pz-felder{border-top:1px solid var(--border);padding:8px 10px;background:var(--bg);}
+.pz-tabelle{width:100%;border-collapse:collapse;font-size:12px;}
+.pz-tabelle th{text-align:left;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);font-weight:700;padding:0 8px 3px 0;}
+.pz-tabelle td{padding:2px 8px 2px 0;vertical-align:top;
+  border-top:1px solid var(--border);word-break:break-word;}
+.pz-tabelle td:first-child{font-weight:700;white-space:nowrap;}
+.pz-kennung{margin-top:6px;color:var(--muted);font-variant-numeric:tabular-nums;}
+
+/* Am Handy hat eine dreispaltige Tabelle keinen Platz – vorher/nachher stapeln. */
+@media (max-width: 700px){
+  .pz-kopf{grid-template-columns:auto minmax(0,1fr) auto;gap:8px;}
+  .pz-tabelle, .pz-tabelle tbody, .pz-tabelle tr, .pz-tabelle td{display:block;width:100%;}
+  .pz-tabelle thead{display:none;}
+  .pz-tabelle tr{border-top:1px solid var(--border);padding:4px 0;}
+  .pz-tabelle td{border:none;padding:0;}
+  .pz-tabelle td:nth-child(2)::before{content:"vorher: ";color:var(--muted);}
+  .pz-tabelle td:nth-child(3)::before{content:"nachher: ";color:var(--muted);}
+}
+
+/* Die Historie im Auftragsfenster: zugeklappt eine Zeile, damit sie nicht zwischen dem
+   Fachlichen und dem Abschließen-Knopf steht. */
+.auftrag-protokoll{border-top:1px solid var(--border);margin-top:10px;padding-top:8px;}
+.ap-schalter{background:none;border:none;padding:2px 0;font-size:12.5px;font-weight:700;
+  color:var(--muted);border-radius:0;}
+.ap-schalter:hover{color:var(--text);}
+.ap-inhalt{margin-top:8px;display:flex;flex-direction:column;gap:8px;}
+
+/* ---------------------------------------------------------------------------
+   Stundenraster: Tages- und Wochenansicht (Block B).
+
+   Wie im Lager trägt die FARBE den Techniker und die FORM den Zustand. Ein Auftrag hat
+   beides gleichzeitig – wer fährt, und wie weit er ist –, und eine Farbe kann nur eine der
+   beiden Fragen beantworten. Grün/Orange/Rot sind hier ohnehin vergeben: Sie meinen in dieser
+   App den Kundenzustand.
+
+   Lage und Höhe eines Termins stehen als style-Attribut am Element, und das ist hier richtig:
+   Sie sind keine Gestaltung, sondern die gerechnete Aussage dieses einen Termins. Alles
+   andere – Farben, Kanten, Schrift, Abstände – steht hier.
+   --------------------------------------------------------------------------- */
+.raster{border:1px solid var(--border);border-radius:12px;background:var(--panel);
+  overflow:hidden;}
+.raster-kopf,
+.raster-ohnezeit,
+.raster-leib{display:grid;grid-template-columns:52px repeat(var(--tage,1), minmax(0,1fr));}
+.raster-tag{--tage:1;}
+.raster-woche{--tage:7;}
+
+.raster-kopf{border-bottom:1px solid var(--border);background:var(--bg);}
+.rk-tag{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;
+  border-left:1px solid var(--border);font-size:11.5px;}
+.rk-tag.ist-heute{background:var(--accent-bg);}
+.rk-wochentag{text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:700;
+  font-size:10.5px;}
+.rk-datum{font-weight:700;font-variant-numeric:tabular-nums;}
+.rk-spalte-zeit{font-size:10px;color:var(--muted);display:flex;align-items:center;
+  justify-content:center;text-align:center;padding:2px;}
+
+/* Aufträge ohne Uhrzeit gehören nicht ins Raster – aber auch nicht ins Nichts. Eigene Leiste
+   darüber, damit kein Auftrag im Kalender fehlt, den es gibt. */
+.raster-ohnezeit{border-bottom:1px solid var(--border);background:var(--hover);
+  min-height:30px;align-items:stretch;}
+.roz-tag{display:flex;flex-wrap:wrap;gap:3px;padding:4px;border-left:1px solid var(--border);}
+.roz-chip{background:var(--panel);border:1px dashed var(--frei-linie);border-radius:6px;
+  padding:2px 7px;font-size:11px;font-weight:600;max-width:100%;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;}
+.roz-chip:hover{background:var(--chip-hover);}
+
+.raster-leib{position:relative;}
+.rl-stunden{display:block;padding:0;}
+.rl-stunde{position:relative;border-top:1px solid var(--border);}
+.rl-stunde span{position:absolute;top:-7px;right:5px;background:var(--panel);padding:0 2px;
+  font-size:10px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.rl-tag{position:relative;border-left:1px solid var(--border);}
+.rl-tag.ist-heute{background:color-mix(in srgb, var(--accent-bg) 45%, transparent);}
+.rl-linie{border-top:1px solid var(--border);}
+
+.termin{position:absolute;border-radius:6px;padding:2px 5px;overflow:hidden;cursor:pointer;
+  display:flex;flex-direction:column;line-height:1.2;color:#fff;
+  border:1.5px solid transparent;box-shadow:0 1px 3px rgba(43,38,32,.25);}
+.termin:focus-visible{outline:2px solid var(--text);outline-offset:1px;}
+.termin .tm-zeit{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;opacity:.9;}
+.termin .tm-wer{font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;}
+
+/* FORM = Zustand. Kein zweiter Farbkreis, sondern Deckkraft, Schraffur und ein Zeichen. */
+.termin.tm-erledigt{opacity:.5;}
+.termin.tm-storniert{opacity:.55;
+  background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 4px,transparent 4px 8px);}
+.termin.tm-storniert .tm-wer{text-decoration:line-through;}
+/* Noch niemandem zugeteilt: keine Person, also keine Personenfarbe. Grau und gestrichelt –
+   dieselbe Aussage wie ein freier Lagerplatz. */
+.termin.tm-ohne-person{background:var(--panel);color:var(--text);
+  border:1.5px dashed var(--frei-linie);box-shadow:none;}
+/* Angenommenes Ende (kein `end_time` gepflegt): die Unterkante ist eine Vermutung und sieht
+   auch so aus. Sonst liest jemand die angenommene Stunde als Zusage. */
+.termin.tm-geschaetzt{border-bottom-style:dashed;border-bottom-color:rgba(255,255,255,.75);}
+.termin.tm-ohne-person.tm-geschaetzt{border-bottom-color:var(--frei-linie);}
+
+.kal-blaettern{padding:4px 10px;font-size:12px;border:1px solid var(--border);}
+
+.raster-legende{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;
+  font-size:11.5px;color:var(--muted);margin-top:8px;}
+.raster-legende span{display:flex;align-items:center;gap:5px;}
+.raster-legende i{width:12px;height:12px;border-radius:3px;flex:0 0 auto;}
+.raster-legende i.leg-ohne{background:var(--panel);border:1.5px dashed var(--frei-linie);}
+.raster-legende .rl-form{color:var(--muted);}
+
+/* Am Handy sind sieben Spalten nicht bedienbar – in Vitalis eigenem Screenshot vom
+   Google-Kalender sind bei sieben Spalten alle Namen abgeschnitten. Die Woche bleibt
+   erreichbar, bekommt aber einen waagerechten Rollbalken statt gequetschter Spalten; die
+   Tagesansicht ist am Handy die brauchbare. */
+@media (max-width: 700px){
+  .raster-woche{overflow-x:auto;}
+  .raster-woche .raster-kopf,
+  .raster-woche .raster-ohnezeit,
+  .raster-woche .raster-leib{min-width:640px;}
+  .termin .tm-wer{font-size:11px;}
+}
+
+@media (prefers-reduced-motion: reduce){
+  .termin{transition:none;}
+}
+
+/* ---------------------------------------------------------------------------
+   Auswertungen (Block D).
+
+   Feste Kacheln statt eines Baukastens: Sechs Zahlen, die immer an derselben Stelle stehen,
+   liest man im Vorbeigehen – und merkt, wenn eine sich verändert hat.
+   --------------------------------------------------------------------------- */
+/* Drei Spalten fest und nicht `auto-fill`: Es sind sechs Kacheln, und auto-fill macht daraus
+   je nach Fensterbreite 5+1 – eine einzelne Kachel in der zweiten Reihe sieht aus wie ein
+   Fehler. 3×2 steht immer als Block. */
+.aw-kacheln{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+@media (max-width: 960px){ .aw-kacheln{grid-template-columns:repeat(2,minmax(0,1fr));} }
+@media (max-width: 460px){ .aw-kacheln{grid-template-columns:1fr;} }
+.aw-kachel{background:var(--panel);border:1px solid var(--border);border-radius:12px;
+  padding:11px 13px;display:flex;flex-direction:column;gap:2px;}
+.awk-titel{font-size:10.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);
+  font-weight:700;}
+.awk-wert{font-family:var(--font-brand);font-weight:800;font-size:22px;line-height:1.15;
+  font-variant-numeric:tabular-nums;}
+.awk-unten{font-size:11.5px;color:var(--muted);}
+
+/* Balken aus divs statt einer Diagrammbibliothek: Zwölf Säulen rechtfertigen keine
+   zusätzliche Abhängigkeit, und die App soll offline laufen. */
+.aw-balken{display:flex;align-items:flex-end;gap:5px;background:var(--panel);
+  border:1px solid var(--border);border-radius:12px;padding:12px 12px 8px;overflow-x:auto;}
+.awb-spalte{flex:1 1 0;min-width:24px;display:flex;flex-direction:column;align-items:center;
+  gap:3px;}
+.awb-saeule{width:100%;height:120px;display:flex;align-items:flex-end;
+  background:var(--hover);border-radius:4px;overflow:hidden;}
+.awb-fuellung{width:100%;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;}
+.awb-zahl{font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;min-height:14px;}
+.awb-monat{font-size:10px;color:var(--muted);text-align:center;line-height:1.15;
+  font-variant-numeric:tabular-nums;}
+
+@media (max-width: 700px){
+  .awk-wert{font-size:19px;}
+  .awb-saeule{height:90px;}
 }

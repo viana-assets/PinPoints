@@ -132,6 +132,20 @@ export function IconEinsatzplanung() {
     </svg>
   );
 }
+// Auswertungen (Block D): drei Säulen unterschiedlicher Höhe. Bewusst NICHT ein Kreisdiagramm
+// oder eine Lupe – das Register beantwortet „wie hat es sich entwickelt", und Entwicklung
+// zeichnet man als Verlauf.
+export function IconAuswertung() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M4 20h16" strokeLinecap="round" />
+      <rect x="6" y="12" width="3.4" height="6" rx="1" />
+      <rect x="11.3" y="7" width="3.4" height="11" rx="1" />
+      <rect x="16.6" y="10" width="3.4" height="8" rx="1" />
+    </svg>
+  );
+}
+
 export function IconArtikel() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">

@@ -2,11 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { Article, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import { formatDate, formatOrderDateTime, getPhoneNumbers } from "@/lib/helpers";
-import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
+import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, STANDARD_DAUER_MIN, istAbgeschlossen } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "./ArticleAssignPanel";
 import { IconNavPin, IconTrash } from "@/components/icons";
 import { EinlagerungBlock } from "./EinlagerungBlock";
+import { AuftragProtokoll } from "./AuftragProtokoll";
 
 // Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
 //
@@ -54,7 +55,7 @@ export function AuftragModal({
   warehouses: Warehouse[];
   belegteSlotIds: Set<string>;
   onClose: () => void;
-  onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
+  onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
   onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
   onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
@@ -111,6 +112,7 @@ export function AuftragModal({
   const [titel, setTitel] = useState(order.title);
   const [datum, setDatum] = useState(order.order_date);
   const [zeit, setZeit] = useState(order.time || "");
+  const [zeitBis, setZeitBis] = useState(order.end_time || "");
   const [beschreibung, setBeschreibung] = useState(order.description || "");
   const [fahrzeugId, setFahrzeugId] = useState(order.vehicle_id || "");
   const [firmenfahrzeugId, setFirmenfahrzeugId] = useState(order.firmenfahrzeug_id || "");
@@ -192,6 +194,12 @@ export function AuftragModal({
   // Warum an `feldeAendern` gebunden: Ein Techniker darf nur seine Notiz schreiben. Ihn wegen
   // einer fehlenden Uhrzeit auszusperren, die er gar nicht setzen darf, wäre eine Sackgasse.
   const zeitFehlt = feldeAendern && !zeit.trim();
+  // Ein Ende VOR dem Anfang lehnt die Datenbank ab (Migration 37). Der Hinweis steht hier,
+  // damit das nicht erst beim Speichern als Fehlermeldung auffällt – und der Knopf bleibt
+  // gesperrt, weil dieser eine Fall im Browser sicher erkennbar ist. (Anders als beim
+  // Abschließen eines Auftrags: dort kennt die Datenbank Bedingungen, die der Browser nicht
+  // kennt, und ein gesperrter Knopf würde behaupten, sie alle zu kennen.)
+  const endeVorAnfang = !!zeit.trim() && !!zeitBis.trim() && zeitBis <= zeit;
 
   function fahrzeugText(v: Vehicle): string {
     return [v.license_plate, v.make_model, v.tire_size].filter(Boolean).join(" · ") || "Fahrzeug ohne Angaben";
@@ -210,6 +218,7 @@ export function AuftragModal({
         description: beschreibung,
         orderDate: datum,
         time: zeit,
+        endTime: zeitBis,
         status: order.status,
         assignedEmployeeIds: mitarbeiterIds,
       });
@@ -264,8 +273,8 @@ export function AuftragModal({
                 type="button"
                 className="btn-primary"
                 onClick={speichern}
-                disabled={speichert || zeitFehlt}
-                title={zeitFehlt ? "Bitte zuerst eine Uhrzeit eintragen." : undefined}
+                disabled={speichert || zeitFehlt || endeVorAnfang}
+                title={zeitFehlt ? "Bitte zuerst eine Uhrzeit eintragen." : endeVorAnfang ? "Das Ende muss nach dem Anfang liegen." : undefined}
               >
                 {speichert ? "Speichert …" : "Speichern"}
               </button>
@@ -280,7 +289,7 @@ export function AuftragModal({
             <div className="auftrag-nachfrage-knoepfe">
               <button type="button" className="btn-secondary" onClick={() => setSchliessenNachfrage(false)}>Zurück</button>
               <button type="button" className="btn-secondary" style={{ color: "#b33" }} onClick={onClose}>Verwerfen</button>
-              <button type="button" className="btn-primary" disabled={speichert || zeitFehlt} onClick={async () => { await speichern(); onClose(); }}>
+              <button type="button" className="btn-primary" disabled={speichert || zeitFehlt || endeVorAnfang} onClick={async () => { await speichern(); onClose(); }}>
                 Speichern und schließen
               </button>
             </div>
@@ -382,8 +391,12 @@ export function AuftragModal({
                   <div className="field"><label>Datum</label>
                     <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
                   </div>
+                  {/* Von–bis statt einer einzelnen Uhrzeit (Migration 37). Zwei Uhrzeiten
+                      und keine Dauer, weil ein Mensch „von acht bis halb zehn" sagt und
+                      nicht „um acht für neunzig Minuten" – und weil der Kalender die Höhe
+                      eines Blocks direkt daraus rechnet. */}
                   <div className="field">
-                    <label>Uhrzeit</label>
+                    <label>Von</label>
                     <input
                       type="time"
                       value={zeit}
@@ -392,7 +405,29 @@ export function AuftragModal({
                       className={zeitFehlt ? "feld-fehlt" : undefined}
                     />
                   </div>
+                  <div className="field">
+                    <label>Bis (optional)</label>
+                    <input
+                      type="time"
+                      value={zeitBis}
+                      onChange={(e) => setZeitBis(e.target.value)}
+                      aria-invalid={endeVorAnfang}
+                      className={endeVorAnfang ? "feld-fehlt" : undefined}
+                    />
+                  </div>
                 </div>
+                {endeVorAnfang && (
+                  <div className="hinweis-pflicht">
+                    Das Ende liegt vor dem Anfang. Termine über Mitternacht kennt der Kalender
+                    nicht – so ein Auftrag gehört auf zwei Tage aufgeteilt.
+                  </div>
+                )}
+                {!zeitBis.trim() && !!zeit.trim() && (
+                  <div className="small" style={{ color: "var(--muted)" }}>
+                    Ohne Ende rechnet der Kalender mit {STANDARD_DAUER_MIN} Minuten und
+                    zeichnet die Unterkante gestrichelt.
+                  </div>
+                )}
                 {zeitFehlt && (
                   <div className="hinweis-pflicht">
                     Ohne Uhrzeit lässt sich der Auftrag nicht speichern. Wird sie jetzt nicht
@@ -585,6 +620,11 @@ export function AuftragModal({
             </>
           )}
         </div>
+
+        {/* Die Historie steht ganz unten und zugeklappt: Sie beantwortet eine Frage, die man
+            selten stellt („wer hat das geändert?"), und wer sie nicht stellt, soll nicht an
+            ihr vorbeiscrollen müssen, um zum Abschließen-Knopf zu kommen. */}
+        <AuftragProtokoll auftragId={order.id} />
       </div>
     </div>
   );

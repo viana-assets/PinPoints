@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabaseClient";
 import { ROLE_LABEL } from "@/lib/constants";
 import { IconAdmin, IconTrash } from "@/components/icons";
 import { PermissionMatrix } from "./PermissionMatrix";
+import { ProtokollPanel, tageZurueck } from "./ProtokollPanel";
+import { fetchProtokoll, fetchProtokollPersonen } from "@/lib/api/audit";
+import type { AuditEintrag, ProtokollPerson } from "@/lib/types";
+import { PROTOKOLL_TAGE_STANDARD } from "@/lib/constants";
 import { GeokodierLauf } from "./GeokodierLauf";
 import { AdressenPruefen } from "./AdressenPruefen";
 import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
@@ -44,7 +48,16 @@ export function AdminPanel({
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung">("users");
+  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung" | "protokoll">("users");
+  // Das Protokoll (Migration 36). Es lädt erst, wenn der Reiter geöffnet wird – die Tabelle
+  // ist die einzige im System, die nie kleiner wird, und niemand braucht sie beim bloßen
+  // Öffnen des Adminbereichs.
+  const [protokoll, setProtokoll] = useState<AuditEintrag[]>([]);
+  const [protokollLaedt, setProtokollLaedt] = useState(false);
+  const [protokollVon, setProtokollVon] = useState(() => tageZurueck(PROTOKOLL_TAGE_STANDARD));
+  // Kennung → E-Mail. Getrennt geladen und NICHT bei jedem Datumswechsel neu: Die Liste der
+  // Zugänge ändert sich fast nie, die Auswahl des Zeitraums dauernd.
+  const [protokollPersonen, setProtokollPersonen] = useState<ProtokollPerson[]>([]);
   // Zähler, der die Korrekturliste neu aufbaut. Sie lädt ihre Kunden beim Einhängen einmal;
   // nach einem Sammellauf oder mehreren Übernahmen ist die Liste veraltet, und ein Zähler als
   // `key` ist der ehrlichste Weg, sie von vorn beginnen zu lassen.
@@ -62,6 +75,23 @@ export function AdminPanel({
       else setLoadingList(false);
     })();
   }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (adminTab !== "protokoll" || protokollPersonen.length > 0) return;
+    let abgebrochen = false;
+    fetchProtokollPersonen(supabase).then((p) => { if (!abgebrochen) setProtokollPersonen(p); });
+    return () => { abgebrochen = true; };
+  }, [adminTab, protokollPersonen.length, supabase]);
+
+  useEffect(() => {
+    if (adminTab !== "protokoll") return;
+    let abgebrochen = false;
+    setProtokollLaedt(true);
+    fetchProtokoll(supabase, { vonDatum: protokollVon })
+      .then((zeilen) => { if (!abgebrochen) setProtokoll(zeilen); })
+      .finally(() => { if (!abgebrochen) setProtokollLaedt(false); });
+    return () => { abgebrochen = true; };
+  }, [adminTab, protokollVon, supabase]);
 
   async function refreshProfiles() {
     setLoadingList(true);
@@ -131,9 +161,18 @@ export function AdminPanel({
             <button type="button" className={`chip ${adminTab === "modules" ? "active" : ""}`} onClick={() => setAdminTab("modules")}>Modulverwaltung</button>
           )}
           <button type="button" className={`chip ${adminTab === "wartung" ? "active" : ""}`} onClick={() => setAdminTab("wartung")}>Wartung</button>
+          <button type="button" className={`chip ${adminTab === "protokoll" ? "active" : ""}`} onClick={() => setAdminTab("protokoll")}>Protokoll</button>
         </div>
 
-        {adminTab === "wartung" ? (
+        {adminTab === "protokoll" ? (
+          <ProtokollPanel
+            eintraege={protokoll}
+            personen={protokollPersonen}
+            laedt={protokollLaedt}
+            vonDatum={protokollVon}
+            onVonDatum={setProtokollVon}
+          />
+        ) : adminTab === "wartung" ? (
           /* Wartung sammelt Läufe, die über den ganzen Bestand gehen und deshalb nirgends in
              den Fachmodulen hingehören.
 

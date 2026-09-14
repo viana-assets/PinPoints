@@ -41,6 +41,7 @@ import { AddCustomerForm } from "@/components/kunden/AddCustomerForm";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
+import { AuswertungPanel } from "@/components/auswertung/AuswertungPanel";
 import { AuftragModal } from "@/components/auftraege/AuftragModal";
 import { KontaktModal } from "@/components/kunden/KontaktModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
@@ -71,7 +72,7 @@ import {
 import {
   markCustomerContacted, markCustomerOpen, setWiedervorlageBulk,
   setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
-  setzePositionVonHand,
+  setzePositionVonHand, positionNeuSuchen,
 } from "@/lib/api/customers";
 import { upsertModulePermissions } from "@/lib/api/permissions";
 import {
@@ -161,7 +162,7 @@ export default function HomePage() {
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
   // darauf verlassen kann (Hooks dürfen nicht erst nach einem bedingten Return kommen).
-  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel";
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung";
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), die
   // Oberfläche blendet zusätzlich Anlegen/Löschen/Mitarbeiter- und Leistungen-Zuordnung aus –
   // siehe AuftraegePanel/EinsatzplanungPanel.
@@ -263,8 +264,8 @@ export default function HomePage() {
   // beim Tabwechsel zu holen würde nur flackern, ohne etwas zu sparen. Alles andere kommt beim
   // Öffnen des jeweiligen Moduls bzw. des Kundendetails.
   const kundeOffen = selectedId !== null;
-  const brauchtMitarbeiter = tab === "auftraege" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || kundeOffen;
-  const brauchtArtikel = tab === "artikel" || tab === "auftraege" || tab === "einsatzplanung" || kundeOffen;
+  const brauchtMitarbeiter = tab === "auftraege" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || tab === "auswertung" || kundeOffen;
+  const brauchtArtikel = tab === "artikel" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || kundeOffen;
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
@@ -1111,6 +1112,17 @@ export default function HomePage() {
     await updateCustomerFieldsById(supabase, id, fields, cust?.address);
     await refreshCustomers();
   }
+
+  // Die Adresse eines einzelnen Kunden neu suchen lassen. Der Rückgabewert sagt, ob etwas
+  // gefunden wurde – das Kundenfenster zeigt den Befund selbst an, damit „nichts gefunden"
+  // nicht als Fehler im roten Band erscheint. Ein Fehler ist es nämlich nicht.
+  async function positionSuchen(id: string): Promise<boolean> {
+    const cust = customers.find((c) => c.id === id);
+    if (!cust?.address) return false;
+    const gefunden = await positionNeuSuchen(supabase, id, cust.address);
+    if (gefunden) await refreshCustomers();
+    return gefunden;
+  }
   async function addCustomer(fields: {
     name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
     company: string; email: string; anrede: "" | "Herr" | "Frau";
@@ -1266,7 +1278,7 @@ export default function HomePage() {
     await neuLaden(qk.eingelagerteRaeder());
   }
 
-  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
+  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
     await updateOrderById(supabase, id, fields);
     await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
@@ -2335,6 +2347,10 @@ export default function HomePage() {
           />
         )}
 
+        {tab === "auswertung" && canView("auswertung") && (
+          <AuswertungPanel employees={employees} articles={articles} />
+        )}
+
         {tab === "artikel" && canView("artikel") && (
           <ArticleAdminPanel
             articles={articles}
@@ -2548,6 +2564,7 @@ export default function HomePage() {
           orderArticles={orderArticles}
           onOpenOrder={(id) => setOffenerAuftragId(id)}
           onPositionSetzen={() => positionSetzenStarten(selectedId)}
+          onPositionSuchen={() => positionSuchen(selectedId)}
           history={history}
           periodMonths={settings.period_months}
           vehicles={vehicles}
