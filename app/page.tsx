@@ -112,11 +112,18 @@ const MAX_MARKER = 600;
 
 // Farben der Kartenmarker je Kundenzustand. Sie stehen hier und nicht als CSS-Variable, weil
 // der Marker als HTML-Zeichenkette in einem Leaflet-divIcon entsteht – dort greift kein
-// Stylesheet der App. Die Werte entsprechen den Tokens --green / --accent / --red aus
+// Stylesheet der App. Die Werte entsprechen den Tokens --green / --blau / --red aus
 // globals.css; wer sie dort ändert, ändert sie hier mit (siehe docs/konstanten-register.md).
+//
+// Die Wiedervorlage war bis zum 14.09.2026 orange (--accent, #FF5A1F). Auf einer vollen Karte
+// war sie damit von Rot kaum zu unterscheiden: Beides sind warme Töne ähnlicher Helligkeit,
+// und bei zwanzig Nadeln nebeneinander zählt nicht der Farbwert, sondern ob sich zwei Gruppen
+// noch trennen lassen. Hellblau ist der einzige Ton, der von Rot UND Grün sichtbar wegbleibt –
+// und er sagt nebenbei das Richtige: kühl, geplant, nicht dringend. Rot soll die Karte
+// beherrschen, denn Rot ist das, was heute zu tun ist.
 const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse">, string> = {
   green: "#2f9e5c",
-  orange: "#FF5A1F",
+  wiedervorlage: "#4FA8DC",
   red: "#e0483f",
 };
 
@@ -964,7 +971,7 @@ export default function HomePage() {
       ${cust.note ? `<div class="pline">📝 ${escapeHtml(cust.note)}</div>` : ""}
       <div class="pline small">Letzter Kontakt: ${cust.last_contact ? formatDate(cust.last_contact) : "–"}</div>
       ${nextOrd ? `<div class="pline small">📅 Nächster Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}</div>` : ""}
-      ${cust.wiedervorlage_am && color === "orange" ? `<div class="pline small">🔁 Wiedervorlage am ${formatDate(cust.wiedervorlage_am)}</div>` : ""}
+      ${cust.wiedervorlage_am && color === "wiedervorlage" ? `<div class="pline small">🔁 Wiedervorlage am ${formatDate(cust.wiedervorlage_am)}</div>` : ""}
       <hr>
       <button type="button" data-popup-aktion="neuer-auftrag" data-kunde="${cust.id}" class="btn-primary btn-block" style="margin-bottom:10px;">+ Auftrag anlegen</button>
       <div style="display:flex;gap:6px;margin-bottom:6px;">
@@ -1413,7 +1420,7 @@ export default function HomePage() {
       const farbe = effectiveColor(c, settings.period_months);
       if (farbe === "red") z.offen++;
       else if (farbe === "green") z.ok++;
-      else if (farbe === "orange") z.wiedervorlage++;
+      else if (farbe === "wiedervorlage") z.wiedervorlage++;
       else z.kein_interesse++;
     });
     return z;
@@ -1424,7 +1431,7 @@ export default function HomePage() {
   // die Liste; die Karte zeigt immer alle. Sonst stünde am Schalter eine Zahl, die nicht zu dem
   // passt, was man vor sich sieht.
   const kartenZahlen = useMemo(() => {
-    const z: Record<KundenZustand, number> = { red: 0, orange: 0, green: 0, "kein-interesse": 0 };
+    const z: Record<KundenZustand, number> = { red: 0, wiedervorlage: 0, green: 0, "kein-interesse": 0 };
     activeCustomers.forEach((c) => {
       if (c.lat == null || c.lng == null) return;
       z[effectiveColor(c, settings.period_months)]++;
@@ -1441,7 +1448,7 @@ export default function HomePage() {
           const color = effectiveColor(c, settings.period_months);
           if (filter === "offen") return color === "red";
           if (filter === "ok") return color === "green";
-          if (filter === "wiedervorlage") return color === "orange";
+          if (filter === "wiedervorlage") return color === "wiedervorlage";
           if (filter === "kein_interesse") return color === "kein-interesse";
           return true;
         })

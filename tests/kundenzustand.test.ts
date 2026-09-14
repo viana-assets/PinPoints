@@ -31,13 +31,13 @@ describe("effectiveColor", () => {
     expect(effectiveColor(c, 3, HEUTE)).toBe("red");
   });
 
-  it("ist orange, solange die Wiedervorlage in der Zukunft liegt", () => {
+  it("steht auf Wiedervorlage, solange der Stichtag in der Zukunft liegt", () => {
     const c = kunde({ status: "kontaktiert", last_contact: HEUTE, kontakt_ergebnis: "wiedervorlage", wiedervorlage_am: "2026-11-01" });
-    expect(effectiveColor(c, 3, HEUTE)).toBe("orange");
+    expect(effectiveColor(c, 3, HEUTE)).toBe("wiedervorlage");
   });
 
   // Der Kern der Sache: eine Wiedervorlage muss von selbst wieder auf der Anrufliste landen.
-  it("ist am Stichtag selbst fällig, nicht mehr orange", () => {
+  it("ist am Stichtag selbst fällig, nicht mehr auf Wiedervorlage", () => {
     const c = kunde({ status: "kontaktiert", last_contact: "2026-08-01", kontakt_ergebnis: "wiedervorlage", wiedervorlage_am: HEUTE });
     expect(effectiveColor(c, 3, HEUTE)).toBe("red");
   });

@@ -29,7 +29,7 @@ const AUSGANG_TEXT: Record<KontaktErgebnis, { titel: string; erklaerung: string 
   },
   wiedervorlage: {
     titel: "Wiedervorlage",
-    erklaerung: "Bis zum gewählten Tag ist der Kunde auf der Karte orange, danach steht er wieder auf der Anrufliste.",
+    erklaerung: "Bis zum gewählten Tag ist der Kunde auf der Karte hellblau, danach steht er wieder auf der Anrufliste.",
   },
   kein_interesse: {
     titel: "Kein Interesse",

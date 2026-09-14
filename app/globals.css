@@ -4,6 +4,10 @@
     --bg:#F2EFE9; --panel:#ffffff; --border:#e2dbcd; --text:#241d13; --muted:#8a7f6b;
     --red:#E24C3D; --red-bg:#fbe6e2; --green:#1E9B6E; --green-bg:#e2f4ec;
     --accent:#FF5A1F; --accent-bg:#ffe9dd;
+    /* Hellblau: der Zustand „Wiedervorlage" (seit 14.09.2026). Vorher teilte er sich das
+       Orange mit dem Akzent – auf einer Karte mit 400 Nadeln war er damit von Rot kaum zu
+       trennen. Ein eigener Ton, kühl und ruhig: eingeplant, aber nicht dringend. */
+    --blau:#2F8FCB; --blau-marker:#4FA8DC; --blau-bg:#e4f2fb;
     --navy:#1E3A5F;
     --hover:#ece6da; --input-bg:#ffffff; --stat-bg:#ffffff; --chip-bg:#ffffff; --chip-hover:#fff6f0;
     --overlay:rgba(30,24,14,.5);
@@ -215,7 +219,10 @@
      keine weitere Farbe, sondern eine andere FORM: weißer Punkt mit rotem Rand und Kreuz.
      Rot und Orange nebeneinander sind für einen Teil der Bevölkerung kaum zu unterscheiden –
      die Form trägt die Aussage, die Farbe bestätigt sie nur. */
-  .dot.orange{background:var(--accent);}
+  /* Die Klasse heißt wie der Zustand, nicht wie die Farbe – sonst steht hier beim nächsten
+     Farbwechsel wieder eine Unwahrheit. `.badge.orange` weiter unten bleibt bestehen: das ist
+     der Auftragsstatus „in Arbeit" und hat mit dem Kundenzustand nichts zu tun. */
+  .dot.wiedervorlage{background:var(--blau-marker);}
   .dot.kein-interesse{background:#ffffff;border:2px solid var(--red);position:relative;
     width:12px;height:12px;margin-top:3px;}
   .dot.kein-interesse::after{content:"✕";position:absolute;inset:0;display:flex;
@@ -350,6 +357,7 @@
   .badge.red{background:var(--red-bg);color:var(--red);}
   .badge.green{background:var(--green-bg);color:var(--green);}
   .badge.orange{background:var(--accent-bg);color:var(--accent);}
+  .badge.wiedervorlage{background:var(--blau-bg);color:var(--blau);}
   /* Kundenzustand "kein Interesse" (Migration 23) – im Text-Kennzeichen genügt die Farbe,
      die unterscheidende Form trägt der Kartenmarker. */
   .badge.kein-interesse{background:#ffffff;color:var(--red);border:1px solid var(--red);}
