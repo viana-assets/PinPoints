@@ -37,7 +37,7 @@ export type Customer = {
   // so sind alle Datensätze von vor der Migration.
   kontakt_ergebnis: KontaktErgebnis | null;
   // Ab wann der Kunde wieder auf der Anrufliste stehen soll. Bis dahin ist er auf der Karte
-  // orange, danach wieder fällig – siehe `effectiveColor()` in lib/helpers.ts.
+  // hellblau, danach wieder fällig – siehe `effectiveColor()` in lib/helpers.ts.
   wiedervorlage_am: string | null; // YYYY-MM-DD
   active: boolean;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile

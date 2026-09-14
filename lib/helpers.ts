@@ -45,13 +45,20 @@ export function isContactedActive(cust: Customer, periodMonths: number): boolean
 
 // Die vier Zustände, in denen ein Kunde auf Karte und Liste erscheinen kann (Migration 23).
 // Der Name „Farbe" ist historisch – gemeint ist der Zustand, die Farbe ist nur seine Anzeige.
-export type KundenZustand = "green" | "orange" | "red" | "kein-interesse";
+//
+// Der Zustand der Wiedervorlage hieß bis zum 14.09.2026 „orange", nach seiner Farbe. Als die
+// Farbe von Orange auf Hellblau wechselte (Orange und Rot waren auf der vollen Karte kaum
+// auseinanderzuhalten), wurde aus dem Namen eine Falschaussage: `orange: "#4FA8DC"`. Deshalb
+// heißt er jetzt nach dem, was er bedeutet, und nicht nach dem, wie er aussieht. Die drei
+// übrigen Namen bleiben vorerst – sie sind dieselbe Schwäche, aber ihre Farben stehen nicht
+// zur Debatte, und ein halber Umbau ist schlechter als ein aufgeschobener.
+export type KundenZustand = "green" | "wiedervorlage" | "red" | "kein-interesse";
 
 // Welcher Zustand gilt für diesen Kunden? Die Reihenfolge der Prüfungen ist die Aussage:
 //
 //  1. „Kein Interesse" schlägt alles. Wer abgesagt hat, gehört nicht auf die Anrufliste, egal
 //     wie lange der letzte Kontakt her ist.
-//  2. Eine Wiedervorlage in der ZUKUNFT ist orange: eingeplant, aber noch nicht dran.
+//  2. Eine Wiedervorlage in der ZUKUNFT ist hellblau: eingeplant, aber noch nicht dran.
 //     Ist der Stichtag erreicht, fällt der Kunde durch – und landet unten bei „fällig/rot".
 //     Genau das ist der Sinn einer Wiedervorlage: sie taucht von selbst wieder auf.
 //  3. Sonst gilt wie bisher der Wiedervorlage-Zeitraum aus den Einstellungen.
@@ -60,7 +67,7 @@ export type KundenZustand = "green" | "orange" | "red" | "kein-interesse";
 // zu verstellen (siehe tests/kundenzustand.test.ts).
 export function effectiveColor(cust: Customer, periodMonths: number, heute: string = todayStr()): KundenZustand {
   if (cust.kontakt_ergebnis === "kein_interesse") return "kein-interesse";
-  if (cust.wiedervorlage_am && cust.wiedervorlage_am > heute) return "orange";
+  if (cust.wiedervorlage_am && cust.wiedervorlage_am > heute) return "wiedervorlage";
   if (cust.wiedervorlage_am) return "red";
   return isContactedActive(cust, periodMonths) ? "green" : "red";
 }
@@ -69,7 +76,7 @@ export function effectiveColor(cust: Customer, periodMonths: number, heute: stri
 // verschiedene Wörter für dasselbe benutzen.
 export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
   green: "kontaktiert",
-  orange: "Wiedervorlage",
+  wiedervorlage: "Wiedervorlage",
   red: "offen",
   "kein-interesse": "kein Interesse",
 };
@@ -79,7 +86,7 @@ export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
 // der Reihenfolge, in der die Zustände zufällig im Typ stehen. Wer eine Liste der Zustände
 // braucht, nimmt diese – damit sie überall gleich sortiert erscheint.
 export const KUNDEN_ZUSTAND_REIHENFOLGE: readonly KundenZustand[] = [
-  "red", "orange", "green", "kein-interesse",
+  "red", "wiedervorlage", "green", "kein-interesse",
 ];
 
 export function telHref(phone: string | null | undefined): string {

@@ -46,7 +46,7 @@ export async function markCustomerContacted(
       kontakt_ergebnis: ergebnis,
       // Immer mitgeschrieben, auch als null: sonst bliebe die Wiedervorlage eines früheren
       // Anrufs stehen, obwohl der Kunde inzwischen einen Auftrag erteilt oder abgesagt hat –
-      // und die Karte zeigte weiter orange.
+      // und die Karte zeigte weiter die Wiedervorlage.
       wiedervorlage_am: wiedervorlageAm,
     }).eq("id", id)
   );
