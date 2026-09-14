@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
 import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
-import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
-import { formatDate, raederNachSatz } from "@/lib/helpers";
+import {
+  DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM, SAISON_LABEL, SAISON_LISTE,
+} from "@/lib/constants";
+import { formatDate, handlungsgruende, nachReihen, raederNachSatz } from "@/lib/helpers";
 import { IconLager, IconTrash } from "@/components/icons";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
@@ -16,6 +18,15 @@ import { RadBild } from "./RadBild";
 // Präfix "A", 1–20, 2-stellig gepolstert → A-01 … A-20.
 // Exportiert, damit die Nummerierungslogik in tests/lagerplaetze.test.ts geprüft werden kann
 // (Roadmap Phase 12) – innerhalb dieser Datei ändert sich dadurch nichts.
+// Die Grenzen, ab denen an einem eingelagerten Satz etwas zu tun ist. Einmal hier
+// zusammengestellt, damit die Regel (lib/helpers.ts) und die Zahlen (lib/constants.ts)
+// getrennt bleiben – dieselbe Aufteilung wie bei ProfilMarke.
+const HANDLUNG_GRENZEN = {
+  kritischMm: PROFIL_KRITISCH_MM,
+  dotJahre: DOT_ALT_JAHRE,
+  liegtTage: LAGERDAUER_HINWEIS_TAGE,
+};
+
 export function buildSlotCodes(prefix: string, start: number, end: number, digits: number): string[] {
   if (!Number.isFinite(start) || !Number.isFinite(end) || start > end) return [];
   const codes: string[] = [];
@@ -137,6 +148,14 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
       .filter((t) => t.storage_slot_id === slotId && !!t.removed_at)
       .sort((a, b) => (b.removed_at || "").localeCompare(a.removed_at || ""));
   }
+  // Warum an diesem Platz etwas zu tun ist – leere Liste heißt: nichts. Wird zweimal
+  // gebraucht (Punkt an der Kachel, Begründung im Zuordnungsfenster), deshalb hier und
+  // nicht in der Kachel.
+  function gruendeFuer(satz: TireStorage | null): string[] {
+    if (!satz) return [];
+    return handlungsgruende(satz, raederVon(satz.id), HANDLUNG_GRENZEN);
+  }
+
   function occupiedCount(warehouseId: string): number {
     const slotIds = storageSlots.filter((s) => s.warehouse_id === warehouseId).map((s) => s.id);
     return tireStorages.filter((t) => slotIds.includes(t.storage_slot_id) && !t.removed_at).length;
@@ -257,6 +276,19 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   }
 
   // ---------------- Ebene 2: Lagerplätze eines Lagers ----------------
+
+  // Die Regalwand. Die Anordnung steckt schon in den Platz-Codes – „BC-01" ist der erste
+  // Platz in Reihe BC –, deshalb braucht diese Ansicht keine Migration und keine
+  // Koordinatenfelder am Lagerplatz. Was im Raum nebeneinander liegt, steht nebeneinander
+  // im Code (siehe `nachReihen` in lib/helpers.ts).
+  const reihen = nachReihen(slotsInWarehouse);
+  // Eine einzelne namenlose Reihe ist keine Reihe, sondern einfach das Lager. Dann die
+  // Überschrift weglassen, statt „Ohne Reihe" über alles zu schreiben.
+  const zeigeReihenNamen = !(reihen.length === 1 && reihen[0].reihe === "");
+  const belegungen = slotsInWarehouse.map((sl) => currentAssignment(sl.id));
+  const belegtImLager = belegungen.filter(Boolean).length;
+  const mitHandlungsbedarf = belegungen.filter((a) => gruendeFuer(a).length > 0).length;
+
   return (
     <div className="tabpanel active">
       <div className="module-page">
@@ -297,7 +329,11 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             <div className="mh-icon"><IconLager /></div>
             <div className="mh-text">
               <h2>{selectedWarehouse.name}</h2>
-              <p>{slotsInWarehouse.length} Lagerplätze{selectedWarehouse.address ? ` · 📍 ${selectedWarehouse.address}` : ""}</p>
+              <p>
+                {belegtImLager} von {slotsInWarehouse.length} Lagerplätzen belegt
+                {mitHandlungsbedarf > 0 ? ` · ${mitHandlungsbedarf} mit Handlungsbedarf` : ""}
+                {selectedWarehouse.address ? ` · 📍 ${selectedWarehouse.address}` : ""}
+              </p>
               {selectedWarehouse.note && <p>{selectedWarehouse.note}</p>}
             </div>
           </div>
@@ -346,51 +382,43 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
 
         {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
 
-        <div className="card-grid">
-          {slotsInWarehouse.map((slot) => {
-            const assignment = currentAssignment(slot.id);
-            const cust = assignment ? customers.find((c) => c.id === assignment.customer_id) : null;
-            return (
-              <button
-                key={slot.id}
-                type="button"
-                className="slot-card"
-                onClick={() => { if (canAssignTire) setAssignSlot(slot); }}
-                style={canAssignTire ? undefined : { cursor: "default" }}
-                title={canAssignTire ? undefined : "Deine Rolle darf keine Reifen zuordnen."}
-              >
-                <div className="sc-code"><span className={`dot ${assignment ? "green" : "gray"}`}></span>{slot.code}</div>
-                {assignment && cust ? (
-                  <>
-                    <div className="sc-cust">{cust.name}</div>
-                    <div className="sc-meta">{assignment.dot_date ? `DOT ${assignment.dot_date}` : "DOT –"}</div>
-                    <div className="sc-meta" style={{ marginTop: 2 }}>
-                      <ProfilMarke satz={assignment} raeder={raederVon(assignment.id)} praefix="" />
-                    </div>
-                  </>
-                ) : (
-                  <div className="sc-meta">Frei</div>
-                )}
-                <button
-                  type="button"
-                  className="btn-secondary sc-qr"
-                  title={`Aufkleber für ${slot.code} drucken`}
-                  onClick={(e) => { e.stopPropagation(); setAufkleberFuer([slot]); }}
-                >
-                  🏷
-                </button>
-                {canDeleteSlot && (
-                  <button
-                    type="button"
-                    className="btn-secondary sc-del"
-                    onClick={(e) => { e.stopPropagation(); if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?`)) onDeleteSlot(slot.id); }}
-                  >
-                    <IconTrash />
-                  </button>
-                )}
-              </button>
-            );
-          })}
+        {slotsInWarehouse.length > 0 && (
+          <div className="regal-legende">
+            <span><i className="leg-frei" aria-hidden="true" /> frei</span>
+            <span><i className="leg-belegt" aria-hidden="true" /> belegt</span>
+            <span><i className="leg-punkt" aria-hidden="true" /> hier ist etwas zu tun – antippen zeigt was</span>
+          </div>
+        )}
+
+        <div className="regalwand">
+          {reihen.map(({ reihe, plaetze }) => (
+            <div className="regal-reihe" key={reihe || "ohne-reihe"}>
+              {zeigeReihenNamen && (
+                <div className="reihe-name">{reihe ? `Reihe ${reihe}` : "Ohne Reihe"}</div>
+              )}
+              <div className="reihe-plaetze">
+                {plaetze.map((slot) => {
+                  const assignment = currentAssignment(slot.id);
+                  return (
+                    <Regalplatz
+                      key={slot.id}
+                      slot={slot}
+                      assignment={assignment}
+                      kunde={assignment ? customers.find((c) => c.id === assignment.customer_id) ?? null : null}
+                      fahrzeug={assignment?.vehicle_id ? vehicles.find((v) => v.id === assignment.vehicle_id) ?? null : null}
+                      raeder={assignment ? raederVon(assignment.id) : []}
+                      gruende={gruendeFuer(assignment)}
+                      canAssign={canAssignTire}
+                      canDelete={canDeleteSlot}
+                      onOeffnen={() => setAssignSlot(slot)}
+                      onAufkleber={() => setAufkleberFuer([slot])}
+                      onLoeschen={() => onDeleteSlot(slot.id)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -407,6 +435,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           slot={assignSlot}
           customers={customers}
           assignment={currentAssignment(assignSlot.id)}
+          gruende={gruendeFuer(currentAssignment(assignSlot.id))}
           history={historyFor(assignSlot.id)}
           raederFuer={raederVon}
           onClose={() => setAssignSlot(null)}
@@ -419,8 +448,115 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   );
 }
 
-function TireAssignModal({ slot, customers, vehicles, assignment, history, raederFuer, onClose, onAssign, onRemove }: {
+// Ein Platz an der Regalwand – dieselbe Komponente für beide Darstellungen.
+//
+// Breit wird daraus eine Kachel (Code, Kunde, Kennzeichen, Zustand untereinander), schmal
+// eine Zeile über die volle Breite. Der Unterschied steht vollständig im Stilblatt
+// (app/globals.css, „Regalwand"); hier gibt es dafür weder eine Verzweigung noch einen
+// Zustand. Das ist Absicht: Eine zweite Komponente für die Handyansicht wäre eine zweite
+// Stelle, an der man das Kennzeichen vergessen kann.
+//
+// Warum ein div mit role="button" und nicht ein <button>: In der Kachel stecken zwei eigene
+// Knöpfe (Aufkleber, Löschen). Ein Knopf im Knopf ist ungültiges HTML – das alte
+// Kachelgitter hatte genau das. Tastaturbedienung ist deshalb hier von Hand nachgezogen.
+function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, canAssign, canDelete, onOeffnen, onAufkleber, onLoeschen }: {
+  slot: StorageSlot;
+  assignment: TireStorage | null;
+  kunde: Customer | null;
+  fahrzeug: Vehicle | null;
+  raeder: EingelagertesRad[];
+  // Warum hier etwas zu tun ist. Leer heißt: nichts – dann erscheint auch kein Punkt.
+  gruende: string[];
+  canAssign: boolean;
+  canDelete: boolean;
+  onOeffnen: () => void;
+  onAufkleber: () => void;
+  onLoeschen: () => void;
+}) {
+  const belegt = !!assignment;
+  const kennzeichen = [fahrzeug?.license_plate, fahrzeug?.make_model].filter(Boolean).join(" · ");
+
+  function oeffnen() {
+    if (canAssign) onOeffnen();
+  }
+
+  const klassen = [
+    "regalplatz",
+    belegt ? "belegt" : "frei",
+    canAssign ? "" : "nicht-klickbar",
+  ].filter(Boolean).join(" ");
+
+  return (
+    <div
+      className={klassen}
+      role={canAssign ? "button" : undefined}
+      tabIndex={canAssign ? 0 : undefined}
+      aria-label={`Lagerplatz ${slot.code}${belegt ? ` – ${kunde?.name ?? "belegt"}` : " – frei"}`}
+      onClick={oeffnen}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); oeffnen(); }
+      }}
+      // In der Kachel wird ein langer Name mit Auslassungspunkten gekürzt – die feste Höhe
+      // hält das Raster zusammen. Damit er trotzdem erreichbar bleibt, steht er hier im
+      // Tooltip, zusammen mit dem, was an diesem Platz zu tun ist.
+      title={[
+        belegt ? [kunde?.name, kennzeichen].filter(Boolean).join(" · ") : null,
+        ...gruende,
+        canAssign ? null : "Deine Rolle darf keine Reifen zuordnen.",
+      ].filter(Boolean).join(" · ") || undefined}
+    >
+      <span className="rp-code">
+        {gruende.length > 0 && <span className="rp-punkt" aria-hidden="true" />}
+        {slot.code}
+      </span>
+
+      {belegt ? (
+        <span className="rp-wer">
+          <b>{kunde ? kunde.name : "Unbekannter Kunde"}</b>
+          {kennzeichen && <span>{kennzeichen}</span>}
+        </span>
+      ) : (
+        <span className="rp-frei">frei</span>
+      )}
+
+      <span className="rp-meta">
+        {assignment && (
+          <>
+            <span>{assignment.dot_date ? `DOT ${assignment.dot_date}` : "DOT –"}</span>
+            <ProfilMarke satz={assignment} raeder={raeder} praefix="" />
+          </>
+        )}
+      </span>
+
+      <span className="rp-tools">
+        <button
+          type="button"
+          className="btn-secondary"
+          title={`Aufkleber für ${slot.code} drucken`}
+          onClick={(e) => { e.stopPropagation(); onAufkleber(); }}
+        >
+          🏷
+        </button>
+        {canDelete && (
+          <button
+            type="button"
+            className="btn-secondary"
+            title={`Lagerplatz ${slot.code} löschen`}
+            onClick={(e) => { e.stopPropagation(); if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?`)) onLoeschen(); }}
+          >
+            <IconTrash />
+          </button>
+        )}
+      </span>
+    </div>
+  );
+}
+
+function TireAssignModal({ slot, customers, vehicles, assignment, gruende, history, raederFuer, onClose, onAssign, onRemove }: {
   slot: StorageSlot; customers: Customer[]; vehicles: Vehicle[]; assignment: TireStorage | null; history: TireStorage[];
+  // Warum an der Kachel ein oranger Punkt sitzt. Der Punkt sagt „etwas", diese Liste „was" –
+  // wer den Platz öffnet, soll es nicht raten müssen.
+  gruende: string[];
   // Die Räder eines Satzes – auch für die Historie, deren Räder beim Auslagern erhalten
   // bleiben (entfernt wird die Einlagerung, nicht ihre Messwerte).
   raederFuer: (satzId: string) => EingelagertesRad[];
@@ -461,6 +597,14 @@ function TireAssignModal({ slot, customers, vehicles, assignment, history, raede
       <div className="modal-box" style={{ position: "relative" }}>
         <button className="modal-close" onClick={onClose}>✕</button>
         <h2>Lagerplatz {slot.code}</h2>
+        {gruende.length > 0 && (
+          <div className="handlung-hinweis">
+            <b>Hier ist etwas zu tun:</b>
+            <ul>
+              {gruende.map((g) => <li key={g}>{g}</li>)}
+            </ul>
+          </div>
+        )}
         <CustomerPicker customers={customers} value={customerId} onChange={(id) => { setCustomerId(id); setVehicleId(""); }} />
 
         <div className="field">

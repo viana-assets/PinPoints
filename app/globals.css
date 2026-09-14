@@ -296,18 +296,9 @@
     flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px;color:var(--muted);
     cursor:pointer;min-height:118px;font-size:12.5px;font-weight:600;}
   .add-card:hover{border-color:var(--accent);color:var(--accent);}
-  .slot-card{background:var(--panel);border-radius:14px;padding:12px 13px;cursor:pointer;text-align:left;
-    border:none;box-shadow:0 4px 12px -4px rgba(43,38,32,.1);display:flex;flex-direction:column;gap:6px;
-    position:relative;}
-  .slot-card:hover{box-shadow:0 8px 18px -5px rgba(43,38,32,.18);}
-  .slot-card .sc-code{font-weight:800;font-size:13.5px;font-family:var(--font-brand);display:flex;
-    align-items:center;gap:6px;}
-  .slot-card .sc-cust{font-size:12px;color:var(--text);font-weight:600;}
-  .slot-card .sc-meta{font-size:10.5px;color:var(--muted);}
-  .slot-card .sc-del{position:absolute;top:8px;right:8px;padding:3px 6px;}
-  /* Aufkleber-Knopf links neben dem Papierkorb. Feste Breite, damit beide Knöpfe gleich groß
-     wirken, obwohl der eine ein Zeichen und der andere ein SVG enthält. */
-  .slot-card .sc-qr{position:absolute;top:8px;right:44px;padding:3px 6px;min-width:30px;}
+  /* Die frühere .slot-card samt .sc-* ist entfallen: Das Kachelgitter der Lagerplätze ist
+     seit Phase 4 die Regalwand (ganz unten in dieser Datei). Die Regeln standen sonst noch
+     hier und wären die Vorlage für das nächste Gitter gewesen, das es nicht geben soll. */
   .hist-entry{border-left:2px solid var(--border);padding:4px 10px;margin-bottom:4px;font-size:11.5px;
     color:var(--muted);}
   .hist-entry .he-cust{color:var(--text);font-weight:700;}
@@ -1116,4 +1107,121 @@ tr.klickbar:hover { background: var(--hover); }
 .custom-pin .pin-nadel, .custom-pin .pin-kreis{transition:transform .12s ease, box-shadow .12s ease;}
 @media (prefers-reduced-motion: reduce){
   .custom-pin .pin-nadel, .custom-pin .pin-kreis{transition:none;}
+}
+
+/* ---------------------------------------------------------------------------
+   Regalwand (Phase 4) – die Lageransicht ersetzt das alte Kachelgitter.
+
+   Eine Grundregel trägt das ganze Bild, und sie ist der Grund, warum hier nicht noch mehr
+   Farben stehen:
+
+       Die FORM trägt die Belegung, die FARBE den Zustand.
+
+   Frei ist eine gestrichelte, leere Kontur. Belegt ist eine gefüllte, feste Kachel. Das
+   erkennt man aus zwei Metern Abstand, ohne Legende und ohne Farbsehen. Grün/Orange/Rot
+   bleiben für den ZUSTAND reserviert – Profiltiefe, Handlungsbedarf –, weil dieselben drei
+   Farben in der Kundenkarte und im Radbild schon diese Bedeutung haben. Wären sie hier
+   zusätzlich „belegt/frei", hieße Grün an zwei Stellen zwei verschiedene Dinge.
+
+   Zwei Darstellungen, EIN Markup: breit als Regalwand (Kachel neben Kachel, wie das Regal im
+   Raum steht), schmal als Reihenliste (eine Zeile über die volle Breite, in einer Hand
+   bedienbar). Das ist eine Frage des Stilblatts, nicht der Logik – deshalb gibt es keine
+   zweite Komponente und keinen Zustand, der auseinanderlaufen könnte.
+   --------------------------------------------------------------------------- */
+.regalwand{display:flex;flex-direction:column;gap:18px;}
+.regal-reihe{display:flex;flex-direction:column;gap:7px;}
+.regal-reihe > .reihe-name{font-family:var(--font-body);font-weight:700;font-size:11.5px;
+  line-height:1;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+.reihe-plaetze{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:8px;}
+
+.regalplatz{position:relative;display:flex;flex-direction:column;gap:3px;
+  border-radius:11px;padding:9px 10px 10px;min-height:82px;cursor:pointer;text-align:left;
+  transition:transform .12s ease,box-shadow .12s ease;}
+.regalplatz:hover{transform:translateY(-1px);}
+.regalplatz:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.regalplatz.nicht-klickbar{cursor:default;}
+.regalplatz.nicht-klickbar:hover{transform:none;}
+/* Form = Belegung. */
+.regalplatz.frei{border:1.5px dashed var(--border);background:transparent;}
+.regalplatz.belegt{border:1.5px solid var(--border);background:var(--panel);
+  box-shadow:0 3px 10px -5px rgba(43,38,32,.18);}
+.regalplatz.belegt:hover{box-shadow:0 8px 18px -6px rgba(43,38,32,.24);}
+
+.regalplatz .rp-code{display:flex;align-items:center;gap:6px;font-family:var(--font-brand);
+  font-weight:800;font-size:13.5px;line-height:1.2;font-variant-numeric:tabular-nums;
+  padding-right:64px;}
+.regalplatz.frei .rp-code{color:var(--muted);font-weight:700;}
+/* Farbe = Zustand, und nur dort, wo es einen gibt. Ein Punkt an jeder Kachel wäre keiner. */
+.regalplatz .rp-punkt{flex:0 0 auto;width:9px;height:9px;border-radius:50%;
+  background:var(--accent);}
+.regalplatz .rp-wer{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.regalplatz .rp-wer b{font-size:12.5px;font-weight:700;line-height:1.25;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.regalplatz .rp-wer span{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.regalplatz .rp-frei{font-size:11.5px;color:var(--muted);}
+.regalplatz .rp-meta{font-size:10.5px;color:var(--muted);display:flex;flex-wrap:wrap;
+  align-items:center;gap:4px 6px;margin-top:1px;}
+/* Am Bildschirm sitzen Aufkleber und Papierkorb in der Ecke und verdrängen nichts; dafür
+   hält die Codezeile oben rechts Platz frei (padding-right). */
+.regalplatz .rp-tools{position:absolute;top:7px;right:7px;display:flex;gap:4px;}
+.regalplatz .rp-tools .btn-secondary{padding:3px 6px;min-width:28px;font-size:12px;}
+
+/* ---- Schmales Fenster: dieselben Daten als Reihenliste ----
+
+   Der Punkt dieser Ansicht ist, dass der Name VOLLSTÄNDIG dasteht. Ein erster Versuch stellte
+   DOT und Profiltiefe rechts neben den Namen – gemessen bei 390 px blieben dem Namen 90 px
+   und aus „Hofmann, Elisabeth-Marie" wurde „Hofmann, Elis…". Damit wäre die Liste schlechter
+   gewesen als die Kachel, also genau verkehrt herum. Deshalb bekommt die Mitte die ganze
+   Breite und stapelt: Name, Kennzeichen, Zustand.
+
+   Der Code steht in einer Spalte fester Breite ganz links. Das ist das eigentliche Merkmal
+   der Liste – man fährt mit dem Daumen die linke Kante entlang und liest nur die Codes. */
+@media (max-width: 700px){
+  .reihe-plaetze{display:flex;flex-direction:column;gap:5px;}
+  .regalplatz{display:grid;grid-template-columns:76px minmax(0,1fr) 62px;
+    grid-template-rows:auto auto;align-items:center;gap:2px 10px;
+    min-height:0;padding:9px 10px;border-radius:9px;}
+  .regalplatz:hover{transform:none;}
+  .regalplatz .rp-code{grid-column:1;grid-row:1 / span 2;padding-right:0;align-self:center;
+    overflow-wrap:anywhere;}
+  /* Hier darf der Name umbrechen statt abzuschneiden. In der Kachel geht das nicht – dort
+     hält die feste Höhe das Raster zusammen –, in einer Liste schon: Die Zeile wird eben
+     zweizeilig. „Hofmann-Steinbrecher, Elisabeth-Marie" passt in 390 px sonst nicht, und ein
+     abgeschnittener Name ist genau das, was diese Ansicht verhindern soll. */
+  .regalplatz .rp-wer{grid-column:2;grid-row:1;}
+  .regalplatz .rp-wer b,
+  .regalplatz .rp-wer span{white-space:normal;overflow:visible;text-overflow:clip;
+    overflow-wrap:anywhere;}
+  .regalplatz .rp-frei{grid-column:2;grid-row:1 / span 2;}
+  .regalplatz .rp-meta{grid-column:2;grid-row:2;margin-top:0;}
+  /* Bei „frei" gibt es keine zweite Zeile – die leere Zelle darf keine Höhe erzwingen. */
+  .regalplatz.frei .rp-meta{display:none;}
+  /* Nicht mehr in der Ecke, sondern in einer eigenen Spalte: In der Kachel ist oben rechts
+     Platz, in einer zweizeiligen Liste würde derselbe Knopf über dem Namen liegen. */
+  .regalplatz .rp-tools{position:static;grid-column:3;grid-row:1 / span 2;
+    justify-content:flex-end;}
+}
+
+/* Legende: erklärt die eine Sache, die man nicht erraten kann – den orangen Punkt. Dass
+   gestrichelt „leer" heißt, versteht man ohne Text; dass Orange „hier ist etwas zu tun"
+   heißt, nicht. */
+.regal-legende{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;
+  font-size:12px;color:var(--muted);}
+.regal-legende span{display:flex;align-items:center;gap:6px;}
+.regal-legende .leg-frei{width:22px;height:15px;border-radius:4px;border:1.5px dashed var(--border);}
+.regal-legende .leg-belegt{width:22px;height:15px;border-radius:4px;border:1.5px solid var(--border);
+  background:var(--panel);}
+.regal-legende .leg-punkt{width:9px;height:9px;border-radius:50%;background:var(--accent);}
+
+/* Im Zuordnungsfenster: warum leuchtet dieser Punkt? Der Punkt sagt „etwas", hier steht
+   „was". Ohne diese Zeile müsste man die Regel raten. */
+.handlung-hinweis{border-left:3px solid var(--accent);background:var(--accent-bg);
+  border-radius:0 8px 8px 0;padding:7px 11px;margin:2px 0 10px;font-size:12.5px;}
+.handlung-hinweis ul{margin:3px 0 0;padding-left:18px;}
+.handlung-hinweis li{margin-top:1px;}
+
+@media (prefers-reduced-motion: reduce){
+  .regalplatz{transition:none;}
+  .regalplatz:hover{transform:none;}
 }

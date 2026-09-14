@@ -224,3 +224,17 @@ export const GEO_GENAUIGKEIT_LABEL: Record<GeoGenauigkeit, string> = {
 export const PROFIL_GESETZLICH_MM = 1.6;
 export const PROFIL_KRITISCH_MM = 3;
 export const PROFIL_HINWEIS_MM = 4;
+
+// Ab wann ist an einem eingelagerten Satz etwas zu tun? Diese beiden Grenzen ergänzen die
+// Profiltiefe oben – zusammen bilden sie die Regel hinter dem orangen Punkt an der Regalwand
+// (lib/helpers.ts, `handlungsgruende`).
+//
+// Sechs Jahre: Reifen altern auch ungefahren. Die Gummimischung verhärtet, der Grip auf
+// nasser Fahrbahn lässt messbar nach. Sechs Jahre ist die gängige Empfehlung zum Ansprechen,
+// zehn die zum Austauschen – wir warnen beim Ansprechen, nicht erst beim Austauschen.
+export const DOT_ALT_JAHRE = 6;
+
+// Ein Jahr: Ein Satz, der eine ganze Saison übersprungen hat, ist entweder vergessen worden
+// oder der Kunde ist weg. Beides sollte jemand wissen. Bei einem Betrieb, der zweimal im Jahr
+// wechselt, ist ein Jahr ohne Bewegung ein ausgelassener Termin.
+export const LAGERDAUER_HINWEIS_TAGE = 365;
