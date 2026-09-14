@@ -1,12 +1,14 @@
 # Lager und Bestand – Ausbaukonzept
 
-Stand 07.09.2026, fortgeschrieben am 10.09.2026. Zweck: eine Entscheidungsgrundlage, was das
+Stand 07.09.2026, fortgeschrieben am 11.09.2026. Zweck: eine Entscheidungsgrundlage, was das
 Lager-Modul werden soll – und in welcher Reihenfolge.
 
-**Umsetzungsstand:** Die Schritte 1 bis 3 der Reihenfolge unten sind gebaut – A2 (Satz gehört
+**Umsetzungsstand:** Die Schritte 1 bis 4 der Reihenfolge unten sind gebaut – A2 (Satz gehört
 zum Fahrzeug), A3 + D1 (Saison und Saisonliste), C1 + C2 (Firmenfahrzeuge als Stammdaten und
-am Auftrag). Migrationen 30, 31 und 32, siehe `lager.md`. Offen: A1 (Räder einzeln), Block B
-(Handelsware), C3 (Transporter als Lagerort), E1 (Inventur).
+am Auftrag), A1 (Räder einzeln mit Radbild) sowie die Anzeigehälfte von D2 (Profiltiefe
+sichtbar in Lagerregal, Platz-Historie und Saisonliste, dazu der Filter „unter 3 mm").
+Migrationen 30 bis 33, siehe `lager.md`. Offen: der Hinweis im Folgeauftrag (Rest von D2),
+D3 (DOT-Alter), Block B (Handelsware), C3 (Transporter als Lagerort), E1 (Inventur).
 
 ## Zuerst: drei Lücken im heutigen Modell
 
@@ -148,6 +150,12 @@ Einlagern eine Markierung. Beim nächsten Saisonwechsel steht im Auftrag: „Bei
 Wechsel: HL 3,1 mm – Neureifen anbieten." Damit greift Block B: aus dem Lagerbestand wird
 ein Verkauf, aus dem Verkauf ein Abgang.
 
+*Stand 11.09.2026:* Die Markierung gibt es (farbige Profilmarke im Lagerregal, in der
+Platz-Historie und als zweite Spalte der Saisonliste, dazu der Filter „unter 3,0 mm" und die
+Zahl in der Kopfzeile). Was noch fehlt, ist der Satz **im Folgeauftrag** – dafür muss der
+neue Auftrag den vorherigen Satz desselben Fahrzeugs finden, und das ist eine eigene,
+kleine Aufgabe.
+
 **D3 – DOT-Alter.** Reifen über sechs Jahre bekommen einen Hinweis, über zehn eine deutliche
 Warnung. Das ist zugleich Sicherheitsthema und Verkaufsanlass – und es steht sauber da, falls
 je jemand fragt, ob darauf hingewiesen wurde.
@@ -210,7 +218,7 @@ ist.
 | **1. A2 – Satz gehört zum Fahrzeug** | Wird mit jedem Tag teurer nachzutragen. Reine Datenmodell-Korrektur, sofort sichtbar in der Auftragsmaske. | klein |
 | **2. A3 + D1 – Saison und Saisonliste** | Ein Feld, und daraus entsteht die halbjährliche Anrufliste. Das beste Verhältnis von Aufwand zu Ertrag im ganzen Dokument. | klein–mittel |
 | **3. C1 + C2 – Firmenfahrzeuge am Auftrag** | Unabhängig vom Rest, klar umrissen, du brauchst es ohnehin. | klein |
-| **4. A1 – Räder einzeln** | Voraussetzung für D2 und D3, aber erst sinnvoll, wenn 1–3 stehen. | mittel |
+| **4. A1 – Räder einzeln** | ✅ gebaut (Migration 33, 11.09.2026) – Sammelwert bleibt Normalfall, Einzelerfassung als Radbild. Voraussetzung für D2 und D3. | mittel |
 | **5. B1–B4 – Handelsware und Bewegungen** | Das größte Stück. Erst angehen, wenn klar ist, wie viele Artikel es wirklich sind und wer den Bestand pflegt. | groß |
 | **6. E1 – Inventur per Scan** | Ergibt erst Sinn, wenn es Bestände gibt, die auseinanderlaufen können. | mittel |
 

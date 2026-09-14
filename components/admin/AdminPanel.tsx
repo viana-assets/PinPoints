@@ -18,8 +18,12 @@ import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
 export function AdminPanel({
   isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, onUpdateEmployeeProfileId, modulePermissions, onUpdateModulePermissions,
   firmenfahrzeuge, onFirmenfahrzeugAnlegen, onFirmenfahrzeugAendern, onFirmenfahrzeugAusmustern,
+  onKundeOeffnen,
 }: {
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
+  // Aus der Adressprüfung heraus das Kundenfenster öffnen (Wartung). Der Admin-Bereich ist
+  // ein Reiter, kein Fenster – das Kundenfenster legt sich darüber und lässt die Liste stehen.
+  onKundeOeffnen: (kundenId: string) => void;
   firmenfahrzeuge: Firmenfahrzeug[];
   onFirmenfahrzeugAnlegen: (felder: FirmenfahrzeugFelder) => Promise<string | null>;
   onFirmenfahrzeugAendern: (id: string, felder: FirmenfahrzeugFelder) => Promise<string | null>;
@@ -140,7 +144,7 @@ export function AdminPanel({
              nach einer Übernahme zum Neuaufbau, sonst stünden dort erledigte Zeilen weiter. */
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <GeokodierLauf supabase={supabase} />
-            <AdressenPruefen key={wartungStand} supabase={supabase} onFertig={() => undefined} />
+            <AdressenPruefen key={wartungStand} supabase={supabase} onFertig={() => undefined} onKundeOeffnen={onKundeOeffnen} />
             <button type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setWartungStand((n) => n + 1)}>
               Liste neu aufbauen
             </button>

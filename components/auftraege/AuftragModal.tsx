@@ -239,7 +239,11 @@ export function AuftragModal({
   }
 
   return (
-    <div className="modal-overlay" onClick={schliessenVersuchen}>
+    // „modal-auftrag" hebt dieses Fenster über das Kundenfenster: Aus dem Kundenfenster
+    // heraus lässt sich ein Auftrag öffnen, und dann liegen beide gleichzeitig offen.
+    // Verlässt man sich dabei auf die Reihenfolge im Quelltext, kippt die Anzeige beim
+    // nächsten Umsortieren lautlos – die Ebene gehört deshalb ins Stilblatt.
+    <div className="modal-overlay modal-auftrag" onClick={schliessenVersuchen}>
       <div className="modal-box auftrag-modal" onClick={(e) => e.stopPropagation()}>
         <div className="auftrag-kopf">
           <div>

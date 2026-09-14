@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sucheAdressen, type Adressvorschlag } from "@/lib/api/adressen";
 import { fetchKundenOhneKoordinaten, uebernehmeAdresse } from "@/lib/api/customers";
+import { vorschlagOhneHausnummer } from "@/lib/helpers";
 
 // Korrekturliste für Kunden ohne Kartenposition (siehe docs/kunden-und-karte.md).
 //
@@ -13,6 +14,16 @@ import { fetchKundenOhneKoordinaten, uebernehmeAdresse } from "@/lib/api/custome
 // Die App ÄNDERT NICHTS VON SELBST. Auch wenn ein Vorschlag offensichtlich richtig aussieht,
 // bleibt die Übernahme ein Klick: eine stillschweigend geänderte Kundenadresse fällt niemandem
 // auf, und auf einem Lieferschein steht sie dann falsch, ohne dass jemand es entschieden hat.
+//
+// Zwei Befunde aus dem Betrieb am 14.09.2026 stecken hier drin:
+//
+// 1. Es gibt Fälle, in denen KEIN Vorschlag taugt – dann muss die Adresse von Hand korrigiert
+//    werden. Dafür musste man die Liste verlassen, den Kunden suchen, ändern, zurückfinden und
+//    die Liste neu aufbauen. Jetzt öffnet ein Klick auf den Namen das Kundenfenster; die Liste
+//    bleibt dahinter stehen.
+// 2. Der Kartendienst antwortet auf eine Adresse mit Hausnummer gern mit derselben Straße OHNE
+//    Hausnummer. Dieser Vorschlag ist ärmer als das, was schon dasteht – ihn kommentarlos neben
+//    „Übernehmen" zu setzen hieße, mit einem Klick eine gute Adresse zu verschlechtern.
 
 type Zeile = {
   id: string;
@@ -26,9 +37,11 @@ type Zeile = {
 // spürbare Wartezeit, alle auf einmal wäre ein Ansturm auf einen kostenlosen Fremddienst.
 const GLEICHZEITIG = 3;
 
-export function AdressenPruefen({ supabase, onFertig }: {
+export function AdressenPruefen({ supabase, onFertig, onKundeOeffnen }: {
   supabase: SupabaseClient;
   onFertig: () => void;
+  // Öffnet das Kundenfenster über dieser Liste – für die Fälle, die kein Vorschlag löst.
+  onKundeOeffnen: (kundenId: string) => void;
 }) {
   const [zeilen, setZeilen] = useState<Zeile[]>([]);
   const [laedt, setLaedt] = useState(true);
@@ -96,10 +109,15 @@ export function AdressenPruefen({ supabase, onFertig }: {
       {zeilen.map((z) => (
         <div key={z.id} className={`adr-pruef${z.zustand === "uebernommen" ? " erledigt" : ""}`}>
           <div className="adr-pruef-kopf">
-            <div>
+            <button
+              type="button"
+              className="adr-pruef-kunde"
+              onClick={() => onKundeOeffnen(z.id)}
+              title="Kundenfenster öffnen – dort lässt sich die Adresse von Hand korrigieren"
+            >
               <b>{z.name}</b>
-              <div className="small">{z.adresse || "– keine Adresse hinterlegt –"}</div>
-            </div>
+              <span className="small">{z.adresse || "– keine Adresse hinterlegt –"}</span>
+            </button>
             {z.zustand === "sucht" && <span className="small">sucht …</span>}
             {z.zustand === "uebernommen" && <span className="gespeichert-haken">✓ Übernommen</span>}
             {z.zustand === "kein-treffer" && <span className="small">kein Vorschlag</span>}
@@ -108,13 +126,32 @@ export function AdressenPruefen({ supabase, onFertig }: {
 
           {z.zustand === "fertig" && (
             <ul className="adr-pruef-liste">
-              {z.vorschlaege.slice(0, 3).map((v) => (
-                <li key={v.label}>
-                  <span>{v.label}</span>
-                  <button type="button" className="btn-secondary" onClick={() => uebernehmen(z, v)}>Übernehmen</button>
-                </li>
-              ))}
+              {z.vorschlaege.slice(0, 3).map((v) => {
+                const aermer = vorschlagOhneHausnummer(z.adresse, v.label);
+                return (
+                  <li key={v.label} className={aermer ? "aermer" : undefined}>
+                    <span>
+                      {v.label}
+                      {aermer && (
+                        <em className="adr-warnung">
+                          ohne Hausnummer – die Karte zeigt dann den Anfang der Straße
+                        </em>
+                      )}
+                    </span>
+                    <button type="button" className="btn-secondary" onClick={() => uebernehmen(z, v)}>
+                      {aermer ? "Trotzdem übernehmen" : "Übernehmen"}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
+          )}
+          {/* Wenn gar nichts passt, ist der Weg über das Kundenfenster der einzige – und der
+              Hinweis steht dort, wo man ihn braucht, statt in der Anleitung oben. */}
+          {(z.zustand === "kein-treffer" || z.zustand === "fehler") && (
+            <button type="button" className="btn-secondary adr-pruef-hand" onClick={() => onKundeOeffnen(z.id)}>
+              Adresse von Hand korrigieren
+            </button>
           )}
         </div>
       ))}

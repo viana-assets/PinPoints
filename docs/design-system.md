@@ -393,3 +393,23 @@ Der Aufkleberbogen für Lagerplätze ist die erste Stelle mit einer echten Druck
 
 Wer weitere Druckausgaben baut (Rechnungen, Roadmap Phase 5), setzt darauf auf, statt eine
 zweite Druckmechanik daneben zu stellen.
+
+## Navigation: eine Liste, zwei Darstellungen (10.09.2026)
+
+Die Module standen zweimal von Hand aufgezählt – als Seitenleiste (Desktop) und als
+Kachelseite „Weitere" (Handy). Das ging so lange gut, bis jemand ein Modul ergänzte: Am
+10.09.2026 fehlten **Saisonliste und Artikelstamm auf dem Handy**, wochenlang unbemerkt, weil
+am Schreibtisch alles da war.
+
+Seitdem gibt es `lib/module.ts`: Reiter, Beschriftung, Kachelsatz, Symbol, Sichtbarkeitsregel
+und Trenner stehen einmal da; Seitenleiste und Kachelseite erzeugen sich daraus. Das ist die
+Konstanten-Regel aus `README.md`, angewandt auf die Navigation.
+
+`tests/navigation.test.ts` hält vier Zusagen fest: keine doppelten Reiter, jedes Modul hat
+Beschriftung und Kachelsatz, jedes verweist auf ein Recht, das es in `PERMISSION_DEFAULTS`
+wirklich gibt (sonst wäre es für alle außer dem Superadmin unsichtbar – und niemand suchte
+den Grund in einer Tabelle mit Voreinstellungen), und hinter „Weitere" stehen genau die
+nicht-primären Module.
+
+**Ein neues Modul braucht ab jetzt genau drei Handgriffe:** Eintrag in `lib/module.ts`,
+Schlüssel in `PERMISSION_DEFAULTS`, und der Block, der es rendert. Alles andere folgt.

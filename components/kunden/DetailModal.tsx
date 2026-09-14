@@ -15,11 +15,11 @@ import { CustomerOrderRow } from "./CustomerOrderRow";
 export function DetailModal(props: {
   customer: Customer; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>; history: ContactHistoryEntry[]; periodMonths: number;
   vehicles: Vehicle[]; tireStorages: TireStorage[]; storageSlots: StorageSlot[]; warehouses: Warehouse[];
-  articles: Article[]; orderArticles: OrderArticle[];
-  onAddOrderArticle: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
-  onUpdateOrderArticleQty: (id: string, quantity: number) => Promise<void>;
-  onUpdateOrderArticleDiscount: (id: string, discountPercent: number) => Promise<void>;
-  onRemoveOrderArticle: (id: string) => Promise<void>;
+  // Nur zum Anzeigen der Zusammenfassung je Auftrag. Bearbeitet werden die Positionen im
+  // Auftragsfenster – das Kundenfenster hat dafür kein zweites Formular mehr.
+  orderArticles: OrderArticle[];
+  // Öffnet das Auftragsfenster über diesem hier.
+  onOpenOrder: (id: string) => void;
   onClose: () => void;
   onSaveFields: (f: Partial<Customer>) => void;
   onMarkContacted: () => void;
@@ -166,14 +166,9 @@ export function DetailModal(props: {
               order={o}
               employees={props.employees}
               assignedEmployeeIds={props.orderEmployees[o.id] || []}
-              onUpdate={props.onUpdateOrder}
-              onDelete={props.onDeleteOrder}
-              articles={props.articles}
               orderArticles={props.orderArticles.filter((oa) => oa.order_id === o.id)}
-              onAddArticle={props.onAddOrderArticle}
-              onUpdateArticleQty={props.onUpdateOrderArticleQty}
-              onUpdateArticleDiscount={props.onUpdateOrderArticleDiscount}
-              onRemoveArticle={props.onRemoveOrderArticle}
+              onOpen={props.onOpenOrder}
+              onDelete={props.onDeleteOrder}
             />
           ))}
         </div>

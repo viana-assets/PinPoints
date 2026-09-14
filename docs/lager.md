@@ -185,6 +185,138 @@ geraten; eine falsche Zuordnung ist schlechter als eine fehlende, weil sie niema
 
 ---
 
+## Ein Wert für den Satz – oder vier Räder einzeln (Migration 33)
+
+Der Normalfall bleibt der Sammelwert: *ein* Profil für den ganzen Satz, in zwei Sekunden
+erfasst. Das deckt den Alltag ab. Der Ausnahmefall ist der wertvolle: Wenn vorne 3,1 mm und
+hinten 6,8 mm liegen, ist das ein Gespräch im Frühjahr – und mit einem Mittelwert ist es
+keins mehr.
+
+Deshalb zwei Erfassungsarten an `tire_storage`, umschaltbar am einzelnen Satz:
+
+* **`sammel`** – die Profiltiefe steht am Satz, es gibt keine Radzeilen.
+* **`einzeln`** – die Profiltiefe steht an den Rädern, am Satz ist sie leer.
+
+**Es gibt die Profiltiefe immer nur einmal.** Das ist die eigentliche Entscheidung hier,
+und sie steht als Prüfregel in der Datenbank (`tire_storage_kein_doppelter_profilwert`).
+Zwei Felder für dieselbe Zahl bedeuten unweigerlich, dass sie irgendwann verschieden sind –
+und dann muss jede Auswertung raten, welche gilt. Wer umschaltet, gibt den anderen Wert
+also auf; beim Weg zurück auf `sammel` fragt die Oberfläche vorher nach, und die Datenbank
+lehnt ihn ab, solange noch Räder erfasst sind.
+
+Gelesen wird beides über **eine** Funktion: `satzProfilMm()` in `lib/helpers.ts` liefert bei
+`sammel` den Satzwert und bei `einzeln` das **schwächste** Rad – nicht den Durchschnitt. Der
+Satz ist so gut wie sein schlechtestes Rad; ein Mittelwert würde genau den Fall verstecken,
+für den es die Einzelerfassung gibt. Alles, was Profiltiefen anzeigt oder filtert, ruft diese
+Funktion auf und muss die Erfassungsart nicht kennen (`tests/profiltiefe.test.ts`).
+
+### Das Radbild
+
+Bei Einzelerfassung steht kein Formular mit vier Zeilen „VL/VR/HL/HR", sondern ein Auto von
+oben mit vier antippbaren Rädern (`components/lager/RadBild.tsx`). Die Zuordnung ist dann die
+Position selbst – man tippt das Rad an, das man gerade in der Hand hat, statt sich das Auto
+zur Abkürzung dazuzudenken. Die Farbe der vier Räder beantwortet die Frage „wo wird es eng?"
+ohne Zahlenvergleich; sie meint ausdrücklich den **Zustand**, nicht die Belegung, und benutzt
+damit dasselbe Vokabular wie der Kundenzustand (`design-system.md`).
+
+Gemessen wird im Stehen, mit Handschuhen, das Handy in einer Hand. Deshalb ±0,1 mm als große
+Schaltflächen statt eines Zahlenfelds mit Tastatur. Die Grenzwerte stehen als Konstanten in
+`lib/constants.ts`: `PROFIL_GESETZLICH_MM` 1,6 (der gesetzliche Mindestwert), darüber
+`PROFIL_KRITISCH_MM` 3 und `PROFIL_HINWEIS_MM` 4 – die Schwellen, ab denen ein Winterreifen
+praktisch nichts mehr taugt bzw. die nächste Saison knapp wird.
+
+**Position darf leer bleiben.** Das lose Ersatzrad, „zwei weggeworfen, zwei eingelagert" – es
+gibt reale Sätze, die keine vier zugeordneten Räder haben. Solche Räder stehen unter dem Bild
+und zählen mit. Umgekehrt begrenzt `anzahl_raeder` (1–8, Standard 4), wie viele es werden
+dürfen; ein Motorrad hat zwei, ein Transporter-Zwilling mehr.
+
+**Zwillingsbereifung, Reserverad, Radwechsel zwischen Achsen** sind damit nicht abgebildet.
+Das ist Absicht: Der Fall, für den die Einzelerfassung gebaut ist, heißt „ein Rad ist
+deutlich schlechter als die anderen" – und der ist abgedeckt.
+
+### Wo die Zahl auftaucht
+
+Eine Messung, die nur im Auftragsfenster steht, ist eine Messung, die niemand wiederfindet.
+Die Profiltiefe erscheint deshalb überall dort, wo über den Satz entschieden wird – und immer
+als dieselbe Marke (`components/lager/ProfilMarke.tsx`, Farben nach `profilLage()`):
+
+* **Lagerregal**, auf jeder Platzkarte – wer am Regal steht, sieht den Zustand, ohne zu tippen.
+* **Platz-Historie**, weil die Räder beim Auslagern erhalten bleiben: entfernt wird die
+  Einlagerung, nicht ihre Messwerte.
+* **Saisonliste**, als zweite Spalte. Sie steht bewusst nicht am Ende: Auf dem Handy scrollt
+  die Tabelle waagerecht, und die hinterste Spalte ist genau die, die man nicht sieht.
+
+Die Marke fragt immer `satzProfilMm()`; ob der Satz sammel oder einzeln erfasst ist, muss
+keine der drei Stellen wissen. Ein Pfeil (↓) markiert, dass es der schwächste von mehreren
+Werten ist, ein ⚠ den Wert unter dem gesetzlichen Minimum.
+
+**Im Zuordnungsfenster des Lagers gibt es bei Einzelerfassung kein Eingabefeld** für die
+Profiltiefe, sondern das Radbild in Ansicht. Ein Feld anzubieten, dessen Inhalt die Datenbank
+beim Speichern zurückweist, wäre eine Falle; geändert wird dort, wo der Satz in der Hand
+liegt – im Auftragsfenster.
+
+### Der Zustand gehört zum Satz, nicht zum Auto (Migration 34)
+
+Am Fahrzeug standen bis zum 11.09.2026 drei Felder: Reifengröße, DOT-Datum, Profiltiefe. Zwei
+davon waren falsch platziert, und der Betrieb hat es gezeigt: *„Wofür lege ich am Fahrzeug die
+Reifengröße, das DOT-Datum und Co. an? Wenn ich sowieso jedes Mal den Reifensatz wechsle, dann
+würde die Information doch nicht stimmen, sobald ich den nächsten Satz anziehe."*
+
+Genau so ist es. Ein Auto behält man zehn Jahre, ein Satz wechselt zweimal im Jahr. Nach dem
+ersten Wechsel beschreibt der Wert am Fahrzeug einen Satz, der gerade woanders liegt – und er
+sieht dabei aus wie eine frische Messung. Das ist schlimmer als ein leeres Feld: Ein leeres
+Feld erzählt nichts, ein veraltetes erzählt etwas Falsches.
+
+**`tire_dot_date` und `tire_profile_mm` sind deshalb entfallen.** Beides steht seit Migration
+33 am eingelagerten Satz bzw. am einzelnen Rad.
+
+**`tire_size` bleibt am Fahrzeug.** Welche Größe ein Dacia Duster fährt, ist eine Eigenschaft
+des Autos: Sie hilft beim Bestellen und beim Prüfen, ob ein Satz überhaupt zu diesem Wagen
+gehören kann. Das ist die Trennlinie – was am Auto bleibt, gilt über alle Sätze hinweg.
+
+### Ein Fahrzeug anlegen, wo man gerade steht
+
+Ein Satz braucht ein Fahrzeug, bevor der Auftrag abgeschlossen werden kann (Migration 30) –
+angelegt werden konnte ein Fahrzeug aber nur im Kundenfenster. Der Techniker steht am Auto,
+im Auftrag, und musste für ein Kennzeichen das Fenster wechseln und wieder zurückfinden.
+
+Im Einlagerungs-Block steht deshalb jetzt „+ Fahrzeug dieses Kunden anlegen": Kennzeichen und
+Modell, mehr nicht – das ist, was am Auto abzulesen ist, während man davorsteht. Das neue
+Fahrzeug wird dem Satz **gleich zugeordnet**; andernfalls hätte man es angelegt und müsste es
+anschließend in einer Auswahlliste suchen, in der genau ein Eintrag steht. Reifengröße und
+Notiz lassen sich später im Kundenfenster nachtragen.
+
+### Warum am Abschluss-Knopf steht, was fehlt
+
+Die Regeln aus den Migrationen 22 und 30 greifen erst beim Abschließen, und sie greifen in der
+Datenbank. Am 11.09.2026 stellte sich heraus, dass die Ablehnung am Handy **unsichtbar** war:
+Die Fehlermeldung lag auf CSS-Ebene 4000, das Auftragsfenster auf 10000. Von außen sah es aus,
+als täte der Knopf nichts – der schlimmste Zustand, den eine Oberfläche annehmen kann.
+
+Zwei Korrekturen: Die Meldung liegt jetzt über dem Fenster (und am Handy oben statt unten, wo
+sie sonst genau den Knopf verdeckt, dessen Ablehnung sie erklärt). Und am Knopf steht als
+Vorschau, was noch fehlt – „Fehlt noch: Fahrzeug, Saison".
+
+**Der Knopf bleibt trotzdem anklickbar.** Ihn zu sperren hieße zu behaupten, die Oberfläche
+kenne alle Bedingungen; sie kennt nur die, die sie nachbildet. Die Wahrheit steht in der
+Datenbank, und ihre Ablehnung muss ankommen – sichtbar, nicht hinter einem Fenster.
+
+### Der Filter, der aus der Anrufliste eine Verkaufsliste macht
+
+In der Saisonliste steht neben „Nur fällige" jetzt **„Nur mit schwachem Profil (unter
+3,0 mm)"**, und über der Liste eine Zeile: *Bei 7 Sätzen liegt das schwächste Rad unter
+3,0 mm.* Das ist die Antwort auf die Frage, die die Saisonliste bisher nicht beantworten
+konnte – nicht „wer hat Reifen bei uns liegen", sondern „bei wem lohnt der Anruf".
+
+**Ungemessene Sätze gelten nicht als schwach.** Über sie ist nichts bekannt; sie mitzuzählen
+hieße, eine Messung zu behaupten, die es nicht gibt – und das Gespräch beim Kunden fiele
+entsprechend aus. Sie bleiben in der Liste sichtbar, nur eben ohne Marke.
+
+Filter und Kopfzeile benutzen dieselbe Regel, in `tests/profiltiefe.test.ts` festgehalten:
+Sonst zeigt die Liste drei Zeilen, während die Überschrift fünf behauptet.
+
+---
+
 ## Die Saisonliste (Migration 30/31, eigener Reiter)
 
 Die Frage, die dieses Geschäft zweimal im Jahr stellt: *Welche Kunden haben Winterreifen bei
