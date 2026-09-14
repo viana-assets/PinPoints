@@ -233,6 +233,11 @@ export default function HomePage() {
   // setView auf eine 0 Pixel breite Karte landet nirgends.
   const [positionSetzenZiel, setPositionSetzenZiel] = useState<{ lat: number; lng: number } | null>(null);
   const [positionSetzenSucht, setPositionSetzenSucht] = useState(false);
+  // Welche Nadel ist gerade hervorgehoben? Als Ref und nicht als Zustand: Beim Überfahren der
+  // Kundenliste soll NICHT die ganze Seite neu gezeichnet werden – es wird nur eine Klasse an
+  // einem einzigen Kartenelement gesetzt. Bei 400 Zeilen ist das der Unterschied zwischen
+  // „reagiert sofort" und „hakt".
+  const hervorgehobeneNadelRef = useRef<string | null>(null);
   const [saisonSchreibt, setSaisonSchreibt] = useState(false);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
@@ -826,7 +831,7 @@ export default function HomePage() {
     if (zustand === "kein-interesse") {
       return L.divIcon({
         className: "custom-pin",
-        html: `<div style="width:22px;height:22px;border-radius:50%;background:#fff;
+        html: `<div class="pin-kreis" style="width:22px;height:22px;border-radius:50%;background:#fff;
                 border:2px solid ${MARKER_FARBE.red};box-shadow:0 1px 4px rgba(0,0,0,.4);
                 display:flex;align-items:center;justify-content:center;
                 color:${MARKER_FARBE.red};font:700 14px/1 sans-serif;">✕</div>`,
@@ -837,12 +842,33 @@ export default function HomePage() {
     return L.divIcon({
       className: "custom-pin",
       html: ungefaehr
-        ? `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#fff;
-              transform:rotate(-45deg);border:2px dashed ${bg};box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>`
-        : `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:${bg};
-              transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
+        ? `<div class="pin-nadel" style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#fff;
+              border:2px dashed ${bg};box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>`
+        : `<div class="pin-nadel" style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:${bg};
+              border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
       iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -22],
     });
+  }
+
+  // Nadel zu einer Kundenzeile hervorheben (nur am Rechner, siehe unten). Greift bewusst
+  // direkt auf das Kartenelement zu, statt über React zu gehen: Leaflet verwaltet diese
+  // Elemente selbst, und ein Zustandswechsel je Mausbewegung wäre hier verschwendet.
+  function nadelHervorheben(kundenId: string | null) {
+    const vorher = hervorgehobeneNadelRef.current;
+    if (vorher === kundenId) return;
+    if (vorher) {
+      markerIndexRef.current[vorher]?.getElement()?.classList.remove("pin-hervor");
+    }
+    hervorgehobeneNadelRef.current = kundenId;
+    if (kundenId) {
+      markerIndexRef.current[kundenId]?.getElement()?.classList.add("pin-hervor");
+    }
+  }
+
+  // Nur an Geräten mit echtem Zeiger. Auf einem Touchgerät löst „mouseenter" beim Tippen aus –
+  // dann bliebe eine Nadel hervorgehoben, ohne dass jemand darauf zeigt.
+  function zeigergeraet(): boolean {
+    return typeof window !== "undefined" && window.matchMedia?.("(hover: hover)").matches === true;
   }
 
   function syncMarkers() {
@@ -895,6 +921,9 @@ export default function HomePage() {
         marker.bindPopup(() => buildPopupEl(cust.id), { minWidth: 240 });
         marker.addTo(markerLayerRef.current);
         markerIndexRef.current[cust.id] = marker;
+        // Wird beim Verschieben der Karte eine Nadel neu angelegt, während die Maus noch auf
+        // ihrer Zeile steht, muss die Hervorhebung mitkommen.
+        if (hervorgehobeneNadelRef.current === cust.id) marker.getElement()?.classList.add("pin-hervor");
       }
     });
     Object.keys(markerIndexRef.current).forEach((id) => {
@@ -1990,7 +2019,13 @@ export default function HomePage() {
                 const color = c.lat == null ? "gray" : effectiveColor(c, settings.period_months);
                 const nextOrd = nextOrder(ordersFor(c.id));
                 return (
-                  <div key={c.id} className="cust-item" onClick={() => openDetail(c.id)}>
+                  <div
+                    key={c.id}
+                    className="cust-item"
+                    onClick={() => openDetail(c.id)}
+                    onMouseEnter={() => { if (zeigergeraet()) nadelHervorheben(c.id); }}
+                    onMouseLeave={() => { if (zeigergeraet()) nadelHervorheben(null); }}
+                  >
                     <div className={`dot ${color}`}></div>
                     <div className="info">
                       {/* Bei Firmenkunden ist der Firmenname die Hauptangabe, der Name der

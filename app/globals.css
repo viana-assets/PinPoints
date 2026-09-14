@@ -1084,3 +1084,36 @@ tr.klickbar:hover { background: var(--hover); }
 /* Was jetzt nicht gebraucht wird, ist auch nicht im Weg. */
 #app.punkt-setzen #mapToggleBtn,
 #app.punkt-setzen #kartenFilter{display:none;}
+
+/* Zeile überfahren → zugehörige Nadel wird größer.
+   Die Frage dahinter ist alltäglich: „Welcher Punkt auf der Karte ist dieser Kunde?" Bisher
+   war sie nur durch Anklicken zu beantworten. Vergrößern statt umfärben, weil die Farben in
+   dieser Anwendung schon eine Bedeutung haben (Kundenzustand) – dieselbe Regel wie im Lager:
+   die Form trägt die neue Aussage, die Farbe bleibt reserviert.
+   Der Zeiger-Ursprung sitzt unten an der Nadelspitze, damit sie beim Wachsen nicht wegrutscht,
+   sondern an ihrem Ort größer wird. */
+/* Die Drehung der Tropfenform steht HIER und nicht im style-Attribut des Markers.
+   Am 14.09.2026 stand sie dort – und die Vergrößerung beim Überfahren tat nichts, weil ein
+   Wert am Element jede Regel im Stilblatt schlägt. Vierter Fall derselben Sorte in diesem
+   Projekt; deshalb steht sie jetzt dort, wo sie sich mit anderen Regeln verrechnen lässt. */
+.custom-pin .pin-nadel{transform:rotate(-45deg);transform-origin:50% 100%;}
+
+.custom-pin.pin-hervor{z-index:1000 !important;}
+/* Die Tropfenform steht auf der Spitze und ist dafür um 45° gedreht – beim Vergrößern muss
+   diese Drehung mitgeschrieben werden, sonst richtet sich die Nadel auf. Ursprung unten an
+   der Spitze, damit sie an ihrem Ort wächst statt wegzurutschen. */
+.custom-pin.pin-hervor .pin-nadel{
+  transform:rotate(-45deg) scale(1.65);
+  transform-origin:50% 100%;
+  box-shadow:0 2px 10px rgba(0,0,0,.45);
+  border-width:3px;
+}
+/* „Kein Interesse" ist ein Kreis mit ✕ und nicht gedreht – hier also nur vergrößern. */
+.custom-pin.pin-hervor .pin-kreis{
+  transform:scale(1.5);
+  box-shadow:0 2px 10px rgba(0,0,0,.45);
+}
+.custom-pin .pin-nadel, .custom-pin .pin-kreis{transition:transform .12s ease, box-shadow .12s ease;}
+@media (prefers-reduced-motion: reduce){
+  .custom-pin .pin-nadel, .custom-pin .pin-kreis{transition:none;}
+}
