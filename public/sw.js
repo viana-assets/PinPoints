@@ -17,7 +17,7 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v12";
+const FASSUNG = "v13";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 // Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
 // stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg
@@ -195,11 +195,20 @@ async function ausSpeicherOderNetz(anfrage) {
   const speicher = await caches.open(SPEICHER);
   const treffer = await speicher.match(anfrage);
   if (treffer) return treffer;
-  const antwort = await fetch(anfrage);
-  if (antwort && (antwort.ok || antwort.type === "opaque")) {
-    speicher.put(anfrage, antwort.clone()).catch(() => {});
+  try {
+    const antwort = await fetch(anfrage);
+    if (antwort && (antwort.ok || antwort.type === "opaque")) {
+      speicher.put(anfrage, antwort.clone()).catch(() => {});
+    }
+    return antwort;
+  } catch (grund) {
+    // Scheitert der Abruf – offline, oder von der CSP abgelehnt –, darf das kein unbehandelter
+    // Fehler werden. Am 14.09.2026 stand deshalb bei jedem Laden ein rotes „Uncaught (in
+    // promise) TypeError" in der Konsole, das mit dem eigentlichen Problem (eine fehlende
+    // Erlaubnis in connect-src) nichts zu tun hatte und beim Suchen nur im Weg stand.
+    // 504 statt eines Absturzes: Die Seite lädt weiter, nur ohne dieses eine Stück.
+    return new Response("", { status: 504, statusText: "Nicht erreichbar: " + String(grund) });
   }
-  return antwort;
 }
 
 async function seiteLiefern(anfrage, adresse) {

@@ -22,7 +22,15 @@ const csp = [
   "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://server.arcgisonline.com",
   // Supabase (REST + Realtime). Die Geokodierung läuft seit Phase 8 über die eigene Route
   // /api/geocode, deshalb steht Nominatim hier bewusst NICHT mehr.
-  "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
+  // Neben Supabase stehen hier die Schrift-Hosts – und zwar wegen des Service Workers.
+  // Befund vom 14.09.2026 aus der Browser-Konsole: Der Worker fängt die Schriftanfragen ab
+  // (public/sw.js, SCHRIFT_HOSTS) und holt sie mit `fetch`. Ein fetch AUS dem Worker heraus
+  // ist ein Verbindungsaufbau und fällt damit unter `connect-src` – nicht unter `style-src`
+  // oder `font-src`, die beide längst offen waren. Ergebnis: Die Anfrage wurde blockiert, der
+  // Worker warf einen unbehandelten Fehler, und die App lief still in Ersatzschriften statt in
+  // Outfit und Karla. Ein Fehler, den man nur in der Konsole sieht – und an der Typografie,
+  // wenn man weiß, wonach man schaut.
+  "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://fonts.googleapis.com https://fonts.gstatic.com",
   "frame-ancestors 'none'",
   "base-uri 'self'",
   "form-action 'self'",
