@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hausnummerAus, vorschlagOhneHausnummer } from "@/lib/helpers";
+import { adresseOhneHausnummer, hausnummerAus, navigationUrls, vorschlagOhneHausnummer } from "@/lib/helpers";
 
 // Der Kartendienst schlägt gern die Straße ohne Haus vor. Wird dieser Vorschlag übernommen,
 // ist die Adresse anschließend schlechter als vorher – und die Fahrt endet am Anfang der
@@ -56,5 +56,66 @@ describe("vorschlagOhneHausnummer", () => {
 
   it("warnt auch, wenn der Vorschlag eine ANDERE Straße ohne Nummer ist", () => {
     expect(vorschlagOhneHausnummer("Hauptstraße 3, 90402 Nürnberg", "Nebenstraße, 90402 Nürnberg")).toBe(true);
+  });
+});
+
+// Der zweite Versuch beim Geokodieren: dieselbe Adresse ohne die Hausnummer.
+describe("adresseOhneHausnummer", () => {
+  it("streicht die Hausnummer und lässt den Rest stehen", () => {
+    expect(adresseOhneHausnummer("Allerheiligenweg 36b, 90530 Wendelstein"))
+      .toBe("Allerheiligenweg, 90530 Wendelstein");
+    expect(adresseOhneHausnummer("Rehhofstraße 16, 90482 Nürnberg"))
+      .toBe("Rehhofstraße, 90482 Nürnberg");
+  });
+
+  it("gibt null zurück, wenn es nichts zu streichen gibt", () => {
+    // Sonst ginge eine zweite, identische Anfrage an einen kostenlosen Fremddienst.
+    expect(adresseOhneHausnummer("Allerheiligenweg, 90530 Wendelstein")).toBeNull();
+    expect(adresseOhneHausnummer(null)).toBeNull();
+  });
+
+  it("lässt eine Zahl im Straßennamen unangetastet", () => {
+    expect(adresseOhneHausnummer("Straße des 17. Juni, 10623 Berlin")).toBeNull();
+  });
+});
+
+// Die Navigation ist der Punkt, an dem eine ungefähre Position echten Schaden anrichtet.
+describe("navigationUrls", () => {
+  const basis = {
+    id: "k1", name: "Test", address: "Allerheiligenweg 36b, 90530 Wendelstein",
+    phone_mobile: null, phone_landline: null, company: null, anrede: null, email: null,
+    note: null, status: "offen" as const, last_contact: null, kontakt_ergebnis: null,
+    wiedervorlage_am: null, active: true, deleted_at: null,
+  };
+
+  it("nimmt bei genauer Position die Koordinate", () => {
+    const u = navigationUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: "exakt" });
+    expect(u.google).toContain("49.35%2C11.15");
+  });
+
+  it("nimmt bei von Hand gesetzter Position die Koordinate", () => {
+    // Sie kommt von einem Menschen, der dort war – genauer geht es nicht.
+    const u = navigationUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: "hand" });
+    expect(u.google).toContain("49.35%2C11.15");
+  });
+
+  it("nimmt bei UNGEFÄHRER Position den Adresstext, nicht den Punkt", () => {
+    // Der Punkt ist die Straßenmitte; die Hausnummer steht nur im Text, und Google findet sie.
+    const u = navigationUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: "ungefaehr" });
+    expect(u.google).toContain("36b");
+    expect(u.google).not.toContain("49.35");
+    expect(u.apple).toContain("36b");
+  });
+
+  it("nimmt ohne Position den Adresstext", () => {
+    const u = navigationUrls({ ...basis, lat: null, lng: null, geo_genauigkeit: null });
+    expect(u.google).toContain("36b");
+  });
+
+  it("behandelt Altbestand ohne Angabe wie „genau“", () => {
+    // Bis Migration 35 gab es die Spalte nicht; jede vorhandene Position stammte aus der
+    // vollständigen Adresse. Ein fehlender Wert darf die Navigation nicht verschlechtern.
+    const u = navigationUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: null });
+    expect(u.google).toContain("49.35%2C11.15");
   });
 });

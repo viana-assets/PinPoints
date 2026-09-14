@@ -7,7 +7,7 @@
 // stehen nur Konstanten, die von mehreren, fachlich unterschiedlichen Stellen in
 // app/page.tsx verwendet werden (Rollen, Berechtigungen, Auftragsstatus, Kalenderfarben).
 
-import type { Felge, OrderStatus, RadPosition, Role, Saison } from "./types";
+import type { Felge, GeoGenauigkeit, OrderStatus, RadPosition, Role, Saison } from "./types";
 
 // ---------------------------------------------------------------- Rollen
 export const ROLE_LABEL: Record<Role, string> = {
@@ -213,6 +213,14 @@ export const FELGEN: Felge[] = ["stahl", "alu", "keine"];
 //
 // Sie stehen hier und nicht im Code, weil sie an drei Stellen gebraucht werden (Radbild,
 // Liste, späterer Verkaufsanlass) – und weil ein Betrieb sie irgendwann anders sehen kann.
+// Wie genau eine Kartenposition ist (Migration 35). Dieselbe feste Werteliste steht als
+// Prüfregel in der Datenbank – hier nur die Beschriftung.
+export const GEO_GENAUIGKEIT_LABEL: Record<GeoGenauigkeit, string> = {
+  exakt: "genaue Position",
+  ungefaehr: "ungefähre Position – nur die Straße war auffindbar",
+  hand: "Position von Hand gesetzt",
+};
+
 export const PROFIL_GESETZLICH_MM = 1.6;
 export const PROFIL_KRITISCH_MM = 3;
 export const PROFIL_HINWEIS_MM = 4;

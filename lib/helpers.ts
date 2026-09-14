@@ -96,8 +96,17 @@ export function getPhoneNumbers(cust: Customer): { label: string; number: string
 // Navigations-Links zu einem Kunden: bevorzugt die geokodierte Position (lat/lng), falls
 // vorhanden, sonst die Adresse als Text – jeweils als fertige "Route dorthin"-Links für Google
 // Maps und Apple Karten, die sich auf dem Smartphone direkt in der jeweiligen App öffnen.
+// Ziel für die Navigation. Die Koordinate wird nur benutzt, wenn sie GENAUER ist als der
+// Adresstext – also bei 'exakt' und bei 'hand'.
+//
+// Bei 'ungefaehr' (Migration 35) ist sie es nicht: Der Punkt ist die Straßenmitte, weil
+// OpenStreetMap die Hausnummer nicht kennt. Der Adresstext enthält sie aber – und Google
+// bzw. Apple finden sie. Die Koordinate mitzugeben hieße hier, die Navigation an den Anfang
+// der Straße zu schicken, obwohl die Hausnummer danebensteht.
 export function navigationUrls(cust: Customer): { google: string; apple: string } {
-  const hasCoords = cust.lat != null && cust.lng != null;
+  const hatPunkt = cust.lat != null && cust.lng != null;
+  const punktIstGenauer = hatPunkt && (cust.geo_genauigkeit ?? "exakt") !== "ungefaehr";
+  const hasCoords = punktIstGenauer;
   const dest = hasCoords ? `${cust.lat},${cust.lng}` : cust.address;
   const q = encodeURIComponent(dest);
   return {
@@ -218,6 +227,21 @@ export function hausnummerAus(adresse: string | null): string | null {
   return treffer ? treffer[1].replace(/\s+/g, "") : null;
 }
 
+// Dieselbe Adresse ohne die Hausnummer – der zweite Versuch beim Geokodieren.
+// Aus „Allerheiligenweg 36b, 90530 Wendelstein" wird „Allerheiligenweg, 90530 Wendelstein".
+// Gibt null zurück, wenn es gar keine Hausnummer gab: Dann wäre der zweite Versuch derselbe
+// wie der erste, und eine zweite Anfrage an einen kostenlosen Fremddienst ohne Aussicht auf
+// ein anderes Ergebnis ist schlicht unhöflich.
+export function adresseOhneHausnummer(adresse: string | null): string | null {
+  if (!adresse) return null;
+  const nummer = hausnummerAus(adresse);
+  if (!nummer) return null;
+  const teile = adresse.split(",");
+  const strasse = teile[0].replace(/\s*\d+\s*[a-zA-Z]?\s*$/, "").trim();
+  if (!strasse) return null;
+  return [strasse, ...teile.slice(1).map((t) => t.trim())].filter(Boolean).join(", ");
+}
+
 // Ist der Vorschlag in dieser einen Hinsicht schlechter als das, was schon dasteht?
 export function vorschlagOhneHausnummer(bisher: string | null, vorschlag: string | null): boolean {
   return hausnummerAus(bisher) !== null && hausnummerAus(vorschlag) === null;
@@ -331,19 +355,33 @@ function ohneUmlaute(text: string): string {
 // identifizierender User-Agent und ein Cache (Review-Befund A9). Signatur und Verhalten
 // bleiben für die Aufrufer unverändert – null bedeutet weiterhin "keine Position gefunden",
 // eine Ausnahme bedeutet "Dienst nicht erreichbar".
-export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+export async function geocodeAddress(
+  address: string
+): Promise<{ lat: number; lng: number; genauigkeit: "exakt" | "ungefaehr" } | null> {
   const stadt = DEFAULT_GEOCODE_REGION.split(",")[0].trim();
-  const query = ohneUmlaute(address).includes(ohneUmlaute(stadt))
-    ? address
-    : address + ", " + DEFAULT_GEOCODE_REGION;
+  const ergaenzen = (a: string) =>
+    ohneUmlaute(a).includes(ohneUmlaute(stadt)) ? a : a + ", " + DEFAULT_GEOCODE_REGION;
 
   const resp = await fetch("/api/geocode", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({
+      query: ergaenzen(address),
+      // Der Rückfallweg wird HIER gebildet und nicht auf dem Server: Was eine Hausnummer ist,
+      // weiß `hausnummerAus()`, und diese Regel soll es genau einmal geben (sie entscheidet
+      // auch in der Adressprüfung, ob ein Vorschlag ärmer ist als die vorhandene Adresse).
+      ohneHausnummer: (() => {
+        const kurz = adresseOhneHausnummer(address);
+        return kurz ? ergaenzen(kurz) : null;
+      })(),
+    }),
   });
   if (!resp.ok) throw new Error("Geocoding fehlgeschlagen");
   const data = await resp.json();
   if (data == null || data.lat == null || data.lng == null) return null;
-  return { lat: data.lat as number, lng: data.lng as number };
+  return {
+    lat: data.lat as number,
+    lng: data.lng as number,
+    genauigkeit: data.genauigkeit === "ungefaehr" ? "ungefaehr" : "exakt",
+  };
 }

@@ -3,6 +3,15 @@
 // Prüfbedingung in der Datenbank, damit kein direkter API-Aufruf einen vierten erfindet.
 export type KontaktErgebnis = "auftrag" | "wiedervorlage" | "kein_interesse";
 
+// Wie genau ist die gespeicherte Kartenposition? (Migration 35)
+//
+// 'exakt'     – der Kartendienst kannte die vollständige Adresse samt Hausnummer.
+// 'ungefaehr' – nur die Straße war auffindbar; der Punkt ist die Straßenmitte.
+// 'hand'      – jemand hat ihn selbst auf der Karte gesetzt. Das ist die beste Angabe, die
+//               es gibt: Sie kommt von einem Menschen, der dort war.
+// null        – keine Position (dann sind auch lat/lng leer).
+export type GeoGenauigkeit = "exakt" | "ungefaehr" | "hand";
+
 export type Customer = {
   id: string;
   // Anzeigename. Bei einer Firma steht hier der Ansprechpartner, der Firmenname in `company`.
@@ -21,6 +30,7 @@ export type Customer = {
   note: string | null;
   lat: number | null;
   lng: number | null;
+  geo_genauigkeit: GeoGenauigkeit | null;
   status: "offen" | "kontaktiert";
   last_contact: string | null; // YYYY-MM-DD
   // Was beim letzten Kontakt herauskam (Migration 23). Null heißt „noch nichts festgehalten" –

@@ -20,6 +20,10 @@ export function DetailModal(props: {
   orderArticles: OrderArticle[];
   // Öffnet das Auftragsfenster über diesem hier.
   onOpenOrder: (id: string) => void;
+  // Schließt dieses Fenster und schaltet die Karte in den Modus „Punkt setzen". Für die
+  // Adressen, die OpenStreetMap gar nicht oder nur ungenau kennt – Neubaugebiete,
+  // Hinterhöfe, Gewerbezufahrten.
+  onPositionSetzen: () => void;
   onClose: () => void;
   onSaveFields: (f: Partial<Customer>) => void;
   onMarkContacted: () => void;
@@ -119,7 +123,26 @@ export function DetailModal(props: {
         >
           💾 Kundendaten speichern
         </button>
-        {cust.lat == null && <div className="small" style={{ color: "var(--red)", marginTop: 4 }}>Für diesen Kunden gibt es noch keine Kartenposition.</div>}
+        {/* Die Kartenposition und wie genau sie ist (Migration 35). Der Satz steht direkt unter
+            dem Speichern-Knopf, weil er sich mit der Adresse ändert – und weil hier auch der
+            Weg beginnt, ihn selbst zu setzen. */}
+        <div className="geo-zeile">
+          {cust.lat == null ? (
+            <span className="small" style={{ color: "var(--red)" }}>Für diesen Kunden gibt es noch keine Kartenposition.</span>
+          ) : cust.geo_genauigkeit === "ungefaehr" ? (
+            <span className="small" style={{ color: "var(--accent)", fontWeight: 700 }}>
+              Ungefähre Position: Der Kartendienst kennt die Straße, aber nicht die Hausnummer.
+              Die Navigation läuft deshalb über die Adresse, nicht über diesen Punkt.
+            </span>
+          ) : cust.geo_genauigkeit === "hand" ? (
+            <span className="small" style={{ color: "var(--green)" }}>Position von Hand gesetzt.</span>
+          ) : (
+            <span className="small" style={{ color: "var(--muted)" }}>Position vom Kartendienst gefunden.</span>
+          )}
+          <button type="button" className="btn-secondary geo-knopf" onClick={props.onPositionSetzen}>
+            {cust.lat == null ? "Position auf der Karte setzen" : "Position auf der Karte korrigieren"}
+          </button>
+        </div>
 
         <h4>Fahrzeuge</h4>
         <div>

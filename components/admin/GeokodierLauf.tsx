@@ -19,7 +19,12 @@ import { fetchKundenOhneKoordinaten, setzeKundenKoordinaten } from "@/lib/api/cu
 // Rund eine Adresse pro Sekunde heißt: gut sieben Minuten für 422 Kunden. Deshalb läuft es
 // sichtbar, mit Fortschritt und Abbruchmöglichkeit, statt hinter einem stummen Wartekreis.
 
-type Stand = { gesamt: number; erledigt: number; treffer: number; ohneTreffer: number; fehler: number };
+type Stand = {
+  gesamt: number; erledigt: number; treffer: number; ohneTreffer: number; fehler: number;
+  // Davon nur auf Straßenebene gefunden (Migration 35). Getrennt gezählt, weil „gefunden"
+  // sonst zwei verschiedene Dinge bedeutete – und die ungefähren gehören noch einmal angesehen.
+  ungefaehr: number;
+};
 
 export function GeokodierLauf({ supabase }: { supabase: SupabaseClient }) {
   const [stand, setStand] = useState<Stand | null>(null);
@@ -38,15 +43,16 @@ export function GeokodierLauf({ supabase }: { supabase: SupabaseClient }) {
         setStand(null);
         return;
       }
-      const s: Stand = { gesamt: offen.length, erledigt: 0, treffer: 0, ohneTreffer: 0, fehler: 0 };
+      const s: Stand = { gesamt: offen.length, erledigt: 0, treffer: 0, ohneTreffer: 0, fehler: 0, ungefaehr: 0 };
       setStand({ ...s });
       for (const kunde of offen) {
         if (abbruch.current) { setMeldung(`Abgebrochen nach ${s.erledigt} von ${s.gesamt}. Ein erneuter Start macht dort weiter.`); break; }
         try {
           const treffer = await geocodeAddress(kunde.address);
           if (treffer) {
-            await setzeKundenKoordinaten(supabase, kunde.id, treffer.lat, treffer.lng);
+            await setzeKundenKoordinaten(supabase, kunde.id, treffer.lat, treffer.lng, treffer.genauigkeit);
             s.treffer++;
+            if (treffer.genauigkeit === "ungefaehr") s.ungefaehr++;
           } else {
             // Kein Treffer ist kein Fehler: die Adresse ist unvollständig oder falsch
             // geschrieben. Der Kunde bleibt unter „Ohne Karte" und lässt sich dort abarbeiten.
@@ -60,6 +66,7 @@ export function GeokodierLauf({ supabase }: { supabase: SupabaseClient }) {
       }
       if (!abbruch.current) {
         setMeldung(`Fertig: ${s.treffer} von ${s.gesamt} Adressen gefunden.` +
+          (s.ungefaehr ? ` Davon ${s.ungefaehr} nur auf Straßenebene – die Hausnummer kennt der Kartendienst dort nicht. Diese Kunden stehen auf der Karte als ungefähr und lassen sich im Kundenfenster von Hand genauer setzen.` : "") +
           (s.ohneTreffer ? ` ${s.ohneTreffer} ohne Treffer – bitte die Adresse prüfen.` : "") +
           (s.fehler ? ` ${s.fehler} mit Fehler – ein erneuter Start versucht sie noch einmal.` : ""));
       }

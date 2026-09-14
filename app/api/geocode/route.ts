@@ -40,53 +40,83 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => null);
   const anfrage = body && typeof body.query === "string" ? body.query.trim() : "";
+  // Zweiter Versuch ohne Hausnummer, vom Aufrufer mitgeschickt (Migration 35). Optional –
+  // ältere Aufrufer kennen das Feld nicht, und ohne Hausnummer gibt es auch keinen.
+  const ersatz = body && typeof body.ohneHausnummer === "string" ? body.ohneHausnummer.trim() : "";
   if (!anfrage) {
     return NextResponse.json({ error: "Keine Adresse übergeben." }, { status: 400 });
   }
-  if (anfrage.length > 300) {
+  if (anfrage.length > 300 || ersatz.length > 300) {
     return NextResponse.json({ error: "Adresse zu lang." }, { status: 400 });
   }
 
-  const schluessel = anfrage.toLowerCase().replace(/\s+/g, " ");
+  // Eine Abfrage gegen Cache und Dienst – einmal geschrieben, zweimal benutzt (volle Adresse,
+  // dann Straße ohne Hausnummer).
+  async function suchen(text: string): Promise<{ lat: number | null; lng: number | null } | "fehler"> {
+    const schluessel = text.toLowerCase().replace(/\s+/g, " ");
 
-  const { data: treffer } = await supabase
-    .from("geocode_cache")
-    .select("lat, lng, gefunden")
-    .eq("query", schluessel)
-    .maybeSingle();
+    const { data: treffer } = await supabase
+      .from("geocode_cache")
+      .select("lat, lng, gefunden")
+      .eq("query", schluessel)
+      .maybeSingle();
 
-  if (treffer) {
-    return NextResponse.json(treffer.gefunden ? { lat: treffer.lat, lng: treffer.lng } : { lat: null, lng: null });
+    if (treffer) {
+      return treffer.gefunden ? { lat: treffer.lat, lng: treffer.lng } : { lat: null, lng: null };
+    }
+
+    await drosseln();
+
+    let lat: number | null = null;
+    let lng: number | null = null;
+    try {
+      const url = `${NOMINATIM}?format=json&limit=1&q=${encodeURIComponent(text)}`;
+      const resp = await fetch(url, {
+        headers: { "Accept-Language": "de", "User-Agent": USER_AGENT },
+        // Kein Weiterreichen von Cookies o. ä. an den Drittdienst.
+        cache: "no-store",
+      });
+      if (!resp.ok) return "fehler";
+      const daten = await resp.json();
+      if (Array.isArray(daten) && daten.length > 0) {
+        lat = parseFloat(daten[0].lat);
+        lng = parseFloat(daten[0].lon);
+      }
+    } catch {
+      return "fehler";
+    }
+
+    // Auch ein Nicht-Treffer wird gemerkt, damit dieselbe unauffindbare Adresse nicht bei jedem
+    // Speichern erneut nach draußen geht.
+    await supabase
+      .from("geocode_cache")
+      .upsert({ query: schluessel, lat, lng, gefunden: lat !== null }, { onConflict: "query" });
+
+    return { lat, lng };
   }
 
-  await drosseln();
-
-  let lat: number | null = null;
-  let lng: number | null = null;
-  try {
-    const url = `${NOMINATIM}?format=json&limit=1&q=${encodeURIComponent(anfrage)}`;
-    const resp = await fetch(url, {
-      headers: { "Accept-Language": "de", "User-Agent": USER_AGENT },
-      // Kein Weiterreichen von Cookies o. ä. an den Drittdienst.
-      cache: "no-store",
-    });
-    if (!resp.ok) {
-      return NextResponse.json({ error: "Der Kartendienst hat nicht geantwortet." }, { status: 502 });
-    }
-    const daten = await resp.json();
-    if (Array.isArray(daten) && daten.length > 0) {
-      lat = parseFloat(daten[0].lat);
-      lng = parseFloat(daten[0].lon);
-    }
-  } catch {
+  const genau = await suchen(anfrage);
+  if (genau === "fehler") {
     return NextResponse.json({ error: "Der Kartendienst war nicht erreichbar." }, { status: 502 });
   }
+  if (genau.lat !== null) {
+    return NextResponse.json({ lat: genau.lat, lng: genau.lng, genauigkeit: "exakt" });
+  }
 
-  // Auch ein Nicht-Treffer wird gemerkt, damit dieselbe unauffindbare Adresse nicht bei jedem
-  // Speichern erneut nach draußen geht.
-  await supabase
-    .from("geocode_cache")
-    .upsert({ query: schluessel, lat, lng, gefunden: lat !== null }, { onConflict: "query" });
+  // Die vollständige Adresse war nicht auffindbar. In kleineren Orten kennt OpenStreetMap die
+  // Straße, aber keine Hausnummern – dann ist die Straßenmitte besser als nichts. Sie wird als
+  // „ungefaehr" zurückgegeben, damit die Anwendung sie als Näherung kennzeichnen kann und
+  // nicht so tut, als wüsste sie, wo das Haus steht.
+  if (!ersatz || ersatz.toLowerCase() === anfrage.toLowerCase()) {
+    return NextResponse.json({ lat: null, lng: null });
+  }
 
-  return NextResponse.json({ lat, lng });
+  const grob = await suchen(ersatz);
+  if (grob === "fehler") {
+    return NextResponse.json({ error: "Der Kartendienst war nicht erreichbar." }, { status: 502 });
+  }
+  if (grob.lat === null) {
+    return NextResponse.json({ lat: null, lng: null });
+  }
+  return NextResponse.json({ lat: grob.lat, lng: grob.lng, genauigkeit: "ungefaehr" });
 }

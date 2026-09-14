@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { ContactHistoryEntry, Customer, KontaktErgebnis } from "@/lib/types";
+import type { ContactHistoryEntry, Customer, GeoGenauigkeit, KontaktErgebnis } from "@/lib/types";
 import { geocodeAddress } from "@/lib/helpers";
 import { ApiError, fetchPaged, q, qOne, qWrite } from "./client";
 
@@ -127,13 +127,16 @@ export async function updateCustomerFieldsById(supabase: SupabaseClient, id: str
   }
   patch.lat = null;
   patch.lng = null;
+  // Ohne Position auch keine Genauigkeit – sonst stünde am Kunden „ungefähre Position",
+  // während es gar keine gibt.
+  patch.geo_genauigkeit = null;
   await qWrite("Die Kundendaten konnten nicht gespeichert werden", supabase.from("customers").update(patch).eq("id", id));
   try {
     const res = await geocodeAddress(fields.address!);
     if (res) {
       await qWrite(
         "Die Kartenposition konnte nicht gespeichert werden",
-        supabase.from("customers").update({ lat: res.lat, lng: res.lng }).eq("id", id)
+        supabase.from("customers").update({ lat: res.lat, lng: res.lng, geo_genauigkeit: res.genauigkeit }).eq("id", id)
       );
     }
   } catch {
@@ -154,10 +157,13 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
 }): Promise<{ id: string | undefined; lat: number | null; lng: number | null }> {
   let lat: number | null = fields.koordinate?.lat ?? null;
   let lng: number | null = fields.koordinate?.lng ?? null;
+  // Eine Koordinate aus einem angenommenen Adressvorschlag gehört zum Adresstext desselben
+  // Treffers – sie ist damit so genau wie dieser Text.
+  let genauigkeit: "exakt" | "ungefaehr" | null = lat === null ? null : "exakt";
   if (lat === null) {
     try {
       const res = await geocodeAddress(fields.address);
-      if (res) { lat = res.lat; lng = res.lng; }
+      if (res) { lat = res.lat; lng = res.lng; genauigkeit = res.genauigkeit; }
     } catch {
       // siehe oben – ohne Kartenposition anlegen ist besser als gar nicht anlegen.
     }
@@ -168,7 +174,8 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
     supabase
       .from("customers")
       .insert({
-        name, address, phone_mobile, phone_landline, note, lat, lng, status: "offen", active: true,
+        name, address, phone_mobile, phone_landline, note, lat, lng, geo_genauigkeit: genauigkeit,
+        status: "offen", active: true,
         // Leere Felder als null, nicht als leere Zeichenkette – sonst stünde "" neben null für
         // dieselbe Aussage, und die Prüfbedingung auf `anrede` lehnt "" ohnehin ab.
         company: fields.company.trim() || null,
@@ -212,18 +219,34 @@ export async function fetchKundenOhneKoordinaten(
 // Adresse UND Koordinate in einem Schreibvorgang. Getrennt zu speichern hieße, einen Moment
 // lang eine Adresse mit der Position der alten zu haben – und wenn der zweite Schreibvorgang
 // scheitert, bliebe es dabei.
+// Ein angenommener Adressvorschlag: Text und Koordinate stammen aus demselben Treffer, die
+// Position ist also so genau wie der Text. Ob dieser Text die Hausnummer noch enthält,
+// entscheidet der Nutzer in der Adressprüfung – dort steht die Warnung dazu.
 export async function uebernehmeAdresse(
   supabase: SupabaseClient, id: string, address: string, lat: number, lng: number
 ): Promise<void> {
   await qWrite(
     "Die Adresse konnte nicht übernommen werden",
-    supabase.from("customers").update({ address, lat, lng }).eq("id", id)
+    supabase.from("customers").update({ address, lat, lng, geo_genauigkeit: "exakt" }).eq("id", id)
   );
 }
 
-export async function setzeKundenKoordinaten(supabase: SupabaseClient, id: string, lat: number, lng: number): Promise<void> {
+export async function setzeKundenKoordinaten(
+  supabase: SupabaseClient, id: string, lat: number, lng: number,
+  genauigkeit: GeoGenauigkeit = "exakt"
+): Promise<void> {
   await qWrite(
     "Die Kartenposition konnte nicht gespeichert werden",
-    supabase.from("customers").update({ lat, lng }).eq("id", id)
+    supabase.from("customers").update({ lat, lng, geo_genauigkeit: genauigkeit }).eq("id", id)
   );
+}
+
+// Position von Hand gesetzt (Migration 35). Das ist die genaueste Angabe im System: Sie kommt
+// von einem Menschen, der weiß, wo die Einfahrt ist – und sie wird deshalb von keinem
+// späteren Geokodier-Lauf überschrieben (siehe fetchKundenOhneKoordinaten: gesucht wird nach
+// FEHLENDER Position, nicht nach ungenauer).
+export async function setzePositionVonHand(
+  supabase: SupabaseClient, id: string, lat: number, lng: number
+): Promise<void> {
+  await setzeKundenKoordinaten(supabase, id, lat, lng, "hand");
 }

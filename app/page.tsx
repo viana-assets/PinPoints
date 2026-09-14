@@ -71,6 +71,7 @@ import {
 import {
   markCustomerContacted, markCustomerOpen, setWiedervorlageBulk,
   setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
+  setzePositionVonHand,
 } from "@/lib/api/customers";
 import { upsertModulePermissions } from "@/lib/api/permissions";
 import {
@@ -220,6 +221,13 @@ export default function HomePage() {
   // „Nur mit schwachem Profil" – der Filter, der aus der Anrufliste eine Verkaufsliste macht
   // (docs/lager-ausbaukonzept.md, D2/D3).
   const [saisonNurSchwach, setSaisonNurSchwach] = useState(false);
+  // „Punkt setzen": Für welchen Kunden warten wir gerade auf einen Klick in die Karte?
+  // (Migration 35). Der Leaflet-Klickhandler wird EINMAL angemeldet und liest den aktuellen
+  // Wert über das Ref – ein Handler, der eine React-Zustandsvariable einfängt, sähe für immer
+  // den Wert von seiner Anmeldung.
+  const [positionSetzenFuer, setPositionSetzenFuer] = useState<string | null>(null);
+  const positionSetzenRef = useRef<string | null>(null);
+  positionSetzenRef.current = positionSetzenFuer;
   const [saisonSchreibt, setSaisonSchreibt] = useState(false);
 
   // ---------------------------------------------------------------- Daten (Roadmap Phase 10)
@@ -697,6 +705,13 @@ export default function HomePage() {
       // Beim Verschieben und Zoomen die sichtbaren Marker neu bestimmen (Roadmap Phase 10).
       map.on("moveend", syncMarkers);
       map.on("zoomend", syncMarkers);
+      // Punkt von Hand setzen (Migration 35). Der Handler liegt hier, weil die Karte genau
+      // einmal entsteht; er tut nichts, solange kein Kunde darauf wartet.
+      map.on("click", (e: { latlng: { lat: number; lng: number } }) => {
+        const kundenId = positionSetzenRef.current;
+        if (!kundenId) return;
+        void positionAusKarteSpeichern(kundenId, e.latlng.lat, e.latlng.lng);
+      });
       // Auch nach einer Größenänderung neu bestimmen: kommt die Karte aus einem
       // Vollseiten-Modul zurück, ist der sichtbare Ausschnitt ein anderer als vorher.
       map.on("resize", syncMarkers);
@@ -783,7 +798,10 @@ export default function HomePage() {
   // Farbe allein trägt das nicht – Rot und Orange nebeneinander sind für einen Teil der
   // Bevölkerung kaum unterscheidbar, und auf einer bunten Karte gehen Farbnuancen unter. Die
   // Form ist der Unterschied, die Farbe die Bestätigung.
-  function makeIcon(zustand: KundenZustand) {
+  // `ungefaehr` (Migration 35) verändert die FORM, nicht die Farbe: Die Nadel wird hohl. Die
+  // Farbe bleibt dem Kundenzustand vorbehalten – dieselbe Regel wie im Lager. Ein Punkt, der
+  // nur die Straßenmitte ist, soll nicht aussehen wie einer, der stimmt.
+  function makeIcon(zustand: KundenZustand, ungefaehr = false) {
     const L = leafletRef.current;
     if (zustand === "kein-interesse") {
       return L.divIcon({
@@ -798,7 +816,10 @@ export default function HomePage() {
     const bg = MARKER_FARBE[zustand];
     return L.divIcon({
       className: "custom-pin",
-      html: `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:${bg};
+      html: ungefaehr
+        ? `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#fff;
+              transform:rotate(-45deg);border:2px dashed ${bg};box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>`
+        : `<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:${bg};
               transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
       iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -22],
     });
@@ -831,14 +852,16 @@ export default function HomePage() {
       if (gezeichnet >= MAX_MARKER) { ausgelassen++; return; }
       gezeichnet++;
       seen.add(cust.id);
+      const ungefaehr = cust.geo_genauigkeit === "ungefaehr";
       const nextOrd = nextOrder(ordersForLive(cust.id, ords));
       let tooltip = `<b>${escapeHtml(cust.name)}</b><br>${escapeHtml(cust.address)}<br>` +
-        (cust.status === "kontaktiert" && cust.last_contact ? `Letzter Kontakt: ${formatDate(cust.last_contact)}` : "Noch nicht kontaktiert");
+        (cust.status === "kontaktiert" && cust.last_contact ? `Letzter Kontakt: ${formatDate(cust.last_contact)}` : "Noch nicht kontaktiert") +
+        (ungefaehr ? "<br><i>Ungefähre Position – nur die Straße war auffindbar</i>" : "");
       if (nextOrd) tooltip += `<br>📅 Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}`;
 
       let marker = markerIndexRef.current[cust.id];
       if (marker) {
-        marker.setIcon(makeIcon(color));
+        marker.setIcon(makeIcon(color, ungefaehr));
         marker.setLatLng([cust.lat, cust.lng]);
         marker.setTooltipContent(tooltip);
         // Bewusst KEIN setPopupContent hier: bindPopup() bekommt unten eine Funktion, die
@@ -847,7 +870,7 @@ export default function HomePage() {
         // neu aufgebaut (syncMarkers läuft bei jedem moveend, und Leaflet schiebt die Karte
         // beim Öffnen selbst zurecht) und damit die sichtbaren Schaltflächen ausgetauscht.
       } else {
-        marker = L.marker([cust.lat, cust.lng], { icon: makeIcon(color) });
+        marker = L.marker([cust.lat, cust.lng], { icon: makeIcon(color, ungefaehr) });
         marker.bindTooltip(tooltip, { className: "cust-tip" });
         marker.bindPopup(() => buildPopupEl(cust.id), { minWidth: 240 });
         marker.addTo(markerLayerRef.current);
@@ -1634,6 +1657,34 @@ export default function HomePage() {
     if (cust?.lat != null && mapRef.current) mapRef.current.setView([cust.lat, cust.lng], Math.max(mapRef.current.getZoom(), 15));
   }
 
+  // Punkt setzen: starten, speichern, abbrechen. Drei kleine Funktionen statt einer großen,
+  // weil sie an drei verschiedenen Stellen aufgerufen werden.
+  function positionSetzenStarten(kundenId: string) {
+    setSelectedId(null);            // Das Kundenfenster liegt sonst über der Karte.
+    setPositionSetzenFuer(kundenId);
+    setMobileMapVisible(true);      // Am Handy ist die Karte sonst gar nicht zu sehen.
+    const kunde = customers.find((c) => c.id === kundenId);
+    // Auf die vorhandene (ungefähre) Position zoomen, damit man nicht erst hinsuchen muss.
+    if (kunde?.lat != null && kunde.lng != null && mapRef.current) {
+      mapRef.current.setView([kunde.lat, kunde.lng], Math.max(mapRef.current.getZoom(), 17));
+    }
+  }
+
+  async function positionAusKarteSpeichern(kundenId: string, lat: number, lng: number) {
+    const kunde = liveRef.current.customers.find((c) => c.id === kundenId);
+    // Nachfragen, weil ein Fehltipper auf einer Karte schnell passiert – und weil die Angabe
+    // danach die genaueste im System ist und von keinem Sammellauf mehr überschrieben wird.
+    const sicher = window.confirm(
+      `Position für ${kunde ? kunde.name : "diesen Kunden"} hier setzen?\n\n` +
+      "Sie gilt ab dann als von Hand gesetzt und wird bei keinem Geokodier-Lauf mehr verändert."
+    );
+    if (!sicher) return;
+    setPositionSetzenFuer(null);
+    await setzePositionVonHand(supabase, kundenId, lat, lng);
+    await refreshCustomers();
+    openDetail(kundenId);           // Zurück dorthin, wo man hergekommen ist.
+  }
+
   function toggleMobileMap() {
     // Kein invalidateSize() auf Verdacht mehr: die Karte wechselt hier von display:none auf
     // sichtbar, das ist eine echte Größenänderung, und der ResizeObserver weiter oben meldet
@@ -2396,6 +2447,7 @@ export default function HomePage() {
           orderEmployees={orderEmployees}
           orderArticles={orderArticles}
           onOpenOrder={(id) => setOffenerAuftragId(id)}
+          onPositionSetzen={() => positionSetzenStarten(selectedId)}
           history={history}
           periodMonths={settings.period_months}
           vehicles={vehicles}
@@ -2417,6 +2469,25 @@ export default function HomePage() {
           onNavigate={openNavMenu}
           onCall={openCallMenu}
         />
+      )}
+
+      {/* Solange ein Punkt gesetzt werden soll, erklärt ein Balken, was die Karte gerade von
+          einem will – und bietet den Rückweg an. Ohne ihn wäre die Karte in einem Zustand,
+          den man ihr nicht ansieht. */}
+      {positionSetzenFuer && (
+        <div className="karte-banner" role="status">
+          <span>
+            <b>Position setzen:</b>{" "}
+            {customers.find((c) => c.id === positionSetzenFuer)?.name || "Kunde"} – tippe auf die
+            Karte, wo das Fahrzeug steht.
+          </span>
+          <button
+            type="button" className="btn-secondary"
+            onClick={() => { const id = positionSetzenFuer; setPositionSetzenFuer(null); if (id) openDetail(id); }}
+          >
+            Abbrechen
+          </button>
+        </div>
       )}
 
       {fehler && (

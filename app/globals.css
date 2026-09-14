@@ -1051,3 +1051,18 @@ tr.klickbar:hover { background: var(--hover); }
 .profil-kritisch{border-color:var(--red);background:var(--red-bg);color:var(--red);}
 .profil-min{opacity:.7;font-weight:800;}
 .profil-warn{font-weight:800;}
+
+/* Kartenposition im Kundenfenster (Migration 35): Aussage links, Handlung rechts. */
+.geo-zeile{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:6px;}
+.geo-zeile > span{flex:1 1 220px;}
+.geo-knopf{flex:0 0 auto;padding:4px 10px;font-size:12px;}
+
+/* Der Punkt eines Kunden, dessen Position nur die Straßenmitte ist, sieht anders aus als
+   einer, der stimmt: hohl statt gefüllt. Die FORM trägt die Aussage „ungefähr", die Farbe
+   bleibt für den Kundenzustand reserviert – dieselbe Regel wie im Lager. */
+.karte-banner{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:20002;
+  display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;
+  background:var(--panel);border:1px solid var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.18);
+  max-width:min(520px,calc(100vw - 24px));font-size:13.5px;}
+.karte-banner b{font-family:var(--font-brand);}
+.karte-banner button{flex:0 0 auto;}
