@@ -850,9 +850,18 @@ export default function HomePage() {
     });
   }
 
-  // Nadel zu einer Kundenzeile hervorheben (nur am Rechner, siehe unten). Greift bewusst
-  // direkt auf das Kartenelement zu, statt über React zu gehen: Leaflet verwaltet diese
-  // Elemente selbst, und ein Zustandswechsel je Mausbewegung wäre hier verschwendet.
+  // Nadel zu einer Kundenzeile hervorheben. Greift bewusst direkt auf das Kartenelement zu,
+  // statt über React zu gehen: Leaflet verwaltet diese Elemente selbst, und ein
+  // Zustandswechsel je Mausbewegung wäre hier verschwendet.
+  //
+  // Hier stand bis zum 14.09.2026 eine Abfrage auf `(hover: hover)` – gedacht als Schutz davor,
+  // dass am Handy nach einem Tipp eine Nadel hervorgehoben stehen bleibt. Sie hat die Funktion
+  // auf einem Windows-Notebook MIT Touchscreen komplett abgeschaltet: Solche Geräte melden
+  // `(hover: none)`, obwohl eine Maus daran hängt. Die Vorsichtsmaßnahme war schädlicher als
+  // das, wovor sie schützen sollte – und sie war unsichtbar, weil nichts passierte.
+  //
+  // Der Touch-Fall ist jetzt anders gelöst: Beim Antippen einer Zeile wird die Hervorhebung
+  // ausdrücklich zurückgenommen, bevor das Kundenfenster aufgeht. Kein Raten über Geräte.
   function nadelHervorheben(kundenId: string | null) {
     const vorher = hervorgehobeneNadelRef.current;
     if (vorher === kundenId) return;
@@ -863,12 +872,6 @@ export default function HomePage() {
     if (kundenId) {
       markerIndexRef.current[kundenId]?.getElement()?.classList.add("pin-hervor");
     }
-  }
-
-  // Nur an Geräten mit echtem Zeiger. Auf einem Touchgerät löst „mouseenter" beim Tippen aus –
-  // dann bliebe eine Nadel hervorgehoben, ohne dass jemand darauf zeigt.
-  function zeigergeraet(): boolean {
-    return typeof window !== "undefined" && window.matchMedia?.("(hover: hover)").matches === true;
   }
 
   function syncMarkers() {
@@ -2022,9 +2025,9 @@ export default function HomePage() {
                   <div
                     key={c.id}
                     className="cust-item"
-                    onClick={() => openDetail(c.id)}
-                    onMouseEnter={() => { if (zeigergeraet()) nadelHervorheben(c.id); }}
-                    onMouseLeave={() => { if (zeigergeraet()) nadelHervorheben(null); }}
+                    onClick={() => { nadelHervorheben(null); openDetail(c.id); }}
+                    onMouseEnter={() => nadelHervorheben(c.id)}
+                    onMouseLeave={() => nadelHervorheben(null)}
                   >
                     <div className={`dot ${color}`}></div>
                     <div className="info">
