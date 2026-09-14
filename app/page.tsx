@@ -2180,6 +2180,7 @@ export default function HomePage() {
             onFirmenfahrzeugAnlegen={firmenfahrzeugAnlegen}
             onFirmenfahrzeugAendern={firmenfahrzeugAendern}
             onFirmenfahrzeugAusmustern={firmenfahrzeugStilllegen}
+            onKundeOeffnen={openDetail}
           />
         )}
 
@@ -2393,12 +2394,8 @@ export default function HomePage() {
           orders={kundeAuftraege}
           employees={employees}
           orderEmployees={orderEmployees}
-          articles={articles}
           orderArticles={orderArticles}
-          onAddOrderArticle={addOrderArticle}
-          onUpdateOrderArticleQty={updateOrderArticleQty}
-          onUpdateOrderArticleDiscount={updateOrderArticleDiscount}
-          onRemoveOrderArticle={removeOrderArticle}
+          onOpenOrder={(id) => setOffenerAuftragId(id)}
           history={history}
           periodMonths={settings.period_months}
           vehicles={vehicles}

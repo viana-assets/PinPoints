@@ -56,7 +56,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('31', 'Berechtigung view.saison',            exists (select 1 from public.module_permissions where module_key = 'view.saison')),
     ('32', 'Tabelle firmenfahrzeuge',             to_regclass('public.firmenfahrzeuge') is not null),
     ('33', 'Tabelle eingelagerte_raeder',         to_regclass('public.eingelagerte_raeder') is not null
-                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'erfassungsart'))
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'erfassungsart')),
+    ('34', 'vehicles ohne DOT/Profil',            not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'vehicles' and column_name in ('tire_dot_date', 'tire_profile_mm')))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

@@ -202,6 +202,15 @@ Alle fünf gehören zur Sanierung aus `docs/architektur-review-2026-08.md` (Road
   (audit_log) und muss zusammen mit dem passenden Anwendungscode laufen. Konzept:
   `docs/lager-ausbaukonzept.md`, A1.
 
+- `34_fahrzeug_ohne_reifenzustand.sql` – entfernt `vehicles.tire_dot_date` und
+  `vehicles.tire_profile_mm`. Sie beschreiben einen Reifensatz, standen aber am Auto: Ein
+  Auto behält man zehn Jahre, der Satz wechselt zweimal im Jahr – nach dem ersten Wechsel
+  war der Wert still falsch. Seit `33` steht beides am Satz bzw. am einzelnen Rad.
+  `vehicles.tire_size` bleibt: Welche Größe ein Fahrzeug fährt, ist eine Eigenschaft des
+  Autos. Die Migration zählt vor dem Löschen, wie viele Fahrzeuge dort noch Werte haben, und
+  meldet das als Notice; die Rettungsabfrage steht im Kopf der Datei. Zweimaliges Ausführen
+  ist unschädlich. Braucht `04` und muss zusammen mit dem passenden Anwendungscode laufen.
+
 Nach dem Ausführen bitte hier nach oben unter "Bereits ausgeführt" verschieben.
 
 ## Welche Migrationen sind wirklich gelaufen?
@@ -271,6 +280,8 @@ Nummernreihenfolge ausführen. Die einzelnen Abhängigkeiten:
 - `26` braucht `profiles` (01) – sonst nichts.
 - `27` braucht `26` (dieselbe Sache), `orders` (03) und `profiles` (01).
 - `29` braucht `27` und muss zusammen mit dem passenden Anwendungscode laufen.
+- `34` braucht `04` (vehicles). Die Rücknahme stellt die Spalten LEER wieder her – die alten
+  Werte sind mit dem `drop column` weg. Vorher den Anwendungscode zurückdrehen.
 - `33` braucht `02` (tire_storage) und `18` (audit_log). Beim Zurücknehmen gehen die
   einzeln gemessenen Räder verloren – `33_rollback.sql` nennt im Kopf die Abfrage, mit der
   sie sich vorher sichern lassen.

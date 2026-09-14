@@ -578,6 +578,12 @@
    dieses Fenster weiß und formatfüllend: Die Meldung war also nicht nur schwer zu sehen,
    sondern gar nicht. Von außen sah es aus, als täte der Knopf nichts.
    20001 heißt: über dem Fenster (10000), über dem Anruf-Menü (20000). */
+/* Das Auftragsfenster kann ÜBER dem Kundenfenster liegen: Seit dem 12.09.2026 öffnet ein
+   Auftrag im Kundenfenster das richtige, vollständige Auftragsfenster, statt daneben eine
+   zweite, kleinere Maske aufzuklappen. Beide sind `.modal-overlay` auf Ebene 10000 – ohne
+   diese Regel entschiede die Reihenfolge im Quelltext, welches oben liegt. */
+.modal-auftrag { z-index: 10001; }
+
 .fehler-hinweis {
   position: fixed;
   right: 16px;
@@ -796,6 +802,10 @@
 /* Auftragszeilen sind anklickbar – das muss man ihnen ansehen. */
 tr.klickbar { cursor: pointer; }
 tr.klickbar:hover { background: var(--hover); }
+/* Dasselbe für die Auftragskarten im Kundenfenster, die seit dem 12.09.2026 das
+   Auftragsfenster öffnen. */
+.appt-item.klickbar { cursor: pointer; }
+.appt-item.klickbar:hover { background: var(--hover); }
 
 @media (max-width: 700px) {
   .modal-box.auftrag-modal { max-height: 100%; }
@@ -921,6 +931,24 @@ tr.klickbar:hover { background: var(--hover); }
 .adr-pruef-liste li{display:flex;align-items:center;justify-content:space-between;gap:10px;
   font-size:13px;padding:5px 8px;border-radius:8px;background:var(--hover);}
 .adr-pruef-liste button{flex:0 0 auto;padding:4px 10px;font-size:12px;}
+
+/* Der Kundenname ist der Weg ins Kundenfenster – für die Fälle, die kein Vorschlag löst.
+   Als Knopf ausgeführt und nicht als klickbares <div>: So ist er mit der Tastatur
+   erreichbar und wird vorgelesen wie das, was er ist. */
+.adr-pruef-kunde{display:flex;flex-direction:column;align-items:flex-start;gap:1px;
+  border:none;background:none;padding:0;margin:0;font:inherit;color:inherit;text-align:left;
+  cursor:pointer;border-radius:6px;}
+.adr-pruef-kunde b{text-decoration:underline;text-decoration-color:var(--border);
+  text-underline-offset:3px;}
+.adr-pruef-kunde:hover b{text-decoration-color:var(--accent);}
+.adr-pruef-kunde:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
+.adr-pruef-hand{margin-top:8px;padding:4px 10px;font-size:12px;}
+
+/* Ein Vorschlag, der die Hausnummer verliert, ist ärmer als das, was schon dasteht. Er
+   verschwindet nicht – manchmal ist die Straße allein richtig –, aber er sagt es. */
+.adr-pruef-liste li.aermer{background:var(--accent-bg);}
+.adr-warnung{display:block;font-style:normal;font-size:11.5px;font-weight:700;
+  color:var(--accent);margin-top:1px;}
 
 /* ---------------- Trefferzahl am Filterknopf ---------------- */
 /* Dezent gehalten: die Zahl ist eine Nebeninformation, die Beschriftung bleibt die Hauptsache.
