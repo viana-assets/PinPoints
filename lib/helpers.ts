@@ -355,12 +355,35 @@ function ohneUmlaute(text: string): string {
 // identifizierender User-Agent und ein Cache (Review-Befund A9). Signatur und Verhalten
 // bleiben für die Aufrufer unverändert – null bedeutet weiterhin "keine Position gefunden",
 // eine Ausnahme bedeutet "Dienst nicht erreichbar".
+// Die Anfrage, die an den Kartendienst geht – und die Stelle, an der bis zum 14.09.2026 ein
+// stiller Fehler saß.
+//
+// Die Absicht war gut: Steht in der Adresse kein Ort, hilft „, Nürnberg, Deutschland" dem
+// Dienst auf die Sprünge. Die Bedingung war aber „enthält NICHT das Wort Nürnberg" – und
+// damit bekam jede Adresse aus dem Umland diesen Zusatz:
+//
+//     „Strengenbergstraße 54, 90607 Rückersdorf"  →  „…, 90607 Rückersdorf, Nürnberg, Deutschland"
+//
+// Das ist ein Widerspruch: Rückersdorf liegt nicht in Nürnberg. Der Dienst findet daraufhin
+// gar nichts – auch die Straße allein nicht. Betroffen war der halbe Umkreis: Rückersdorf,
+// Zirndorf, Fürth, Schwabach, Büchenbach, Wendelstein, Heroldsberg. Genau die Kunden, die
+// unter „Ohne Karte" hängen blieben, während die Adressprüfung daneben die Straße mühelos
+// vorschlug – die fragt nämlich einen anderen Dienst, ohne diesen Zusatz.
+//
+// Die richtige Frage ist nicht „steht Nürnberg drin?", sondern „steht überhaupt ein Ort
+// drin?". Eine Postleitzahl beantwortet das eindeutig: Wo eine steht, ist der Ort bestimmt,
+// und jeder Zusatz kann die Sache nur verschlechtern.
+export function geocodeAnfrage(address: string): string {
+  const stadt = DEFAULT_GEOCODE_REGION.split(",")[0].trim();
+  if (plzAus(address)) return address;
+  if (ohneUmlaute(address).includes(ohneUmlaute(stadt))) return address;
+  return address + ", " + DEFAULT_GEOCODE_REGION;
+}
+
 export async function geocodeAddress(
   address: string
 ): Promise<{ lat: number; lng: number; genauigkeit: "exakt" | "ungefaehr" } | null> {
-  const stadt = DEFAULT_GEOCODE_REGION.split(",")[0].trim();
-  const ergaenzen = (a: string) =>
-    ohneUmlaute(a).includes(ohneUmlaute(stadt)) ? a : a + ", " + DEFAULT_GEOCODE_REGION;
+  const ergaenzen = geocodeAnfrage;
 
   const resp = await fetch("/api/geocode", {
     method: "POST",

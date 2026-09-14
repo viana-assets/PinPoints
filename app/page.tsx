@@ -231,7 +231,7 @@ export default function HomePage() {
   // Wohin die Karte springen soll, sobald sie sichtbar ist. Als Zustand und nicht als direkter
   // setView-Aufruf, weil die Karte beim Reiterwechsel erst eine Größe bekommen muss – ein
   // setView auf eine 0 Pixel breite Karte landet nirgends.
-  const [positionSetzenZiel, setPositionSetzenZiel] = useState<{ lat: number; lng: number } | null>(null);
+  const [positionSetzenZiel, setPositionSetzenZiel] = useState<{ lat: number; lng: number; zoom: number } | null>(null);
   const [positionSetzenSucht, setPositionSetzenSucht] = useState(false);
   // Welche Nadel ist gerade hervorgehoben? Als Ref und nicht als Zustand: Beim Überfahren der
   // Kundenliste soll NICHT die ganze Seite neu gezeichnet werden – es wird nur eine Klasse an
@@ -450,7 +450,7 @@ export default function HomePage() {
       const karte = mapRef.current;
       if (!karte) return;
       karte.invalidateSize();
-      karte.setView([positionSetzenZiel.lat, positionSetzenZiel.lng], 18);
+      karte.setView([positionSetzenZiel.lat, positionSetzenZiel.lng], positionSetzenZiel.zoom);
     }, 150);
     return () => clearTimeout(t);
   }, [positionSetzenZiel]);
@@ -1725,7 +1725,8 @@ export default function HomePage() {
     // Der Startpunkt entscheidet, ob das Ganze etwas taugt: Ohne ihn stünde man irgendwo über
     // Nürnberg und müsste die Straße selbst suchen.
     if (kunde?.lat != null && kunde.lng != null) {
-      setPositionSetzenZiel({ lat: kunde.lat, lng: kunde.lng });
+      // Vorhandene Position: nah heran, es geht nur noch ums Feinjustieren.
+      setPositionSetzenZiel({ lat: kunde.lat, lng: kunde.lng, zoom: 18 });
       return;
     }
     setPositionSetzenZiel(null);
@@ -1736,7 +1737,10 @@ export default function HomePage() {
     setPositionSetzenSucht(true);
     try {
       const res = await geocodeAddress(kunde.address);
-      if (res) setPositionSetzenZiel({ lat: res.lat, lng: res.lng });
+      // Bei einem Straßentreffer eine Stufe weiter weg: Der Punkt ist die Straßenmitte, und
+      // die gesuchte Hausnummer kann am anderen Ende liegen. Zoom 18 zeigte womöglich nur
+      // Häuser, unter denen die richtige gar nicht ist.
+      if (res) setPositionSetzenZiel({ lat: res.lat, lng: res.lng, zoom: res.genauigkeit === "exakt" ? 18 : 17 });
     } catch {
       // Kein Treffer, kein Dienst – dann bleibt die Karte, wo sie ist, und der Balken sagt es.
     } finally {

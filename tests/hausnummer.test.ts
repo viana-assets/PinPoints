@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adresseOhneHausnummer, hausnummerAus, navigationUrls, vorschlagOhneHausnummer } from "@/lib/helpers";
+import { adresseOhneHausnummer, geocodeAnfrage, hausnummerAus, navigationUrls, vorschlagOhneHausnummer } from "@/lib/helpers";
 
 // Der Kartendienst schlägt gern die Straße ohne Haus vor. Wird dieser Vorschlag übernommen,
 // ist die Adresse anschließend schlechter als vorher – und die Fahrt endet am Anfang der
@@ -117,5 +117,32 @@ describe("navigationUrls", () => {
     // vollständigen Adresse. Ein fehlender Wert darf die Navigation nicht verschlechtern.
     const u = navigationUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: null });
     expect(u.google).toContain("49.35%2C11.15");
+  });
+});
+
+// Der Zusatz „, Nürnberg, Deutschland" an der Geokodier-Anfrage. Er soll Adressen OHNE Ort
+// helfen – und darf Adressen MIT Ort nicht kaputt machen.
+// Befund vom 14.09.2026: Er wurde an jede Adresse gehängt, in der das Wort „Nürnberg" nicht
+// vorkam. „Strengenbergstraße 54, 90607 Rückersdorf, Nürnberg, Deutschland" ist ein
+// Widerspruch, und der Kartendienst fand daraufhin gar nichts – auch die Straße allein nicht.
+describe("geocodeAnfrage", () => {
+  it("lässt eine Adresse mit Postleitzahl unangetastet – auch außerhalb von Nürnberg", () => {
+    expect(geocodeAnfrage("Strengenbergstraße 54, 90607 Rückersdorf"))
+      .toBe("Strengenbergstraße 54, 90607 Rückersdorf");
+    expect(geocodeAnfrage("Am Pfaffensteig 43, 91126 Schwabach"))
+      .toBe("Am Pfaffensteig 43, 91126 Schwabach");
+    expect(geocodeAnfrage("Wielandstraße 6a, 90513 Zirndorf"))
+      .toBe("Wielandstraße 6a, 90513 Zirndorf");
+  });
+
+  it("lässt eine Adresse mit dem Stadtnamen unangetastet, auch ohne Postleitzahl", () => {
+    expect(geocodeAnfrage("Rehhofstraße 16, Nürnberg")).toBe("Rehhofstraße 16, Nürnberg");
+    // Ohne Umlaut geschrieben zählt genauso – sonst stünde der Stadtname zweimal.
+    expect(geocodeAnfrage("Rehhofstraße 16, Nuernberg")).toBe("Rehhofstraße 16, Nuernberg");
+  });
+
+  it("ergänzt die Region nur dort, wo wirklich kein Ort steht", () => {
+    expect(geocodeAnfrage("Rehhofstraße 16")).toBe("Rehhofstraße 16, Nürnberg, Deutschland");
+    expect(geocodeAnfrage("Am Berg")).toBe("Am Berg, Nürnberg, Deutschland");
   });
 });
