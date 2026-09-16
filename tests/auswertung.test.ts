@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jeArtikel, jeMitarbeiter, jeMonat, kennzahlen, zeitraumVorgabe } from "@/lib/auswertung";
+import { artikelDetail, jeArtikel, jeMitarbeiter, jeMonat, kennzahlen, zeitraumVorgabe } from "@/lib/auswertung";
 import type { Auswertungsdaten } from "@/lib/auswertung";
 
 // Auswertungen sind die gefährlichste Sorte Code in diesem Projekt: Eine falsche Zahl sieht
@@ -27,7 +27,7 @@ function position(orderId: string, felder: Record<string, unknown> = {}) {
 function daten(teil: Partial<Auswertungsdaten> = {}): Auswertungsdaten {
   return {
     orders: [], orderArticles: [], orderEmployees: {}, employees: [], articles: [],
-    einlagerungen: [], ...teil,
+    einlagerungen: [], customers: [], vehicles: [], ...teil,
   } as Auswertungsdaten;
 }
 
@@ -196,5 +196,85 @@ describe("zeitraumVorgabe", () => {
 
   it("die letzten zwölf Monate enden heute", () => {
     expect(zeitraumVorgabe("letzte12", heute)).toEqual({ von: "2025-09-15", bis: "2026-09-14" });
+  });
+});
+
+describe("artikelDetail", () => {
+  const basis = () => daten({
+    orders: [
+      auftrag("a1", { customer_id: "k1", vehicle_id: "f1", order_date: "2026-03-10" }),
+      auftrag("a2", { customer_id: "k1", vehicle_id: "f1", order_date: "2026-04-05" }),
+      auftrag("a3", { customer_id: "k2", vehicle_id: "f2", order_date: "2026-04-20" }),
+      auftrag("a4", { customer_id: "k3", vehicle_id: "f3", order_date: "2026-04-21", status: "offen" }),
+    ],
+    orderArticles: [
+      position("a1", { article_id: "rad", quantity: 4, net_price: 10 }),
+      position("a2", { article_id: "rad", quantity: 2, net_price: 10 }),
+      position("a3", { article_id: "rad", quantity: 4, net_price: 10 }),
+      position("a3", { article_id: "ventil", quantity: 4, net_price: 2 }),
+      position("a4", { article_id: "rad", quantity: 99, net_price: 10 }),
+    ],
+    customers: [{ id: "k1", name: "Meyer" }, { id: "k2", name: "Schmidt" }] as never,
+    vehicles: [
+      { id: "f1", license_plate: "N-AB 1", make_model: "Golf" },
+      { id: "f2", license_plate: "N-CD 2", make_model: null },
+    ] as never,
+    articles: [{ id: "rad", short_name: "Radwechsel" }] as never,
+  });
+
+  it("zählt Menge, Umsatz, Aufträge, Kunden und Fahrzeuge", () => {
+    const d = artikelDetail(basis(), Z, "rad");
+    // 4 + 2 + 4 = 10; der offene Auftrag mit 99 zählt nicht.
+    expect(d.menge).toBe(10);
+    expect(d.umsatzNetto).toBe(100);
+    expect(d.auftraege).toBe(3);
+    expect(d.kunden).toBe(2);
+    expect(d.fahrzeuge).toBe(2);
+  });
+
+  it("rechnet die Durchschnitte je Auftrag und je Kunde", () => {
+    const d = artikelDetail(basis(), Z, "rad");
+    expect(d.mengeJeAuftrag).toBeCloseTo(10 / 3, 6);
+    expect(d.mengeJeKunde).toBe(5);
+  });
+
+  it("lässt andere Artikel desselben Auftrags außen vor", () => {
+    expect(artikelDetail(basis(), Z, "ventil").menge).toBe(4);
+  });
+
+  it("verteilt die Mengen auf die richtigen Monate, leere inklusive", () => {
+    const d = artikelDetail(basis(), { von: "2026-02-01", bis: "2026-04-30" }, "rad");
+    expect(d.jeMonat.map((m) => [m.monat, m.menge]))
+      .toEqual([["2026-02", 0], ["2026-03", 4], ["2026-04", 6]]);
+  });
+
+  it("fasst je Kunde zusammen und merkt sich den letzten Kauf", () => {
+    const d = artikelDetail(basis(), Z, "rad");
+    const meyer = d.jeKunde.find((k) => k.name === "Meyer");
+    expect(meyer).toMatchObject({ menge: 6, auftraege: 2, zuletzt: "2026-04-05" });
+  });
+
+  it("sortiert Kunden nach Menge", () => {
+    expect(artikelDetail(basis(), Z, "rad").jeKunde.map((k) => k.name)).toEqual(["Meyer", "Schmidt"]);
+  });
+
+  it("benennt Fahrzeuge mit Kennzeichen und Modell", () => {
+    const d = artikelDetail(basis(), Z, "rad");
+    expect(d.jeFahrzeug.map((f) => f.bezeichnung)).toEqual(["N-AB 1 · Golf", "N-CD 2"]);
+  });
+
+  // Ein Auftrag ohne Fahrzeug darf die Fahrzeugauswertung nicht mit einer Sammelzeile
+  // verwässern – das wäre eine Auskunft über die Datenpflege, nicht über die Fahrzeuge.
+  it("übergeht Aufträge ohne Fahrzeug, statt eine Sammelzeile zu erfinden", () => {
+    const d = artikelDetail(daten({
+      orders: [auftrag("a1", { vehicle_id: null })],
+      orderArticles: [position("a1", { article_id: "rad", quantity: 4 })],
+    }), Z, "rad");
+    expect(d.menge).toBe(4);
+    expect(d.jeFahrzeug).toEqual([]);
+  });
+
+  it("gibt ohne gewählten Artikel nichts zurück", () => {
+    expect(artikelDetail(basis(), Z, "").menge).toBe(0);
   });
 });
