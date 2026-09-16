@@ -686,3 +686,26 @@ export function letzterSatzFuer<T extends {
   }
   return desKunden[0];
 }
+
+// ---------------------------------------------------------------- Suchen
+//
+// Eine Suche über mehrere Felder eines Datensatzes – gebraucht in der Regalwand („wo liegt
+// Müller?") und in der Lagerübersicht („in welchem Lager liegt N-AB 123?").
+//
+// Drei Entscheidungen, die nicht offensichtlich sind:
+//
+// 1. ALLE Begriffe müssen vorkommen, nicht irgendeiner. Wer „müller winter" eintippt, meint
+//    beides – eine Oder-Suche lieferte dann alle Winterreifen dazu und wäre unbrauchbar.
+// 2. Zusätzlich wird ohne Trennzeichen verglichen. „A01" findet „A-01", „NAB123" findet
+//    „N-AB 123". Am Handy tippt niemand Bindestriche, und ein Kennzeichen schreibt jeder
+//    anders.
+// 3. Eine leere Suche trifft alles. Sonst müsste jede Aufrufstelle denselben Sonderfall
+//    selbst behandeln.
+export function suchtreffer(felder: (string | null | undefined)[], suche: string): boolean {
+  const begriffe = suche.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  if (begriffe.length === 0) return true;
+  const heu = felder.filter(Boolean).join(" ").toLowerCase();
+  const ohneTrenner = (s: string) => s.replace(/[^a-z0-9äöüß]/g, "");
+  const heuOhne = ohneTrenner(heu);
+  return begriffe.every((b) => heu.includes(b) || (ohneTrenner(b) !== "" && heuOhne.includes(ohneTrenner(b))));
+}

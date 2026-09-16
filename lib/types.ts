@@ -171,7 +171,6 @@ export type Order = {
   // STANDARD_DAUER_MIN an und zeichnet die Unterkante gestrichelt, weil eine Annahme keine
   // Zusage ist. Die Datenbank erzwingt: nur zusammen mit `time`, Form HH:MM, und nach `time`.
   end_time: string | null;
-  assigned_employee_id: string | null;
   // Freitext-Notiz, die ausschließlich von der zugeordneten Techniker-Rolle selbst gepflegt
   // wird (z. B. "Rad hinten links nicht zugänglich") – getrennt von `description`, das der
   // Admin/Büro-seitige Auftragstext bleibt. Siehe Migration 13 + docs/roadmap.md Phase 4.
@@ -288,10 +287,6 @@ export type OrderArticle = {
   quantity: number;
   net_price: number;
   vat_rate: number;
-  // Bis Migration 38 die Rabattangabe. Wird vom Code nicht mehr gelesen und nicht mehr
-  // geschrieben; die Spalte fällt in einer späteren Migration, sobald die neue Fassung
-  // überall läuft. Bis dahin steht sie hier, damit niemand sie versehentlich wiederbelebt.
-  discount_percent: number;
   // Sonderpreis für diese Position (Migration 38). NULL heißt „kein Sonderpreis" – dann gilt
   // Menge × Listenpreis. Das ist etwas anderes als 0, was „geschenkt" bedeutet.
   endpreis_netto: number | null;

@@ -244,6 +244,15 @@ export const DOT_ALT_JAHRE = 6;
 // wechselt, ist ein Jahr ohne Bewegung ein ausgelassener Termin.
 export const LAGERDAUER_HINWEIS_TAGE = 365;
 
+// Ab welcher Fensterbreite die Regalwand von selbst zur Reihenliste wird. Dieselbe Zahl steht
+// im Stilblatt (app/globals.css, „Reihenliste") – sie muss dort stehen, weil CSS keine
+// TypeScript-Konstante lesen kann. Wer sie ändert, ändert sie an beiden Stellen; der Kommentar
+// im Stilblatt verweist hierher.
+//
+// Von Hand lässt sich die Ansicht seitdem trotzdem umschalten: Die Breite ist die Vorgabe,
+// nicht das Gesetz.
+export const REGAL_LISTE_BREITE_PX = 700;
+
 // ---------------------------------------------------------------- Protokoll (Migration 36)
 //
 // Der Trigger schreibt Tabellen- und Spaltennamen, wie sie in der Datenbank heißen. Für
@@ -272,6 +281,12 @@ export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
   module_permissions: "Rechte",
 };
 
+// WICHTIG: Aus dieser Liste wird NICHTS entfernt, wenn eine Spalte aus der Datenbank fällt.
+// Das Protokoll (audit_log) hält die alten Werte als jsonb fest, und die bleiben lesbar,
+// nachdem die Spalte weg ist. Wer einen Eintrag von vorletzter Woche aufschlägt, soll dort
+// „Rabatt %" lesen und nicht den rohen Spaltennamen. `discount_percent` und
+// `assigned_employee_id` stehen deshalb weiter hier, obwohl Migration 39 sie gelöscht hat –
+// sie beschreiben Vergangenheit, und die ändert sich nicht mehr.
 export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   // Auftrag
   order_number: "Auftragsnummer", title: "Titel", description: "Beschreibung",

@@ -162,10 +162,9 @@ export async function insertOrderArticle(
     supabase.from("order_articles").insert({
       order_id: orderId, article_id: articleId, quantity,
       net_price: price ? price.net_price : 0, vat_rate: price ? price.vat_rate : DEFAULT_VAT_RATE,
-      // `discount_percent` wird bewusst NICHT mehr geschrieben: Die Spalte steht seit
-      // Migration 38 nur noch als Altlast da (Vorgabe 0) und fällt in einer späteren
-      // Migration. Der Sonderpreis steht jetzt in `endpreis_netto`; `null` heißt
-      // „kein Sonderpreis" und ist etwas anderes als 0.
+      // Der Sonderpreis steht in `endpreis_netto`; `null` heißt „kein Sonderpreis" und ist
+      // etwas anderes als 0, was „geschenkt" bedeutet. Den Prozentrabatt, den es hier bis
+      // Migration 38 gab, hat Migration 39 entfernt.
       endpreis_netto: endpreisNetto,
     })
   );

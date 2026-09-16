@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import {
-  DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM, SAISON_LABEL, SAISON_LISTE,
+  DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM, REGAL_LISTE_BREITE_PX,
+  SAISON_LABEL, SAISON_LISTE,
 } from "@/lib/constants";
-import { formatDate, handlungsgruende, nachReihen, raederNachSatz } from "@/lib/helpers";
+import { formatDate, handlungsgruende, nachReihen, raederNachSatz, suchtreffer } from "@/lib/helpers";
 import { IconLager, IconTrash } from "@/components/icons";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
@@ -116,6 +117,27 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   const [moreEnd, setMoreEnd] = useState("10");
   const [moreDigits, setMoreDigits] = useState("2");
 
+  // Suchen und Filtern. Der Zustand steht hier oben, weil BEIDE Ebenen ihn brauchen: In der
+  // Lagerübersicht beantwortet dieselbe Eingabe „wo liegt N-AB 123?" über alle Lager hinweg,
+  // im geöffneten Lager filtert sie die Regalwand. Wer sucht, öffnet ein Lager und müsste
+  // sonst dieselben acht Zeichen ein zweites Mal tippen.
+  const [suche, setSuche] = useState("");
+  const [nurHandlung, setNurHandlung] = useState(false);
+  // Wand oder Liste. "auto" heißt: die Fensterbreite entscheidet – so war es bisher und so
+  // bleibt es, solange niemand widerspricht. Die beiden anderen Werte sind der Widerspruch.
+  const [ansicht, setAnsicht] = useState<"auto" | "wand" | "liste">("auto");
+  // Ist das Fenster schmal? Früher stand diese Regel im Stilblatt; sie steht jetzt hier, weil
+  // sonst der Umschalter dieselben zwanzig Layoutregeln ein zweites Mal gebraucht hätte.
+  // `null` heißt „noch nicht gemessen" – auf dem Server gibt es kein Fenster.
+  const [schmal, setSchmal] = useState<boolean | null>(null);
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${REGAL_LISTE_BREITE_PX}px)`);
+    const merken = () => setSchmal(mq.matches);
+    merken();
+    mq.addEventListener("change", merken);
+    return () => mq.removeEventListener("change", merken);
+  }, []);
+
   const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || null;
   const slotsInWarehouse = storageSlots.filter((s) => s.warehouse_id === selectedWarehouseId);
 
@@ -154,6 +176,24 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   function gruendeFuer(satz: TireStorage | null): string[] {
     if (!satz) return [];
     return handlungsgruende(satz, raederVon(satz.id), HANDLUNG_GRENZEN);
+  }
+
+  // Die Felder, über die ein Lagerplatz gefunden wird – an EINER Stelle zusammengestellt,
+  // damit die Suche über alle Lager und der Filter in der Regalwand dieselben Treffer
+  // liefern. Zwei Listen wären zwei Suchen, die sich still voneinander entfernen: Man trägt
+  // das Kennzeichen an einer Stelle nach und wundert sich an der anderen.
+  //
+  // Der Platz-Code steht auch bei einem FREIEN Platz drin. „Wo ist A-14" ist eine legitime
+  // Frage, und die Antwort „A-14 ist leer" ist eine Antwort.
+  function platzFelder(slot: StorageSlot, satz: TireStorage | null): (string | null | undefined)[] {
+    if (!satz) return [slot.code];
+    const kunde = customers.find((c) => c.id === satz.customer_id);
+    const fahrzeug = satz.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
+    return [
+      slot.code, kunde?.name, kunde?.company,
+      fahrzeug?.license_plate, fahrzeug?.make_model,
+      satz.saison ? SAISON_LABEL[satz.saison] : null, satz.note,
+    ];
   }
 
   function occupiedCount(warehouseId: string): number {
@@ -196,6 +236,16 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
 
   // ---------------- Ebene 1: alle Lager ----------------
   if (!selectedWarehouse) {
+    // „Wo liegt …?" – die Frage, die im Lager tatsächlich gestellt wird. Sie steht hier oben
+    // und nicht erst im geöffneten Lager, weil niemand fragt „ist Müller in Lager 2", sondern
+    // „wo ist Müller". Deckel bei 60 Treffern: Wer mehr bekommt, hat nicht gesucht, sondern
+    // geblättert – und für Blättern gibt es die Regalwand.
+    const trefferListe = suche.trim()
+      ? storageSlots
+          .map((sl) => ({ slot: sl, satz: currentAssignment(sl.id) }))
+          .filter(({ slot, satz }) => suchtreffer(platzFelder(slot, satz), suche))
+      : [];
+
     return (
       <div className="tabpanel active">
         <div className="module-page">
@@ -206,6 +256,54 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
               <p>{warehouses.length} Lager · {storageSlots.length} Lagerplätze insgesamt</p>
             </div>
           </div>
+
+          <div className="regal-filter">
+            <input
+              type="search"
+              placeholder="Wo liegt …? Kunde, Kennzeichen, Platz"
+              value={suche}
+              onChange={(e) => setSuche(e.target.value)}
+            />
+          </div>
+
+          {suche.trim() !== "" && (
+            <>
+              <div className="regal-treffer">
+                {trefferListe.length === 0
+                  ? "Kein Lagerplatz passt dazu."
+                  : `${trefferListe.length} ${trefferListe.length === 1 ? "Lagerplatz passt" : "Lagerplätze passen"}`}
+              </div>
+              <div className="card-grid">
+                {trefferListe.slice(0, 60).map(({ slot, satz }) => {
+                  const lager = warehouses.find((w) => w.id === slot.warehouse_id);
+                  const kunde = satz ? customers.find((c) => c.id === satz.customer_id) : null;
+                  const fahrzeug = satz?.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
+                  return (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      className="wh-card"
+                      onClick={() => { setSelectedWarehouseId(slot.warehouse_id); setAssignSlot(slot); }}
+                    >
+                      <div className="wh-name">{slot.code}</div>
+                      <div className="wh-sub">{lager?.name || "Unbekanntes Lager"}</div>
+                      <div className="wh-stats">
+                        <span>
+                          {satz
+                            ? [kunde?.name, fahrzeug?.license_plate].filter(Boolean).join(" · ") || "belegt"
+                            : "frei"}
+                        </span>
+                        {satz?.saison && <span>{SAISON_LABEL[satz.saison]}</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {trefferListe.length > 60 && (
+                <div className="regal-treffer">Es werden die ersten 60 gezeigt – bitte genauer suchen.</div>
+              )}
+            </>
+          )}
 
           <div className="card-grid">
             {warehouses.map((w) => {
@@ -288,6 +386,17 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   const belegungen = slotsInWarehouse.map((sl) => currentAssignment(sl.id));
   const belegtImLager = belegungen.filter(Boolean).length;
   const mitHandlungsbedarf = belegungen.filter((a) => gruendeFuer(a).length > 0).length;
+
+  // Passt dieser Platz zu dem, was gerade gesucht und gefiltert ist?
+  function plattzPasst(slot: StorageSlot, satz: TireStorage | null): boolean {
+    if (nurHandlung && gruendeFuer(satz).length === 0) return false;
+    return suchtreffer(platzFelder(slot, satz), suche);
+  }
+  const filterAktiv = suche.trim() !== "" || nurHandlung;
+  const passendeAnzahl = slotsInWarehouse.filter((sl) => plattzPasst(sl, currentAssignment(sl.id))).length;
+  // Die Reihenliste gilt, wenn das Fenster schmal ist ODER der Nutzer sie gewählt hat.
+  // `schmal === null` heißt „noch nicht gemessen" – dann gilt die Wand, wie bisher.
+  const alsListe = ansicht === "liste" || (ansicht === "auto" && schmal === true);
 
   return (
     <div className="tabpanel active">
@@ -383,6 +492,38 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
         {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
 
         {slotsInWarehouse.length > 0 && (
+          <div className="regal-filter">
+            <input
+              type="search"
+              placeholder="Suchen: Kunde, Kennzeichen, Platz"
+              value={suche}
+              onChange={(e) => setSuche(e.target.value)}
+            />
+            <label className="filter-schalter">
+              <input type="checkbox" checked={nurHandlung} onChange={(e) => setNurHandlung(e.target.checked)} />
+              nur Handlungsbedarf{mitHandlungsbedarf > 0 ? ` (${mitHandlungsbedarf})` : ""}
+            </label>
+            {/* Am schmalen Fenster ist die Wand keine ernsthafte Wahl – zwei Spalten mit
+                abgeschnittenen Namen sind genau das, wogegen die Liste gebaut wurde.
+                Deshalb erscheint der Umschalter dort gar nicht erst. */}
+            {schmal === false && (
+              <div className="ansicht-umschalter" role="group" aria-label="Darstellung">
+                <button type="button" aria-pressed={!alsListe} onClick={() => setAnsicht("wand")}>Wand</button>
+                <button type="button" aria-pressed={alsListe} onClick={() => setAnsicht("liste")}>Liste</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {filterAktiv && (
+          <div className="regal-treffer">
+            {passendeAnzahl === 0
+              ? "Kein Lagerplatz passt dazu."
+              : `${passendeAnzahl} von ${slotsInWarehouse.length} Lagerplätzen passen`}
+          </div>
+        )}
+
+        {slotsInWarehouse.length > 0 && (
           <div className="regal-legende">
             <span><i className="leg-frei" aria-hidden="true" /> frei</span>
             <span><i className="leg-belegt" aria-hidden="true" /> belegt</span>
@@ -390,9 +531,15 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           </div>
         )}
 
-        <div className="regalwand">
-          {reihen.map(({ reihe, plaetze }) => (
-            <div className="regal-reihe" key={reihe || "ohne-reihe"}>
+        <div className={`regalwand${alsListe ? " liste" : ""}${filterAktiv ? " gefiltert" : ""}`}>
+          {reihen.map(({ reihe, plaetze }) => {
+            // Eine Reihe, in der gar nichts passt, verschwindet ganz. Einzelne Plätze bleiben
+            // dagegen stehen und werden nur zurückgeblendet: Wer „A-14" sucht, will auch
+            // sehen, dass links davon A-13 steht. Eine Wand, aus der man Plätze herausnimmt,
+            // ist keine Wand mehr.
+            const reiheAus = filterAktiv && !plaetze.some((sl) => plattzPasst(sl, currentAssignment(sl.id)));
+            return (
+            <div className={`regal-reihe${reiheAus ? " reihe-aus" : ""}`} key={reihe || "ohne-reihe"}>
               {zeigeReihenNamen && (
                 <div className="reihe-name">{reihe ? `Reihe ${reihe}` : "Ohne Reihe"}</div>
               )}
@@ -402,6 +549,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                   return (
                     <Regalplatz
                       key={slot.id}
+                      aus={filterAktiv && !plattzPasst(slot, assignment)}
                       slot={slot}
                       assignment={assignment}
                       kunde={assignment ? customers.find((c) => c.id === assignment.customer_id) ?? null : null}
@@ -418,7 +566,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                 })}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -459,7 +608,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
 // Warum ein div mit role="button" und nicht ein <button>: In der Kachel stecken zwei eigene
 // Knöpfe (Aufkleber, Löschen). Ein Knopf im Knopf ist ungültiges HTML – das alte
 // Kachelgitter hatte genau das. Tastaturbedienung ist deshalb hier von Hand nachgezogen.
-function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, canAssign, canDelete, onOeffnen, onAufkleber, onLoeschen }: {
+function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, aus, canAssign, canDelete, onOeffnen, onAufkleber, onLoeschen }: {
   slot: StorageSlot;
   assignment: TireStorage | null;
   kunde: Customer | null;
@@ -467,6 +616,9 @@ function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, canAss
   raeder: EingelagertesRad[];
   // Warum hier etwas zu tun ist. Leer heißt: nichts – dann erscheint auch kein Punkt.
   gruende: string[];
+  // Passt dieser Platz NICHT zu Suche/Filter? Dann bleibt er stehen und wird nur
+  // zurückgeblendet – das Stilblatt entscheidet, ob das Ausgrauen oder Ausblenden heißt.
+  aus?: boolean;
   canAssign: boolean;
   canDelete: boolean;
   onOeffnen: () => void;
@@ -484,13 +636,17 @@ function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, canAss
     "regalplatz",
     belegt ? "belegt" : "frei",
     canAssign ? "" : "nicht-klickbar",
+    aus ? "platz-aus" : "",
   ].filter(Boolean).join(" ");
 
   return (
     <div
       className={klassen}
       role={canAssign ? "button" : undefined}
-      tabIndex={canAssign ? 0 : undefined}
+      // Ein zurückgeblendeter Platz ist nicht anklickbar (Stilblatt) – dann darf er auch
+      // nicht mit der Tabulatortaste erreichbar sein. Sonst landet der Fokus auf etwas,
+      // das man sieht, aber nicht bedienen kann.
+      tabIndex={canAssign && !aus ? 0 : undefined}
       aria-label={`Lagerplatz ${slot.code}${belegt ? ` – ${kunde?.name ?? "belegt"}` : " – frei"}`}
       onClick={oeffnen}
       onKeyDown={(e) => {

@@ -1208,7 +1208,7 @@ tr.klickbar:hover { background: var(--hover); }
 .regalplatz .rp-tools{position:absolute;top:7px;right:7px;display:flex;gap:4px;}
 .regalplatz .rp-tools .btn-secondary{padding:3px 6px;min-width:28px;font-size:12px;}
 
-/* ---- Schmales Fenster: dieselben Daten als Reihenliste ----
+/* ---- Reihenliste: dieselben Daten, eine Zeile je Platz ----
 
    Der Punkt dieser Ansicht ist, dass der Name VOLLSTÄNDIG dasteht. Ein erster Versuch stellte
    DOT und Profiltiefe rechts neben den Namen – gemessen bei 390 px blieben dem Namen 90 px
@@ -1217,32 +1217,69 @@ tr.klickbar:hover { background: var(--hover); }
    Breite und stapelt: Name, Kennzeichen, Zustand.
 
    Der Code steht in einer Spalte fester Breite ganz links. Das ist das eigentliche Merkmal
-   der Liste – man fährt mit dem Daumen die linke Kante entlang und liest nur die Codes. */
-@media (max-width: 700px){
-  .reihe-plaetze{display:flex;flex-direction:column;gap:5px;}
-  .regalplatz{display:grid;grid-template-columns:76px minmax(0,1fr) 62px;
-    grid-template-rows:auto auto;align-items:center;gap:2px 10px;
-    min-height:0;padding:9px 10px;border-radius:9px;}
-  .regalplatz:hover{transform:none;}
-  .regalplatz .rp-code{grid-column:1;grid-row:1 / span 2;padding-right:0;align-self:center;
-    overflow-wrap:anywhere;}
-  /* Hier darf der Name umbrechen statt abzuschneiden. In der Kachel geht das nicht – dort
-     hält die feste Höhe das Raster zusammen –, in einer Liste schon: Die Zeile wird eben
-     zweizeilig. „Hofmann-Steinbrecher, Elisabeth-Marie" passt in 390 px sonst nicht, und ein
-     abgeschnittener Name ist genau das, was diese Ansicht verhindern soll. */
-  .regalplatz .rp-wer{grid-column:2;grid-row:1;}
-  .regalplatz .rp-wer b,
-  .regalplatz .rp-wer span{white-space:normal;overflow:visible;text-overflow:clip;
-    overflow-wrap:anywhere;}
-  .regalplatz .rp-frei{grid-column:2;grid-row:1 / span 2;}
-  .regalplatz .rp-meta{grid-column:2;grid-row:2;margin-top:0;}
-  /* Bei „frei" gibt es keine zweite Zeile – die leere Zelle darf keine Höhe erzwingen. */
-  .regalplatz.frei .rp-meta{display:none;}
-  /* Nicht mehr in der Ecke, sondern in einer eigenen Spalte: In der Kachel ist oben rechts
-     Platz, in einer zweizeiligen Liste würde derselbe Knopf über dem Namen liegen. */
-  .regalplatz .rp-tools{position:static;grid-column:3;grid-row:1 / span 2;
-    justify-content:flex-end;}
-}
+   der Liste – man fährt mit dem Daumen die linke Kante entlang und liest nur die Codes.
+
+   WANN diese Ansicht gilt, entscheidet nicht mehr eine Medienabfrage hier, sondern die
+   Komponente: Sie setzt `.liste`, wenn das Fenster schmal ist ODER der Nutzer die Liste von
+   Hand gewählt hat. Vorher stand die Regel „schmal = Liste" hier im Stilblatt, und ein
+   Umschalter hätte dieselben zwanzig Zeilen ein zweites Mal gebraucht – zwei Stellen, an
+   denen man das Kennzeichen vergessen kann. Die Breite (700 px) steht als
+   REGAL_LISTE_BREITE_PX in lib/constants.ts; ändert sie sich, ändert sie sich dort. */
+.regalwand.liste .reihe-plaetze{display:flex;flex-direction:column;gap:5px;}
+.regalwand.liste .regalplatz{display:grid;grid-template-columns:76px minmax(0,1fr) 62px;
+  grid-template-rows:auto auto;align-items:center;gap:2px 10px;
+  min-height:0;padding:9px 10px;border-radius:9px;}
+.regalwand.liste .regalplatz:hover{transform:none;}
+.regalwand.liste .regalplatz .rp-code{grid-column:1;grid-row:1 / span 2;padding-right:0;align-self:center;
+  overflow-wrap:anywhere;}
+/* Hier darf der Name umbrechen statt abzuschneiden. In der Kachel geht das nicht – dort
+   hält die feste Höhe das Raster zusammen –, in einer Liste schon: Die Zeile wird eben
+   zweizeilig. „Hofmann-Steinbrecher, Elisabeth-Marie" passt in 390 px sonst nicht, und ein
+   abgeschnittener Name ist genau das, was diese Ansicht verhindern soll. */
+.regalwand.liste .regalplatz .rp-wer{grid-column:2;grid-row:1;}
+.regalwand.liste .regalplatz .rp-wer b,
+.regalwand.liste .regalplatz .rp-wer span{white-space:normal;overflow:visible;text-overflow:clip;
+  overflow-wrap:anywhere;}
+.regalwand.liste .regalplatz .rp-frei{grid-column:2;grid-row:1 / span 2;}
+.regalwand.liste .regalplatz .rp-meta{grid-column:2;grid-row:2;margin-top:0;}
+/* Bei „frei" gibt es keine zweite Zeile – die leere Zelle darf keine Höhe erzwingen. */
+.regalwand.liste .regalplatz.frei .rp-meta{display:none;}
+/* Nicht mehr in der Ecke, sondern in einer eigenen Spalte: In der Kachel ist oben rechts
+   Platz, in einer zweizeiligen Liste würde derselbe Knopf über dem Namen liegen. */
+.regalwand.liste .regalplatz .rp-tools{position:static;grid-column:3;grid-row:1 / span 2;
+  justify-content:flex-end;}
+
+/* ---- Suchen und Filtern in der Regalwand ----
+
+   Der Filter NIMMT KEINE PLÄTZE HERAUS, er blendet sie zurück. Eine Wand, aus der man
+   Plätze entfernt, ist keine Wand mehr – sie ist das Abbild eines Raums, und wer „A-14"
+   sucht, will auch sehen, dass links davon A-13 steht. Nur eine Reihe, in der gar nichts
+   passt, verschwindet ganz; die trägt nichts bei.
+
+   In der Reihenliste ist das anders: Dort ist die Reihenfolge kein Raum, sondern eine
+   Scrollstrecke, und zurückgeblendete Zeilen wären nur Weg. Deshalb verschwinden sie dort. */
+.regal-filter{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-bottom:2px;}
+.regal-filter input[type="search"]{flex:1 1 200px;min-width:0;max-width:320px;}
+.regal-filter .filter-schalter{display:flex;align-items:center;gap:6px;font-size:12.5px;
+  color:var(--text);white-space:nowrap;cursor:pointer;}
+.regal-filter .filter-schalter input{width:auto;margin:0;}
+.regal-treffer{font-size:12px;color:var(--muted);margin:-2px 0 2px;}
+
+/* Umschalter Wand/Liste. Nur da, wo es eine Wahl gibt: Am Handy ist die Wand keine
+   ernsthafte Option, deshalb blendet ihn die Komponente dort aus. */
+.ansicht-umschalter{display:flex;gap:0;flex:0 0 auto;border:1px solid var(--border);
+  border-radius:8px;overflow:hidden;}
+.ansicht-umschalter button{border:0;border-radius:0;padding:5px 11px;font-size:12.5px;
+  background:var(--panel);color:var(--muted);cursor:pointer;}
+.ansicht-umschalter button + button{border-left:1px solid var(--border);}
+.ansicht-umschalter button[aria-pressed="true"]{background:var(--accent);color:#fff;
+  font-weight:700;}
+
+/* Zurückgeblendet, nicht weg: halb durchsichtig und nicht anklickbar, damit ein Fehlgriff
+   daneben nicht das falsche Fenster öffnet. */
+.regalwand.gefiltert .regalplatz.platz-aus{opacity:.22;pointer-events:none;}
+.regalwand.gefiltert .regal-reihe.reihe-aus{display:none;}
+.regalwand.gefiltert.liste .regalplatz.platz-aus{display:none;}
 
 /* Legende: erklärt die eine Sache, die man nicht erraten kann – den orangen Punkt. Dass
    gestrichelt „leer" heißt, versteht man ohne Text; dass Orange „hier ist etwas zu tun"
