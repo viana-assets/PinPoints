@@ -211,6 +211,17 @@ Alle fünf gehören zur Sanierung aus `docs/architektur-review-2026-08.md` (Road
   meldet das als Notice; die Rettungsabfrage steht im Kopf der Datei. Zweimaliges Ausführen
   ist unschädlich. Braucht `04` und muss zusammen mit dem passenden Anwendungscode laufen.
 
+- `39_tote_spalten.sql` – entfernt drei Spalten, die niemand mehr schreibt:
+  `orders.assigned_employee_id` (abgelöst von `order_employees`, Migration 11),
+  `order_articles.discount_percent` (abgelöst vom Endpreis, Migration 38) und
+  `user_settings.theme` (nie benutzt). Sie stehen nicht im Weg – sie sind schlimmer als das:
+  Eine Spalte, die dasteht, wird irgendwann für eine Aussage gehalten, und `discount_percent`
+  enthält den Rabatt von vorgestern. **Fassung v25 muss vorher laufen** – sie ist die erste,
+  die keine der drei mehr schreibt. Zweimaliges Ausführen ist unschädlich
+  (`drop column if exists`), und bewusst **ohne** `cascade`: Hängt wider Erwarten doch eine
+  Sicht daran, soll die Migration abbrechen und es sagen. Das Protokoll bleibt unberührt –
+  `audit_log` hält die alten Werte als jsonb, und die bleiben lesbar.
+
 Nach dem Ausführen bitte hier nach oben unter "Bereits ausgeführt" verschieben.
 
 ## Welche Migrationen sind wirklich gelaufen?
@@ -296,3 +307,28 @@ Nummernreihenfolge ausführen. Die einzelnen Abhängigkeiten:
 - `22` braucht `tire_storage` (02), `orders` (03), `articles`/`order_articles` (12) und ersetzt
   die Trigger-Funktion aus `20`. `22_rollback.sql` stellt genau diese Fassung wieder her –
   wer `20` zurücknimmt, muss `22` vorher zurückgenommen haben.
+- `35` braucht `01` (customers) – sonst nichts. Fügt nur eine Spalte samt Prüfregel hinzu.
+- `36` braucht `18` (audit_log, audit_row, stamp_row) und `05` (current_user_role). Legt
+  **kein** Protokoll an – das gibt es seit `18`. Sie zieht drei nach `18` entstandene
+  Tabellen nach (`order_employees`, `firmenfahrzeuge`, `eingelagerte_raeder`), öffnet das
+  Leserecht für Admin, ergänzt `auftrag_id`/`kunde_id` als berechnete Spalten (auch
+  rückwirkend für alle Altzeilen) und stellt `protokoll_personen()` bereit, weil `profiles`
+  laut `05` nur der Superadmin lesen darf. Die Rücknahme nimmt genau das zurück und lässt
+  das Protokoll selbst samt allem Aufgezeichneten unberührt.
+- `37` braucht `07` (`orders.time`). Ergänzt `end_time`, bringt vorhandene Anfangszeiten auf
+  zweistellige Stunden (sonst vergleicht sich Text falsch: "9:15" > "10:00") und trägt dem
+  Bestand ein angenommenes Ende von 60 Minuten nach. Die Rücknahme löscht `end_time` samt
+  aller von Hand gepflegten Endzeiten – vorher sichern, der Kopf der Rücknahme nennt die
+  Abfrage. Zuerst den Anwendungscode zurückdrehen.
+- `38` braucht `03` (orders), `12` (order_articles), `05` (current_user_role) und `18`
+  (audit_row, nur damit die neue Tabelle `betrieb` mitprotokolliert wird). **Fügt nur hinzu
+  und löscht nichts**: `order_articles.discount_percent` bleibt vorerst stehen, weil die
+  laufende Fassung sie noch schreibt – sie fällt in einer späteren Migration, wenn die neue
+  Fassung überall läuft. Die Rücknahme entfernt `rechnung_noetig`, `endpreis_netto` und die
+  Tabelle `betrieb`; die Endpreise gehen dabei verloren, der Kopf der Rücknahme nennt die
+  Sicherungsabfrage. Zuerst den Anwendungscode zurückdrehen.
+- `39` braucht `03` (orders), `12` (order_articles) und `01`/`09` (user_settings) – und vor
+  allem den Anwendungscode: **erst v25, dann diese Migration.** Umgekehrt schriebe die
+  laufende Fassung in Spalten, die es nicht mehr gibt. Die Rücknahme legt die drei Spalten
+  LEER wieder an; die Werte sind mit dem `drop column` weg, die Sicherungsabfrage steht im
+  Kopf von `39_rollback.sql`.

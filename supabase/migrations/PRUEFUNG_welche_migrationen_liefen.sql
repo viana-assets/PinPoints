@@ -57,7 +57,17 @@ with pruefungen(nr, was, vorhanden) as (
     ('32', 'Tabelle firmenfahrzeuge',             to_regclass('public.firmenfahrzeuge') is not null),
     ('33', 'Tabelle eingelagerte_raeder',         to_regclass('public.eingelagerte_raeder') is not null
                                               and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'erfassungsart')),
-    ('34', 'vehicles ohne DOT/Profil',            not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'vehicles' and column_name in ('tire_dot_date', 'tire_profile_mm')))
+    ('34', 'vehicles ohne DOT/Profil',            not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'vehicles' and column_name in ('tire_dot_date', 'tire_profile_mm'))),
+    ('35', 'customers.geo_genauigkeit',          exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'geo_genauigkeit')),
+    ('36', 'Protokoll sichtbar (auftrag_id)',    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'audit_log' and column_name = 'auftrag_id')
+                                              and to_regprocedure('public.protokoll_personen()') is not null),
+    ('37', 'orders.end_time (Termin von-bis)',   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'end_time')),
+    ('38', 'Rechnung/Endpreis/Betrieb',          exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'rechnung_noetig')
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'endpreis_netto')
+                                              and to_regclass('public.betrieb') is not null),
+    -- 39 prueft umgekehrt: Sie hat gewirkt, wenn die Spalten WEG sind.
+    ('39', 'tote Spalten entfernt',              not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'assigned_employee_id')
+                                              and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'discount_percent'))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

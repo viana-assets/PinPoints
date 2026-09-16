@@ -30,7 +30,6 @@ function position(teil: Partial<OrderArticle>): OrderArticle {
     quantity: 1,
     net_price: 100,
     vat_rate: DEFAULT_VAT_RATE,
-    discount_percent: 0,
     endpreis_netto: null,
     note: null,
     created_at: "2026-01-01T00:00:00Z",
