@@ -1,5 +1,5 @@
 import type { Article, Employee, Order, OrderArticle, TireStorage } from "./types";
-import { orderArticleTotals } from "./helpers";
+import { orderArticleTotals, positionListenwert } from "./helpers";
 
 // Die Rechnung hinter dem Register „Auswertungen" (Block D).
 //
@@ -24,6 +24,9 @@ export type Zeitraum = { von: string; bis: string };
 
 export type Kennzahlen = {
   auftraegeErledigt: number;
+  // Wie viele der erledigten Aufträge mit Rechnung laufen – die Bezugsgröße für den
+  // Steueranteil. Ohne diese Zahl steht „Steuer" ohne Angabe, worauf sie sich bezieht.
+  auftraegeMitRechnung: number;
   auftraegeGesamt: number;
   auftraegeStorniert: number;
   umsatzNetto: number;
@@ -54,11 +57,16 @@ function imZeitraum(datum: string | null | undefined, z: Zeitraum): boolean {
   return tag >= z.von && tag <= z.bis;
 }
 
-// Der Listenwert einer Position OHNE Nachlass – die Vergleichsgröße, aus der sich ergibt, wie
-// viel gewährt wurde. Bewusst hier und nicht in `orderArticleTotals`: Dort steht, was zu
-// zahlen ist; hier, was ohne Nachlass zu zahlen gewesen wäre.
+// Der Listenwert einer Position OHNE Sonderpreis – die Vergleichsgröße, aus der sich ergibt,
+// wie viel gewährt wurde. Bewusst nicht in `orderArticleTotals`: Dort steht, was zu zahlen
+// ist; hier, was ohne Nachlass zu zahlen gewesen wäre.
 function listenwert(zeilen: OrderArticle[]): number {
-  return zeilen.reduce((summe, z) => summe + z.quantity * z.net_price, 0);
+  return zeilen.reduce((summe, z) => summe + positionListenwert(z), 0);
+}
+
+// Die Positionen eines Auftrags – einmal gefiltert statt bei jeder Zeile neu.
+function positionenVon(daten: Auswertungsdaten, auftragId: string): OrderArticle[] {
+  return daten.orderArticles.filter((a) => a.order_id === auftragId && !a.deleted_at);
 }
 
 export function kennzahlen(daten: Auswertungsdaten, z: Zeitraum): Kennzahlen {
@@ -67,8 +75,8 @@ export function kennzahlen(daten: Auswertungsdaten, z: Zeitraum): Kennzahlen {
 
   let netto = 0, steuer = 0, liste = 0;
   for (const auftrag of erledigt) {
-    const zeilen = daten.orderArticles.filter((a) => a.order_id === auftrag.id && !a.deleted_at);
-    const summen = orderArticleTotals(zeilen);
+    const zeilen = positionenVon(daten, auftrag.id);
+    const summen = orderArticleTotals(zeilen, auftrag.rechnung_noetig);
     netto += summen.net;
     steuer += summen.vat;
     liste += listenwert(zeilen);
@@ -77,6 +85,7 @@ export function kennzahlen(daten: Auswertungsdaten, z: Zeitraum): Kennzahlen {
   const kunden = new Set(erledigt.map((o) => o.customer_id));
   return {
     auftraegeErledigt: erledigt.length,
+    auftraegeMitRechnung: erledigt.filter((o) => o.rechnung_noetig).length,
     auftraegeGesamt: auftraege.length,
     auftraegeStorniert: auftraege.filter((o) => o.status === "storniert").length,
     umsatzNetto: netto,
@@ -112,9 +121,7 @@ export function jeMonat(daten: Auswertungsdaten, z: Zeitraum): Monatswert[] {
     const eintrag = reihe.get(schluessel);
     if (!eintrag) continue;
     eintrag.auftraege += 1;
-    eintrag.umsatzNetto += orderArticleTotals(
-      daten.orderArticles.filter((a) => a.order_id === auftrag.id && !a.deleted_at)
-    ).net;
+    eintrag.umsatzNetto += orderArticleTotals(positionenVon(daten, auftrag.id), auftrag.rechnung_noetig).net;
   }
   return [...reihe.values()];
 }
@@ -132,9 +139,7 @@ export function jeMitarbeiter(daten: Auswertungsdaten, z: Zeitraum): Mitarbeiter
 
   for (const auftrag of daten.orders) {
     if (!imZeitraum(auftrag.order_date, z) || auftrag.status !== "erledigt") continue;
-    const netto = orderArticleTotals(
-      daten.orderArticles.filter((a) => a.order_id === auftrag.id && !a.deleted_at)
-    ).net;
+    const netto = orderArticleTotals(positionenVon(daten, auftrag.id), auftrag.rechnung_noetig).net;
     const ids = daten.orderEmployees[auftrag.id] ?? [];
     if (ids.length === 0) { ohne.auftraege += 1; ohne.umsatzNetto += netto; continue; }
     for (const id of ids) {
@@ -156,9 +161,12 @@ export function jeMitarbeiter(daten: Auswertungsdaten, z: Zeitraum): Mitarbeiter
 
 // Was wird verbraucht – Menge und Umsatz je Artikel.
 export function jeArtikel(daten: Auswertungsdaten, z: Zeitraum): ArtikelWert[] {
-  const erledigteIds = new Set(
-    daten.orders.filter((o) => imZeitraum(o.order_date, z) && o.status === "erledigt").map((o) => o.id)
-  );
+  // Kennung → Schalter. Der Nettobetrag hängt zwar nicht an der Steuer, aber die Funktion
+  // braucht den Schalter trotzdem – und ihn hier nachzuschlagen ist ehrlicher, als `false`
+  // einzusetzen und sich darauf zu verlassen, dass es beim Netto keinen Unterschied macht.
+  const erledigt = daten.orders.filter((o) => imZeitraum(o.order_date, z) && o.status === "erledigt");
+  const erledigteIds = new Set(erledigt.map((o) => o.id));
+  const mitRechnung = new Map(erledigt.map((o) => [o.id, o.rechnung_noetig]));
   const werte = new Map<string, ArtikelWert>();
 
   for (const zeile of daten.orderArticles) {
@@ -169,9 +177,9 @@ export function jeArtikel(daten: Auswertungsdaten, z: Zeitraum): ArtikelWert[] {
       menge: 0, umsatzNetto: 0,
     };
     vorhanden.menge += zeile.quantity;
-    // Auch hier über orderArticleTotals, obwohl es nur eine Zeile ist: Der Nachlass steckt in
-    // derselben Rechnung, und nach Block C steckt dort noch mehr.
-    vorhanden.umsatzNetto += orderArticleTotals([zeile]).net;
+    // Auch hier über orderArticleTotals, obwohl es nur eine Zeile ist: Der Sonderpreis steckt
+    // in derselben Rechnung, und dort steckt seit Migration 38 auch die Steuerfrage.
+    vorhanden.umsatzNetto += orderArticleTotals([zeile], mitRechnung.get(zeile.order_id) ?? false).net;
     werte.set(zeile.article_id, vorhanden);
   }
   return [...werte.values()].sort((a, b) => b.umsatzNetto - a.umsatzNetto || a.name.localeCompare(b.name, "de"));

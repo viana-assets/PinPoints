@@ -31,6 +31,7 @@ function position(teil: Partial<OrderArticle>): OrderArticle {
     net_price: 100,
     vat_rate: DEFAULT_VAT_RATE,
     discount_percent: 0,
+    endpreis_netto: null,
     note: null,
     created_at: "2026-01-01T00:00:00Z",
     deleted_at: null,
@@ -71,14 +72,14 @@ describe("currentArticlePrice", () => {
 
 describe("orderArticleTotals", () => {
   it("rechnet Menge und MwSt. zusammen", () => {
-    const summe = orderArticleTotals([position({ quantity: 2, net_price: 50, vat_rate: 19 })]);
+    const summe = orderArticleTotals([position({ quantity: 2, net_price: 50, vat_rate: 19 })], true);
     expect(summe.net).toBeCloseTo(100, 6);
     expect(summe.vat).toBeCloseTo(19, 6);
     expect(summe.gross).toBeCloseTo(119, 6);
   });
 
-  it("zieht den Rabatt je Position vom Nettobetrag ab, bevor die MwSt. gerechnet wird", () => {
-    const summe = orderArticleTotals([position({ quantity: 1, net_price: 200, discount_percent: 25, vat_rate: 19 })]);
+  it("nimmt den Endpreis der Position statt Menge mal Listenpreis", () => {
+    const summe = orderArticleTotals([position({ quantity: 1, net_price: 200, endpreis_netto: 150, vat_rate: 19 })], true);
     expect(summe.net).toBeCloseTo(150, 6);
     expect(summe.vat).toBeCloseTo(28.5, 6);
     expect(summe.gross).toBeCloseTo(178.5, 6);
@@ -88,14 +89,32 @@ describe("orderArticleTotals", () => {
     const summe = orderArticleTotals([
       position({ id: "a", net_price: 100, vat_rate: 19 }),
       position({ id: "b", net_price: 100, vat_rate: 7 }),
-    ]);
+    ], true);
     expect(summe.net).toBeCloseTo(200, 6);
     expect(summe.vat).toBeCloseTo(26, 6);
     expect(summe.gross).toBeCloseTo(226, 6);
   });
 
   it("liefert für einen Auftrag ohne Leistungen überall null", () => {
-    expect(orderArticleTotals([])).toEqual({ net: 0, vat: 0, gross: 0 });
+    expect(orderArticleTotals([], true)).toEqual({ net: 0, vat: 0, gross: 0 });
+  });
+
+  // Seit Migration 38 entscheidet der AUFTRAG über die Steuer, nicht die Zeile. Ohne
+  // „Rechnung benötigt" ist der Nettobetrag der Betrag – und brutto gleich netto.
+  it("lässt ohne Rechnung die Steuer ganz weg", () => {
+    const summe = orderArticleTotals([position({ quantity: 2, net_price: 50, vat_rate: 19 })], false);
+    expect(summe.net).toBeCloseTo(100, 6);
+    expect(summe.vat).toBe(0);
+    expect(summe.gross).toBeCloseTo(100, 6);
+  });
+
+  // Der Unterschied, auf den es ankommt: `null` heißt „kein Sonderpreis", `0` heißt
+  // „geschenkt". Wären beide gleich, wäre jede Position ohne Eingabe kostenlos.
+  it("unterscheidet: kein Sonderpreis ist nicht dasselbe wie geschenkt", () => {
+    const ohne = orderArticleTotals([position({ quantity: 2, net_price: 50, endpreis_netto: null })], false);
+    const gratis = orderArticleTotals([position({ quantity: 2, net_price: 50, endpreis_netto: 0 })], false);
+    expect(ohne.net).toBeCloseTo(100, 6);
+    expect(gratis.net).toBe(0);
   });
 });
 

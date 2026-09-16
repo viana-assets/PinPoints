@@ -131,7 +131,8 @@ export async function insertOrder(supabase: SupabaseClient, fields: {
 }
 
 export async function updateOrderById(supabase: SupabaseClient, id: string, fields: {
-  title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus;
+  title: string; description: string; orderDate: string; time: string; endTime?: string;
+  rechnungNoetig?: boolean; status: OrderStatus;
   vehicleId?: string | null;
 }): Promise<void> {
   await qWrite(
@@ -142,6 +143,9 @@ export async function updateOrderById(supabase: SupabaseClient, id: string, fiel
       // Leer heißt null und nicht "" – die Prüfregel aus Migration 37 lehnt eine leere
       // Zeichenkette ab, weil sie nicht der Form HH:MM entspricht.
       end_time: fields.endTime || null,
+      // Nur schreiben, wenn der Aufrufer etwas dazu sagt: Ein `undefined` würde den Schalter
+      // sonst bei jedem Speichern aus einem anderen Fenster stillschweigend auf „aus" setzen.
+      ...(fields.rechnungNoetig === undefined ? {} : { rechnung_noetig: fields.rechnungNoetig }),
       status: fields.status,
       ...(fields.vehicleId === undefined ? {} : { vehicle_id: fields.vehicleId || null }),
     }).eq("id", id)

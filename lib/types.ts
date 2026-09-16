@@ -60,6 +60,14 @@ export type ContactHistoryEntry = {
 
 export type RowDisplay = "datum" | "status" | "tage";
 
+// Einstellungen, die für den BETRIEB gelten und nicht für einen Nutzer (Migration 38).
+// Genau eine Zeile, von der Datenbank erzwungen.
+export type Betrieb = {
+  termin_intervall_min: number;
+  updated_at: string;
+  updated_by: string | null;
+};
+
 export type UserSettings = {
   user_id: string;
   period_months: number;
@@ -180,6 +188,10 @@ export type Order = {
   cancel_reason: string | null;
   // Begründung der letzten Wiedereröffnung. Die vollständige Historie steht im audit_log.
   reopen_reason: string | null;
+  // Bekommt der Kunde eine Rechnung? (Migration 38) Der Schalter entscheidet, ob auf den
+  // Nettobetrag die Steuer kommt. Er steht am AUFTRAG und nicht an der Position: Eine
+  // Rechnung schreibt man für den ganzen Vorgang, nicht für einzelne Zeilen darin.
+  rechnung_noetig: boolean;
   created_at: string;
   updated_at: string;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
@@ -276,7 +288,13 @@ export type OrderArticle = {
   quantity: number;
   net_price: number;
   vat_rate: number;
+  // Bis Migration 38 die Rabattangabe. Wird vom Code nicht mehr gelesen und nicht mehr
+  // geschrieben; die Spalte fällt in einer späteren Migration, sobald die neue Fassung
+  // überall läuft. Bis dahin steht sie hier, damit niemand sie versehentlich wiederbelebt.
   discount_percent: number;
+  // Sonderpreis für diese Position (Migration 38). NULL heißt „kein Sonderpreis" – dann gilt
+  // Menge × Listenpreis. Das ist etwas anderes als 0, was „geschenkt" bedeutet.
+  endpreis_netto: number | null;
   note: string | null;
   created_at: string;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile

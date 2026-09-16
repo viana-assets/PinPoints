@@ -328,14 +328,35 @@ export function preisZeitraumKollision(
 
 // Netto-, MwSt.- und Brutto-Summe der einem Auftrag zugeordneten Artikel-Positionen, jeweils
 // unter Berücksichtigung von Menge und individuellem Rabatt je Position.
-export function orderArticleTotals(rows: OrderArticle[]): { net: number; vat: number; gross: number } {
+// Die EINE Preisrechnung der Anwendung. Alles, was irgendwo einen Betrag anzeigt, fragt hier.
+//
+// Zwei Dinge sind seit Migration 38 anders, und beide kommen aus dem Betrieb:
+//
+//  1. STATT PROZENTRABATT EIN ENDPREIS. Im Gespräch läuft es so: „das kostet 50, wir machen
+//     40." Der Endpreis ist die Aussage, der Nachlass die Ableitung. `endpreis_netto = null`
+//     heißt „kein Sonderpreis" und ist etwas anderes als 0 – 0 heißt „geschenkt".
+//
+//  2. DIE STEUER HÄNGT AM AUFTRAG, NICHT AN DER ZEILE. Ist am Auftrag „Rechnung benötigt"
+//     gesetzt, kommt der Steuersatz der Position obendrauf; sonst bleibt es beim Netto.
+//     Deshalb braucht diese Funktion den Schalter als zweites Argument – sie kann ihn nicht
+//     aus den Zeilen ableiten, und ihn zu raten hieße, Beträge zu erfinden.
+export function orderArticleTotals(
+  rows: OrderArticle[],
+  rechnungNoetig: boolean
+): { net: number; vat: number; gross: number } {
   let net = 0, vat = 0;
   rows.forEach((r) => {
-    const lineNet = r.quantity * r.net_price * (1 - (r.discount_percent || 0) / 100);
+    const lineNet = r.endpreis_netto ?? r.quantity * r.net_price;
     net += lineNet;
-    vat += lineNet * (r.vat_rate / 100);
+    if (rechnungNoetig) vat += lineNet * (r.vat_rate / 100);
   });
   return { net, vat, gross: net + vat };
+}
+
+// Was die Position ohne Sonderpreis gekostet hätte. Die Vergleichsgröße, aus der sich der
+// gewährte Nachlass ergibt – gebraucht in der Auswertung und im Auftragsfenster.
+export function positionListenwert(r: Pick<OrderArticle, "quantity" | "net_price">): number {
+  return r.quantity * r.net_price;
 }
 
 // Region, die an eine Adresse ohne erkennbaren Stadtnamen angehängt wird, damit die
@@ -632,3 +653,36 @@ export const PROTOKOLL_AKTION_LABEL: Record<string, string> = {
   UPDATE: "geändert",
   DELETE: "gelöscht",
 };
+
+// ---------------------------------------------------------------- Hinweis aus der Vorgeschichte
+//
+// D2/D3 aus docs/lager-ausbaukonzept.md: Wenn ein Kunde wiederkommt, soll im Auftragsfenster
+// stehen, was beim LETZTEN Mal gemessen wurde – „HL 3,1 mm" oder „Reifen von 2018". Das ist
+// der Augenblick, in dem man Neureifen anbietet, und ohne den Hinweis fällt er aus.
+//
+// Gesucht wird der jüngste Satz DIESES Fahrzeugs; gibt es keines, der jüngste dieses Kunden.
+// Der Satz des laufenden Auftrags bleibt außen vor – er ist die Gegenwart, nicht die
+// Vorgeschichte.
+export function letzterSatzFuer<T extends {
+  id: string; customer_id: string; vehicle_id: string | null; created_at: string;
+}>(
+  saetze: T[],
+  kundeId: string | null | undefined,
+  fahrzeugId: string | null | undefined,
+  ausserSatzId?: string | null
+): T | null {
+  if (!kundeId) return null;
+  const desKunden = saetze
+    .filter((s) => s.customer_id === kundeId && s.id !== ausserSatzId)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  if (desKunden.length === 0) return null;
+  // Erst das passende Fahrzeug – ein Kunde mit zwei Autos hat zwei Vorgeschichten, und die
+  // des anderen Wagens wäre hier eine Falschaussage.
+  if (fahrzeugId) {
+    const zumFahrzeug = desKunden.find((s) => s.vehicle_id === fahrzeugId);
+    if (zumFahrzeug) return zumFahrzeug;
+    // Kein Satz zu DIESEM Fahrzeug: dann lieber nichts sagen als etwas über ein anderes Auto.
+    return null;
+  }
+  return desKunden[0];
+}

@@ -14,13 +14,13 @@ function auftrag(id: string, felder: Record<string, unknown> = {}) {
     description: null, status: "erledigt", order_date: "2026-03-10", time: "08:00",
     end_time: null, assigned_employee_id: null, techniker_notiz: null,
     firmenfahrzeug_id: null, completed_at: null, completed_by: null, cancelled_at: null,
-    cancelled_by: null, cancel_reason: null, reopen_reason: null, ...felder,
+    cancelled_by: null, cancel_reason: null, reopen_reason: null, rechnung_noetig: true, ...felder,
   } as never;
 }
 function position(orderId: string, felder: Record<string, unknown> = {}) {
   return {
     id: `p-${orderId}-${Math.random()}`, order_id: orderId, article_id: "a1",
-    quantity: 1, net_price: 100, vat_rate: 19, discount_percent: 0,
+    quantity: 1, net_price: 100, vat_rate: 19, discount_percent: 0, endpreis_netto: null,
     note: null, created_at: "2026-03-10", deleted_at: null, ...felder,
   } as never;
 }
@@ -56,10 +56,10 @@ describe("kennzahlen", () => {
     expect(k.umsatzBrutto).toBe(119);
   });
 
-  it("leitet den gewährten Nachlass aus Listenpreis minus Nettoumsatz ab", () => {
+  it("leitet den gewährten Nachlass aus Listenpreis minus Endpreis ab", () => {
     const d = daten({
       orders: [auftrag("a")],
-      orderArticles: [position("a", { quantity: 1, net_price: 100, discount_percent: 20 })],
+      orderArticles: [position("a", { quantity: 1, net_price: 100, endpreis_netto: 80 })],
     });
     const k = kennzahlen(d, Z);
     expect(k.umsatzNetto).toBe(80);
@@ -67,10 +67,10 @@ describe("kennzahlen", () => {
   });
 
   // Ein „negativer Nachlass" wäre ein Aufschlag. Ihn als Rabatt auszuweisen wäre falsch.
-  it("weist keinen negativen Nachlass aus", () => {
+  it("weist keinen negativen Nachlass aus, wenn der Endpreis über dem Listenpreis liegt", () => {
     const d = daten({
       orders: [auftrag("a")],
-      orderArticles: [position("a", { quantity: 1, net_price: 100, discount_percent: -10 })],
+      orderArticles: [position("a", { quantity: 1, net_price: 100, endpreis_netto: 110 })],
     });
     expect(kennzahlen(d, Z).nachlass).toBe(0);
   });

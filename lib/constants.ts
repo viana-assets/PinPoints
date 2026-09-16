@@ -309,12 +309,18 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
 // verhindern, dass die Seite beim Öffnen Monate lädt, die niemand angefragt hat.
 export const PROTOKOLL_TAGE_STANDARD = 90;
 
-// Wie lange ein Termin dauert, wenn niemand ein Ende gepflegt hat (Migration 37).
+// Das Terminraster: in welchen Schritten die Terminlänge vorgeschlagen wird, und wie lang ein
+// Termin ohne gepflegtes Ende gilt.
 //
-// Dieselbe Zahl steht in der Migration, die den Bestand nachträgt – wer sie ändert, ändert
-// sie an beiden Stellen. Sie ist eine ANNAHME und wird im Kalender auch so gezeichnet:
-// gestrichelte Unterkante, damit niemand die angenommene Stunde für eine Zusage hält.
-export const STANDARD_DAUER_MIN = 60;
+// Seit Migration 38 steht der tatsächliche Wert in der Datenbank (`betrieb.termin_intervall_min`)
+// und ist im Adminbereich einstellbar. Diese Konstante ist nur noch der Rückfall für den
+// Augenblick, in dem die Einstellung noch nicht geladen ist – sie darf deshalb nicht von der
+// Voreinstellung der Datenbank abweichen.
+export const STANDARD_DAUER_MIN = 30;
+
+// Die Schritte, die im Adminbereich zur Auswahl stehen. Feste Liste statt freiem Zahlenfeld:
+// Ein Raster von 37 Minuten ergibt keinen Termin, den jemand ansagen würde.
+export const TERMIN_INTERVALLE = [15, 20, 30, 45, 60, 90, 120];
 
 // Das Grundfenster der Tages- und Wochenansicht in Stunden. Es dehnt sich aus, sobald ein
 // Termin darüber hinausgeht, wird aber nie enger – sonst läge die Acht-Uhr-Linie an jedem Tag
