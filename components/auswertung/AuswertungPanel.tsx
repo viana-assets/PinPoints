@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
-import type { Article, Employee } from "@/lib/types";
+import type { Article, Customer, Employee, Vehicle } from "@/lib/types";
 import { fetchAuswertungsdaten } from "@/lib/api/auswertung";
 import type { AuswertungsAbzug } from "@/lib/api/auswertung";
-import { jeArtikel, jeMitarbeiter, jeMonat, kennzahlen, zeitraumVorgabe } from "@/lib/auswertung";
+import { artikelDetail, jeArtikel, jeMitarbeiter, jeMonat, kennzahlen, zeitraumVorgabe } from "@/lib/auswertung";
 import { formatEUR } from "@/lib/helpers";
 import { IconAuswertung } from "@/components/icons";
 
@@ -53,11 +53,18 @@ function Monatsbalken({ reihe }: { reihe: { monat: string; auftraege: number; um
   );
 }
 
-export function AuswertungPanel({ employees, articles }: { employees: Employee[]; articles: Article[] }) {
+export function AuswertungPanel({ employees, articles, customers, vehicles }: {
+  employees: Employee[]; articles: Article[];
+  // Für die Artikelauswertung: Wer hat gekauft, und an welchem Auto wurde gearbeitet.
+  customers: Customer[]; vehicles: Vehicle[];
+}) {
   const supabase = useMemo(() => createClient(), []);
   const [zeitraum, setZeitraum] = useState(() => zeitraumVorgabe("jahr"));
   const [abzug, setAbzug] = useState<AuswertungsAbzug | null>(null);
   const [laedt, setLaedt] = useState(false);
+  // Welcher Artikel im Detail betrachtet wird. Leer heißt: noch keiner gewählt – dann steht
+  // dort der Hinweis statt einer Auswertung über nichts.
+  const [detailArtikel, setDetailArtikel] = useState("");
 
   useEffect(() => {
     let abgebrochen = false;
@@ -73,13 +80,14 @@ export function AuswertungPanel({ employees, articles }: { employees: Employee[]
     orderArticles: abzug?.orderArticles ?? [],
     orderEmployees: abzug?.orderEmployees ?? {},
     einlagerungen: abzug?.einlagerungen ?? [],
-    employees, articles,
-  }), [abzug, employees, articles]);
+    employees, articles, customers, vehicles,
+  }), [abzug, employees, articles, customers, vehicles]);
 
   const k = useMemo(() => kennzahlen(daten, zeitraum), [daten, zeitraum]);
   const monate = useMemo(() => jeMonat(daten, zeitraum), [daten, zeitraum]);
   const leute = useMemo(() => jeMitarbeiter(daten, zeitraum), [daten, zeitraum]);
   const posten = useMemo(() => jeArtikel(daten, zeitraum), [daten, zeitraum]);
+  const detail = useMemo(() => artikelDetail(daten, zeitraum, detailArtikel), [daten, zeitraum, detailArtikel]);
 
   return (
     <div className="tabpanel active">
@@ -167,13 +175,16 @@ export function AuswertungPanel({ employees, articles }: { employees: Employee[]
         )}
 
         <h4>Je Artikel – was wird verbraucht</h4>
+        <p className="small" style={{ marginTop: 0 }}>
+          Ein Klick auf eine Zeile öffnet den Artikel unten im Detail.
+        </p>
         {posten.length === 0 ? <div className="empty">Keine Leistungen im Zeitraum.</div> : (
           <div className="modul-tabelle">
             <table className="appt-table">
               <thead><tr><th>Artikel</th><th>Menge</th><th>Umsatz netto</th></tr></thead>
               <tbody>
                 {posten.map((a) => (
-                  <tr key={a.id}>
+                  <tr key={a.id} className="klickbar" onClick={() => setDetailArtikel(a.id)}>
                     <td>{a.name}</td>
                     <td>{a.menge.toLocaleString("de-DE")}</td>
                     <td>{formatEUR(a.umsatzNetto)}</td>
@@ -182,6 +193,92 @@ export function AuswertungPanel({ employees, articles }: { employees: Employee[]
               </tbody>
             </table>
           </div>
+        )}
+
+        {/* ------------------------------------------------ Ein Artikel im Detail ------ */}
+        <h4>Ein Artikel im Detail</h4>
+        <div className="field" style={{ maxWidth: 380 }}>
+          <label>Artikel</label>
+          <select value={detailArtikel} onChange={(e) => setDetailArtikel(e.target.value)}>
+            <option value="">– Artikel wählen –</option>
+            {/* Alle Artikel, nicht nur die mit Umsatz: „von diesem Artikel haben wir nichts
+                verkauft" ist auch eine Antwort, und sie geht verloren, wenn er gar nicht
+                erst zur Auswahl steht. */}
+            {[...articles].sort((a, b) => a.short_name.localeCompare(b.short_name, "de")).map((a) => (
+              <option key={a.id} value={a.id}>{a.short_name}{a.active ? "" : " (inaktiv)"}</option>
+            ))}
+          </select>
+        </div>
+
+        {!detailArtikel ? (
+          <div className="empty">
+            Wähle einen Artikel – dann steht hier, in welchen Monaten er läuft, an wie viele
+            Kunden er ging und wie viel davon auf ein Fahrzeug geht.
+          </div>
+        ) : (
+          <>
+            <div className="aw-kacheln">
+              <Kachel titel="Menge" wert={detail.menge.toLocaleString("de-DE")}
+                      unten={`in ${detail.auftraege} ${detail.auftraege === 1 ? "Auftrag" : "Aufträgen"}`} />
+              <Kachel titel="Umsatz netto" wert={formatEUR(detail.umsatzNetto)} />
+              <Kachel titel="Kunden" wert={String(detail.kunden)}
+                      unten={`${detail.mengeJeKunde.toFixed(1).replace(".", ",")} je Kunde`} />
+              <Kachel titel="Fahrzeuge" wert={String(detail.fahrzeuge)}
+                      unten="mit Fahrzeug am Auftrag" />
+              <Kachel titel="Je Auftrag" wert={detail.mengeJeAuftrag.toFixed(1).replace(".", ",")}
+                      unten="Stück im Schnitt" />
+            </div>
+
+            <h4>Verlauf – Menge je Monat</h4>
+            <Monatsbalken reihe={detail.jeMonat.map((m) => ({
+              monat: m.monat, auftraege: m.menge, umsatzNetto: m.menge,
+            }))} />
+
+            <h4>Je Kunde</h4>
+            {detail.jeKunde.length === 0 ? (
+              <div className="empty">Dieser Artikel wurde im Zeitraum nicht verkauft.</div>
+            ) : (
+              <div className="modul-tabelle">
+                <table className="appt-table">
+                  <thead><tr><th>Kunde</th><th>Menge</th><th>Aufträge</th><th>Umsatz netto</th><th>zuletzt</th></tr></thead>
+                  <tbody>
+                    {detail.jeKunde.map((k) => (
+                      <tr key={k.id}>
+                        <td>{k.name}</td>
+                        <td>{k.menge.toLocaleString("de-DE")}</td>
+                        <td>{k.auftraege}</td>
+                        <td>{formatEUR(k.umsatzNetto)}</td>
+                        <td>{k.zuletzt ? new Date(k.zuletzt).toLocaleDateString("de-DE") : "–"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <h4>Je Fahrzeug</h4>
+            {detail.jeFahrzeug.length === 0 ? (
+              <div className="empty">
+                An keinem der Aufträge war ein Fahrzeug hinterlegt – ohne Fahrzeug am Auftrag
+                lässt sich das nicht auswerten.
+              </div>
+            ) : (
+              <div className="modul-tabelle">
+                <table className="appt-table">
+                  <thead><tr><th>Fahrzeug</th><th>Menge</th><th>Aufträge</th></tr></thead>
+                  <tbody>
+                    {detail.jeFahrzeug.map((f) => (
+                      <tr key={f.id}>
+                        <td>{f.bezeichnung}</td>
+                        <td>{f.menge.toLocaleString("de-DE")}</td>
+                        <td>{f.auftraege}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

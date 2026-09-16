@@ -305,7 +305,9 @@ export default function HomePage() {
   // Alle Kundenfahrzeuge – nur fürs Lager-Modul. Dort steht kein einzelner Kunde im
   // Mittelpunkt, sondern viele Sätze nebeneinander, und jeder gehört zu einem Auto
   // (Migration 30).
-  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison"));
+  // Auch für die Artikelauswertung: „wie viel geht auf ein Fahrzeug" braucht die Kennzeichen
+  // aller Fahrzeuge, nicht nur die des geöffneten Kunden.
+  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison" || tab === "auswertung"));
   // Die eigenen Transporter: kleine Stammdatenliste, gebraucht überall dort, wo ein Auftrag
   // gezeigt oder eingeteilt wird (Migration 32).
   const firmenfahrzeugeQuery = useFirmenfahrzeuge(
@@ -2368,7 +2370,10 @@ export default function HomePage() {
         )}
 
         {tab === "auswertung" && canView("auswertung") && (
-          <AuswertungPanel employees={employees} articles={articles} />
+          <AuswertungPanel
+            employees={employees} articles={articles}
+            customers={customers} vehicles={alleFahrzeuge}
+          />
         )}
 
         {tab === "artikel" && canView("artikel") && (

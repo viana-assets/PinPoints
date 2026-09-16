@@ -181,10 +181,19 @@ export function AuftragModal({
   const gleicheListe = (a: string[], b: string[]) =>
     a.length === b.length && a.every((id) => b.includes(id));
 
+  // WICHTIG: Jedes Feld, das man in diesem Fenster ändern kann, MUSS hier stehen. Der
+  // Speichern-Knopf erscheint nur, wenn `geaendert` wahr ist – ein Feld, das hier fehlt,
+  // lässt sich zwar ändern, aber nicht speichern, und zwar ohne jede Fehlermeldung.
+  //
+  // Genau das ist am 16.09.2026 passiert: „Bis" und „Rechnung benötigt" kamen mit den
+  // Migrationen 37 und 38 dazu, und beide fehlten hier. Wer die Endzeit korrigierte, bekam
+  // keinen Knopf zu sehen und hielt die Anwendung für kaputt.
   const geaendert =
     titel !== order.title ||
     datum !== order.order_date ||
     zeit !== (order.time || "") ||
+    zeitBis !== (order.end_time || "") ||
+    rechnungNoetig !== order.rechnung_noetig ||
     beschreibung !== (order.description || "") ||
     fahrzeugId !== (order.vehicle_id || "") ||
     firmenfahrzeugId !== (order.firmenfahrzeug_id || "") ||
