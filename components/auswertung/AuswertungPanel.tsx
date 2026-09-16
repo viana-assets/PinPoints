@@ -88,7 +88,11 @@ export function AuswertungPanel({ employees, articles }: { employees: Employee[]
           <div className="mh-icon"><IconAuswertung /></div>
           <div className="mh-text">
             <h2>Auswertungen</h2>
-            <p>Alle Geldbeträge stammen aus <b>erledigten</b> Aufträgen – offene sind eine Absicht, stornierte ein Nichts.</p>
+            <p>
+              Alle Geldbeträge stammen aus <b>erledigten</b> Aufträgen – offene sind eine
+              Absicht, stornierte ein Nichts. Steuer fällt nur dort an, wo am Auftrag
+              &bdquo;Rechnung benötigt&ldquo; gesetzt ist.
+            </p>
           </div>
         </div>
 
@@ -119,7 +123,11 @@ export function AuswertungPanel({ employees, articles }: { employees: Employee[]
                   unten={`${k.auftraegeGesamt} insgesamt · ${k.auftraegeStorniert} storniert`} />
           <Kachel titel="Umsatz netto" wert={formatEUR(k.umsatzNetto)}
                   unten={`${formatEUR(k.umsatzBrutto)} brutto`} />
-          <Kachel titel="Umsatzsteuer" wert={formatEUR(k.umsatzsteuer)} />
+          {/* Die Steuer fällt nur an, wo „Rechnung benötigt" gesetzt ist – deshalb steht die
+              Bezugsgröße dabei. Eine Steuersumme ohne die Angabe, worauf sie sich bezieht,
+              sieht aus wie eine Gesamtzahl und ist keine. */}
+          <Kachel titel="Steuer (nur mit Rechnung)" wert={formatEUR(k.umsatzsteuer)}
+                  unten={`aus ${k.auftraegeMitRechnung} von ${k.auftraegeErledigt} Aufträgen`} />
           <Kachel titel="Gewährter Nachlass" wert={formatEUR(k.nachlass)}
                   unten="Listenpreis minus tatsächlicher Umsatz" />
           <Kachel titel="Kunden bedient" wert={String(k.kundenBedient)}

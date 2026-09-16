@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { Article, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
-import { formatDate, formatOrderDateTime, getPhoneNumbers } from "@/lib/helpers";
-import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, STANDARD_DAUER_MIN, istAbgeschlossen } from "@/lib/constants";
+import { formatDate, formatOrderDateTime, getPhoneNumbers, handlungsgruende } from "@/lib/helpers";
+import { hhmmAus, minutenAus } from "@/lib/calendar";
+import {
+  DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, ORDER_STATUS_FARBE, ORDER_STATUS_LABEL,
+  PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN, istAbgeschlossen,
+} from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "./ArticleAssignPanel";
 import { IconNavPin, IconTrash } from "@/components/icons";
@@ -24,8 +28,9 @@ export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds, raeder,
+  terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete,
-  onAddArticle, onUpdateArticleQty, onUpdateArticleDiscount, onRemoveArticle, onNavigate, onCall,
+  onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
 }: {
@@ -50,20 +55,28 @@ export function AuftragModal({
   // Einlagerung (Migration 22, siehe docs/lager.md): welcher Lagerplatz gehört zu diesem
   // Auftrag, und verlangt eine seiner Leistungen überhaupt einen?
   einlagerung: TireStorage | null;
+  // Das Terminraster aus den Betriebseinstellungen (Migration 38). Bestimmt, welches Ende
+  // beim Eintragen einer Anfangszeit vorgeschlagen wird.
+  terminIntervallMin: number;
+  // Die Vorgeschichte dieses Fahrzeugs: der letzte eingelagerte Satz samt Rädern, für den
+  // Hinweis „beim letzten Wechsel …" (D2/D3). Null heißt: kein verlässlicher Vorgänger –
+  // dann steht hier nichts, statt etwas über ein anderes Auto zu behaupten.
+  letzterSatz: TireStorage | null;
+  letzterSatzRaeder: EingelagertesRad[];
   brauchtLagerplatz: boolean;
   storageSlots: StorageSlot[];
   warehouses: Warehouse[];
   belegteSlotIds: Set<string>;
   onClose: () => void;
-  onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
+  onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
   onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
   onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
   onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onAddArticle: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
+  onAddArticle: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null) => Promise<void>;
   onUpdateArticleQty: (id: string, quantity: number) => Promise<void>;
-  onUpdateArticleDiscount: (id: string, discountPercent: number) => Promise<void>;
+  onUpdateArticleEndpreis: (id: string, endpreisNetto: number | null) => Promise<void>;
   onRemoveArticle: (id: string) => Promise<void>;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
   // Anrufen direkt aus dem Auftragsfenster. Es ist der Bildschirm, auf dem eine angetippte
@@ -113,6 +126,30 @@ export function AuftragModal({
   const [datum, setDatum] = useState(order.order_date);
   const [zeit, setZeit] = useState(order.time || "");
   const [zeitBis, setZeitBis] = useState(order.end_time || "");
+  // „Rechnung benötigt" (Migration 38). Entscheidet, ob auf den Nettobetrag die Steuer kommt.
+  const [rechnungNoetig, setRechnungNoetig] = useState(order.rechnung_noetig);
+  // Wurde das Ende von der Anwendung vorgeschlagen oder von Hand gesetzt? Nur ein
+  // vorgeschlagenes darf beim Ändern der Anfangszeit mitwandern – ein von Hand eingetragenes
+  // zu überschreiben wäre genau die Art von Hilfsbereitschaft, die Arbeit vernichtet.
+  const [endeVorgeschlagen, setEndeVorgeschlagen] = useState(!order.end_time);
+
+  function anfangAendern(neu: string) {
+    setZeit(neu);
+    const start = minutenAus(neu);
+    if (endeVorgeschlagen && start != null) setZeitBis(hhmmAus(start + terminIntervallMin));
+  }
+  function endeAendern(neu: string) {
+    setZeitBis(neu);
+    setEndeVorgeschlagen(false);
+  }
+
+  // Was beim letzten Mal an diesem Fahrzeug auffiel (D2/D3). Dieselbe Regel wie der orange
+  // Punkt an der Regalwand – eine zweite Regel für dieselbe Frage wären zwei Wahrheiten.
+  const vorgeschichte = letzterSatz
+    ? handlungsgruende(letzterSatz, letzterSatzRaeder, {
+        kritischMm: PROFIL_KRITISCH_MM, dotJahre: DOT_ALT_JAHRE, liegtTage: LAGERDAUER_HINWEIS_TAGE,
+      })
+    : [];
   const [beschreibung, setBeschreibung] = useState(order.description || "");
   const [fahrzeugId, setFahrzeugId] = useState(order.vehicle_id || "");
   const [firmenfahrzeugId, setFirmenfahrzeugId] = useState(order.firmenfahrzeug_id || "");
@@ -219,6 +256,7 @@ export function AuftragModal({
         orderDate: datum,
         time: zeit,
         endTime: zeitBis,
+        rechnungNoetig,
         status: order.status,
         assignedEmployeeIds: mitarbeiterIds,
       });
@@ -400,7 +438,7 @@ export function AuftragModal({
                     <input
                       type="time"
                       value={zeit}
-                      onChange={(e) => setZeit(e.target.value)}
+                      onChange={(e) => anfangAendern(e.target.value)}
                       aria-invalid={zeitFehlt}
                       className={zeitFehlt ? "feld-fehlt" : undefined}
                     />
@@ -410,7 +448,7 @@ export function AuftragModal({
                     <input
                       type="time"
                       value={zeitBis}
-                      onChange={(e) => setZeitBis(e.target.value)}
+                      onChange={(e) => endeAendern(e.target.value)}
                       aria-invalid={endeVorAnfang}
                       className={endeVorAnfang ? "feld-fehlt" : undefined}
                     />
@@ -424,8 +462,8 @@ export function AuftragModal({
                 )}
                 {!zeitBis.trim() && !!zeit.trim() && (
                   <div className="small" style={{ color: "var(--muted)" }}>
-                    Ohne Ende rechnet der Kalender mit {STANDARD_DAUER_MIN} Minuten und
-                    zeichnet die Unterkante gestrichelt.
+                    Ohne Ende rechnet der Kalender mit {terminIntervallMin || STANDARD_DAUER_MIN} Minuten
+                    und zeichnet die Unterkante gestrichelt.
                   </div>
                 )}
                 {zeitFehlt && (
@@ -474,16 +512,53 @@ export function AuftragModal({
 
           {/* ---------------------------------------------------------------- Leistungen */}
           <div className="auftrag-block">
+            {/* D2/D3: Was beim letzten Mal an diesem Fahrzeug auffiel. Der Hinweis steht
+                ÜBER den Leistungen, weil genau hier die Entscheidung fällt, ob man Neureifen
+                anbietet – darunter wäre er die Antwort auf eine Frage, die niemand mehr
+                stellt. */}
+            {vorgeschichte.length > 0 && (
+              <div className="vorgeschichte">
+                <b>Beim letzten Mal an diesem Fahrzeug:</b>
+                <ul>
+                  {vorgeschichte.map((g) => <li key={g}>{g}</li>)}
+                </ul>
+              </div>
+            )}
+
             <ArticleAssignPanel
+              rechnungNoetig={rechnungNoetig}
               orderId={order.id}
               articles={articles}
               rows={orderArticles}
               gesperrt={gesperrt || isTechniker}
               onAdd={onAddArticle}
               onUpdateQty={onUpdateArticleQty}
-              onUpdateDiscount={onUpdateArticleDiscount}
+              onUpdateEndpreis={onUpdateArticleEndpreis}
               onRemove={onRemoveArticle}
             />
+
+            {/* „Rechnung benötigt" (Migration 38) – unter den Leistungen, weil er die Summe
+                darüber verändert und man die Wirkung sofort sieht.
+
+                Ein Kontrollkästchen und kein Auswahlfeld: Es gibt zwei Zustände, und ein
+                Häkchen sagt beide gleichzeitig. Der Satz daneben nennt die Wirkung, nicht die
+                Einstellung – „mit Steuer" ist die Auskunft, „Schalter aktiv" wäre keine. */}
+            <label className={"rechnung-schalter" + (gesperrt ? " gesperrt" : "")}>
+              <input
+                type="checkbox"
+                checked={rechnungNoetig}
+                disabled={gesperrt}
+                onChange={(e) => setRechnungNoetig(e.target.checked)}
+              />
+              <span>
+                <b>Rechnung benötigt</b>
+                <span className="small">
+                  {rechnungNoetig
+                    ? "Auf den Nettobetrag kommt die Umsatzsteuer."
+                    : "Es gilt der Nettobetrag, ohne Steuer."}
+                </span>
+              </span>
+            </label>
           </div>
 
           {/* ---------------------------------------------------------------- Einlagerung */}

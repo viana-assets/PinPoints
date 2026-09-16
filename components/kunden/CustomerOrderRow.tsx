@@ -31,7 +31,7 @@ export function CustomerOrderRow({ order, employees, assignedEmployeeIds, orderA
   const gesperrt = istAbgeschlossen(order.status);
   const past = isOrderPast(order);
   const empNames = employees.filter((e) => assignedEmployeeIds.includes(e.id)).map((e) => e.name).join(", ");
-  const summen = orderArticleTotals(orderArticles);
+  const summen = orderArticleTotals(orderArticles, order.rechnung_noetig);
 
   return (
     <div className="appt-item klickbar" onClick={() => onOpen(order.id)} title="Auftrag öffnen">
@@ -45,7 +45,7 @@ export function CustomerOrderRow({ order, employees, assignedEmployeeIds, orderA
       <div className="small">
         {orderArticles.length === 0
           ? "Noch keine Leistungen zugeordnet."
-          : `${orderArticles.length} ${orderArticles.length === 1 ? "Leistung" : "Leistungen"} · ${formatEUR(summen.gross)} brutto`}
+          : `${orderArticles.length} ${orderArticles.length === 1 ? "Leistung" : "Leistungen"} · ${formatEUR(summen.gross)}${order.rechnung_noetig ? " brutto" : " netto"}`}
       </div>
       {/* Die Knöpfe halten den Klick an, damit ein „Löschen" nicht nebenbei auch das
           Auftragsfenster öffnet. */}

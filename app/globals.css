@@ -1335,8 +1335,17 @@ tr.klickbar:hover { background: var(--hover); }
    Sie sind keine Gestaltung, sondern die gerechnete Aussage dieses einen Termins. Alles
    andere – Farben, Kanten, Schrift, Abstände – steht hier.
    --------------------------------------------------------------------------- */
+/* `flex:0 0 auto` ist hier kein Feinschliff, sondern der Unterschied zwischen ganz und halb.
+   Das Raster steht in `.modul-flaeche` – einer Spalte mit `flex:1; min-height:0`, gebaut für
+   das Muster „Kopf bleibt stehen, lange Tabelle scrollt für sich". In so einer Spalte
+   SCHRUMPFEN Kinder standardmäßig, wenn der Platz nicht reicht. Zusammen mit `overflow:hidden`
+   hieß das: Bei 760 px Fensterhöhe endete der Tag sichtbar um 16:00, und es gab nichts zum
+   Scrollen – die Stunden danach waren einfach abgeschnitten. Gemessen und reproduziert am
+   14.09.2026.
+
+   Ein Kalender ist kein Element, das man kürzen darf: Seine Höhe IST die Aussage. */
 .raster{border:1px solid var(--border);border-radius:12px;background:var(--panel);
-  overflow:hidden;}
+  overflow:hidden;flex:0 0 auto;}
 .raster-kopf,
 .raster-ohnezeit,
 .raster-leib{display:grid;grid-template-columns:52px repeat(var(--tage,1), minmax(0,1fr));}
@@ -1363,7 +1372,12 @@ tr.klickbar:hover { background: var(--hover); }
   text-overflow:ellipsis;white-space:nowrap;}
 .roz-chip:hover{background:var(--chip-hover);}
 
-.raster-leib{position:relative;}
+/* Die Stundenbeschriftung sitzt 7 px ÜBER ihrer Linie (mittig auf der Linie). Bei der ersten
+   Stunde ragte sie damit aus dem Raster heraus und in die Leiste „ohne Uhrzeit" hinein.
+   `content-box` ist hier entscheidend: Die Höhe kommt gerechnet vom Element (Stundenzahl ×
+   52 px), und mit der voreingestellten `border-box` würde das Polster von genau dieser Höhe
+   abgezogen – die Blöcke lägen dann bis zu 9 px neben ihren Stundenlinien. */
+.raster-leib{position:relative;padding-top:9px;box-sizing:content-box;}
 .rl-stunden{display:block;padding:0;}
 .rl-stunde{position:relative;border-top:1px solid var(--border);}
 .rl-stunde span{position:absolute;top:-7px;right:5px;background:var(--panel);padding:0 2px;
@@ -1456,3 +1470,21 @@ tr.klickbar:hover { background: var(--hover); }
   .awk-wert{font-size:19px;}
   .awb-saeule{height:90px;}
 }
+
+/* Der Schalter „Rechnung benötigt" am Auftrag (Migration 38). Ein Kontrollkästchen mit dem
+   Satz daneben, der die WIRKUNG nennt – „auf den Nettobetrag kommt die Umsatzsteuer" ist die
+   Auskunft, „Schalter aktiv" wäre keine. */
+.rechnung-schalter{display:flex;align-items:flex-start;gap:9px;margin-top:10px;padding:9px 11px;
+  border:1px solid var(--border);border-radius:10px;background:var(--bg);cursor:pointer;}
+.rechnung-schalter:hover{background:var(--hover);}
+.rechnung-schalter.gesperrt{cursor:default;opacity:.7;}
+.rechnung-schalter input{width:17px;height:17px;margin-top:1px;flex:0 0 auto;accent-color:var(--accent);}
+.rechnung-schalter > span{display:flex;flex-direction:column;gap:1px;}
+.rechnung-schalter b{font-size:13px;}
+
+/* D2/D3: Was beim letzten Mal an diesem Fahrzeug auffiel. Steht über den Leistungen, weil
+   genau dort die Entscheidung fällt, ob man Neureifen anbietet. */
+.vorgeschichte{border-left:3px solid var(--accent);background:var(--accent-bg);
+  border-radius:0 8px 8px 0;padding:8px 11px;margin:0 0 10px;font-size:12.5px;}
+.vorgeschichte ul{margin:3px 0 0;padding-left:18px;}
+.vorgeschichte li{margin-top:1px;}

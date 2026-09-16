@@ -1,31 +1,40 @@
 import { useState } from "react";
 import type { Article, OrderArticle } from "@/lib/types";
-import { formatEUR, orderArticleTotals } from "@/lib/helpers";
+import { formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
 import { IconTrash } from "@/components/icons";
 
 // Leistungen/Artikel-Zuordnung zu einem Auftrag: Liste bereits zugeordneter Positionen (Menge,
-// Rabatt individuell je Position, Preis als Schnappschuss vom Zuordnungszeitpunkt) plus eine
-// kleine Zeile zum Hinzufügen weiterer Artikel. Wird sowohl im Popover (Aufträge-Tab &
+// Endpreis je Position, Listenpreis als Schnappschuss vom Zuordnungszeitpunkt) plus eine
+// kleine Zeile zum Hinzufügen weiterer Artikel.
+//
+// Seit Migration 38 steht hier ein ENDPREIS und kein Prozentrabatt mehr. Im Gespräch läuft es
+// so: „das kostet 50, wir machen 40." Der Endpreis ist die Aussage; wie viel Nachlass das
+// war, rechnet die Anwendung aus und zeigt es daneben – nicht umgekehrt. Wird sowohl im Popover (Aufträge-Tab &
 // Einsatzplanung) als auch direkt inline im Kunden-Detailfenster verwendet. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, onUpdateQty, onUpdateDiscount, onRemove }: {
+export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, rechnungNoetig, onAdd, onUpdateQty, onUpdateEndpreis, onRemove }: {
   orderId: string;
   articles: Article[];
   rows: OrderArticle[];
+  // Ob auf den Nettobetrag die Steuer kommt, entscheidet der Auftrag – nicht die Position.
+  // Deshalb kommt der Schalter von oben herein und wird hier nur angewandt.
+  rechnungNoetig: boolean;
   // Ist der Auftrag abgeschlossen oder storniert, sind seine Positionen eingefroren – die
   // Datenbank lehnt jede Änderung ohnehin ab (Migration 20). Hier werden die Eingabefelder
   // deshalb gar nicht erst angeboten, statt den Nutzer in eine Fehlermeldung laufen zu lassen.
   gesperrt?: boolean;
-  onAdd: (orderId: string, articleId: string, quantity: number, discountPercent: number) => Promise<void>;
+  onAdd: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null) => Promise<void>;
   onUpdateQty: (id: string, quantity: number) => Promise<void>;
-  onUpdateDiscount: (id: string, discountPercent: number) => Promise<void>;
+  // `null` heißt „kein Sonderpreis" – dann gilt wieder Menge × Listenpreis. Das ist etwas
+  // anderes als 0, was „geschenkt" bedeutet, und beides muss eingebbar bleiben.
+  onUpdateEndpreis: (id: string, endpreisNetto: number | null) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }) {
   const activeArticles = articles.filter((a) => a.active);
   const [articleId, setArticleId] = useState("");
   const [qty, setQty] = useState("1");
-  const [discount, setDiscount] = useState("0");
-  const totals = orderArticleTotals(rows);
+  const [endpreis, setEndpreis] = useState("");
+  const totals = orderArticleTotals(rows, rechnungNoetig);
 
   // Mengen sind bei allen Leistungen Stückzahlen – halbe Reifenwechsel gibt es nicht. Deshalb
   // ganze Zahlen, mindestens 1: mit step="0.01" zählten die Pfeiltasten in Hundertstel-Schritten.
@@ -41,11 +50,13 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
         <div className="small" style={{ marginBottom: 6 }}>Noch keine Leistungen zugeordnet.</div>
       ) : (
         <table className="appt-table" style={{ marginBottom: 6 }}>
-          <thead><tr><th>Artikel</th><th>Menge</th><th>Rabatt %</th><th>Summe netto</th><th></th></tr></thead>
+          <thead><tr><th>Artikel</th><th>Menge</th><th>Endpreis netto</th><th>Summe netto</th><th></th></tr></thead>
           <tbody>
             {rows.map((r) => {
               const art = articles.find((a) => a.id === r.article_id);
-              const lineNet = r.quantity * r.net_price * (1 - (r.discount_percent || 0) / 100);
+              const listenwert = positionListenwert(r);
+              const lineNet = r.endpreis_netto ?? listenwert;
+              const nachlass = listenwert - lineNet;
               return (
                 <tr key={r.id}>
                   <td>{art ? art.short_name : "(gelöschter Artikel)"}<div className="small">{formatEUR(r.net_price)} / Stk.</div></td>
@@ -58,14 +69,29 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
                     )}
                   </td>
                   <td>
-                    {gesperrt ? `${r.discount_percent} %` : (
+                    {gesperrt ? (r.endpreis_netto == null ? "–" : formatEUR(r.endpreis_netto)) : (
                       <input
-                        type="number" min={0} max={100} step="1" value={r.discount_percent} style={{ width: 52 }}
-                        onChange={(e) => onUpdateDiscount(r.id, parseFloat(e.target.value.replace(",", ".")) || 0)}
+                        type="number" min={0} step="0.01" style={{ width: 82 }}
+                        // Leeres Feld = kein Sonderpreis. Deshalb hier bewusst der leere
+                        // String und nicht der errechnete Betrag als Vorbelegung: Stünde der
+                        // Listenpreis drin, wäre jede Position sofort ein „Sonderpreis" in
+                        // Höhe des Listenpreises – und der Nachlass in der Auswertung
+                        // dauerhaft 0, obwohl niemand etwas eingegeben hat.
+                        placeholder={listenwert.toFixed(2)}
+                        value={r.endpreis_netto ?? ""}
+                        onChange={(e) => {
+                          const text = e.target.value.trim();
+                          onUpdateEndpreis(r.id, text === "" ? null : (parseFloat(text.replace(",", ".")) || 0));
+                        }}
                       />
                     )}
                   </td>
-                  <td>{formatEUR(lineNet)}</td>
+                  <td>
+                    {formatEUR(lineNet)}
+                    {/* Der Nachlass ist abgeleitet und wird deshalb angezeigt, nicht
+                        eingegeben. */}
+                    {nachlass > 0.004 && <div className="small">−{formatEUR(nachlass)}</div>}
+                  </td>
                   <td>
                     {!gesperrt && (
                       <button type="button" className="btn-secondary" style={{ padding: "2px 6px" }} onClick={() => onRemove(r.id)}><IconTrash /></button>
@@ -79,7 +105,11 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
       )}
       {rows.length > 0 && (
         <div className="small" style={{ marginBottom: 6 }}>
-          Netto {formatEUR(totals.net)} · MwSt. {formatEUR(totals.vat)} · <b>Brutto {formatEUR(totals.gross)}</b>
+          {rechnungNoetig ? (
+            <>Netto {formatEUR(totals.net)} · MwSt. {formatEUR(totals.vat)} · <b>Brutto {formatEUR(totals.gross)}</b></>
+          ) : (
+            <><b>Netto {formatEUR(totals.net)}</b> · ohne Steuer, weil keine Rechnung benötigt wird</>
+          )}
         </div>
       )}
       {gesperrt ? (
@@ -100,8 +130,11 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
             <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
           </div>
           <div className="field" style={{ flex: 1, marginBottom: 0 }}>
-            <label>Rabatt %</label>
-            <input type="number" min={0} max={100} step="1" value={discount} onChange={(e) => setDiscount(e.target.value)} />
+            <label>Endpreis netto</label>
+            <input
+              type="number" min={0} step="0.01" placeholder="Listenpreis"
+              value={endpreis} onChange={(e) => setEndpreis(e.target.value)}
+            />
           </div>
           <button
             type="button"
@@ -109,8 +142,9 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, onAdd, o
             style={{ flex: "0 0 auto" }}
             onClick={() => {
               if (!articleId) return;
-              onAdd(orderId, articleId, ganzeMenge(qty), parseFloat(discount.replace(",", ".")) || 0);
-              setArticleId(""); setQty("1"); setDiscount("0");
+              const text = endpreis.trim();
+              onAdd(orderId, articleId, ganzeMenge(qty), text === "" ? null : (parseFloat(text.replace(",", ".")) || 0));
+              setArticleId(""); setQty("1"); setEndpreis("");
             }}
           >
             +

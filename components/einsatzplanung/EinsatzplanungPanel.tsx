@@ -10,8 +10,10 @@ import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
+  // Das Terminraster aus den Betriebseinstellungen – dieselbe Zahl wie im Auftragsfenster.
+  standardDauerMin: number;
   // Die eigenen Transporter (Migration 32): „welcher Wagen ist wann wo" ist dieselbe Frage
   // wie „wer ist wann wo" – und wird deshalb an derselben Stelle beantwortet.
   firmenfahrzeuge: Firmenfahrzeug[];
@@ -143,7 +145,13 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
 
   return (
     <div className="tabpanel active">
-      <div className="module-page modul-flaeche">
+      {/* `modul-flaeche` nur in der Monatsansicht. Diese Klasse baut das Muster „Kopf bleibt
+          stehen, die lange Auftragstabelle scrollt für sich" – dafür bekommt die Fläche eine
+          feste Höhe, und alles darin teilt sie sich. Mit einem Stundenraster darin geht das
+          nicht auf: Das Raster ist 600 Pixel hoch und lässt für die Tabelle nichts übrig,
+          oder es wird selbst gekürzt. In Tag und Woche scrollt deshalb die ganze Seite –
+          dasselbe, was die Handy-Regel ohnehin schon tut. */}
+      <div className={"module-page" + (ansicht === "monat" ? " modul-flaeche" : "")}>
         <div className="module-header">
           <div className="mh-icon"><IconEinsatzplanung /></div>
           <div className="mh-text">
@@ -215,6 +223,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
               customers={customers}
               employees={employees}
               orderEmployees={orderEmployees}
+              standardDauerMin={standardDauerMin}
               onOeffnen={onOpenOrder}
             />
             <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} />

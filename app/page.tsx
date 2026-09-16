@@ -14,13 +14,13 @@ import {
   effectiveColor, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
   getPhoneNumbers, navigationUrls,
-  formatEUR, orderArticleTotals, terminTitel,
+  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
   ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
-  PROFIL_KRITISCH_MM,
+  PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
@@ -61,7 +61,7 @@ import {
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
   updateArticlePrice as updateArticlePriceApi, deleteArticlePrice as deleteArticlePriceApi,
-  insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleDiscountById, deleteOrderArticleById,
+  insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleEndpreisById, deleteOrderArticleById,
 } from "@/lib/api/articles";
 import {
   replaceOrderEmployees,
@@ -80,6 +80,7 @@ import {
   type FirmenfahrzeugFelder,
 } from "@/lib/api/firmenfahrzeuge";
 import { fetchOwnRole, fetchOrCreateUserSettings, updateUserSettings } from "@/lib/api/session";
+import { fetchBetrieb } from "@/lib/api/betrieb";
 import { qk } from "@/lib/queries/keys";
 import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
@@ -190,6 +191,10 @@ export default function HomePage() {
     () => [...KUNDEN_ZUSTAND_REIHENFOLGE]
   );
   const [kartenFilterOffen, setKartenFilterOffen] = useState(false);
+  // Das Terminraster gilt für den ganzen Betrieb (Migration 38). Bis es geladen ist, steht
+  // die Voreinstellung aus den Konstanten – sie ist dieselbe wie in der Datenbank, damit
+  // niemand in der ersten Sekunde eine andere Dauer vorgeschlagen bekommt.
+  const [terminIntervall, setTerminIntervall] = useState(STANDARD_DAUER_MIN);
 
   // Erste Quelle für "kein Netz": die Angabe des Browsers. Sie allein reicht nicht – siehe
   // die Ableitung von `istOffline` weiter unten, sobald die Kundenabfrage bekannt ist.
@@ -439,6 +444,16 @@ export default function HomePage() {
   // Aufrufstellen. Nebeneffekt, der so gewollt ist: das refreshX() nach dem fehlgeschlagenen
   // Schreibvorgang läuft nicht mehr, die Eingabe des Nutzers bleibt also stehen.
   useEffect(() => {
+    let abgebrochen = false;
+    fetchBetrieb(supabase)
+      .then((b) => { if (!abgebrochen && b) setTerminIntervall(b.termin_intervall_min); })
+      // Ohne Betriebseinstellung läuft alles weiter, nur mit der Voreinstellung. Ein
+      // Fehlerband dafür wäre unverhältnismäßig.
+      .catch(() => undefined);
+    return () => { abgebrochen = true; };
+  }, [supabase]);
+
+  useEffect(() => {
     function onRejection(e: PromiseRejectionEvent) {
       const grund = e.reason as { message?: string } | undefined;
       setFehler(grund?.message || "Es ist ein unerwarteter Fehler aufgetreten.");
@@ -602,16 +617,16 @@ export default function HomePage() {
     await deleteArticlePriceApi(supabase, articlePrices, priceId);
     await refreshArticlePrices();
   }
-  async function addOrderArticle(orderId: string, articleId: string, quantity: number, discountPercent: number) {
-    await insertOrderArticle(supabase, articlePrices, orderId, articleId, quantity, discountPercent);
+  async function addOrderArticle(orderId: string, articleId: string, quantity: number, endpreisNetto: number | null) {
+    await insertOrderArticle(supabase, articlePrices, orderId, articleId, quantity, endpreisNetto);
     await refreshOrderArticles();
   }
   async function updateOrderArticleQty(id: string, quantity: number) {
     await updateOrderArticleQtyById(supabase, id, quantity);
     await refreshOrderArticles();
   }
-  async function updateOrderArticleDiscount(id: string, discountPercent: number) {
-    await updateOrderArticleDiscountById(supabase, id, discountPercent);
+  async function updateOrderArticleEndpreis(id: string, endpreisNetto: number | null) {
+    await updateOrderArticleEndpreisById(supabase, id, endpreisNetto);
     await refreshOrderArticles();
   }
   async function removeOrderArticle(id: string) {
@@ -1278,7 +1293,7 @@ export default function HomePage() {
     await neuLaden(qk.eingelagerteRaeder());
   }
 
-  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
+  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean; status: OrderStatus; assignedEmployeeIds: string[] }) {
     await updateOrderById(supabase, id, fields);
     await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
@@ -1858,7 +1873,11 @@ export default function HomePage() {
   function orderArticlesLabel(orderId: string): string {
     const rows = orderArticlesFor(orderId);
     if (rows.length === 0) return "–";
-    const totals = orderArticleTotals(rows);
+    // Ohne „Rechnung benötigt" gibt es keinen Bruttobetrag – dann ist der Nettobetrag der
+    // Betrag. `?? false` ist die ehrliche Annahme, wenn der Auftrag gerade nicht geladen ist:
+    // lieber zu wenig behaupten als eine Steuer, die vielleicht gar nicht anfällt.
+    const auftrag = orders.find((o) => o.id === orderId);
+    const totals = orderArticleTotals(rows, auftrag?.rechnung_noetig ?? false);
     return `${rows.length} · ${formatEUR(totals.gross)}`;
   }
 
@@ -2253,6 +2272,7 @@ export default function HomePage() {
           <>
           <FensterSchalter wert={auftragsFenster} onChange={setAuftragsFenster} laedt={auftraegeQuery.isFetching} />
           <EinsatzplanungPanel
+            standardDauerMin={terminIntervall}
             customers={customers}
             firmenfahrzeuge={firmenfahrzeuge}
             orders={orders}
@@ -2524,6 +2544,21 @@ export default function HomePage() {
           isTechniker={isTechniker}
           darfWiedereroeffnen={isAdmin}
           frischAngelegt={offenerAuftrag.id === frischerAuftragId}
+          terminIntervallMin={terminIntervall}
+          {...(() => {
+            // Die Vorgeschichte dieses Fahrzeugs (D2/D3). Hier gerechnet und nicht im
+            // Auftragsfenster, weil nur die Seite den vollen Einlagerungsbestand hat.
+            const eigener = einlagerungZuAuftrag(offenerAuftrag.id);
+            const letzter = letzterSatzFuer(
+              tireStorages, offenerAuftrag.customer_id, offenerAuftrag.vehicle_id, eigener?.id
+            );
+            return {
+              letzterSatz: letzter,
+              letzterSatzRaeder: letzter
+                ? eingelagerteRaeder.filter((r) => r.tire_storage_id === letzter.id)
+                : [],
+            };
+          })()}
           einlagerung={einlagerungZuAuftrag(offenerAuftrag.id)}
           brauchtLagerplatz={auftragBrauchtLagerplatz(offenerAuftrag.id)}
           storageSlots={storageSlots}
@@ -2548,7 +2583,7 @@ export default function HomePage() {
           onDelete={deleteOrder}
           onAddArticle={addOrderArticle}
           onUpdateArticleQty={updateOrderArticleQty}
-          onUpdateArticleDiscount={updateOrderArticleDiscount}
+          onUpdateArticleEndpreis={updateOrderArticleEndpreis}
           onRemoveArticle={removeOrderArticle}
           onNavigate={openNavMenu}
           onCall={openCallMenu}

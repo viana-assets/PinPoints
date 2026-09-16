@@ -8,7 +8,8 @@ import { PermissionMatrix } from "./PermissionMatrix";
 import { ProtokollPanel, tageZurueck } from "./ProtokollPanel";
 import { fetchProtokoll, fetchProtokollPersonen } from "@/lib/api/audit";
 import type { AuditEintrag, ProtokollPerson } from "@/lib/types";
-import { PROTOKOLL_TAGE_STANDARD } from "@/lib/constants";
+import { PROTOKOLL_TAGE_STANDARD, TERMIN_INTERVALLE } from "@/lib/constants";
+import { fetchBetrieb, setzeTerminIntervall } from "@/lib/api/betrieb";
 import { GeokodierLauf } from "./GeokodierLauf";
 import { AdressenPruefen } from "./AdressenPruefen";
 import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
@@ -48,7 +49,10 @@ export function AdminPanel({
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung" | "protokoll">("users");
+  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung" | "protokoll" | "betrieb">("users");
+  // Betriebseinstellungen (Migration 38): gelten für alle, nicht je Nutzer.
+  const [terminIntervall, setTerminIntervall] = useState<number | null>(null);
+  const [intervallStand, setIntervallStand] = useState<"bereit" | "speichert" | "gespeichert">("bereit");
   // Das Protokoll (Migration 36). Es lädt erst, wenn der Reiter geöffnet wird – die Tabelle
   // ist die einzige im System, die nie kleiner wird, und niemand braucht sie beim bloßen
   // Öffnen des Adminbereichs.
@@ -75,6 +79,28 @@ export function AdminPanel({
       else setLoadingList(false);
     })();
   }, [isSuperAdmin]);
+
+  useEffect(() => {
+    if (adminTab !== "betrieb" || terminIntervall !== null) return;
+    let abgebrochen = false;
+    fetchBetrieb(supabase).then((b) => {
+      if (!abgebrochen && b) setTerminIntervall(b.termin_intervall_min);
+    });
+    return () => { abgebrochen = true; };
+  }, [adminTab, terminIntervall, supabase]);
+
+  async function intervallSpeichern(minuten: number) {
+    setTerminIntervall(minuten);
+    setIntervallStand("speichert");
+    try {
+      await setzeTerminIntervall(supabase, minuten);
+      setIntervallStand("gespeichert");
+      setTimeout(() => setIntervallStand("bereit"), 2500);
+    } catch (e) {
+      setIntervallStand("bereit");
+      throw e;
+    }
+  }
 
   useEffect(() => {
     if (adminTab !== "protokoll" || protokollPersonen.length > 0) return;
@@ -162,9 +188,46 @@ export function AdminPanel({
           )}
           <button type="button" className={`chip ${adminTab === "wartung" ? "active" : ""}`} onClick={() => setAdminTab("wartung")}>Wartung</button>
           <button type="button" className={`chip ${adminTab === "protokoll" ? "active" : ""}`} onClick={() => setAdminTab("protokoll")}>Protokoll</button>
+          <button type="button" className={`chip ${adminTab === "betrieb" ? "active" : ""}`} onClick={() => setAdminTab("betrieb")}>Betrieb</button>
         </div>
 
-        {adminTab === "protokoll" ? (
+        {adminTab === "betrieb" ? (
+          <div className="admin-card">
+            <h4 style={{ margin: 0 }}>Terminraster</h4>
+            <p className="small" style={{ marginTop: 2 }}>
+              In welchen Schritten die Terminlänge vorgeschlagen wird. Trägt jemand eine
+              Anfangszeit ein, steht das Ende sofort da – um genau diese Spanne später. Dieselbe
+              Zahl gilt im Kalender für Termine, bei denen niemand ein Ende gepflegt hat.
+            </p>
+            <p className="small" style={{ color: "var(--muted)" }}>
+              Gilt für alle: Hätte jeder seinen eigenen Wert, hinge die Dauer eines Termins
+              davon ab, wer ihn angelegt hat. Bereits gespeicherte Endzeiten ändern sich nicht.
+            </p>
+            {terminIntervall === null ? (
+              <div className="small">Lädt …</div>
+            ) : (
+              <>
+                <div className="filterbar" style={{ marginTop: 6 }}>
+                  {TERMIN_INTERVALLE.map((m) => (
+                    <button
+                      key={m} type="button"
+                      className={`chip ${terminIntervall === m ? "active" : ""}`}
+                      onClick={() => { void intervallSpeichern(m); }}
+                    >
+                      {/* Deutsches Komma: `${m / 60}` liefert „1.5 Std." */}
+                      {m < 60 ? `${m} Min.` : `${(m / 60).toLocaleString("de-DE")} Std.`}
+                    </button>
+                  ))}
+                </div>
+                <div className="small" style={{ marginTop: 6, color: intervallStand === "gespeichert" ? "var(--green)" : "var(--muted)" }}>
+                  {intervallStand === "speichert" ? "Speichert …"
+                    : intervallStand === "gespeichert" ? "Gespeichert ✓"
+                    : `Ein Termin um 08:00 endet standardmäßig um ${String(Math.floor((8 * 60 + terminIntervall) / 60)).padStart(2, "0")}:${String((8 * 60 + terminIntervall) % 60).padStart(2, "0")}.`}
+                </div>
+              </>
+            )}
+          </div>
+        ) : adminTab === "protokoll" ? (
           <ProtokollPanel
             eintraege={protokoll}
             personen={protokollPersonen}

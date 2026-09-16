@@ -1,6 +1,6 @@
 import type { Customer, Employee, Order } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
-import { STANDARD_DAUER_MIN, KALENDER_VON_STUNDE, KALENDER_BIS_STUNDE } from "@/lib/constants";
+import { KALENDER_VON_STUNDE, KALENDER_BIS_STUNDE } from "@/lib/constants";
 import { auftragsZeitraum, employeeColorFor, hhmmAus, layoutSpalten, toDateStr, zeitfenster } from "@/lib/calendar";
 
 // Tages- und Wochenansicht als Stundenraster (Block B).
@@ -82,13 +82,18 @@ function TerminBlock({ auftrag, employees, vonMinute, onOeffnen }: {
   );
 }
 
-export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, onOeffnen }: {
+export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen }: {
   // Ein Tag in der Tagesansicht, sieben in der Wochenansicht – sonst ändert sich nichts.
   tage: Date[];
   auftraege: Order[];
   customers: Customer[];
   employees: Employee[];
   orderEmployees: Record<string, string[]>;
+  // Wie lang ein Termin ohne gepflegtes Ende gilt – das Terminraster aus den
+  // Betriebseinstellungen (Migration 38). Kommt von außen, damit hier und im Auftragsfenster
+  // dieselbe Zahl gilt: Sonst zeichnete der Kalender eine andere Dauer, als das Formular
+  // vorschlägt.
+  standardDauerMin: number;
   onOeffnen: (id: string) => void;
 }) {
   const heute = toDateStr(new Date());
@@ -106,7 +111,7 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
         kunde: customers.find((c) => c.id === o.customer_id) ?? null,
         mitarbeiterIds: orderEmployees[o.id] ?? [],
       };
-      const zeitraum = auftragsZeitraum(o, STANDARD_DAUER_MIN);
+      const zeitraum = auftragsZeitraum(o, standardDauerMin);
       if (zeitraum) mitZeit.push({ ...angereichert, ...zeitraum });
       else ohneZeit.push(angereichert);
     }
