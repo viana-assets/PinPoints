@@ -42,10 +42,12 @@ export function PermissionMatrix({ modulePermissions, onUpdateModulePermissions 
   return (
     <div>
       <div className="small" style={{ marginBottom: 8 }}>
-        Wer darf in welchem Bereich <b>lesen</b>, <b>schreiben</b> und <b>löschen</b>?
-        &bdquo;Schreiben&ldquo; umfasst Anlegen und Ändern. Graue Zellen gibt es in diesem Bereich nicht –
-        fahr darüber, dann steht dort, warum. Superadmin darf immer alles, unabhängig von
-        dieser Tabelle, und wird deshalb nicht extra aufgeführt.
+        Fette Zeilen sind <b>Module</b> – ihr Haken entscheidet nur, ob der Reiter überhaupt
+        erscheint. Was man mit den Daten dahinter tun darf, steht in den eingerückten Zeilen
+        darunter; sie heißen nach der <b>Handlung</b>, nicht nach der Tabelle.
+        &bdquo;Schreiben&ldquo; umfasst Anlegen und Ändern. Graue Zellen gibt es dort nicht –
+        fahr darüber, dann steht der Grund da; über jeder Zeile steht, was sie genau erlaubt.
+        Superadmin darf immer alles, unabhängig von dieser Tabelle.
       </div>
       <div style={{ overflowX: "auto" }}>
         <table className="appt-table rechte-matrix">
@@ -71,8 +73,8 @@ export function PermissionMatrix({ modulePermissions, onUpdateModulePermissions 
             {RECHTE_KATALOG.map((b) => {
               const aktuell = rechte(b.schluessel);
               return (
-                <tr key={b.schluessel}>
-                  <td style={{ fontWeight: 700 }}>{b.label}</td>
+                <tr key={b.schluessel} className={b.unter ? "recht-unter" : "recht-modul"}>
+                  <td title={b.erklaerung}>{b.label}</td>
                   {PERMISSION_ROLES.map((rolle) =>
                     VERBEN.map((verb, i) => {
                       const gibtEs = b.verben.includes(verb);

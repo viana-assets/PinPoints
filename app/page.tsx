@@ -7,7 +7,7 @@ import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
   Article, ArticlePrice, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
-  EingelagertesRad, Erfassungsart, RadPosition,
+  EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
@@ -77,6 +77,7 @@ import {
   setzePositionVonHand, positionNeuSuchen,
 } from "@/lib/api/customers";
 import { upsertModulePermissions, type Bereichsrechte } from "@/lib/api/permissions";
+import { fetchAuftragFahrzeuge, addAuftragFahrzeug, setKilometerstand, removeAuftragFahrzeug } from "@/lib/api/auftragFahrzeuge";
 import {
   insertFirmenfahrzeug, updateFirmenfahrzeugById, firmenfahrzeugAusmustern,
   type FirmenfahrzeugFelder,
@@ -1380,6 +1381,53 @@ export default function HomePage() {
     await refreshOrders();
   }
   // „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
+  // Fahrzeuge am Auftrag (Migration 44). Geladen wird nur für den gerade geöffneten Auftrag –
+  // für die Liste braucht es sie nicht, und ein Vollabzug über alle Aufträge wäre derselbe
+  // Fehler wie die dreizehn Vollabzüge beim Start, die Phase 10 abgestellt hat.
+  const [auftragFahrzeuge, setAuftragFahrzeuge] = useState<AuftragFahrzeug[]>([]);
+  useEffect(() => {
+    let abgebrochen = false;
+    if (!offenerAuftragId) { setAuftragFahrzeuge([]); return; }
+    fetchAuftragFahrzeuge(supabase, [offenerAuftragId])
+      .then((zeilen) => { if (!abgebrochen) setAuftragFahrzeuge(zeilen); })
+      .catch(() => { if (!abgebrochen) setAuftragFahrzeuge([]); });
+    return () => { abgebrochen = true; };
+  }, [offenerAuftragId, supabase]);
+
+  async function auftragFahrzeugeNeu(orderId: string) {
+    setAuftragFahrzeuge(await fetchAuftragFahrzeuge(supabase, [orderId]));
+  }
+  async function fahrzeugHinzufuegen(orderId: string, vehicleId: string) {
+    await addAuftragFahrzeug(supabase, orderId, vehicleId, null);
+    await auftragFahrzeugeNeu(orderId);
+  }
+  // Ein Auto, das der Kunde noch nicht in der Kartei hat: erst anlegen, dann zuordnen. Es
+  // bleibt beim Kunden stehen – beim nächsten Auftrag muss niemand das Kennzeichen noch
+  // einmal tippen, genau wie bei der E-Mail-Adresse.
+  async function rechnungsFahrzeugAnlegen(orderId: string, kundeId: string, kennzeichen: string) {
+    const neueId = await insertVehicle(supabase, kundeId, { licensePlate: kennzeichen, makeModel: "", tireSize: "", note: "" });
+    await addAuftragFahrzeug(supabase, orderId, neueId, null);
+    await auftragFahrzeugeNeu(orderId);
+    if (selectedId === kundeId) neuLaden(qk.kundeFahrzeuge(kundeId));
+    neuLaden(qk.fahrzeuge());
+  }
+  async function kilometerstandSetzen(id: string, km: number | null) {
+    await setKilometerstand(supabase, id, km);
+    if (offenerAuftragId) await auftragFahrzeugeNeu(offenerAuftragId);
+  }
+  async function fahrzeugEntfernen(id: string) {
+    await removeAuftragFahrzeug(supabase, id);
+    if (offenerAuftragId) await auftragFahrzeugeNeu(offenerAuftragId);
+  }
+  // Die E-Mail-Adresse aus der Rechnungs-Abhakliste landet beim KUNDEN, nicht am Auftrag.
+  async function kundenEmailSpeichern(kundeId: string, email: string) {
+    // `previousAddress` bleibt unverändert: Wir ändern nur die E-Mail-Adresse, und eine
+    // unveränderte Adresse soll keine erneute Geokodierung auslösen.
+    const kunde = customers.find((c) => c.id === kundeId);
+    await updateCustomerFieldsById(supabase, kundeId, { email }, kunde?.address);
+    neuLaden(qk.kunden());
+  }
+
   async function rechnungErstellt(id: string, nummer: string | null, erstellt = true) {
     await setzeRechnungErstellt(supabase, id, erstellt, nummer);
     await refreshOrders();
@@ -2634,6 +2682,12 @@ export default function HomePage() {
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
           onSetStatus={updateOrderStatus}
           onRechnungErstellt={rechnungErstellt}
+          auftragFahrzeuge={auftragFahrzeuge}
+          onEmailSpeichern={kundenEmailSpeichern}
+          onFahrzeugHinzufuegen={fahrzeugHinzufuegen}
+          onRechnungsFahrzeugAnlegen={rechnungsFahrzeugAnlegen}
+          onKilometerstand={kilometerstandSetzen}
+          onFahrzeugEntfernen={fahrzeugEntfernen}
           onDelete={deleteOrder}
           onAddArticle={addOrderArticle}
           onUpdateArticleQty={updateOrderArticleQty}

@@ -784,3 +784,61 @@ export function terminZeitraum(o: { time: string | null; end_time: string | null
   if (!o.time) return null;
   return o.end_time ? `${o.time} – ${o.end_time} Uhr` : `${o.time} Uhr`;
 }
+
+// ---------------------------------------------------------------- Rechnungsdaten
+//
+// Was fehlt noch, damit aus diesem Auftrag eine Rechnung werden kann?
+//
+// Die Regel steht hier, weil sie an drei Stellen gebraucht wird: in der Abhakliste im
+// Auftragsfenster, an der Schaltfläche „Auftrag abschließen" und – als eigenständige
+// Umsetzung – im Trigger `pruefe_rechnungsdaten()` (Migration 44). Die Datenbank ist die
+// Instanz, die es durchsetzt; diese Fassung hier sagt dem Nutzer nur vorher, was ihn erwartet.
+//
+// Dass es zweimal dasteht, ist Absicht und keine Doppelung im schlechten Sinn: Eine Prüfung
+// im Browser ist eine Bitte, eine im Trigger eine Regel. Wer nur die Bitte hat, verhindert
+// den Fehler bei dem, der die Maske benutzt – und bei niemandem sonst.
+export type RechnungsMangel = { schluessel: string; text: string; behebbarHier: boolean };
+
+export function rechnungsdatenMaengel(
+  kunde: { name: string; address: string; email: string | null } | null,
+  fahrzeuge: { kennzeichen: string | null; kilometerstand: number | null }[]
+): RechnungsMangel[] {
+  const leer = (t: string | null | undefined) => (t ?? "").trim() === "";
+  const maengel: RechnungsMangel[] = [];
+
+  if (!kunde || leer(kunde.name)) {
+    maengel.push({ schluessel: "name", text: "Name des Kunden", behebbarHier: false });
+  }
+  if (!kunde || leer(kunde.address)) {
+    maengel.push({ schluessel: "adresse", text: "Anschrift des Kunden", behebbarHier: false });
+  }
+  if (!kunde || leer(kunde.email)) {
+    // Die einzige Angabe, die man unterwegs nachtragen kann, ohne das Fenster zu verlassen –
+    // deshalb als einzige `behebbarHier`. Name und Anschrift gehören ins Kundenfenster, wo
+    // auch die Geokodierung daranhängt.
+    maengel.push({ schluessel: "email", text: "E-Mail-Adresse des Kunden", behebbarHier: true });
+  }
+
+  if (fahrzeuge.length === 0) {
+    maengel.push({ schluessel: "fahrzeug", text: "mindestens ein Fahrzeug", behebbarHier: true });
+  } else {
+    const ohneKennzeichen = fahrzeuge.filter((f) => leer(f.kennzeichen)).length;
+    if (ohneKennzeichen > 0) {
+      maengel.push({
+        schluessel: "kennzeichen",
+        text: `${ohneKennzeichen} Fahrzeug${ohneKennzeichen === 1 ? "" : "e"} ohne Kennzeichen`,
+        behebbarHier: true,
+      });
+    }
+    const ohneKm = fahrzeuge.filter((f) => f.kilometerstand == null).length;
+    if (ohneKm > 0) {
+      maengel.push({
+        schluessel: "kilometerstand",
+        text: `${ohneKm} Fahrzeug${ohneKm === 1 ? "" : "e"} ohne Kilometerstand`,
+        behebbarHier: true,
+      });
+    }
+  }
+
+  return maengel;
+}

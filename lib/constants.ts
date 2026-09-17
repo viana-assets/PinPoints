@@ -90,55 +90,133 @@ export type RechtBereich = {
   // Warum ein Verb fehlt. Steht im Tooltip der grauen Zelle – eine gesperrte Zelle ohne
   // Begründung ist eine Aufforderung zum Rätselraten.
   warumNicht?: string;
+  // Eine eingerückte Zeile: eine HANDLUNG innerhalb des Moduls darüber.
+  unter?: boolean;
   // Immer an, für alle, nicht abwählbar.
   gesperrt?: boolean;
+  // Was dieser Haken konkret erlaubt. Steht als Tooltip an der Zeile – die Erfahrung vom
+  // 17.09.2026: „Lager und Lagerplätze" klang nach dem ganzen Modul und meinte nur die
+  // Regale. Ein Name allein trägt eine Rechteentscheidung nicht.
+  erklaerung?: string;
 };
 
+// ZWEI EBENEN, und das ist der Kern der Überarbeitung vom 17.09.2026:
+//
+//   Modulzeile  = darf jemand diesen Reiter überhaupt sehen?
+//   Unterzeile  = was darf er mit den Daten dahinter tun?
+//
+// Die erste Fassung hatte die Bereiche an TABELLEN geschnitten („Lager und Lagerplätze",
+// „Eingelagerte Reifen"). Das war für niemanden nachvollziehbar, der nicht die Datenbank
+// kennt – und schlimmer: „Löschen" saß dadurch auf der falschen Sache. Auslagern ist in
+// dieser Anwendung ein SCHREIBEN (`removed_at` setzen), gelöscht wird eine Einlagerung nie.
+// Der Löschen-Haken hätte also das Entfernen einer Radmessung gesteuert und dabei ausgesehen,
+// als ginge es ums Auslagern.
+//
+// Jetzt heißen die Zeilen nach dem, was man TUT, und „löschen" steht nur dort, wo wirklich
+// etwas verschwindet.
+//
+// Ein Modul mit nur EINEM Datenbereich bekommt keine Unterzeile, sondern trägt die drei Verben
+// selbst – eine Einrückung mit genau einem Kind erklärt nichts und kostet eine Zeile.
 export const RECHTE_KATALOG: RechtBereich[] = [
   { schluessel: "dashboard", label: "Dashboard", verben: ["lesen"], gesperrt: true,
+    erklaerung: "Der Überblick über den Tag. Für alle sichtbar.",
     warumNicht: "Das Dashboard zeigt nur zusammengefasste Zahlen; es gibt dort nichts zu schreiben." },
-  { schluessel: "kunden", label: "Kunden", verben: ["lesen", "schreiben", "loeschen"] },
-  { schluessel: "auftraege", label: "Aufträge", verben: ["lesen", "schreiben", "loeschen"] },
+
+  { schluessel: "kunden", label: "Kunden", verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Kundenstammdaten, Kontakthistorie und die Fahrzeuge der Kunden. Löschen heißt: als gelöscht markieren – der Datensatz bleibt für Rechnungsbezug und Protokoll erhalten." },
+
+  { schluessel: "auftraege", label: "Aufträge", verben: ["lesen"],
+    erklaerung: "Darf der Reiter „Aufträge“ geöffnet werden? Was darin erlaubt ist, steht in den Zeilen darunter.",
+    warumNicht: "Die Modulzeile entscheidet nur über die Sichtbarkeit des Reiters. Was mit den Daten geht, steht in den eingerückten Zeilen darunter." },
+  { schluessel: "auftraege.auftrag", label: "– Auftrag anlegen und ändern", unter: true,
+    verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Der Auftrag selbst: Titel, Datum, Uhrzeit, Fahrzeug, Status. Ein Techniker sieht hier immer nur seine EIGENEN Aufträge – das entscheidet die Datenbank zusätzlich zu diesem Haken." },
+  { schluessel: "auftraege.leistungen", label: "– Leistungen im Auftrag", unter: true,
+    verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Artikel und Leistungen an einem Auftrag. „Löschen“ heißt hier: eine versehentlich eingetragene Zeile wieder entfernen – das gehört zum Arbeiten, nicht zum Wegwerfen." },
+  { schluessel: "auftraege.einteilung", label: "– Mitarbeiter einteilen", unter: true,
+    verben: ["lesen", "schreiben"],
+    erklaerung: "Wer fährt zu diesem Auftrag? Bewusst getrennt: Wer sich selbst Aufträge zuteilen kann, teilt sich auch fremde zu.",
+    warumNicht: "Eine Einteilung wird geändert, nicht gelöscht – wer niemanden mehr zuordnet, hat sie geleert." },
+
   { schluessel: "termine", label: "Termine", verben: ["lesen"],
+    erklaerung: "Die chronologische Terminübersicht. Zeigt dieselben Aufträge, nur anders sortiert.",
     warumNicht: "Ein Termin ist ein Auftrag mit Uhrzeit – geschrieben und gelöscht wird bei „Aufträge“." },
   { schluessel: "einsatzplanung", label: "Einsatzplanung", verben: ["lesen"],
+    erklaerung: "Kalender nach Tag, Woche und Monat.",
     warumNicht: "Die Einsatzplanung zeigt Aufträge – geschrieben und gelöscht wird bei „Aufträge“." },
-  { schluessel: "lager", label: "Lager und Lagerplätze", verben: ["lesen", "schreiben", "loeschen"] },
-  { schluessel: "einlagerung", label: "Eingelagerte Reifen", verben: ["lesen", "schreiben", "loeschen"] },
+
+  { schluessel: "lager", label: "Lager", verben: ["lesen"],
+    erklaerung: "Darf der Reiter „Lager“ geöffnet werden? Was darin erlaubt ist, steht in den Zeilen darunter.",
+    warumNicht: "Die Modulzeile entscheidet nur über die Sichtbarkeit des Reiters." },
+  { schluessel: "lager.regale", label: "– Regale und Plätze verwalten", unter: true,
+    verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Die Struktur: Lager anlegen, Lagerplätze nummerieren, umbenennen, entfernen. NICHT das, was darin liegt." },
+  { schluessel: "lager.einlagerung", label: "– Reifen ein- und auslagern", unter: true,
+    verben: ["lesen", "schreiben"],
+    erklaerung: "Einen Reifensatz auf einen Platz legen, seine Angaben pflegen und ihn wieder herausgeben. Das ist die tägliche Arbeit am Lager.",
+    warumNicht: "Auslagern IST das Schreiben: Die Einlagerung wird als beendet markiert und bleibt als Historie stehen. Gelöscht wird sie nie – sonst wüsste hinterher niemand mehr, dass der Satz je hier lag." },
+  { schluessel: "lager.raeder", label: "– Räder einzeln messen", unter: true,
+    verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Profiltiefe, DOT, Felge und Sensor je Rad. „Löschen“ heißt: eine falsch erfasste Messung wieder entfernen." },
+
   { schluessel: "saison", label: "Saisonliste", verben: ["lesen"],
-    warumNicht: "Die Saisonliste ist eine Auswertung der Einlagerungen – geändert wird dort." },
-  { schluessel: "artikel", label: "Artikel und Preise", verben: ["lesen", "schreiben", "loeschen"] },
-  { schluessel: "mitarbeiter", label: "Mitarbeiter", verben: ["lesen", "schreiben", "loeschen"] },
-  { schluessel: "firmenfahrzeuge", label: "Firmenfahrzeuge", verben: ["lesen", "schreiben", "loeschen"] },
+    erklaerung: "Wer hat welche Reifen bei uns liegen – die halbjährliche Anrufliste.",
+    warumNicht: "Die Saisonliste ist eine Auswertung der Einlagerungen – geändert wird bei „Lager“." },
+
+  { schluessel: "artikel", label: "Artikel und Preise", verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Artikelstamm und Preishistorie. Wer hier schreiben darf, bestimmt, was eine Leistung kostet." },
+
+  { schluessel: "mitarbeiter", label: "Mitarbeiter", verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Die Mitarbeiterstammdaten der Einsatzplanung. Ein Techniker sieht damit nur sich selbst und Kollegen, die mit ihm auf einem Auftrag stehen – nicht die ganze Belegschaft. Das entscheidet die Datenbank zusätzlich zu diesem Haken." },
+  { schluessel: "firmenfahrzeuge", label: "Firmenfahrzeuge", verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Die eigenen Transporter als Stammdaten." },
+
   { schluessel: "auswertung", label: "Auswertungen", verben: ["lesen"],
+    erklaerung: "Umsatz, Steuer, Nachlass, Saisonalität, Mitarbeiter- und Artikelauswertung.",
     warumNicht: "Auswertungen rechnen nur – sie legen nichts an und löschen nichts." },
   { schluessel: "einstellungen", label: "Einstellungen", verben: ["lesen", "schreiben"],
-    warumNicht: "Jeder ändert nur seine eigenen Einstellungen; zu löschen gibt es dort nichts." },
+    erklaerung: "Anzeige, Wiedervorlage-Zeitraum, App. Jeder ändert ausschließlich seine eigenen.",
+    warumNicht: "Jeder hat genau einen Satz Einstellungen; zu löschen gibt es dort nichts." },
 ];
 
 // Was gilt, solange in der Datenbank keine Zeile für einen Bereich steht.
 //
 // Der Techniker ist hier die eigentliche Aussage: Er sieht Aufträge, Termine, Lager und
-// Einsatzplanung und darf dort schreiben – aber er sieht keine Kundenstammdaten, keine
-// Artikelpreise und keine Auswertungen, und er löscht nirgends. Löschen nimmt etwas weg; das
-// ist eine Büroentscheidung.
+// Einsatzplanung, arbeitet dort und darf seine eigenen Eingaben auch KORRIGIEREN – eine
+// versehentlich eingetragene Leistung wieder entfernen, eine falsch erfasste Radmessung
+// löschen. Was er nicht darf: Kundenstammdaten sehen, Preise ändern, Auswertungen öffnen,
+// sich selbst einteilen und ganze Aufträge oder Kunden wegwerfen.
+//
+// Der Unterschied zwischen „korrigieren" und „wegwerfen" ist der Grund, warum es die
+// eingerückten Zeilen gibt: In der ersten Fassung hing beides am selben Haken, und ein
+// Techniker konnte eine Leistung eintragen, aber seinen Tippfehler nicht mehr entfernen.
 export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
-  dashboard:       { lesen: ["admin", "techniker", "user"] },
-  kunden:          { lesen: ["admin", "user"], schreiben: ["admin", "user"], loeschen: ["admin"] },
-  auftraege:       { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "user"] },
-  termine:         { lesen: ["admin", "techniker", "user"] },
-  einsatzplanung:  { lesen: ["admin", "techniker", "user"] },
-  lager:           { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
-  einlagerung:     { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "user"] },
-  saison:          { lesen: ["admin", "user"] },
-  artikel:         { lesen: ["admin", "user"], schreiben: ["admin"], loeschen: ["admin"] },
-  mitarbeiter:     { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
-  firmenfahrzeuge: { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
-  auswertung:      { lesen: ["admin"] },
-  einstellungen:   { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
+  dashboard:              { lesen: ["admin", "techniker", "user"] },
+
+  kunden:                 { lesen: ["admin", "user"], schreiben: ["admin", "user"], loeschen: ["admin"] },
+
+  auftraege:              { lesen: ["admin", "techniker", "user"] },
+  "auftraege.auftrag":    { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "user"] },
+  "auftraege.leistungen": { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "techniker", "user"] },
+  "auftraege.einteilung": { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "user"] },
+
+  termine:                { lesen: ["admin", "techniker", "user"] },
+  einsatzplanung:         { lesen: ["admin", "techniker", "user"] },
+
+  lager:                  { lesen: ["admin", "techniker", "user"] },
+  "lager.regale":         { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  "lager.einlagerung":    { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
+  "lager.raeder":         { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "techniker", "user"] },
+
+  saison:                 { lesen: ["admin", "user"] },
+  artikel:                { lesen: ["admin", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  mitarbeiter:            { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  firmenfahrzeuge:        { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  auswertung:             { lesen: ["admin"] },
+  einstellungen:          { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
 };
 
-// Der Schlüssel, unter dem eine Rolle in `module_permissions` steht: ein Bereich, ein Verb.
 export function rechtSchluessel(bereich: string, verb: Verb): string {
   return `${bereich}.${verb}`;
 }

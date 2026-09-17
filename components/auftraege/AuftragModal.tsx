@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Article, ArticlePrice, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, ArticlePrice, AuftragFahrzeug, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import { formatDate, formatOrderDateTime, getPhoneNumbers, handlungsgruende } from "@/lib/helpers";
 import { hhmmAus, minutenAus } from "@/lib/calendar";
@@ -11,6 +11,7 @@ import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "./ArticleAssignPanel";
 import { IconNavPin, IconTrash } from "@/components/icons";
 import { EinlagerungBlock } from "./EinlagerungBlock";
+import { RechnungsdatenBlock } from "./RechnungsdatenBlock";
 import { AuftragProtokoll } from "./AuftragProtokoll";
 
 // Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
@@ -29,7 +30,8 @@ export function AuftragModal({
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds, raeder,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
-  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungErstellt,
+  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungErstellt, auftragFahrzeuge,
+  onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
   onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
@@ -74,6 +76,16 @@ export function AuftragModal({
   // Hakt „Rechnung erstellt" ab oder nimmt es zurück (Migration 40). Optional: Wer das Fenster
   // ohne diese Zusage einbindet, bekommt den Block gar nicht erst zu sehen.
   onRechnungErstellt?: (id: string, nummer: string | null, erstellt: boolean) => Promise<void>;
+  // Fahrzeuge an diesem Auftrag samt Kilometerstand (Migration 44). Ohne diese Angaben lässt
+  // die Datenbank einen Auftrag mit „Rechnung benötigt" nicht abschließen.
+  auftragFahrzeuge: AuftragFahrzeug[];
+  onEmailSpeichern: (kundeId: string, email: string) => Promise<void>;
+  onFahrzeugHinzufuegen: (orderId: string, vehicleId: string) => Promise<void>;
+  // Heißt nicht `onFahrzeugAnlegen`: Den Namen gibt es schon für das Anlegen aus dem
+  // Einlagerungsblock heraus, mit anderer Bedeutung und anderen Argumenten.
+  onRechnungsFahrzeugAnlegen: (orderId: string, kundeId: string, kennzeichen: string) => Promise<void>;
+  onKilometerstand: (id: string, km: number | null) => Promise<void>;
+  onFahrzeugEntfernen: (id: string) => Promise<void>;
   onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
   onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
@@ -587,6 +599,25 @@ export function AuftragModal({
                 </span>
               </span>
             </label>
+
+            {/* Sobald „Rechnung benötigt" gesetzt ist: was dafür noch fehlt (Migration 44).
+                Die Liste sperrt nichts – man darf den Haken setzen und später ergänzen.
+                Verlangt werden die Angaben erst beim Abschließen, und dort von der Datenbank. */}
+            {rechnungNoetig && (
+              <RechnungsdatenBlock
+                kunde={customer ?? null}
+                gesperrt={gesperrt}
+                fahrzeuge={auftragFahrzeuge
+                  .filter((af) => af.order_id === order.id)
+                  .map((af) => ({ ...af, fahrzeug: vehicles.find((v) => v.id === af.vehicle_id) ?? null }))}
+                alleFahrzeuge={vehicles}
+                onEmailSpeichern={(email) => onEmailSpeichern(order.customer_id, email)}
+                onFahrzeugHinzufuegen={(vid) => onFahrzeugHinzufuegen(order.id, vid)}
+                onFahrzeugAnlegen={(kz) => onRechnungsFahrzeugAnlegen(order.id, order.customer_id, kz)}
+                onKilometerstand={onKilometerstand}
+                onFahrzeugEntfernen={onFahrzeugEntfernen}
+              />
+            )}
 
             {/* Der zweite Halbsatz: ob sie auch geschrieben wurde (Migration 40).
                 Er erscheint nur, wenn der Schalter an ist und der Auftrag erledigt – vorher

@@ -153,6 +153,20 @@ export type OrderStatus = "offen" | "in_arbeit" | "erledigt" | "storniert";
 // Ein Auftrag ist seit dem ERP-Umbau zugleich der "Termin": order_date/time sind das
 // Datum/die Uhrzeit, zu der etwas beim Kunden ansteht (können aber auch nur ein grobes
 // Anlage-Datum sein, wenn kein fester Termin vereinbart ist – time bleibt dann leer).
+// Ein Fahrzeug an einem Auftrag, mit dem Kilometerstand dieses Tages (Migration 44).
+// Ersetzt `orders.vehicle_id`, das nur EINES zuließ – ein Kunde mit zwei Wagen lässt beide am
+// selben Termin wechseln.
+export type AuftragFahrzeug = {
+  id: string;
+  order_id: string;
+  vehicle_id: string;
+  // `null` heißt „noch nicht abgelesen" und ist etwas anderes als 0: Ein fabrikneuer Wagen
+  // hat 0 km. Pflicht wird die Angabe erst beim Abschließen eines Auftrags mit Rechnung.
+  kilometerstand: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type Order = {
   id: string;
   // Fortlaufende, für Menschen lesbare Auftragsnummer (Migration 20) – für Rechnungen und für

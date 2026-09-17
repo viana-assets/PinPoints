@@ -1406,6 +1406,14 @@ tr.klickbar:hover { background: var(--hover); }
 .rechte-matrix th.verb-kopf .verb-lang{display:none;}
 .rechte-matrix td.verb-zelle{text-align:center;padding-left:4px;padding-right:4px;}
 .rechte-matrix .gruppenanfang{border-left:1px solid var(--border);}
+/* Zwei Ebenen: die Modulzeile trägt den Reiter, die eingerückten Zeilen darunter die
+   Handlungen. Die Einrückung ist die ganze Erklärung – deshalb muss sie deutlich sein und
+   nicht nur zwei Pixel betragen. */
+.rechte-matrix tr.recht-modul > td:first-child{font-weight:700;}
+.rechte-matrix tr.recht-unter > td:first-child{padding-left:24px;color:var(--muted);
+  font-size:12.5px;}
+.rechte-matrix tr.recht-modul > td{border-top:1px solid var(--border);}
+.rechte-matrix td[title]{cursor:help;}
 /* Eine Zelle, die es nicht gibt: sichtbar vorhanden, aber erkennbar kein Angebot. Der Grund
    steht im Titel – siehe `warumNicht` in lib/constants.ts. */
 .rechte-matrix td.gibts-nicht{background:repeating-linear-gradient(135deg,
@@ -1580,6 +1588,43 @@ tr.klickbar:hover { background: var(--hover); }
 
    Die ausstehende Rechnung ist farbig hinterlegt, die erledigte nicht: Was zu tun ist, soll
    auffallen; was getan ist, soll nur nachlesbar sein. */
+/* ---- Abhakliste „was fehlt für die Rechnung" (Migration 44) ----
+
+   Sie hängt sichtbar am Schalter darüber – derselbe Vorgang, zweite Hälfte. Solange etwas
+   fehlt, ist sie farbig hinterlegt; ist alles da, wird sie ruhig. Was zu tun ist, soll
+   auffallen; was getan ist, nur nachlesbar sein. Dieselbe Regel wie beim Rechnungsstand. */
+.rechnungsdaten{margin:-1px 0 0;padding:10px 11px;border:1px solid var(--border);border-top:0;
+  background:var(--accent-bg);display:flex;flex-direction:column;gap:6px;}
+.rechnungsdaten.vollstaendig{background:var(--bg);}
+.rechnungsdaten .rd-kopf{font-size:12.5px;font-weight:700;margin-bottom:2px;}
+
+.rd-zeile{display:flex;align-items:flex-start;gap:7px;font-size:12.5px;}
+/* Erfüllt heißt blass, nicht weg: „Anschrift ✓ Hauptstr. 1" beantwortet die Frage „ist das
+   gepflegt?", eine leere Stelle beantwortet sie nicht. */
+.rd-zeile.erfuellt{opacity:.55;}
+.rd-zeile .rd-haken{flex:0 0 auto;width:14px;text-align:center;font-weight:700;
+  color:var(--accent);}
+.rd-zeile.erfuellt .rd-haken{color:var(--muted);}
+.rd-zeile .rd-text{display:flex;flex-direction:column;gap:1px;min-width:0;flex:1 1 auto;}
+.rd-zeile .rd-text b{font-size:12.5px;}
+.rd-eingabe{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;}
+.rd-eingabe input{width:190px;}
+
+.rd-fahrzeuge{border-top:1px solid var(--border);margin-top:4px;padding-top:7px;
+  display:flex;flex-direction:column;gap:5px;}
+.rd-fahrzeuge-kopf{font-size:11px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--muted);}
+.rd-fahrzeug{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:12.5px;}
+.rd-fahrzeug .rd-nr{flex:0 0 auto;font-weight:700;min-width:82px;}
+.rd-fahrzeug .rd-kennzeichen{flex:1 1 140px;min-width:0;}
+.rd-fahrzeug .rd-km{display:flex;align-items:center;gap:5px;flex:0 0 auto;
+  font-size:11.5px;color:var(--muted);}
+.rd-fahrzeug .rd-km input{width:92px;}
+.rd-fahrzeug .rd-weg{flex:0 0 auto;padding:2px 8px;line-height:1.2;}
+.rd-hinzu{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;}
+.rd-hinzu select{max-width:250px;}
+.rd-hinzu input{width:150px;}
+
 .rechnung-stand{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
   margin:-1px 0 0;padding:9px 11px;border:1px solid var(--border);border-top:0;
   border-radius:0 0 10px 10px;background:var(--accent-bg);}
