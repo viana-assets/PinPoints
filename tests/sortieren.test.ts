@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sortiere, terminZeitraum, vergleiche } from "@/lib/helpers";
+import { formatOrderDateTime, sortiere, terminZeitraum, vergleiche } from "@/lib/helpers";
 
 // Sortierung der Auftragsliste. Ein Fehler hier faellt nicht als Fehler auf - die Liste sieht
 // sortiert aus, steht aber falsch, und man sucht den Auftrag an der falschen Stelle.
@@ -60,5 +60,27 @@ describe("terminZeitraum", () => {
 
   it("sagt nichts, wenn es keine Uhrzeit gibt - ein Auftrag ist kein Termin", () => {
     expect(terminZeitraum({ time: null, end_time: null })).toBeNull();
+  });
+});
+
+// Die einzeilige Fassung muss dieselbe Uhrzeit nennen wie die zweizeilige – sonst stünde in
+// der Terminliste ein Zeitraum und im Kartenpunkt daneben nur der Anfang, und man müsste
+// raten, welche der beiden Angaben gilt.
+describe("formatOrderDateTime", () => {
+  const basis = { order_date: "2026-09-17" };
+
+  it("setzt das Datum vor den Zeitraum", () => {
+    expect(formatOrderDateTime({ ...basis, time: "15:15", end_time: "16:00" } as never))
+      .toBe("17.9.2026, 15:15 – 16:00 Uhr");
+  });
+
+  it("nennt nur den Anfang, wenn kein Ende gepflegt ist", () => {
+    expect(formatOrderDateTime({ ...basis, time: "15:15", end_time: null } as never))
+      .toBe("17.9.2026, 15:15 Uhr");
+  });
+
+  it("nennt nur das Datum, wenn es keine Uhrzeit gibt", () => {
+    expect(formatOrderDateTime({ ...basis, time: null, end_time: null } as never))
+      .toBe("17.9.2026");
   });
 });

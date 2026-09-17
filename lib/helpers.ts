@@ -15,8 +15,17 @@ export function formatDate(iso: string | null | undefined): string {
 // Uhrzeit, die Entsprechungen heißen formatOrderDateTime/orderDateTime/isOrderPast/
 // nextOrder. Sie wurden nirgends mehr aufgerufen (Review-Befund D7).
 
+// Datum und Zeitraum in EINER Zeile: „17.09.2026, 15:15 – 16:00 Uhr". Für Kartenpunkte,
+// Kundenfenster und überall sonst, wo kein Platz für zwei Zeilen ist.
+//
+// Die Endzeit stand hier bis zum 17.09.2026 nicht – Migration 37 hatte sie eingeführt, aber
+// nur die zweizeilige Darstellung nutzte sie. Man sah, wann der Techniker kommt, und nicht,
+// wie lange er bleibt; genau daran hängt aber, ob der nächste Termin noch draufpasst. Die
+// Regel steht in `terminZeitraum` und wird hier nur um das Datum ergänzt: zwei Rechenwege für
+// dieselbe Uhrzeitangabe wären zwei Uhrzeiten.
 export function formatOrderDateTime(o: Order): string {
-  return formatDate(o.order_date) + (o.time ? `, ${o.time} Uhr` : "");
+  const zeit = terminZeitraum(o);
+  return formatDate(o.order_date) + (zeit ? `, ${zeit}` : "");
 }
 
 export function orderDateTime(o: Order): Date {
@@ -777,9 +786,9 @@ export function sortiere<T>(zeilen: T[], wert: (z: T) => unknown, richtung: Sort
 
 // ---------------------------------------------------------------- Termin
 //
-// Datum und Zeitraum als zwei Zeilen: oben der Tag, darunter „09:00 – 10:30 Uhr".
-// Getrennt vom einzeiligen `formatOrderDateTime`, das weiterhin dort gilt, wo eine Zeile
-// gebraucht wird (Kundenfenster, Terminliste).
+// Der Zeitraum eines Termins, ohne Datum: „09:00 – 10:30 Uhr", oder nur „09:00 Uhr", wenn
+// kein Ende gesetzt ist. Die EINE Stelle, an der entschieden wird, wie eine Terminzeit
+// aussieht – `formatOrderDateTime` setzt nur noch das Datum davor.
 export function terminZeitraum(o: { time: string | null; end_time: string | null }): string | null {
   if (!o.time) return null;
   return o.end_time ? `${o.time} – ${o.end_time} Uhr` : `${o.time} Uhr`;
