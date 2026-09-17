@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MODULE, SEKUNDAERE_TABS } from "@/lib/module";
-import { PERMISSION_DEFAULTS } from "@/lib/constants";
+import { RECHTE_KATALOG, RECHTE_VORGABE, VERBEN, type Verb } from "@/lib/constants";
 
 // Diese Tests prüfen keine Rechenlogik, sondern eine Erfahrung: Am 10.09.2026 fehlten die
 // Saisonliste und der Artikelstamm auf dem Handy – wochenlang unbemerkt, weil Seitenleiste
@@ -20,14 +20,19 @@ describe("Modulliste", () => {
     });
   });
 
-  it("verweist nur auf Rechte, die es auch als Voreinstellung gibt", () => {
-    // Ein Modul mit einem Schlüssel, den PERMISSION_DEFAULTS nicht kennt, wäre für alle außer
-    // dem Superadmin unsichtbar – und niemand käme auf die Idee, den Grund in einer Tabelle
+  it("verweist nur auf Bereiche und Verben, die es wirklich gibt", () => {
+    // Ein Modul mit einem Schluessel, den der Rechtekatalog nicht kennt, waere fuer alle ausser
+    // dem Superadmin unsichtbar - und niemand kaeme auf die Idee, den Grund in einer Tabelle
     // mit Voreinstellungen zu suchen.
     MODULE.forEach((m) => {
       if (m.sichtbar === null || m.sichtbar === "admin") return;
-      expect(PERMISSION_DEFAULTS, `view.${m.sichtbar} fehlt in PERMISSION_DEFAULTS`)
-        .toHaveProperty(`view.${m.sichtbar}`);
+      const [bereich, verb] = m.sichtbar.split(".");
+      const eintrag = RECHTE_KATALOG.find((b) => b.schluessel === bereich);
+      expect(eintrag, `Bereich "${bereich}" fehlt im RECHTE_KATALOG`).toBeTruthy();
+      const gemeint = (verb as Verb) || "lesen";
+      expect(VERBEN, `"${gemeint}" ist kein Verb`).toContain(gemeint);
+      expect(eintrag!.verben, `Bereich "${bereich}" kennt kein "${gemeint}"`).toContain(gemeint);
+      expect(RECHTE_VORGABE, `Vorgabe fuer "${bereich}" fehlt`).toHaveProperty(bereich);
     });
   });
 
