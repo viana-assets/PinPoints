@@ -709,3 +709,78 @@ export function suchtreffer(felder: (string | null | undefined)[], suche: string
   const heuOhne = ohneTrenner(heu);
   return begriffe.every((b) => heu.includes(b) || (ohneTrenner(b) !== "" && heuOhne.includes(ohneTrenner(b))));
 }
+
+// ---------------------------------------------------------------- Rechnung
+//
+// Steht für diesen Auftrag noch eine Rechnung aus? Die Regel steht hier und nicht in der
+// Auftragsliste, weil sie an DREI Stellen gebraucht wird – Filter, Zähler und
+// Auftragsfenster – und drei Fassungen derselben Regel drei Wahrheiten wären.
+//
+// Warum „erledigt" dazugehört: Ein offener Auftrag ist noch nicht fertig, und was auf ihm
+// steht, kann sich noch ändern. Erst beim Abschluss frieren die Positionen ein (Migration 20),
+// erst dann steht fest, was abgerechnet wird. Eine Arbeitsliste, die Beträge nennt, die sich
+// noch ändern, ist keine Arbeitsliste, sondern eine Vorschau.
+//
+// Ein stornierter Auftrag fällt heraus, weil `status` dann nicht „erledigt" ist – ohne dass
+// das eigens geprüft werden müsste.
+export function rechnungOffen(auftrag: {
+  status: string;
+  rechnung_noetig: boolean;
+  rechnung_erstellt_am: string | null;
+  deleted_at?: string | null;
+}): boolean {
+  return (
+    auftrag.rechnung_noetig &&
+    auftrag.rechnung_erstellt_am == null &&
+    auftrag.status === "erledigt" &&
+    auftrag.deleted_at == null
+  );
+}
+
+// ---------------------------------------------------------------- Sortieren
+//
+// Die Auftragsliste lässt sich nach jeder Spalte sortieren. Die Regel steht hier und nicht in
+// der Tabelle, weil sie sonst neben der Anzeige läge und beim nächsten Umbau mitwandern
+// müsste.
+//
+// Drei Entscheidungen:
+//
+// 1. Sortiert wird nach dem WERT, nicht nach dem angezeigten Text. „3.11.2026" steht als Text
+//    vor „19.10.2026", als Datum dahinter. Deshalb liefert `sortierWert` je Spalte den Wert,
+//    der die Reihenfolge trägt.
+// 2. Leere Werte stehen IMMER am Ende, in beiden Richtungen. Ein Auftrag ohne Uhrzeit ist
+//    nicht „früh", er hat schlicht keine – und wer nach Uhrzeit sortiert, sucht Termine, nicht
+//    Lücken.
+// 3. Text wird mit `localeCompare` verglichen, damit „Ä" bei „A" landet und nicht hinter „Z".
+export type SortRichtung = "auf" | "ab";
+
+export function vergleiche(a: unknown, b: unknown, richtung: SortRichtung): number {
+  const aLeer = a == null || a === "";
+  const bLeer = b == null || b === "";
+  // Bewusst VOR der Richtung: Leeres bleibt unten, egal wie herum sortiert wird.
+  if (aLeer && bLeer) return 0;
+  if (aLeer) return 1;
+  if (bLeer) return -1;
+
+  let d: number;
+  if (typeof a === "number" && typeof b === "number") d = a - b;
+  else d = String(a).localeCompare(String(b), "de");
+  return richtung === "auf" ? d : -d;
+}
+
+export function sortiere<T>(zeilen: T[], wert: (z: T) => unknown, richtung: SortRichtung): T[] {
+  // Kopie, nicht an Ort und Stelle: `orders` kommt aus dem Zwischenspeicher und gehört nicht
+  // dieser Ansicht. Eine Sortierung, die die Quelle umstellt, wirkt an Stellen, die niemand
+  // vermutet.
+  return [...zeilen].sort((x, y) => vergleiche(wert(x), wert(y), richtung));
+}
+
+// ---------------------------------------------------------------- Termin
+//
+// Datum und Zeitraum als zwei Zeilen: oben der Tag, darunter „09:00 – 10:30 Uhr".
+// Getrennt vom einzeiligen `formatOrderDateTime`, das weiterhin dort gilt, wo eine Zeile
+// gebraucht wird (Kundenfenster, Terminliste).
+export function terminZeitraum(o: { time: string | null; end_time: string | null }): string | null {
+  if (!o.time) return null;
+  return o.end_time ? `${o.time} – ${o.end_time} Uhr` : `${o.time} Uhr`;
+}

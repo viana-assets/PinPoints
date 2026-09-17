@@ -191,6 +191,15 @@ export type Order = {
   // Nettobetrag die Steuer kommt. Er steht am AUFTRAG und nicht an der Position: Eine
   // Rechnung schreibt man für den ganzen Vorgang, nicht für einzelne Zeilen darin.
   rechnung_noetig: boolean;
+  // Wurde die Rechnung im ERP schon geschrieben? (Migration 40) `null` heißt „noch offen" –
+  // genau das ist die Arbeitsliste. Datum und Person setzt die Datenbank, nicht der Client;
+  // ein „erstellt am", das sich der Aufrufer aussuchen kann, wäre eine Behauptung.
+  rechnung_erstellt_am: string | null;
+  rechnung_erstellt_von: string | null;
+  // Die Rechnungsnummer AUS DEM ERP. Freiwillig, aber die einzige Brücke zurück: ohne sie sind
+  // der Auftrag hier und die Rechnung dort zwei Dinge ohne Verbindung. Ohne
+  // `rechnung_erstellt_am` lehnt die Datenbank sie ab.
+  rechnung_nummer: string | null;
   created_at: string;
   updated_at: string;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile

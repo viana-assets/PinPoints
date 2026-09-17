@@ -296,6 +296,8 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   completed_at: "abgeschlossen am", completed_by: "abgeschlossen von",
   cancelled_at: "storniert am", cancelled_by: "storniert von",
   firmenfahrzeug_id: "Firmenfahrzeug", assigned_employee_id: "Mitarbeiter",
+  rechnung_noetig: "Rechnung benötigt", rechnung_erstellt_am: "Rechnung erstellt am",
+  rechnung_erstellt_von: "Rechnung erstellt von", rechnung_nummer: "Rechnungsnummer",
   // Leistung
   quantity: "Menge", net_price: "Nettopreis", vat_rate: "Steuersatz",
   discount_percent: "Rabatt %", article_id: "Artikel",
