@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Customer } from "@/lib/types";
-import { effectiveColor } from "@/lib/helpers";
+import { effectiveColor, kundenMitTermin } from "@/lib/helpers";
 
 // Grundgerüst eines Kunden. Object.assign statt Streuung, weil `strict: true` sonst über
 // optionale Felder stolpert (siehe tests/preislogik.test.ts, gleiches Muster).
@@ -55,5 +55,54 @@ describe("effectiveColor", () => {
   it("lässt kein Interesse auch eine gesetzte Wiedervorlage überstimmen", () => {
     const c = kunde({ kontakt_ergebnis: "kein_interesse", wiedervorlage_am: "2026-12-01" });
     expect(effectiveColor(c, 3, HEUTE)).toBe("kein-interesse");
+  });
+});
+
+// Der Zustand „Termin" (17.09.2026). Die Regel ist nicht gespeichert, sondern abgeleitet –
+// deshalb muss sie hier festgehalten sein: Eine abgeleitete Regel, die niemand prüft, ändert
+// sich beim nächsten Umbau unbemerkt.
+describe("effectiveColor mit Termin", () => {
+  it("schlaegt alles andere, auch kein Interesse", () => {
+    const c = kunde({ kontakt_ergebnis: "kein_interesse" });
+    expect(effectiveColor(c, 3, HEUTE, false)).toBe("kein-interesse");
+    expect(effectiveColor(c, 3, HEUTE, true)).toBe("termin");
+  });
+
+  it("schlaegt die Wiedervorlage - der Grund zurueckzurufen ist erledigt", () => {
+    const c = kunde({ wiedervorlage_am: "2026-09-30" });
+    expect(effectiveColor(c, 3, HEUTE, true)).toBe("termin");
+  });
+
+  it("aendert nichts, wenn kein Termin ansteht", () => {
+    expect(effectiveColor(kunde({}), 3, HEUTE, false)).toBe("red");
+  });
+});
+
+describe("kundenMitTermin", () => {
+  const auftrag = (teil: Record<string, unknown>) =>
+    Object.assign({ customer_id: "k1", order_date: "2026-09-30", status: "offen", deleted_at: null }, teil);
+
+  it("nimmt offene und laufende Auftraege ab heute", () => {
+    expect(kundenMitTermin([auftrag({})], HEUTE).has("k1")).toBe(true);
+    expect(kundenMitTermin([auftrag({ status: "in_arbeit" })], HEUTE).has("k1")).toBe(true);
+  });
+
+  it("nimmt einen Auftrag von HEUTE mit - der Tag ist noch nicht vorbei", () => {
+    expect(kundenMitTermin([auftrag({ order_date: HEUTE })], HEUTE).has("k1")).toBe(true);
+  });
+
+  it("laesst Vergangenes weg - dafuer gibt es den Kontakt beim Abschliessen", () => {
+    expect(kundenMitTermin([auftrag({ order_date: "2026-08-01" })], HEUTE).has("k1")).toBe(false);
+  });
+
+  it("laesst erledigte, stornierte und geloeschte weg", () => {
+    expect(kundenMitTermin([auftrag({ status: "erledigt" })], HEUTE).has("k1")).toBe(false);
+    expect(kundenMitTermin([auftrag({ status: "storniert" })], HEUTE).has("k1")).toBe(false);
+    expect(kundenMitTermin([auftrag({ deleted_at: "2026-08-30" })], HEUTE).has("k1")).toBe(false);
+  });
+
+  it("fasst mehrere Auftraege desselben Kunden zu einem Eintrag zusammen", () => {
+    const menge = kundenMitTermin([auftrag({}), auftrag({ order_date: "2026-10-05" })], HEUTE);
+    expect(menge.size).toBe(1);
   });
 });
