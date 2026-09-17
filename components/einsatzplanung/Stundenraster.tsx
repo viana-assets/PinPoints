@@ -110,8 +110,30 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   const [stundePx, setStundePx] = useState(RASTER_STUNDE_STANDARD);
   const leibRef = useRef<HTMLDivElement | null>(null);
 
+  // Der laufende Zoom: Fingerabstand und Stundenhöhe beim Aufsetzen.
+  //
+  // WARUM EIN REF UND KEINE NORMALEN VARIABLEN: Die erste Fassung hielt beides in
+  // Variablen INNERHALB des Effekts und führte `stundePx` in der Abhängigkeitsliste.
+  // Damit wurde der Effekt bei jeder Zoomänderung abgeräumt und neu aufgebaut – und die
+  // Variablen fingen bei null wieder an. Die Folge am Handy: Man zieht die Finger
+  // auseinander, es springt EINMAL ein Stück, und danach passiert nichts mehr, weil die
+  // neue `bewegung()` einen Startabstand von 0 vorfindet und sofort aussteigt. Ein
+  // `touchstart` kommt nicht mehr, die Finger liegen ja schon auf. Man musste zwanzigmal
+  // neu aufsetzen statt einmal zu ziehen.
+  //
+  // Ein Ref überlebt das Rendern. Und weil die Listener nichts mehr aus dem Zustand lesen,
+  // hängt der Effekt an nichts mehr und wird genau einmal aufgebaut.
+  const gesteRef = useRef({ startAbstand: 0, startHoehe: RASTER_STUNDE_STANDARD });
+  // Spiegelt den Zustand für `anfang()`, das die Höhe beim Aufsetzen braucht. Eigener kleiner
+  // Effekt, damit die Listener davon unberührt bleiben.
+  const hoeheRef = useRef(stundePx);
+  useEffect(() => { hoeheRef.current = stundePx; }, [stundePx]);
+
+  function inGrenzen(h: number): number {
+    return Math.max(RASTER_STUNDE_MIN, Math.min(RASTER_STUNDE_MAX, h));
+  }
   function zoomen(faktor: number) {
-    setStundePx((h) => Math.max(RASTER_STUNDE_MIN, Math.min(RASTER_STUNDE_MAX, h * faktor)));
+    setStundePx((h) => inGrenzen(h * faktor));
   }
 
   // Native Listener statt onWheel/onTouchMove: React hängt diese Ereignisse passiv ein, und
@@ -127,41 +149,54 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
       // meldet). Ohne diese Bedingung könnte man nicht mehr normal scrollen.
       if (!e.ctrlKey) return;
       e.preventDefault();
-      zoomen(e.deltaY > 0 ? 0.92 : 1.08);
+      setStundePx((h) => inGrenzen(h * (e.deltaY > 0 ? 0.92 : 1.08)));
     }
 
-    let startAbstand = 0;
-    let startHoehe = 0;
     function abstand(e: TouchEvent): number {
       const [a, b] = [e.touches[0], e.touches[1]];
       return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     }
     function anfang(e: TouchEvent) {
       if (e.touches.length !== 2) return;
-      startAbstand = abstand(e);
-      startHoehe = stundePx;
+      // Auch hier schon abwehren: Safari entscheidet früh, ob die Geste der Seite gehört.
+      e.preventDefault();
+      gesteRef.current = { startAbstand: abstand(e), startHoehe: hoeheRef.current };
     }
     function bewegung(e: TouchEvent) {
-      if (e.touches.length !== 2 || startAbstand === 0) return;
+      const g = gesteRef.current;
+      if (e.touches.length !== 2 || g.startAbstand === 0) return;
       e.preventDefault();
-      const faktor = abstand(e) / startAbstand;
-      setStundePx(Math.max(RASTER_STUNDE_MIN, Math.min(RASTER_STUNDE_MAX, startHoehe * faktor)));
+      setStundePx(inGrenzen(g.startHoehe * (abstand(e) / g.startAbstand)));
     }
-    function ende() { startAbstand = 0; }
+    function ende(e: TouchEvent) {
+      // Erst wenn weniger als zwei Finger liegen, ist die Geste vorbei. Hebt jemand einen
+      // Finger und setzt ihn wieder auf, soll nicht mitten im Ziehen neu gerechnet werden.
+      if (e.touches.length < 2) gesteRef.current.startAbstand = 0;
+    }
+    // Safari auf dem iPhone meldet eine Zwei-Finger-Geste ZUSÄTZLICH als `gesture*` und
+    // zoomt sonst die ganze Seite, auch wenn die Touch-Ereignisse abgewehrt sind.
+    function gesteAbwehren(e: Event) { e.preventDefault(); }
 
     leib.addEventListener("wheel", rad, { passive: false });
     leib.addEventListener("touchstart", anfang, { passive: false });
     leib.addEventListener("touchmove", bewegung, { passive: false });
     leib.addEventListener("touchend", ende);
+    leib.addEventListener("touchcancel", ende);
+    leib.addEventListener("gesturestart", gesteAbwehren);
+    leib.addEventListener("gesturechange", gesteAbwehren);
     return () => {
       leib.removeEventListener("wheel", rad);
       leib.removeEventListener("touchstart", anfang);
       leib.removeEventListener("touchmove", bewegung);
       leib.removeEventListener("touchend", ende);
+      leib.removeEventListener("touchcancel", ende);
+      leib.removeEventListener("gesturestart", gesteAbwehren);
+      leib.removeEventListener("gesturechange", gesteAbwehren);
     };
-    // `stundePx` steht in der Liste, weil `anfang()` den Wert zum Zeitpunkt des Aufsetzens
-    // festhalten muss – sonst zoomt die zweite Geste wieder vom Ausgangswert aus.
-  }, [stundePx]);
+    // Leere Liste, und das ist der Punkt: Die Listener lesen nichts aus dem Zustand, sondern
+    // alles aus Refs. Ein Effekt, der sich während einer laufenden Geste neu aufbaut, bricht
+    // die Geste ab – siehe der Kommentar bei `gesteRef`.
+  }, []);
 
   // Aufträge je Tag, getrennt nach „hat eine Uhrzeit" und „hat keine".
   const proTag = tage.map((tag) => {

@@ -19,8 +19,9 @@ import {
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
-  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, PERMISSION_DEFAULTS, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
+  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
   PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
+  type Verb,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
@@ -75,7 +76,7 @@ import {
   setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
   setzePositionVonHand, positionNeuSuchen,
 } from "@/lib/api/customers";
-import { upsertModulePermissions } from "@/lib/api/permissions";
+import { upsertModulePermissions, type Bereichsrechte } from "@/lib/api/permissions";
 import {
   insertFirmenfahrzeug, updateFirmenfahrzeugById, firmenfahrzeugAusmustern,
   type FirmenfahrzeugFelder,
@@ -105,7 +106,7 @@ const KEINE_FAHRZEUGE: Vehicle[] = [];
 const KEINE_FIRMENFAHRZEUGE: Firmenfahrzeug[] = [];
 const KEINE_RAEDER: EingelagertesRad[] = [];
 const KEINE_HISTORIE: ContactHistoryEntry[] = [];
-const KEINE_ZUORDNUNGEN: Record<string, string[]> = {};
+const KEINE_ZUORDNUNGEN: Record<string, Bereichsrechte> = {};
 
 // Höchstzahl gleichzeitig gezeichneter Kartenmarker. Leaflet legt je Marker ein DOM-Element an;
 // bei mehreren tausend Kunden im Bild wird das Zoomen und Verschieben spürbar zäh. Es werden
@@ -661,21 +662,34 @@ export default function HomePage() {
   async function refreshModulePermissions() {
     neuLaden(qk.modulrechte());
   }
-  async function updateModulePermissions(moduleKey: string, roles: string[]) {
-    await upsertModulePermissions(supabase, moduleKey, roles);
+  async function updateModulePermissions(bereich: string, verb: Verb, rollen: string[], bestand: Bereichsrechte) {
+    await upsertModulePermissions(supabase, bereich, verb, rollen, bestand);
     await refreshModulePermissions();
   }
   // Superadmin darf/sieht immer alles – auch wenn für einen Schlüssel (noch) keine Zeile in
   // `module_permissions` existiert. Für alle anderen Rollen zählt, ob sie in den hinterlegten
   // Rollen des jeweiligen Schlüssels stehen (oder, falls dazu noch keine DB-Zeile existiert,
   // im eingebauten Standardwert `PERMISSION_DEFAULTS`).
-  function hasPermission(key: string): boolean {
+  // Darf die eigene Rolle in diesem Bereich dieses Verb? Dieselbe Frage, die die Datenbank
+  // mit `public.darf()` beantwortet (Migration 42) – hier nur, um Knöpfe auszublenden, die
+  // ohnehin abgelehnt würden. Die Entscheidung fällt in der Datenbank, nicht hier.
+  function darf(bereich: string, verb: Verb = "lesen"): boolean {
     if (isSuperAdmin) return true;
-    const roles = modulePermissions[key] ?? PERMISSION_DEFAULTS[key] ?? [];
-    return roles.includes(myRole);
+    const rechte = modulePermissions[bereich] ?? RECHTE_VORGABE[bereich] ?? {};
+    return (rechte[verb] ?? []).includes(myRole);
   }
-  function canView(moduleKey: string): boolean {
-    return hasPermission("view." + moduleKey);
+  // Die Sichtbarkeitsregel eines Moduls ist seit Migration 42 ein Paar aus Bereich und Verb
+  // („kunden.schreiben" für „Neuer Kunde"). Ohne Verb gilt „lesen".
+  function canView(regel: string): boolean {
+    const [bereich, verb] = regel.split(".");
+    // Ein Schlüssel, den der Katalog nicht kennt, ergäbe stillschweigend „niemand darf" –
+    // der Reiter verschwände für alle außer dem Superadmin, und niemand käme auf die Idee,
+    // den Grund in einer Konstantenliste zu suchen. Genau das ist beim Umbau am 17.09.2026
+    // zweimal passiert (`neuer_kunde`, `inaktive_kunden`). Deshalb sagt es die Konsole.
+    if (process.env.NODE_ENV !== "production" && !RECHTE_VORGABE[bereich]) {
+      console.warn(`Unbekannter Rechte-Bereich "${bereich}" – siehe RECHTE_KATALOG in lib/constants.ts`);
+    }
+    return darf(bereich, (verb as Verb) || "lesen");
   }
   // Die Sichtbarkeitsregel eines Moduls aus lib/module.ts: `null` = immer, `"admin"` = nur
   // Admin/Superadmin, sonst der Modulschlüssel. An einer Stelle, damit Seitenleiste und
@@ -2292,12 +2306,12 @@ export default function HomePage() {
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
             onRemoveAssignment={removeTireAssignment}
-            canCreateWarehouse={hasPermission("action.lager.warehouse_create")}
-            canEditWarehouse={hasPermission("action.lager.warehouse_edit")}
-            canDeleteWarehouse={hasPermission("action.lager.warehouse_delete")}
-            canCreateSlot={hasPermission("action.lager.slot_create")}
-            canDeleteSlot={hasPermission("action.lager.slot_delete")}
-            canAssignTire={hasPermission("action.lager.tire_assign")}
+            canCreateWarehouse={darf("lager", "schreiben")}
+            canEditWarehouse={darf("lager", "schreiben")}
+            canDeleteWarehouse={darf("lager", "loeschen")}
+            canCreateSlot={darf("lager", "schreiben")}
+            canDeleteSlot={darf("lager", "loeschen")}
+            canAssignTire={darf("einlagerung", "schreiben")}
             springeZuLagerplatzId={gescannterLagerplatzId}
             onLagerplatzGeoeffnet={() => setGescannterLagerplatzId(null)}
           />
@@ -2346,7 +2360,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "inactive" && canView("inaktive_kunden") && (
+        {tab === "inactive" && canView("kunden.lesen") && (
           <div className="tabpanel active">
             <div className="small" style={{ marginBottom: 4 }}>Deaktivierte Kunden erscheinen nicht mehr in der normalen Liste und haben keine Flagge auf der Karte.</div>
             <div>
@@ -2368,7 +2382,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "add" && canView("neuer_kunde") && <AddCustomerForm onAdd={addCustomer} />}
+        {tab === "add" && canView("kunden.schreiben") && <AddCustomerForm onAdd={addCustomer} />}
 
         {tab === "settings" && canView("einstellungen") && (
           <SettingsPanel

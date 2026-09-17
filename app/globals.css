@@ -1391,6 +1391,30 @@ tr.klickbar:hover { background: var(--hover); }
    Ein Kalender ist kein Element, das man kürzen darf: Seine Höhe IST die Aussage. */
 .raster{border:1px solid var(--border);border-radius:12px;background:var(--panel);
   overflow:hidden;flex:0 0 auto;}
+/* ---- Rechtematrix (Admin → Modulverwaltung) ----
+
+   Neun Haken je Zeile, also drei Dreiergruppen. Damit man beim Wandern über die Zeile nicht
+   in der falschen Rolle landet, bekommt jede Gruppe links eine Trennlinie – nicht Farbe:
+   Farbe trägt hier schon den Zustand der Haken.
+
+   Die Verbköpfe stehen als L/S/L über den Spalten; ab 900 px steht das Wort ganz da. Bei
+   neun Spalten ist ein ausgeschriebenes „Schreiben" am Handy breiter als die ganze Gruppe. */
+.rechte-matrix{min-width:560px;}
+.rechte-matrix th.rolle-kopf{text-align:center;border-bottom:1px solid var(--border);}
+.rechte-matrix th.verb-kopf{text-align:center;font-size:10px;font-weight:700;
+  color:var(--muted);padding-left:4px;padding-right:4px;white-space:nowrap;}
+.rechte-matrix th.verb-kopf .verb-lang{display:none;}
+.rechte-matrix td.verb-zelle{text-align:center;padding-left:4px;padding-right:4px;}
+.rechte-matrix .gruppenanfang{border-left:1px solid var(--border);}
+/* Eine Zelle, die es nicht gibt: sichtbar vorhanden, aber erkennbar kein Angebot. Der Grund
+   steht im Titel – siehe `warumNicht` in lib/constants.ts. */
+.rechte-matrix td.gibts-nicht{background:repeating-linear-gradient(135deg,
+  transparent 0 4px, var(--border) 4px 5px);}
+.rechte-matrix td.gibts-nicht input{opacity:.18;}
+@media (min-width: 900px){
+  .rechte-matrix th.verb-kopf .verb-lang{display:inline;}
+}
+
 /* ---- Sortierbare Spaltenköpfe ----
    Der Pfeil bekommt festen Platz, auch wenn er leer ist: Sonst rückt die Überschrift beim
    Sortieren um ein Zeichen zur Seite, und die ganze Kopfzeile zuckt. */

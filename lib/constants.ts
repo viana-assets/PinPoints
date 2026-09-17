@@ -60,65 +60,88 @@ export function istAbgeschlossen(status: OrderStatus): boolean {
 // weitere Module genauso ergänzen). Superadmin darf immer alles, unabhängig von dieser
 // Tabelle. Dashboard ist immer für alle sichtbar (Startseite/Absturz-Sicherung), daher zwar
 // in der Liste (Transparenz), aber nicht abwählbar.
-export type PermItem = { key: string; label: string; indent?: boolean; locked?: boolean };
+// ---------------------------------------------------------------- Rechte
+//
+// Seit dem 17.09.2026 hat jeder Bereich je Rolle DREI Haken: lesen, schreiben, löschen.
+// Vorher gab es einen Haken je „Modul“ plus eine Handvoll eigener Zeilen für einzelne
+// Lager-Aktionen – gewachsen, ungleichmäßig, und man musste raten, ob „Lager“ nur das Sehen
+// meinte oder auch das Löschen.
+//
+// DREI Verben und nicht vier: „anlegen“ und „ändern“ sind beide „schreiben“. Die Trennung
+// wäre denkbar, aber im Betrieb gibt es niemanden, der ändern darf und nicht anlegen – sie
+// hätte nur die Tabelle verdoppelt.
+//
+// WICHTIG: Jeder dieser Haken wird von der DATENBANK durchgesetzt (Migration 42,
+// `public.darf()`), nicht nur von der Oberfläche. Ein Häkchen, das nur die Anzeige kennt, ist
+// eine Zusage, die das Programm nicht hält.
+export type Verb = "lesen" | "schreiben" | "loeschen";
+export const VERBEN: Verb[] = ["lesen", "schreiben", "loeschen"];
+export const VERB_LABEL: Record<Verb, string> = {
+  lesen: "Lesen", schreiben: "Schreiben", loeschen: "Löschen",
+};
 
-export const PERMISSION_CATALOG: PermItem[] = [
-  { key: "view.dashboard", label: "Dashboard", locked: true },
-  { key: "view.kunden", label: "Kunden" },
-  { key: "view.auftraege", label: "Aufträge" },
-  { key: "view.termine", label: "Termine" },
-  { key: "view.lager", label: "Lager" },
-  { key: "action.lager.tire_assign", label: "– Reifen einem Lagerplatz zuordnen/entfernen", indent: true },
-  { key: "action.lager.slot_create", label: "– Lagerplätze anlegen", indent: true },
-  { key: "action.lager.slot_delete", label: "– Lagerplätze löschen", indent: true },
-  { key: "action.lager.warehouse_create", label: "– Neues Lager anlegen", indent: true },
-  { key: "action.lager.warehouse_edit", label: "– Lager bearbeiten (Name/Adresse/Notiz)", indent: true },
-  { key: "action.lager.warehouse_delete", label: "– Lager löschen", indent: true },
-  { key: "view.einsatzplanung", label: "Einsatzplanung" },
-  { key: "view.neuer_kunde", label: "Neuer Kunde" },
-  { key: "view.inaktive_kunden", label: "Inaktive Kunden" },
-  { key: "view.artikel", label: "Artikel" },
-  { key: "view.auswertung", label: "Auswertungen" },
-  { key: "view.einstellungen", label: "Einstellungen" },
+export type RechtBereich = {
+  schluessel: string;
+  label: string;
+  // Welche Verben es hier überhaupt gibt. Was fehlt, erscheint als graue Zelle – nicht als
+  // Lücke: Eine leere Stelle in einer Spalte sieht beim Überfliegen aus wie ein nicht
+  // gesetzter Haken, und das ist die gefährlichere Verwechslung.
+  verben: Verb[];
+  // Warum ein Verb fehlt. Steht im Tooltip der grauen Zelle – eine gesperrte Zelle ohne
+  // Begründung ist eine Aufforderung zum Rätselraten.
+  warumNicht?: string;
+  // Immer an, für alle, nicht abwählbar.
+  gesperrt?: boolean;
+};
+
+export const RECHTE_KATALOG: RechtBereich[] = [
+  { schluessel: "dashboard", label: "Dashboard", verben: ["lesen"], gesperrt: true,
+    warumNicht: "Das Dashboard zeigt nur zusammengefasste Zahlen; es gibt dort nichts zu schreiben." },
+  { schluessel: "kunden", label: "Kunden", verben: ["lesen", "schreiben", "loeschen"] },
+  { schluessel: "auftraege", label: "Aufträge", verben: ["lesen", "schreiben", "loeschen"] },
+  { schluessel: "termine", label: "Termine", verben: ["lesen"],
+    warumNicht: "Ein Termin ist ein Auftrag mit Uhrzeit – geschrieben und gelöscht wird bei „Aufträge“." },
+  { schluessel: "einsatzplanung", label: "Einsatzplanung", verben: ["lesen"],
+    warumNicht: "Die Einsatzplanung zeigt Aufträge – geschrieben und gelöscht wird bei „Aufträge“." },
+  { schluessel: "lager", label: "Lager und Lagerplätze", verben: ["lesen", "schreiben", "loeschen"] },
+  { schluessel: "einlagerung", label: "Eingelagerte Reifen", verben: ["lesen", "schreiben", "loeschen"] },
+  { schluessel: "saison", label: "Saisonliste", verben: ["lesen"],
+    warumNicht: "Die Saisonliste ist eine Auswertung der Einlagerungen – geändert wird dort." },
+  { schluessel: "artikel", label: "Artikel und Preise", verben: ["lesen", "schreiben", "loeschen"] },
+  { schluessel: "mitarbeiter", label: "Mitarbeiter", verben: ["lesen", "schreiben", "loeschen"] },
+  { schluessel: "firmenfahrzeuge", label: "Firmenfahrzeuge", verben: ["lesen", "schreiben", "loeschen"] },
+  { schluessel: "auswertung", label: "Auswertungen", verben: ["lesen"],
+    warumNicht: "Auswertungen rechnen nur – sie legen nichts an und löschen nichts." },
+  { schluessel: "einstellungen", label: "Einstellungen", verben: ["lesen", "schreiben"],
+    warumNicht: "Jeder ändert nur seine eigenen Einstellungen; zu löschen gibt es dort nichts." },
 ];
 
-// Fallback, solange in der Datenbank (noch) keine Zeile für einen Schlüssel existiert –
-// entspricht dem Verhalten von vor der Modul-Berechtigungen-Funktion (nichts eingeschränkt),
-// außer bei den Lager-Struktur-Aktionen, die von Anfang an nur Admin/Superadmin waren.
-// Techniker sieht bewusst kein "view.kunden"/"view.neuer_kunde"/"view.inaktive_kunden" mehr
-// (Phase 4: Techniker-Rolle mit echten Rechten) – volle Kundenstammdaten-Verwaltung bleibt
-// Admin/Superadmin/Nutzer vorbehalten. Ist eine Zeile bereits in `module_permissions`
-// hinterlegt (z. B. aus einem Stand vor dieser Änderung), überschreibt die Datenbank-Zeile
-// diesen Fallback – dann bitte einmalig im Admin-Bereich unter "Modulverwaltung" bei den drei
-// Kunden-Zeilen den Haken bei "Techniker" entfernen.
-export const PERMISSION_DEFAULTS: Record<string, string[]> = {
-  "view.dashboard": ["admin", "techniker", "user"],
-  "view.kunden": ["admin", "user"],
-  "view.auftraege": ["admin", "techniker", "user"],
-  "view.termine": ["admin", "techniker", "user"],
-  "view.lager": ["admin", "techniker", "user"],
-  "action.lager.tire_assign": ["admin", "techniker", "user"],
-  "action.lager.slot_create": ["admin"],
-  "action.lager.slot_delete": ["admin"],
-  "action.lager.warehouse_create": ["admin"],
-  "action.lager.warehouse_edit": ["admin"],
-  "action.lager.warehouse_delete": ["admin"],
-  "view.einsatzplanung": ["admin", "techniker", "user"],
-  // Die Saisonliste ist eine Vertriebs- und Büroaufgabe (die halbjährliche Anrufliste), kein
-  // Werkzeug für unterwegs – deshalb ohne Techniker.
-  "view.saison": ["admin", "user"],
-  "view.neuer_kunde": ["admin", "user"],
-  "view.inaktive_kunden": ["admin", "user"],
-  // "Artikel" (vorher "Artikelstamm" im Admin-Bereich, siehe docs/roadmap.md Phase 4) ist eine
-  // eigene Kachel wie "Kunden"/"Neuer Kunde" – Pflegen bleibt laut RLS ohnehin nur
-  // Admin/Superadmin vorbehalten (Migration 12), hier geht es nur um das Sehen der Übersicht.
-  "view.artikel": ["admin", "user"],
-  // Auswertungen zeigen Umsatz, Steuer und gewährte Nachlässe – das ist eine Auskunft für die
-  // Geschäftsführung und das Büro, nicht für unterwegs. Deshalb von Anfang an ohne Techniker;
-  // freigeben lässt es sich jederzeit im Admin-Bereich unter „Modulverwaltung".
-  "view.auswertung": ["admin"],
-  "view.einstellungen": ["admin", "techniker", "user"],
+// Was gilt, solange in der Datenbank keine Zeile für einen Bereich steht.
+//
+// Der Techniker ist hier die eigentliche Aussage: Er sieht Aufträge, Termine, Lager und
+// Einsatzplanung und darf dort schreiben – aber er sieht keine Kundenstammdaten, keine
+// Artikelpreise und keine Auswertungen, und er löscht nirgends. Löschen nimmt etwas weg; das
+// ist eine Büroentscheidung.
+export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
+  dashboard:       { lesen: ["admin", "techniker", "user"] },
+  kunden:          { lesen: ["admin", "user"], schreiben: ["admin", "user"], loeschen: ["admin"] },
+  auftraege:       { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "user"] },
+  termine:         { lesen: ["admin", "techniker", "user"] },
+  einsatzplanung:  { lesen: ["admin", "techniker", "user"] },
+  lager:           { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  einlagerung:     { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "user"] },
+  saison:          { lesen: ["admin", "user"] },
+  artikel:         { lesen: ["admin", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  mitarbeiter:     { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  firmenfahrzeuge: { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  auswertung:      { lesen: ["admin"] },
+  einstellungen:   { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
 };
+
+// Der Schlüssel, unter dem eine Rolle in `module_permissions` steht: ein Bereich, ein Verb.
+export function rechtSchluessel(bereich: string, verb: Verb): string {
+  return `${bereich}.${verb}`;
+}
 
 export const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
 
@@ -245,7 +268,7 @@ export const DOT_ALT_JAHRE = 6;
 export const LAGERDAUER_HINWEIS_TAGE = 365;
 
 // Ab welcher Fensterbreite die Regalwand von selbst zur Reihenliste wird. Dieselbe Zahl steht
-// im Stilblatt (app/globals.css, „Reihenliste") – sie muss dort stehen, weil CSS keine
+// im Stilblatt (app/globals.css, „Reihenliste“) – sie muss dort stehen, weil CSS keine
 // TypeScript-Konstante lesen kann. Wer sie ändert, ändert sie an beiden Stellen; der Kommentar
 // im Stilblatt verweist hierher.
 //
@@ -256,7 +279,7 @@ export const REGAL_LISTE_BREITE_PX = 700;
 // ---------------------------------------------------------------- Protokoll (Migration 36)
 //
 // Der Trigger schreibt Tabellen- und Spaltennamen, wie sie in der Datenbank heißen. Für
-// jemanden, der das Protokoll liest, ist „order_articles.net_price" keine Auskunft, sondern
+// jemanden, der das Protokoll liest, ist „order_articles.net_price“ keine Auskunft, sondern
 // eine Zumutung. Hier steht die Übersetzung – einmal, weil sie an zwei Stellen gebraucht
 // wird (Adminliste und Auftragsfenster).
 //
@@ -284,7 +307,7 @@ export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
 // WICHTIG: Aus dieser Liste wird NICHTS entfernt, wenn eine Spalte aus der Datenbank fällt.
 // Das Protokoll (audit_log) hält die alten Werte als jsonb fest, und die bleiben lesbar,
 // nachdem die Spalte weg ist. Wer einen Eintrag von vorletzter Woche aufschlägt, soll dort
-// „Rabatt %" lesen und nicht den rohen Spaltennamen. `discount_percent` und
+// „Rabatt %“ lesen und nicht den rohen Spaltennamen. `discount_percent` und
 // `assigned_employee_id` stehen deshalb weiter hier, obwohl Migration 39 sie gelöscht hat –
 // sie beschreiben Vergangenheit, und die ändert sich nicht mehr.
 export const PROTOKOLL_FELD_LABEL: Record<string, string> = {

@@ -25,8 +25,14 @@ export type ModulEintrag = {
   // Der Satz auf der Kachelseite „Weitere". In der schmalen Leiste steht nur das Label.
   beschreibung: string;
   Icon: ComponentType;
-  // `null` = immer sichtbar (Dashboard), `"admin"` = nur für Admin/Superadmin, sonst der
-  // Modulschlüssel für canView() (siehe PERMISSION_DEFAULTS in lib/constants.ts).
+  // `null` = immer sichtbar (Dashboard), `"admin"` = nur für Admin/Superadmin, sonst
+  // `<bereich>` oder `<bereich>.<verb>` für canView() (siehe RECHTE_KATALOG in
+  // lib/constants.ts). Ohne Verb gilt „lesen".
+  //
+  // „Neuer Kunde" und „Inaktive Kunden" haben seit dem 17.09.2026 keinen eigenen Rechte-
+  // Eintrag mehr: Das eine ist „Kunden schreiben", das andere „Kunden lesen". Zwei Schlüssel
+  // für dieselbe Aussage laufen auseinander, sobald jemand nur einen davon umstellt – und
+  // dann steht in der Modulverwaltung etwas anderes, als die Datenbank tut.
   sichtbar: string | null | "admin";
   // Die drei wichtigsten Module stehen am Handy in der unteren Leiste, alles andere hinter
   // „Weitere". Am Desktop ist beides dieselbe, breite Seitenleiste.
@@ -44,8 +50,8 @@ export const MODULE: ModulEintrag[] = [
   { tab: "lager",          label: "Lager",            beschreibung: "Lager & Lagerplätze verwalten, Reifen zuordnen",            Icon: IconLager,          sichtbar: "lager" },
   { tab: "saison",         label: "Saisonliste",      beschreibung: "Wer hat welche Reifen bei uns liegen – die Anrufliste",     Icon: IconSaison,         sichtbar: "saison" },
   { tab: "einsatzplanung", label: "Einsatzplanung",   beschreibung: "Aufträge nach Tag, Mitarbeiter und Fahrzeug planen",        Icon: IconEinsatzplanung, sichtbar: "einsatzplanung" },
-  { tab: "add",            label: "Neuer Kunde",      beschreibung: "Kunden anlegen, optional gleich mit Auftrag",               Icon: IconNeu,            sichtbar: "neuer_kunde" },
-  { tab: "inactive",       label: "Inaktive Kunden",  beschreibung: "Deaktivierte Kunden ansehen & reaktivieren",                Icon: IconInaktiv,        sichtbar: "inaktive_kunden" },
+  { tab: "add",            label: "Neuer Kunde",      beschreibung: "Kunden anlegen, optional gleich mit Auftrag",               Icon: IconNeu,            sichtbar: "kunden.schreiben" },
+  { tab: "inactive",       label: "Inaktive Kunden",  beschreibung: "Deaktivierte Kunden ansehen & reaktivieren",                Icon: IconInaktiv,        sichtbar: "kunden.lesen" },
   { tab: "artikel",        label: "Artikel",          beschreibung: "Artikelstamm und Preis-Historie",                           Icon: IconArtikel,        sichtbar: "artikel" },
   { tab: "auswertung",     label: "Auswertungen",     beschreibung: "Umsatz, Steuer, Nachlass, Saisonalität, Mitarbeiter, Artikel", Icon: IconAuswertung,   sichtbar: "auswertung" },
 

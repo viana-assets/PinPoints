@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Employee, Firmenfahrzeug, Profile, Role } from "@/lib/types";
+import type { Bereichsrechte } from "@/lib/api/permissions";
+import type { Verb } from "@/lib/constants";
 import type { FirmenfahrzeugFelder } from "@/lib/api/firmenfahrzeuge";
 import { createClient } from "@/lib/supabaseClient";
 import { ROLE_LABEL } from "@/lib/constants";
@@ -36,8 +38,8 @@ export function AdminPanel({
   onAddEmployee: (name: string) => Promise<void>;
   onDeleteEmployee: (id: string) => Promise<void>;
   onUpdateEmployeeProfileId: (employeeId: string, profileId: string | null) => Promise<void>;
-  modulePermissions: Record<string, string[]>;
-  onUpdateModulePermissions: (moduleKey: string, roles: string[]) => Promise<void>;
+  modulePermissions: Record<string, Bereichsrechte>;
+  onUpdateModulePermissions: (bereich: string, verb: Verb, rollen: string[], bestand: Bereichsrechte) => Promise<void>;
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [ownUserId, setOwnUserId] = useState<string | null>(null);
