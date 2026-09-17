@@ -55,6 +55,18 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
     return isNaN(zahl) || zahl < 1 ? 1 : zahl;
   }
 
+  // Was diese Zeile kosten wird, BEVOR sie angelegt ist.
+  //
+  // Der Grund steht im Feld daneben: „Endpreis netto" ist der Betrag der ganzen POSITION,
+  // nicht der Stückpreis (so rechnet auch `orderArticleTotals`). Solange daneben nur
+  // „50,00 € / Stk." stand, las man bei Menge 3 eine 50 und hätte sie beinahe als Endpreis
+  // eingetragen – aus 150 wären 50 geworden, und niemand hätte es gemerkt. Die Summe hier
+  // sagt, was ohne Eingabe gilt, und rechnet beim Tippen mit.
+  const mengeJetzt = ganzeMenge(qty);
+  const endpreisJetzt = endpreis.trim() === "" ? null : (parseFloat(endpreis.replace(",", ".")) || 0);
+  const listenwertJetzt = gewaehlterPreis ? mengeJetzt * gewaehlterPreis.net_price : null;
+  const summeJetzt = endpreisJetzt ?? listenwertJetzt;
+
   return (
     <div>
       <div className="small" style={{ fontWeight: 700, padding: "2px 0 4px" }}>Leistungen / Artikel</div>
@@ -129,8 +141,11 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
       ) : activeArticles.length === 0 ? (
         <div className="small">Noch keine Artikel im Artikelstamm angelegt (Admin → Artikelstamm).</div>
       ) : (
-        <div className="row" style={{ alignItems: "flex-end" }}>
-          <div className="field" style={{ flex: 2, marginBottom: 0 }}>
+        /* Eigene Zeile statt `.row`, weil hier vier Felder plus Knopf stehen: `.row` bricht
+           nie um, und am Handy wären das fünf Spalten auf 350 px. Diese Zeile bricht, sobald
+           es eng wird, und behält dabei Feldbreiten, mit denen man noch tippen kann. */
+        <div className="zuordnen-zeile">
+          <div className="field zuordnen-artikel">
             <label>Artikel</label>
             <select value={articleId} onChange={(e) => setArticleId(e.target.value)}>
               <option value="">– wählen –</option>
@@ -144,34 +159,41 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
               })}
             </select>
           </div>
-          <div className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <div className="field zuordnen-menge">
             <label>Menge</label>
             <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
           </div>
-          <div className="field" style={{ flex: 1, marginBottom: 0 }}>
-            <label>
-              Endpreis netto
-              {/* Der Listenpreis steht neben der Beschriftung, nicht als Platzhalter im Feld:
-                  Ein Platzhalter verschwindet beim ersten Zeichen – gerade dann, wenn man
-                  vergleichen will. Hier bleibt er stehen. */}
-              {articleId && (
-                <span className="listenpreis">
-                  {gewaehlterPreis
-                    ? `Liste: ${formatEUR(gewaehlterPreis.net_price)} / Stk.`
-                    : "kein Preis gepflegt"}
-                </span>
-              )}
-            </label>
+          <div className="field zuordnen-preis">
+            {/* Die Beschriftung trug bis zum 17.09.2026 den Listenpreis als zweiten Text.
+                Bei schmaler Spalte wurde sie dadurch zweizeilig – und weil die Zeile ihre
+                Felder am unteren Rand ausrichtet, wuchs sie nach OBEN in die Zeile darüber
+                hinein. Was neben einer Beschriftung steht, muss in eine Zeile passen oder
+                woanders hin; hier gehört es in die Summe nebenan. */}
+            <label>Endpreis netto</label>
             <input
               type="number" min={0} step="0.01"
-              placeholder={gewaehlterPreis ? String(gewaehlterPreis.net_price) : "Listenpreis"}
+              // Der Platzhalter zeigt, was ohne Eingabe gilt – und das ist der Betrag der
+              // ganzen Position, nicht der Stückpreis. Vorher stand hier der Stückpreis:
+              // bei Menge 3 also 50, wo 150 gilt.
+              placeholder={listenwertJetzt !== null ? String(listenwertJetzt) : "Listenpreis"}
               value={endpreis} onChange={(e) => setEndpreis(e.target.value)}
             />
           </div>
+          <div className="field zuordnen-summe-feld">
+            <label>Summe netto</label>
+            <div className="zuordnen-summe">
+              {!articleId ? (
+                <span className="zuordnen-summe-leer">–</span>
+              ) : summeJetzt === null ? (
+                <span className="zuordnen-summe-leer">kein Preis gepflegt</span>
+              ) : (
+                formatEUR(summeJetzt)
+              )}
+            </div>
+          </div>
           <button
             type="button"
-            className="btn-primary"
-            style={{ flex: "0 0 auto" }}
+            className="btn-primary zuordnen-plus"
             onClick={() => {
               if (!articleId) return;
               const text = endpreis.trim();
