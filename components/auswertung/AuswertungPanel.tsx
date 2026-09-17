@@ -89,6 +89,13 @@ export function AuswertungPanel({ employees, articles, customers, vehicles }: {
   const posten = useMemo(() => jeArtikel(daten, zeitraum), [daten, zeitraum]);
   const detail = useMemo(() => artikelDetail(daten, zeitraum, detailArtikel), [daten, zeitraum, detailArtikel]);
 
+  // Worin wird bei diesem Artikel gezählt? Bei einer Lagergebühr sind es Monate – die Menge
+  // einer Position ist dort die Lagerdauer (Migration 46). Leer heißt: der Normalfall, Stück;
+  // dann steht auch nichts dabei, weil eine Einheit, die überall steht, nirgends auffällt.
+  function einheit(artikelId: string): "" | "Monate" {
+    return articles.find((a) => a.id === artikelId)?.abrechnungsart === "lagergebuehr" ? "Monate" : "";
+  }
+
   return (
     <div className="tabpanel active">
       <div className="module-page">
@@ -186,7 +193,15 @@ export function AuswertungPanel({ employees, articles, customers, vehicles }: {
                 {posten.map((a) => (
                   <tr key={a.id} className="klickbar" onClick={() => setDetailArtikel(a.id)}>
                     <td>{a.name}</td>
-                    <td>{a.menge.toLocaleString("de-DE")}</td>
+                    {/* Bei einer Lagergebühr ist die Menge die Zahl der MONATE, nicht der
+                        verkauften Einlagerungen (Migration 46). Ohne diese Beschriftung läse
+                        man bei einem Satz, der acht Monate lag, „8 Stück" – acht verkaufte
+                        Einlagerungen, wo eine war. Die Zahl ist richtig, ihre Einheit eine
+                        andere; genau dafür steht sie hier dabei. */}
+                    <td>
+                      {a.menge.toLocaleString("de-DE")}
+                      {einheit(a.id) && <span className="small"> {einheit(a.id)}</span>}
+                    </td>
                     <td>{formatEUR(a.umsatzNetto)}</td>
                   </tr>
                 ))}
@@ -218,7 +233,8 @@ export function AuswertungPanel({ employees, articles, customers, vehicles }: {
         ) : (
           <>
             <div className="aw-kacheln">
-              <Kachel titel="Menge" wert={detail.menge.toLocaleString("de-DE")}
+              <Kachel titel={einheit(detailArtikel) === "Monate" ? "Monate" : "Menge"}
+                      wert={detail.menge.toLocaleString("de-DE")}
                       unten={`in ${detail.auftraege} ${detail.auftraege === 1 ? "Auftrag" : "Aufträgen"}`} />
               <Kachel titel="Umsatz netto" wert={formatEUR(detail.umsatzNetto)} />
               <Kachel titel="Kunden" wert={String(detail.kunden)}
@@ -226,10 +242,10 @@ export function AuswertungPanel({ employees, articles, customers, vehicles }: {
               <Kachel titel="Fahrzeuge" wert={String(detail.fahrzeuge)}
                       unten="mit Fahrzeug am Auftrag" />
               <Kachel titel="Je Auftrag" wert={detail.mengeJeAuftrag.toFixed(1).replace(".", ",")}
-                      unten="Stück im Schnitt" />
+                      unten={`${einheit(detailArtikel) || "Stück"} im Schnitt`} />
             </div>
 
-            <h4>Verlauf – Menge je Monat</h4>
+            <h4>Verlauf – {einheit(detailArtikel) === "Monate" ? "Lagermonate" : "Menge"} je Monat</h4>
             <Monatsbalken reihe={detail.jeMonat.map((m) => ({
               monat: m.monat, auftraege: m.menge, umsatzNetto: m.menge,
             }))} />

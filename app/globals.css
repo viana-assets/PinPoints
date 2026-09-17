@@ -815,6 +815,11 @@
 }
 .auftrag-grund { width: 100%; }
 .auftrag-grund .field { margin-bottom: 8px; }
+/* Die Rückfrage beim Abschließen (Migration 46). Sie sitzt im selben Rahmen wie Storno- und
+   Wiedereröffnungs-Begründung, hat aber kein Eingabefeld – deshalb eine eigene Textzeile
+   statt eines <label>. Sie ist eine Frage, keine Warnung: kein Rot, kein Ausrufezeichen.
+   Farbe hätte hier behauptet, es sei etwas schiefgegangen. */
+.auftrag-frage-text { font-size: 13px; line-height: 1.45; margin-bottom: 10px; }
 .auftrag-grund-knoepfe {
   display: flex;
   justify-content: flex-end;
@@ -1640,3 +1645,36 @@ tr.klickbar:hover { background: var(--hover); }
   border-radius:0 8px 8px 0;padding:8px 11px;margin:0 0 10px;font-size:12.5px;}
 .vorgeschichte ul{margin:3px 0 0;padding-left:18px;}
 .vorgeschichte li{margin-top:1px;}
+
+/* ---------------------------------------------------------------- Auslagern-Dialog (Migration 46)
+   Der Dialog beim Herausgeben eines Reifensatzes. Eine einzige Zahl trägt hier die
+   Entscheidung – die Zahl der Lagermonate –, deshalb steht sie groß und alles andere klein.
+   Die Warnung beim Langlieger ist bernsteinfarben und nicht rot: Es ist nichts kaputt,
+   es ist nur eine Summe, die man gesehen haben sollte. */
+.auslagern-satz { font-size: 13px; line-height: 1.5; margin-bottom: 10px; }
+.auslagern-dauer { display: flex; align-items: center; gap: 12px; margin: 0 0 12px;
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 13px; }
+.auslagern-monate { font-size: 30px; font-weight: 700; line-height: 1; color: var(--accent); }
+.auslagern-summe { padding: 7px 0; font-size: 14px; font-weight: 600; }
+.auslagern-hinweis { font-size: 12.5px; line-height: 1.5; padding: 9px 11px; border-radius: 9px;
+  background: rgba(0,0,0,.04); margin-bottom: 10px; }
+.auslagern-warnung { font-size: 12.5px; line-height: 1.5; padding: 9px 11px; border-radius: 9px;
+  background: rgba(214,158,46,.14); border: 1px solid rgba(214,158,46,.45); margin-bottom: 10px; }
+.auslagern-fuss { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+/* Eine Zeile im Block „Im Regal für diesen Kunden" (Migration 46): links, was liegt, rechts
+   der Knopf, der es herausholt. Am Handy untereinander – ein Knopf, den man erst horizontal
+   scrollen muss, wird nicht gedrückt. */
+.regalsatz-zeile { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+.regalsatz-zeile:last-child { border-bottom: none; }
+@media (max-width: 560px) {
+  .regalsatz-zeile { flex-direction: column; align-items: stretch; }
+}
+
+/* Ein Rand für `.btn-secondary`, wo er auf WEISS steht. Derselbe Grund wie bei `.geo-knopf`:
+   Der Knopf ist selbst weiß und randlos – auf dem beigen Seitengrund ist er eine erkennbare
+   Kachel, im Auftragsfenster und im Auslagern-Dialog dagegen unsichtbar. Übrig bliebe fetter
+   Text, den niemand für einen Knopf hält. Deshalb steht der Rand hier an der Stelle und nicht
+   am Knopf selbst: Er ist eine Frage des Untergrunds, nicht des Knopfes. */
+.btn-rand { border: 1px solid var(--border); }

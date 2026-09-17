@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import type { Article, ArticlePrice, AuftragFahrzeug, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
-import { formatDate, formatOrderDateTime, getPhoneNumbers, handlungsgruende } from "@/lib/helpers";
+import { formatDate, formatOrderDateTime, getPhoneNumbers, handlungsgruende, lagermonate, todayStr } from "@/lib/helpers";
 import { hhmmAus, minutenAus } from "@/lib/calendar";
 import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, ORDER_STATUS_FARBE, ORDER_STATUS_LABEL,
-  PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN, istAbgeschlossen,
+  PROFIL_KRITISCH_MM, SAISON_LABEL, STANDARD_DAUER_MIN, istAbgeschlossen,
 } from "@/lib/constants";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "./ArticleAssignPanel";
@@ -28,7 +28,8 @@ import { AuftragProtokoll } from "./AuftragProtokoll";
 export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
-  einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds, raeder,
+  einlagerung, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
+  fremdeSaetze, onAuslagern,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungErstellt, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
@@ -67,7 +68,15 @@ export function AuftragModal({
   // dann steht hier nichts, statt etwas über ein anderes Auto zu behaupten.
   letzterSatz: TireStorage | null;
   letzterSatzRaeder: EingelagertesRad[];
-  brauchtLagerplatz: boolean;
+  // Steht auf diesem Auftrag eine Lagergebühr (Migration 46)? Das heißt: Hier wird
+  // AUSGELAGERT und abgerechnet – nicht, dass ein Platz zu belegen wäre.
+  hatLagergebuehr: boolean;
+  // Was für DIESEN Kunden sonst noch im Regal liegt – Sätze aus früheren Aufträgen. Genau die
+  // holt der Techniker beim Saisonwechsel heraus, und genau die waren bisher aus dem
+  // Auftragsfenster heraus nicht erreichbar: Der Block oben zeigt nur, was an diesem Auftrag
+  // hängt. Wer auslagern wollte, musste das Fenster verlassen und die Regalwand durchsuchen.
+  fremdeSaetze: TireStorage[];
+  onAuslagern: (satzId: string) => void;
   storageSlots: StorageSlot[];
   warehouses: Warehouse[];
   belegteSlotIds: Set<string>;
@@ -123,8 +132,11 @@ export function AuftragModal({
   // Der 11.09.2026 hat gezeigt, warum das nötig ist: Ohne Fahrzeug und Saison lehnte die
   // Datenbank den Abschluss ab, die Meldung lag aber hinter dem Auftragsfenster – am Handy
   // also unsichtbar. Von außen sah es aus, als täte der Knopf nichts.
+  //
+  // Die Lagerplatz-Pflicht steht hier seit Migration 46 NICHT mehr: Ein Artikel verlangt
+  // keinen Platz mehr, weil der Gebührenartikel inzwischen auf dem AUSLAGERUNGS-Auftrag steht,
+  // wo gerade ein Platz frei wird. An die Stelle des Zwangs tritt die Frage weiter unten.
   const abschlussFehlt: string[] = [];
-  if (brauchtLagerplatz && !einlagerung) abschlussFehlt.push("Lagerplatz");
   if (einlagerung && !einlagerung.vehicle_id) abschlussFehlt.push("Fahrzeug");
   if (einlagerung && !einlagerung.saison) abschlussFehlt.push("Saison");
 
@@ -226,6 +238,28 @@ export function AuftragModal({
   const [stornoGrund, setStornoGrund] = useState("");
   const [wiederOffen, setWiederOffen] = useState(false);
   const [wiederGrund, setWiederGrund] = useState("");
+
+  // Ist der Einlagerungsblock aufgeklappt? Seit Migration 46 hängt er an keinem Artikel mehr,
+  // sondern an diesem Knopf – wer nichts einlagert, sieht ihn gar nicht. Liegt schon etwas im
+  // Regal, steht er ohnehin offen; dann zählt dieser Schalter nicht mit.
+  const [einlagerungOffen, setEinlagerungOffen] = useState(false);
+  // Die Rückfrage beim Abschließen (siehe unten). Ersetzt den Zwang aus Migration 22.
+  const [altreifenFrage, setAltreifenFrage] = useState(false);
+  // Einmal gefragt, nicht wieder. Wer „Nein – einlagern" wählt und es sich dann doch anders
+  // überlegt, soll nicht bei jedem Anlauf dieselbe Frage wegklicken müssen – aus einer
+  // Erinnerung würde sonst genau die Hürde, die hier abgeschafft wurde.
+  const [altreifenGefragt, setAltreifenGefragt] = useState(false);
+
+  // Steht auf diesem Auftrag eine Leistung, bei der Altreifen anfallen (Migration 46)? Das
+  // Kennzeichen sitzt am Artikel und nicht an einem Namen im Code: „alles, was ‚wechsel‘
+  // heißt" wäre beim ersten Umbenennen still kaputt – und genau so ist Migration 22 damals
+  // an ihre Artikel gekommen.
+  const fragtAltreifen = orderArticles.some(
+    (pos) => articles.find((a) => a.id === pos.article_id)?.fragt_einlagerung
+  );
+  // Gefragt wird nur, wenn die Frage offen IST: kein Satz im Regal aus diesem Auftrag, und
+  // niemand hat den Block schon von Hand aufgeklappt.
+  const altreifenOffen = fragtAltreifen && !einlagerung && !gesperrt && !altreifenGefragt;
 
   const fahrzeug = vehicles.find((v) => v.id === fahrzeugId);
   const aktiveFirmenfahrzeuge = firmenfahrzeuge.filter((f) => f.aktiv);
@@ -684,9 +718,14 @@ export function AuftragModal({
               verlangt. Der Block wird auch ohne Pflicht gezeigt, solange eine Einlagerung
               vorhanden ist – sonst verschwände sie beim Entfernen der Leistung aus dem Blick,
               obwohl die Reifen weiter im Regal liegen. */}
-          {(brauchtLagerplatz || einlagerung) && (
+          {/* Seit Migration 46 ist der Block IMMER erreichbar – vorher erschien er nur, wenn der
+              Gebührenartikel auf dem Auftrag stand. Genau daran hing das Problem: Man kam an
+              den Lagerplatz nur heran, indem man die Gebühr buchte, die zu diesem Zeitpunkt
+              noch gar nicht bezifferbar ist. Wer nichts einlagert, klappt den Block zu und
+              sieht ihn nicht weiter. */}
+          {(einlagerungOffen || einlagerung) ? (
             <EinlagerungBlock
-              pflicht={brauchtLagerplatz}
+              pflicht={false}
               einlagerung={einlagerung}
               slots={storageSlots}
               warehouses={warehouses}
@@ -703,6 +742,78 @@ export function AuftragModal({
               onRadEntfernen={onRadEntfernen}
               onFahrzeugAnlegen={onFahrzeugAnlegen}
             />
+          ) : (
+            <div className="auftrag-block">
+              <div className="auftrag-block-titel">Reifen einlagern</div>
+              {/* Der Normalfall beim Saisonwechsel: Auf demselben Auftrag wird ein Satz
+                  herausgegeben (das ist die Gebühr) und der andere kommt herein. Beides
+                  nebeneinander, beides richtig – genau das konnte die Fassung vor
+                  Migration 46 nicht. */}
+              {hatLagergebuehr && (
+                <p className="small" style={{ margin: "0 0 8px" }}>
+                  Auf diesem Auftrag steht eine Lagergebühr – hier wurde also ausgelagert.
+                  Kommt der andere Satz jetzt ins Regal, hier weitermachen.
+                </p>
+              )}
+              <p className="small" style={{ margin: "0 0 8px" }}>
+                Nimmt der Kunde seine alten Reifen nicht mit, kommen sie hier ins Regal. Das
+                kostet an dieser Stelle noch nichts – die Gebühr wird erst beim Auslagern
+                fällig, wenn die Zahl der Monate feststeht.
+              </p>
+              <button
+                type="button"
+                className="btn-secondary btn-rand"
+                disabled={gesperrt}
+                onClick={() => setEinlagerungOffen(true)}
+              >
+                Reifen einlagern
+              </button>
+              {gesperrt && (
+                <div className="small" style={{ marginTop: 6 }}>
+                  Der Auftrag ist abgeschlossen – eingelagert wird über die Regalwand.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ------------------------------------------------- Was sonst noch im Regal liegt */}
+          {/* Der Saisonwechsel besteht aus zwei Hälften: Der eine Satz kommt heraus, der
+              andere geht hinein. Die zweite Hälfte stand schon immer oben; die erste fehlte,
+              weil der Block dort nur zeigt, was AN DIESEM Auftrag hängt. Der alte Satz gehört
+              aber zum Auftrag vom letzten Frühjahr – und war damit hier unsichtbar.
+
+              Die Gebühr entsteht genau hier, deshalb steht der Knopf hier und nicht nur an
+              der Regalwand. */}
+          {fremdeSaetze.length > 0 && (
+            <div className="auftrag-block">
+              <div className="auftrag-block-titel">Im Regal für diesen Kunden</div>
+              {fremdeSaetze.map((satz) => {
+                const platz = storageSlots.find((sl) => sl.id === satz.storage_slot_id);
+                const lager = warehouses.find((w) => w.id === platz?.warehouse_id);
+                const fz = vehicles.find((v) => v.id === satz.vehicle_id);
+                const monate = lagermonate(satz.created_at, todayStr());
+                return (
+                  <div key={satz.id} className="regalsatz-zeile">
+                    <div>
+                      <strong>{[lager?.name, platz?.code].filter(Boolean).join(" · ") || "Lagerplatz unbekannt"}</strong>
+                      {satz.saison ? ` · ${SAISON_LABEL[satz.saison]}` : ""}
+                      {fz ? ` · ${[fz.license_plate, fz.make_model].filter(Boolean).join(" ")}` : ""}
+                      <div className="small">
+                        seit {formatDate(satz.created_at.slice(0, 10))} · {monate}{" "}
+                        {monate === 1 ? "angefangener Monat" : "angefangene Monate"}
+                      </div>
+                    </div>
+                    <button
+                      type="button" className="btn-secondary btn-rand"
+                      disabled={gesperrt}
+                      onClick={() => onAuslagern(satz.id)}
+                    >
+                      Auslagern
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
           )}
 
           {/* ---------------------------------------------------------------- Notiz */}
@@ -742,6 +853,31 @@ export function AuftragModal({
                   onClick={async () => { await onSetStatus(order.id, "storniert", { stornoGrund: stornoGrund.trim() }); setStornoOffen(false); }}
                 >
                   Stornierung bestätigen
+                </button>
+              </div>
+            </div>
+          ) : altreifenFrage ? (
+            /* Der Ersatz für den Abschluss-Zwang aus Migration 22 (siehe Migration 46).
+               Dieselbe Bauart wie der D2/D3-Hinweis: Die Anwendung erinnert an das
+               Wahrscheinliche, ohne den Ausnahmefall zu verbieten. Beide Wege führen weiter –
+               nur einer davon führt sofort weiter. */
+            <div className="auftrag-grund">
+              <div className="auftrag-frage-text">
+                Auf diesem Auftrag steht eine Leistung, bei der alte Reifen anfallen – es wurde
+                aber nichts eingelagert. Nimmt der Kunde die alten Reifen mit?
+              </div>
+              <div className="auftrag-grund-knoepfe">
+                <button
+                  type="button" className="btn-secondary"
+                  onClick={() => { setAltreifenFrage(false); setEinlagerungOffen(true); }}
+                >
+                  Nein – einlagern
+                </button>
+                <button
+                  type="button" className="btn-green"
+                  onClick={async () => { setAltreifenFrage(false); await onSetStatus(order.id, "erledigt"); }}
+                >
+                  Ja, mitgenommen – abschließen
                 </button>
               </div>
             </div>
@@ -800,7 +936,17 @@ export function AuftragModal({
                   </span>
                 )}
                 {!gesperrt && (
-                  <button type="button" className="btn-green" onClick={() => onSetStatus(order.id, "erledigt")}>Auftrag abschließen</button>
+                  <button
+                    type="button" className="btn-green"
+                    onClick={() => {
+                      // Die Frage schiebt sich EINMAL dazwischen und sperrt nichts: Wer sie
+                      // beantwortet, ist im selben Klick fertig.
+                      if (altreifenOffen) { setAltreifenFrage(true); setAltreifenGefragt(true); return; }
+                      onSetStatus(order.id, "erledigt");
+                    }}
+                  >
+                    Auftrag abschließen
+                  </button>
                 )}
                 {gesperrt && darfWiedereroeffnen && (
                   <button type="button" className="btn-secondary" onClick={() => setWiederOffen(true)}>Wiedereröffnen</button>

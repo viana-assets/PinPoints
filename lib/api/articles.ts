@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Article, ArticlePrice } from "@/lib/types";
+import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
 import { currentArticlePrice, preisZeitraumKollision, DEFAULT_VAT_RATE } from "@/lib/helpers";
 import { fetchPaged, qWrite } from "./client";
 
@@ -31,7 +31,7 @@ export async function insertArticle(supabase: SupabaseClient, shortName: string,
   );
 }
 
-export async function updateArticleById(supabase: SupabaseClient, id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }): Promise<void> {
+export async function updateArticleById(supabase: SupabaseClient, id: string, fields: ArtikelFelder): Promise<void> {
   await qWrite("Der Artikel konnte nicht gespeichert werden", supabase.from("articles").update(fields).eq("id", id));
 }
 

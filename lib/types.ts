@@ -140,6 +140,9 @@ export type TireStorage = {
   created_at: string;
   updated_at: string;
   removed_at: string | null;
+  // In welchem Auftrag wurde der Satz herausgegeben (Migration 46)? Dort steht die
+  // Lagergebühr. `null` heißt: liegt noch, oder wurde ohne Auftrag entnommen.
+  entnahme_order_id: string | null;
   // Aus welchem Auftrag diese Einlagerung stammt (Migration 22). Null bei allem, was direkt im
   // Lager-Modul eingelagert wurde, und bei Altbestand von vor der Migration.
   order_id: string | null;
@@ -276,14 +279,40 @@ export type Article = {
   short_name: string;
   long_name: string;
   active: boolean;
-  // Leistung, bei der etwas ins Lager geht (Migration 22). Steht eine solche Leistung im
-  // Auftrag, verlangt die Datenbank vor dem Abschluss einen belegten Lagerplatz.
+  // Wann wird diese Leistung fällig (Migration 46)?
   //
-  // Das Kennzeichen hängt bewusst an der LEISTUNG und nicht an einem festen Namen im Code:
-  // kommt später „Felgen einlagern" oder „Dachbox" dazu, wird ein Haken gesetzt statt Code
-  // geändert. Ein Vergleich auf „Reifeneinlagerung" wäre beim ersten Umbenennen still kaputt.
-  braucht_lagerplatz: boolean;
+  //   "normal"       – wenn sie erbracht ist. Alle üblichen Artikel.
+  //   "lagergebuehr" – erst beim AUSLAGERN, mit der Menge = Lagermonate. Beim Einlagern weiß
+  //                    niemand, wie lange der Satz liegen wird; eine Gebühr ließe sich gar
+  //                    nicht beziffern.
+  //
+  // Ersetzt `braucht_lagerplatz` aus Migration 22. Jenes Kennzeichen trug zwei Aussagen in
+  // einem Haken – „hier wird eingelagert" und „das kostet" – und war deshalb beim Auslagern
+  // immer falsch herum. Die Spalte steht noch in der Datenbank, wird aber nicht mehr gelesen
+  // und fällt in einer späteren Migration.
+  abrechnungsart: "normal" | "lagergebuehr";
+  // Fallen bei dieser Leistung Altreifen an (Migration 46)? Dann fragt das Auftragsfenster
+  // beim Abschließen nach, wenn nichts eingelagert wurde – „nimmt der Kunde die alten mit?".
+  //
+  // Das ist die zweite, brauchbare Hälfte des alten `braucht_lagerplatz`: die Erinnerung an
+  // den Vorgang. Sie sitzt aber an einem ANDEREN Artikel als die Gebühr – am Wechsel, nicht
+  // an der Einlagerung –, deshalb hat Migration 46 nichts übernommen und der Haken wird im
+  // Artikelstamm von Hand gesetzt. Und es bleibt eine Frage, kein Zwang: Genug Kunden nehmen
+  // ihre alten Reifen mit.
+  fragt_einlagerung: boolean;
   created_at: string;
+};
+
+// Was am Artikel von Hand geändert werden kann. Steht hier und nicht viermal als Inline-Typ
+// an den vier Stellen, die ihn durchreichen (Maske → Panel → Seite → Datenzugriff): Beim
+// letzten Zusatzfeld musste er an jeder dieser Stellen einzeln nachgezogen werden, und wer
+// eine vergisst, merkt es erst am Typfehler.
+export type ArtikelFelder = {
+  short_name: string;
+  long_name: string;
+  active: boolean;
+  abrechnungsart: Article["abrechnungsart"];
+  fragt_einlagerung: boolean;
 };
 
 // Ein Preis-Eintrag eines Artikels mit Gültigkeitszeitraum. `valid_to` ist null, solange der

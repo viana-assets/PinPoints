@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Article, ArticlePrice } from "@/lib/types";
+import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
 import { formatDate, formatEUR, todayStr, DEFAULT_VAT_RATE } from "@/lib/helpers";
 import { IconTrash } from "@/components/icons";
 
@@ -9,7 +9,7 @@ import { IconTrash } from "@/components/icons";
 export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPrice, onUpdatePrice, onDeletePrice }: {
   article: Article;
   prices: ArticlePrice[];
-  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }) => Promise<void>;
+  onUpdateArticle: (id: string, fields: ArtikelFelder) => Promise<void>;
   onAddPrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
   // Korrektur einer bestehenden Zeile: gibt einen Text zurück, wenn sie abgelehnt wurde
   // (z. B. überschneidender Zeitraum), sonst nichts.
@@ -18,7 +18,8 @@ export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPri
 }) {
   const [shortName, setShortName] = useState(article.short_name);
   const [longName, setLongName] = useState(article.long_name);
-  const [brauchtLagerplatz, setBrauchtLagerplatz] = useState(article.braucht_lagerplatz);
+  const [abrechnungsart, setAbrechnungsart] = useState<Article["abrechnungsart"]>(article.abrechnungsart);
+  const [fragtEinlagerung, setFragtEinlagerung] = useState(article.fragt_einlagerung);
   const [netPrice, setNetPrice] = useState("");
   const [vatRate, setVatRate] = useState(String(DEFAULT_VAT_RATE));
   const [validFrom, setValidFrom] = useState(todayStr());
@@ -50,26 +51,56 @@ export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPri
         <button
           className="btn-secondary"
           style={{ flex: "0 0 auto" }}
-          onClick={() => onUpdateArticle(article.id, { short_name: shortName.trim() || article.short_name, long_name: longName.trim() || article.long_name, active: article.active, braucht_lagerplatz: brauchtLagerplatz })}
+          onClick={() => onUpdateArticle(article.id, { short_name: shortName.trim() || article.short_name, long_name: longName.trim() || article.long_name, active: article.active, abrechnungsart, fragt_einlagerung: fragtEinlagerung })}
         >
           Speichern
         </button>
       </div>
 
-      {/* Kennzeichen für Leistungen, bei denen etwas ins Lager geht (Migration 22). Es hängt
-          hier am Artikel und nicht an einem festen Namen im Code – so löst auch eine später
-          angelegte Leistung wie „Felgen einlagern" die Lagerplatzpflicht aus, ohne dass jemand
-          eine Zeile Code anfasst. Siehe docs/lager.md. */}
-      <div className="checkbox-row" style={{ marginTop: 6 }}>
-        <input
-          type="checkbox" id={`lagerpflicht-${article.id}`}
-          checked={brauchtLagerplatz}
-          onChange={(e) => setBrauchtLagerplatz(e.target.checked)}
-        />
-        <label htmlFor={`lagerpflicht-${article.id}`}>
-          Braucht einen Lagerplatz (z. B. Reifeneinlagerung) – der Auftrag lässt sich erst
-          abschließen, wenn ein Platz belegt ist
-        </label>
+      {/* WANN wird diese Leistung fällig (Migration 46)? Das Kennzeichen hängt am Artikel und
+          nicht an einem Namen im Code – kommt später „Felgen einlagern" dazu, wird hier
+          umgestellt statt Code geändert. Ein Vergleich auf „Reifeneinlagerung" wäre beim
+          ersten Umbenennen still kaputt. */}
+      <div className="field" style={{ marginTop: 8, maxWidth: 480 }}>
+        <label htmlFor={`abrechnung-${article.id}`}>Abrechnung</label>
+        <select
+          id={`abrechnung-${article.id}`}
+          value={abrechnungsart}
+          onChange={(e) => setAbrechnungsart(e.target.value as Article["abrechnungsart"])}
+        >
+          <option value="normal">Normal – wird eingetragen, wenn die Leistung erbracht ist</option>
+          <option value="lagergebuehr">Lagergebühr – wird beim Auslagern fällig, Menge = Monate</option>
+        </select>
+        <span className="small">
+          {abrechnungsart === "lagergebuehr"
+            ? "Beim Einlagern wird dieser Artikel nie verlangt. Beim Auslagern schlägt die App ihn vor, mit der Zahl der Lagermonate als Menge – angefangene Monate zählen voll."
+            : "Der Normalfall: Der Artikel wird eingetragen, sobald die Leistung erbracht ist."}
+        </span>
+      </div>
+
+      {/* Die zweite Hälfte des alten Hakens „braucht Lagerplatz": die Erinnerung. Sie gehört
+          an eine ganz andere Leistung als die Gebühr – an den Wechsel, wo die alten Reifen
+          anfallen, nicht an die Einlagerung selbst. Deshalb hat die Migration hier nichts
+          vorbelegt: Was geraten wäre, wäre falsch geraten.
+
+          Und es bleibt eine Frage, kein Zwang. Genug Kunden nehmen ihre alten Reifen mit;
+          eine Sperre an dieser Stelle hielte den Normalfall auf, um den Ausnahmefall zu
+          verhindern. */}
+      <div className="field" style={{ marginTop: 8, maxWidth: 480 }}>
+        <div className="checkbox-row" style={{ margin: 0 }}>
+          <input
+            type="checkbox"
+            id={`fragt-einlagerung-${article.id}`}
+            checked={fragtEinlagerung}
+            onChange={(e) => setFragtEinlagerung(e.target.checked)}
+          />
+          <label htmlFor={`fragt-einlagerung-${article.id}`}>Bei dieser Leistung fallen Altreifen an</label>
+        </div>
+        <span className="small">
+          {fragtEinlagerung
+            ? "Steht dieser Artikel auf einem Auftrag und wurde nichts eingelagert, fragt das Auftragsfenster beim Abschließen nach, ob der Kunde die alten Reifen mitnimmt. Abschließen lässt sich der Auftrag so oder so."
+            : "Setze den Haken bei Wechsel- und Montageleistungen. Dann erinnert die App daran, die alten Reifen einzulagern – statt sie stillschweigend verschwinden zu lassen."}
+        </span>
       </div>
 
       <h4 style={{ margin: "8px 0 4px", fontSize: 13 }}>Preis-Historie</h4>

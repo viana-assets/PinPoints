@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabaseClient";
 import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
-  Article, ArticlePrice, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
+  Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
   EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug,
 } from "@/lib/types";
 import {
@@ -48,6 +48,7 @@ import { KontaktModal } from "@/components/kunden/KontaktModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
+import { AuslagernDialog, type AuslagernWahl } from "@/components/lager/AuslagernDialog";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
@@ -610,7 +611,7 @@ export default function HomePage() {
     await insertArticle(supabase, shortName, longName);
     await refreshArticles();
   }
-  async function updateArticle(id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }) {
+  async function updateArticle(id: string, fields: ArtikelFelder) {
     await updateArticleById(supabase, id, fields);
     await refreshArticles();
   }
@@ -1221,9 +1222,52 @@ export default function HomePage() {
     await upsertTireAssignment(supabase, fields);
     await refreshTireStorages();
   }
-  async function removeTireAssignment(id: string) {
-    await removeTireAssignmentById(supabase, id);
+  // Das Herausgeben eines Satzes geht seit Migration 46 durch EINEN Dialog – egal, ob es an
+  // der Regalwand oder im Auftragsfenster angestoßen wurde. Vorher war es ein stiller
+  // Datenbankschreibvorgang; genau dabei ging die Lagergebühr verloren, weil niemand mehr
+  // gefragt wurde, wie viele Monate der Satz denn nun gelegen hat.
+  //
+  // Ausgenommen bleibt der Fall „ich habe mich beim Einlagern vertan": Wer den Satz entfernt,
+  // den er im selben Auftrag gerade erst angelegt hat, korrigiert einen Fehler und schuldet
+  // dafür nichts. Deshalb `ohneDialog`.
+  const [auslagernSatzId, setAuslagernSatzId] = useState<string | null>(null);
+  const [auslagernAusAuftragId, setAuslagernAusAuftragId] = useState<string | null>(null);
+
+  async function removeTireAssignment(id: string, ohneDialog = false) {
+    if (ohneDialog) {
+      await removeTireAssignmentById(supabase, id, null);
+      await refreshTireStorages();
+      return;
+    }
+    setAuslagernSatzId(id);
+  }
+
+  // Der eine Weg nach außen: auslagern, Gebühr buchen, Auftrag notfalls anlegen. Die
+  // Reihenfolge ist Absicht – zuerst muss der Auftrag existieren, sonst hat die Gebühr kein
+  // Zuhause und `entnahme_order_id` zeigte auf nichts.
+  async function auslagernAusfuehren(satzId: string, wahl: AuslagernWahl) {
+    const satz = tireStorages.find((t) => t.id === satzId);
+    let auftragId = wahl.auftragId;
+
+    if (wahl.neuerAuftrag && satz) {
+      const kunde = customers.find((c) => c.id === satz.customer_id);
+      auftragId = await addOrder({
+        customerId: satz.customer_id, title: terminTitel(kunde?.name), description: "",
+        orderDate: todayStr(), time: "", status: "offen", assignedEmployeeIds: [],
+      });
+    }
+
+    await removeTireAssignmentById(supabase, satzId, auftragId);
+    if (auftragId && wahl.artikelId && wahl.menge > 0) {
+      await insertOrderArticle(supabase, articlePrices, auftragId, wahl.artikelId, wahl.menge, null);
+      await refreshOrderArticles();
+    }
     await refreshTireStorages();
+    setAuslagernSatzId(null);
+    setAuslagernAusAuftragId(null);
+    // Ein frisch angelegter Auftrag wird geöffnet: Sonst hätte man gerade eine Rechnungszeile
+    // erzeugt, die nirgends zu sehen ist.
+    if (wahl.neuerAuftrag && auftragId) setOffenerAuftragId(auftragId);
   }
 
   // ---------------------------------------------------------------- Aufträge-Modul (Termine inklusive)
@@ -1267,11 +1311,12 @@ export default function HomePage() {
   function einlagerungZuAuftrag(orderId: string): TireStorage | null {
     return tireStorages.find((t) => t.order_id === orderId && !t.removed_at) || null;
   }
-  // Steht im Auftrag eine Leistung, die einen Lagerplatz verlangt? Gefragt wird das Kennzeichen
-  // am Artikel, nicht dessen Name – siehe lib/types.ts, `Article.braucht_lagerplatz`.
-  function auftragBrauchtLagerplatz(orderId: string): boolean {
+  // Steht auf diesem Auftrag eine Lagergebühr? Das heißt: Hier wurde AUSGELAGERT und die
+  // Monate werden berechnet – nicht, dass ein Lagerplatz zu belegen wäre. Seit Migration 46
+  // ist das Kennzeichen eine Abrechnungsart, kein Lagerplatz-Zwang mehr.
+  function auftragHatLagergebuehr(orderId: string): boolean {
     return orderArticlesFor(orderId).some(
-      (pos) => articles.find((a) => a.id === pos.article_id)?.braucht_lagerplatz
+      (pos) => articles.find((a) => a.id === pos.article_id)?.abrechnungsart === "lagergebuehr"
     );
   }
   async function einlagernFuerAuftrag(order: Order, lagerplatzId: string) {
@@ -2338,6 +2383,11 @@ export default function HomePage() {
           />
         )}
 
+        {/* Die Rechteschlüssel sind zweistufig (Migration 42): „lager" entscheidet nur, ob der
+            Reiter überhaupt aufgeht – Schreiben und Löschen hängen an den eingerückten Zeilen
+            darunter. Hier stand bis zuletzt darf("lager","schreiben") und darf("einlagerung", …);
+            beides gibt es im Katalog nicht, beides lieferte also für jeden außer dem Superadmin
+            false. Ein Techniker konnte damit keinen Reifen einlagern. */}
         {tab === "lager" && canView("lager") && (
           <LagerPanel
             customers={customers}
@@ -2354,12 +2404,12 @@ export default function HomePage() {
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
             onRemoveAssignment={removeTireAssignment}
-            canCreateWarehouse={darf("lager", "schreiben")}
-            canEditWarehouse={darf("lager", "schreiben")}
-            canDeleteWarehouse={darf("lager", "loeschen")}
-            canCreateSlot={darf("lager", "schreiben")}
-            canDeleteSlot={darf("lager", "loeschen")}
-            canAssignTire={darf("einlagerung", "schreiben")}
+            canCreateWarehouse={darf("lager.regale", "schreiben")}
+            canEditWarehouse={darf("lager.regale", "schreiben")}
+            canDeleteWarehouse={darf("lager.regale", "loeschen")}
+            canCreateSlot={darf("lager.regale", "schreiben")}
+            canDeleteSlot={darf("lager.regale", "loeschen")}
+            canAssignTire={darf("lager.einlagerung", "schreiben")}
             springeZuLagerplatzId={gescannterLagerplatzId}
             onLagerplatzGeoeffnet={() => setGescannterLagerplatzId(null)}
           />
@@ -2632,6 +2682,33 @@ export default function HomePage() {
         />
       )}
 
+      {/* Der Auslagern-Dialog steht auf derselben Ebene wie die Fenster, aus denen er
+          aufgerufen wird (Regalwand und Auftragsfenster) – sonst läge er unter dem einen und
+          über dem anderen. Er kennt seinen Satz, nicht seinen Aufrufer. */}
+      {(() => {
+        const satz = tireStorages.find((t) => t.id === auslagernSatzId);
+        if (!satz) return null;
+        const platz = storageSlots.find((sl) => sl.id === satz.storage_slot_id);
+        return (
+          <AuslagernDialog
+            satz={satz}
+            kunde={customers.find((c) => c.id === satz.customer_id)}
+            fahrzeug={alleFahrzeuge.find((v) => v.id === satz.vehicle_id)}
+            slot={platz}
+            warehouse={warehouses.find((w) => w.id === platz?.warehouse_id)}
+            gebuehrArtikel={articles.filter((a) => a.active && a.abrechnungsart === "lagergebuehr")}
+            articlePrices={articlePrices}
+            offeneAuftraege={orders
+              .filter((o) => o.customer_id === satz.customer_id && !o.deleted_at
+                && (o.status === "offen" || o.status === "in_arbeit"))
+              .sort((a, b) => b.order_date.localeCompare(a.order_date))}
+            vorschlagAuftragId={auslagernAusAuftragId}
+            onAbbrechen={() => { setAuslagernSatzId(null); setAuslagernAusAuftragId(null); }}
+            onAuslagern={(wahl) => auslagernAusfuehren(satz.id, wahl)}
+          />
+        );
+      })()}
+
       {offenerAuftrag && (
         <AuftragModal
           order={offenerAuftrag}
@@ -2661,12 +2738,16 @@ export default function HomePage() {
             };
           })()}
           einlagerung={einlagerungZuAuftrag(offenerAuftrag.id)}
-          brauchtLagerplatz={auftragBrauchtLagerplatz(offenerAuftrag.id)}
+          hatLagergebuehr={auftragHatLagergebuehr(offenerAuftrag.id)}
+          fremdeSaetze={tireStorages.filter(
+            (t) => t.customer_id === offenerAuftrag.customer_id && !t.removed_at && t.order_id !== offenerAuftrag.id
+          )}
+          onAuslagern={(satzId) => { setAuslagernAusAuftragId(offenerAuftrag.id); setAuslagernSatzId(satzId); }}
           storageSlots={storageSlots}
           warehouses={warehouses}
           belegteSlotIds={belegteSlotIds}
           onEinlagern={(lagerplatzId) => einlagernFuerAuftrag(offenerAuftrag, lagerplatzId)}
-          onEinlagerungEntfernen={removeTireAssignment}
+          onEinlagerungEntfernen={(id) => removeTireAssignment(id, true)}
           onEinlagerungAngaben={einlagerungAngabenAendern}
           raeder={eingelagerteRaeder.filter((r) => r.tire_storage_id === einlagerungZuAuftrag(offenerAuftrag.id)?.id)}
           onErfassungsart={erfassungsartSetzen}

@@ -135,10 +135,19 @@ export async function updateTireStorageDetails(
 
 // Soft-Delete: Zuordnung wird nur als "entfernt" markiert, nicht gelöscht, damit der
 // Lagerplatz eine Historie behält (Migration 06).
-export async function removeTireAssignmentById(supabase: SupabaseClient, id: string): Promise<void> {
+//
+// `entnahmeOrderId` hält seit Migration 46 fest, in welchem Auftrag der Satz herausgegeben
+// wurde – also wo die Lagergebühr steht. Ohne das ließe sich hinterher nicht sagen, ob sie je
+// berechnet wurde; beim zweiten Blick auf denselben Satz wüsste niemand mehr, ob da noch
+// etwas offen ist. Null bleibt zulässig: Wer ohne Auftrag auslagert, soll das können.
+export async function removeTireAssignmentById(
+  supabase: SupabaseClient, id: string, entnahmeOrderId: string | null = null
+): Promise<void> {
   await qWrite(
     "Die Einlagerung konnte nicht entfernt werden",
-    supabase.from("tire_storage").update({ removed_at: new Date().toISOString() }).eq("id", id)
+    supabase.from("tire_storage")
+      .update({ removed_at: new Date().toISOString(), entnahme_order_id: entnahmeOrderId })
+      .eq("id", id)
   );
 }
 

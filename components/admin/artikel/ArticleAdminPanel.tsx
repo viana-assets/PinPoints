@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import type { Article, ArticlePrice } from "@/lib/types";
+import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
 import { formatEUR, currentArticlePrice } from "@/lib/helpers";
 import { IconArtikel } from "@/components/icons";
 import { ArticleDetailEditor } from "./ArticleDetailEditor";
@@ -19,7 +19,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
   articles: Article[];
   articlePrices: ArticlePrice[];
   onAddArticle: (shortName: string, longName: string) => Promise<void>;
-  onUpdateArticle: (id: string, fields: { short_name: string; long_name: string; active: boolean; braucht_lagerplatz: boolean }) => Promise<void>;
+  onUpdateArticle: (id: string, fields: ArtikelFelder) => Promise<void>;
   onUpdateArticleNumber: (id: string, articleNumber: number) => Promise<void>;
   onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
   onUpdateArticlePrice: (priceId: string, netPrice: number, vatRate: number, validFrom: string, validTo: string | null) => Promise<string | null>;
@@ -102,7 +102,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
                       <input
                         type="checkbox"
                         checked={a.active}
-                        onChange={(e) => onUpdateArticle(a.id, { short_name: a.short_name, long_name: a.long_name, active: e.target.checked, braucht_lagerplatz: a.braucht_lagerplatz })}
+                        onChange={(e) => onUpdateArticle(a.id, { short_name: a.short_name, long_name: a.long_name, active: e.target.checked, abrechnungsart: a.abrechnungsart, fragt_einlagerung: a.fragt_einlagerung })}
                       />
                     </td>
                     <td>
