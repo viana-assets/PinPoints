@@ -607,6 +607,7 @@ export function AuftragModal({
               <RechnungsdatenBlock
                 kunde={customer ?? null}
                 gesperrt={gesperrt}
+                darfKundeAendern={!isTechniker}
                 fahrzeuge={auftragFahrzeuge
                   .filter((af) => af.order_id === order.id)
                   .map((af) => ({ ...af, fahrzeug: vehicles.find((v) => v.id === af.vehicle_id) ?? null }))}

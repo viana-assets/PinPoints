@@ -34,7 +34,7 @@ function Zeile({ erfuellt, titel, wert, children }: {
 }
 
 export function RechnungsdatenBlock({
-  kunde, fahrzeuge, alleFahrzeuge, gesperrt,
+  kunde, fahrzeuge, alleFahrzeuge, gesperrt, darfKundeAendern,
   onEmailSpeichern, onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
 }: {
   kunde: Customer | null;
@@ -43,6 +43,10 @@ export function RechnungsdatenBlock({
   // Alle Fahrzeuge des Kunden – zur Auswahl.
   alleFahrzeuge: Vehicle[];
   gesperrt?: boolean;
+  // Darf die aufrufende Rolle Kundenstammdaten ändern (`kunden.schreiben`)? Ein Techniker
+  // darf das nicht – ihm hier ein Eingabefeld für die E-Mail-Adresse anzubieten hieße, ihn in
+  // eine Fehlermeldung laufen zu lassen. Lieber ein ehrlicher Hinweis als ein totes Feld.
+  darfKundeAendern: boolean;
   onEmailSpeichern: (email: string) => Promise<void>;
   onFahrzeugHinzufuegen: (vehicleId: string) => Promise<void>;
   onFahrzeugAnlegen: (kennzeichen: string) => Promise<void>;
@@ -80,7 +84,7 @@ export function RechnungsdatenBlock({
       </Zeile>
 
       <Zeile erfuellt={!fehlt("email")} titel="E-Mail-Adresse" wert={kunde?.email || null}>
-        {fehlt("email") && !gesperrt && (
+        {fehlt("email") && !gesperrt && darfKundeAendern && (
           <span className="rd-eingabe">
             <input
               type="email"
@@ -101,6 +105,9 @@ export function RechnungsdatenBlock({
                 dieselbe Adresse noch einmal. */}
             <span className="small">Wird beim Kunden gespeichert.</span>
           </span>
+        )}
+        {fehlt("email") && !darfKundeAendern && (
+          <span className="small">Das Büro trägt sie im Kundenfenster nach.</span>
         )}
       </Zeile>
 
