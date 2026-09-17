@@ -1,6 +1,6 @@
 import { useState } from "react";
-import type { Article, OrderArticle } from "@/lib/types";
-import { formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
+import type { Article, ArticlePrice, OrderArticle } from "@/lib/types";
+import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
 import { IconTrash } from "@/components/icons";
 
 // Leistungen/Artikel-Zuordnung zu einem Auftrag: Liste bereits zugeordneter Positionen (Menge,
@@ -12,9 +12,13 @@ import { IconTrash } from "@/components/icons";
 // war, rechnet die Anwendung aus und zeigt es daneben – nicht umgekehrt. Wird sowohl im Popover (Aufträge-Tab &
 // Einsatzplanung) als auch direkt inline im Kunden-Detailfenster verwendet. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, rechnungNoetig, onAdd, onUpdateQty, onUpdateEndpreis, onRemove }: {
+export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, onAdd, onUpdateQty, onUpdateEndpreis, onRemove }: {
   orderId: string;
   articles: Article[];
+  // Die Preishistorie, um zum gewählten Artikel den heute gültigen Listenpreis ZU ZEIGEN.
+  // Gerechnet wird damit hier nicht – den Schnappschuss macht `insertOrderArticle` beim
+  // Zuordnen (lib/api/articles.ts). Zwei Rechenwege für denselben Preis wären zwei Preise.
+  articlePrices: ArticlePrice[];
   rows: OrderArticle[];
   // Ob auf den Nettobetrag die Steuer kommt, entscheidet der Auftrag – nicht die Position.
   // Deshalb kommt der Schalter von oben herein und wird hier nur angewandt.
@@ -35,6 +39,14 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, rechnung
   const [qty, setQty] = useState("1");
   const [endpreis, setEndpreis] = useState("");
   const totals = orderArticleTotals(rows, rechnungNoetig);
+
+  // Der heute gültige Listenpreis des oben gewählten Artikels. Ohne ihn stand im Zuordnen-
+  // Bereich nur ein leeres Feld mit dem Platzhalter „Listenpreis" – man musste raten, wie hoch
+  // der ist, und ein Platzhalter, der einen Wert BENENNT, den er nicht zeigt, ist eine
+  // Zumutung. `null` heißt: für diesen Artikel ist kein Preis gepflegt.
+  const gewaehlterPreis = articleId
+    ? currentArticlePrice(articlePrices.filter((p) => p.article_id === articleId))
+    : null;
 
   // Mengen sind bei allen Leistungen Stückzahlen – halbe Reifenwechsel gibt es nicht. Deshalb
   // ganze Zahlen, mindestens 1: mit step="0.01" zählten die Pfeiltasten in Hundertstel-Schritten.
@@ -122,7 +134,14 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, rechnung
             <label>Artikel</label>
             <select value={articleId} onChange={(e) => setArticleId(e.target.value)}>
               <option value="">– wählen –</option>
-              {activeArticles.map((a) => <option key={a.id} value={a.id}>{a.short_name}</option>)}
+              {activeArticles.map((a) => {
+                const preis = currentArticlePrice(articlePrices.filter((p) => p.article_id === a.id));
+                return (
+                  <option key={a.id} value={a.id}>
+                    {a.short_name}{preis ? ` – ${formatEUR(preis.net_price)}` : ""}
+                  </option>
+                );
+              })}
             </select>
           </div>
           <div className="field" style={{ flex: 1, marginBottom: 0 }}>
@@ -130,9 +149,22 @@ export function ArticleAssignPanel({ orderId, articles, rows, gesperrt, rechnung
             <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
           </div>
           <div className="field" style={{ flex: 1, marginBottom: 0 }}>
-            <label>Endpreis netto</label>
+            <label>
+              Endpreis netto
+              {/* Der Listenpreis steht neben der Beschriftung, nicht als Platzhalter im Feld:
+                  Ein Platzhalter verschwindet beim ersten Zeichen – gerade dann, wenn man
+                  vergleichen will. Hier bleibt er stehen. */}
+              {articleId && (
+                <span className="listenpreis">
+                  {gewaehlterPreis
+                    ? `Liste: ${formatEUR(gewaehlterPreis.net_price)} / Stk.`
+                    : "kein Preis gepflegt"}
+                </span>
+              )}
+            </label>
             <input
-              type="number" min={0} step="0.01" placeholder="Listenpreis"
+              type="number" min={0} step="0.01"
+              placeholder={gewaehlterPreis ? String(gewaehlterPreis.net_price) : "Listenpreis"}
               value={endpreis} onChange={(e) => setEndpreis(e.target.value)}
             />
           </div>

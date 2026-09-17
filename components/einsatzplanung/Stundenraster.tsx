@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import type { Customer, Employee, Order } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { KALENDER_VON_STUNDE, KALENDER_BIS_STUNDE } from "@/lib/constants";
@@ -21,7 +22,12 @@ import { auftragsZeitraum, employeeColorFor, hhmmAus, layoutSpalten, toDateStr, 
 // Ein Techniker sieht hier ohnehin nur eigene Termine – das entscheidet nicht diese
 // Komponente, sondern RLS (Migration 13/15): Fremde Aufträge kommen gar nicht erst an.
 
-const RASTER_STUNDE_PX = 52;
+// Wie hoch eine Stunde im Raster ist. Das war eine Konstante; seit dem Zoom ist es ein
+// Ausgangswert. Die Grenzen sind gemessen, nicht geraten: Unter 14 px passt keine Uhrzeit mehr
+// an die Linie, über 120 px scrollt man für einen halben Tag.
+const RASTER_STUNDE_STANDARD = 52;
+const RASTER_STUNDE_MIN = 14;
+const RASTER_STUNDE_MAX = 120;
 
 export type RasterAuftrag = Order & { kunde: Customer | null; mitarbeiterIds: string[] };
 
@@ -32,14 +38,15 @@ function statusKlasse(status: string): string {
 // Ein Termin im Raster. Absichtlich ein div mit role="button": In den Block passt bei kurzen
 // Terminen kaum Text, und ein echter Knopf brächte eigene Innenabstände mit, die die Höhe
 // verfälschen – die Höhe ist hier aber die Aussage.
-function TerminBlock({ auftrag, employees, vonMinute, onOeffnen }: {
+function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
   auftrag: RasterAuftrag & { start: number; ende: number; geschaetzt: boolean; spalte: number; spalten: number };
   employees: Employee[];
   vonMinute: number;
+  stundePx: number;
   onOeffnen: (id: string) => void;
 }) {
-  const hoehe = ((auftrag.ende - auftrag.start) / 60) * RASTER_STUNDE_PX;
-  const oben = ((auftrag.start - vonMinute) / 60) * RASTER_STUNDE_PX;
+  const hoehe = ((auftrag.ende - auftrag.start) / 60) * stundePx;
+  const oben = ((auftrag.start - vonMinute) / 60) * stundePx;
   const breite = 100 / auftrag.spalten;
   const wer = auftrag.mitarbeiterIds;
   const farbe = wer.length > 0 ? employeeColorFor(employees, wer[0]) : null;
@@ -98,6 +105,64 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
 }) {
   const heute = toDateStr(new Date());
 
+  // Wie hoch eine Stunde gerade ist. Zwei Finger auf dem Touchgerät, Strg+Rad am Rechner,
+  // und zwei Knöpfe für alle, die weder das eine noch das andere haben.
+  const [stundePx, setStundePx] = useState(RASTER_STUNDE_STANDARD);
+  const leibRef = useRef<HTMLDivElement | null>(null);
+
+  function zoomen(faktor: number) {
+    setStundePx((h) => Math.max(RASTER_STUNDE_MIN, Math.min(RASTER_STUNDE_MAX, h * faktor)));
+  }
+
+  // Native Listener statt onWheel/onTouchMove: React hängt diese Ereignisse passiv ein, und
+  // ein passiver Listener darf `preventDefault()` nicht aufrufen. Ohne das zoomt statt des
+  // Rasters die ganze Seite – am Handy besonders unangenehm, weil man danach erst wieder
+  // herausfinden muss, wie man die Seite zurückbekommt.
+  useEffect(() => {
+    const leib = leibRef.current;
+    if (!leib) return;
+
+    function rad(e: WheelEvent) {
+      // Nur mit Strg bzw. der Trackpad-Zwei-Finger-Geste (die der Browser als Strg+Rad
+      // meldet). Ohne diese Bedingung könnte man nicht mehr normal scrollen.
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      zoomen(e.deltaY > 0 ? 0.92 : 1.08);
+    }
+
+    let startAbstand = 0;
+    let startHoehe = 0;
+    function abstand(e: TouchEvent): number {
+      const [a, b] = [e.touches[0], e.touches[1]];
+      return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+    }
+    function anfang(e: TouchEvent) {
+      if (e.touches.length !== 2) return;
+      startAbstand = abstand(e);
+      startHoehe = stundePx;
+    }
+    function bewegung(e: TouchEvent) {
+      if (e.touches.length !== 2 || startAbstand === 0) return;
+      e.preventDefault();
+      const faktor = abstand(e) / startAbstand;
+      setStundePx(Math.max(RASTER_STUNDE_MIN, Math.min(RASTER_STUNDE_MAX, startHoehe * faktor)));
+    }
+    function ende() { startAbstand = 0; }
+
+    leib.addEventListener("wheel", rad, { passive: false });
+    leib.addEventListener("touchstart", anfang, { passive: false });
+    leib.addEventListener("touchmove", bewegung, { passive: false });
+    leib.addEventListener("touchend", ende);
+    return () => {
+      leib.removeEventListener("wheel", rad);
+      leib.removeEventListener("touchstart", anfang);
+      leib.removeEventListener("touchmove", bewegung);
+      leib.removeEventListener("touchend", ende);
+    };
+    // `stundePx` steht in der Liste, weil `anfang()` den Wert zum Zeitpunkt des Aufsetzens
+    // festhalten muss – sonst zoomt die zweite Geste wieder vom Ausgangswert aus.
+  }, [stundePx]);
+
   // Aufträge je Tag, getrennt nach „hat eine Uhrzeit" und „hat keine".
   const proTag = tage.map((tag) => {
     const datum = toDateStr(tag);
@@ -120,14 +185,32 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
 
   // EIN Zeitfenster für alle gezeigten Tage. In der Woche müssen die Stundenlinien über alle
   // sieben Spalten auf derselben Höhe liegen – sonst vergleicht man Äpfel mit Birnen.
-  const { vonStunde, bisStunde } = zeitfenster(
+  const { vonStunde: natVon, bisStunde: natBis } = zeitfenster(
     proTag.flatMap((t) => t.mitZeit),
     KALENDER_VON_STUNDE,
     KALENDER_BIS_STUNDE
   );
+
+  // Herauszoomen tut ZWEI Dinge auf einmal, und das ist Absicht: Die Stunden werden flacher
+  // UND das gezeigte Fenster wird weiter, bis am Ende der ganze Tag von 0 bis 24 Uhr dasteht.
+  // Nur flacher zu werden brächte nichts – man sähe dieselben elf Stunden, nur gequetscht.
+  // Nur weiter zu werden auch nicht – es passte nicht mehr aufs Bild.
+  //
+  // Gleitend statt in Stufen: Ein Sprung von „7–18 Uhr" auf „0–24 Uhr" bei einem bestimmten
+  // Zoomwert sähe aus, als wäre etwas kaputtgegangen.
+  const spanne = Math.max(0, Math.min(1,
+    (RASTER_STUNDE_STANDARD - stundePx) / (RASTER_STUNDE_STANDARD - RASTER_STUNDE_MIN)
+  ));
+  const vonStunde = Math.round(natVon - natVon * spanne);
+  const bisStunde = Math.round(natBis + (24 - natBis) * spanne);
+
   const stunden = Array.from({ length: bisStunde - vonStunde }, (_, i) => vonStunde + i);
   const vonMinute = vonStunde * 60;
-  const gesamtHoehe = stunden.length * RASTER_STUNDE_PX;
+  const gesamtHoehe = stunden.length * stundePx;
+
+  // Bei flachen Stunden steht nicht mehr an jeder Linie eine Uhrzeit – sie überlappen sich
+  // sonst. Ab 14 px nur noch jede vierte, ab 24 px jede zweite.
+  const beschriftungJede = stundePx < 20 ? 4 : stundePx < 34 ? 2 : 1;
 
   // Aufträge ohne Uhrzeit dürfen nicht verschwinden. Sie ins Raster zu setzen ginge nur mit
   // einer erfundenen Zeit; sie wegzulassen hieße, dass ein Auftrag im Kalender fehlt, den es
@@ -137,7 +220,15 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   return (
     <div className={"raster" + (tage.length > 1 ? " raster-woche" : " raster-tag")}>
       <div className="raster-kopf">
-        <div className="rk-spalte-zeit" />
+        {/* Die Knöpfe stehen in der Stundenspalte, also dort, was sie verändern. Sie sind
+            nicht der bequemste Weg – das sind zwei Finger –, aber der einzige, den eine Maus
+            hat. */}
+        <div className="rk-spalte-zeit raster-zoom">
+          <button type="button" title="Stunden flacher – zeigt mehr vom Tag"
+            disabled={stundePx <= RASTER_STUNDE_MIN + 0.01} onClick={() => zoomen(1 / 1.25)}>−</button>
+          <button type="button" title="Stunden höher"
+            disabled={stundePx >= RASTER_STUNDE_MAX - 0.01} onClick={() => zoomen(1.25)}>+</button>
+        </div>
         {proTag.map(({ tag, datum }) => (
           <div key={datum} className={"rk-tag" + (datum === heute ? " ist-heute" : "")}>
             <span className="rk-wochentag">{tag.toLocaleDateString("de-DE", { weekday: "short" })}</span>
@@ -165,23 +256,23 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
         </div>
       )}
 
-      <div className="raster-leib" style={{ height: `${gesamtHoehe}px` }}>
+      <div className="raster-leib" ref={leibRef} style={{ height: `${gesamtHoehe}px` }}>
         <div className="rk-spalte-zeit rl-stunden">
           {stunden.map((h) => (
-            <div key={h} className="rl-stunde" style={{ height: `${RASTER_STUNDE_PX}px` }}>
-              <span>{String(h).padStart(2, "0")}:00</span>
+            <div key={h} className="rl-stunde" style={{ height: `${stundePx}px` }}>
+              {h % beschriftungJede === 0 && <span>{String(h).padStart(2, "0")}:00</span>}
             </div>
           ))}
         </div>
         {proTag.map(({ datum, mitZeit }) => (
           <div key={datum} className={"rl-tag" + (datum === heute ? " ist-heute" : "")}>
             {stunden.map((h) => (
-              <div key={h} className="rl-linie" style={{ height: `${RASTER_STUNDE_PX}px` }} />
+              <div key={h} className="rl-linie" style={{ height: `${stundePx}px` }} />
             ))}
             {mitZeit.map((a) => (
               <TerminBlock
                 key={a.id} auftrag={a} employees={employees}
-                vonMinute={vonMinute} onOeffnen={onOeffnen}
+                vonMinute={vonMinute} stundePx={stundePx} onOeffnen={onOeffnen}
               />
             ))}
           </div>

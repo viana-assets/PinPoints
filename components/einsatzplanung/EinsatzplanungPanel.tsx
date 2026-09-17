@@ -238,7 +238,17 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           </div>
           {weeks.map((w) => (
             <div className="calendar-row" key={toDateStr(w.days[0])}>
-              <div className="calendar-kw">KW {w.kw}</div>
+              {/* Die Kalenderwoche ist der Weg in die Woche. Sie stand bisher nur da – und
+                  eine Zahl am Rand einer Zeile, die genau diese Woche meint, will man
+                  anklicken. Ausgewählt wird der Montag, weil die Wochenansicht dort anfängt. */}
+              <button
+                type="button"
+                className="calendar-kw calendar-kw-knopf"
+                title={`Woche ${w.kw} im Stundenraster öffnen`}
+                onClick={() => { setSelectedDay(toDateStr(w.days[0])); setAnsicht("woche"); }}
+              >
+                KW {w.kw}
+              </button>
               {w.days.map((d) => {
                 const ds = toDateStr(d);
                 const inMonth = d.getMonth() === monthCursor.getMonth();

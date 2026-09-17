@@ -558,6 +558,14 @@
 .calendar-head{background:var(--bg);}
 .calendar-kw{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--muted);
   font-weight:700;padding:6px 2px;border-right:1px solid var(--border);}
+/* Die Kalenderwoche ist seit dem 16.09. ein Knopf: ein Klick öffnet diese Woche im
+   Stundenraster. Sie sieht weiter aus wie eine Beschriftung und verrät sich erst beim
+   Darüberfahren – eine Zahl am Zeilenrand soll nicht wie eine Schaltfläche aussehen, sonst
+   konkurriert sie mit den Tagen daneben. */
+.calendar-kw-knopf{border:0;background:none;cursor:pointer;padding:0;font:inherit;
+  color:var(--muted);border-radius:6px;}
+.calendar-kw-knopf:hover{background:var(--accent-bg);color:var(--accent);}
+.calendar-kw-knopf:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
 .calendar-daylabel{text-align:center;font-size:10.5px;color:var(--muted);font-weight:700;
   text-transform:uppercase;letter-spacing:.03em;padding:8px 2px;}
 .calendar-day{border:none;border-left:1px solid var(--border);background:var(--panel);cursor:pointer;
@@ -1383,6 +1391,29 @@ tr.klickbar:hover { background: var(--hover); }
    Ein Kalender ist kein Element, das man kürzen darf: Seine Höhe IST die Aussage. */
 .raster{border:1px solid var(--border);border-radius:12px;background:var(--panel);
   overflow:hidden;flex:0 0 auto;}
+/* ---- Sortierbare Spaltenköpfe ----
+   Der Pfeil bekommt festen Platz, auch wenn er leer ist: Sonst rückt die Überschrift beim
+   Sortieren um ein Zeichen zur Seite, und die ganze Kopfzeile zuckt. */
+.appt-table th.sortierbar{cursor:pointer;user-select:none;white-space:nowrap;}
+.appt-table th.sortierbar:hover{color:var(--accent);}
+.appt-table th.sortierbar.aktiv{color:var(--accent);}
+.appt-table th .sort-pfeil{display:inline-block;width:12px;font-size:9px;margin-left:3px;
+  vertical-align:middle;}
+
+/* Der gültige Listenpreis neben der Feldbeschriftung „Endpreis netto". Er steht dort und
+   nicht als Platzhalter im Feld, weil ein Platzhalter beim ersten Zeichen verschwindet –
+   gerade dann, wenn man vergleichen will. */
+.listenpreis{margin-left:6px;font-weight:400;color:var(--muted);font-size:10.5px;}
+
+/* Zoom-Knöpfe im Kopf der Stundenspalte. Klein und unauffällig: Der übliche Weg ist die
+   Zwei-Finger-Geste; diese beiden sind für die Maus da. */
+.raster-zoom{gap:2px;justify-content:center;}
+.raster-zoom button{border:1px solid var(--border);background:var(--panel);color:var(--muted);
+  border-radius:5px;width:20px;height:20px;line-height:1;padding:0;font-size:13px;
+  cursor:pointer;}
+.raster-zoom button:hover:not(:disabled){border-color:var(--accent);color:var(--accent);}
+.raster-zoom button:disabled{opacity:.35;cursor:default;}
+
 .raster-kopf,
 .raster-ohnezeit,
 .raster-leib{display:grid;grid-template-columns:52px repeat(var(--tage,1), minmax(0,1fr));}
@@ -1518,6 +1549,21 @@ tr.klickbar:hover { background: var(--hover); }
 .rechnung-schalter input{width:17px;height:17px;margin-top:1px;flex:0 0 auto;accent-color:var(--accent);}
 .rechnung-schalter > span{display:flex;flex-direction:column;gap:1px;}
 .rechnung-schalter b{font-size:13px;}
+
+/* Der zweite Halbsatz zum Schalter darüber: ob die Rechnung auch geschrieben wurde
+   (Migration 40). Bewusst ohne eigenen Rahmen und direkt angeschlossen – es ist derselbe
+   Vorgang, nur die zweite Hälfte. Ein zweiter Kasten sähe aus wie ein zweites Thema.
+
+   Die ausstehende Rechnung ist farbig hinterlegt, die erledigte nicht: Was zu tun ist, soll
+   auffallen; was getan ist, soll nur nachlesbar sein. */
+.rechnung-stand{display:flex;flex-wrap:wrap;align-items:center;gap:8px;
+  margin:-1px 0 0;padding:9px 11px;border:1px solid var(--border);border-top:0;
+  border-radius:0 0 10px 10px;background:var(--accent-bg);}
+.rechnung-stand > span:first-child{display:flex;flex-direction:column;gap:1px;flex:1 1 180px;
+  min-width:0;}
+.rechnung-stand b{font-size:13px;}
+.rechnung-stand.erledigt{background:var(--bg);}
+
 
 /* D2/D3: Was beim letzten Mal an diesem Fahrzeug auffiel. Steht über den Leistungen, weil
    genau dort die Entscheidung fällt, ob man Neureifen anbietet. */

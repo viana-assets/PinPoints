@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Article, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, ArticlePrice, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import { formatDate, formatOrderDateTime, getPhoneNumbers, handlungsgruende } from "@/lib/helpers";
 import { hhmmAus, minutenAus } from "@/lib/calendar";
@@ -25,11 +25,11 @@ import { AuftragProtokoll } from "./AuftragProtokoll";
 // Positionen ein. Welche Übergänge erlaubt sind, entscheidet ein Trigger; diese Komponente zeigt
 // nur an, was gerade möglich ist.
 export function AuftragModal({
-  order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, orderArticles,
+  order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerung, brauchtLagerplatz, storageSlots, warehouses, belegteSlotIds, raeder,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
-  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete,
+  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungErstellt,
   onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
@@ -44,6 +44,8 @@ export function AuftragModal({
   employees: Employee[];
   assignedEmployeeIds: string[];
   articles: Article[];
+  // Nur zum Anzeigen des gültigen Listenpreises im Zuordnen-Bereich.
+  articlePrices: ArticlePrice[];
   orderArticles: OrderArticle[];
   isTechniker: boolean;
   darfWiedereroeffnen: boolean;
@@ -69,6 +71,9 @@ export function AuftragModal({
   belegteSlotIds: Set<string>;
   onClose: () => void;
   onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
+  // Hakt „Rechnung erstellt" ab oder nimmt es zurück (Migration 40). Optional: Wer das Fenster
+  // ohne diese Zusage einbindet, bekommt den Block gar nicht erst zu sehen.
+  onRechnungErstellt?: (id: string, nummer: string | null, erstellt: boolean) => Promise<void>;
   onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
   onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
@@ -128,6 +133,10 @@ export function AuftragModal({
   const [zeitBis, setZeitBis] = useState(order.end_time || "");
   // „Rechnung benötigt" (Migration 38). Entscheidet, ob auf den Nettobetrag die Steuer kommt.
   const [rechnungNoetig, setRechnungNoetig] = useState(order.rechnung_noetig);
+  // Die getippte Rechnungsnummer. Sie geht NICHT über den Speichern-Knopf, sondern über einen
+  // eigenen Aufruf – „Rechnung erstellt" ist eine Handlung mit Zeitstempel, kein Formularfeld.
+  // Deshalb steht sie auch nicht in der Änderungserkennung weiter unten.
+  const [rechnungNummer, setRechnungNummer] = useState("");
   // Wurde das Ende von der Anwendung vorgeschlagen oder von Hand gesetzt? Nur ein
   // vorgeschlagenes darf beim Ändern der Anfangszeit mitwandern – ein von Hand eingetragenes
   // zu überschreiben wäre genau die Art von Hilfsbereitschaft, die Arbeit vernichtet.
@@ -229,7 +238,13 @@ export function AuftragModal({
     const f = firmenfahrzeuge.find((x) => x.id === id);
     return f ? firmenfahrzeugLabel(f) : "Fahrzeug nicht auffindbar";
   }
-  const feldeAendern = !gesperrt && !isTechniker;
+  // Seit Migration 41 darf auch der Techniker die Auftragsfelder ändern – Titel, Datum,
+  // Uhrzeit, Fahrzeug, Transporter, Leistungen. Was er vor Ort sieht, weiß sonst niemand, und
+  // der Umweg über einen Anruf ins Büro war keine Sicherheit, sondern eine Warteschlange.
+  // Jede Änderung steht mit Person und Zeitpunkt in der Historie unten in diesem Fenster.
+  //
+  // `gesperrt` bleibt: Ein erledigter oder stornierter Auftrag ist für alle eingefroren.
+  const feldeAendern = !gesperrt;
 
   // Die Uhrzeit ist Pflicht, sobald jemand die Auftragsfelder überhaupt ändern darf.
   //
@@ -381,7 +396,7 @@ export function AuftragModal({
             <div className="auftrag-block-titel">Fahrzeug</div>
             {vehicles.length === 0 ? (
               <div className="small">Für diesen Kunden ist kein Fahrzeug hinterlegt (Kundendetail → Fahrzeuge).</div>
-            ) : gesperrt || isTechniker ? (
+            ) : gesperrt ? (
               <div>{fahrzeug ? fahrzeugText(fahrzeug) : "– kein Fahrzeug zugeordnet –"}</div>
             ) : (
               <select value={fahrzeugId} onChange={(e) => setFahrzeugId(e.target.value)}>
@@ -399,7 +414,7 @@ export function AuftragModal({
               nicht – das macht das Büro, und die Datenbank erzwingt es (Migration 32). */}
           <div className="auftrag-block">
             <div className="auftrag-block-titel">Unser Fahrzeug</div>
-            {gesperrt || isTechniker ? (
+            {gesperrt ? (
               <div>{firmenfahrzeugText(order.firmenfahrzeug_id) || "– nicht eingeteilt –"}</div>
             ) : aktiveFirmenfahrzeuge.length === 0 && !firmenfahrzeugId ? (
               <div className="small">
@@ -497,6 +512,9 @@ export function AuftragModal({
           {/* ---------------------------------------------------------------- Mitarbeiter */}
           <div className="auftrag-block">
             <div className="auftrag-block-titel">Mitarbeiter</div>
+            {/* Die Einteilung bleibt beim Büro – `order_employees` lässt einen Techniker per
+                RLS weiterhin nur lesen (Migration 15, von 41 nicht angefasst). Wer sich selbst
+                Aufträge zuteilen kann, teilt sich auch fremde zu. */}
             {gesperrt || isTechniker ? (
               <div>{employees.filter((e) => mitarbeiterIds.includes(e.id)).map((e) => e.name).join(", ") || "– niemand zugeordnet –"}</div>
             ) : (
@@ -538,8 +556,9 @@ export function AuftragModal({
               rechnungNoetig={rechnungNoetig}
               orderId={order.id}
               articles={articles}
+              articlePrices={articlePrices}
               rows={orderArticles}
-              gesperrt={gesperrt || isTechniker}
+              gesperrt={gesperrt}
               onAdd={onAddArticle}
               onUpdateQty={onUpdateArticleQty}
               onUpdateEndpreis={onUpdateArticleEndpreis}
@@ -568,6 +587,63 @@ export function AuftragModal({
                 </span>
               </span>
             </label>
+
+            {/* Der zweite Halbsatz: ob sie auch geschrieben wurde (Migration 40).
+                Er erscheint nur, wenn der Schalter an ist und der Auftrag erledigt – vorher
+                gibt es nichts abzuhaken, weil noch nicht feststeht, was abgerechnet wird.
+
+                Hier steht die ganze Wahrheit (wer, wann, welche Nummer); in der Auftragsliste
+                steht nur der Knopf zum Abarbeiten. Zwei Orte, ein Vorgang – aber die
+                Auskunft gehört dorthin, wo man einen einzelnen Auftrag ansieht. */}
+            {rechnungNoetig && order.status === "erledigt" && onRechnungErstellt && (
+              <div className={"rechnung-stand" + (order.rechnung_erstellt_am ? " erledigt" : "")}>
+                {order.rechnung_erstellt_am ? (
+                  <>
+                    <span>
+                      <b>Rechnung erstellt</b>
+                      <span className="small">
+                        {formatDate(order.rechnung_erstellt_am.slice(0, 10))}
+                        {order.rechnung_nummer ? ` · Nr. ${order.rechnung_nummer}` : ""}
+                        {/* Wer es war, steht im Protokoll weiter unten in diesem Fenster –
+                            hier den Namen ein zweites Mal zu holen hieße, dieselbe Auskunft
+                            aus zwei Quellen zu beziehen. */}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ flex: "0 0 auto" }}
+                      onClick={() => onRechnungErstellt(order.id, null, false)}
+                    >
+                      doch nicht
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span>
+                      <b>Rechnung steht noch aus</b>
+                      <span className="small">Im ERP schreiben, dann hier abhaken – die Nummer ist freiwillig.</span>
+                    </span>
+                    <input
+                      type="text"
+                      className="feld-kompakt"
+                      style={{ width: 130, flex: "0 0 auto" }}
+                      placeholder="Rechnungsnr."
+                      value={rechnungNummer}
+                      onChange={(e) => setRechnungNummer(e.target.value)}
+                    />
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      style={{ flex: "0 0 auto" }}
+                      onClick={() => onRechnungErstellt(order.id, rechnungNummer.trim() || null, true)}
+                    >
+                      Rechnung erstellt
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           {/* ---------------------------------------------------------------- Einlagerung */}

@@ -66,6 +66,7 @@ import {
 import {
   replaceOrderEmployees,
   insertOrder, updateOrderById, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
+  setzeRechnungErstellt,
   updateOrderVehicle, updateOrderFirmenfahrzeug,
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
@@ -168,6 +169,7 @@ export default function HomePage() {
   // Oberfläche blendet zusätzlich Anlegen/Löschen/Mitarbeiter- und Leistungen-Zuordnung aus –
   // siehe AuftraegePanel/EinsatzplanungPanel.
   const isTechniker = myRole === "techniker";
+
 
   // Die Datenbestände liegen seit Roadmap-Phase 10 nicht mehr als useState hier, sondern in
   // Abfragen (siehe weiter unten beim "selectedId"-Block und in lib/queries/hooks.ts).
@@ -334,6 +336,20 @@ export default function HomePage() {
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
   const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
   const employees = mitarbeiterQuery.data ?? KEINE_MITARBEITER;
+  // Welche Mitarbeiter in den FILTERLEISTEN von Auftragsliste und Einsatzplanung auftauchen.
+  // Ein Techniker sieht dort nur sich selbst: Die Leiste ist sonst eine vollständige
+  // Namensliste der Belegschaft, und die ist keine Auskunft, die er für seine Arbeit braucht.
+  //
+  // Bewusst NICHT mitgefiltert: die Mitarbeiterspalte an seinen EIGENEN Aufträgen. Steht er
+  // mit einem Kollegen auf demselben Auftrag, soll er wissen, mit wem er hinfährt. Fremde
+  // Aufträge sieht er ohnehin nicht (Migration 13, per Datenbank).
+  //
+  // Das ist eine Anzeigeregel, keine Absicherung: `employees` ist für jeden Eingeloggten
+  // lesbar (bewusst, siehe Roadmap Phase 7 – der Techniker braucht Namen in seinen eigenen
+  // Listen). Wer die API direkt anspricht, sieht die Tabelle weiterhin.
+  const sichtbareMitarbeiter = isTechniker
+    ? employees.filter((e) => e.profile_id && e.profile_id === settings.user_id)
+    : employees;
   const articles = artikelQuery.data ?? KEINE_ARTIKEL;
   const articlePrices = artikelpreiseQuery.data ?? KEINE_ARTIKELPREISE;
   const warehouses = lagerQuery.data ?? KEINE_LAGER;
@@ -1297,7 +1313,18 @@ export default function HomePage() {
 
   async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean; status: OrderStatus; assignedEmployeeIds: string[] }) {
     await updateOrderById(supabase, id, fields);
-    await setOrderEmployees(id, fields.assignedEmployeeIds);
+    // Die Einteilung nur anfassen, wenn sie sich wirklich geändert hat. Zwei Gründe, und der
+    // zweite ist der wichtigere:
+    //
+    // 1. `setOrderEmployees` löscht und schreibt neu – bei jedem Speichern ein Ab- und Anmelden
+    //    derselben Personen, das jedes Mal im Protokoll landet.
+    // 2. Seit Migration 41 darf ein TECHNIKER den Auftrag bearbeiten, aber weiterhin nicht die
+    //    Einteilung (`order_employees`, Migration 15). Ohne diesen Vergleich wäre jedes
+    //    Speichern durch einen Techniker an der Rechteprüfung gescheitert – obwohl er die
+    //    Einteilung gar nicht angefasst hat.
+    const vorher = [...(orderEmployees[id] ?? [])].sort();
+    const nachher = [...fields.assignedEmployeeIds].sort();
+    if (vorher.join(",") !== nachher.join(",")) await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
   }
   // Zustandswechsel eines Auftrags. Welche Übergänge erlaubt sind, entscheidet der Trigger aus
@@ -1336,6 +1363,11 @@ export default function HomePage() {
   }
   async function updateTechnikerNotiz(id: string, notiz: string) {
     await updateOrderTechnikerNotiz(supabase, id, notiz);
+    await refreshOrders();
+  }
+  // „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
+  async function rechnungErstellt(id: string, nummer: string | null, erstellt = true) {
+    await setzeRechnungErstellt(supabase, id, erstellt, nummer);
     await refreshOrders();
   }
   async function deleteOrder(id: string) {
@@ -2206,7 +2238,7 @@ export default function HomePage() {
           <AuftraegePanel
             customers={customers}
             orders={orders}
-            employees={employees}
+            employees={sichtbareMitarbeiter}
             orderEmployees={orderEmployees}
             onNeuerAuftrag={neuenAuftragAnlegen}
             onDelete={deleteOrder}
@@ -2218,6 +2250,7 @@ export default function HomePage() {
             onNavigate={openNavMenu}
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
+            onRechnungErstellt={(id, nummer) => rechnungErstellt(id, nummer)}
           />
           </>
         )}
@@ -2278,7 +2311,7 @@ export default function HomePage() {
             customers={customers}
             firmenfahrzeuge={firmenfahrzeuge}
             orders={orders}
-            employees={employees}
+            employees={sichtbareMitarbeiter}
             orderEmployees={orderEmployees}
             onEditEmployees={openEmpMenu}
             employeeNamesFor={employeeNamesFor}
@@ -2545,6 +2578,7 @@ export default function HomePage() {
           employees={employees}
           assignedEmployeeIds={orderEmployees[offenerAuftrag.id] || []}
           articles={articles}
+          articlePrices={articlePrices}
           orderArticles={orderArticlesFor(offenerAuftrag.id)}
           isTechniker={isTechniker}
           darfWiedereroeffnen={isAdmin}
@@ -2585,6 +2619,7 @@ export default function HomePage() {
           onSetFirmenfahrzeug={setOrderFirmenfahrzeug}
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
           onSetStatus={updateOrderStatus}
+          onRechnungErstellt={rechnungErstellt}
           onDelete={deleteOrder}
           onAddArticle={addOrderArticle}
           onUpdateArticleQty={updateOrderArticleQty}
