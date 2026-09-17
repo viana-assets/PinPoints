@@ -14,7 +14,7 @@ import {
   effectiveColor, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
   getPhoneNumbers, navigationUrls,
-  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel,
+  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, terminZeitraum,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
@@ -2309,7 +2309,13 @@ export default function HomePage() {
                               dem Handy die halbe Liste auffraß. */}
                           <td className="date-cell">
                             <div>{formatDate(order.order_date)}</div>
-                            {order.time && <div className="date-zeit">{order.time} Uhr</div>}
+                            {/* Von–bis, nicht nur von (Migration 37). Die Endzeit stand hier
+                                seit ihrer Einführung nicht – man sah, wann der Techniker
+                                kommt, aber nicht, wie lange er bleibt, und genau das
+                                entscheidet, ob der nächste Termin noch draufpasst.
+                                `terminZeitraum` ist dieselbe Regel wie in der Auftragsliste;
+                                ohne Endzeit liefert sie weiterhin nur die Anfangszeit. */}
+                            {terminZeitraum(order) && <div className="date-zeit">{terminZeitraum(order)}</div>}
                             {past && <div className="date-vergangen">vergangen</div>}
                           </td>
                           <td>{cust.name}<br /><span className="small">{cust.address}</span></td>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Customer, Employee, Firmenfahrzeug, Order, OrderStatus } from "@/lib/types";
-import { todayStr, formatDate, formatOrderDateTime, orderDateTime } from "@/lib/helpers";
+import { todayStr, formatDate, formatOrderDateTime, orderDateTime, terminZeitraum } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
 import { RasterLegende, Stundenraster } from "./Stundenraster";
@@ -293,7 +293,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                         const cust = customers.find((c) => c.id === o.customer_id);
                         return (
                           <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
-                            <td className="date-cell">{o.time || "–"}</td>
+                            {/* Auch hier von–bis: Die Spalte heißt „Uhrzeit" und zeigte nur
+                                den Anfang. In einer Tagesliste ist die Dauer die halbe
+                                Auskunft. */}
+                            <td className="date-cell">{terminZeitraum(o) || "–"}</td>
                             <td>
                               {cust ? (
                                 <>
