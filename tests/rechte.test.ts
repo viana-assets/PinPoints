@@ -52,12 +52,40 @@ describe("Rechtekatalog", () => {
     });
   });
 
-  it("gibt dem Techniker nirgends ein Loeschrecht", () => {
-    // Loeschen nimmt etwas weg; das ist eine Bueroentscheidung. Aendern laesst sich das
-    // jederzeit in der Modulverwaltung - aber nicht aus Versehen in der Voreinstellung.
+  it("laesst den Techniker korrigieren, aber nichts wegwerfen", () => {
+    // Der Unterschied, den die zweite Ebene ueberhaupt erst ausdrueckbar macht: Eine falsch
+    // eingetragene Leistung oder Radmessung wieder zu entfernen ist KORRIGIEREN und gehoert
+    // zur Arbeit. Einen Auftrag, einen Kunden oder ein Lager wegzuwerfen ist etwas anderes.
+    const darfKorrigieren = ["auftraege.leistungen", "lager.raeder"];
+    const darfNichtWegwerfen = ["kunden", "auftraege.auftrag", "lager.regale", "artikel", "mitarbeiter", "firmenfahrzeuge"];
+    darfKorrigieren.forEach((b) => {
+      expect(RECHTE_VORGABE[b]?.loeschen ?? [], `${b}: Techniker kann nicht korrigieren`).toContain("techniker");
+    });
+    darfNichtWegwerfen.forEach((b) => {
+      expect(RECHTE_VORGABE[b]?.loeschen ?? [], `${b}: Techniker darf wegwerfen`).not.toContain("techniker");
+    });
+  });
+
+  it("gibt der Einlagerung kein Loeschen", () => {
+    // Auslagern ist ein Schreiben (`removed_at`), geloescht wird eine Einlagerung nie. Ein
+    // Loeschen-Haken dort saesse auf einer Handlung, die es nicht gibt - und wuerde
+    // aussehen, als ginge es ums Auslagern.
+    const e = RECHTE_KATALOG.find((b) => b.schluessel === "lager.einlagerung");
+    expect(e!.verben).not.toContain("loeschen");
+  });
+
+  it("erklaert jede Zeile", () => {
+    // Die Erfahrung vom 17.09.2026: „Lager und Lagerplaetze" klang nach dem ganzen Modul und
+    // meinte nur die Regale. Ein Name allein traegt eine Rechteentscheidung nicht.
     RECHTE_KATALOG.forEach((b) => {
-      const loeschen = RECHTE_VORGABE[b.schluessel]?.loeschen ?? [];
-      expect(loeschen, `${b.schluessel} laesst Techniker loeschen`).not.toContain("techniker");
+      expect(b.erklaerung, `${b.schluessel} hat keine Erklaerung`).toBeTruthy();
+    });
+  });
+
+  it("haengt jede eingerueckte Zeile an ein vorhandenes Modul", () => {
+    RECHTE_KATALOG.filter((b) => b.unter).forEach((b) => {
+      const modul = b.schluessel.split(".")[0];
+      expect(RECHTE_KATALOG.map((x) => x.schluessel), `${b.schluessel} haengt an keinem Modul`).toContain(modul);
     });
   });
 
