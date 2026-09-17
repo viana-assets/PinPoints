@@ -3,7 +3,7 @@ import type {
   Article, Customer, ContactHistoryEntry, Employee, Order, OrderArticle, OrderStatus,
   StorageSlot, TireStorage, Vehicle, Warehouse,
 } from "@/lib/types";
-import { todayStr, formatDate, effectiveColor, KUNDEN_ZUSTAND_LABEL, getPhoneNumbers } from "@/lib/helpers";
+import { todayStr, formatDate, effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, getPhoneNumbers } from "@/lib/helpers";
 import { VehicleRow, AddVehicleInline } from "./VehicleSection";
 import { AdressFeld } from "@/components/AdressFeld";
 import { IconNavPin } from "@/components/icons";
@@ -113,7 +113,10 @@ export function DetailModal(props: {
     }
   }
 
-  const color = effectiveColor(cust, props.periodMonths);
+  // Dieselbe Frage wie auf Karte und Liste, aus denselben Daten: Steht für diesen Kunden noch
+  // ein Termin an? `props.orders` sind bereits nur seine – die Menge ist also klein genug, um
+  // sie hier zu bilden, statt sie durch das halbe Programm zu reichen.
+  const color = effectiveColor(cust, props.periodMonths, todayStr(), kundenMitTermin(props.orders).has(cust.id));
   const custOrders = props.orders.slice().sort((a, b) => a.order_date.localeCompare(b.order_date));
 
   return (

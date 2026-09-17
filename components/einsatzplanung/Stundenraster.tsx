@@ -54,7 +54,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
 
   return (
     <div
-      className={`termin ${statusKlasse(auftrag.status)}${farbe ? "" : " tm-ohne-person"}${auftrag.geschaetzt ? " tm-geschaetzt" : ""}`}
+      className={`tm-block ${statusKlasse(auftrag.status)}${farbe ? "" : " tm-ohne-person"}${auftrag.geschaetzt ? " tm-geschaetzt" : ""}`}
       role="button"
       tabIndex={0}
       onClick={() => onOeffnen(auftrag.id)}
@@ -74,7 +74,12 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
         height: `${Math.max(hoehe, 17)}px`,
         left: `${auftrag.spalte * breite}%`,
         width: `calc(${breite}% - 3px)`,
-        ...(farbe ? { background: farbe, borderColor: farbe } : {}),
+        // `backgroundColor` und NICHT `background`: Die Kurzform setzt `background-image`
+        // mit zurück, und weil ein Stilattribut jede Regel schlägt, verschwand damit die
+        // Schraffur des stornierten Termins – sichtbar war sie nur bei Aufträgen ohne
+        // zugeteilte Person, wo hier gar keine Farbe steht. (Beim Umbenennen der Klasse am
+        // 17.09.2026 aufgefallen.)
+        ...(farbe ? { backgroundColor: farbe, borderColor: farbe } : {}),
       }}
     >
       <span className="tm-zeit">

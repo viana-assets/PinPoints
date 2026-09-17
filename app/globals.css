@@ -229,6 +229,12 @@
      Farbwechsel wieder eine Unwahrheit. `.badge.orange` weiter unten bleibt bestehen: das ist
      der Auftragsstatus „in Arbeit" und hat mit dem Kundenzustand nichts zu tun. */
   .dot.wiedervorlage{background:var(--blau-marker);}
+  /* Zustand „Termin" (17.09.2026): derselbe kühle Bereich wie die Wiedervorlage, nur dunkel.
+     Beide sagen „eingeplant, nicht dringend"; sie trennen sich durch HELLIGKEIT statt durch
+     Farbton, was auch dann noch funktioniert, wenn Farben schlecht unterschieden werden. Ein
+     fünfter warmer Ton hätte Rot Aufmerksamkeit weggenommen – und Rot ist das, was heute zu
+     tun ist. */
+  .dot.termin{background:var(--navy);}
   .dot.kein-interesse{background:#ffffff;border:2px solid var(--red);position:relative;
     width:12px;height:12px;margin-top:3px;}
   .dot.kein-interesse::after{content:"✕";position:absolute;inset:0;display:flex;
@@ -364,6 +370,7 @@
   .badge.green{background:var(--green-bg);color:var(--green);}
   .badge.orange{background:var(--accent-bg);color:var(--accent);}
   .badge.wiedervorlage{background:var(--blau-bg);color:var(--blau);}
+  .badge.termin{background:var(--blau-bg);color:var(--navy);}
   /* Kundenzustand "kein Interesse" (Migration 23) – im Text-Kennzeichen genügt die Farbe,
      die unterscheidende Form trägt der Kartenmarker. */
   .badge.kein-interesse{background:#ffffff;color:var(--red);border:1px solid var(--red);}
@@ -1508,27 +1515,33 @@ tr.klickbar:hover { background: var(--hover); }
 .rl-tag.ist-heute{background:color-mix(in srgb, var(--accent-bg) 45%, transparent);}
 .rl-linie{border-top:1px solid var(--border);}
 
-.termin{position:absolute;border-radius:6px;padding:2px 5px;overflow:hidden;cursor:pointer;
+/* Der Terminblock im Stundenraster. Hieß bis zum 17.09.2026 schlicht `.termin` – und damit
+   genauso wie der neue KUNDENZUSTAND „Termin", dessen Klasse aus dem Zustandsnamen entsteht
+   (`dot ${zustand}`). Der Punkt in der Kundenliste erbte dadurch `position:absolute` und
+   legte sich über den Namen. Der Block trägt jetzt das `tm-`, das seine eigenen Teile längst
+   haben; ein Name ohne Bereich ist in einem gemeinsamen Stilblatt kein Name, sondern eine
+   Wette darauf, dass ihn niemand sonst braucht. */
+.tm-block{position:absolute;border-radius:6px;padding:2px 5px;overflow:hidden;cursor:pointer;
   display:flex;flex-direction:column;line-height:1.2;color:#fff;
   border:1.5px solid transparent;box-shadow:0 1px 3px rgba(43,38,32,.25);}
-.termin:focus-visible{outline:2px solid var(--text);outline-offset:1px;}
-.termin .tm-zeit{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;opacity:.9;}
-.termin .tm-wer{font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;
+.tm-block:focus-visible{outline:2px solid var(--text);outline-offset:1px;}
+.tm-block .tm-zeit{font-size:10px;font-weight:800;font-variant-numeric:tabular-nums;opacity:.9;}
+.tm-block .tm-wer{font-size:11.5px;font-weight:700;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;}
 
 /* FORM = Zustand. Kein zweiter Farbkreis, sondern Deckkraft, Schraffur und ein Zeichen. */
-.termin.tm-erledigt{opacity:.5;}
-.termin.tm-storniert{opacity:.55;
+.tm-block.tm-erledigt{opacity:.5;}
+.tm-block.tm-storniert{opacity:.55;
   background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.45) 0 4px,transparent 4px 8px);}
-.termin.tm-storniert .tm-wer{text-decoration:line-through;}
+.tm-block.tm-storniert .tm-wer{text-decoration:line-through;}
 /* Noch niemandem zugeteilt: keine Person, also keine Personenfarbe. Grau und gestrichelt –
    dieselbe Aussage wie ein freier Lagerplatz. */
-.termin.tm-ohne-person{background:var(--panel);color:var(--text);
+.tm-block.tm-ohne-person{background:var(--panel);color:var(--text);
   border:1.5px dashed var(--frei-linie);box-shadow:none;}
 /* Angenommenes Ende (kein `end_time` gepflegt): die Unterkante ist eine Vermutung und sieht
    auch so aus. Sonst liest jemand die angenommene Stunde als Zusage. */
-.termin.tm-geschaetzt{border-bottom-style:dashed;border-bottom-color:rgba(255,255,255,.75);}
-.termin.tm-ohne-person.tm-geschaetzt{border-bottom-color:var(--frei-linie);}
+.tm-block.tm-geschaetzt{border-bottom-style:dashed;border-bottom-color:rgba(255,255,255,.75);}
+.tm-block.tm-ohne-person.tm-geschaetzt{border-bottom-color:var(--frei-linie);}
 
 .kal-blaettern{padding:4px 10px;font-size:12px;border:1px solid var(--border);}
 
@@ -1548,11 +1561,11 @@ tr.klickbar:hover { background: var(--hover); }
   .raster-woche .raster-kopf,
   .raster-woche .raster-ohnezeit,
   .raster-woche .raster-leib{min-width:640px;}
-  .termin .tm-wer{font-size:11px;}
+  .tm-block .tm-wer{font-size:11px;}
 }
 
 @media (prefers-reduced-motion: reduce){
-  .termin{transition:none;}
+  .tm-block{transition:none;}
 }
 
 /* ---------------------------------------------------------------------------

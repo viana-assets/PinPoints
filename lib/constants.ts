@@ -232,7 +232,7 @@ export const EMP_COLORS = ["#FF5A1F", "#1E9B6E", "#1E3A5F", "#8a5cf6", "#e0447a"
 // (Konstanten-Regel, siehe docs/README.md). Vorher standen die sechs Knöpfe als sechs fast
 // gleiche Zeilen im JSX; wer einen Zustand ergänzt, hätte ihn an drei Stellen nachtragen
 // müssen: Knopf, Filterbedingung und Zählung.
-export type KundenFilter = "all" | "offen" | "ok" | "wiedervorlage" | "kein_interesse" | "nogeo";
+export type KundenFilter = "all" | "offen" | "wiedervorlage" | "termin" | "ok" | "kein_interesse" | "nogeo";
 
 // Zeitraum-Filter des Termine-Reiters. Steht hier und nicht in app/page.tsx, weil Liste UND
 // Karte damit gefiltert werden – zwei Stellen, eine Werteliste (Konstanten-Regel).
@@ -246,11 +246,14 @@ export const TERMIN_FILTER: { wert: TerminFilter; text: string }[] = [
   { wert: "alle", text: "Alle" },
 ];
 
+// Reihenfolge wie bei KUNDEN_ZUSTAND_REIHENFOLGE: nach Dringlichkeit. „Termin" steht zwischen
+// Wiedervorlage und Kontaktiert – der Kunde ist versorgt, aber es steht noch etwas an.
 export const KUNDEN_FILTER: { wert: KundenFilter; text: string }[] = [
   { wert: "all", text: "Alle" },
   { wert: "offen", text: "Offen" },
-  { wert: "ok", text: "Kontaktiert" },
   { wert: "wiedervorlage", text: "Wiedervorlage" },
+  { wert: "termin", text: "Termin" },
+  { wert: "ok", text: "Kontaktiert" },
   { wert: "kein_interesse", text: "Kein Interesse" },
   { wert: "nogeo", text: "Ohne Karte" },
 ];

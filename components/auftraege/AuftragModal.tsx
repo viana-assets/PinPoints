@@ -28,7 +28,7 @@ import { AuftragProtokoll } from "./AuftragProtokoll";
 export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
-  einlagerung, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
+  einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
   fremdeSaetze, onAuslagern,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungErstellt, auftragFahrzeuge,
@@ -59,7 +59,11 @@ export function AuftragModal({
   frischAngelegt?: boolean;
   // Einlagerung (Migration 22, siehe docs/lager.md): welcher Lagerplatz gehört zu diesem
   // Auftrag, und verlangt eine seiner Leistungen überhaupt einen?
-  einlagerung: TireStorage | null;
+  // ALLE Sätze, die an diesem Auftrag hängen – nicht einer. Seit Migration 44 kann ein Auftrag
+  // mehrere Fahrzeuge tragen („3 Autos"), und dann gehören auch mehrere Sätze ins Regal. Bis
+  // zum 17.09.2026 stand hier ein einzelner Satz: Wer den zweiten einlagern wollte, fand
+  // keinen Knopf dafür – und der erste zog beim nächsten Platz-Wählen einfach um.
+  einlagerungen: TireStorage[];
   // Das Terminraster aus den Betriebseinstellungen (Migration 38). Bestimmt, welches Ende
   // beim Eintragen einer Anfangszeit vorgeschlagen wird.
   terminIntervallMin: number;
@@ -108,12 +112,18 @@ export function AuftragModal({
   // Anrufen direkt aus dem Auftragsfenster. Es ist der Bildschirm, auf dem eine angetippte
   // Terminerinnerung landet – wer dort steht, will genau zwei Dinge: hinfahren oder anrufen.
   onCall: (e: React.MouseEvent, cust: Customer) => void;
-  onEinlagern: (lagerplatzId: string) => Promise<void>;
+  // Ohne `einlagerungId` entsteht ein NEUER Satz, mit einer zieht der genannte um. Zwei
+  // Bedeutungen an einem Aufruf, aber es ist dieselbe Handlung: „dieser Satz liegt auf diesem
+  // Platz". Getrennte Aufrufe hätten die Aufrufstelle gezwungen, vorher zu wissen, ob es den
+  // Satz schon gibt – und genau das weiß der Knopf am Regal nicht.
+  onEinlagern: (lagerplatzId: string, einlagerungId?: string) => Promise<void>;
   onEinlagerungEntfernen: (einlagerungId: string) => Promise<void>;
   // Fahrzeug und Saison am eingelagerten Satz (Migration 30). Getrennt vom Zuordnen des
   // Lagerplatzes: das eine ist eine Bewegung im Regal, das andere eine Beschreibung.
   onEinlagerungAngaben: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) => Promise<void>;
   // Die einzeln erfassten Räder dieses Satzes und ihre Pflege (Migration 33).
+  // Die einzeln erfassten Räder ALLER Sätze dieses Auftrags. Aufgeteilt wird hier, je Satz –
+  // die Seite müsste sonst für jeden Satz eine eigene Liste durchreichen.
   raeder: EingelagertesRad[];
   onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
   onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
@@ -121,7 +131,10 @@ export function AuftragModal({
   onRadEntfernen: (radId: string) => Promise<void>;
   // Legt ein Fahrzeug für den Kunden dieses Auftrags an und ordnet es dem eingelagerten Satz
   // gleich zu – aus dem Auftrag heraus, ohne Umweg über das Kundenfenster.
-  onFahrzeugAnlegen: (kennzeichen: string, modell: string) => Promise<void>;
+  //
+  // `einlagerungId` sagt, WELCHEM Satz: Bei zwei Autos am selben Auftrag landete das Kennzeichen
+  // sonst bei dem, den die Seite zufällig zuerst fand.
+  onFahrzeugAnlegen: (kennzeichen: string, modell: string, einlagerungId?: string) => Promise<void>;
 }) {
   const gesperrt = istAbgeschlossen(order.status);
 
@@ -137,8 +150,10 @@ export function AuftragModal({
   // keinen Platz mehr, weil der Gebührenartikel inzwischen auf dem AUSLAGERUNGS-Auftrag steht,
   // wo gerade ein Platz frei wird. An die Stelle des Zwangs tritt die Frage weiter unten.
   const abschlussFehlt: string[] = [];
-  if (einlagerung && !einlagerung.vehicle_id) abschlussFehlt.push("Fahrzeug");
-  if (einlagerung && !einlagerung.saison) abschlussFehlt.push("Saison");
+  // Über ALLE Sätze: Die Datenbank zählt beim Abschließen ebenfalls alle (Migration 30). Fehlt
+  // an irgendeinem das Fahrzeug, steht es hier – auch wenn zwei andere vollständig sind.
+  if (einlagerungen.some((e) => !e.vehicle_id)) abschlussFehlt.push("Fahrzeug");
+  if (einlagerungen.some((e) => !e.saison)) abschlussFehlt.push("Saison");
 
   // ---------------------------------------------------------------- Entwurf
   // Alle Angaben dieses Fensters werden ZUERST hier gesammelt und erst auf „Speichern"
@@ -259,7 +274,7 @@ export function AuftragModal({
   );
   // Gefragt wird nur, wenn die Frage offen IST: kein Satz im Regal aus diesem Auftrag, und
   // niemand hat den Block schon von Hand aufgeklappt.
-  const altreifenOffen = fragtAltreifen && !einlagerung && !gesperrt && !altreifenGefragt;
+  const altreifenOffen = fragtAltreifen && einlagerungen.length === 0 && !gesperrt && !altreifenGefragt;
 
   const fahrzeug = vehicles.find((v) => v.id === fahrzeugId);
   const aktiveFirmenfahrzeuge = firmenfahrzeuge.filter((f) => f.aktiv);
@@ -723,25 +738,85 @@ export function AuftragModal({
               den Lagerplatz nur heran, indem man die Gebühr buchte, die zu diesem Zeitpunkt
               noch gar nicht bezifferbar ist. Wer nichts einlagert, klappt den Block zu und
               sieht ihn nicht weiter. */}
-          {(einlagerungOffen || einlagerung) ? (
-            <EinlagerungBlock
-              pflicht={false}
-              einlagerung={einlagerung}
-              slots={storageSlots}
-              warehouses={warehouses}
-              belegteSlotIds={belegteSlotIds}
-              gesperrt={gesperrt}
-              vehicles={vehicles}
-              raeder={raeder}
-              onEinlagern={onEinlagern}
-              onEntfernen={onEinlagerungEntfernen}
-              onAngabenAendern={onEinlagerungAngaben}
-              onErfassungsart={onErfassungsart}
-              onAnzahlRaeder={onAnzahlRaeder}
-              onRadSpeichern={onRadSpeichern}
-              onRadEntfernen={onRadEntfernen}
-              onFahrzeugAnlegen={onFahrzeugAnlegen}
-            />
+          {/* Ein Block je Satz (17.09.2026). Ein Auftrag mit drei Autos braucht drei Plätze,
+              drei Fahrzeugzuordnungen und drei Profilmessungen – ein einziger Block konnte das
+              nicht abbilden, und schlimmer: Der Platz-Knopf zog den vorhandenen Satz um, statt
+              einen zweiten anzulegen. Von außen sah es aus, als ginge nur ein Satz.
+
+              Die Datenbank konnte es die ganze Zeit: Eindeutig ist der PLATZ (ein aktiver Satz
+              je Platz, Migration 15), nicht der Auftrag. */}
+          {(einlagerungOffen || einlagerungen.length > 0) ? (
+            <>
+              {einlagerungen.map((satz, i) => (
+                <div key={satz.id}>
+                  <EinlagerungBlock
+                    /* Die Nummer steht nur da, wenn es mehr als einen gibt. Bei einem Satz
+                       wäre „Satz 1 von 1" eine Zählung ohne Gezähltes. */
+                    titel={einlagerungen.length > 1 ? `Einlagerung · Satz ${i + 1} von ${einlagerungen.length}` : "Einlagerung"}
+                    pflicht={false}
+                    einlagerung={satz}
+                    slots={storageSlots}
+                    warehouses={warehouses}
+                    belegteSlotIds={belegteSlotIds}
+                    gesperrt={gesperrt}
+                    vehicles={vehicles}
+                    raeder={raeder.filter((r) => r.tire_storage_id === satz.id)}
+                    onEinlagern={(lagerplatzId) => onEinlagern(lagerplatzId, satz.id)}
+                    onEntfernen={onEinlagerungEntfernen}
+                    onAngabenAendern={onEinlagerungAngaben}
+                    onErfassungsart={onErfassungsart}
+                    onAnzahlRaeder={onAnzahlRaeder}
+                    onRadSpeichern={onRadSpeichern}
+                    onRadEntfernen={onRadEntfernen}
+                    onFahrzeugAnlegen={(kennzeichen, modell) => onFahrzeugAnlegen(kennzeichen, modell, satz.id)}
+                  />
+                </div>
+              ))}
+              {/* Der leere Block zum Anlegen des nächsten Satzes: Er hat noch keine Zeile in
+                  der Datenbank, deshalb `einlagerung={null}` und ein `onEinlagern` OHNE Id –
+                  erst die Platzwahl legt den Satz an. */}
+              {einlagerungOffen && (
+                <div>
+                  <EinlagerungBlock
+                    titel={einlagerungen.length > 0 ? `Einlagerung · Satz ${einlagerungen.length + 1}` : "Einlagerung"}
+                    pflicht={false}
+                    einlagerung={null}
+                    slots={storageSlots}
+                    warehouses={warehouses}
+                    belegteSlotIds={belegteSlotIds}
+                    gesperrt={gesperrt}
+                    vehicles={vehicles}
+                    raeder={[]}
+                    onEinlagern={async (lagerplatzId) => { await onEinlagern(lagerplatzId); setEinlagerungOffen(false); }}
+                    onEntfernen={onEinlagerungEntfernen}
+                    onAngabenAendern={onEinlagerungAngaben}
+                    onErfassungsart={onErfassungsart}
+                    onAnzahlRaeder={onAnzahlRaeder}
+                    onRadSpeichern={onRadSpeichern}
+                    onRadEntfernen={onRadEntfernen}
+                    onFahrzeugAnlegen={onFahrzeugAnlegen}
+                  />
+                </div>
+              )}
+              {/* „Noch ein Satz" statt eines dauerhaft offenen Leerblocks: Wer einen Satz
+                  eingelagert hat, ist im Normalfall fertig. Der zweite ist die Ausnahme und
+                  bekommt deshalb einen Knopf, keinen bleibenden Platzhalter. */}
+              {!gesperrt && !einlagerungOffen && (
+                <div className="auftrag-block">
+                  <button
+                    type="button"
+                    className="btn-secondary btn-rand"
+                    onClick={() => setEinlagerungOffen(true)}
+                  >
+                    Noch einen Satz einlagern
+                  </button>
+                  <div className="small" style={{ marginTop: 6 }}>
+                    Für ein weiteres Fahrzeug auf diesem Auftrag. Jeder Satz bekommt seinen
+                    eigenen Lagerplatz, sein eigenes Fahrzeug und seine eigene Profilmessung.
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
             <div className="auftrag-block">
               <div className="auftrag-block-titel">Reifen einlagern</div>

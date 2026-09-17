@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
@@ -11,7 +11,7 @@ import type {
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
-  effectiveColor, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
+  effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
   getPhoneNumbers, navigationUrls,
   formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, terminZeitraum,
@@ -127,8 +127,15 @@ const MAX_MARKER = 600;
 // noch trennen lassen. Hellblau ist der einzige Ton, der von Rot UND Grün sichtbar wegbleibt –
 // und er sagt nebenbei das Richtige: kühl, geplant, nicht dringend. Rot soll die Karte
 // beherrschen, denn Rot ist das, was heute zu tun ist.
+//
+// Der Termin (17.09.2026) bekommt das dunkle Navy der Marke statt eines fünften bunten Tons.
+// Hellblau und Dunkelblau sagen zusammen dasselbe – kühl, geplant, nicht dringend – und
+// trennen sich durch HELLIGKEIT, nicht durch Farbton: Das bleibt auch dann lesbar, wenn Farben
+// schlecht unterschieden werden, und es nimmt Rot nichts weg. Ein fünfter warmer Ton hätte
+// genau das getan.
 const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse">, string> = {
   green: "#2f9e5c",
+  termin: "#1E3A5F",
   wiedervorlage: "#4FA8DC",
   red: "#e0483f",
 };
@@ -935,6 +942,10 @@ export default function HomePage() {
     const L = leafletRef.current;
     if (!L || !markerLayerRef.current) return;
     const { customers: custs, orders: ords, settings: s, sichtbareZustaende: sichtbar } = liveRef.current;
+    // Aus `ords` und nicht aus dem Render-Wert: Diese Funktion wird auch von Leaflet-Ereignissen
+    // aufgerufen, die einmal registriert wurden. Ein dort eingefangener Wert von damals wäre
+    // beim Verschieben der Karte längst veraltet – deshalb liest hier alles aus `liveRef`.
+    const mitTerminLive = kundenMitTermin(ords);
     // Nur zeichnen, was im Bild ist (Roadmap Phase 10). Bei ~4500 Kunden legte Leaflet vorher
     // 4500 DOM-Elemente an, von denen fast alle außerhalb des Ausschnitts lagen – Zoomen und
     // Verschieben wurden dadurch spürbar zäh. `pad` nimmt einen Rand mit, damit beim Schieben
@@ -950,7 +961,7 @@ export default function HomePage() {
       // Ausgeblendete Zustände fallen VOR der Obergrenze raus: sonst würden unsichtbare Nadeln
       // das Kontingent aufbrauchen und der Hinweis "weitere Kunden in diesem Ausschnitt"
       // zählte Kunden mit, die man gar nicht sehen will.
-      const color = effectiveColor(cust, s.period_months);
+      const color = effectiveColor(cust, s.period_months, todayStr(), mitTerminLive.has(cust.id));
       if (!sichtbar.includes(color)) return;
       // Im Reiter „Termine" bleiben alle Kunden ohne Termin im gewählten Zeitraum außen vor.
       const nurTermine = terminKundenRef.current;
@@ -961,7 +972,12 @@ export default function HomePage() {
       const ungefaehr = cust.geo_genauigkeit === "ungefaehr";
       const nextOrd = nextOrder(ordersForLive(cust.id, ords));
       let tooltip = `<b>${escapeHtml(cust.name)}</b><br>${escapeHtml(cust.address)}<br>` +
-        (cust.status === "kontaktiert" && cust.last_contact ? `Letzter Kontakt: ${formatDate(cust.last_contact)}` : "Noch nicht kontaktiert") +
+        // „Noch nicht kontaktiert" unmittelbar über einer Terminzeile las sich wie ein
+        // Widerspruch. Es stimmt zwar – ein Auftrag ist kein vermerkter Kontakt –, aber die
+        // schroffe Fassung gehört zu einem Kunden, bei dem gar nichts ansteht.
+        (cust.status === "kontaktiert" && cust.last_contact
+          ? `Letzter Kontakt: ${formatDate(cust.last_contact)}`
+          : mitTerminLive.has(cust.id) ? "Noch kein Kontakt vermerkt" : "Noch nicht kontaktiert") +
         (ungefaehr ? "<br><i>Ungefähre Position – nur die Straße war auffindbar</i>" : "");
       if (nextOrd) tooltip += `<br>📅 Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}`;
 
@@ -1005,7 +1021,7 @@ export default function HomePage() {
     const cust = custs.find((c) => c.id === customerId);
     const div = document.createElement("div");
     if (!cust) { div.textContent = "Kunde nicht gefunden"; return div; }
-    const color = effectiveColor(cust, s.period_months);
+    const color = effectiveColor(cust, s.period_months, todayStr(), kundenMitTermin(ords).has(cust.id));
     const nextOrd = nextOrder(ordersForLive(cust.id, ords));
     const phoneLines = getPhoneNumbers(cust).map(n => `<div class="pline">📞 ${escapeHtml(n.label)}: ${escapeHtml(n.number)}</div>`).join("");
     div.innerHTML = `
@@ -1308,8 +1324,15 @@ export default function HomePage() {
   // ------------------------------------------------------- Einlagerung am Auftrag (Migration 22)
   // Die aktive Einlagerung eines Auftrags. "Aktiv" heißt: noch nicht ausgelagert
   // (`removed_at is null`) – die Historie eines Lagerplatzes bleibt davon unberührt.
-  function einlagerungZuAuftrag(orderId: string): TireStorage | null {
-    return tireStorages.find((t) => t.order_id === orderId && !t.removed_at) || null;
+  //
+  // Eine LISTE und kein einzelner Satz (17.09.2026): Seit Migration 44 trägt ein Auftrag
+  // mehrere Fahrzeuge, und damit gehören mehrere Sätze ins Regal. Die Datenbank ließ das immer
+  // zu – eindeutig ist der PLATZ (ein aktiver Satz je Platz, Migration 15), nicht der Auftrag.
+  // Eingeschränkt hat nur dieses `find` hier.
+  function einlagerungenZuAuftrag(orderId: string): TireStorage[] {
+    return tireStorages
+      .filter((t) => t.order_id === orderId && !t.removed_at)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
   }
   // Steht auf diesem Auftrag eine Lagergebühr? Das heißt: Hier wurde AUSGELAGERT und die
   // Monate werden berechnet – nicht, dass ein Lagerplatz zu belegen wäre. Seit Migration 46
@@ -1319,11 +1342,14 @@ export default function HomePage() {
       (pos) => articles.find((a) => a.id === pos.article_id)?.abrechnungsart === "lagergebuehr"
     );
   }
-  async function einlagernFuerAuftrag(order: Order, lagerplatzId: string) {
+  // Mit `einlagerungId` zieht GENAU DIESER Satz auf den neuen Platz, ohne entsteht ein neuer.
+  //
+  // Vorher suchte diese Funktion sich den Satz selbst („den einen dieses Auftrags") und zog ihn
+  // um. Bei zwei Autos war das falsch herum: Wer den zweiten Satz einlagern wollte, verschob
+  // den ersten. Welcher Satz gemeint ist, weiß nur die Maske – also sagt sie es.
+  async function einlagernFuerAuftrag(order: Order, lagerplatzId: string, einlagerungId?: string) {
     await upsertTireAssignment(supabase, {
-      // Eine vorhandene Einlagerung dieses Auftrags wird umgezogen statt doppelt angelegt –
-      // sonst blieben zwei Plätze belegt, von denen einer niemandem gehört.
-      id: einlagerungZuAuftrag(order.id)?.id,
+      id: einlagerungId,
       storageSlotId: lagerplatzId,
       customerId: order.customer_id,
       dotDate: "", profiltiefeMm: "", note: "",
@@ -1393,6 +1419,14 @@ export default function HomePage() {
   async function updateOrderStatus(id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
     await updateOrderStatusById(supabase, id, status, grund);
     await refreshOrders();
+    // Beim Abschließen schreibt die Datenbank den Kontaktstand des Kunden fort (Migration 47).
+    // Ohne dieses Nachladen stünde die Nadel bis zum nächsten Seitenaufruf noch auf dem alten
+    // Zustand – die Änderung ist echt, nur nicht zu sehen, und das ist schlimmer als keine.
+    if (status === "erledigt") {
+      await refreshCustomers();
+      const auftrag = orders.find((o) => o.id === id);
+      if (auftrag && selectedId === auftrag.customer_id) loadHistory(auftrag.customer_id);
+    }
   }
   // Stammdaten der eigenen Transporter. Ein doppeltes Kennzeichen ist ein Bedienfehler und
   // kommt als Text zurück in die Maske – nicht als Störungsmeldung über den ganzen Bildschirm.
@@ -1507,16 +1541,18 @@ export default function HomePage() {
   // Fahrzeug aus dem Auftragsfenster heraus: anlegen UND dem eingelagerten Satz zuordnen.
   // Beides in einem Schritt, weil es fachlich einer ist – der Techniker steht am Auto und
   // sagt „das hier gehört zu diesem Satz".
-  async function fahrzeugAusAuftragAnlegen(orderId: string, kennzeichen: string, modell: string) {
+  async function fahrzeugAusAuftragAnlegen(orderId: string, kennzeichen: string, modell: string, einlagerungId?: string) {
     const auftrag = orders.find((o) => o.id === orderId);
     if (!auftrag) return;
     const fahrzeugId = await insertVehicle(supabase, auftrag.customer_id, {
       licensePlate: kennzeichen, makeModel: modell, tireSize: "", note: "",
     });
     await refreshVehicles();
-    const satz = einlagerungZuAuftrag(orderId);
-    if (satz) {
-      await updateTireStorageDetails(supabase, satz.id, { vehicleId: fahrzeugId });
+    // Dem Satz zuordnen, aus dessen Block heraus das Fahrzeug angelegt wurde. Ohne diese Id
+    // landete es bei zwei Sätzen im falschen – vorher gab es nur einen, da war die Frage
+    // nicht zu stellen.
+    if (einlagerungId) {
+      await updateTireStorageDetails(supabase, einlagerungId, { vehicleId: fahrzeugId });
       await refreshTireStorages();
     }
   }
@@ -1579,33 +1615,46 @@ export default function HomePage() {
     [activeCustomers, search, letterFilter, plzFilter]
   );
 
+  // Wer hat einen Termin vor sich? Einmal gebildet und dann überall nachgeschlagen – die
+  // Kundenliste, die Karte, die Zähler und das Kundenfenster fragen dieselbe Menge.
+  const mitTermin = useMemo(() => kundenMitTermin(orders), [orders]);
+  // Kurzform, damit die Aufrufstellen nicht jedes Mal dasselbe Set durchreichen müssen.
+  // Heißt `kundenZustand` und nicht `zustand`: Im Nadel-Filter weiter unten läuft eine
+  // Schleife über `KUNDEN_ZUSTAND_REIHENFOLGE`, deren Laufvariable sonst denselben Namen
+  // trüge – zwei verschiedene Dinge unter einem Namen im selben Bauteil.
+  const kundenZustand = useCallback(
+    (c: Customer) => effectiveColor(c, settings.period_months, todayStr(), mitTermin.has(c.id)),
+    [settings.period_months, mitTermin]
+  );
+
   // Ein Durchlauf für alle sechs Zahlen statt sechs Durchläufe. Bei 4500 Kunden ist das der
   // Unterschied zwischen einmal und sechsmal Rechnen bei jedem Tastendruck im Suchfeld.
   const filterZahlen = useMemo(() => {
-    const z = { all: vorgefiltert.length, offen: 0, ok: 0, wiedervorlage: 0, kein_interesse: 0, nogeo: 0 };
+    const z = { all: vorgefiltert.length, offen: 0, ok: 0, wiedervorlage: 0, termin: 0, kein_interesse: 0, nogeo: 0 };
     vorgefiltert.forEach((c) => {
       if (c.lat == null) z.nogeo++;
-      const farbe = effectiveColor(c, settings.period_months);
+      const farbe = kundenZustand(c);
       if (farbe === "red") z.offen++;
       else if (farbe === "green") z.ok++;
       else if (farbe === "wiedervorlage") z.wiedervorlage++;
+      else if (farbe === "termin") z.termin++;
       else z.kein_interesse++;
     });
     return z;
-  }, [vorgefiltert, settings.period_months]);
+  }, [vorgefiltert, kundenZustand]);
 
   // Zahlen für den Kartenfilter: gezählt wird, was überhaupt auf der Karte landen kann – also
   // aktive Kunden MIT Position. Bewusst ohne Such- und Buchstabenfilter, denn die betreffen nur
   // die Liste; die Karte zeigt immer alle. Sonst stünde am Schalter eine Zahl, die nicht zu dem
   // passt, was man vor sich sieht.
   const kartenZahlen = useMemo(() => {
-    const z: Record<KundenZustand, number> = { red: 0, wiedervorlage: 0, green: 0, "kein-interesse": 0 };
+    const z: Record<KundenZustand, number> = { red: 0, wiedervorlage: 0, termin: 0, green: 0, "kein-interesse": 0 };
     activeCustomers.forEach((c) => {
       if (c.lat == null || c.lng == null) return;
-      z[effectiveColor(c, settings.period_months)]++;
+      z[kundenZustand(c)]++;
     });
     return z;
-  }, [activeCustomers, settings.period_months]);
+  }, [activeCustomers, kundenZustand]);
 
   const listItems = useMemo(
     () =>
@@ -1613,15 +1662,16 @@ export default function HomePage() {
         .filter((c) => {
           if (filter === "all") return true;
           if (filter === "nogeo") return c.lat == null;
-          const color = effectiveColor(c, settings.period_months);
+          const color = kundenZustand(c);
           if (filter === "offen") return color === "red";
           if (filter === "ok") return color === "green";
           if (filter === "wiedervorlage") return color === "wiedervorlage";
+          if (filter === "termin") return color === "termin";
           if (filter === "kein_interesse") return color === "kein-interesse";
           return true;
         })
         .sort((a, b) => a.name.localeCompare(b.name, "de")),
-    [vorgefiltert, filter, settings.period_months]
+    [vorgefiltert, filter, kundenZustand]
   );
   // Nur ein Ausschnitt der Treffer landet im Dokument, nachladbar per Knopf am Listenende.
   // Gefiltert und gezählt wird weiterhin über alle Kunden.
@@ -1634,8 +1684,8 @@ export default function HomePage() {
   );
   const statTotal = activeCustomers.length;
   const statOk = useMemo(
-    () => activeCustomers.filter((c) => effectiveColor(c, settings.period_months) === "green").length,
-    [activeCustomers, settings.period_months]
+    () => activeCustomers.filter((c) => kundenZustand(c) === "green").length,
+    [activeCustomers, kundenZustand]
   );
   const inactiveCustomers = useMemo(
     () => customers.filter((c) => c.active === false).sort((a, b) => a.name.localeCompare(b.name, "de")),
@@ -1728,7 +1778,7 @@ export default function HomePage() {
       .filter((z): z is SaisonZeile => Boolean(z.cust))
       .filter((z) => (saisonFilter === "alle" ? true : z.einlagerung.saison === saisonFilter))
       .filter((z) => (saisonPlz ? (plzAus(z.cust.address) || "").startsWith(saisonPlz) : true))
-      .filter((z) => (saisonNurFaellige ? effectiveColor(z.cust, settings.period_months) === "red" : true))
+      .filter((z) => (saisonNurFaellige ? kundenZustand(z.cust) === "red" : true))
       // Sätze ohne Messung fallen hier heraus – nicht, weil sie in Ordnung wären, sondern
       // weil über sie nichts bekannt ist. Sie als „schwach" zu führen, wäre eine Behauptung.
       .filter((z) => {
@@ -1737,7 +1787,7 @@ export default function HomePage() {
         return mm != null && mm < PROFIL_KRITISCH_MM;
       })
       .sort((a, b) => a.cust.name.localeCompare(b.cust.name, "de"));
-  }, [tab, tireStorages, eingelagerteRaeder, customers, alleFahrzeuge, storageSlots, saisonFilter, saisonPlz, saisonNurFaellige, saisonNurSchwach, settings.period_months]);
+  }, [tab, tireStorages, eingelagerteRaeder, customers, alleFahrzeuge, storageSlots, saisonFilter, saisonPlz, saisonNurFaellige, saisonNurSchwach, kundenZustand]);
 
   async function saisonWiedervorlageSetzen(kundenIds: string[], datum: string) {
     setSaisonSchreibt(true);
@@ -2202,7 +2252,7 @@ export default function HomePage() {
                 </div>
               )}
               {sichtbareListItems.map((c) => {
-                const color = c.lat == null ? "gray" : effectiveColor(c, settings.period_months);
+                const color = c.lat == null ? "gray" : kundenZustand(c);
                 const nextOrd = nextOrder(ordersFor(c.id));
                 return (
                   <div
@@ -2732,9 +2782,14 @@ export default function HomePage() {
           {...(() => {
             // Die Vorgeschichte dieses Fahrzeugs (D2/D3). Hier gerechnet und nicht im
             // Auftragsfenster, weil nur die Seite den vollen Einlagerungsbestand hat.
-            const eigener = einlagerungZuAuftrag(offenerAuftrag.id);
+            //
+            // Die Sätze DIESES Auftrags fallen vorher raus – was gerade eingelagert wird, ist
+            // keine Vorgeschichte. Bis zum 17.09.2026 wurde dafür genau ein Satz ausgenommen;
+            // bei zwei Autos am selben Auftrag hätte sich der eine als „letztes Mal" über den
+            // anderen gelegt.
+            const fremde = tireStorages.filter((t) => t.order_id !== offenerAuftrag.id);
             const letzter = letzterSatzFuer(
-              tireStorages, offenerAuftrag.customer_id, offenerAuftrag.vehicle_id, eigener?.id
+              fremde, offenerAuftrag.customer_id, offenerAuftrag.vehicle_id
             );
             return {
               letzterSatz: letzter,
@@ -2743,7 +2798,7 @@ export default function HomePage() {
                 : [],
             };
           })()}
-          einlagerung={einlagerungZuAuftrag(offenerAuftrag.id)}
+          einlagerungen={einlagerungenZuAuftrag(offenerAuftrag.id)}
           hatLagergebuehr={auftragHatLagergebuehr(offenerAuftrag.id)}
           fremdeSaetze={tireStorages.filter(
             (t) => t.customer_id === offenerAuftrag.customer_id && !t.removed_at && t.order_id !== offenerAuftrag.id
@@ -2752,15 +2807,19 @@ export default function HomePage() {
           storageSlots={storageSlots}
           warehouses={warehouses}
           belegteSlotIds={belegteSlotIds}
-          onEinlagern={(lagerplatzId) => einlagernFuerAuftrag(offenerAuftrag, lagerplatzId)}
+          onEinlagern={(lagerplatzId, einlagerungId) => einlagernFuerAuftrag(offenerAuftrag, lagerplatzId, einlagerungId)}
           onEinlagerungEntfernen={(id) => removeTireAssignment(id, true)}
           onEinlagerungAngaben={einlagerungAngabenAendern}
-          raeder={eingelagerteRaeder.filter((r) => r.tire_storage_id === einlagerungZuAuftrag(offenerAuftrag.id)?.id)}
+          {...(() => {
+            // Die Räder ALLER Sätze dieses Auftrags; das Auftragsfenster teilt sie je Satz auf.
+            const eigeneIds = new Set(einlagerungenZuAuftrag(offenerAuftrag.id).map((e) => e.id));
+            return { raeder: eingelagerteRaeder.filter((r) => eigeneIds.has(r.tire_storage_id)) };
+          })()}
           onErfassungsart={erfassungsartSetzen}
           onAnzahlRaeder={anzahlRaederSetzen}
           onRadSpeichern={radSpeichern}
           onRadEntfernen={radEntfernen}
-          onFahrzeugAnlegen={(kennzeichen, modell) => fahrzeugAusAuftragAnlegen(offenerAuftrag.id, kennzeichen, modell)}
+          onFahrzeugAnlegen={(kennzeichen, modell, einlagerungId) => fahrzeugAusAuftragAnlegen(offenerAuftrag.id, kennzeichen, modell, einlagerungId)}
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
           firmenfahrzeuge={firmenfahrzeuge}

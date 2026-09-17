@@ -61,7 +61,7 @@ export function isContactedActive(cust: Customer, periodMonths: number): boolean
 // heißt er jetzt nach dem, was er bedeutet, und nicht nach dem, wie er aussieht. Die drei
 // übrigen Namen bleiben vorerst – sie sind dieselbe Schwäche, aber ihre Farben stehen nicht
 // zur Debatte, und ein halber Umbau ist schlechter als ein aufgeschobener.
-export type KundenZustand = "green" | "wiedervorlage" | "red" | "kein-interesse";
+export type KundenZustand = "green" | "termin" | "wiedervorlage" | "red" | "kein-interesse";
 
 // Welcher Zustand gilt für diesen Kunden? Die Reihenfolge der Prüfungen ist die Aussage:
 //
@@ -74,17 +74,59 @@ export type KundenZustand = "green" | "wiedervorlage" | "red" | "kein-interesse"
 //
 // `heute` ist überschreibbar, damit sich die Stichtagsgrenze prüfen lässt, ohne die Systemzeit
 // zu verstellen (siehe tests/kundenzustand.test.ts).
-export function effectiveColor(cust: Customer, periodMonths: number, heute: string = todayStr()): KundenZustand {
+// `hatTermin` wird ABGELEITET und nicht gespeichert (17.09.2026). Der Unterschied ist der
+// ganze Punkt:
+//
+// Die naheliegende Lösung wäre, beim Anlegen eines Auftrags `last_contact` zu setzen – dann
+// wäre die Nadel sofort grün. Nur hängt an `last_contact` die Wiedervorlage-Uhr: Der Kunde
+// bliebe drei Monate grün, AUCH wenn der Termin danach storniert wird. Jemand, mit dem nie
+// jemand gesprochen hat, verschwände für ein Quartal von der Anrufliste, und nichts wiese
+// darauf hin. Genau dieser Fehler wurde am 29.08.2026 einmal ausgebaut
+// (siehe docs/termine-kontakt-auftrag-analyse.md), er soll nicht zurückkommen.
+//
+// Abgeleitet stimmt die Aussage dagegen immer: Wird der Termin storniert oder abgeschlossen,
+// fällt der Kunde in derselben Sekunde in seinen Rhythmus zurück. Es gibt nichts
+// nachzupflegen, weil nichts gespeichert wurde.
+//
+// Der Termin steht GANZ OBEN, auch über „kein Interesse": Wer einen Termin vereinbart hat,
+// hat das Desinteresse von damals überholt. Sagt er wieder ab, ist er wieder grau – auch das
+// ergibt sich von selbst.
+export function effectiveColor(
+  cust: Customer, periodMonths: number, heute: string = todayStr(), hatTermin = false
+): KundenZustand {
+  if (hatTermin) return "termin";
   if (cust.kontakt_ergebnis === "kein_interesse") return "kein-interesse";
   if (cust.wiedervorlage_am && cust.wiedervorlage_am > heute) return "wiedervorlage";
   if (cust.wiedervorlage_am) return "red";
   return isContactedActive(cust, periodMonths) ? "green" : "red";
 }
 
+// Welche Kunden haben einen Termin vor sich? Einmal gebildet statt je Kunde durch alle
+// Aufträge zu laufen – bei 4500 Kunden und ein paar tausend Aufträgen ist das der Unterschied
+// zwischen einer Schleife und einer Multiplikation.
+//
+// „Vor sich" heißt: offen oder in Arbeit, Datum ab heute. Ein erledigter Auftrag zählt nicht –
+// der schreibt seinen Kontakt beim Abschließen selbst (Migration 47). Ein stornierter oder
+// gelöschter erst recht nicht.
+export function kundenMitTermin(
+  auftraege: { customer_id: string; order_date: string; status: string; deleted_at?: string | null }[],
+  heute: string = todayStr()
+): Set<string> {
+  const ids = new Set<string>();
+  auftraege.forEach((o) => {
+    if (o.deleted_at) return;
+    if (o.status !== "offen" && o.status !== "in_arbeit") return;
+    if (!o.order_date || o.order_date < heute) return;
+    ids.add(o.customer_id);
+  });
+  return ids;
+}
+
 // Beschriftung der Zustände – einmal zentral, damit Karte, Liste und Kundenfenster nicht drei
 // verschiedene Wörter für dasselbe benutzen.
 export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
   green: "kontaktiert",
+  termin: "Termin",
   wiedervorlage: "Wiedervorlage",
   red: "offen",
   "kein-interesse": "kein Interesse",
@@ -95,7 +137,7 @@ export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
 // der Reihenfolge, in der die Zustände zufällig im Typ stehen. Wer eine Liste der Zustände
 // braucht, nimmt diese – damit sie überall gleich sortiert erscheint.
 export const KUNDEN_ZUSTAND_REIHENFOLGE: readonly KundenZustand[] = [
-  "red", "wiedervorlage", "green", "kein-interesse",
+  "red", "wiedervorlage", "termin", "green", "kein-interesse",
 ];
 
 export function telHref(phone: string | null | undefined): string {

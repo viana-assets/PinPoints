@@ -21,6 +21,7 @@ import { QrScanner } from "@/components/QrScanner";
 // zuverlässigste Art, A-12 statt A-21 zu treffen.
 
 export function EinlagerungBlock({
+  titel = "Einlagerung",
   pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
   onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
   onFahrzeugAnlegen,
@@ -29,6 +30,10 @@ export function EinlagerungBlock({
   // die Datenbank vor dem Abschluss einen belegten Platz – dieser Block zeigt nur an, was dort
   // ohnehin erzwungen wird. Ein Hinweis in der Oberfläche ohne Regel in der Datenbank wäre eine
   // Bitte, keine Zusicherung.
+  // Die Überschrift des Blocks. Standard „Einlagerung"; trägt ein Auftrag mehrere Sätze, steht
+  // hier „Satz 2 von 3". Als Prop und nicht als zweite Überschrift darüber: Zwei Titel
+  // übereinander lesen sich wie zwei Abschnitte, und der untere wäre der leere.
+  titel?: string;
   pflicht: boolean;
   einlagerung: TireStorage | null;
   slots: StorageSlot[];
@@ -144,7 +149,7 @@ export function EinlagerungBlock({
   return (
     <div className="auftrag-block">
       <div className="auftrag-block-titel">
-        Einlagerung{pflicht && !einlagerung ? <span className="einlagerung-pflicht"> · Lagerplatz fehlt</span> : ""}
+        {titel}{pflicht && !einlagerung ? <span className="einlagerung-pflicht"> · Lagerplatz fehlt</span> : ""}
       </div>
 
       {einlagerung && belegterPlatz ? (
