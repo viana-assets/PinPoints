@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Article, Betrieb, Customer, Order, OrderArticle, Rechnung } from "@/lib/types";
-import { entwurfBauen, stornoAus, istGueltig, voraussichtlicheNummer } from "@/lib/rechnung";
+import { entwurfBauen, mailtoRechnung, stornoAus, istGueltig, voraussichtlicheNummer } from "@/lib/rechnung";
 import type { RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -153,6 +153,16 @@ export function RechnungModal({
               <button type="button" className="btn-primary" onClick={() => window.print()}>
                 Drucken / als PDF speichern
               </button>
+              {/* Bereitet den Entwurf vor, verschickt nichts. Das PDF hängt der Mensch an –
+                  am iPhone aus der Druckvorschau über das Teilen-Symbol. Ein Knopf, der
+                  „Senden" hieße und nur ein Fenster öffnet, wäre eine Behauptung. */}
+              {mailtoRechnung(beleg) ? (
+                <a className="btn-secondary btn-rand" href={mailtoRechnung(beleg)!}>
+                  E-Mail vorbereiten
+                </a>
+              ) : (
+                <span className="small">Für eine E-Mail fehlt die Adresse des Kunden.</span>
+              )}
               {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (
                 <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
                   onClick={() => setStornoFrage(beleg)}>

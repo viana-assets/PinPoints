@@ -1932,6 +1932,16 @@ tr.klickbar:hover { background: var(--hover); }
 .re-auswahl{flex-wrap:wrap;}
 .rechnung-modal .rechnung-vorschau{flex:1 1 auto;min-height:0;}
 .re-fussleiste{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+/* Der Mail-Knopf ist ein `a` und kein `button`: `mailto:` gehört dem Browser, nicht dem
+   Programm – ein Klickzähler dazwischen brächte nichts und würde Tastaturbedienung und
+   „Link in neuem Tab" kaputtmachen.
+
+   Den Rand muss diese Regel ausdrücklich setzen: Weiter oben steht `a.btn-secondary{border:none}`,
+   und das schlägt `.btn-rand` – ein Element-plus-Klasse-Selektor wiegt schwerer als eine Klasse
+   allein. Ohne diese Zeile stünde der Mail-Knopf randlos neben einem umrandeten „Stornieren". */
+.re-fussleiste a.btn-secondary{text-decoration:none;display:inline-flex;align-items:center;
+  line-height:1.2;}
+.re-fussleiste a.btn-rand{border:1px solid var(--border);}
 .re-fussleiste .small{color:var(--muted);flex:1 1 200px;}
 /* Der Vergrößerungsfaktor der Vorschau IM FENSTER. 210 mm sind bei 96 dpi rund 794 px; was
    davon übrig bleibt, hängt an der Fensterbreite – deshalb drei Stufen, alle mit derselben

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Rechnung } from "@/lib/types";
 import { formatDate, formatEUR, suchtreffer } from "@/lib/helpers";
-import { istGueltig } from "@/lib/rechnung";
+import { istGueltig, mailtoRechnung } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 
@@ -130,6 +130,11 @@ export function RechnungenPanel({ rechnungen, laedt, onAuftragOeffnen }: {
               <button type="button" className="btn-primary" onClick={() => window.print()}>
                 Drucken / als PDF speichern
               </button>
+              {mailtoRechnung(beleg) && (
+                <a className="btn-secondary btn-rand" href={mailtoRechnung(beleg)!}>
+                  E-Mail vorbereiten
+                </a>
+              )}
               {/* Storniert wird am Auftrag, nicht hier: Dort ist der Zusammenhang sichtbar,
                   aus dem die Rechnung entstanden ist. */}
               {beleg.order_id && onAuftragOeffnen && (
