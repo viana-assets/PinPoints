@@ -401,6 +401,8 @@ export const REGAL_LISTE_BREITE_PX = 700;
 // niemand benannt hat, ist immer noch eine Änderung, die stattgefunden hat.
 export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
   orders: "Auftrag",
+  betrieb: "Betriebsdaten",
+  rechnungen: "Rechnung",
   order_articles: "Leistung im Auftrag",
   order_employees: "Mitarbeiter am Auftrag",
   customers: "Kunde",
@@ -454,6 +456,27 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   order_id: "Auftrag", employee_id: "Mitarbeiter",
   // Zugänge und Rechte
   role: "Rolle", module_key: "Berechtigung", roles: "Rollen", profile_id: "Zugang",
+  // Leistung, Fortsetzung
+  endpreis_netto: "Endpreis netto",
+  // Artikel (Migration 46/48/50)
+  abrechnungsart: "Abrechnungsart", fragt_einlagerung: "fragt nach Altreifen",
+  einheit: "Einheit", freitext: "Bezeichnung am Auftrag",
+  // Auftrag / Lager, Nachzügler
+  end_time: "Uhrzeit bis", entnahme_order_id: "Auslagerung am Auftrag",
+  kundennummer: "Kundennummer",
+  // Betrieb: der Briefkopf (Migration 38/48). Er steht im Protokoll, weil er auf jeder
+  // Rechnung landet – „warum steht auf den Rechnungen seit gestern eine andere IBAN" ist
+  // genau die Frage, für die es das Protokoll gibt.
+  termin_intervall_min: "Terminraster (Min.)",
+  firma: "Firma", inhaber: "Inhaber", strasse: "Straße", plz: "PLZ", ort: "Ort",
+  telefon: "Telefon", webseite: "Webseite",
+  ust_id: "USt-IdNr.", steuernummer: "Steuernummer",
+  kontoinhaber: "Kontoinhaber", bank: "Bank", iban: "IBAN", bic: "BIC", logo: "Logo",
+  anschreiben: "Anschreiben",
+  fuss_zahlung: "Fußzeile: Zahlung", fuss_hinweis: "Fußzeile: Hinweis", fuss_dank: "Fußzeile: Dank",
+  rechnung_praefix: "Rechnungs-Präfix",
+  rechnung_naechste_nummer: "nächste Rechnungsnummer",
+  kunde_naechste_nummer: "nächste Kundennummer",
   // Allgemein
   note: "Notiz", deleted_at: "gelöscht am", created_at: "angelegt am",
 };
