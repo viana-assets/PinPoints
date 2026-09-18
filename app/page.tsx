@@ -2527,7 +2527,6 @@ export default function HomePage() {
             onDelete={deleteOrder}
             onNavigate={openNavMenu}
             isTechniker={isTechniker}
-            onUpdateTechnikerNotiz={updateTechnikerNotiz}
           />
           </>
         )}

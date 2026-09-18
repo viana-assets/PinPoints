@@ -10,6 +10,7 @@ import { Providers } from "./providers";
 import { MARKE_FAVICON } from "@/components/icons";
 import { PwaBereit } from "@/components/PwaBereit";
 import type { Viewport } from "next";
+import { ERSCHEINUNG } from "@/lib/erscheinung";
 
 export const metadata = {
   title: "Viana PinPoints",
@@ -20,8 +21,13 @@ export const metadata = {
   // `statusBarStyle: "default"` ist bewusst gewählt: bei "black-translucent" rutscht der
   // Inhalt unter die Statusleiste und müsste überall um env(safe-area-inset-top) versetzt
   // werden. Das ist eine ganze Klasse von Fehlern, die wir uns hier sparen.
-  appleWebApp: { capable: true, title: "PinPoints", statusBarStyle: "default" as const },
-  icons: { apple: "/apple-touch-icon.png" },
+  //
+  // Name und Symbol auf dem Homescreen kommen aus `lib/erscheinung.ts` – dort steht auch, warum
+  // sie derzeit „Settings" lauten und wie man es zurückstellt. `metadata.title` bleibt bewusst
+  // „Viana PinPoints": Das ist der Titel IN der Anwendung (Browser-Reiter), und innen soll sich
+  // nichts ändern.
+  appleWebApp: { capable: true, title: ERSCHEINUNG.appleTitel, statusBarStyle: "default" as const },
+  icons: { apple: ERSCHEINUNG.appleSymbol },
 };
 
 // Eigener Export statt eines <meta>-Elements im Kopf: Next.js setzt beides zusammen und

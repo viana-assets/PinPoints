@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Customer, Employee, Firmenfahrzeug, Order, OrderStatus } from "@/lib/types";
-import { todayStr, formatDate, formatOrderDateTime, orderDateTime, terminZeitraum } from "@/lib/helpers";
+import { todayStr, formatDate, orderDateTime, terminZeitraum } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
 import { RasterLegende, Stundenraster } from "./Stundenraster";
@@ -10,7 +10,7 @@ import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Das Terminraster aus den Betriebseinstellungen – dieselbe Zahl wie im Auftragsfenster.
   standardDauerMin: number;
@@ -32,7 +32,6 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // in der Oberfläche zusätzlich keine Mitarbeiter-/Leistungen-Zuordnung oder Löschung anstoßen –
   // nur Status und die eigene Techniker-Notiz, siehe AuftraegePanel für dasselbe Muster.
   isTechniker: boolean;
-  onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
 }) {
   const today = new Date();
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -348,11 +347,15 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                 <tr>
                   <th style={{ cursor: "pointer" }} onClick={() => toggleSort("date")}>Termin{sortArrow("date")}</th>
                   <th style={{ cursor: "pointer" }} onClick={() => toggleSort("kunde")}>Kunde{sortArrow("kunde")}</th>
-                  <th>Titel</th>
+                  {/* „Titel" und „Notiz" sind hier am 18.09.2026 entfallen – dieselbe
+                      Entscheidung wie in der Auftragsliste. Der Titel ist bei fast jedem
+                      Auftrag „Termin – ‹Kunde›" und wiederholt damit die Spalte daneben; die
+                      Notiz ist ein Satz Fließtext, der eine Tabellenspalte sprengt. Beides
+                      steht im Auftragsfenster, wo es hingehört. Am Handy sind zwei Spalten
+                      weniger der Unterschied zwischen Lesen und Wischen. */}
                   <th>Mitarbeiter</th>
                   <th>Leistungen</th>
                   <th style={{ cursor: "pointer" }} onClick={() => toggleSort("status")}>Status{sortArrow("status")}</th>
-                  <th>Notiz</th>
                   <th></th>
                 </tr>
               </thead>
@@ -361,7 +364,16 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                   const cust = customers.find((c) => c.id === o.customer_id);
                   return (
                     <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
-                      <td className="date-cell">{formatOrderDateTime(o)}</td>
+                      <td className="date-cell">
+                        {/* Die Zeitspanne unter dem Datum statt dahinter: Ein Termin von 9 bis
+                            halb 11 ist zwei Angaben, und nebeneinander drängt die zweite das
+                            Datum zusammen. Untereinander liest man erst WANN, dann WIE LANGE –
+                            und die Spalte wird schmal genug fürs Handy. Wortgleich mit der
+                            Auftragsliste; zwei Darstellungen desselben Termins wären zwei
+                            Wahrheiten. */}
+                        {formatDate(o.order_date)}
+                        {terminZeitraum(o) && <><br /><span className="small">{terminZeitraum(o)}</span></>}
+                      </td>
                       <td>
                         {cust ? (
                           <>
@@ -380,7 +392,6 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                         </>
                       ) : "–"}
                       </td>
-                      <td>{o.title}</td>
                       <td onClick={(e) => e.stopPropagation()}>
                         {isTechniker ? employeeNamesFor(o.id) : (
                           <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditEmployees(e, o.id)}>
@@ -391,20 +402,6 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                       <td>{orderArticlesLabel(o.id)}</td>
                       <td>
                         <span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{statusLabel[o.status]}</span>
-                      </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        {isTechniker ? (
-                          <input
-                            type="text"
-                            defaultValue={o.techniker_notiz || ""}
-                            placeholder="Notiz…"
-                            className="feld-kompakt"
-                            style={{ width: 140 }}
-                            onBlur={(e) => { if (e.target.value !== (o.techniker_notiz || "")) onUpdateTechnikerNotiz(o.id, e.target.value); }}
-                          />
-                        ) : (
-                          o.techniker_notiz ? <span className="small">{o.techniker_notiz}</span> : "–"
-                        )}
                       </td>
                       <td onClick={(e) => e.stopPropagation()}>
                         {!isTechniker && (

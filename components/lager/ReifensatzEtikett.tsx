@@ -169,11 +169,24 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
               <option key={f.schluessel} value={f.schluessel}>{f.text}</option>
             ))}
           </select>
+          {/* Der Hinweis steht hier und nicht in einer Anleitung: Gelesen wird er in der
+              Sekunde, in der jemand vor dem Druckdialog steht – und genau dort entscheidet
+              sich, ob das Etikett brauchbar aus dem Drucker kommt. */}
           <span className="small">
             {rolle
               ? "Im Druckdialog die Ränder auf null und die Skalierung auf 100 % stellen – sonst schrumpft der QR-Code und wird unlesbar."
               : "Mehrere Etiketten nebeneinander auf einem Blatt Klebeetiketten, zum Ausschneiden."}
           </span>
+          {rolle && (
+            <span className="small" style={{ marginTop: 4 }}>
+              Am Handy: mit dem <b>eigenen WLAN des Druckers</b> verbinden (Wireless Direct),
+              nicht über den Handy-Hotspot – und nicht über Bluetooth. Der Browser druckt über
+              das Drucksystem des Geräts, und das findet nur Drucker im selben Netz. Für das
+              Drucken wird kein Internet gebraucht: Dieses Fenster ist bereits geladen.
+              Bietet der Druckdialog nur A4 an, kennt er das Etikettenformat nicht; dann über
+              einen Rechner drucken.
+            </span>
+          )}
         </div>
 
         <div
