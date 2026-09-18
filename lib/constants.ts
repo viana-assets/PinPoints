@@ -234,6 +234,11 @@ export const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
 // bequem und hat genau eine Grenze: Die Zeile wird bei JEDEM Laden der Betriebsdaten
 // mitgeschickt. 200 kB sind dafür die Schmerzgrenze; ein Briefkopflogo braucht bei 300 Pixel
 // Breite etwa 15 kB.
+// Die Einheiten, die im Artikelstamm zur Auswahl stehen. Eine Vorschlagsliste, KEINE Grenze:
+// Das Feld bleibt frei beschreibbar. Vier Werte decken ab, was heute vorkommt – und wer einen
+// fünften braucht, soll ihn tippen können, statt auf eine Auslieferung zu warten.
+export const EINHEITEN = ["Stück", "Fahrt", "Monate", "Pauschal", "Stunde"];
+
 export const LOGO_MAX_BYTES = 200 * 1024;
 export const LOGO_TYPEN = ["image/png", "image/jpeg", "image/svg+xml"];
 

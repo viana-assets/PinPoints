@@ -13,7 +13,7 @@ import {
 function artikel(teil: Partial<Article> = {}): Article {
   return {
     id: "a1", article_number: 100, short_name: "Wechsel", long_name: "Reifenwechsel",
-    active: true, abrechnungsart: "normal", fragt_einlagerung: false, einheit: "Stück",
+    active: true, abrechnungsart: "normal", fragt_einlagerung: false, einheit: "Stück", freitext: false,
     created_at: "2026-01-01", ...teil,
   };
 }
@@ -279,5 +279,48 @@ describe("voraussichtlicheNummer", () => {
 
   it("faellt ohne Praefix auf RE zurueck statt eine nackte Zahl zu zeigen", () => {
     expect(voraussichtlicheNummer({ rechnung_praefix: "", rechnung_naechste_nummer: 7 })).toBe("RE7");
+  });
+});
+
+describe("die freie Position (Migration 50)", () => {
+  const sonstiges = artikel({
+    id: "frei", article_number: 12, short_name: "Sonstiges", long_name: "Sonstiges",
+    freitext: true, einheit: "Pauschal",
+  });
+
+  it("der eingegebene Text ERSETZT die Bezeichnung", () => {
+    const p = positionenAusAuftrag(
+      [zeile({ article_id: "frei", quantity: 1, net_price: 0, endpreis_netto: 70, note: "Hilfe beim Aufbocken" })],
+      [sonstiges]
+    );
+    expect(p).toHaveLength(1);
+    expect(p[0].bezeichnung).toBe("Hilfe beim Aufbocken");
+    // Nicht zusaetzlich als Zusatzzeile – sonst staende derselbe Text zweimal.
+    expect(p[0].zusatz).toBeNull();
+    expect(p[0].netto).toBe(70);
+    expect(p[0].einheit).toBe("Pauschal");
+  });
+
+  it("ohne Eingabe bleibt der Artikelname stehen", () => {
+    // Eine Rechnungszeile ohne Bezeichnung waere schlimmer als eine mit „Sonstiges".
+    const p = positionenAusAuftrag(
+      [zeile({ article_id: "frei", quantity: 1, net_price: 0, endpreis_netto: 70, note: null })],
+      [sonstiges]
+    );
+    expect(p[0].bezeichnung).toBe("Sonstiges");
+  });
+
+  it("Leerzeichen allein zaehlen nicht als Eingabe", () => {
+    const p = positionenAusAuftrag(
+      [zeile({ article_id: "frei", quantity: 1, net_price: 0, endpreis_netto: 70, note: "   " })],
+      [sonstiges]
+    );
+    expect(p[0].bezeichnung).toBe("Sonstiges");
+  });
+
+  it("bei einem normalen Artikel ERGAENZT der Text die Bezeichnung", () => {
+    const p = positionenAusAuftrag([zeile({ note: "Radlager Reifen VR" })], [artikel()]);
+    expect(p[0].bezeichnung).toBe("Reifenwechsel");
+    expect(p[0].zusatz).toBe("Radlager Reifen VR");
   });
 });

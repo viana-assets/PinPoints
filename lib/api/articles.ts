@@ -154,7 +154,11 @@ export async function insertOrderArticle(
   orderId: string,
   articleId: string,
   quantity: number,
-  endpreisNetto: number | null
+  endpreisNetto: number | null,
+  // Der Text, der auf der Rechnung erscheint (Migration 50). Bei einem Freitext-Artikel als
+  // BEZEICHNUNG, sonst als Zusatzzeile darunter – welches von beidem, entscheidet der Haken
+  // am Artikel, nicht diese Funktion.
+  text: string | null
 ): Promise<void> {
   const price = currentArticlePrice(existingPrices.filter((p) => p.article_id === articleId));
   await qWrite(
@@ -166,6 +170,7 @@ export async function insertOrderArticle(
       // etwas anderes als 0, was „geschenkt" bedeutet. Den Prozentrabatt, den es hier bis
       // Migration 38 gab, hat Migration 39 entfernt.
       endpreis_netto: endpreisNetto,
+      note: text,
     })
   );
 }
@@ -180,6 +185,20 @@ export async function updateOrderArticleEndpreisById(
   await qWrite(
     "Der Endpreis konnte nicht gespeichert werden",
     supabase.from("order_articles").update({ endpreis_netto: endpreisNetto }).eq("id", id)
+  );
+}
+
+// Der Text auf der Rechnung (Migration 50, Spalte seit Migration 20).
+//
+// Leer heißt „kein Text" und wird als `null` gespeichert, nicht als leere Zeichenkette: Sonst
+// stünde auf der Rechnung eine Zusatzzeile ohne Inhalt, und in der Datenbank ließe sich
+// „nichts eingetragen" nicht mehr von „absichtlich geleert" unterscheiden.
+export async function updateOrderArticleTextById(
+  supabase: SupabaseClient, id: string, text: string | null
+): Promise<void> {
+  await qWrite(
+    "Der Text konnte nicht gespeichert werden",
+    supabase.from("order_articles").update({ note: text?.trim() || null }).eq("id", id)
   );
 }
 

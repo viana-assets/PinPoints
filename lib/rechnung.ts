@@ -46,11 +46,24 @@ export function positionenAusAuftrag(
 
   zeilen.forEach((z) => {
     const a = artikel.find((x) => x.id === z.article_id) ?? null;
-    const bezeichnung = a?.long_name?.trim() || a?.short_name?.trim() || "Leistung";
+    const artikelname = a?.long_name?.trim() || a?.short_name?.trim() || "Leistung";
+    const text = z.note?.trim() || "";
+
+    // Der Freitext ERSETZT die Bezeichnung, statt sie zu ergänzen (Migration 50).
+    //
+    // „Sonstiges" über „Hilfe beim Aufbocken" wäre für den Kunden eine Zumutung: Er liest
+    // zuerst, dass wir es selbst nicht benennen können. Bei einem normalen Artikel ist es
+    // umgekehrt – „Radlager Reifen VR" ergänzt „Reifenmontage" und ersetzt sie nicht.
+    //
+    // Ohne Eingabe bleibt der Artikelname stehen. Eine Rechnungszeile ohne Bezeichnung ist
+    // schlimmer als eine mit „Sonstiges".
+    const freitext = a?.freitext === true && text !== "";
+    const bezeichnung = freitext ? text : artikelname;
+
     const basis = {
       artikelnummer: a?.article_number ?? null,
       bezeichnung,
-      zusatz: z.note?.trim() || null,
+      zusatz: freitext ? null : (text || null),
       menge: z.quantity,
       einheit: a?.einheit?.trim() || "Stück",
       steuersatz: z.vat_rate,

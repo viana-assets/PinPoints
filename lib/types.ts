@@ -344,6 +344,13 @@ export type Article = {
   // Die Einheit auf der Rechnung (Migration 48): „Stück", „Fahrt", „Monate". Sie gehört an den
   // Artikel und nicht an die Position – sie ändert sich nicht von Auftrag zu Auftrag.
   einheit: string;
+  // Die Bezeichnung dieser Leistung wird am AUFTRAG eingegeben (Migration 50) und ersetzt auf
+  // der Rechnung den Artikelnamen. Für „Sonstiges" und ähnliche Sammelpositionen: Dort hilft
+  // der Techniker bei etwas, das in keinem Artikel steht, und vereinbart einen Preis vor Ort.
+  //
+  // Ein Haken am Artikel und keine Erkennung am Namen: „wenn der Artikel Sonstiges heißt" wäre
+  // ein Artikelname als Programmlogik und beim ersten Umbenennen falsch.
+  freitext: boolean;
   created_at: string;
 };
 
@@ -357,6 +364,8 @@ export type ArtikelFelder = {
   active: boolean;
   abrechnungsart: Article["abrechnungsart"];
   fragt_einlagerung: boolean;
+  einheit: string;
+  freitext: boolean;
 };
 
 // Ein Preis-Eintrag eines Artikels mit Gültigkeitszeitraum. `valid_to` ist null, solange der
