@@ -322,6 +322,53 @@ export function voraussichtlicheNummer(b: Pick<Betrieb, "rechnung_praefix" | "re
   return `${b.rechnung_praefix || "RE"}${b.rechnung_naechste_nummer}`;
 }
 
+// ---------------------------------------------------------------- Die Mail an den Kunden
+//
+// WAS DAS HIER NICHT TUT: verschicken. Und auch nicht anhängen.
+//
+// Ein Browser darf einer E-Mail keine Datei anhängen – das ist eine Sicherheitsgrenze und
+// keine fehlende Funktion. Eine Webseite, die unbemerkt Dateien an Mails hängen könnte, wäre
+// ein Einfallstor. Und selbst verschicken kann diese Anwendung nicht: Dafür bräuchte es einen
+// Versanddienst, also ein weiteres System mit Kundendaten darin.
+//
+// Was bleibt, ist der `mailto:`-Entwurf: Empfänger, Betreff und Text stehen drin, das PDF
+// hängt der Mensch an – auf dem iPhone aus der Druckvorschau heraus über das Teilen-Symbol.
+// Das ist ehrlicher als ein Knopf „Senden", der in Wahrheit nur ein Fenster öffnet.
+//
+// Der Text kommt aus dem SNAPSHOT der Rechnung und nicht aus den aktuellen Betriebsdaten:
+// Wer eine zwei Jahre alte Rechnung noch einmal verschickt, soll sie mit dem Absender
+// verschicken, der daraufsteht.
+export function mailtoRechnung(
+  r: Pick<Rechnung, "nummer_text" | "datum" | "brutto" | "empfaenger" | "absender" | "art">
+): string | null {
+  const an = (r.empfaenger.email || "").trim();
+  if (!an) return null;
+
+  const wer = firmaOhneInhaber(r.absender.firma, r.absender.inhaber) || r.absender.firma;
+  const gruss = [wer, r.absender.inhaber].filter(Boolean).join("\n");
+  const betrag = r.brutto.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+  const datum = r.datum.slice(0, 10).split("-").reverse().join(".");
+
+  const betreff = r.art === "storno"
+    ? `Stornorechnung ${r.nummer_text}`
+    : `Rechnung ${r.nummer_text}`;
+
+  const text = [
+    "Sehr geehrte Damen und Herren,",
+    "",
+    r.art === "storno"
+      ? `anbei erhalten Sie die Stornorechnung ${r.nummer_text} vom ${datum}.`
+      : `anbei erhalten Sie die Rechnung ${r.nummer_text} vom ${datum} über ${betrag}.`,
+    "",
+    "Mit freundlichen Grüßen",
+    gruss,
+  ].join("\n");
+
+  // `encodeURIComponent` und nicht `encodeURI`: Letzteres lässt & und = stehen, und ein
+  // kaufmännisches Und im Firmennamen würde den Rest des Textes abschneiden.
+  return `mailto:${encodeURIComponent(an)}?subject=${encodeURIComponent(betreff)}&body=${encodeURIComponent(text)}`;
+}
+
 // Ist diese Rechnung noch gültig? Eine stornierte zählt nicht mehr – weder in der Liste noch
 // bei der Frage, ob ein Auftrag abgerechnet ist.
 export function istGueltig(r: Rechnung): boolean {

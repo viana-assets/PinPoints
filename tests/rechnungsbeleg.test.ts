@@ -3,7 +3,7 @@ import type { Article, OrderArticle, Rechnung } from "@/lib/types";
 import {
   aufCent, positionenAusAuftrag, rechnungSummen, anschriftZeilen, girocodeText,
   stornoAus, istGueltig, NACHLASS_BEZEICHNUNG, GIROCODE_KENNUNG,
-  firmaOhneInhaber, voraussichtlicheNummer,
+  firmaOhneInhaber, voraussichtlicheNummer, mailtoRechnung,
 } from "@/lib/rechnung";
 
 // Die Zahlen auf einem Beleg sind die einzige Stelle in dieser Anwendung, an der ein Fehler
@@ -322,5 +322,44 @@ describe("die freie Position (Migration 50)", () => {
     const p = positionenAusAuftrag([zeile({ note: "Radlager Reifen VR" })], [artikel()]);
     expect(p[0].bezeichnung).toBe("Reifenwechsel");
     expect(p[0].zusatz).toBe("Radlager Reifen VR");
+  });
+});
+
+describe("mailtoRechnung", () => {
+  const mitMail = beleg({
+    empfaenger: { ...beleg().empfaenger, email: "kunde@beispiel.de" },
+    absender: { ...beleg().absender, firma: "Mobiler Reifenservice Paul Geiger", inhaber: "Paul Geiger" },
+  });
+
+  it("baut Empfaenger, Betreff und Text", () => {
+    const url = mailtoRechnung(mitMail)!;
+    expect(url.startsWith("mailto:kunde%40beispiel.de?")).toBe(true);
+    const text = decodeURIComponent(url.split("&body=")[1]);
+    const betreff = decodeURIComponent(url.split("?subject=")[1].split("&")[0]);
+    expect(betreff).toBe("Rechnung RE1782");
+    expect(text).toContain("Rechnung RE1782 vom 18.09.2026");
+    expect(text).toContain("119,00");
+    // Die Gruss-Zeile kommt aus dem Snapshot, nicht aus den heutigen Betriebsdaten.
+    expect(text).toContain("Mobiler Reifenservice\nPaul Geiger");
+  });
+
+  it("ohne E-Mail-Adresse gibt es keinen Entwurf statt eines kaputten", () => {
+    expect(mailtoRechnung(beleg())).toBeNull();
+  });
+
+  it("eine Stornorechnung heisst auch im Betreff so", () => {
+    const url = mailtoRechnung({ ...mitMail, art: "storno", brutto: -119 })!;
+    expect(decodeURIComponent(url.split("?subject=")[1].split("&")[0])).toBe("Stornorechnung RE1782");
+  });
+
+  it("ein kaufmaennisches Und im Firmennamen schneidet den Text nicht ab", () => {
+    // encodeURI statt encodeURIComponent haette hier alles hinter dem & verloren.
+    const url = mailtoRechnung({
+      ...mitMail,
+      absender: { ...mitMail.absender, firma: "Reifen & Felgen", inhaber: "" },
+    })!;
+    const text = decodeURIComponent(url.split("&body=")[1]);
+    expect(text).toContain("Reifen & Felgen");
+    expect(text.split("\n").pop()).toBe("Reifen & Felgen");
   });
 });
