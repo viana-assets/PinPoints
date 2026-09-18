@@ -261,6 +261,54 @@ export function stornoAus(r: Rechnung, heute: string): RechnungEntwurf & { hebt_
   };
 }
 
+// ---------------------------------------------------------------- Der Firmenname in der Fußzeile
+//
+// Oben im Briefkopf steht der vollständige Name: „Mobiler Reifenservice Paul Geiger". In der
+// Fußzeile steht direkt darunter „Inhaber: Paul Geiger" – derselbe Name zweimal untereinander.
+// Dort wird er deshalb aus dem Firmennamen herausgenommen:
+//
+//     Mobiler Reifenservice
+//     Inhaber: Paul Geiger
+//
+// Betroffen ist NUR die Fußzeile. Briefkopf und Absenderzeile über dem Anschriftenfeld führen
+// weiter den vollständigen Namen – dort ist er die Angabe, hier wäre er die Wiederholung.
+//
+// Bleibt nach dem Herausnehmen nichts übrig (der Betrieb heißt genau wie sein Inhaber), bleibt
+// der Name stehen; eine leere Zeile wäre schlimmer als eine doppelte.
+//
+// Das ist bewusst eine Regel und kein zweites Eingabefeld: Ein „Kurzname" in den
+// Betriebsdaten wäre eine weitere Stelle, die jemand pflegen muss und die beim nächsten
+// Umbenennen vergessen wird. Wer wirklich einen anderen Namen unten haben will als oben,
+// braucht dieses Feld – dann aber als bewusste Entscheidung mit eigener Migration.
+export function firmaOhneInhaber(firma: string, inhaber: string): string {
+  const f = (firma || "").trim();
+  const i = (inhaber || "").trim();
+  if (!f || !i) return f;
+
+  const stelle = f.toLowerCase().indexOf(i.toLowerCase());
+  if (stelle < 0) return f;
+
+  // Trennzeichen am Rand mit wegnehmen: aus „Reifenservice - Paul Geiger" soll nicht
+  // „Reifenservice -" werden.
+  const rest = (f.slice(0, stelle) + " " + f.slice(stelle + i.length))
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,\-–·]+|[\s,\-–·]+$/g, "")
+    .trim();
+
+  return rest || f;
+}
+
+// Die Nummer, die eine jetzt ausgestellte Rechnung voraussichtlich bekäme.
+//
+// VORAUSSICHTLICH und nicht reserviert: Ein Entwurf, der eine Nummer zieht, verbraucht sie
+// auch dann, wenn ihn niemand ausstellt – und eine Lücke im Nummernkreis erklärt man bei der
+// nächsten Prüfung. Zwischen dem Blick auf den Entwurf und dem Ausstellen kann jemand anders
+// ausgestellt haben; dann wird es die nächste. Deshalb steht auf dem Entwurf „voraussichtlich"
+// und nicht die Nummer allein.
+export function voraussichtlicheNummer(b: Pick<Betrieb, "rechnung_praefix" | "rechnung_naechste_nummer">): string {
+  return `${b.rechnung_praefix || "RE"}${b.rechnung_naechste_nummer}`;
+}
+
 // Ist diese Rechnung noch gültig? Eine stornierte zählt nicht mehr – weder in der Liste noch
 // bei der Frage, ob ein Auftrag abgerechnet ist.
 export function istGueltig(r: Rechnung): boolean {

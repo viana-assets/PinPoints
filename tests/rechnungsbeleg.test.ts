@@ -3,6 +3,7 @@ import type { Article, OrderArticle, Rechnung } from "@/lib/types";
 import {
   aufCent, positionenAusAuftrag, rechnungSummen, anschriftZeilen, girocodeText,
   stornoAus, istGueltig, NACHLASS_BEZEICHNUNG, GIROCODE_KENNUNG,
+  firmaOhneInhaber, voraussichtlicheNummer,
 } from "@/lib/rechnung";
 
 // Die Zahlen auf einem Beleg sind die einzige Stelle in dieser Anwendung, an der ein Fehler
@@ -231,5 +232,52 @@ describe("der Snapshot traegt den Steuerausweis selbst", () => {
     // erraten. Genau daran haengt der Fall „alle Positionen steuerfrei".
     expect(ohne.texte.mit_steuer).toBe(false);
     expect(stornoAus(ohne, "2026-09-20").texte.mit_steuer).toBe(false);
+  });
+});
+
+describe("firmaOhneInhaber", () => {
+  it("nimmt den Inhabernamen aus dem Firmennamen heraus", () => {
+    // Fusszeile: „Mobiler Reifenservice" und darunter „Inhaber: Paul Geiger" – nicht zweimal
+    // derselbe Name untereinander.
+    expect(firmaOhneInhaber("Mobiler Reifenservice Paul Geiger", "Paul Geiger"))
+      .toBe("Mobiler Reifenservice");
+  });
+
+  it("laesst den Namen stehen, wenn der Inhaber nicht darin vorkommt", () => {
+    expect(firmaOhneInhaber("Reifen Nord GmbH", "Paul Geiger")).toBe("Reifen Nord GmbH");
+  });
+
+  it("achtet nicht auf Gross- und Kleinschreibung", () => {
+    expect(firmaOhneInhaber("MOBILER REIFENSERVICE PAUL GEIGER", "paul geiger"))
+      .toBe("MOBILER REIFENSERVICE");
+  });
+
+  it("nimmt ein Trennzeichen am Rand mit", () => {
+    expect(firmaOhneInhaber("Reifenservice - Paul Geiger", "Paul Geiger")).toBe("Reifenservice");
+    expect(firmaOhneInhaber("Reifenservice, Paul Geiger", "Paul Geiger")).toBe("Reifenservice");
+  });
+
+  it("findet den Namen auch am Anfang", () => {
+    expect(firmaOhneInhaber("Paul Geiger Reifenservice", "Paul Geiger")).toBe("Reifenservice");
+  });
+
+  it("laesst den Namen stehen, wenn sonst nichts uebrig bliebe", () => {
+    // Eine leere Zeile in der Fusszeile waere schlimmer als eine doppelte.
+    expect(firmaOhneInhaber("Paul Geiger", "Paul Geiger")).toBe("Paul Geiger");
+  });
+
+  it("kommt mit leeren Angaben zurecht", () => {
+    expect(firmaOhneInhaber("Reifen Nord GmbH", "")).toBe("Reifen Nord GmbH");
+    expect(firmaOhneInhaber("", "Paul Geiger")).toBe("");
+  });
+});
+
+describe("voraussichtlicheNummer", () => {
+  it("setzt Praefix und naechste Nummer zusammen", () => {
+    expect(voraussichtlicheNummer({ rechnung_praefix: "RE", rechnung_naechste_nummer: 1782 })).toBe("RE1782");
+  });
+
+  it("faellt ohne Praefix auf RE zurueck statt eine nackte Zahl zu zeigen", () => {
+    expect(voraussichtlicheNummer({ rechnung_praefix: "", rechnung_naechste_nummer: 7 })).toBe("RE7");
   });
 });
