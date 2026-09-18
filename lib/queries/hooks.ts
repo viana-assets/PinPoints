@@ -13,6 +13,8 @@ import {
   fetchEingelagerteRaeder,
 } from "@/lib/api/lager";
 import { fetchModulePermissions } from "@/lib/api/permissions";
+import { fetchBetrieb } from "@/lib/api/betrieb";
+import { fetchRechnungen, fetchRechnungenZuAuftrag } from "@/lib/api/rechnungen";
 
 // Datenbestände der Anwendung als Abfragen (Roadmap Phase 10).
 //
@@ -188,6 +190,39 @@ export function useModulrechte(supabase: SupabaseClient, aktiv: boolean) {
     queryKey: qk.modulrechte(),
     queryFn: () => fetchModulePermissions(supabase),
     enabled: aktiv,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Der Briefkopf (Migration 48). Er ändert sich fast nie und steht auf jeder Rechnung – also
+// länger frisch als alles andere. Eine Minute wäre hier nur Netzverkehr.
+const BRIEFKOPF_FRISCH_MS = 10 * 60_000;
+
+export function useBetrieb(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.betrieb(),
+    queryFn: () => fetchBetrieb(supabase),
+    enabled: aktiv,
+    staleTime: BRIEFKOPF_FRISCH_MS,
+  });
+}
+
+export function useRechnungen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.rechnungen(),
+    queryFn: () => fetchRechnungen(supabase),
+    enabled: aktiv,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Die Belege zu EINEM Auftrag. Getrennt vom Vollabzug: Das Auftragsfenster soll nicht alle
+// Rechnungen des Hauses laden, um eine anzuzeigen.
+export function useAuftragRechnungen(supabase: SupabaseClient, orderId: string | null, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.auftragRechnungen(orderId ?? "-"),
+    queryFn: () => fetchRechnungenZuAuftrag(supabase, orderId!),
+    enabled: aktiv && !!orderId,
     staleTime: FRISCH_MS,
   });
 }

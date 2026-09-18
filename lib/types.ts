@@ -14,6 +14,10 @@ export type GeoGenauigkeit = "exakt" | "ungefaehr" | "hand";
 
 export type Customer = {
   id: string;
+  // Die Kundennummer (Migration 48). Sie steht auf der Rechnung und ist für den Kunden die
+  // Kennung, unter der er anruft – eine UUID ist dafür unbrauchbar. Von der Datenbank
+  // fortlaufend vergeben; `null` nur in dem Augenblick zwischen Anlegen und Trigger.
+  kundennummer: number | null;
   // Anzeigename. Bei einer Firma steht hier der Ansprechpartner, der Firmenname in `company`.
   name: string;
   // Firmenname (Migration 24), leer bei Privatpersonen. Bewusst keine eigene Firmen-Tabelle:
@@ -66,7 +70,44 @@ export type Betrieb = {
   termin_intervall_min: number;
   updated_at: string;
   updated_by: string | null;
+  // Der Briefkopf (Migration 48). Als Einstellung und nicht im Code: Eine Steuernummer oder
+  // eine IBAN ändert sich, ohne dass jemand programmieren können muss.
+  firma: string;
+  inhaber: string;
+  strasse: string;
+  plz: string;
+  ort: string;
+  telefon: string;
+  email: string;
+  webseite: string;
+  ust_id: string;
+  steuernummer: string;
+  kontoinhaber: string;
+  bank: string;
+  iban: string;
+  bic: string;
+  // Das Logo als data:-URI. Kein Dateispeicher, kein zweiter Dienst, keine Adresse, die
+  // irgendwann ins Leere zeigt – das Bild gehört zum Briefkopf und reist mit ihm.
+  logo: string;
+  // Der Text zwischen Anschriftenfeld und Positionstabelle.
+  anschreiben: string;
+  fuss_zahlung: string;
+  fuss_hinweis: string;
+  fuss_dank: string;
+  rechnung_praefix: string;
+  // Die nächste zu vergebende Nummer. Wird von der Datenbank hochgezählt, nicht vom Client –
+  // hier steht sie nur, damit die Maske sie anzeigen und einmalig setzen kann.
+  rechnung_naechste_nummer: number;
+  kunde_naechste_nummer: number;
 };
+
+// Die Felder der Betriebsdaten-Maske. `updated_at`, `updated_by` und die beiden Zähler stehen
+// bewusst NICHT darin: Zeitstempel setzt die Datenbank, und die Zähler haben ihre eigene,
+// einmalige Eingabe mit eigener Warnung.
+export type BetriebFelder = Pick<Betrieb,
+  | "firma" | "inhaber" | "strasse" | "plz" | "ort" | "telefon" | "email" | "webseite"
+  | "ust_id" | "steuernummer" | "kontoinhaber" | "bank" | "iban" | "bic" | "logo"
+  | "anschreiben" | "fuss_zahlung" | "fuss_hinweis" | "fuss_dank" | "rechnung_praefix">;
 
 export type UserSettings = {
   user_id: string;
@@ -300,6 +341,9 @@ export type Article = {
   // Artikelstamm von Hand gesetzt. Und es bleibt eine Frage, kein Zwang: Genug Kunden nehmen
   // ihre alten Reifen mit.
   fragt_einlagerung: boolean;
+  // Die Einheit auf der Rechnung (Migration 48): „Stück", „Fahrt", „Monate". Sie gehört an den
+  // Artikel und nicht an die Position – sie ändert sich nicht von Auftrag zu Auftrag.
+  einheit: string;
   created_at: string;
 };
 
@@ -387,3 +431,99 @@ export type AuditEintrag = {
 };
 
 export type ProtokollPerson = { id: string; email: string | null };
+
+// ---------------------------------------------------------------- Rechnung (Migration 48/49)
+//
+// Der Entwurfsentscheid, der alles andere erklärt: Eine Rechnung speichert Empfänger,
+// Absender und Positionen als eigene KOPIE (jsonb) und nicht als Verweis auf Kunde, Betrieb
+// und Auftrag.
+//
+// Das sieht nach Doppelung aus und ist das Gegenteil: Zieht der Kunde um, gehört auf die
+// Rechnung von letztem Jahr die ALTE Anschrift – dorthin wurde sie geschickt. Wird ein Artikel
+// umbenannt oder ein Preis geändert, steht auf der alten Rechnung weiter, was berechnet wurde.
+// Ein Dokument, das sich rückwirkend mitverändert, ist kein Beleg.
+//
+// `order_id` und `customer_id` stehen trotzdem daneben – als Weg zur Navigation („zeig mir den
+// Auftrag dazu"), nicht als Quelle des Inhalts.
+
+export type RechnungAbsender = {
+  firma: string; inhaber: string; strasse: string; plz: string; ort: string;
+  telefon: string; email: string; webseite: string;
+  ust_id: string; steuernummer: string;
+  kontoinhaber: string; bank: string; iban: string; bic: string;
+  logo: string;
+};
+
+export type RechnungEmpfaenger = {
+  name: string;
+  company: string | null;
+  anrede: string | null;
+  // Die Anschrift ist EIN Textfeld – so steht sie auch beim Kunden. Für den Anschriftenblock
+  // wird an den Zeilenumbrüchen getrennt; wo keine sind, an den Kommas.
+  address: string;
+  email: string | null;
+  kundennummer: number | null;
+};
+
+export type RechnungPosition = {
+  artikelnummer: number | null;
+  bezeichnung: string;
+  // Die Zusatzzeile der Position (`order_articles.note`), z. B. „Radlager Reifen VR".
+  zusatz: string | null;
+  menge: number;
+  einheit: string;
+  // Netto je Einheit, wie er auf dem Papier steht.
+  einzelpreis: number;
+  // Die Zeilensumme netto. Sie ist IMMER menge × einzelpreis – siehe `positionenAusAuftrag()`
+  // in lib/rechnung.ts, wo ein Sonderpreis, der sich nicht glatt auf die Menge verteilt, zu
+  // einer eigenen Nachlasszeile wird statt zu einer Zeile, die nicht aufgeht.
+  netto: number;
+  steuersatz: number;
+};
+
+export type RechnungTexte = {
+  // Ob die Rechnung mit Umsatzsteuerausweis ausgestellt wurde – der Schalter „Rechnung
+  // benötigt" vom Auftrag, zum Zeitpunkt des Ausstellens.
+  //
+  // Er steht IM SNAPSHOT und nicht am Auftrag, aus demselben Grund wie alles andere hier: Der
+  // Schalter am Auftrag kann sich später ändern, der Beleg darf sich davon nicht umrechnen
+  // lassen. Ihn aus `steuer !== 0` zu erraten ginge fast immer gut und wäre bei einer Rechnung
+  // über lauter steuerfreie Positionen falsch.
+  mit_steuer: boolean;
+  anschreiben: string;
+  fuss_zahlung: string;
+  fuss_hinweis: string;
+  fuss_dank: string;
+  // Woraus die Rechnung entstanden ist – für den Betreffblock. Abschrift wie alles andere:
+  // Wird der Auftrag später gelöscht, steht die Nummer trotzdem noch auf dem Beleg.
+  auftragsnummer: number | null;
+  kennzeichen: string[];
+};
+
+export type RechnungArt = "rechnung" | "storno";
+
+export type Rechnung = {
+  id: string;
+  nummer: number;
+  nummer_text: string;
+  art: RechnungArt;
+  // Auf der ORIGINALRECHNUNG: durch welche Stornorechnung sie aufgehoben wurde.
+  storniert_durch: string | null;
+  storniert_am: string | null;
+  // Auf der STORNORECHNUNG: welche Rechnung sie aufhebt.
+  hebt_auf: string | null;
+  order_id: string | null;
+  customer_id: string | null;
+  kundennummer: number | null;
+  datum: string; // YYYY-MM-DD
+  lieferdatum: string | null;
+  empfaenger: RechnungEmpfaenger;
+  absender: RechnungAbsender;
+  positionen: RechnungPosition[];
+  texte: RechnungTexte;
+  netto: number;
+  steuer: number;
+  brutto: number;
+  created_at: string;
+  created_by: string | null;
+};

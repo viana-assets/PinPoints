@@ -17,7 +17,7 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v41";
+const FASSUNG = "v42";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 // Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
 // stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg

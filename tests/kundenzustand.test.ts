@@ -6,7 +6,7 @@ import { effectiveColor, kundenMitTermin } from "@/lib/helpers";
 // optionale Felder stolpert (siehe tests/preislogik.test.ts, gleiches Muster).
 function kunde(teil: Partial<Customer>): Customer {
   const standard: Customer = {
-    id: "k1", name: "Testkunde", address: "Teststr. 1", phone_mobile: null, phone_landline: null,
+    id: "k1", kundennummer: null, name: "Testkunde", address: "Teststr. 1", phone_mobile: null, phone_landline: null,
     company: null, anrede: null, email: null,
     note: null, lat: null, lng: null, geo_genauigkeit: null, status: "offen", last_contact: null,
     kontakt_ergebnis: null, wiedervorlage_am: null, active: true, deleted_at: null,

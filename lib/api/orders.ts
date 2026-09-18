@@ -193,28 +193,11 @@ export async function updateOrderStatusById(
   );
 }
 
-// „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
-//
-// Der Aufrufer sagt nur OB – WANN und DURCH WEN bestimmt die Datenbank, genau wie beim
-// Abschluss eines Auftrags. Deshalb steht hier ein beliebiger Zeitstempel: Der Trigger
-// ersetzt ihn durch `now()`. Er dient nur als Signal „ab jetzt gesetzt".
-//
-// Beim Zurücknehmen fällt die Rechnungsnummer mit weg – das macht die Datenbank; eine Nummer
-// ohne Rechnung wäre eine Falschaussage. Der alte Wert bleibt im Protokoll.
-export async function setzeRechnungErstellt(
-  supabase: SupabaseClient,
-  id: string,
-  erstellt: boolean,
-  nummer: string | null
-): Promise<void> {
-  await qWrite(
-    erstellt ? "Die Rechnung konnte nicht abgehakt werden" : "Die Markierung konnte nicht zurückgenommen werden",
-    supabase.from("orders").update({
-      rechnung_erstellt_am: erstellt ? new Date().toISOString() : null,
-      rechnung_nummer: erstellt ? (nummer?.trim() || null) : null,
-    }).eq("id", id)
-  );
-}
+// `setzeRechnungErstellt()` stand hier bis zum 18.09.2026: der Haken „im ERP geschrieben"
+// samt frei eingetippter Nummer (Migration 40). Seit PinPoints die Rechnung selbst ausstellt,
+// setzt den Haken ein Trigger (Migration 49) – und Migration 49 lässt ihn auch nicht mehr von
+// Hand lösen, solange ein gültiger Beleg am Auftrag hängt. Eine Funktion, die das trotzdem
+// anbietet, wäre ein Versprechen, das die Datenbank bricht.
 
 // Freitext-Notiz der zugeordneten Techniker-Rolle (siehe lib/types.ts Order.techniker_notiz).
 // Migration 13/15 erlaubt der Techniker-Rolle per RLS nur, `status` und `techniker_notiz` an

@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import {
   IconDashboard, IconKunden, IconAuftraege, IconTermine, IconLager, IconSaison,
-  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconAdmin, IconSettings,
+  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconRechnung, IconAdmin, IconSettings,
 } from "@/components/icons";
 
 // Die Module der Anwendung – EINE Liste für beide Navigationen.
@@ -17,7 +17,7 @@ import {
 
 export type TabKey =
   | "dashboard" | "list" | "termine" | "lager" | "saison" | "einsatzplanung"
-  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "more";
+  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "rechnungen" | "more";
 
 export type ModulEintrag = {
   tab: TabKey;
@@ -53,6 +53,7 @@ export const MODULE: ModulEintrag[] = [
   { tab: "add",            label: "Neuer Kunde",      beschreibung: "Kunden anlegen, optional gleich mit Auftrag",               Icon: IconNeu,            sichtbar: "kunden.schreiben" },
   { tab: "inactive",       label: "Inaktive Kunden",  beschreibung: "Deaktivierte Kunden ansehen & reaktivieren",                Icon: IconInaktiv,        sichtbar: "kunden.lesen" },
   { tab: "artikel",        label: "Artikel",          beschreibung: "Artikelstamm und Preis-Historie",                           Icon: IconArtikel,        sichtbar: "artikel" },
+  { tab: "rechnungen",     label: "Rechnungen",       beschreibung: "Alle ausgestellten Rechnungen, Nachdruck und Storno",       Icon: IconRechnung,       sichtbar: "rechnungen" },
   { tab: "auswertung",     label: "Auswertungen",     beschreibung: "Umsatz, Steuer, Nachlass, Saisonalität, Mitarbeiter, Artikel", Icon: IconAuswertung,   sichtbar: "auswertung" },
 
   { tab: "admin",          label: "Admin",            beschreibung: "Nutzer einladen & verwalten, Mitarbeiter, Firmenfahrzeuge", Icon: IconAdmin,          sichtbar: "admin", trennerDavor: "abstand" },

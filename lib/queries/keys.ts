@@ -32,5 +32,11 @@ export const qk = {
   eingelagerteRaeder: () => ["eingelagerte-raeder"] as const,
   lagerKennzahlen: () => ["lager", "kennzahlen"] as const,
 
+  // Der Briefkopf (Migration 48). Eine einzige Zeile, die auf jeder Rechnung landet – und
+  // deshalb genau EINEN Schlüssel hat, nicht einen je Fenster, das sie braucht.
+  betrieb: () => ["betrieb"] as const,
+  rechnungen: () => ["rechnungen"] as const,
+  auftragRechnungen: (orderId: string) => ["auftrag", orderId, "rechnungen"] as const,
+
   modulrechte: () => ["modulrechte"] as const,
 };

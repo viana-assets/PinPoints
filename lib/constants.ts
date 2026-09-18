@@ -172,6 +172,10 @@ export const RECHTE_KATALOG: RechtBereich[] = [
   { schluessel: "firmenfahrzeuge", label: "Firmenfahrzeuge", verben: ["lesen", "schreiben", "loeschen"],
     erklaerung: "Die eigenen Transporter als Stammdaten." },
 
+  { schluessel: "rechnungen", label: "Rechnungen", verben: ["lesen", "schreiben"],
+    erklaerung: "Rechnungen ansehen, ausstellen und stornieren. „Schreiben“ heißt hier: einen Beleg in die Welt setzen – wer das darf, verschiebt den Nummernkreis.",
+    warumNicht: "Eine Rechnung wird nicht gelöscht, sondern storniert. Eine fehlende Nummer ist eine Lücke im Kreis, und die erklärt man bei der nächsten Prüfung." },
+
   { schluessel: "auswertung", label: "Auswertungen", verben: ["lesen"],
     erklaerung: "Umsatz, Steuer, Nachlass, Saisonalität, Mitarbeiter- und Artikelauswertung.",
     warumNicht: "Auswertungen rechnen nur – sie legen nichts an und löschen nichts." },
@@ -213,6 +217,7 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
   artikel:                { lesen: ["admin", "user"], schreiben: ["admin"], loeschen: ["admin"] },
   mitarbeiter:            { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
   firmenfahrzeuge:        { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
+  rechnungen:             { lesen: ["admin"], schreiben: ["admin"] },
   auswertung:             { lesen: ["admin"] },
   einstellungen:          { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
 };
@@ -222,6 +227,29 @@ export function rechtSchluessel(bereich: string, verb: Verb): string {
 }
 
 export const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
+
+// ---------------------------------------------------------------- Rechnung (Migration 48/49)
+//
+// Das Logo liegt als data:-URI in einer Datenbankzeile, nicht in einem Speicherdienst. Das ist
+// bequem und hat genau eine Grenze: Die Zeile wird bei JEDEM Laden der Betriebsdaten
+// mitgeschickt. 200 kB sind dafür die Schmerzgrenze; ein Briefkopflogo braucht bei 300 Pixel
+// Breite etwa 15 kB.
+export const LOGO_MAX_BYTES = 200 * 1024;
+export const LOGO_TYPEN = ["image/png", "image/jpeg", "image/svg+xml"];
+
+// Das Seitenformat der gedruckten Rechnung.
+//
+// Es steht hier und nicht im Stilblatt, weil `@page` für das GANZE Dokument gilt und sich
+// nicht je Element umstellen lässt: Fest im Stilblatt käme es dem Etikettendruck von der
+// Rolle in die Quere, der seinerseits 50 × 30 mm setzt. Das Rechnungsfenster hängt die Regel
+// deshalb ein, solange es offen ist.
+//
+// Die Ränder stehen HIER und nicht als Innenabstand der Seite: Ein Innenabstand gilt nur für
+// die erste Seite. Auf Seite zwei stünde der Text sonst an der Papierkante – nachgestellt mit
+// einer 14-Positionen-Rechnung, der Girocode klebte oben am Blattrand.
+//
+// Maße nach DIN 5008: links 25 mm (Lochrand), rechts 20 mm, oben 15 mm, unten 10 mm.
+export const RECHNUNG_SEITE_CSS = "@page { size: A4; margin: 15mm 20mm 10mm 25mm; }";
 
 // ---------------------------------------------------------------- Einsatzplanung
 // Farbpalette für Mitarbeiter-Punkte im Kalender – Farbe pro Mitarbeiter ist stabil nach

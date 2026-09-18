@@ -83,7 +83,7 @@ describe("adresseOhneHausnummer", () => {
 describe("navigationUrls", () => {
   const basis = {
     id: "k1", name: "Test", address: "Allerheiligenweg 36b, 90530 Wendelstein",
-    phone_mobile: null, phone_landline: null, company: null, anrede: null, email: null,
+    kundennummer: null, phone_mobile: null, phone_landline: null, company: null, anrede: null, email: null,
     note: null, status: "offen" as const, last_contact: null, kontakt_ergebnis: null,
     wiedervorlage_am: null, active: true, deleted_at: null,
   };
