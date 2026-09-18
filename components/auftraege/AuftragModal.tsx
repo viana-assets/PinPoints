@@ -33,7 +33,7 @@ export function AuftragModal({
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
-  onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onRemoveArticle, onNavigate, onCall,
+  onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
 }: {
@@ -110,9 +110,10 @@ export function AuftragModal({
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
   onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
-  onAddArticle: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null) => Promise<void>;
+  onAddArticle: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null, text: string | null) => Promise<void>;
   onUpdateArticleQty: (id: string, quantity: number) => Promise<void>;
   onUpdateArticleEndpreis: (id: string, endpreisNetto: number | null) => Promise<void>;
+  onUpdateArticleText: (id: string, text: string | null) => Promise<void>;
   onRemoveArticle: (id: string) => Promise<void>;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
   // Anrufen direkt aus dem Auftragsfenster. Es ist der Bildschirm, auf dem eine angetippte
@@ -629,6 +630,7 @@ export function AuftragModal({
               onAdd={onAddArticle}
               onUpdateQty={onUpdateArticleQty}
               onUpdateEndpreis={onUpdateArticleEndpreis}
+              onUpdateText={onUpdateArticleText}
               onRemove={onRemoveArticle}
             />
 

@@ -102,7 +102,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
                       <input
                         type="checkbox"
                         checked={a.active}
-                        onChange={(e) => onUpdateArticle(a.id, { short_name: a.short_name, long_name: a.long_name, active: e.target.checked, abrechnungsart: a.abrechnungsart, fragt_einlagerung: a.fragt_einlagerung })}
+                        onChange={(e) => onUpdateArticle(a.id, { short_name: a.short_name, long_name: a.long_name, active: e.target.checked, abrechnungsart: a.abrechnungsart, fragt_einlagerung: a.fragt_einlagerung, einheit: a.einheit, freitext: a.freitext })}
                       />
                     </td>
                     <td>

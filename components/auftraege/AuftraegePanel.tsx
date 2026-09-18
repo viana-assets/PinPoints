@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
-import { formatDate, rechnungOffen, sortiere, terminZeitraum } from "@/lib/helpers";
+import { formatDate, getPhoneNumbers, rechnungOffen, sortiere, terminZeitraum } from "@/lib/helpers";
 import type { SortRichtung } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { IconAuftraege, IconTrash, IconNavPin } from "@/components/icons";
@@ -38,7 +38,7 @@ function Kopf({ schluessel, aktiv, richtung, onSortieren, children }: {
   );
 }
 
-export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
+export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, onCall, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Legt für den gewählten Kunden einen Auftrag an und öffnet das Auftragsfenster – derselbe
   // Weg wie im Karten-Popup und im Kundenfenster (docs/auftragsablauf.md).
@@ -50,6 +50,10 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   onOpenCustomer: (customerId: string) => void;
   onOpenOrder: (orderId: string) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
+  // Anrufen direkt aus der Liste. Dasselbe Menü wie in der Kundenliste und im Kartenpopup –
+  // ein Kunde kann Mobil UND Festnetz haben, und welche Nummer gemeint ist, entscheidet nicht
+  // die Anwendung.
+  onCall: (e: React.MouseEvent, cust: Customer) => void;
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (siehe Migration 13),
   // darf in der Oberfläche aber zusätzlich keine Aufträge anlegen/löschen und keine
   // Mitarbeiter-/Leistungen-Zuordnung ändern – nur Status und die eigene Techniker-Notiz.
@@ -223,6 +227,12 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                           <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => onNavigate(e, cust)}>
                             <IconNavPin />
                           </button>
+                        )}
+                        {/* Der Knopf erscheint nur, wenn eine Nummer hinterlegt ist. Ein
+                            Telefonhörer, der zu einem leeren Menü führt, ist schlechter als
+                            keiner – dieselbe Bedingung wie in der Kundenliste. */}
+                        {cust && getPhoneNumbers(cust).length > 0 && (
+                          <button className="call-icon-btn small" title="Anrufen" onClick={(e) => onCall(e, cust)}>📞</button>
                         )}
                         {!isTechniker && (
                           <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>

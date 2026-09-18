@@ -68,7 +68,7 @@ import {
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
   updateArticlePrice as updateArticlePriceApi, deleteArticlePrice as deleteArticlePriceApi,
-  insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleEndpreisById, deleteOrderArticleById,
+  insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleEndpreisById, updateOrderArticleTextById, deleteOrderArticleById,
 } from "@/lib/api/articles";
 import {
   replaceOrderEmployees,
@@ -667,8 +667,8 @@ export default function HomePage() {
     await deleteArticlePriceApi(supabase, articlePrices, priceId);
     await refreshArticlePrices();
   }
-  async function addOrderArticle(orderId: string, articleId: string, quantity: number, endpreisNetto: number | null) {
-    await insertOrderArticle(supabase, articlePrices, orderId, articleId, quantity, endpreisNetto);
+  async function addOrderArticle(orderId: string, articleId: string, quantity: number, endpreisNetto: number | null, text: string | null) {
+    await insertOrderArticle(supabase, articlePrices, orderId, articleId, quantity, endpreisNetto, text);
     await refreshOrderArticles();
   }
   async function updateOrderArticleQty(id: string, quantity: number) {
@@ -677,6 +677,10 @@ export default function HomePage() {
   }
   async function updateOrderArticleEndpreis(id: string, endpreisNetto: number | null) {
     await updateOrderArticleEndpreisById(supabase, id, endpreisNetto);
+    await refreshOrderArticles();
+  }
+  async function updateOrderArticleText(id: string, text: string | null) {
+    await updateOrderArticleTextById(supabase, id, text);
     await refreshOrderArticles();
   }
   async function removeOrderArticle(id: string) {
@@ -1300,7 +1304,9 @@ export default function HomePage() {
 
     await removeTireAssignmentById(supabase, satzId, auftragId);
     if (auftragId && wahl.artikelId && wahl.menge > 0) {
-      await insertOrderArticle(supabase, articlePrices, auftragId, wahl.artikelId, wahl.menge, null);
+      // Beim Auslagern gibt es keinen Freitext: Die Lagergebühr ist ein benannter Artikel
+      // mit Monaten als Menge, und was sie beschreibt, steht im Artikelstamm.
+      await insertOrderArticle(supabase, articlePrices, auftragId, wahl.artikelId, wahl.menge, null, null);
       await refreshOrderArticles();
     }
     await refreshTireStorages();
@@ -2491,6 +2497,7 @@ export default function HomePage() {
             onOpenCustomer={openDetail}
             onOpenOrder={setOffenerAuftragId}
             onNavigate={openNavMenu}
+            onCall={openCallMenu}
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
           />
@@ -2940,6 +2947,7 @@ export default function HomePage() {
           onAddArticle={addOrderArticle}
           onUpdateArticleQty={updateOrderArticleQty}
           onUpdateArticleEndpreis={updateOrderArticleEndpreis}
+          onUpdateArticleText={updateOrderArticleText}
           onRemoveArticle={removeOrderArticle}
           onNavigate={openNavMenu}
           onCall={openCallMenu}

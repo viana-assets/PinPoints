@@ -62,7 +62,10 @@ export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
         {/* ------------------------------------------------------------ Briefkopf */}
         <div className="re-kopf">
           <div className="re-kopf-text">
-            <div className="re-firma">{a.firma}</div>
+            {/* Ohne den Inhabernamen – er steht klein in der Zeile darunter. Dieselbe Regel
+                wie in der Fußzeile. Vollständig steht der Name in der Absenderzeile über dem
+                Anschriftenfeld; dort ist er die Angabe für den Umschlag. */}
+            <div className="re-firma">{firmaOhneInhaber(a.firma, a.inhaber)}</div>
             {a.inhaber && <div className="re-inhaber">{a.inhaber}</div>}
           </div>
           {/* Ein gewöhnliches Bild: Das Logo ist eine data:-URI aus der Datenbank, an der

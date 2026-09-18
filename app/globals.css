@@ -1524,6 +1524,11 @@ tr.klickbar:hover { background: var(--hover); }
 .zuordnen-artikel{flex:2 1 190px;}
 .zuordnen-menge{flex:1 1 80px;}
 .zuordnen-preis{flex:1 1 110px;}
+/* Der Text auf der Rechnung. Breiter als die Zahlenfelder, weil dort ein Satz hineinkommt
+   („Hilfe beim Aufbocken, Wagenheber gestellt") und nicht ein Betrag – und als eigene
+   Grundbreite, damit er beim Umbruch eine ganze Zeile bekommt statt neben der Menge zu
+   klemmen. */
+.zuordnen-text{flex:3 1 220px;}
 .zuordnen-summe-feld{flex:1 1 110px;}
 /* Die Summe ist eine Auskunft, kein Feld. Sie bekommt deshalb dieselbe Höhe wie ein
    Eingabefeld daneben, aber keinen Rahmen: Ein Rahmen wäre die Einladung, hineinzuschreiben. */
@@ -2002,3 +2007,21 @@ tr.klickbar:hover { background: var(--hover); }
   .bd-raster{grid-template-columns:1fr;}
   .bd-feld.breit{grid-column:auto;}
 }
+
+/* Der Text an einer bereits angelegten Position. Er steht UNTER dem Artikelnamen in derselben
+   Zelle: Er gehört zu dieser einen Zeile, und eine sechste Spalte wäre am Handy die vierte zu
+   viel. */
+.za-artikel{min-width:0;}
+/* Die Textzeile gehört optisch zur Zeile darüber: Deren Unterkante entfällt, und die Zelle
+   rückt ein Stück ein. Sonst sähen zwei Zeilen wie zwei Positionen aus. */
+.za-zeile td{border-bottom:none;padding-bottom:2px;}
+/* Folgt KEINE Textzeile (abgeschlossener Auftrag ohne Text), braucht die Zeile ihre eigene
+   Trennlinie zurück – sonst laufen zwei Positionen ineinander. Fällt `:has` in einem alten
+   Browser aus, fehlt nur die Linie; die Zeilen stehen trotzdem richtig. */
+.za-zeile:not(:has(+ .za-textzeile)) td{border-bottom:1px solid var(--border);}
+.za-textzeile td{padding-top:0;padding-left:6px;}
+.za-text{width:100%;min-width:0;font-size:11.5px;padding:4px 7px;}
+/* Fehlt bei einem Freitext-Artikel die Bezeichnung, steht auf der Rechnung „Sonstiges" – das
+   ist kein Fehler, aber es ist nicht gemeint. Ein farbiger Rand fragt danach, ohne zu sperren. */
+.za-text.fehlt{border-color:var(--accent);background:#fff7f2;}
+.za-text-fest{margin-top:3px;font-style:italic;}

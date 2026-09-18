@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
+import { EINHEITEN } from "@/lib/constants";
 import { formatDate, formatEUR, todayStr, DEFAULT_VAT_RATE } from "@/lib/helpers";
 import { IconTrash } from "@/components/icons";
 
@@ -20,6 +21,8 @@ export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPri
   const [longName, setLongName] = useState(article.long_name);
   const [abrechnungsart, setAbrechnungsart] = useState<Article["abrechnungsart"]>(article.abrechnungsart);
   const [fragtEinlagerung, setFragtEinlagerung] = useState(article.fragt_einlagerung);
+  const [einheit, setEinheit] = useState(article.einheit);
+  const [freitext, setFreitext] = useState(article.freitext);
   const [netPrice, setNetPrice] = useState("");
   const [vatRate, setVatRate] = useState(String(DEFAULT_VAT_RATE));
   const [validFrom, setValidFrom] = useState(todayStr());
@@ -51,7 +54,7 @@ export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPri
         <button
           className="btn-secondary"
           style={{ flex: "0 0 auto" }}
-          onClick={() => onUpdateArticle(article.id, { short_name: shortName.trim() || article.short_name, long_name: longName.trim() || article.long_name, active: article.active, abrechnungsart, fragt_einlagerung: fragtEinlagerung })}
+          onClick={() => onUpdateArticle(article.id, { short_name: shortName.trim() || article.short_name, long_name: longName.trim() || article.long_name, active: article.active, abrechnungsart, fragt_einlagerung: fragtEinlagerung, einheit: einheit.trim() || "Stück", freitext })}
         >
           Speichern
         </button>
@@ -100,6 +103,52 @@ export function ArticleDetailEditor({ article, prices, onUpdateArticle, onAddPri
           {fragtEinlagerung
             ? "Steht dieser Artikel auf einem Auftrag und wurde nichts eingelagert, fragt das Auftragsfenster beim Abschließen nach, ob der Kunde die alten Reifen mitnimmt. Abschließen lässt sich der Auftrag so oder so."
             : "Setze den Haken bei Wechsel- und Montageleistungen. Dann erinnert die App daran, die alten Reifen einzulagern – statt sie stillschweigend verschwinden zu lassen."}
+        </span>
+      </div>
+
+      {/* Die Einheit auf der Rechnung (Migration 48). Sie gehört an den Artikel und nicht an
+          die Position: „Stück" oder „Fahrt" ändert sich nicht von Auftrag zu Auftrag.
+
+          Feste Liste plus freie Eingabe: Die vier Werte decken alles ab, was heute vorkommt,
+          und wer einen fünften braucht, tippt ihn. Eine reine Auswahlliste wäre eine Grenze,
+          die niemand beschlossen hat. */}
+      <div className="field" style={{ marginTop: 8, maxWidth: 480 }}>
+        <label htmlFor={`einheit-${article.id}`}>Einheit auf der Rechnung</label>
+        <input
+          id={`einheit-${article.id}`}
+          type="text"
+          list={`einheiten-${article.id}`}
+          value={einheit}
+          placeholder="Stück"
+          onChange={(e) => setEinheit(e.target.value)}
+        />
+        <datalist id={`einheiten-${article.id}`}>
+          {EINHEITEN.map((e) => <option key={e} value={e} />)}
+        </datalist>
+        <span className="small">Steht hinter der Menge – zum Beispiel 4 {einheit.trim() || "Stück"}.</span>
+      </div>
+
+      {/* Die freie Position (Migration 50). Der Techniker hilft vor Ort bei etwas, das in
+          keinem Artikel steht, und vereinbart einen Preis – dann soll auf der Rechnung stehen,
+          wofür der Kunde zahlt, und nicht „Sonstiges".
+
+          Ein Haken am Artikel und keine Erkennung am Namen: „wenn der Artikel Sonstiges heißt"
+          wäre ein Artikelname als Programmlogik und beim ersten Umbenennen falsch. Dieselbe
+          Überlegung wie bei der Abrechnungsart darüber. */}
+      <div className="field" style={{ marginTop: 8, maxWidth: 480 }}>
+        <div className="checkbox-row" style={{ margin: 0 }}>
+          <input
+            type="checkbox"
+            id={`freitext-${article.id}`}
+            checked={freitext}
+            onChange={(e) => setFreitext(e.target.checked)}
+          />
+          <label htmlFor={`freitext-${article.id}`}>Bezeichnung wird am Auftrag eingegeben</label>
+        </div>
+        <span className="small">
+          {freitext
+            ? "Auf der Rechnung steht der Text, der am Auftrag eingetippt wurde – nicht der Artikelname. Bleibt das Feld dort leer, steht der Artikelname da; eine Zeile ohne Bezeichnung gibt es nicht."
+            : "Für Sammelpositionen wie Sonstiges. Ohne den Haken ist der eingetippte Text eine Zusatzzeile UNTER der Bezeichnung: Reifenmontage, darunter Radlager Reifen VR."}
         </span>
       </div>
 

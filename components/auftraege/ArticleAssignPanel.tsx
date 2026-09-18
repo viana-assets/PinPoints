@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { Article, ArticlePrice, OrderArticle } from "@/lib/types";
 import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
 import { IconTrash } from "@/components/icons";
@@ -12,7 +12,7 @@ import { IconTrash } from "@/components/icons";
 // war, rechnet die Anwendung aus und zeigt es daneben – nicht umgekehrt. Wird sowohl im Popover (Aufträge-Tab &
 // Einsatzplanung) als auch direkt inline im Kunden-Detailfenster verwendet. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, onAdd, onUpdateQty, onUpdateEndpreis, onRemove }: {
+export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove }: {
   orderId: string;
   articles: Article[];
   // Die Preishistorie, um zum gewählten Artikel den heute gültigen Listenpreis ZU ZEIGEN.
@@ -27,17 +27,21 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   // Datenbank lehnt jede Änderung ohnehin ab (Migration 20). Hier werden die Eingabefelder
   // deshalb gar nicht erst angeboten, statt den Nutzer in eine Fehlermeldung laufen zu lassen.
   gesperrt?: boolean;
-  onAdd: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null) => Promise<void>;
+  onAdd: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null, text: string | null) => Promise<void>;
   onUpdateQty: (id: string, quantity: number) => Promise<void>;
   // `null` heißt „kein Sonderpreis" – dann gilt wieder Menge × Listenpreis. Das ist etwas
   // anderes als 0, was „geschenkt" bedeutet, und beides muss eingebbar bleiben.
   onUpdateEndpreis: (id: string, endpreisNetto: number | null) => Promise<void>;
+  // Der Text auf der Rechnung (Migration 50). Bei einem Freitext-Artikel ist er die
+  // Bezeichnung, sonst eine Zusatzzeile darunter.
+  onUpdateText: (id: string, text: string | null) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
 }) {
   const activeArticles = articles.filter((a) => a.active);
   const [articleId, setArticleId] = useState("");
   const [qty, setQty] = useState("1");
   const [endpreis, setEndpreis] = useState("");
+  const [text, setText] = useState("");
   const totals = orderArticleTotals(rows, rechnungNoetig);
 
   // Der heute gültige Listenpreis des oben gewählten Artikels. Ohne ihn stand im Zuordnen-
@@ -47,6 +51,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   const gewaehlterPreis = articleId
     ? currentArticlePrice(articlePrices.filter((p) => p.article_id === articleId))
     : null;
+  const gewaehlterArtikel = articleId ? articles.find((a) => a.id === articleId) ?? null : null;
 
   // Mengen sind bei allen Leistungen Stückzahlen – halbe Reifenwechsel gibt es nicht. Deshalb
   // ganze Zahlen, mindestens 1: mit step="0.01" zählten die Pfeiltasten in Hundertstel-Schritten.
@@ -81,9 +86,17 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
               const listenwert = positionListenwert(r);
               const lineNet = r.endpreis_netto ?? listenwert;
               const nachlass = listenwert - lineNet;
+              // Zwei Zeilen je Position: die Zahlen oben, der Text darunter über die ganze
+              // Breite. Der Text stand zuerst in der Artikel-Zelle – am Handy blieben davon
+              // 90 Pixel übrig, und in 90 Pixel tippt niemand einen Satz. Im Browser bei
+              // 390 px gemessen.
               return (
-                <tr key={r.id}>
-                  <td>{art ? art.short_name : "(gelöschter Artikel)"}<div className="small">{formatEUR(r.net_price)} / Stk.</div></td>
+                <Fragment key={r.id}>
+                <tr className="za-zeile">
+                  <td className="za-artikel">
+                    {art ? art.short_name : "(gelöschter Artikel)"}
+                    <div className="small">{formatEUR(r.net_price)} / {art?.einheit?.trim() || "Stk."}</div>
+                  </td>
                   <td>
                     {gesperrt ? r.quantity : (
                       <input
@@ -122,6 +135,37 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                     )}
                   </td>
                 </tr>
+                {/* Der Text auf der Rechnung (Migration 50). Bei einem Freitext-Artikel ist er
+                    die BEZEICHNUNG und ersetzt den Artikelnamen; sonst steht er als
+                    Zusatzzeile darunter. Welches von beidem, entscheidet der Haken am
+                    Artikel – deshalb hier nur eine andere Beschriftung.
+
+                    Fehlt er bei einem Freitext-Artikel, bekommt das Feld einen farbigen Rand:
+                    Auf der Rechnung stünde dann „Sonstiges". Das ist kein Fehler, aber es ist
+                    nicht gemeint – gefragt wird, gesperrt nicht. */}
+                {(!gesperrt || r.note) && (
+                  <tr className="za-textzeile">
+                    <td colSpan={5}>
+                      {gesperrt ? (
+                        <span className="small za-text-fest">{r.note}</span>
+                      ) : (
+                        <input
+                          type="text"
+                          className={"za-text" + (art?.freitext && !r.note?.trim() ? " fehlt" : "")}
+                          placeholder={art?.freitext
+                            ? "Was wurde gemacht? Dieser Text steht auf der Rechnung."
+                            : "Zusatz auf der Rechnung, z. B. Radlager Reifen VR – optional"}
+                          defaultValue={r.note ?? ""}
+                          onBlur={(e) => {
+                            const neu = e.target.value.trim();
+                            if (neu !== (r.note ?? "").trim()) void onUpdateText(r.id, neu || null);
+                          }}
+                        />
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
@@ -179,6 +223,19 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
               value={endpreis} onChange={(e) => setEndpreis(e.target.value)}
             />
           </div>
+          {/* Das Textfeld erscheint IMMER, nicht nur beim Freitext-Artikel: Die Zusatzzeile
+              („Radlager Reifen VR") ist bei jeder Position möglich, und ein Feld, das je nach
+              Artikel erscheint und verschwindet, lässt die Zeile bei jeder Auswahl springen.
+              Was sich ändert, ist nur die Beschriftung – und die sagt, was der Text bewirkt. */}
+          <div className="field zuordnen-text">
+            <label>{gewaehlterArtikel?.freitext ? "Bezeichnung" : "Text auf der Rechnung"}</label>
+            <input
+              type="text"
+              placeholder={gewaehlterArtikel?.freitext ? "Was wurde gemacht?" : "optional, z. B. Radlager Reifen VR"}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+          </div>
           <div className="field zuordnen-summe-feld">
             <label>Summe netto</label>
             <div className="zuordnen-summe">
@@ -196,9 +253,13 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
             className="btn-primary zuordnen-plus"
             onClick={() => {
               if (!articleId) return;
-              const text = endpreis.trim();
-              onAdd(orderId, articleId, ganzeMenge(qty), text === "" ? null : (parseFloat(text.replace(",", ".")) || 0));
-              setArticleId(""); setQty("1"); setEndpreis("");
+              const preisText = endpreis.trim();
+              onAdd(
+                orderId, articleId, ganzeMenge(qty),
+                preisText === "" ? null : (parseFloat(preisText.replace(",", ".")) || 0),
+                text.trim() || null
+              );
+              setArticleId(""); setQty("1"); setEndpreis(""); setText("");
             }}
           >
             +
