@@ -1810,7 +1810,16 @@ tr.klickbar:hover { background: var(--hover); }
 .re-daten span{color:#555555;}
 .re-daten b{text-align:right;white-space:nowrap;}
 
-.re-titel{font-size:5.2mm;font-weight:700;margin:7mm 0 1mm;letter-spacing:.01em;}
+.re-titel{font-size:5.2mm;font-weight:700;margin:7mm 0 1mm;letter-spacing:.01em;
+  display:flex;align-items:baseline;gap:3mm;flex-wrap:wrap;}
+/* Ein ausgedruckter Entwurf muss auf den ersten Blick als solcher erkennbar sein – sonst
+   liegt ein Blatt mit einer Nummer herum, die noch niemandem gehört. Umrandet und in
+   Großbuchstaben, damit es auch im Schwarz-Weiß-Druck trägt. */
+.re-entwurf-marke{font-size:2.8mm;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+  border:.35mm solid #1a1a1a;border-radius:1mm;padding:.6mm 1.8mm;}
+/* „voraussichtlich" hinter der Nummer: klein, in Normalschrift, damit es die Nummer nicht
+   überstimmt und trotzdem nicht zu übersehen ist. */
+.re-vorbehalt{display:block;font-size:2.4mm;font-weight:400;color:#555555;}
 .re-kennzeichen{font-size:3mm;color:#444444;margin-bottom:3mm;}
 /* `pre-line`: Die Leerzeile zwischen Anrede und Text ist Teil des Briefs. Sie zu schlucken
    und durch einen Abstand zu ersetzen hieße, den Text des Betriebs umzuschreiben. */

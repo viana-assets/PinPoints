@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { Rechnung } from "@/lib/types";
 import { formatDate, formatEUR } from "@/lib/helpers";
-import { anschriftZeilen, girocodeText, rechnungSummen } from "@/lib/rechnung";
+import { anschriftZeilen, firmaOhneInhaber, girocodeText, rechnungSummen } from "@/lib/rechnung";
 import type { RechnungEntwurf } from "@/lib/rechnung";
 
 // Das Dokument – A4, im Layout der bisherigen Rechnungen des Betriebs.
@@ -20,7 +20,13 @@ import type { RechnungEntwurf } from "@/lib/rechnung";
 
 export type DokumentDaten =
   | (Rechnung & { entwurf?: false })
-  | (RechnungEntwurf & { entwurf: true; nummer_text?: undefined });
+  | (RechnungEntwurf & {
+      entwurf: true;
+      nummer_text?: undefined;
+      // Die Nummer, die beim Ausstellen voraussichtlich vergeben wird. Sie ist NICHT
+      // reserviert – siehe `voraussichtlicheNummer()` in lib/rechnung.ts.
+      voraussichtlich?: string;
+    });
 
 export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
   const a = daten.absender;
@@ -74,7 +80,16 @@ export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
             {anschrift.map((z, i) => <div key={i}>{z}</div>)}
           </div>
           <div className="re-daten">
-            <div><span>Rechnungsnr.</span><b>{nummerText ?? "wird beim Ausstellen vergeben"}</b></div>
+            <div>
+              <span>Rechnungsnr.</span>
+              <b>
+                {nummerText ?? (daten.entwurf && daten.voraussichtlich ? daten.voraussichtlich : "—")}
+                {/* Der Zusatz steht NEBEN der Nummer und nicht statt ihrer: Wer wissen will,
+                    welche Nummer es wird, soll sie sehen – und zugleich, dass sie noch nicht
+                    vergeben ist. */}
+                {!nummerText && <span className="re-vorbehalt">voraussichtlich</span>}
+              </b>
+            </div>
             <div><span>Rechnungsdatum</span><b>{formatDate(daten.datum)}</b></div>
             {daten.lieferdatum && <div><span>Lieferdatum</span><b>{formatDate(daten.lieferdatum)}</b></div>}
             {e.kundennummer != null && <div><span>Kundennr.</span><b>{e.kundennummer}</b></div>}
@@ -85,6 +100,10 @@ export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
         <h1 className="re-titel">
           {daten.art === "storno" ? "Stornorechnung" : "Rechnung"}
           {nummerText ? ` ${nummerText}` : ""}
+          {/* Ein Entwurf, der ausgedruckt wird, muss als solcher erkennbar sein. Ohne diese
+              Kennzeichnung sähe ein mit Strg+P erzeugtes PDF aus wie ein Beleg – mit einer
+              Nummer, die noch niemandem gehört. */}
+          {!nummerText && <span className="re-entwurf-marke">Entwurf</span>}
         </h1>
 
         {t.kennzeichen.length > 0 && (
@@ -171,7 +190,9 @@ export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
       {/* ------------------------------------------------------------ Fußzeile */}
       <div className="re-fuss">
         <div>
-          <b>{a.firma}</b>
+          {/* Ohne den Inhabernamen – der steht in der Zeile direkt darunter. Oben im
+              Briefkopf und in der Absenderzeile bleibt der vollständige Name stehen. */}
+          <b>{firmaOhneInhaber(a.firma, a.inhaber)}</b>
           {a.inhaber && <div>Inhaber: {a.inhaber}</div>}
           {a.strasse && <div>{a.strasse}</div>}
           {(a.plz || a.ort) && <div>{[a.plz, a.ort].filter(Boolean).join(" ")}</div>}

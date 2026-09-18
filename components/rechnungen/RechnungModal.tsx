@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Article, Betrieb, Customer, Order, OrderArticle, Rechnung } from "@/lib/types";
-import { entwurfBauen, stornoAus, istGueltig } from "@/lib/rechnung";
+import { entwurfBauen, stornoAus, istGueltig, voraussichtlicheNummer } from "@/lib/rechnung";
 import type { RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -135,7 +135,12 @@ export function RechnungModal({
         {zeigbar ? (
           <div className="rechnung-vorschau">
             <div className="rechnung-vorschau-rahmen">
-              <RechnungDokument daten={beleg ? beleg : { ...(zeigbar as RechnungEntwurf), entwurf: true }} />
+              <RechnungDokument
+                daten={beleg
+                  ? beleg
+                  : { ...(zeigbar as RechnungEntwurf), entwurf: true,
+                      voraussichtlich: betrieb ? voraussichtlicheNummer(betrieb) : undefined }}
+              />
             </div>
           </div>
         ) : (
