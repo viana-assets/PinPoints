@@ -72,6 +72,9 @@ export function AuftragProtokoll({ auftragId }: { auftragId: string }) {
                   // Auftrag" ist es nicht, deshalb bleibt der Bereich sichtbar, sobald er
                   // etwas anderes als den Auftrag selbst meint.
                   ohneBereich={e.tabelle === "orders"}
+                  // Im Auftragsfenster ist der Auftrag selbstverständlich – die Kontextzeile
+                  // stünde an jeder Zeile gleich da und sagte nichts.
+                  ohneKontext
                 />
               ))}
               <div className="small" style={{ color: "var(--muted)" }}>

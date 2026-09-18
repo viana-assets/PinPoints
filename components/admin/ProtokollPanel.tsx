@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type { AuditEintrag, ProtokollPerson } from "@/lib/types";
+import type { Namensverzeichnis } from "@/lib/api/protokoll";
 import { PROTOKOLL_FELD_LABEL, PROTOKOLL_TABELLE_LABEL, PROTOKOLL_TAGE_STANDARD } from "@/lib/constants";
 import { PROTOKOLL_AKTION_LABEL, protokollFelder, protokollWer } from "@/lib/helpers";
 
@@ -20,11 +21,14 @@ function tageZurueck(tage: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-export function ProtokollPanel({ eintraege, personen, laedt, vonDatum, onVonDatum }: {
+export function ProtokollPanel({ eintraege, personen, namen, laedt, vonDatum, onVonDatum }: {
   eintraege: AuditEintrag[];
   // Kennung → E-Mail. Kommt aus `protokoll_personen()`; ein gelöschter Zugang steht nicht
   // mehr darin, dann bleibt in der Zeile die gekürzte Kennung.
   personen: ProtokollPerson[];
+  // Kennung → Klartext („Auftrag 38", „Reifenwechsel mobil"). Ohne das Verzeichnis zeigt die
+  // Liste weiter die gekürzten Kennungen – lesbar bleibt sie so oder so.
+  namen?: Namensverzeichnis;
   laedt: boolean;
   vonDatum: string;
   onVonDatum: (d: string) => void;
@@ -96,6 +100,7 @@ export function ProtokollPanel({ eintraege, personen, laedt, vonDatum, onVonDatu
             key={e.id}
             eintrag={e}
             personen={personen}
+            namen={namen}
             offen={offen === e.id}
             onUmschalten={() => setOffen(offen === e.id ? null : e.id)}
           />
@@ -108,17 +113,34 @@ export function ProtokollPanel({ eintraege, personen, laedt, vonDatum, onVonDatu
 // Eine Zeile ist zugeklappt eine Aussage („Max hat gestern 14:03 eine Leistung gelöscht") und
 // aufgeklappt der Beleg dazu. Beides gleichzeitig zu zeigen macht die Liste unlesbar; nur die
 // Aussage zu zeigen macht sie wertlos.
-export function ProtokollZeile({ eintrag, personen = [], offen, onUmschalten, ohneBereich = false }: {
+export function ProtokollZeile({ eintrag, personen = [], namen, offen, onUmschalten, ohneBereich = false, ohneKontext = false }: {
   eintrag: AuditEintrag;
   personen?: ProtokollPerson[];
+  namen?: Namensverzeichnis;
   offen: boolean;
   onUmschalten: () => void;
   // Im Auftragsfenster steht der Bereich schon in der Überschrift.
   ohneBereich?: boolean;
+  // Dort ist auch der Auftrag selbstverständlich – die Kontextzeile wäre an jeder Zeile
+  // dieselbe.
+  ohneKontext?: boolean;
 }) {
   const zeit = new Date(eintrag.geaendert_am);
   const wer = protokollWer(eintrag.geaendert_von, personen);
-  const felder = protokollFelder(eintrag.alt, eintrag.neu, PROTOKOLL_FELD_LABEL);
+
+  // WORAN wurde gearbeitet? Die beiden Bezüge stehen seit Migration 36 an jedem Eintrag, auch
+  // an einer Leistungszeile – nur als Kennung. Aufgelöst sind sie die Antwort auf die Frage,
+  // die man an ein Protokoll hat: nicht „7 Felder", sondern „Auftrag 38, Daniel Hartman".
+  const auftrag = eintrag.auftrag_id ? namen?.get(eintrag.auftrag_id) : null;
+  const kunde = eintrag.kunde_id ? namen?.get(eintrag.kunde_id) : null;
+  const kontext = ohneKontext ? [] : [auftrag, kunde].filter(Boolean);
+
+  // Was oben steht, muss unten nicht noch einmal stehen.
+  const schonOben = new Set<string>();
+  if (auftrag) schonOben.add("order_id");
+  if (kunde) schonOben.add("customer_id");
+
+  const felder = protokollFelder(eintrag.alt, eintrag.neu, PROTOKOLL_FELD_LABEL, namen, schonOben);
 
   return (
     <div className={"protokoll-zeile" + (offen ? " offen" : "")}>
@@ -138,6 +160,10 @@ export function ProtokollZeile({ eintrag, personen = [], offen, onUmschalten, oh
               {" · "}{felder.length} {felder.length === 1 ? "Feld" : "Felder"}
             </span>
           )}
+          {/* Eigene Zeile und nicht angehängt: Am Handy bricht ein langer Kundenname sonst
+              mitten in den Satz hinein, und die Aussage „wer hat was getan" verliert ihren
+              Anfang. */}
+          {kontext.length > 0 && <span className="pz-kontext">{kontext.join(" · ")}</span>}
         </span>
         <span className="pz-pfeil" aria-hidden="true">{offen ? "▾" : "▸"}</span>
       </button>

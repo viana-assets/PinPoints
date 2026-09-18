@@ -287,8 +287,18 @@
      Die Werte standen bis zum 09.09.2026 als style={{…}} an der Einbaustelle und waren damit
      für keine Medienabfrage erreichbar. Derselbe Fehler wie seinerzeit bei den
      Eingabefeldern: Layout gehört ins Stilblatt, nicht ans Element. */
+  /* „Kopf bleibt stehen, die lange Tabelle scrollt für sich".
+     Trägt nur, solange über der Tabelle NICHTS steht, das wachsen kann – Kopfzeile und
+     Filterleisten. Wer darüber einen Kalender, ein Stundenraster oder eine zweite Tabelle
+     einbaut, hebt das Muster auf: In einer Flex-Spalte schrumpfen die Kinder, wenn der Platz
+     nicht reicht, und dann ist das Untere weg, ohne dass es etwas zu scrollen gäbe.
+     Dreimal passiert (Stundenraster, Monatskalender, Tagestabellen der Einsatzplanung) –
+     deshalb steht es hier und nicht nur in einem Änderungsprotokoll. */
   .modul-flaeche{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;}
   .modul-tabelle{overflow-y:auto;overflow-x:auto;flex:1;}
+  /* Eine breite Tabelle auf einer Seite, die als Ganzes scrollt: nur waagrecht. Zwei
+     Rollbalken übereinander sind einer zu viel. */
+  .tabelle-breit{overflow-x:auto;}
   .module-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:4px;}
   .module-header .mh-icon{width:42px;height:42px;border-radius:12px;background:var(--accent-bg);color:var(--accent);
     display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
@@ -1411,6 +1421,10 @@ tr.klickbar:hover { background: var(--hover); }
 .pz-text{min-width:0;}
 .pz-rolle{color:var(--muted);}
 .pz-anzahl{color:var(--muted);}
+/* Woran gearbeitet wurde: Auftrag und Kunde, aufgelöst aus den Kennungen. Eigene Zeile,
+   damit ein langer Kundenname am Handy nicht mitten in den Satz „X hat Y angelegt" bricht. */
+.pz-kontext{display:block;margin-top:2px;font-size:12px;color:var(--muted);
+  overflow:hidden;text-overflow:ellipsis;}
 /* Die Handlung trägt die Farbe – gelöscht rot, angelegt grün, geändert neutral. Das ist
    dieselbe Bedeutung wie überall sonst in der App und deshalb ohne Legende lesbar. */
 .pz-aktion{font-weight:700;}
@@ -2035,3 +2049,26 @@ tr.klickbar:hover { background: var(--hover); }
    ist kein Fehler, aber es ist nicht gemeint. Ein farbiger Rand fragt danach, ohne zu sperren. */
 .za-text.fehlt{border-color:var(--accent);background:#fff7f2;}
 .za-text-fest{margin-top:3px;font-style:italic;}
+
+/* ---------------- Tagestabellen der Einsatzplanung (19.09.2026) ---------------- */
+/* Untereinander stehen mehrere dieser Tabellen – eine je Mitarbeiter. Ohne feste Breiten
+   rechnet jede ihr Raster aus dem EIGENEN Inhalt aus: „Paul" hat einen kurzen Kundennamen,
+   „Vitali" einen langen, und die Spalten springen von Block zu Block. Das Auge sucht dann in
+   jeder Tabelle neu, wo die Uhrzeit steht.
+
+   `table-layout:fixed` heißt: Die Breiten stehen VOR dem Inhalt fest – aus der colgroup. Damit
+   liegen alle Blöcke im selben Raster, egal was darin steht. */
+.tages-tabelle{table-layout:fixed;width:100%;}
+.tages-tabelle col.tt-zeit{width:132px;}
+.tages-tabelle col.tt-fahrzeug{width:120px;}
+.tages-tabelle col.tt-status{width:104px;}
+/* Was nicht passt, bekommt Pünktchen statt die Spalte zu sprengen – bei fester Breite ist
+   das kein Feinschliff, sondern die Bedingung dafür, dass die Breite hält. */
+.tages-tabelle td, .tages-tabelle th{overflow:hidden;text-overflow:ellipsis;}
+.tages-tabelle .date-cell{white-space:nowrap;}
+
+@media (max-width: 760px){
+  /* Am Handy ist für vier feste Spalten kein Platz. Die Tabelle scrollt dann waagrecht –
+     deshalb eine Mindestbreite, damit die Spalten nicht ineinanderlaufen. */
+  .tages-tabelle{min-width:560px;}
+}

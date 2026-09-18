@@ -9,6 +9,7 @@ import { IconAdmin, IconTrash } from "@/components/icons";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { ProtokollPanel, tageZurueck } from "./ProtokollPanel";
 import { fetchProtokoll, fetchProtokollPersonen } from "@/lib/api/audit";
+import { fetchNamensverzeichnis, type Namensverzeichnis } from "@/lib/api/protokoll";
 import type { AuditEintrag, ProtokollPerson } from "@/lib/types";
 import { PROTOKOLL_TAGE_STANDARD, TERMIN_INTERVALLE } from "@/lib/constants";
 import { fetchBetrieb, setzeTerminIntervall, speichereBetrieb, setzeNaechsteRechnungsnummer } from "@/lib/api/betrieb";
@@ -68,6 +69,9 @@ export function AdminPanel({
   // Kennung → E-Mail. Getrennt geladen und NICHT bei jedem Datumswechsel neu: Die Liste der
   // Zugänge ändert sich fast nie, die Auswahl des Zeitraums dauernd.
   const [protokollPersonen, setProtokollPersonen] = useState<ProtokollPerson[]>([]);
+  // Kennung → Klartext. Wie die Personenliste einmalig beim Öffnen des Reiters geladen und
+  // NICHT bei jedem Datumswechsel: Die Namen ändern sich fast nie, der Zeitraum dauernd.
+  const [protokollNamen, setProtokollNamen] = useState<Namensverzeichnis>(new Map());
   // Zähler, der die Korrekturliste neu aufbaut. Sie lädt ihre Kunden beim Einhängen einmal;
   // nach einem Sammellauf oder mehreren Übernahmen ist die Liste veraltet, und ein Zähler als
   // `key` ist der ehrlichste Weg, sie von vorn beginnen zu lassen.
@@ -127,6 +131,13 @@ export function AdminPanel({
     fetchProtokollPersonen(supabase).then((p) => { if (!abgebrochen) setProtokollPersonen(p); });
     return () => { abgebrochen = true; };
   }, [adminTab, protokollPersonen.length, supabase]);
+
+  useEffect(() => {
+    if (adminTab !== "protokoll" || protokollNamen.size > 0) return;
+    let abgebrochen = false;
+    fetchNamensverzeichnis(supabase).then((n) => { if (!abgebrochen) setProtokollNamen(n); });
+    return () => { abgebrochen = true; };
+  }, [adminTab, protokollNamen.size, supabase]);
 
   useEffect(() => {
     if (adminTab !== "protokoll") return;
@@ -262,6 +273,7 @@ export function AdminPanel({
           <ProtokollPanel
             eintraege={protokoll}
             personen={protokollPersonen}
+            namen={protokollNamen}
             laedt={protokollLaedt}
             vonDatum={protokollVon}
             onVonDatum={setProtokollVon}

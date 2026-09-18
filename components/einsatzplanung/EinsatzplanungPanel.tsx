@@ -144,13 +144,28 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
 
   return (
     <div className="tabpanel active">
-      {/* `modul-flaeche` nur in der Monatsansicht. Diese Klasse baut das Muster „Kopf bleibt
-          stehen, die lange Auftragstabelle scrollt für sich" – dafür bekommt die Fläche eine
-          feste Höhe, und alles darin teilt sie sich. Mit einem Stundenraster darin geht das
-          nicht auf: Das Raster ist 600 Pixel hoch und lässt für die Tabelle nichts übrig,
-          oder es wird selbst gekürzt. In Tag und Woche scrollt deshalb die ganze Seite –
-          dasselbe, was die Handy-Regel ohnehin schon tut. */}
-      <div className={"module-page" + (ansicht === "monat" ? " modul-flaeche" : "")}>
+      {/* KEIN `modul-flaeche` – in keiner Ansicht mehr (19.09.2026).
+
+          Diese Klasse baut das Muster „Kopf bleibt stehen, die lange Tabelle scrollt für
+          sich": Die Fläche bekommt Bildschirmhöhe, und alles darin teilt sie sich. Das trägt,
+          solange über der Tabelle nur Kopf und Filterleisten stehen – also im Aufträge-Tab,
+          im Lager, im Artikelstamm.
+
+          Hier steht über der Tabelle ein Monatskalender UND, seit der Tagesauswahl, eine
+          Tabelle je Mitarbeiter. Beides wächst. In einer Flex-Spalte schrumpfen die Kinder,
+          wenn der Platz nicht reicht – die untere Tabelle wurde damit auf wenige Pixel
+          zusammengedrückt, und weil die Fläche nie höher war als der Bildschirm, gab es auch
+          nichts zu scrollen. „Alle Aufträge" war am Schreibtisch unerreichbar, sobald der Tag
+          mehr als zwei Einträge hatte.
+
+          Am Handy fiel es nie auf: Die Handy-Regel im Stilblatt nimmt `modul-flaeche` seit dem
+          09.09.2026 ohnehin zurück – aus genau demselben Grund, damals für den Kalender.
+          Jetzt gilt überall dasselbe, und die ganze Seite scrollt.
+
+          Dieselbe Falle wie beim Stundenraster im Juli und beim Kalender im September. Drittes
+          Mal, dritte Stelle: Wer über einer scrollenden Tabelle etwas Wachsendes einbaut,
+          hebt damit das Muster auf. */}
+      <div className="module-page">
         <div className="module-header">
           <div className="mh-icon"><IconEinsatzplanung /></div>
           <div className="mh-text">
@@ -285,8 +300,25 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
               dayGroups.map((g) => (
                 <div key={g.employee?.id || "unassigned"}>
                   <h4 style={{ margin: "6px 0 2px", fontSize: 13 }}>{g.employee ? g.employee.name : "Nicht zugeordnet"} <span className="small">({g.orders.length})</span></h4>
-                  <table className="appt-table">
-                    <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Titel</th><th>Fahrzeug</th><th>Status</th></tr></thead>
+                  {/* `table-layout:fixed` und feste Spaltenbreiten: Untereinander stehen
+                      mehrere dieser Tabellen – eine je Mitarbeiter. Jede rechnet ihre
+                      Spaltenbreiten sonst aus ihrem EIGENEN Inhalt aus, und dann springt die
+                      Kundenspalte von Block zu Block. Drei Tabellen, drei Raster, und das
+                      Auge findet keine Spalte wieder.
+
+                      Die Spalte „Titel" ist weg: Darin stand bei jedem Auftrag „Termin",
+                      beim dritten „Termin – Daniel Hartman" – der Kundenname ein zweites Mal,
+                      der links schon steht. Dieselbe Entscheidung wie in der Auftragsliste
+                      darunter, nur sechs Runden später an der zweiten Stelle. */}
+                  <div className="tabelle-breit">
+                  <table className="appt-table tages-tabelle">
+                    <colgroup>
+                      <col className="tt-zeit" />
+                      <col />
+                      <col className="tt-fahrzeug" />
+                      <col className="tt-status" />
+                    </colgroup>
+                    <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Fahrzeug</th><th>Status</th></tr></thead>
                     <tbody>
                       {g.orders.map((o) => {
                         const cust = customers.find((c) => c.id === o.customer_id);
@@ -314,7 +346,6 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                                 </>
                               ) : "–"}
                             </td>
-                            <td>{o.title}</td>
                             <td className={o.firmenfahrzeug_id ? undefined : "small"}>{fahrzeugText(o.firmenfahrzeug_id)}</td>
                             <td><span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{statusLabel[o.status]}</span></td>
                           </tr>
@@ -322,6 +353,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                       })}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               ))
             )}
@@ -338,7 +370,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
         </div>
         <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
 
-        <div className="modul-tabelle">
+        {/* Nur noch waagrecht: Senkrecht scrollt jetzt die ganze Seite. Ein zweiter
+            Scrollbereich darin hätte zwei Rollbalken übereinander ergeben, von denen keiner
+            tut, was man erwartet. */}
+        <div className="tabelle-breit">
           {listOrders.length === 0 ? (
             <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
           ) : (
