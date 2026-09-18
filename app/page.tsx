@@ -7,7 +7,7 @@ import type {
   Customer, ContactHistoryEntry, UserSettings,
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
   Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
-  EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug,
+  EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug, Rechnung,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
@@ -43,6 +43,10 @@ import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
 import { AuswertungPanel } from "@/components/auswertung/AuswertungPanel";
+import { RechnungenPanel } from "@/components/rechnungen/RechnungenPanel";
+import { RechnungModal } from "@/components/rechnungen/RechnungModal";
+import { stelleRechnungAus, storniereRechnung } from "@/lib/api/rechnungen";
+import type { RechnungEntwurf } from "@/lib/rechnung";
 import { AuftragModal } from "@/components/auftraege/AuftragModal";
 import { KontaktModal } from "@/components/kunden/KontaktModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
@@ -69,7 +73,6 @@ import {
 import {
   replaceOrderEmployees,
   insertOrder, updateOrderById, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
-  setzeRechnungErstellt,
   updateOrderVehicle, updateOrderFirmenfahrzeug,
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
@@ -89,7 +92,7 @@ import { fetchBetrieb } from "@/lib/api/betrieb";
 import { qk } from "@/lib/queries/keys";
 import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
-  useMitarbeiter, useArtikel, useArtikelpreise,
+  useMitarbeiter, useArtikel, useArtikelpreise, useBetrieb, useRechnungen, useAuftragRechnungen,
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
   useFirmenfahrzeuge, useEingelagerteRaeder,
 } from "@/lib/queries/hooks";
@@ -109,6 +112,7 @@ const KEINE_FAHRZEUGE: Vehicle[] = [];
 const KEINE_FIRMENFAHRZEUGE: Firmenfahrzeug[] = [];
 const KEINE_RAEDER: EingelagertesRad[] = [];
 const KEINE_HISTORIE: ContactHistoryEntry[] = [];
+const KEINE_RECHNUNGEN: Rechnung[] = [];
 const KEINE_ZUORDNUNGEN: Record<string, Bereichsrechte> = {};
 
 // Höchstzahl gleichzeitig gezeichneter Kartenmarker. Leaflet legt je Marker ein DOM-Element an;
@@ -175,7 +179,7 @@ export default function HomePage() {
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
   // darauf verlassen kann (Hooks dürfen nicht erst nach einem bedingten Return kommen).
-  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung";
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung" || tab === "rechnungen";
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), die
   // Oberfläche blendet zusätzlich Anlegen/Löschen/Mitarbeiter- und Leistungen-Zuordnung aus –
   // siehe AuftraegePanel/EinsatzplanungPanel.
@@ -222,6 +226,10 @@ export default function HomePage() {
   // der Initialisierung. TypeScript kann das nicht sehen, weil der Zugriff in einem
   // find()-Callback steckt – zur Laufzeit wirft es.
   const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
+  // Zu welchem Auftrag das Rechnungsfenster offen ist. Eigener Zustand und nicht ein Schalter
+  // im Auftragsfenster: Die Rechnungsliste öffnet dasselbe Fenster, ohne dass ein Auftrag
+  // geöffnet sein muss.
+  const [rechnungAuftragId, setRechnungAuftragId] = useState<string | null>(null);
   // Auftrag, der gerade eben neu angelegt wurde. Nur für die Anzeige: das Auftragsfenster weist
   // dann darauf hin, dass es sich um einen frischen Auftrag handelt, und bietet "Verwerfen"
   // statt des Löschknopfs an.
@@ -333,6 +341,15 @@ export default function HomePage() {
   );
   const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && tab === "dashboard");
   const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
+  // Der Briefkopf. Gebraucht, sobald eine Rechnung entstehen oder gezeigt werden soll –
+  // NICHT beim Start: Er steht in keiner Liste und in keiner Karte.
+  const betriebQuery = useBetrieb(supabase, sitzungBereit && (tab === "rechnungen" || rechnungAuftragId !== null));
+  // Bewusst ohne `canView()` als Bedingung: Die Rechteprüfung steht weiter unten im Bauteil,
+  // und eine Abfrage, die eine noch nicht ausgewertete Konstante liest, läuft in die
+  // temporale Totzone. Den Reiter erreicht ohnehin nur, wer ihn sehen darf – und was die
+  // Datenbank nicht hergibt, gibt sie auch dieser Abfrage nicht.
+  const rechnungenQuery = useRechnungen(supabase, sitzungBereit && tab === "rechnungen");
+  const auftragRechnungenQuery = useAuftragRechnungen(supabase, rechnungAuftragId, sitzungBereit);
   const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId, sitzungBereit);
   const kundeAuftraegeQuery = useKundenAuftraege(supabase, selectedId, sitzungBereit);
   const historieQuery = useKundeHistorie(supabase, selectedId, sitzungBereit);
@@ -1515,9 +1532,35 @@ export default function HomePage() {
     neuLaden(qk.kunden());
   }
 
-  async function rechnungErstellt(id: string, nummer: string | null, erstellt = true) {
-    await setzeRechnungErstellt(supabase, id, erstellt, nummer);
+  // Eine Rechnung ausstellen. Danach werden DREI Bestände nachgezogen: die Belege dieses
+  // Auftrags (das Fenster zeigt sie), die Auftragsliste (der Trigger aus Migration 49 hat den
+  // Haken gesetzt) und das Rechnungsbuch. Wer nur den ersten nachlädt, sieht die Rechnung –
+  // und daneben weiter „Rechnung steht noch aus".
+  // Aus der Rechnungsliste zum Auftrag springen.
+  //
+  // Nicht bloß `setOffenerAuftragId()`: Die Auftragsliste lädt standardmäßig nur die letzten
+  // dreißig Tage. Eine Rechnung von vor einem halben Jahr zeigt auf einen Auftrag, der gar
+  // nicht geladen ist – das Fenster fände nichts und bliebe einfach zu. Ein Klick, auf den
+  // nichts passiert, ist die schlechteste aller Antworten. Deshalb wird das Zeitfenster
+  // zugleich auf „Alle" gestellt; das Fenster geht auf, sobald die Zeile da ist.
+  function auftragAusRechnungOeffnen(orderId: string) {
+    setAuftragsFenster("alles");
+    setTab("auftraege");
+    setOffenerAuftragId(orderId);
+  }
+
+  async function rechnungAusstellen(entwurf: RechnungEntwurf) {
+    const neu = await stelleRechnungAus(supabase, entwurf);
+    await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen());
     await refreshOrders();
+    return neu;
+  }
+
+  async function rechnungStornieren(entwurf: RechnungEntwurf & { hebt_auf: string }) {
+    const neu = await storniereRechnung(supabase, entwurf);
+    await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen());
+    await refreshOrders();
+    return neu;
   }
   async function deleteOrder(id: string) {
     await deleteOrderById(supabase, id);
@@ -2450,7 +2493,6 @@ export default function HomePage() {
             onNavigate={openNavMenu}
             isTechniker={isTechniker}
             onUpdateTechnikerNotiz={updateTechnikerNotiz}
-            onRechnungErstellt={(id, nummer) => rechnungErstellt(id, nummer)}
           />
           </>
         )}
@@ -2611,6 +2653,14 @@ export default function HomePage() {
           <AuswertungPanel
             employees={employees} articles={articles}
             customers={customers} vehicles={alleFahrzeuge}
+          />
+        )}
+
+        {tab === "rechnungen" && canView("rechnungen") && (
+          <RechnungenPanel
+            rechnungen={rechnungenQuery.data ?? KEINE_RECHNUNGEN}
+            laedt={rechnungenQuery.isLoading}
+            onAuftragOeffnen={auftragAusRechnungOeffnen}
           />
         )}
 
@@ -2877,7 +2927,9 @@ export default function HomePage() {
           onSetFirmenfahrzeug={setOrderFirmenfahrzeug}
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
           onSetStatus={updateOrderStatus}
-          onRechnungErstellt={rechnungErstellt}
+          // Kein Knopf für den, der Rechnungen nicht einmal lesen darf. Ein Knopf, der ein
+          // Fenster mit lauter abgeschalteten Schaltern öffnet, ist schlechter als keiner.
+          onRechnungOeffnen={darf("rechnungen", "lesen") ? (id) => setRechnungAuftragId(id) : undefined}
           auftragFahrzeuge={auftragFahrzeuge}
           onEmailSpeichern={kundenEmailSpeichern}
           onFahrzeugHinzufuegen={fahrzeugHinzufuegen}
@@ -2893,6 +2945,36 @@ export default function HomePage() {
           onCall={openCallMenu}
         />
       )}
+
+      {/* Das Rechnungsfenster (Migration 48/49). Es liegt hier und nicht im Auftragsfenster:
+          Es braucht den Briefkopf und die Belege zu diesem Auftrag, und beides durch das
+          Auftragsfenster durchzureichen hieße, ihm ein zweites Thema aufzuladen. */}
+      {rechnungAuftragId && (() => {
+        const auftrag =
+          orders.find((o) => o.id === rechnungAuftragId) ??
+          kundeAuftraege.find((o) => o.id === rechnungAuftragId);
+        if (!auftrag) return null;
+        return (
+          <RechnungModal
+            auftrag={auftrag}
+            kunde={customers.find((c) => c.id === auftrag.customer_id) ?? null}
+            betrieb={betriebQuery.data ?? null}
+            zeilen={orderArticles.filter((z) => z.order_id === auftrag.id && !z.deleted_at)}
+            artikel={articles}
+            // Die Kennzeichen stehen im Betreff der Rechnung. Sie kommen aus den Fahrzeugen
+            // des Auftrags (Migration 44) – bei drei Autos an einem Termin sind es drei.
+            kennzeichen={auftragFahrzeuge
+              .filter((af) => af.order_id === auftrag.id)
+              .map((af) => (auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE).find((v) => v.id === af.vehicle_id)?.license_plate?.trim() || "")
+              .filter(Boolean)}
+            rechnungen={auftragRechnungenQuery.data ?? KEINE_RECHNUNGEN}
+            darfSchreiben={darf("rechnungen", "schreiben")}
+            onAusstellen={rechnungAusstellen}
+            onStornieren={rechnungStornieren}
+            onClose={() => setRechnungAuftragId(null)}
+          />
+        );
+      })()}
 
       {selectedId && (
         <DetailModal

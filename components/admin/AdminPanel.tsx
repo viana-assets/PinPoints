@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Employee, Firmenfahrzeug, Profile, Role } from "@/lib/types";
+import type { Betrieb, BetriebFelder, Employee, Firmenfahrzeug, Profile, Role } from "@/lib/types";
 import type { Bereichsrechte } from "@/lib/api/permissions";
 import type { Verb } from "@/lib/constants";
 import type { FirmenfahrzeugFelder } from "@/lib/api/firmenfahrzeuge";
@@ -11,7 +11,8 @@ import { ProtokollPanel, tageZurueck } from "./ProtokollPanel";
 import { fetchProtokoll, fetchProtokollPersonen } from "@/lib/api/audit";
 import type { AuditEintrag, ProtokollPerson } from "@/lib/types";
 import { PROTOKOLL_TAGE_STANDARD, TERMIN_INTERVALLE } from "@/lib/constants";
-import { fetchBetrieb, setzeTerminIntervall } from "@/lib/api/betrieb";
+import { fetchBetrieb, setzeTerminIntervall, speichereBetrieb, setzeNaechsteRechnungsnummer } from "@/lib/api/betrieb";
+import { BetriebsdatenPanel } from "./BetriebsdatenPanel";
 import { GeokodierLauf } from "./GeokodierLauf";
 import { AdressenPruefen } from "./AdressenPruefen";
 import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
@@ -52,8 +53,11 @@ export function AdminPanel({
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
   const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung" | "protokoll" | "betrieb">("users");
-  // Betriebseinstellungen (Migration 38): gelten für alle, nicht je Nutzer.
-  const [terminIntervall, setTerminIntervall] = useState<number | null>(null);
+  // Betriebseinstellungen (Migration 38/48): gelten für alle, nicht je Nutzer.
+  // Die ganze Zeile und nicht nur das Intervall – seit Migration 48 steht der Briefkopf mit
+  // darin, und ein zweiter Ladevorgang für dieselbe eine Zeile wäre eine Abfrage zu viel.
+  const [betrieb, setBetrieb] = useState<Betrieb | null>(null);
+  const terminIntervall = betrieb?.termin_intervall_min ?? null;
   const [intervallStand, setIntervallStand] = useState<"bereit" | "speichert" | "gespeichert">("bereit");
   // Das Protokoll (Migration 36). Es lädt erst, wenn der Reiter geöffnet wird – die Tabelle
   // ist die einzige im System, die nie kleiner wird, und niemand braucht sie beim bloßen
@@ -83,16 +87,16 @@ export function AdminPanel({
   }, [isSuperAdmin]);
 
   useEffect(() => {
-    if (adminTab !== "betrieb" || terminIntervall !== null) return;
+    if (adminTab !== "betrieb" || betrieb !== null) return;
     let abgebrochen = false;
     fetchBetrieb(supabase).then((b) => {
-      if (!abgebrochen && b) setTerminIntervall(b.termin_intervall_min);
+      if (!abgebrochen && b) setBetrieb(b);
     });
     return () => { abgebrochen = true; };
-  }, [adminTab, terminIntervall, supabase]);
+  }, [adminTab, betrieb, supabase]);
 
   async function intervallSpeichern(minuten: number) {
-    setTerminIntervall(minuten);
+    setBetrieb((b) => (b ? { ...b, termin_intervall_min: minuten } : b));
     setIntervallStand("speichert");
     try {
       await setzeTerminIntervall(supabase, minuten);
@@ -102,6 +106,19 @@ export function AdminPanel({
       setIntervallStand("bereit");
       throw e;
     }
+  }
+
+  // Der Briefkopf. Nach dem Speichern wird der Stand im Fenster nachgezogen und NICHT neu
+  // geladen: Was gespeichert wurde, ist bekannt – eine zweite Abfrage würde nur den Fall
+  // verdecken, dass die Datenbank etwas anderes behalten hat als geschickt wurde.
+  async function betriebsdatenSpeichern(felder: BetriebFelder) {
+    await speichereBetrieb(supabase, felder);
+    setBetrieb((b) => (b ? { ...b, ...felder } : b));
+  }
+
+  async function nummernkreisSetzen(nummer: number) {
+    await setzeNaechsteRechnungsnummer(supabase, nummer);
+    setBetrieb((b) => (b ? { ...b, rechnung_naechste_nummer: nummer } : b));
   }
 
   useEffect(() => {
@@ -194,6 +211,17 @@ export function AdminPanel({
         </div>
 
         {adminTab === "betrieb" ? (
+          <>
+          {/* Der Briefkopf steht ZUERST: Er ist die Voraussetzung dafür, dass überhaupt eine
+              Rechnung ausgestellt werden kann, und wird beim Einrichten gesucht. Das
+              Terminraster darunter ist eine Einstellung, die man einmal setzt und vergisst. */}
+          {betrieb && (
+            <BetriebsdatenPanel
+              betrieb={betrieb}
+              onSpeichern={betriebsdatenSpeichern}
+              onNummernkreis={nummernkreisSetzen}
+            />
+          )}
           <div className="admin-card">
             <h4 style={{ margin: 0 }}>Terminraster</h4>
             <p className="small" style={{ marginTop: 2 }}>
@@ -229,6 +257,7 @@ export function AdminPanel({
               </>
             )}
           </div>
+          </>
         ) : adminTab === "protokoll" ? (
           <ProtokollPanel
             eintraege={protokoll}

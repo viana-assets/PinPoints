@@ -31,7 +31,7 @@ export function AuftragModal({
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
   fremdeSaetze, onAuslagern, onEtikett,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
-  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungErstellt, auftragFahrzeuge,
+  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
   onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
@@ -90,7 +90,11 @@ export function AuftragModal({
   onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
   // Hakt „Rechnung erstellt" ab oder nimmt es zurück (Migration 40). Optional: Wer das Fenster
   // ohne diese Zusage einbindet, bekommt den Block gar nicht erst zu sehen.
-  onRechnungErstellt?: (id: string, nummer: string | null, erstellt: boolean) => Promise<void>;
+  // Öffnet das Rechnungsfenster. Es liegt NICHT in diesem Bauteil: Es braucht Betriebsdaten
+  // und die Belege zu diesem Auftrag, und beides hier durchzureichen hieße, dem
+  // Auftragsfenster ein zweites Thema aufzuladen. Der Knopf verweist, das Fenster steht in
+  // app/page.tsx – auf derselben Ebene wie dieses hier.
+  onRechnungOeffnen?: (orderId: string) => void;
   // Fahrzeuge an diesem Auftrag samt Kilometerstand (Migration 44). Ohne diese Angaben lässt
   // die Datenbank einen Auftrag mit „Rechnung benötigt" nicht abschließen.
   auftragFahrzeuge: AuftragFahrzeug[];
@@ -671,60 +675,35 @@ export function AuftragModal({
               />
             )}
 
-            {/* Der zweite Halbsatz: ob sie auch geschrieben wurde (Migration 40).
-                Er erscheint nur, wenn der Schalter an ist und der Auftrag erledigt – vorher
-                gibt es nichts abzuhaken, weil noch nicht feststeht, was abgerechnet wird.
+            {/* Der zweite Halbsatz: die Rechnung selbst (Migration 48/49).
 
-                Hier steht die ganze Wahrheit (wer, wann, welche Nummer); in der Auftragsliste
-                steht nur der Knopf zum Abarbeiten. Zwei Orte, ein Vorgang – aber die
-                Auskunft gehört dorthin, wo man einen einzelnen Auftrag ansieht. */}
-            {rechnungNoetig && order.status === "erledigt" && onRechnungErstellt && (
-              <div className={"rechnung-stand" + (order.rechnung_erstellt_am ? " erledigt" : "")}>
-                {order.rechnung_erstellt_am ? (
-                  <>
-                    <span>
-                      <b>Rechnung erstellt</b>
-                      <span className="small">
-                        {formatDate(order.rechnung_erstellt_am.slice(0, 10))}
-                        {order.rechnung_nummer ? ` · Nr. ${order.rechnung_nummer}` : ""}
-                        {/* Wer es war, steht im Protokoll weiter unten in diesem Fenster –
-                            hier den Namen ein zweites Mal zu holen hieße, dieselbe Auskunft
-                            aus zwei Quellen zu beziehen. */}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      className="btn-secondary"
-                      style={{ flex: "0 0 auto" }}
-                      onClick={() => onRechnungErstellt(order.id, null, false)}
-                    >
-                      doch nicht
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <span>
-                      <b>Rechnung steht noch aus</b>
-                      <span className="small">Im ERP schreiben, dann hier abhaken – die Nummer ist freiwillig.</span>
-                    </span>
-                    <input
-                      type="text"
-                      className="feld-kompakt"
-                      style={{ width: 130, flex: "0 0 auto" }}
-                      placeholder="Rechnungsnr."
-                      value={rechnungNummer}
-                      onChange={(e) => setRechnungNummer(e.target.value)}
-                    />
-                    <button
-                      type="button"
-                      className="btn-primary"
-                      style={{ flex: "0 0 auto" }}
-                      onClick={() => onRechnungErstellt(order.id, rechnungNummer.trim() || null, true)}
-                    >
-                      Rechnung erstellt
-                    </button>
-                  </>
-                )}
+                Bis zum 18.09.2026 stand hier ein Eingabefeld für die Nummer aus dem ERP und
+                ein Haken „erstellt" – eine Notiz über etwas, das woanders passiert ist. Seit
+                PinPoints der rechnungsführende Teil ist, entsteht der Beleg hier, und der
+                Haken kommt von der Datenbank (Trigger, Migration 49). Zurücknehmen lässt er
+                sich nicht mehr: Eine Rechnung wird storniert, nicht abgehakt.
+
+                Erscheint erst beim erledigten Auftrag: Vorher steht nicht fest, was
+                abgerechnet wird, und eine Nummer, die man zurücknehmen müsste, ist eine Lücke
+                im Kreis. */}
+            {rechnungNoetig && order.status === "erledigt" && onRechnungOeffnen && (
+              <div className={"rechnung-stand" + (order.rechnung_nummer ? " erledigt" : "")}>
+                <span>
+                  <b>{order.rechnung_nummer ? `Rechnung ${order.rechnung_nummer}` : "Rechnung steht noch aus"}</b>
+                  <span className="small">
+                    {order.rechnung_nummer
+                      ? `Ausgestellt am ${order.rechnung_erstellt_am ? formatDate(order.rechnung_erstellt_am.slice(0, 10)) : ""} – ansehen, drucken oder stornieren.`
+                      : "Die Leistungen oben stehen schon drin. Im Fenster erst ansehen, dann ausstellen."}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className={order.rechnung_nummer ? "btn-secondary btn-rand" : "btn-primary"}
+                  style={{ flex: "0 0 auto" }}
+                  onClick={() => onRechnungOeffnen(order.id)}
+                >
+                  {order.rechnung_nummer ? "Rechnung ansehen" : "Rechnung erstellen"}
+                </button>
               </div>
             )}
           </div>

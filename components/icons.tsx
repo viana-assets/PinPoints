@@ -146,6 +146,18 @@ export function IconAuswertung() {
   );
 }
 
+// Rechnungen: ein Blatt mit Betragszeilen und einer Summenlinie darunter. Bewusst KEIN
+// Geldschein und kein Eurozeichen – das Register führt Belege, nicht Kasse.
+export function IconRechnung() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M6 3h8l4 4v14H6V3Z" strokeLinejoin="round" />
+      <path d="M14 3v4h4" strokeLinejoin="round" />
+      <path d="M9 11h6M9 14h6M13 17.5h2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export function IconArtikel() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">

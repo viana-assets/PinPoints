@@ -38,7 +38,7 @@ function Kopf({ schluessel, aktiv, richtung, onSortieren, children }: {
   );
 }
 
-export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, isTechniker, onUpdateTechnikerNotiz, onRechnungErstellt }: {
+export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, isTechniker, onUpdateTechnikerNotiz }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Legt für den gewählten Kunden einen Auftrag an und öffnet das Auftragsfenster – derselbe
   // Weg wie im Karten-Popup und im Kundenfenster (docs/auftragsablauf.md).
@@ -57,7 +57,6 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
   // Hakt „Rechnung erstellt" ab (Migration 40). Die Nummer ist freiwillig; Datum und Person
   // setzt die Datenbank.
-  onRechnungErstellt: (id: string, nummer: string | null) => Promise<void>;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
@@ -67,10 +66,6 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   // Schalter und keine sechste Marke in der Statusleiste. Ist er an, gelten die anderen
   // Filter weiter: Man kann die offenen Rechnungen eines einzelnen Kunden sehen.
   const [nurRechnungOffen, setNurRechnungOffen] = useState(false);
-  // Die getippten Rechnungsnummern, je Auftrag. Sie stehen hier und nicht in der Zeile, weil
-  // die Zeile nach dem Abhaken aus der Liste verschwindet – ein Zustand in einem Bauteil, das
-  // gleich nicht mehr da ist, wäre beim Speichern schon weg.
-  const [nummerFuer, setNummerFuer] = useState<Record<string, string>>({});
   // Sortierung. Vorgabe ist der Termin, absteigend – das Jüngste oben, so wie die Liste
   // bisher schon kam. `spalte` ist ein Schlüssel aus SPALTEN weiter unten.
   const [sortSpalte, setSortSpalte] = useState<string>("termin");
@@ -80,10 +75,6 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
     // Aufsteigend ist der ruhigere Anfang: A vor Z, klein vor groß, früh vor spät.
     if (schluessel === sortSpalte) setSortRichtung((r) => (r === "auf" ? "ab" : "auf"));
     else { setSortSpalte(schluessel); setSortRichtung("auf"); }
-  }
-  async function abhaken(id: string) {
-    await onRechnungErstellt(id, nummerFuer[id]?.trim() || null);
-    setNummerFuer((v) => { const rest = { ...v }; delete rest[id]; return rest; });
   }
   const offeneRechnungen = orders.filter(rechnungOffen).length;
   const filteredOrders = orders
@@ -212,21 +203,18 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                       {/* Nur in der Arbeitsliste. Sie steht hier und nicht dauerhaft in der
                           Tabelle, weil sie nur dort etwas zu sagen hat – eine Spalte, die in
                           neun von zehn Ansichten „–" zeigt, kostet Breite und sagt nichts.
-                          Nummer und Knopf in derselben Zelle: Wer eine Liste abarbeitet, will
-                          tippen und weiter, nicht ein Fenster öffnen und wieder schließen. */}
+
+                          Bis zum 18.09.2026 stand hier ein Eingabefeld für die Nummer aus dem
+                          ERP und ein Haken „erstellt". Seit PinPoints die Rechnung selbst
+                          ausstellt, gibt es nichts mehr abzuhaken: Der Knopf führt dorthin, wo
+                          die Rechnung entsteht, und der Haken kommt von der Datenbank. */}
                       {nurRechnungOffen && (
                         <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
-                          <input
-                            type="text"
-                            className="feld-kompakt"
-                            style={{ width: 118, marginRight: 6 }}
-                            placeholder="Rechnungsnr."
-                            value={nummerFuer[o.id] ?? ""}
-                            onChange={(e) => setNummerFuer((v) => ({ ...v, [o.id]: e.target.value }))}
-                            onKeyDown={(e) => { if (e.key === "Enter") abhaken(o.id); }}
-                          />
-                          <button type="button" className="btn-primary" style={{ padding: "4px 9px", fontSize: 12 }} onClick={() => abhaken(o.id)}>
-                            erstellt
+                          <button
+                            type="button" className="btn-primary" style={{ padding: "4px 9px", fontSize: 12 }}
+                            onClick={() => onOpenOrder(o.id)}
+                          >
+                            Rechnung erstellen
                           </button>
                         </td>
                       )}

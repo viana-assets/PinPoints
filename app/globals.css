@@ -611,6 +611,10 @@
    Regel daraus: Ein Fenster über einem Fenster braucht einen eigenen z-index. Gleicher Wert
    heißt nicht „gleich wichtig", sondern „die Quelltextreihenfolge entscheidet". */
 .modal-kontakt { z-index: 10002; }
+/* Das Rechnungsfenster öffnet AUS dem Auftragsfenster (10001), die Storno-Rückfrage wiederum
+   aus dem Rechnungsfenster. Jede Ebene bekommt ihren eigenen Wert – dieselbe Regel wie oben. */
+.modal-rechnung { z-index: 10003; }
+.modal-storno { z-index: 10004; }
 
 .fehler-hinweis {
   position: fixed;
@@ -1770,3 +1774,222 @@ tr.klickbar:hover { background: var(--hover); }
    Text, den niemand für einen Knopf hält. Deshalb steht der Rand hier an der Stelle und nicht
    am Knopf selbst: Er ist eine Frage des Untergrunds, nicht des Knopfes. */
 .btn-rand { border: 1px solid var(--border); }
+
+/* ---------------- Die Rechnung als Dokument (18.09.2026) ---------------- */
+/* Maße in MILLIMETERN, auf dem Bildschirm wie auf dem Papier – dieselbe Überlegung wie beim
+   Etikett weiter oben. Eine Rechnung HAT eine physische Größe; wer sie in Pixeln entwirft und
+   beim Drucken umrechnet, entwirft zweimal und sieht den Unterschied erst beim Kunden.
+
+   Die Seitenränder folgen DIN 5008: links 25 mm (Lochrand), rechts 20 mm, oben 15 mm. Das
+   Anschriftenfeld beginnt so, dass es im Fenster eines Umschlags mit Sichtfenster steht. */
+.rechnungsseite{
+  width:210mm;min-height:297mm;box-sizing:border-box;
+  padding:15mm 20mm 10mm 25mm;
+  background:#ffffff;color:#1a1a1a;
+  font-family:Arial, Helvetica, sans-serif;font-size:3.1mm;line-height:1.45;
+  display:flex;flex-direction:column;
+}
+.rechnung-koerper{flex:1 1 auto;}
+
+.re-kopf{display:flex;align-items:flex-start;justify-content:space-between;gap:8mm;
+  min-height:16mm;}
+.re-firma{font-size:4.6mm;font-weight:700;letter-spacing:.01em;}
+.re-inhaber{font-size:3.1mm;color:#444444;}
+/* Höhe begrenzt, Breite frei: Ein hochformatiges Logo darf nicht in das Anschriftenfeld
+   hineinwachsen, ein querformatiges nicht über den rechten Rand. */
+.re-logo{max-height:22mm;max-width:60mm;object-fit:contain;display:block;}
+
+.re-adressteil{display:flex;justify-content:space-between;gap:10mm;margin-top:8mm;}
+/* 85 mm breit, 40 mm hoch – das Sichtfenster eines DIN-lang-Umschlags. */
+.re-anschrift{width:85mm;min-height:40mm;}
+.re-absenderzeile{font-size:2.3mm;color:#555555;border-bottom:.2mm solid #999999;
+  padding-bottom:.8mm;margin-bottom:2.5mm;}
+.re-daten{display:grid;grid-template-columns:auto auto;gap:.8mm 4mm;align-content:start;
+  font-size:3mm;}
+.re-daten>div{display:contents;}
+.re-daten span{color:#555555;}
+.re-daten b{text-align:right;white-space:nowrap;}
+
+.re-titel{font-size:5.2mm;font-weight:700;margin:7mm 0 1mm;letter-spacing:.01em;}
+.re-kennzeichen{font-size:3mm;color:#444444;margin-bottom:3mm;}
+/* `pre-line`: Die Leerzeile zwischen Anrede und Text ist Teil des Briefs. Sie zu schlucken
+   und durch einen Abstand zu ersetzen hieße, den Text des Betriebs umzuschreiben. */
+.re-anschreiben{white-space:pre-line;margin:4mm 0 5mm;}
+
+.re-tabelle{width:100%;border-collapse:collapse;font-size:3mm;}
+.re-tabelle th{text-align:left;font-weight:700;border-bottom:.35mm solid #1a1a1a;
+  padding:1.2mm 1.5mm 1mm;}
+.re-tabelle td{padding:1.2mm 1.5mm;border-bottom:.2mm solid #d8d4cc;vertical-align:top;}
+/* Eine Position darf nicht über den Seitenumbruch zerrissen werden: Bezeichnung auf Seite 1,
+   Betrag auf Seite 2 ist genau die Zeile, über die jemand anruft. */
+.re-tabelle tr{break-inside:avoid;page-break-inside:avoid;}
+.re-sp-pos{width:8mm;}
+.re-sp-nr{width:16mm;color:#555555;}
+.re-sp-menge{width:22mm;text-align:right;white-space:nowrap;}
+.re-sp-preis{width:24mm;text-align:right;white-space:nowrap;}
+.re-sp-summe{width:26mm;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.re-zusatz{font-size:2.6mm;color:#555555;margin-top:.4mm;}
+.re-leer{color:#777777;font-style:italic;}
+
+.re-summen{display:flex;justify-content:flex-end;margin-top:3mm;}
+/* Spaltenabstand NULL und stattdessen ein Innenabstand an der Beschriftung: Die Linie über
+   dem Gesamtbetrag liegt auf beiden Zellen, und bei einem Abstand dazwischen wäre sie in der
+   Mitte unterbrochen. So läuft sie durch. */
+.re-summenblock{width:88mm;display:grid;grid-template-columns:1fr auto;gap:1.1mm 0;
+  font-size:3mm;}
+.re-summenblock span{padding-right:4mm;}
+.re-summenblock>div{display:contents;}
+.re-summenblock b{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.re-ohne-steuer span{color:#555555;font-style:italic;}
+.re-gesamt span,.re-gesamt b{font-size:3.6mm;font-weight:700;padding-top:1.4mm;
+  border-top:.35mm solid #1a1a1a;}
+
+.re-zahlung{margin-top:5mm;font-weight:700;}
+.re-dank{margin-top:2.5mm;}
+.re-hinweis{margin-top:2.5mm;font-size:2.7mm;color:#444444;}
+
+.re-giro{display:flex;align-items:center;gap:4mm;margin-top:4mm;
+  break-inside:avoid;page-break-inside:avoid;}
+.re-giro img{width:20mm;height:20mm;display:block;image-rendering:pixelated;}
+.re-giro .small{font-size:2.6mm;color:#555555;line-height:1.35;}
+
+/* `margin-top:auto` in der Flex-Spalte: Bei einer kurzen Rechnung steht die Fußzeile am
+   unteren Seitenrand, bei einer langen am Ende des Textes. Beides ist richtig – eine Fußzeile
+   in der Mitte einer halbvollen Seite wäre es nicht. */
+.re-fuss{margin-top:auto;padding-top:3.5mm;border-top:.2mm solid #b9b1a1;
+  display:grid;grid-template-columns:1fr 1fr 1fr;gap:6mm;
+  font-size:2.5mm;line-height:1.4;color:#444444;
+  break-inside:avoid;page-break-inside:avoid;}
+
+/* Die Vorschau im Fenster. Das Papier bleibt 210 mm breit und wird nur verkleinert gezeigt –
+   so ist gedruckt wirklich, was man gesehen hat. `transform` statt kleinerer Schriftgrößen:
+   Wer die Vorschau anders setzt als den Druck, entwirft zwei Layouts. */
+.rechnung-vorschau{overflow:auto;background:var(--panel-bg, #efece5);padding:8px;
+  border:1px solid var(--border);border-radius:8px;}
+.rechnung-vorschau .rechnungsseite{transform:scale(var(--re-zoom, .62));transform-origin:top left;
+  box-shadow:0 2px 10px rgba(0,0,0,.18);
+  /* Verkleinerte Schrift bekommt mit Subpixel-Glättung farbige Ränder – im Ausdruck ist sie
+     schwarz, in der Vorschau sähe sie bunt aus. Graustufen-Glättung nimmt das weg. */
+  -webkit-font-smoothing:antialiased;}
+/* Der Bildschirmplatz, den die verkleinerte Seite wirklich einnimmt. Ohne diesen Rahmen
+   bliebe unter der skalierten Seite der volle, leere 297-mm-Platz stehen – `transform`
+   verändert die Darstellung, nicht den Platzbedarf. */
+.rechnung-vorschau-rahmen{width:calc(210mm * var(--re-zoom, .62));
+  height:calc(297mm * var(--re-zoom, .62));overflow:hidden;}
+
+@media print{
+  /* Beim Drucken bleibt nur die Seite übrig – dieselbe Mechanik wie beim Etikettenbogen
+     weiter oben (`visibility` statt `display`, damit kein ausgeblendeter Vorfahre das
+     Dokument mitreißt).
+
+     `@page { size: A4 }` steht bewusst NICHT hier, sondern wird vom Rechnungsfenster selbst
+     eingehängt: Eine Seitengröße gilt für das ganze Dokument und lässt sich nicht je Element
+     umstellen. Stünde sie fest im Stilblatt, würde sie dem Etikettendruck von der Rolle in die
+     Quere kommen, der seinerseits 50 × 30 mm setzt. */
+  .rechnung-vorschau, .rechnung-vorschau *{visibility:visible;}
+  .rechnung-vorschau{position:absolute;left:0;top:0;
+    overflow:visible;background:none;padding:0;border:none;}
+  .rechnung-vorschau-rahmen{width:auto;height:auto;overflow:visible;}
+  .rechnung-vorschau .rechnungsseite{transform:none;box-shadow:none;}
+  /* Die Seitenränder kommen beim Drucken von `@page` (RECHNUNG_SEITE_CSS) und NICHT vom
+     Innenabstand der Seite: Ein Innenabstand gilt nur für die erste Seite, auf Seite zwei
+     stünde der Text an der Papierkante. Nachgestellt mit einer 14-Positionen-Rechnung – der
+     Girocode klebte oben am Blattrand.
+
+     Die Mindesthöhe ist dann 297 − 15 − 10 = 272 mm, damit die Fußzeile bei einer kurzen
+     Rechnung weiterhin am unteren Seitenrand steht statt in der Blattmitte. */
+  .rechnungsseite{width:auto;padding:0;min-height:272mm;}
+  body{background:#ffffff;}
+}
+
+/* ---------------- Rechnungsfenster (18.09.2026) ---------------- */
+/* Breiter als jeder andere Dialog, weil darin ein A4-Blatt steht. 210 mm mal der
+   Vorschaufaktor sind etwa 500 Pixel – dazu Rand und Rollbalken. */
+.modal-box.rechnung-modal{width:760px;max-width:96vw;max-height:94vh;
+  display:flex;flex-direction:column;gap:10px;padding:18px 20px;}
+.re-kopfleiste{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
+.re-kopfleiste h3{margin:0;font-family:var(--font-brand);font-size:17px;
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.re-pille{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
+  background:var(--chip-bg, #e7e2d8);color:var(--muted);letter-spacing:.02em;}
+.re-pille.entwurf{background:#e4ecf5;color:#1E3A5F;}
+.re-pille.aufgehoben{background:#f5e0e0;color:#8a2b2b;}
+.re-pille.storno{background:#f0e2c8;color:#7a5a12;}
+.re-auswahl{flex-wrap:wrap;}
+.rechnung-modal .rechnung-vorschau{flex:1 1 auto;min-height:0;}
+.re-fussleiste{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.re-fussleiste .small{color:var(--muted);flex:1 1 200px;}
+/* Der Vergrößerungsfaktor der Vorschau IM FENSTER. 210 mm sind bei 96 dpi rund 794 px; was
+   davon übrig bleibt, hängt an der Fensterbreite – deshalb drei Stufen, alle mit derselben
+   Genauigkeit angeschrieben, damit die Reihenfolge im Stilblatt entscheidet und nicht die
+   Gewichtung des Selektors. (Eine Regel `.rechnung-vorschau` allein verlöre sonst gegen
+   `.rechnung-modal .rechnung-vorschau`, egal in welcher Medienabfrage sie steht.) */
+.rechnung-modal .rechnung-vorschau{--re-zoom:.82;}
+@media (max-width: 980px){
+  /* Ab hier ist das Fenster 92 vw breit, 82 % passen nicht mehr. */
+  .rechnung-modal .rechnung-vorschau{--re-zoom:.62;}
+}
+@media (max-width: 760px){
+  /* Am Handy füllt das Fenster den Bildschirm – 210 mm müssen in rund 330 px. Gedruckt wird
+     ohnehin vom Rechner aus; hier geht es ums Nachsehen. */
+  .rechnung-modal .rechnung-vorschau{--re-zoom:.4;}
+}
+
+/* Der Platz des Girocodes, solange er noch entsteht. Ohne ihn springt der Text beim Erscheinen
+   des Bildes um zwei Zentimeter – und beim Drucken ist der Sprung gerade erst vorbei. */
+.re-giro-platz{width:20mm;height:20mm;flex:0 0 auto;display:block;}
+
+/* ---------------- Rechnungsbuch ---------------- */
+.rechnungsbuch .rb-zahl{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.rechnungsbuch td .re-pille{margin-left:6px;}
+/* Aufgehobene Belege bleiben stehen und werden durchgestrichen. Eine Liste, die sie
+   wegblendet, hätte Lücken im Nummernkreis – und genau die sind bei einer Prüfung die Frage. */
+.rechnungsbuch tr.aufgehoben td:first-child b{text-decoration:line-through;}
+.rechnungsbuch tr.aufgehoben,.rechnungsbuch tr.storno{color:var(--muted);}
+/* Eine Zahl, die eine Schaltfläche ist, soll wie ein Verweis aussehen und nicht wie ein
+   Knopf – in einer Tabellenspalte wäre ein Knopf je Zeile ein Zaun. */
+.link-knopf{background:none;border:none;padding:0;color:var(--accent);
+  text-decoration:underline;font:inherit;cursor:pointer;}
+.link-knopf:hover{text-decoration:none;}
+
+/* ---------------- Betriebsdaten-Maske (18.09.2026) ---------------- */
+.betriebsdaten{display:flex;flex-direction:column;gap:12px;max-width:760px;}
+/* Zwei Spalten am Schreibtisch, eine am Handy. PLZ und Ort stehen nebeneinander, weil sie im
+   Kopf auch eine Zeile sind – ein Formular, das anders gruppiert als das Ergebnis, lässt den
+   Nutzer zweimal überlegen. */
+.bd-raster{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;margin-top:8px;}
+.bd-feld{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.bd-feld.breit{grid-column:1 / -1;}
+.bd-feld label{font-size:12px;font-weight:700;color:var(--muted);}
+.bd-feld input,.bd-feld textarea{width:100%;}
+.bd-feld textarea{resize:vertical;font:inherit;}
+.bd-feld .small{color:var(--muted);}
+
+.bd-logo{display:flex;align-items:center;gap:14px;margin-top:8px;flex-wrap:wrap;}
+/* Fester Rahmen mit heller Karo-Fläche: Ein Logo mit durchsichtigem Hintergrund ist sonst auf
+   Weiß nicht von einem mit weißem Hintergrund zu unterscheiden – und genau das ist die Frage,
+   die man beim Hochladen beantwortet haben will. */
+.bd-logo-feld{width:180px;height:90px;display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--border);border-radius:10px;padding:8px;background:#ffffff;
+  background-image:linear-gradient(45deg,#f2f0ea 25%,transparent 25%,transparent 75%,#f2f0ea 75%),
+    linear-gradient(45deg,#f2f0ea 25%,transparent 25%,transparent 75%,#f2f0ea 75%);
+  background-size:14px 14px;background-position:0 0,7px 7px;}
+.bd-logo-feld img{max-width:100%;max-height:100%;object-fit:contain;}
+.bd-logo-knoepfe{display:flex;flex-direction:column;gap:6px;}
+
+.bd-nummer{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+.bd-nummer .small{color:var(--muted);max-width:44ch;}
+.bd-nummer-eingabe{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.bd-nummer-eingabe input{width:110px;}
+
+/* Bewusst NICHT klebend am unteren Rand: Ein Balken, der über den Karten schwebt, verdeckt
+   genau das Feld, das man gerade bearbeitet hat – im Browser nachgesehen, er lag mitten auf
+   dem Logo-Block und schnitt dessen zweiten Knopf ab. Die Maske ist kurz genug, dass man zum
+   Speichern nicht weit scrollt. */
+.bd-speichern{display:flex;align-items:center;gap:10px;padding:4px 0 2px;}
+
+@media (max-width: 720px){
+  .bd-raster{grid-template-columns:1fr;}
+  .bd-feld.breit{grid-column:auto;}
+}
