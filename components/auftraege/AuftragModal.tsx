@@ -29,7 +29,7 @@ export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
-  fremdeSaetze, onAuslagern,
+  fremdeSaetze, onAuslagern, onEtikett,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungErstellt, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
@@ -81,6 +81,8 @@ export function AuftragModal({
   // hängt. Wer auslagern wollte, musste das Fenster verlassen und die Regalwand durchsuchen.
   fremdeSaetze: TireStorage[];
   onAuslagern: (satzId: string) => void;
+  // Öffnet den Etikettendruck für einen Satz (17.09.2026).
+  onEtikett: (satzId: string) => void;
   storageSlots: StorageSlot[];
   warehouses: Warehouse[];
   belegteSlotIds: Set<string>;
@@ -769,6 +771,7 @@ export function AuftragModal({
                     onRadSpeichern={onRadSpeichern}
                     onRadEntfernen={onRadEntfernen}
                     onFahrzeugAnlegen={(kennzeichen, modell) => onFahrzeugAnlegen(kennzeichen, modell, satz.id)}
+                    onEtikett={onEtikett}
                   />
                 </div>
               ))}

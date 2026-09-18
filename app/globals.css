@@ -867,6 +867,12 @@ tr.klickbar:hover { background: var(--hover); }
    erhält den Seitenaufbau und vermeidet, dass ein ausgeblendeter Vorfahre den Bogen mitreißt.
    Farben werden erzwungen, sonst sparen manche Browser den schwarzen QR-Code weg. */
 @media print{
+  /* `html,body{height:100%}` steht oben für die Bildschirmansicht – beim Drucken macht es das
+     Dokument genau EINE Seite hoch, und alles darunter fällt weg. Bei einem A4-Bogen fiel das
+     nie auf (ein Bogen, eine Seite); beim Etikettendruck von der Rolle ist jede Seite 30 mm
+     hoch, und aus vier Rad-Etiketten wurde eines. Nachgestellt und gemessen: mit `auto` sind es
+     vier Seiten, mit `100%` eine. */
+  html, body{height:auto;overflow:visible;}
   body *{visibility:hidden;}
   .druckbogen, .druckbogen *{visibility:visible;}
   .druckbogen{position:absolute;left:0;top:0;width:100%;max-height:none;overflow:visible;
@@ -875,6 +881,62 @@ tr.klickbar:hover { background: var(--hover); }
   .aufkleber{width:38mm;border:1px dashed #999999;}
   .qr-bild{width:26mm;height:26mm;}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+}
+
+/* ---------------- Etikett für den Reifensatz (17.09.2026) ---------------- */
+/* Maße in MILLIMETERN, auf dem Bildschirm wie auf dem Papier. Ein Etikett ist eines der
+   wenigen Dinge in einer Anwendung, das eine physische Größe HAT – wer es in Pixeln entwirft
+   und beim Drucken umrechnet, entwirft zweimal und sieht den Unterschied erst auf der Rolle.
+   50 × 30 mm ist der Entwurfsfall; die anderen Formate skalieren über die Variablen. */
+.etikett{width:var(--etikett-b,50mm);height:var(--etikett-h,30mm);
+  display:flex;align-items:center;gap:1.5mm;padding:1.5mm;overflow:hidden;
+  background:#ffffff;color:#000000;box-sizing:border-box;
+  break-inside:avoid;page-break-inside:avoid;}
+.etikett-qr{width:var(--etikett-qr,21mm);height:var(--etikett-qr,21mm);flex:0 0 auto;
+  display:block;image-rendering:pixelated;}
+.etikett-text{flex:1;min-width:0;line-height:1.25;}
+/* Der Name darf umbrechen, aber nicht ausufern: zwei Zeilen, dann Schluss. Ein Etikett, dessen
+   Text den QR-Code wegdrückt, ist beides nicht mehr – weder lesbar noch scanbar. */
+.etikett-kunde{font-weight:800;font-size:2.6mm;overflow:hidden;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.etikett-zeile{font-size:2.1mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+/* Das Rad-Etikett (17.09.2026). Andere Gewichtung als beim Satz-Etikett: Dort trägt der
+   Kundenname die Aussage, hier die POSITION und die Profiltiefe. Wer vier gleich aussehende
+   Räder vor sich hat, liest genau diese beiden Angaben – alles andere ist Beleg und darf klein
+   sein. Deshalb steht die Position groß und nicht der Name. */
+.etikett-rad-kopf{display:flex;align-items:baseline;gap:1.2mm;margin-bottom:.4mm;
+  flex-wrap:nowrap;min-width:0;}
+.etikett-pos{font-family:var(--font-brand);font-weight:800;font-size:4.5mm;line-height:1;
+  letter-spacing:.02em;flex:0 0 auto;}
+/* `min-width:0` und die Ellipse sind hier nicht Kosmetik: Ohne sie schob „6,0 mm" die Zeile
+   über den Etikettenrand, wo `overflow:hidden` sie kommentarlos abschnitt – aus 6,0 mm wurde
+   „6,0 m". Eine abgeschnittene Zahl ist schlimmer als eine fehlende, weil sie aussieht wie
+   eine Angabe. */
+.etikett-profil{font-weight:700;font-size:2.6mm;white-space:nowrap;
+  min-width:0;overflow:hidden;text-overflow:ellipsis;}
+/* Das Rad-Etikett bekommt einen kleineren QR als das Satz-Etikett: Links steht hier eine
+   Angabe, die gelesen werden MUSS (Position und Profil), und die braucht die Breite. Bei
+   203 dpi – der Auflösung dieser Etikettendrucker – bleiben 18 mm gut über der Grenze, ab der
+   ein Modul zu wenige Druckpunkte bekommt. Nachgemessen, nicht geschätzt. */
+.etikett-rad .etikett-qr{width:calc(var(--etikett-qr, 21mm) - 3mm);
+  height:calc(var(--etikett-qr, 21mm) - 3mm);}
+/* Im Vorschaubereich bekommt jedes Etikett eine gestrichelte Kontur, damit man seine Grenzen
+   sieht. Auf dem Papier wäre sie Unsinn: Das Etikett IST die Seite. */
+.druckbogen .etikett{border:1px dashed #b9b1a1;border-radius:2px;}
+.druckbogen.rolle{gap:6px;}
+
+@media print{
+  /* Ein Etikett, eine Seite. Ohne das legt der Browser so viele nebeneinander, wie auf die
+     schmale Rolle passen – also eines, und schiebt danach 30 mm Leerraum durch.
+
+     `position:static` hebt das `absolute` der Bogen-Regel darüber auf: Ein absolut
+     positionierter Block wird nicht zuverlässig über mehrere Seiten umbrochen, und genau das
+     ist hier der Normalfall – drei Sätze sind drei Etiketten und damit drei Seiten. */
+  .druckbogen.rolle{display:block;gap:0;position:static;padding:0;}
+  .druckbogen.rolle .etikett{border:none;border-radius:0;margin:0;
+    break-after:page;page-break-after:always;}
+  .druckbogen.rolle .etikett:last-child{break-after:auto;page-break-after:auto;}
 }
 
 /* ---------------- Kamera-Scanner ---------------- */

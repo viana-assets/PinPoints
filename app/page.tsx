@@ -23,7 +23,7 @@ import {
   PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
   type Verb,
 } from "@/lib/constants";
-import { LAGERPLATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
+import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/aufkleberCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
@@ -49,6 +49,7 @@ import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
 import { AuslagernDialog, type AuslagernWahl } from "@/components/lager/AuslagernDialog";
+import { ReifensatzEtikett } from "@/components/lager/ReifensatzEtikett";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
@@ -232,9 +233,13 @@ export default function HomePage() {
   // erst beim Absenden schreibt, könnte den wichtigsten Teil des Fensters nicht anbieten.
   // Siehe docs/termine-kontakt-auftrag-analyse.md.
   const [frischerAuftragId, setFrischerAuftragId] = useState<string | null>(null);
-  // Lagerplatz aus einem gescannten QR-Aufkleber (?lagerplatz=…, siehe lib/lagerplatzCode.ts).
+  // Lagerplatz aus einem gescannten QR-Aufkleber (?lagerplatz=…, siehe lib/aufkleberCode.ts).
   // Wird beim Start einmal aus der Adresszeile gelesen und danach an das Lager-Modul gereicht.
   const [gescannterLagerplatzId, setGescannterLagerplatzId] = useState<string | null>(null);
+  // Reifensatz aus einem gescannten Satz-Etikett (?satz=…). Anders als beim Lagerplatz steht
+  // hier NICHT das Ziel im Code: Wo der Satz liegt, wird nachgeschlagen – er wandert ja. Deshalb
+  // kann die Auflösung auch nicht beim Start passieren, der Bestand ist da noch nicht geladen.
+  const [gescannterSatzId, setGescannterSatzId] = useState<string | null>(null);
   // Kunde, für den der Kontaktdialog offen ist (Migration 23).
   const [kontaktKundeId, setKontaktKundeId] = useState<string | null>(null);
   // Saisonliste (docs/lager-ausbaukonzept.md D1). Die Voreinstellung folgt dem Jahreslauf:
@@ -1248,6 +1253,9 @@ export default function HomePage() {
   // dafür nichts. Deshalb `ohneDialog`.
   const [auslagernSatzId, setAuslagernSatzId] = useState<string | null>(null);
   const [auslagernAusAuftragId, setAuslagernAusAuftragId] = useState<string | null>(null);
+  // Für welche Sätze ist gerade der Etikettendruck offen (17.09.2026)? Eine Liste, weil aus dem
+  // Lager heraus auch mehrere auf einmal gedruckt werden können.
+  const [etikettSatzIds, setEtikettSatzIds] = useState<string[]>([]);
 
   async function removeTireAssignment(id: string, ohneDialog = false) {
     if (ohneDialog) {
@@ -1824,16 +1832,45 @@ export default function HomePage() {
   // im Verlauf, und ein Neuladen springt Wochen später wieder auf denselben Lagerplatz.
   useEffect(() => {
     const parameter = new URLSearchParams(window.location.search);
-    const roh = parameter.get(LAGERPLATZ_PARAMETER);
-    if (!roh) return;
-    const id = lagerplatzIdAusCode(roh);
+    const rohPlatz = parameter.get(LAGERPLATZ_PARAMETER);
+    const rohSatz = parameter.get(SATZ_PARAMETER);
+    if (!rohPlatz && !rohSatz) return;
+    const platzId = rohPlatz ? lagerplatzIdAusCode(rohPlatz) : null;
+    // Für den Satz genügt hier die reine Kennung – dass es ein Satz-Etikett war, sagt schon der
+    // Parametername, und `satzIdAusCode` erwartet den vollen Link.
     parameter.delete(LAGERPLATZ_PARAMETER);
+    parameter.delete(SATZ_PARAMETER);
     const rest = parameter.toString();
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
-    if (!id) return;
-    setGescannterLagerplatzId(id);
-    setTab("lager");
+    if (platzId) {
+      setGescannterLagerplatzId(platzId);
+      setTab("lager");
+      return;
+    }
+    if (rohSatz) {
+      setGescannterSatzId(rohSatz.toLowerCase());
+      setTab("lager");
+    }
   }, []);
+
+  // Den gescannten Satz auflösen, sobald der Bestand geladen ist.
+  //
+  // Liegt er noch im Regal, springt die Regalwand auf seinen PLATZ – dort stehen Kunde,
+  // Fahrzeug, Saison und Profil beisammen, also genau die Antwort auf „wem gehört der hier".
+  // Ist er schon ausgelagert, wäre das falsch: Auf dem Platz liegt womöglich längst der Satz
+  // eines anderen. Dann geht das Kundenfenster auf – die Frage bleibt dieselbe, nur die beste
+  // Antwort ist eine andere.
+  useEffect(() => {
+    if (!gescannterSatzId || tireStorages.length === 0) return;
+    const satz = tireStorages.find((t) => t.id === gescannterSatzId);
+    setGescannterSatzId(null);
+    if (!satz) return;
+    if (satz.removed_at) {
+      openDetail(satz.customer_id);
+      return;
+    }
+    setGescannterLagerplatzId(satz.storage_slot_id);
+  }, [gescannterSatzId, tireStorages]);
 
   // Ziel einer angetippten Terminerinnerung öffnen (docs/benachrichtigungen-plan.md, Teil 5).
   //
@@ -2460,6 +2497,7 @@ export default function HomePage() {
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
             onRemoveAssignment={removeTireAssignment}
+            onEtikett={(satzId) => setEtikettSatzIds([satzId])}
             canCreateWarehouse={darf("lager.regale", "schreiben")}
             canEditWarehouse={darf("lager.regale", "schreiben")}
             canDeleteWarehouse={darf("lager.regale", "loeschen")}
@@ -2738,6 +2776,18 @@ export default function HomePage() {
         />
       )}
 
+      {etikettSatzIds.length > 0 && (
+        <ReifensatzEtikett
+          saetze={tireStorages.filter((t) => etikettSatzIds.includes(t.id))}
+          raeder={eingelagerteRaeder.filter((r) => etikettSatzIds.includes(r.tire_storage_id))}
+          customers={customers}
+          vehicles={alleFahrzeuge}
+          slots={storageSlots}
+          warehouses={warehouses}
+          onClose={() => setEtikettSatzIds([])}
+        />
+      )}
+
       {/* Der Auslagern-Dialog steht auf derselben Ebene wie die Fenster, aus denen er
           aufgerufen wird (Regalwand und Auftragsfenster) – sonst läge er unter dem einen und
           über dem anderen. Er kennt seinen Satz, nicht seinen Aufrufer. */}
@@ -2804,6 +2854,7 @@ export default function HomePage() {
             (t) => t.customer_id === offenerAuftrag.customer_id && !t.removed_at && t.order_id !== offenerAuftrag.id
           )}
           onAuslagern={(satzId) => { setAuslagernAusAuftragId(offenerAuftrag.id); setAuslagernSatzId(satzId); }}
+          onEtikett={(satzId) => setEtikettSatzIds([satzId])}
           storageSlots={storageSlots}
           warehouses={warehouses}
           belegteSlotIds={belegteSlotIds}

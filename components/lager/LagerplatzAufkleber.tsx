@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import type { StorageSlot } from "@/lib/types";
-import { lagerplatzUrl } from "@/lib/lagerplatzCode";
+import { lagerplatzUrl } from "@/lib/aufkleberCode";
 
 // Druckbogen mit QR-Aufklebern für Lagerplätze. Dieselbe Komponente für einen einzelnen
 // Aufkleber (Nachdruck, wenn einer abgerissen ist) und für ein ganzes Lager auf einmal

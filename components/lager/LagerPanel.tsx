@@ -62,7 +62,7 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
   customers: Customer[];
   // Alle Kundenfahrzeuge. Das Lager-Modul arbeitet nicht mit einem geöffneten Kunden, sondern
   // mit vielen Sätzen nebeneinander – deshalb hier der Vollabzug statt der Ausschnitt je Kunde.
@@ -78,6 +78,10 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   onDeleteSlot: (id: string) => Promise<void>;
   onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
   onRemoveAssignment: (id: string) => Promise<void>;
+  // Etikett für den Satz auf diesem Platz nachdrucken (17.09.2026). Der erste Druck passiert im
+  // Auftragsfenster; hier geht es um den abgerissenen – dieselbe Begründung wie beim
+  // Nachdruck eines Regalaufklebers.
+  onEtikett: (einlagerungId: string) => void;
   // Granulare Modul-Berechtigungen (von einem Superadmin im Admin-Tab unter
   // "Modulverwaltung" konfigurierbar) – jede Struktur-Aktion einzeln steuerbar, damit z. B.
   // ein Techniker Reifen zuordnen, aber kein Lager anlegen/löschen darf.
@@ -591,6 +595,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           vehicles={vehicles}
           onAssign={onAssignTire}
           onRemove={onRemoveAssignment}
+          onEtikett={onEtikett}
         />
       )}
     </div>
@@ -708,7 +713,7 @@ function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, aus, c
   );
 }
 
-function TireAssignModal({ slot, customers, vehicles, assignment, gruende, history, raederFuer, onClose, onAssign, onRemove }: {
+function TireAssignModal({ slot, customers, vehicles, assignment, gruende, history, raederFuer, onClose, onAssign, onRemove, onEtikett }: {
   slot: StorageSlot; customers: Customer[]; vehicles: Vehicle[]; assignment: TireStorage | null; history: TireStorage[];
   // Warum an der Kachel ein oranger Punkt sitzt. Der Punkt sagt „etwas", diese Liste „was" –
   // wer den Platz öffnet, soll es nicht raten müssen.
@@ -719,6 +724,7 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, histo
   onClose: () => void;
   onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  onEtikett: (einlagerungId: string) => void;
 }) {
   const [customerId, setCustomerId] = useState(assignment?.customer_id || "");
   const [vehicleId, setVehicleId] = useState(assignment?.vehicle_id || "");
@@ -836,6 +842,15 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, histo
         <button className="btn-primary btn-block" disabled={!customerId || saving} onClick={save}>
           {assignment ? "Zuordnung speichern" : "Reifen einlagern"}
         </button>
+        {assignment && (
+          <button
+            className="btn-secondary btn-block"
+            style={{ marginTop: 8 }}
+            onClick={() => onEtikett(assignment.id)}
+          >
+            Etikett nachdrucken
+          </button>
+        )}
         {assignment && (
           <button
             className="btn-secondary btn-block"

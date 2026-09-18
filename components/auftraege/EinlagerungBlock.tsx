@@ -6,7 +6,7 @@ import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { profilText, satzProfilMm } from "@/lib/helpers";
 import { RadBild } from "@/components/lager/RadBild";
 import type { RadFelder } from "@/lib/api/lager";
-import { lagerplatzIdAusCode } from "@/lib/lagerplatzCode";
+import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
 import { QrScanner } from "@/components/QrScanner";
 
 // Einlagerung im Auftragsfenster (Migration 22, siehe docs/lager.md).
@@ -24,7 +24,7 @@ export function EinlagerungBlock({
   titel = "Einlagerung",
   pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
   onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
-  onFahrzeugAnlegen,
+  onFahrzeugAnlegen, onEtikett,
 }: {
   // Steht im Auftrag eine Leistung mit dem Kennzeichen „braucht Lagerplatz"? Dann verlangt auch
   // die Datenbank vor dem Abschluss einen belegten Platz – dieser Block zeigt nur an, was dort
@@ -58,6 +58,10 @@ export function EinlagerungBlock({
   // Auftrag – ihn dafür ins Kundenfenster und wieder zurück zu schicken, war der längste Weg
   // für die kürzeste Eingabe (Kennzeichen + Modell).
   onFahrzeugAnlegen: (kennzeichen: string, modell: string) => Promise<void>;
+  // Öffnet den Etikettendruck für DIESEN Satz. Optional: Wer den Block ohne diese Zusage
+  // einbindet, bekommt den Knopf gar nicht erst zu sehen, statt auf einen zu drücken, der
+  // nichts tut.
+  onEtikett?: (einlagerungId: string) => void;
 }) {
   const [wahl, setWahl] = useState("");
   const [neuesKennzeichen, setNeuesKennzeichen] = useState("");
@@ -136,7 +140,16 @@ export function EinlagerungBlock({
   function gescannt(text: string) {
     setScannerOffen(false);
     const id = lagerplatzIdAusCode(text);
-    if (!id) { setMeldung("Das war kein Lagerplatz-Aufkleber."); return; }
+    if (!id) {
+      // Die beiden Aufklebersorten sehen sich ähnlich; wer das Satz-Etikett vor die Kamera
+      // hält, hat nicht „irgendetwas Falsches" gescannt, sondern das Naheliegende verwechselt.
+      setMeldung(
+        satzIdAusCode(text)
+          ? "Das ist das Etikett des Reifensatzes, kein Lagerplatz. Gescannt wird hier der Aufkleber am Regal."
+          : "Das war kein Lagerplatz-Aufkleber."
+      );
+      return;
+    }
     const platz = slots.find((s) => s.id === id);
     if (!platz) { setMeldung("Dieser Lagerplatz ist in der App nicht (mehr) vorhanden."); return; }
     if (belegteSlotIds.has(platz.id) && platz.id !== einlagerung?.storage_slot_id) {
@@ -335,13 +348,35 @@ export function EinlagerungBlock({
                 </div>
               )}
 
-              <button
-                type="button" className="btn-secondary" style={{ marginTop: 8 }}
-                disabled={laeuft}
-                onClick={() => onEntfernen(einlagerung.id)}
-              >
-                Einlagerung entfernen
-              </button>
+              {/* Das Etikett steht NEBEN dem Entfernen und nicht weiter oben beim Lagerplatz:
+                  Gedruckt wird, wenn der Satz fertig erfasst ist – mit Fahrzeug, Saison und
+                  Profil. Ein Etikett, auf dem „Fahrzeug offen" steht, klebt hinterher ein
+                  halbes Jahr am Reifen. */}
+              <div className="row" style={{ marginTop: 8, gap: 8 }}>
+                {onEtikett && (
+                  <button
+                    type="button" className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }}
+                    onClick={() => onEtikett(einlagerung.id)}
+                  >
+                    Etikett drucken
+                  </button>
+                )}
+                <button
+                  type="button" className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }}
+                  disabled={laeuft}
+                  onClick={() => onEntfernen(einlagerung.id)}
+                >
+                  Einlagerung entfernen
+                </button>
+              </div>
+              {onEtikett && (!einlagerung.vehicle_id || !einlagerung.saison) && (
+                <div className="small" style={{ marginTop: 4 }}>
+                  Auf dem Etikett stünde jetzt noch
+                  {!einlagerung.vehicle_id ? " „Fahrzeug offen“" : ""}
+                  {!einlagerung.vehicle_id && !einlagerung.saison ? " und" : ""}
+                  {!einlagerung.saison ? " „Saison offen“" : ""} – erst ergänzen, dann drucken.
+                </div>
+              )}
             </>
           )}
         </>

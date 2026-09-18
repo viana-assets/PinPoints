@@ -268,7 +268,7 @@ export const VORLAUF_MINUTEN = 5;
 export const ZEITZONE = "Europe/Berlin";
 
 // Adressparameter, mit denen eine angetippte Benachrichtigung direkt das richtige Fenster
-// öffnet. Gegenstück zu LAGERPLATZ_PARAMETER in lib/lagerplatzCode.ts – dasselbe Muster wie
+// öffnet. Gegenstück zu LAGERPLATZ_PARAMETER in lib/aufkleberCode.ts – dasselbe Muster wie
 // beim QR-Aufkleber am Regal.
 //
 // Die Terminerinnerung benutzt `auftrag`: Der Techniker steht im Auto und braucht Fahrzeug,
