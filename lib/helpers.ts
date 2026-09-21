@@ -1,7 +1,25 @@
 import type { ArticlePrice, Customer, Order, OrderArticle } from "./types";
 
+// Das heutige Datum als `JJJJ-MM-TT` – in ORTSZEIT.
+//
+// Bis zum 21.09.2026 stand hier `toISOString().slice(0,10)`, und das ist immer UTC. In
+// Deutschland war „heute" damit zwischen Mitternacht und 01:00 (Winterzeit) bzw. 02:00
+// (Sommerzeit) noch der Vortag – jeden Tag, nicht nur an der Zeitumstellung. Betroffen war
+// alles, was von hier kommt: das Vorgabedatum neuer Aufträge, der „Heute"-Knopf im Kalender,
+// die Zeiträume Heute/Morgen/7 Tage und das Datum, mit dem der gültige Preis gesucht wird.
+//
+// Die Rechnung ist dieselbe wie in `toDateStr()` (lib/calendar.ts); die beiden liefen
+// auseinander, und in genau dieser Stunde meinten „Heute"-Knopf und „ist heute"-Markierung
+// im Stundenraster verschiedene Tage. `toDateStr` ruft jetzt hierher durch.
 export function todayStr(): string {
-  return new Date().toISOString().slice(0, 10);
+  return datumStr(new Date());
+}
+
+// Ein Datum als `JJJJ-MM-TT` in Ortszeit. Bewusst von Hand zusammengesetzt statt über
+// `toISOString()`: Die Zeitzone darf das Ergebnis nicht verschieben.
+export function datumStr(d: Date): string {
+  const zwei = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${zwei(d.getMonth() + 1)}-${zwei(d.getDate())}`;
 }
 
 export function formatDate(iso: string | null | undefined): string {
@@ -745,28 +763,32 @@ export const PROTOKOLL_AKTION_LABEL: Record<string, string> = {
 // stehen, was beim LETZTEN Mal gemessen wurde – „HL 3,1 mm" oder „Reifen von 2018". Das ist
 // der Augenblick, in dem man Neureifen anbietet, und ohne den Hinweis fällt er aus.
 //
-// Gesucht wird der jüngste Satz DIESES Fahrzeugs; gibt es keines, der jüngste dieses Kunden.
-// Der Satz des laufenden Auftrags bleibt außen vor – er ist die Gegenwart, nicht die
-// Vorgeschichte.
+// Gesucht wird der jüngste Satz zu EINEM DER Fahrzeuge dieses Auftrags; steht am Auftrag
+// keines, der jüngste dieses Kunden. Der Satz des laufenden Auftrags bleibt außen vor – er ist
+// die Gegenwart, nicht die Vorgeschichte.
+//
+// `fahrzeugIds` ist eine Liste, seit ein Auftrag mehrere Autos tragen kann (Migration 44). Der
+// Parameter `ausserSatzId` ist am 21.09.2026 entfallen: Er wurde seit dem 17.09. von niemandem
+// mehr mit einem Wert aufgerufen, weil die Ausnahme inzwischen über `order_id` läuft.
 export function letzterSatzFuer<T extends {
   id: string; customer_id: string; vehicle_id: string | null; created_at: string;
 }>(
   saetze: T[],
   kundeId: string | null | undefined,
-  fahrzeugId: string | null | undefined,
-  ausserSatzId?: string | null
+  fahrzeugIds: readonly (string | null)[] | null | undefined
 ): T | null {
   if (!kundeId) return null;
   const desKunden = saetze
-    .filter((s) => s.customer_id === kundeId && s.id !== ausserSatzId)
+    .filter((s) => s.customer_id === kundeId)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
   if (desKunden.length === 0) return null;
-  // Erst das passende Fahrzeug – ein Kunde mit zwei Autos hat zwei Vorgeschichten, und die
+  // Erst die passenden Fahrzeuge – ein Kunde mit zwei Autos hat zwei Vorgeschichten, und die
   // des anderen Wagens wäre hier eine Falschaussage.
-  if (fahrzeugId) {
-    const zumFahrzeug = desKunden.find((s) => s.vehicle_id === fahrzeugId);
+  const gesucht = new Set((fahrzeugIds ?? []).filter((id): id is string => !!id));
+  if (gesucht.size > 0) {
+    const zumFahrzeug = desKunden.find((s) => s.vehicle_id && gesucht.has(s.vehicle_id));
     if (zumFahrzeug) return zumFahrzeug;
-    // Kein Satz zu DIESEM Fahrzeug: dann lieber nichts sagen als etwas über ein anderes Auto.
+    // Kein Satz zu DIESEN Fahrzeugen: dann lieber nichts sagen als etwas über ein anderes Auto.
     return null;
   }
   return desKunden[0];

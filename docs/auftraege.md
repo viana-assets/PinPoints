@@ -1,4 +1,4 @@
-# Aufträge, Termine, Einsatzplanung (Stand 18.09.2026)
+# Aufträge, Termine, Einsatzplanung (Stand 21.09.2026)
 
 Ersetzt `auftragsablauf.md` (Stand 04.09.2026) und `auftraege-termine-einsatzplanung.md`
 (Stand 10.09.2026), die beide gelöscht werden. Dieses Blatt beschreibt nur den **Ist-Zustand**
@@ -33,7 +33,6 @@ Daten.
 |---|---|
 | `order_number` | Fortlaufende, lesbare Nummer (Migration 20). Getrennt von `id` (UUID). |
 | `customer_id` | Pflicht – ein Auftrag ohne Kunden existiert nicht. |
-| `vehicle_id` | Welches Kundenfahrzeug betroffen ist (Migration 20). Siehe Abschnitt 9 – **nicht** dasselbe wie `auftrag_fahrzeuge`. |
 | `title`, `description` | Bürotext. Titel wird beim Anlegen mit `terminTitel(kundenName)` vorbelegt ("Termin – ‹Kunde›"), bleibt überschreibbar. |
 | `status` | `offen` \| `in_arbeit` \| `erledigt` \| `storniert`. Kein Auswahlfeld, wird nur über Trigger-geprüfte Übergänge erreicht. |
 | `order_date`, `time`, `end_time` | Datum, Anfang, Ende (Migration 37, Abschnitt 4). |
@@ -59,10 +58,9 @@ Migration 50, die Bezeichnung selbst; sonst eine Zusatzzeile darunter), `deleted
 (Migration 20), sobald `orders.status` `erledigt` oder `storniert` ist – siehe Abschnitt 8b.
 
 **`auftrag_fahrzeuge`** (Migration 44, `id`, `order_id`, `vehicle_id`, `kilometerstand`,
-`created/updated_at/by`, `unique(order_id, vehicle_id)`): welche Fahrzeuge ein Auftrag für die
-**Rechnung** betrifft, mit Kilometerstand je Fahrzeug und Auftrag. Ausführlich in Abschnitt 9 –
-wichtig ist hier schon: das ist eine andere Frage als `orders.vehicle_id` oben, und beide
-Felder bestehen am 18.09.2026 nebeneinander.
+`created/updated_at/by`, `unique(order_id, vehicle_id)`): welche Fahrzeuge ein Auftrag betrifft,
+mit Kilometerstand je Fahrzeug und Auftrag – seit Migration 51 die **einzige** Quelle dafür,
+nicht mehr nur eine von zweien. Ausführlich in Abschnitt 9.
 
 **`contact_history`** (`id`, `customer_id`, `date`, `note`): die Kontakt-Historie eines Kunden.
 Seit Migration 47 bekommt sie auch beim Abschließen eines Auftrags eine Zeile – Abschnitt 7.
@@ -332,42 +330,48 @@ Rechnung auf. „Rechnung offen" ist dabei keine fünfte Status-Ausprägung, son
 Arbeitsliste (`rechnungOffen()` in `lib/helpers.ts`: `rechnung_noetig` gesetzt,
 `rechnung_erstellt_am` leer, Status `erledigt`), mit eigenem Zähler-Chip im Aufträge-Tab.
 
-## 9. Fahrzeuge am Auftrag (Migration 44)
+## 9. Fahrzeuge am Auftrag (Migration 44/51)
 
 `auftrag_fahrzeuge` (`id`, `order_id`, `vehicle_id`, `kilometerstand`, `created/updated_at/by`,
-`unique(order_id, vehicle_id)`, Kilometerstand `0..10 000 000` oder `null`) beantwortet: welche
-Fahrzeuge betrifft dieser Auftrag für die **Rechnung**, und mit welchem Kilometerstand? Der
-Kilometerstand steht an dieser Verbindungstabelle und nicht am Fahrzeug, weil er eine Messung
-an einem Tag ist, keine Eigenschaft des Autos – dieselbe Lehre wie DOT-Datum und Profiltiefe am
-Reifensatz statt am Fahrzeug (Migration 34). `null` heißt „noch nicht abgelesen" und ist etwas
-anderes als `0` (ein fabrikneuer Wagen hat 0 km). Rechte folgen dem Auftrag, kein eigener
-Berechtigungsbereich: wer den Auftrag lesen/schreiben darf, darf auch hier lesen/schreiben,
-ein Techniker weiterhin nur an eigenen Aufträgen (`is_own_order()`).
+`unique(order_id, vehicle_id)`, Kilometerstand `0..10 000 000` oder `null`) ist seit Migration 51
+die **einzige** Quelle dafür, welche Fahrzeuge ein Auftrag betrifft und mit welchem
+Kilometerstand. Der Kilometerstand steht an dieser Verbindungstabelle und nicht am Fahrzeug,
+weil er eine Messung an einem Tag ist, keine Eigenschaft des Autos – dieselbe Lehre wie
+DOT-Datum und Profiltiefe am Reifensatz statt am Fahrzeug (Migration 34). `null` heißt „noch
+nicht abgelesen" und ist etwas anderes als `0` (ein fabrikneuer Wagen hat 0 km). Rechte folgen
+dem Auftrag, kein eigener Berechtigungsbereich: wer den Auftrag lesen/schreiben darf, darf auch
+hier lesen/schreiben, ein Techniker weiterhin nur an eigenen Aufträgen (`is_own_order()`).
 
-**Wichtig, weil leicht zu verwechseln:** `auftrag_fahrzeuge` ist **nicht** dasselbe wie
-`orders.vehicle_id` (Migration 20), auch wenn Migration 44 im Kommentar ankündigt, letztere
-Spalte perspektivisch abzulösen und „nur als Übergang" zu behalten. **Am 18.09.2026 ist das
-nicht passiert** – beide Felder werden aktiv und nebeneinander für zwei verschiedene Fragen
-gelesen und geschrieben:
+Im Auftragsfenster gibt es dafür genau einen Block, **„Fahrzeug"** (`FahrzeugeBlock.tsx`), und
+er ist **immer sichtbar** – nicht mehr, anders als bis zum 21.09.2026, nur hinter dem Haken
+„Rechnung benötigt" versteckt. Welches Auto bearbeitet wird, ist keine Frage der Abrechnung. Der
+Block trägt beliebig viele Fahrzeuge je Auftrag mit je eigenem Kilometerstand – etwa wenn zwei
+Autos desselben Kunden am selben Termin bereift werden –, bietet die übrigen Fahrzeuge des
+Kunden zur Auswahl an und legt ein neu eingetipptes Kennzeichen als Fahrzeug beim Kunden an.
+`RechnungsdatenBlock.tsx` zeigt die Fahrzeuge seither nur noch **zum Prüfen**, als zwei
+Abhakzeilen „Fahrzeug" und „Kilometerstand" – geändert werden sie ausschließlich oben im Block
+„Fahrzeug".
 
-- Der Block **„Fahrzeug"** im Auftragsfenster ist weiterhin eine Einzelauswahl aus den
-  Fahrzeugen des Kunden und schreibt weiterhin `orders.vehicle_id`
-  (`updateOrderVehicle()`/`onSetVehicle`, `fahrzeugId`-State in `AuftragModal.tsx`). Er
-  beantwortet „welches Auto wird gerade gemacht" – die für den Techniker vor Ort wichtige
-  Angabe bei einem Kunden mit mehreren Wagen.
-- Der Block **„Fahrzeuge an diesem Auftrag"** taucht nur auf, sobald „Rechnung benötigt"
-  gesetzt ist (`RechnungsdatenBlock.tsx`), liest/schreibt `auftrag_fahrzeuge`, und kann davon
-  unabhängig **mehrere** Fahrzeuge mit je eigenem Kilometerstand tragen – etwa wenn zwei Autos
-  desselben Kunden am selben Termin bereift werden. Neue Kennzeichen legen dabei ein Fahrzeug
-  beim Kunden an.
-
-Beim Anlegen der Migration wurde für jeden Auftrag mit gesetztem `vehicle_id` genau ein
-Eintrag in `auftrag_fahrzeuge` ohne Kilometerstand übernommen (den gab es vorher nicht).
+Die Spalte `orders.vehicle_id` (Migration 20), die vorher genau ein Fahrzeug je Auftrag trug,
+ist mit Migration 51 entfernt. Vor dem `DROP COLUMN` hat die Migration Nachzügler übernommen:
+alles, was zwischen dem 17. und dem 21.09.2026 noch über den seinerzeit weiterhin vorhandenen
+alten Auswahlkasten eingetragen und noch nicht in `auftrag_fahrzeuge` gelandet war, kam vorher
+in die Tabelle (siehe Abschnitt 10 zum Hergang). Beim ursprünglichen Anlegen von
+`auftrag_fahrzeuge` durch Migration 44 war der damalige Bestand von `orders.vehicle_id` bereits
+einmal so übernommen worden – ohne Kilometerstand, den gab es vorher nicht.
 
 API: `lib/api/auftragFahrzeuge.ts` – `fetchAuftragFahrzeuge()` (blockweise in 200er-Paketen,
 wie bei den Auswertungen), `addAuftragFahrzeug()`, `setKilometerstand()`,
 `removeAuftragFahrzeug()` (echtes `DELETE`, kein Soft-Delete – anders als `orders` und
-`order_articles`).
+`order_articles`). `lib/api/orders.ts` kennt seither weder `updateOrderVehicle()` noch ein
+`vehicleId`-Feld in `insertOrder()`/`updateOrderById()`.
+
+Zwei weitere Stellen lasen bis zum 21.09.2026 `orders.vehicle_id` statt `auftrag_fahrzeuge` und
+sind auf die neue, einzige Quelle umgestellt: der Vorgeschichte-Hinweis im Auftragsfenster
+(`letzterSatzFuer()` in `lib/helpers.ts` nimmt seither eine **Liste** von Fahrzeug-Kennungen statt
+eines einzelnen Feldes) und die Auswertung (`lib/auswertung.ts`/`lib/api/auswertung.ts`) – dort
+wird die Menge bei mehreren Fahrzeugen an einem Auftrag gleichmäßig geteilt, während der Auftrag
+selbst bei jedem beteiligten Fahrzeug voll zählt.
 
 ## 10. Fallstricke
 
@@ -386,9 +390,19 @@ wie bei den Auswertungen), `addAuftragFahrzeug()`, `setKilometerstand()`,
 - **Soft-Delete durchbricht den Freeze absichtlich, aber nur ausschließlich**: der
   Einfrier-Trigger auf `order_articles` lässt eine Änderung durch, wenn sich **nur**
   `deleted_at` ändert – sonst ließe sich ein abgeschlossener Auftrag nie mehr löschen.
-- **`orders.vehicle_id` und `auftrag_fahrzeuge` sind zwei verschiedene Wahrheiten** über
-  „welches Auto" (Abschnitt 9). Beim Erweitern nicht versehentlich nur eine der beiden Stellen
-  pflegen.
+- **Bis zum 21.09.2026 gab es zwei Eingabestellen für dasselbe Fahrzeug** (Abschnitt 9): oben
+  im Auftragsfenster ein immer sichtbarer Auswahlkasten, der `orders.vehicle_id` schrieb, und
+  weiter unten – nur sichtbar hinter dem Haken „Rechnung benötigt" – die Liste, die
+  `auftrag_fahrzeuge` schrieb. Migration 44 hatte bereits angekündigt, dass nur noch die neue
+  Tabelle beschrieben werden soll; der alte Kasten blieb aber liegen. Beide Stellen wurden
+  weiter gepflegt, ohne sich gegenseitig abzugleichen: Die Rechnung und die
+  Vollständigkeitsprüfung lasen ausschließlich `auftrag_fahrzeuge`, der Vorgeschichte-Hinweis
+  ausschließlich `orders.vehicle_id`. Bei einem Kunden mit zwei Autos konnten beide damit
+  verschiedene Wagen meinen, und ein nur oben (hinter keinem Haken, aber eben nur dort)
+  gesetztes Fahrzeug erschien auf keiner Rechnung. Die Lehre daraus, allgemein: Zwei Stellen,
+  die dasselbe beantworten sollen, gleichen sich nicht von selbst ab – erst recht nicht, wenn
+  eine davon hinter einem Haken versteckt ist und dadurch seltener auffällt. Migration 51 hat
+  `orders.vehicle_id` entfernt; es gibt jetzt nur noch `auftrag_fahrzeuge`.
 - **`STANDARD_DAUER_MIN`** ist nur der Rückfallwert vor dem Laden von
   `betrieb.termin_intervall_min` und muss mit dessen Werkseinstellung übereinstimmen, sonst
   weicht die Anzeige kurz nach dem Laden sichtbar ab.

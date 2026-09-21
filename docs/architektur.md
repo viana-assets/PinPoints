@@ -63,7 +63,7 @@ viana-pinpoints/
   app/
     layout.tsx              Root-Layout, lädt Google Fonts + Leaflet CSS/JS
     globals.css              Design-Tokens + alle Styles (ein einziges CSS-File)
-    page.tsx                 Hauptanwendung, ~3.100 Zeilen – siehe "app/page.tsx heute" unten
+    page.tsx                 Hauptanwendung, ~3.150 Zeilen – siehe "app/page.tsx heute" unten
     manifest.ts               Erzeugt das PWA-Manifest aus lib/erscheinung.ts (kein statisches
                               manifest.webmanifest mehr, damit der App-Name nicht an zwei
                               Stellen gepflegt werden muss)
@@ -126,8 +126,10 @@ viana-pinpoints/
       ArticleAssignPanel.tsx         Leistungen/Artikel einem Auftrag zuordnen (Endpreis statt
                                      Prozentrabatt, Migration 38)
       EinlagerungBlock.tsx            Reifen ein-/auslagern direkt am Auftrag
-      RechnungsdatenBlock.tsx         Fahrzeuge/Kilometerstand + Rechnungs-Checkliste am
-                                      Auftrag (Migration 44)
+      FahrzeugeBlock.tsx              Fahrzeuge am Auftrag inkl. Kilometerstand, immer sichtbar
+                                      (Migration 44/51)
+      RechnungsdatenBlock.tsx         Rechnungs-Checkliste am Auftrag, prüft die Fahrzeuge nur
+                                      noch (Migration 44/51)
       AuftragProtokoll.tsx            Änderungshistorie dieses einen Auftrags
     einsatzplanung/
       EinsatzplanungPanel.tsx        Tab "Einsatzplanung" (Kalender + Listenansicht)
@@ -196,7 +198,7 @@ viana-pinpoints/
       auswertung.ts                   Datenbeschaffung für das Auswertungs-Modul
       session.ts                    Rolle + Anzeige-Einstellungen beim Initial-Load
   supabase/migrations/
-    <nr>_<name>.sql, <nr>_rollback.sql   Durchnummerierte SQL-Migrationen 36–50, jeweils mit
+    <nr>_<name>.sql, <nr>_rollback.sql   Durchnummerierte SQL-Migrationen 36–51, jeweils mit
                                         Rücknahme-Skript daneben. Migrationen 34 und 35 liegen
                                         (Stand 18.09.2026) noch lose im Projektwurzel
                                         (`mig34.sql`, `mig35.sql`); ein `supabase/migrations/`-
@@ -227,7 +229,8 @@ Migration 29 dazugekommen ist.
   `order_employees`, `order_articles` (+ seit Migration 38 `endpreis_netto` statt
   `discount_percent`, das seit Migration 39 entfernt ist), `auftrag_fahrzeuge` (**neu**,
   Migration 44: welche Fahrzeuge betrifft der Auftrag, mit Kilometerstand am Tag des Auftrags –
-  ersetzt das früher einzelne `orders.vehicle_id`, das noch als Übergangsspalte danebensteht).
+  seit Migration 51 die einzige Quelle dafür; das frühere, einzelne `orders.vehicle_id` ist mit
+  derselben Migration entfernt).
 - **Rechnungen** (**neu**, Migration 48/49): `rechnungen` – jede Zeile ein unveränderlicher
   Snapshot aus Empfänger/Absender/Positionen (jsonb), fortlaufende, lückenlose Nummer je
   `betrieb.rechnung_praefix` + `betrieb.rechnung_naechste_nummer`; eine Korrektur läuft über
@@ -314,7 +317,7 @@ Fundstellen-Überblick:
 durch Phase 2 (Komponenten auslagern) und Phase 3 (Datenzugriffsschicht) auf ~1.290 Zeilen
 geschrumpft (Stand 10.09.2026). Seither ist die Datei mit den neuen Modulen (Rechnungen,
 Betrieb, Fahrzeuge am Auftrag, Räder-Einzelmessung, Saisonliste, Auswertungen, Protokoll-Anzeige
-am Auftrag, QR-Aufkleber) wieder auf **~3.100 Zeilen** gewachsen – nicht durch einen Bruch mit
+am Auftrag, QR-Aufkleber) wieder auf **~3.150 Zeilen** gewachsen – nicht durch einen Bruch mit
 dem Muster, sondern weil jedes neue Modul denselben Satz an State/`refreshX()`/CRUD-Funktionen
 und Ableitungen zusätzlich in `HomePage` bekommen hat, statt dass ältere Bereiche kleiner
 wurden. Neuere, schreibarme Bereiche wie Rechnungen und Betrieb laden dagegen konsequent über
@@ -464,7 +467,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   dem Zeitpunkt oft noch gar nicht gezeichnet ist. `lib/erscheinung.ts` sorgt dafür, dass App
   auf dem Homescreen und im Installationsdialog absichtlich unauffällig heißt/aussieht
   (Sichtschutz, kein Sicherheitsmechanismus – RLS bleibt die eigentliche Schranke).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v49`**, Konstante
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v50`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus
@@ -500,10 +503,10 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 ## Migrationsstand
 
-Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/` (01–50, mit `rollback/<nr>_rollback.sql`
+Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/` (01–51, mit `rollback/<nr>_rollback.sql`
 daneben); die Migrationen 34 und 35 liegen abweichend davon lose im Projektwurzel (`mig34.sql`/
 `mig34_rollback.sql`, `mig35.sql`/`mig35_rollback.sql`). Der aktuelle Stand reicht bis
-**Migration 50** (freie Positionsbezeichnung am Artikel, 18.09.2026). Fachlich wichtige
+**Migration 51** (`orders.vehicle_id` entfernt, 21.09.2026). Fachlich wichtige
 Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
@@ -534,6 +537,9 @@ Stationen seit dem 10.09.2026 (Migration 28):
 - **49** – Rechnung und Auftrag transaktional verknüpft, „Rechnung erstellt" nur noch per
   Stornorechnung rücknehmbar.
 - **50** – `articles.freitext` für Sammelpositionen wie „Sonstiges".
+- **51** – `orders.vehicle_id` entfernt: welches Fahrzeug ein Auftrag betrifft, steht nur noch
+  in `auftrag_fahrzeuge`. Zuvor hatten Rechnung/Vollständigkeitsprüfung und der
+  Vorgeschichte-Hinweis im Auftragsfenster jeweils eine andere der beiden Stellen gelesen.
 
 Ein `supabase/migrations/`-Ordner mit README („Bereits ausgeführt"/„Noch auszuführen"), wie ihn
 CLAUDE.md beschreibt, existiert in diesem Arbeitsstand nicht – die Historie steht ausschließlich

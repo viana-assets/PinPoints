@@ -217,9 +217,10 @@ export type Order = {
   // jedes Gespräch mit dem Kunden. Getrennt von `id` (UUID, technischer Schlüssel).
   order_number: number;
   customer_id: string;
-  // Welches Fahrzeug dieses Kunden betrifft der Auftrag (Migration 20). Bei einem Kunden mit
-  // mehreren Autos die entscheidende Angabe für den Techniker vor Ort.
-  vehicle_id: string | null;
+  // Welche Fahrzeuge der Auftrag betrifft, steht in `auftrag_fahrzeuge` (Migration 44) und
+  // seit Migration 51 NUR dort. Die frühere Spalte `vehicle_id` ließ eines zu und wurde
+  // parallel zur neuen Tabelle weitergeschrieben – die Rechnung las die eine Quelle, der
+  // Vorgeschichte-Hinweis die andere.
   title: string;
   description: string | null;
   status: OrderStatus;
@@ -249,14 +250,16 @@ export type Order = {
   // Nettobetrag die Steuer kommt. Er steht am AUFTRAG und nicht an der Position: Eine
   // Rechnung schreibt man für den ganzen Vorgang, nicht für einzelne Zeilen darin.
   rechnung_noetig: boolean;
-  // Wurde die Rechnung im ERP schon geschrieben? (Migration 40) `null` heißt „noch offen" –
-  // genau das ist die Arbeitsliste. Datum und Person setzt die Datenbank, nicht der Client;
-  // ein „erstellt am", das sich der Aufrufer aussuchen kann, wäre eine Behauptung.
+  // Ist zu diesem Auftrag eine Rechnung ausgestellt? `null` heißt „noch offen" – genau das ist
+  // die Arbeitsliste.
+  //
+  // Die Felder stammen aus Migration 40, als die Rechnung noch im ERP entstand und hier nur
+  // ihre Nummer notiert wurde. Seit Migration 48/49 ist PinPoints selbst das rechnungsführende
+  // System: Beide Werte setzt ein Trigger beim Ausstellen, von Hand ist hier nichts mehr
+  // einzutragen und nichts mehr zurückzunehmen. Eine Rechnung wird storniert, nicht abgehakt.
   rechnung_erstellt_am: string | null;
   rechnung_erstellt_von: string | null;
-  // Die Rechnungsnummer AUS DEM ERP. Freiwillig, aber die einzige Brücke zurück: ohne sie sind
-  // der Auftrag hier und die Rechnung dort zwei Dinge ohne Verbindung. Ohne
-  // `rechnung_erstellt_am` lehnt die Datenbank sie ab.
+  // Die Nummer des Belegs aus `rechnungen` – lückenlos vergeben (Migration 48).
   rechnung_nummer: string | null;
   created_at: string;
   updated_at: string;

@@ -16,66 +16,13 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## A. Sofort – kostet im Betrieb bereits Geld oder erzeugt falsche Belege
 
-### A1. Auslagern im Auftragsfenster berechnet nie eine Lagergebühr
-
-`app/page.tsx` übergibt beim Entfernen einer Einlagerung aus dem Auftragsfenster
-grundsätzlich „ohne Dialog": `onEinlagerungEntfernen={(id) => removeTireAssignment(id, true)}`.
-Gedacht war das nur für den Fall, dass ein Satz **im selben Auftrag** versehentlich angelegt
-und sofort korrigiert wird. Tatsächlich gilt es für **jede** Einlagerung.
-
-Wer einen acht Monate alten Reifensatz über das Auftragsfenster auslagert, gibt den
-Lagerplatz frei, ohne dass eine Gebühr entsteht und ohne dass vermerkt wird, in welchem
-Auftrag entnommen wurde. Über die Regalwand (`LagerPanel`) läuft derselbe Vorgang korrekt
-über den Auslagern-Dialog.
-
-*Behebung:* nur dann ohne Dialog entfernen, wenn die Einlagerung zu **diesem** Auftrag
-gehört und heute angelegt wurde. Sonst den Dialog öffnen. Aufwand: klein.
-
-### A2. Der Auslagern-Dialog lässt „berechnen" zu, wenn kein Preis hinterlegt ist
-
-`components/lager/AuslagernDialog.tsx` zeigt zwar den Hinweis, dass für den Artikel kein
-gültiger Preis hinterlegt ist, der Bestätigen-Knopf ist aber nur während des Speicherns
-gesperrt. Bestätigt man trotzdem, entsteht eine Position mit Menge > 0 und 0,00 € –
-und die landet unbemerkt auf der Rechnung.
-
-*Behebung:* Knopf sperren oder automatisch auf „ohne Gebühr" umschalten, solange kein
-Preis ermittelt werden kann. Aufwand: klein.
-
-### A3. Das Fahrzeug steht zweimal am Auftrag – und die Rechnung liest das falsche
-
-Im Auftragsfenster gibt es zwei Stellen für dasselbe:
-
-- den alten Block „Fahrzeug" (`orders.vehicle_id`, immer sichtbar, eine Auswahl),
-- die neue Liste „Fahrzeuge an diesem Auftrag" (`auftrag_fahrzeuge` mit Kilometerstand,
-  nur sichtbar, wenn „Rechnung benötigt" gesetzt ist).
-
-Die Rechnung liest **ausschließlich** die neue Tabelle, die Vollständigkeitsprüfung beim
-Abschließen ebenfalls. Der Vorgeschichte-Hinweis (letzter Satz für dieses Auto) liest
-dagegen das **alte** Feld. Migration 44 hat ausdrücklich festgehalten, dass der Code nur
-noch die neue Tabelle beschreiben soll – tatsächlich schreibt das Auftragsfenster beide,
-ohne Abgleich.
-
-Folge bei einem Kunden mit zwei Autos: Vorgeschichte und Rechnung können verschiedene
-Fahrzeuge meinen, und ein nur oben gesetztes Fahrzeug erscheint auf keiner Rechnung.
-
-*Behebung:* den alten Block entfernen und die Liste immer zeigen (nicht nur bei „Rechnung
-benötigt"), die Vorgeschichte auf `auftrag_fahrzeuge` umstellen, danach `orders.vehicle_id`
-per Migration fallen lassen. Aufwand: mittel. **Das ist der wichtigste Punkt dieser Liste.**
-
-### A4. „Heute" ist zwischen Mitternacht und 2 Uhr der falsche Tag
-
-`todayStr()` in `lib/helpers.ts` bildet das Datum über `toISOString()` – das ist immer
-**UTC**. In Deutschland ist das zwischen 00:00 und 01:00 (Winterzeit) bzw. 02:00
-(Sommerzeit) noch der Vortag. Betroffen sind das Vorgabedatum neuer Aufträge und Termine,
-der „Heute"-Knopf und die Tagesnavigation im Kalender, die Zeiträume Heute/Morgen/7 Tage
-und das Datum, mit dem der gültige Preis ermittelt wird.
-
-`toDateStr()` in `lib/calendar.ts` rechnet dagegen richtig lokal – deshalb können „Heute"-
-Knopf und „ist heute"-Markierung im Stundenraster in dieser Stunde sogar verschiedene Tage
-meinen.
-
-*Behebung:* `todayStr()` auf die lokale Rechnung umstellen (wie `toDateStr()`) und beide
-zusammenführen. Aufwand: klein, Wirkung groß.
+Abschnitt A ist am 21.09.2026 abgearbeitet: die vier Punkte, die hier standen (Auslagern im
+Auftragsfenster ohne Gebühr, der ungeprüft bestätigbare Auslagern-Dialog ohne gültigen Preis,
+das doppelt gepflegte Fahrzeug am Auftrag, `todayStr()` in UTC statt Ortszeit) sind behoben –
+Details dazu stehen in `auftraege.md`, `lager.md` und `architektur.md`, nicht mehr hier. Nach
+der Reihenfolge in Abschnitt G ist der nächste, dringendste offene Punkt **F2** (Gerätetest der
+Terminerinnerung bei gesperrtem Bildschirm/Fokusmodus „Fahren") – zehn Minuten Aufwand, die
+klären, ob die Push-Erinnerung im Alltag überhaupt ankommt.
 
 ---
 
@@ -148,7 +95,6 @@ sind. Sie stehen hier, damit sie niemand in guter Absicht kaputtmacht:
 | Spalte | Status |
 |---|---|
 | `articles.braucht_lagerplatz` | Seit Migration 46 ohne Wirkung, im Code nirgends mehr gelesen. Kann fallen. |
-| `orders.vehicle_id` | Fällt nach A3. |
 
 ### C2. Toter Code
 
@@ -159,16 +105,11 @@ sind. Sie stehen hier, damit sie niemand in guter Absicht kaputtmacht:
   Oberfläche einsetzen (siehe E7) oder entfernen.
 - Das Prop `pflicht` in `components/auftraege/EinlagerungBlock.tsx` wird an beiden
   Einbindungsstellen fest auf `false` gesetzt; der zugehörige Zweig ist tot.
-- Der Parameter `ausserSatzId` in `letzterSatzFuer()` (`lib/helpers.ts`) wird nie mit einem
-  Wert aufgerufen.
 - `QrBild` existiert fast wortgleich zweimal (`LagerplatzAufkleber.tsx`,
   `ReifensatzEtikett.tsx`).
 
 ### C3. Kommentare, die etwas anderes sagen als der Code
 
-- `lib/types.ts` und Migration 40 sprechen bei `rechnung_erstellt_am` / `rechnung_nummer`
-  noch von „im ERP geschrieben". Seit Migration 48/49 ist PinPoints selbst das
-  rechnungsführende System.
 - Migration 37 behauptet, die Standarddauer sei „auch im Code 60 Minuten" – in
   `lib/constants.ts` stehen 30, und maßgeblich ist ohnehin `betrieb.termin_intervall_min`.
 - `AuftraegePanel.tsx` und `EinsatzplanungPanel.tsx` tragen noch Kommentare aus der Zeit
@@ -340,10 +281,14 @@ Route. Die technische Lücke bleibt (siehe B3), der ursprüngliche Anlass ist we
 
 ## G. Reihenfolge, wenn man einfach anfangen will
 
-1. **A1, A2, A4** – drei kleine Eingriffe, die falsches Geld und falsche Tage beseitigen.
-2. **F2** – zehn Minuten am Gerät, bevor mehr in die Erinnerung investiert wird.
-3. **A3** – der Fahrzeug-Umbau, danach `orders.vehicle_id` per Migration entfernen.
-4. **C4, D5, D6, D7** – Kleinkram, der in einem Zug mitgeht.
-5. **E4 und E2** – die beiden Funktionen mit dem besten Verhältnis von Aufwand zu Nutzen.
-6. **B1/B2** – Löschkonzept, sobald jemand Zeit für die fachliche Entscheidung hat.
-7. **F1** – Offline schreiben, als eigenes Vorhaben, nicht nebenbei.
+Abschnitt A ist am 21.09.2026 abgearbeitet (Runde 34, Migration 51, Service Worker v50).
+Ab hier:
+
+1. **F2** – zehn Minuten am Gerät, bevor mehr in die Erinnerung investiert wird. Das beste
+   Verhältnis von Erkenntnis zu Aufwand in dieser ganzen Liste.
+2. **C4, D5, D6, D7** – Kleinkram, der in einem Zug mitgeht.
+3. **E4 und E2** – die beiden Funktionen mit dem besten Verhältnis von Aufwand zu Nutzen.
+4. **D1 und D3** – die beiden Warnungen, die einen teuren Fehler verhindern (Doppelbuchung,
+   Löschen eines belegten Lagers).
+5. **B1/B2** – Löschkonzept, sobald jemand Zeit für die fachliche Entscheidung hat.
+6. **F1** – Offline schreiben, als eigenes Vorhaben, nicht nebenbei.

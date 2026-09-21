@@ -1,8 +1,9 @@
 // Kalender-Hilfsfunktionen für die Einsatzplanung (Montag als Wochenstart,
 // ISO-Kalenderwochen, Mitarbeiterfarbe). Reine Funktionen ohne React/Supabase-Abhängigkeit,
-// ausgelagert aus app/page.tsx – siehe docs/roadmap.md Phase 2.
+// ausgelagert aus app/page.tsx.
 import type { Employee } from "./types";
 import { EMP_COLORS } from "./constants";
+import { datumStr } from "./helpers";
 
 export function employeeColorFor(employees: Employee[], employeeId: string): string {
   const idx = employees.findIndex((e) => e.id === employeeId);
@@ -23,9 +24,11 @@ export function addDays(d: Date, n: number): Date {
   return nd;
 }
 
-export function toDateStr(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
+// Ein Datum als `JJJJ-MM-TT` in Ortszeit. Die Rechnung selbst steht in `lib/helpers.ts`
+// (`datumStr`) – eine Regel, eine Stelle. Der Name bleibt, weil ihn der Kalender überall
+// verwendet; bis zum 21.09.2026 stand hier dieselbe Rechnung ein zweites Mal, und
+// `todayStr()` daneben rechnete in UTC. Zwei Fassungen desselben Gedankens laufen auseinander.
+export const toDateStr = datumStr;
 
 export function isoWeekNumber(date: Date): number {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));

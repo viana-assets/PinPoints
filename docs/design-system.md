@@ -541,3 +541,26 @@ nicht-primären Module.
 
 **Ein neues Modul braucht ab jetzt genau drei Handgriffe:** Eintrag in `lib/module.ts`,
 Schlüssel in `RECHTE_VORGABE`, und der Block, der es rendert. Alles andere folgt.
+
+## Fahrzeug-Block am Handy: Raster statt Umbruch (21.09.2026)
+
+`.rd-fahrzeug` (eine Zeile im Block „Fahrzeug" am Auftrag, `FahrzeugeBlock.tsx`) reiht am
+Desktop vier Dinge nebeneinander: Nummer, Kennzeichen, Kilometerstand-Feld, Löschkreuz
+(`display:flex; flex-wrap:wrap`). Für die Zeile ist am Handy keine Breite für alle vier da; vor
+dem 21.09.2026 brach sie deshalb einfach um, und das Kreuz landete allein in der nächsten Zeile
+ganz links – ein Löschknopf, der neben nichts steht und aussieht, als gehöre er zum Eintrag
+darunter statt zu dem darüber.
+
+Unter `560px` gilt seither ein festes Raster statt des Umbruchs:
+
+```
+grid-template-columns: 1fr auto;
+grid-template-areas: "nr weg" "kennzeichen kennzeichen" "km km";
+```
+
+Nummer und Löschkreuz stehen oben in einer Zeile (das Kreuz am rechten Rand, wo es der Daumen
+erreicht), darunter über die volle Breite das Kennzeichen, darunter der Kilometerstand. Stehen
+mehrere Fahrzeuge am Auftrag, braucht das Auge eine Grenze zwischen ihnen – sonst liest sich das
+Kennzeichen des einen wie die Fortsetzung des anderen: `.rd-fahrzeug + .rd-fahrzeug` bekommt
+deshalb in derselben `@media`-Regel eine gestrichelte Trennlinie oberhalb (`border-top:1px dashed
+var(--border)`).

@@ -200,6 +200,14 @@ Datenbankschreibvorgang, sondern einen Dialog (`AuslagernDialog`, `lib/helpers.t
   Kalenderfelder, nicht über Millisekunden – ein Monat hat keine feste Länge.
 * Ist im Artikelstamm keine Leistung mit Abrechnungsart „Lagergebühr" hinterlegt, wird nur
   ausgelagert; der Dialog sagt das auch so.
+* **Ohne gültigen Preis lässt sich nichts berechnen**, und der Bestätigen-Knopf lässt das seit
+  dem 21.09.2026 auch nicht mehr zu: Solange berechnet werden soll (Haken „Ohne Gebühr
+  auslagern" nicht gesetzt), aber kein gültiger Preis zum gewählten Artikel vorliegt oder die
+  Menge 0 ist (`kannBerechnen`/`wirdBerechnet` in `AuslagernDialog.tsx`), ist der Knopf
+  gesperrt. Bis zu diesem Tag ließ er sich trotz des Hinweistexts „kein gültiger Preis
+  hinterlegt" anklicken, und `insertOrderArticle` fiel mangels Preis auf 0,00 € zurück – auf
+  der Rechnung stand dann „8 Monate · 0,00 €", ohne dass die vorherige Warnung etwas verhindert
+  hätte.
 * **„Ohne Gebühr auslagern"** ist eine gleichberechtigte Antwort, kein Sonderfall – genug Sätze
   werden kulanzhalber oder ohne Berechnung herausgegeben.
 * Die vorgeschlagene Menge (= die berechneten Monate) bleibt änderbar; weicht sie ab, weist der
@@ -234,10 +242,23 @@ Block sonst nur zeigt, was an *diesem* Auftrag hängt. Ein Klick auf „Auslager
 denselben `AuslagernDialog`, mit diesem Auftrag als Vorschlag für das Gebühren-Ziel – die
 Gebühr entsteht hier, deshalb steht der Knopf auch hier und nicht nur an der Regalwand.
 
-**„Einlagerung entfernen" im Einlagerungsblock selbst öffnet keinen Dialog.** Das ist die
-Korrektur eines Versehens im selben Arbeitsgang – wer einen Satz entfernt, den er im selben
-Auftrag gerade erst angelegt hat, schuldet dafür nichts. Abgerechnet wird ausschließlich über
-„Auslagern" (Regalwand oder „Im Regal für diesen Kunden").
+**„Einlagerung entfernen" im Einlagerungsblock selbst überspringt den Dialog nur in einem
+engen Fall** – seit dem 21.09.2026 geprüft in `removeTireAssignment()` (`app/page.tsx`), nicht
+mehr beim Aufrufer: Beide Bedingungen müssen zutreffen, der Satz muss **heute** angelegt worden
+sein **und** zu **genau diesem** Auftrag gehören (`satz.order_id === ausAuftragId` – verglichen
+wird der Auftrag, aus dem die Einlagerung stammt, nicht `entnahme_order_id`, das erst beim
+Auslagern gesetzt wird). Dann ist es die Korrektur eines Versehens im selben Arbeitsgang, und
+dafür wird nichts berechnet. In jedem anderen Fall – ein älterer Satz, oder einer, der zu einem anderen Auftrag
+gehört – öffnet auch dieser Knopf den `AuslagernDialog`, mit dem aktuellen Auftrag als
+Vorschlag für das Gebühren-Ziel.
+
+Bis zu diesem Tag übergab das Auftragsfenster hier pauschal „ohne Dialog", ohne die zweite
+Bedingung zu prüfen: Ein seit Monaten eingelagerter Satz, der zufällig über den aktuellen
+Auftrag lief, ließ sich damit kostenlos auslagern – ohne Gebühr und ohne `entnahme_order_id`.
+Über die Regalwand lief derselbe Vorgang die ganze Zeit richtig, weil dort gar kein
+`ausAuftragId` mitgegeben wird und der Dialog deshalb immer erscheint. Abgerechnet wird
+weiterhin ausschließlich über „Auslagern" (Regalwand oder „Im Regal für diesen Kunden") bzw.
+über den engen Ausnahmefall oben.
 
 ---
 

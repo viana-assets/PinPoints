@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Order, OrderArticle, TireStorage } from "@/lib/types";
+import type { AuftragFahrzeug, Order, OrderArticle, TireStorage } from "@/lib/types";
 import { fetchPaged, q } from "./client";
 
 // Datenbeschaffung für das Register „Auswertungen" (Block D).
@@ -20,6 +20,10 @@ export type AuswertungsAbzug = {
   orderArticles: OrderArticle[];
   orderEmployees: Record<string, string[]>;
   einlagerungen: TireStorage[];
+  // Welche Fahrzeuge an einem Auftrag hingen (Migration 44). Bis zum 21.09.2026 las die
+  // Auswertung dafür `orders.vehicle_id` – das ließ nur EINES zu und wurde mit Migration 51
+  // entfernt.
+  auftragFahrzeuge: AuftragFahrzeug[];
 };
 
 export async function fetchAuswertungsdaten(
@@ -34,7 +38,7 @@ export async function fetchAuswertungsdaten(
   );
 
   const ids = orders.map((o) => o.id);
-  if (ids.length === 0) return { orders, orderArticles: [], orderEmployees: {}, einlagerungen: [] };
+  if (ids.length === 0) return { orders, orderArticles: [], orderEmployees: {}, einlagerungen: [], auftragFahrzeuge: [] };
 
   // In Blöcken, weil eine `in`-Liste mit tausend Kennungen die URL-Länge sprengt, die
   // PostgREST für eine GET-Abfrage zulässt – ein Fehler, der erst im Betrieb auftritt und
@@ -42,6 +46,7 @@ export async function fetchAuswertungsdaten(
   const BLOCK = 200;
   const positionen: OrderArticle[] = [];
   const zuordnungen: Record<string, string[]> = {};
+  const fahrzeuge: AuftragFahrzeug[] = [];
 
   for (let i = 0; i < ids.length; i += BLOCK) {
     const teil = ids.slice(i, i + BLOCK);
@@ -58,6 +63,12 @@ export async function fetchAuswertungsdaten(
     for (const zeile of z || []) {
       (zuordnungen[zeile.order_id] ??= []).push(zeile.employee_id);
     }
+
+    const f = await q<AuftragFahrzeug[]>(
+      "Die Fahrzeuge für die Auswertung konnten nicht geladen werden",
+      supabase.from("auftrag_fahrzeuge").select("*").in("order_id", teil)
+    );
+    fahrzeuge.push(...(f || []));
   }
 
   // Einlagerungen nach Anlagedatum – die Frage „wie viele Sätze sind reingekommen" hängt
@@ -68,5 +79,5 @@ export async function fetchAuswertungsdaten(
       .gte("created_at", von).lte("created_at", `${bis}T23:59:59`).range(a, b)
   );
 
-  return { orders, orderArticles: positionen, orderEmployees: zuordnungen, einlagerungen };
+  return { orders, orderArticles: positionen, orderEmployees: zuordnungen, einlagerungen, auftragFahrzeuge: fahrzeuge };
 }

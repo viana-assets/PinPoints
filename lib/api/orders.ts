@@ -117,14 +117,12 @@ export async function replaceOrderEmployees(supabase: SupabaseClient, orderId: s
 // Anlegen von Kunde + erstem Auftrag).
 export async function insertOrder(supabase: SupabaseClient, fields: {
   customerId: string; title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus;
-  vehicleId?: string | null;
 }): Promise<string> {
   const created = await qOne<{ id: string }>(
     "Der Auftrag konnte nicht angelegt werden",
     supabase.from("orders").insert({
       customer_id: fields.customerId, title: fields.title, description: fields.description || null,
       order_date: fields.orderDate, time: fields.time || null, end_time: fields.endTime || null, status: fields.status,
-      vehicle_id: fields.vehicleId || null,
     }).select("id").single()
   );
   return created.id;
@@ -133,7 +131,6 @@ export async function insertOrder(supabase: SupabaseClient, fields: {
 export async function updateOrderById(supabase: SupabaseClient, id: string, fields: {
   title: string; description: string; orderDate: string; time: string; endTime?: string;
   rechnungNoetig?: boolean; status: OrderStatus;
-  vehicleId?: string | null;
 }): Promise<void> {
   await qWrite(
     "Der Auftrag konnte nicht gespeichert werden",
@@ -147,13 +144,10 @@ export async function updateOrderById(supabase: SupabaseClient, id: string, fiel
       // sonst bei jedem Speichern aus einem anderen Fenster stillschweigend auf „aus" setzen.
       ...(fields.rechnungNoetig === undefined ? {} : { rechnung_noetig: fields.rechnungNoetig }),
       status: fields.status,
-      ...(fields.vehicleId === undefined ? {} : { vehicle_id: fields.vehicleId || null }),
     }).eq("id", id)
   );
 }
 
-// Nur das Fahrzeug ändern – im Auftragsfenster wird die Auswahl sofort gespeichert, ohne dass
-// dafür das ganze Formular abgeschickt werden muss.
 // Welcher eigene Transporter fährt diesen Auftrag (Migration 32)? Eigener Aufruf wie beim
 // Kundenfahrzeug: eine Einteilung ist eine Handlung für sich und soll nicht erst beim
 // Speichern des ganzen Auftragsfensters wirksam werden.
@@ -164,12 +158,9 @@ export async function updateOrderFirmenfahrzeug(supabase: SupabaseClient, id: st
   );
 }
 
-export async function updateOrderVehicle(supabase: SupabaseClient, id: string, vehicleId: string | null): Promise<void> {
-  await qWrite(
-    "Das Fahrzeug konnte nicht gespeichert werden",
-    supabase.from("orders").update({ vehicle_id: vehicleId || null }).eq("id", id)
-  );
-}
+// `updateOrderVehicle` stand hier bis zum 21.09.2026 und schrieb `orders.vehicle_id`. Welche
+// Fahrzeuge an einem Auftrag hängen, steht seit Migration 44 in `auftrag_fahrzeuge` (siehe
+// lib/api/auftragFahrzeuge.ts) – mit Kilometerstand und ohne die Beschränkung auf eines.
 
 // Zustandswechsel eines Auftrags (Migration 20). Welche Übergänge erlaubt sind, entscheidet ein
 // Datenbank-Trigger – nicht diese Funktion: eine Prüfung im Browser wäre eine Bitte, keine Regel.

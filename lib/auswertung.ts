@@ -1,4 +1,4 @@
-import type { Article, Customer, Employee, Order, OrderArticle, TireStorage, Vehicle } from "./types";
+import type { Article, AuftragFahrzeug, Customer, Employee, Order, OrderArticle, TireStorage, Vehicle } from "./types";
 import { orderArticleTotals, positionListenwert } from "./helpers";
 
 // Die Rechnung hinter dem Register „Auswertungen" (Block D).
@@ -52,6 +52,9 @@ export type Auswertungsdaten = {
   // Für die Artikelauswertung: Wer hat gekauft, und an welchem Auto wurde gearbeitet.
   customers: Customer[];
   vehicles: Vehicle[];
+  // Die Fahrzeuge je Auftrag (Migration 44) – seit dem 21.09.2026 die einzige Antwort auf
+  // „an welchem Auto wurde gearbeitet".
+  auftragFahrzeuge: AuftragFahrzeug[];
 };
 
 function imZeitraum(datum: string | null | undefined, z: Zeitraum): boolean {
@@ -294,16 +297,25 @@ export function artikelDetail(
     // Ohne Fahrzeug am Auftrag gibt es hier nichts zu zählen. Eine Sammelzeile „ohne
     // Fahrzeug" wäre eine Auskunft über die Datenpflege, nicht über die Fahrzeuge – und die
     // steht schon in der Kennzahl „Aufträge" darüber.
-    if (auftrag.vehicle_id) {
-      const v = daten.vehicles.find((x) => x.id === auftrag.vehicle_id);
-      const eintrag = fahrzeuge.get(auftrag.vehicle_id) ?? {
-        id: auftrag.vehicle_id,
+    //
+    // Stehen MEHRERE Autos am Auftrag („die drei Firmenwagen"), lässt sich aus den Daten
+    // nicht ablesen, welcher Reifen an welches kam. Die Menge wird deshalb gleichmäßig
+    // verteilt: Die Gesamtsumme bleibt richtig, und keine Zeile behauptet eine Genauigkeit,
+    // die es nicht gibt. Bei „Aufträge" zählt der Auftrag für jedes Auto voll – die Frage
+    // „an wie vielen Terminen war dieser Wagen dabei" hat eine eindeutige Antwort.
+    const fahrzeugIds = daten.auftragFahrzeuge
+      .filter((af) => af.order_id === auftrag.id)
+      .map((af) => af.vehicle_id);
+    for (const fahrzeugId of fahrzeugIds) {
+      const v = daten.vehicles.find((x) => x.id === fahrzeugId);
+      const eintrag = fahrzeuge.get(fahrzeugId) ?? {
+        id: fahrzeugId,
         bezeichnung: [v?.license_plate, v?.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen",
         menge: 0, auftraege: 0,
       };
-      eintrag.menge += zeile.quantity;
+      eintrag.menge += zeile.quantity / fahrzeugIds.length;
       eintrag.auftraege += 1;
-      fahrzeuge.set(auftrag.vehicle_id, eintrag);
+      fahrzeuge.set(fahrzeugId, eintrag);
     }
   }
 
