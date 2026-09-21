@@ -1730,6 +1730,11 @@ tr.klickbar:hover { background: var(--hover); }
 .rd-eingabe{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;}
 .rd-eingabe input{width:190px;}
 
+/* Seit dem 21.09.2026 steht die Fahrzeugliste als eigener Block im Auftragsfenster und nicht
+   mehr als letzter Abschnitt der Rechnungs-Abhakliste. Dort trennt die Linie sie von den
+   Zeilen darüber; als eigener Block hat sie schon eine Überschrift, und eine zweite Trennung
+   direkt darunter sähe nach einem Fehler aus. */
+.auftrag-block > .rd-fahrzeuge{border-top:0;margin-top:0;padding-top:0;}
 .rd-fahrzeuge{border-top:1px solid var(--border);margin-top:4px;padding-top:7px;
   display:flex;flex-direction:column;gap:5px;}
 .rd-fahrzeuge-kopf{font-size:11px;font-weight:700;letter-spacing:.04em;
@@ -1741,6 +1746,22 @@ tr.klickbar:hover { background: var(--hover); }
   font-size:11.5px;color:var(--muted);}
 .rd-fahrzeug .rd-km input{width:92px;}
 .rd-fahrzeug .rd-weg{flex:0 0 auto;padding:2px 8px;line-height:1.2;}
+/* Am Handy hat die Zeile keine Breite für vier Dinge nebeneinander. Vorher brach sie einfach
+   um, und das Kreuz landete allein in der nächsten Zeile ganz links – ein Löschknopf, der
+   neben nichts steht und aussieht, als gehöre er zum Eintrag darunter. Deshalb hier ein
+   festes Raster: Nummer und Kreuz oben in einer Zeile (das Kreuz am rechten Rand, wo es der
+   Daumen erreicht), darunter das Kennzeichen, darunter der Kilometerstand. */
+@media (max-width: 560px){
+  .rd-fahrzeug{display:grid;grid-template-columns:1fr auto;align-items:center;gap:3px 8px;
+    grid-template-areas:"nr weg" "kennzeichen kennzeichen" "km km";}
+  .rd-fahrzeug .rd-nr{grid-area:nr;}
+  .rd-fahrzeug .rd-weg{grid-area:weg;}
+  .rd-fahrzeug .rd-kennzeichen{grid-area:kennzeichen;}
+  .rd-fahrzeug .rd-km{grid-area:km;justify-self:start;}
+  /* Bei mehreren Autos braucht das Auge eine Grenze – sonst liest sich das Kennzeichen des
+     einen wie die Fortsetzung des anderen. */
+  .rd-fahrzeug + .rd-fahrzeug{border-top:1px dashed var(--border);margin-top:7px;padding-top:7px;}
+}
 .rd-hinzu{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:3px;}
 .rd-hinzu select{max-width:250px;}
 .rd-hinzu input{width:150px;}

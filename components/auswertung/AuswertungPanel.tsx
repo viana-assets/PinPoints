@@ -80,6 +80,7 @@ export function AuswertungPanel({ employees, articles, customers, vehicles }: {
     orderArticles: abzug?.orderArticles ?? [],
     orderEmployees: abzug?.orderEmployees ?? {},
     einlagerungen: abzug?.einlagerungen ?? [],
+    auftragFahrzeuge: abzug?.auftragFahrzeuge ?? [],
     employees, articles, customers, vehicles,
   }), [abzug, employees, articles, customers, vehicles]);
 

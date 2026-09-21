@@ -12,6 +12,7 @@ import { ArticleAssignPanel } from "./ArticleAssignPanel";
 import { IconNavPin, IconTrash } from "@/components/icons";
 import { EinlagerungBlock } from "./EinlagerungBlock";
 import { RechnungsdatenBlock } from "./RechnungsdatenBlock";
+import { FahrzeugeBlock } from "./FahrzeugeBlock";
 import { AuftragProtokoll } from "./AuftragProtokoll";
 
 // Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
@@ -31,7 +32,7 @@ export function AuftragModal({
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
   fremdeSaetze, onAuslagern, onEtikett,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
-  onClose, onSaveFields, onSetVehicle, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, auftragFahrzeuge,
+  onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
   onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
@@ -105,7 +106,6 @@ export function AuftragModal({
   onRechnungsFahrzeugAnlegen: (orderId: string, kundeId: string, kennzeichen: string) => Promise<void>;
   onKilometerstand: (id: string, km: number | null) => Promise<void>;
   onFahrzeugEntfernen: (id: string) => Promise<void>;
-  onSetVehicle: (id: string, vehicleId: string | null) => Promise<void>;
   onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
   onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
@@ -206,7 +206,6 @@ export function AuftragModal({
       })
     : [];
   const [beschreibung, setBeschreibung] = useState(order.description || "");
-  const [fahrzeugId, setFahrzeugId] = useState(order.vehicle_id || "");
   const [firmenfahrzeugId, setFirmenfahrzeugId] = useState(order.firmenfahrzeug_id || "");
   const [mitarbeiterIds, setMitarbeiterIds] = useState<string[]>(assignedEmployeeIds);
   const [notiz, setNotiz] = useState(order.techniker_notiz || "");
@@ -225,7 +224,6 @@ export function AuftragModal({
     setDatum(order.order_date);
     setZeit(order.time || "");
     setBeschreibung(order.description || "");
-    setFahrzeugId(order.vehicle_id || "");
     setFirmenfahrzeugId(order.firmenfahrzeug_id || "");
     setMitarbeiterIds(assignedEmployeeIds);
     setNotiz(order.techniker_notiz || "");
@@ -250,7 +248,6 @@ export function AuftragModal({
     zeitBis !== (order.end_time || "") ||
     rechnungNoetig !== order.rechnung_noetig ||
     beschreibung !== (order.description || "") ||
-    fahrzeugId !== (order.vehicle_id || "") ||
     firmenfahrzeugId !== (order.firmenfahrzeug_id || "") ||
     notiz !== (order.techniker_notiz || "") ||
     !gleicheListe(mitarbeiterIds, assignedEmployeeIds);
@@ -283,7 +280,6 @@ export function AuftragModal({
   // niemand hat den Block schon von Hand aufgeklappt.
   const altreifenOffen = fragtAltreifen && einlagerungen.length === 0 && !gesperrt && !altreifenGefragt;
 
-  const fahrzeug = vehicles.find((v) => v.id === fahrzeugId);
   const aktiveFirmenfahrzeuge = firmenfahrzeuge.filter((f) => f.aktiv);
 
   // Wer bekommt fünf Minuten vor diesem Termin eine Erinnerung? Die Kette ist: zugeordneter
@@ -330,9 +326,12 @@ export function AuftragModal({
   // kennt, und ein gesperrter Knopf würde behaupten, sie alle zu kennen.)
   const endeVorAnfang = !!zeit.trim() && !!zeitBis.trim() && zeitBis <= zeit;
 
-  function fahrzeugText(v: Vehicle): string {
-    return [v.license_plate, v.make_model, v.tire_size].filter(Boolean).join(" · ") || "Fahrzeug ohne Angaben";
-  }
+  // Die Fahrzeuge dieses Auftrags, angereichert um den Stammsatz. Einmal abgeleitet und von
+  // zwei Stellen gelesen: dem Block „Fahrzeug" (der sie ändert) und der Abhakliste für die
+  // Rechnung (die sie nur prüft). Zwei getrennte Ableitungen wären wieder zwei Wahrheiten.
+  const auftragsFahrzeuge = auftragFahrzeuge
+    .filter((af) => af.order_id === order.id)
+    .map((af) => ({ ...af, fahrzeug: vehicles.find((v) => v.id === af.vehicle_id) ?? null }));
 
   // Ein Speichervorgang für das ganze Fenster. Die drei Aufrufe dahinter sind bestehende
   // Schnittstellen; nur Fahrzeug und Notiz werden übersprungen, wenn sie sich nicht geändert
@@ -352,7 +351,6 @@ export function AuftragModal({
         status: order.status,
         assignedEmployeeIds: mitarbeiterIds,
       });
-      if (fahrzeugId !== (order.vehicle_id || "")) await onSetVehicle(order.id, fahrzeugId || null);
       if (firmenfahrzeugId !== (order.firmenfahrzeug_id || "")) await onSetFirmenfahrzeug(order.id, firmenfahrzeugId || null);
       if (notiz !== (order.techniker_notiz || "")) await onUpdateTechnikerNotiz(order.id, notiz);
       setGespeichert(true);
@@ -460,18 +458,24 @@ export function AuftragModal({
           </div>
 
           {/* ---------------------------------------------------------------- Fahrzeug */}
+          {/* Ein Auftrag kann mehrere Autos betreffen („die drei Firmenwagen"), und zu jedem
+              gehört ein Kilometerstand. Bis zum 21.09.2026 stand hier ein Auswahlkasten für
+              GENAU EIN Fahrzeug (`orders.vehicle_id`), und die Liste, die es wirklich kann,
+              versteckte sich hinter dem Haken „Rechnung benötigt". Geschrieben wurden beide,
+              abgeglichen keines: Die Rechnung las nur die Liste, der Vorgeschichte-Hinweis nur
+              den Kasten. Jetzt gibt es nur noch die Liste, und sie steht immer da – welches
+              Auto bearbeitet wird, ist keine Frage der Abrechnung. */}
           <div className="auftrag-block">
             <div className="auftrag-block-titel">Fahrzeug</div>
-            {vehicles.length === 0 ? (
-              <div className="small">Für diesen Kunden ist kein Fahrzeug hinterlegt (Kundendetail → Fahrzeuge).</div>
-            ) : gesperrt ? (
-              <div>{fahrzeug ? fahrzeugText(fahrzeug) : "– kein Fahrzeug zugeordnet –"}</div>
-            ) : (
-              <select value={fahrzeugId} onChange={(e) => setFahrzeugId(e.target.value)}>
-                <option value="">– kein Fahrzeug zugeordnet –</option>
-                {vehicles.map((v) => <option key={v.id} value={v.id}>{fahrzeugText(v)}</option>)}
-              </select>
-            )}
+            <FahrzeugeBlock
+              gesperrt={gesperrt}
+              fahrzeuge={auftragsFahrzeuge}
+              alleFahrzeuge={vehicles}
+              onFahrzeugHinzufuegen={(vid) => onFahrzeugHinzufuegen(order.id, vid)}
+              onFahrzeugAnlegen={(kz) => onRechnungsFahrzeugAnlegen(order.id, order.customer_id, kz)}
+              onKilometerstand={onKilometerstand}
+              onFahrzeugEntfernen={onFahrzeugEntfernen}
+            />
           </div>
 
           {/* ---------------------------------------------------------------- Unser Fahrzeug */}
@@ -665,15 +669,8 @@ export function AuftragModal({
                 kunde={customer ?? null}
                 gesperrt={gesperrt}
                 darfKundeAendern={!isTechniker}
-                fahrzeuge={auftragFahrzeuge
-                  .filter((af) => af.order_id === order.id)
-                  .map((af) => ({ ...af, fahrzeug: vehicles.find((v) => v.id === af.vehicle_id) ?? null }))}
-                alleFahrzeuge={vehicles}
+                fahrzeuge={auftragsFahrzeuge}
                 onEmailSpeichern={(email) => onEmailSpeichern(order.customer_id, email)}
-                onFahrzeugHinzufuegen={(vid) => onFahrzeugHinzufuegen(order.id, vid)}
-                onFahrzeugAnlegen={(kz) => onRechnungsFahrzeugAnlegen(order.id, order.customer_id, kz)}
-                onKilometerstand={onKilometerstand}
-                onFahrzeugEntfernen={onFahrzeugEntfernen}
               />
             )}
 

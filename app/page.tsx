@@ -73,7 +73,7 @@ import {
 import {
   replaceOrderEmployees,
   insertOrder, updateOrderById, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
-  updateOrderVehicle, updateOrderFirmenfahrzeug,
+  updateOrderFirmenfahrzeug,
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
 import {
@@ -1270,20 +1270,34 @@ export default function HomePage() {
   // gefragt wurde, wie viele Monate der Satz denn nun gelegen hat.
   //
   // Ausgenommen bleibt der Fall „ich habe mich beim Einlagern vertan": Wer den Satz entfernt,
-  // den er im selben Auftrag gerade erst angelegt hat, korrigiert einen Fehler und schuldet
-  // dafür nichts. Deshalb `ohneDialog`.
+  // den er im selben Auftrag HEUTE erst angelegt hat, korrigiert einen Fehler und schuldet
+  // dafür nichts.
+  //
+  // Beides muss zutreffen, und bis zum 21.09.2026 prüfte der Code keines von beidem: Das
+  // Auftragsfenster übergab pauschal „ohne Dialog". Ein Satz, der seit acht Monaten im Regal
+  // lag und zu einem alten Auftrag gehörte, ging damit über den Knopf „Einlagerung entfernen"
+  // kostenlos hinaus – ohne Gebühr, ohne `entnahme_order_id`, ohne dass jemand gefragt wurde.
+  // Über die Regalwand lief derselbe Vorgang die ganze Zeit richtig.
+  //
+  // Die Entscheidung steht deshalb jetzt HIER und nicht mehr am Aufrufer: Ein Aufrufer, der
+  // sich vertut, kostet Geld, und man sieht es ihm nicht an.
   const [auslagernSatzId, setAuslagernSatzId] = useState<string | null>(null);
   const [auslagernAusAuftragId, setAuslagernAusAuftragId] = useState<string | null>(null);
   // Für welche Sätze ist gerade der Etikettendruck offen (17.09.2026)? Eine Liste, weil aus dem
   // Lager heraus auch mehrere auf einmal gedruckt werden können.
   const [etikettSatzIds, setEtikettSatzIds] = useState<string[]>([]);
 
-  async function removeTireAssignment(id: string, ohneDialog = false) {
-    if (ohneDialog) {
+  async function removeTireAssignment(id: string, ausAuftragId?: string | null) {
+    const satz = tireStorages.find((t) => t.id === id);
+    const heuteAngelegt = !!satz && satz.created_at.slice(0, 10) === todayStr();
+    const eigenerSatz = !!satz && !!ausAuftragId && satz.order_id === ausAuftragId;
+
+    if (heuteAngelegt && eigenerSatz) {
       await removeTireAssignmentById(supabase, id, null);
       await refreshTireStorages();
       return;
     }
+    if (ausAuftragId) setAuslagernAusAuftragId(ausAuftragId);
     setAuslagernSatzId(id);
   }
 
@@ -1480,10 +1494,6 @@ export default function HomePage() {
 
   async function setOrderFirmenfahrzeug(id: string, firmenfahrzeugId: string | null) {
     await updateOrderFirmenfahrzeug(supabase, id, firmenfahrzeugId);
-    await refreshOrders();
-  }
-  async function setOrderVehicle(id: string, vehicleId: string | null) {
-    await updateOrderVehicle(supabase, id, vehicleId);
     await refreshOrders();
   }
   async function updateTechnikerNotiz(id: string, notiz: string) {
@@ -2894,9 +2904,14 @@ export default function HomePage() {
             // bei zwei Autos am selben Auftrag hätte sich der eine als „letztes Mal" über den
             // anderen gelegt.
             const fremde = tireStorages.filter((t) => t.order_id !== offenerAuftrag.id);
-            const letzter = letzterSatzFuer(
-              fremde, offenerAuftrag.customer_id, offenerAuftrag.vehicle_id
-            );
+            // Welche Autos an diesem Auftrag hängen, steht seit Migration 44 in
+            // `auftrag_fahrzeuge`. Bis zum 21.09.2026 wurde hier `orders.vehicle_id` gelesen –
+            // dasselbe Fenster, in dem die Rechnung schon die neue Tabelle las. Bei einem
+            // Kunden mit zwei Autos konnte die Vorgeschichte damit vom falschen Wagen erzählen.
+            const fahrzeugIds = auftragFahrzeuge
+              .filter((af) => af.order_id === offenerAuftrag.id)
+              .map((af) => af.vehicle_id);
+            const letzter = letzterSatzFuer(fremde, offenerAuftrag.customer_id, fahrzeugIds);
             return {
               letzterSatz: letzter,
               letzterSatzRaeder: letzter
@@ -2915,7 +2930,7 @@ export default function HomePage() {
           warehouses={warehouses}
           belegteSlotIds={belegteSlotIds}
           onEinlagern={(lagerplatzId, einlagerungId) => einlagernFuerAuftrag(offenerAuftrag, lagerplatzId, einlagerungId)}
-          onEinlagerungEntfernen={(id) => removeTireAssignment(id, true)}
+          onEinlagerungEntfernen={(id) => removeTireAssignment(id, offenerAuftrag.id)}
           onEinlagerungAngaben={einlagerungAngabenAendern}
           {...(() => {
             // Die Räder ALLER Sätze dieses Auftrags; das Auftragsfenster teilt sie je Satz auf.
@@ -2930,7 +2945,6 @@ export default function HomePage() {
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
           firmenfahrzeuge={firmenfahrzeuge}
-          onSetVehicle={setOrderVehicle}
           onSetFirmenfahrzeug={setOrderFirmenfahrzeug}
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
           onSetStatus={updateOrderStatus}

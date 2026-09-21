@@ -34,28 +34,23 @@ function Zeile({ erfuellt, titel, wert, children }: {
 }
 
 export function RechnungsdatenBlock({
-  kunde, fahrzeuge, alleFahrzeuge, gesperrt, darfKundeAendern,
-  onEmailSpeichern, onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
+  kunde, fahrzeuge, gesperrt, darfKundeAendern, onEmailSpeichern,
 }: {
   kunde: Customer | null;
-  // Die Fahrzeuge DIESES Auftrags, angereichert um das zugehörige Fahrzeug.
+  // Die Fahrzeuge DIESES Auftrags, angereichert um das zugehörige Fahrzeug. Nur zum PRÜFEN –
+  // geändert werden sie im Block „Fahrzeug" weiter oben im Auftragsfenster (siehe
+  // `FahrzeugeBlock`). Bis zum 21.09.2026 stand der Fahrzeug-Editor hier drin und war damit
+  // hinter dem Rechnungshaken versteckt, während oben ein zweiter Auswahlkasten dieselbe
+  // Frage ein zweites Mal stellte und in ein anderes Feld schrieb.
   fahrzeuge: (AuftragFahrzeug & { fahrzeug: Vehicle | null })[];
-  // Alle Fahrzeuge des Kunden – zur Auswahl.
-  alleFahrzeuge: Vehicle[];
   gesperrt?: boolean;
   // Darf die aufrufende Rolle Kundenstammdaten ändern (`kunden.schreiben`)? Ein Techniker
   // darf das nicht – ihm hier ein Eingabefeld für die E-Mail-Adresse anzubieten hieße, ihn in
   // eine Fehlermeldung laufen zu lassen. Lieber ein ehrlicher Hinweis als ein totes Feld.
   darfKundeAendern: boolean;
   onEmailSpeichern: (email: string) => Promise<void>;
-  onFahrzeugHinzufuegen: (vehicleId: string) => Promise<void>;
-  onFahrzeugAnlegen: (kennzeichen: string) => Promise<void>;
-  onKilometerstand: (id: string, km: number | null) => Promise<void>;
-  onFahrzeugEntfernen: (id: string) => Promise<void>;
 }) {
   const [email, setEmail] = useState("");
-  const [neuesKennzeichen, setNeuesKennzeichen] = useState("");
-  const [auswahl, setAuswahl] = useState("");
 
   const maengel = rechnungsdatenMaengel(
     kunde,
@@ -64,11 +59,11 @@ export function RechnungsdatenBlock({
   const fehlt = (schluessel: string) => maengel.some((m) => m.schluessel === schluessel);
   const vollstaendig = maengel.length === 0;
 
-  // Nur Fahrzeuge anbieten, die noch nicht am Auftrag stehen – ein Auto zweimal einzutragen
-  // hieße zwei Kilometerstände für denselben Wagen am selben Tag, und die Datenbank lehnt es
-  // ohnehin ab (Migration 44).
-  const schonDran = new Set(fahrzeuge.map((f) => f.vehicle_id));
-  const waehlbar = alleFahrzeuge.filter((v) => !schonDran.has(v.id));
+  // Was an den Fahrzeugen fehlt, wird hier nur GENANNT und nicht noch einmal zum Ändern
+  // angeboten. Ein zweites Eingabefeld für dieselbe Sache wäre genau die Dopplung, die am
+  // 18.09.2026 aufgefallen ist.
+  const fahrzeugMangel = maengel.find((m) => m.schluessel === "fahrzeug" || m.schluessel === "kennzeichen");
+  const kmMangel = maengel.find((m) => m.schluessel === "kilometerstand");
 
   return (
     <div className={"rechnungsdaten" + (vollstaendig ? " vollstaendig" : "")}>
@@ -111,71 +106,31 @@ export function RechnungsdatenBlock({
         )}
       </Zeile>
 
-      <div className="rd-fahrzeuge">
-        <div className="rd-fahrzeuge-kopf">Fahrzeuge an diesem Auftrag</div>
-        {fahrzeuge.length === 0 && <div className="small">Noch kein Fahrzeug eingetragen.</div>}
-        {fahrzeuge.map((f, i) => {
-          const kennzeichen = f.fahrzeug?.license_plate?.trim() || "";
-          return (
-            <div key={f.id} className="rd-fahrzeug">
-              <span className="rd-nr">Fahrzeug {i + 1}</span>
-              <span className="rd-kennzeichen">
-                {kennzeichen || <i>ohne Kennzeichen</i>}
-                {f.fahrzeug?.make_model && <span className="small"> · {f.fahrzeug.make_model}</span>}
-              </span>
-              <label className="rd-km">
-                km
-                <input
-                  type="number" min={0} className="feld-kompakt" placeholder="Stand"
-                  disabled={gesperrt}
-                  defaultValue={f.kilometerstand ?? ""}
-                  onBlur={(e) => {
-                    const t = e.target.value.trim();
-                    // Leer heißt „noch nicht abgelesen" (null), nicht 0.
-                    const wert = t === "" ? null : Math.round(parseFloat(t.replace(",", ".")));
-                    if (wert !== f.kilometerstand && !(wert != null && isNaN(wert))) void onKilometerstand(f.id, wert);
-                  }}
-                />
-              </label>
-              {!gesperrt && (
-                <button type="button" className="btn-secondary rd-weg" title="Fahrzeug vom Auftrag entfernen"
-                  onClick={() => void onFahrzeugEntfernen(f.id)}>×</button>
-              )}
-            </div>
-          );
-        })}
-
-        {!gesperrt && (
-          <div className="rd-hinzu">
-            {waehlbar.length > 0 && (
-              <>
-                <select value={auswahl} onChange={(e) => { setAuswahl(e.target.value); if (e.target.value) { void onFahrzeugHinzufuegen(e.target.value); setAuswahl(""); } }}>
-                  <option value="">– weiteres Fahrzeug des Kunden –</option>
-                  {waehlbar.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {[v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen"}
-                    </option>
-                  ))}
-                </select>
-                <span className="small">oder</span>
-              </>
-            )}
-            <input
-              type="text" className="feld-kompakt" placeholder="Neues Kennzeichen"
-              value={neuesKennzeichen}
-              onChange={(e) => setNeuesKennzeichen(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && neuesKennzeichen.trim()) { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); } }}
-            />
-            <button
-              type="button" className="btn-secondary" disabled={!neuesKennzeichen.trim()}
-              onClick={() => { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); }}
-            >
-              + anlegen
-            </button>
-            <span className="small">Neue Fahrzeuge werden beim Kunden hinterlegt.</span>
-          </div>
+      <Zeile
+        erfuellt={!fahrzeugMangel}
+        titel="Fahrzeug"
+        wert={fahrzeuge.length === 0
+          ? null
+          : fahrzeuge.map((f) => f.fahrzeug?.license_plate?.trim() || "ohne Kennzeichen").join(", ")}
+      >
+        {fahrzeugMangel && (
+          <span className="small">
+            {fahrzeugMangel.schluessel === "fahrzeug"
+              ? "Oben im Block Fahrzeug eintragen."
+              : "Kennzeichen fehlt – oben im Block Fahrzeug ergänzen."}
+          </span>
         )}
-      </div>
+      </Zeile>
+
+      <Zeile
+        erfuellt={!kmMangel}
+        titel="Kilometerstand"
+        wert={fahrzeuge.length === 0
+          ? null
+          : fahrzeuge.map((f) => (f.kilometerstand == null ? "–" : f.kilometerstand.toLocaleString("de-DE"))).join(", ")}
+      >
+        {kmMangel && <span className="small">Oben im Block Fahrzeug nachtragen.</span>}
+      </Zeile>
     </div>
   );
 }

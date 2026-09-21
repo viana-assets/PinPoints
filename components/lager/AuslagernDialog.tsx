@@ -69,11 +69,19 @@ export function AuslagernDialog({
   const platz = [warehouse?.name, slot?.code].filter(Boolean).join(" · ") || "Lagerplatz unbekannt";
   const bis = todayStr();
 
+  // Ohne gültigen Preis gibt es nichts zu berechnen. Bis zum 21.09.2026 stand der Hinweis
+  // „kein gültiger Preis hinterlegt" zwar da, der Knopf ließ sich aber trotzdem drücken – und
+  // `insertOrderArticle` fiel mangels Preis auf 0,00 € zurück. Auf der Rechnung stand dann
+  // „8 Monate · 0,00 €", und niemand sah, dass die App genau davor gewarnt hatte. Eine
+  // Warnung, die man wegklicken kann, ohne dass etwas passiert, ist keine Warnung.
+  const kannBerechnen = !!artikel && preis !== null && mengeZahl > 0;
+  const wirdBerechnet = !ohneGebuehr && kannBerechnen;
+
   async function bestaetigen() {
     setLaeuft(true);
     try {
       await onAuslagern(
-        ohneGebuehr || !artikel
+        !wirdBerechnet
           ? { auftragId: null, neuerAuftrag: false, artikelId: null, menge: 0 }
           : {
               auftragId: ziel === "neu" ? null : ziel,
@@ -155,7 +163,11 @@ export function AuslagernDialog({
                       <label>Ergibt</label>
                       <div className="auslagern-summe">
                         {preis === null ? (
-                          <span className="small">Für diesen Artikel ist kein gültiger Preis hinterlegt.</span>
+                          <span className="small">
+                            Für diesen Artikel ist kein gültiger Preis hinterlegt – so lässt sich
+                            nichts berechnen. Entweder den Preis im Artikelstamm nachtragen oder
+                            oben auf ohne Gebühr umschalten.
+                          </span>
                         ) : (
                           <>
                             {formatEUR(summe ?? 0)} netto
@@ -167,7 +179,13 @@ export function AuslagernDialog({
                   </div>
                   {/* Kulanz ist eine Geschäftsentscheidung, keine Rechenaufgabe. Die Zahl darf
                       deshalb kleiner gesetzt werden, ohne dass die Anwendung widerspricht. */}
-                  {mengeZahl !== monate && (
+                  {mengeZahl === 0 && preis !== null && (
+                    <div className="small" style={{ marginTop: -4, marginBottom: 8 }}>
+                      Menge 0 heißt: es wird nichts berechnet. Dann ist die Angabe ohne Gebühr
+                      die ehrlichere – sie steht auch später noch im Protokoll.
+                    </div>
+                  )}
+                  {mengeZahl !== monate && mengeZahl > 0 && (
                     <div className="small" style={{ marginTop: -4, marginBottom: 8 }}>
                       Abweichend von den {monate} berechneten Monaten – so gewollt?
                     </div>
@@ -205,7 +223,10 @@ export function AuslagernDialog({
 
         <div className="auslagern-fuss">
           <button type="button" className="btn-secondary btn-rand" onClick={onAbbrechen} disabled={laeuft}>Abbrechen</button>
-          <button type="button" className="btn-primary" onClick={bestaetigen} disabled={laeuft}>
+          <button
+            type="button" className="btn-primary" onClick={bestaetigen}
+            disabled={laeuft || (!ohneGebuehr && gebuehrArtikel.length > 0 && !kannBerechnen)}
+          >
             {ohneGebuehr || gebuehrArtikel.length === 0
               ? "Auslagern"
               : ziel === "neu" ? "Auslagern und Auftrag anlegen" : "Auslagern und berechnen"}

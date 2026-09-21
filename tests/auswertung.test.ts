@@ -10,7 +10,7 @@ const Z = { von: "2026-01-01", bis: "2026-12-31" };
 
 function auftrag(id: string, felder: Record<string, unknown> = {}) {
   return {
-    id, order_number: 1, customer_id: "k1", vehicle_id: null, title: "Radwechsel",
+    id, order_number: 1, customer_id: "k1", title: "Radwechsel",
     description: null, status: "erledigt", order_date: "2026-03-10", time: "08:00",
     end_time: null, assigned_employee_id: null, techniker_notiz: null,
     firmenfahrzeug_id: null, completed_at: null, completed_by: null, cancelled_at: null,
@@ -27,8 +27,15 @@ function position(orderId: string, felder: Record<string, unknown> = {}) {
 function daten(teil: Partial<Auswertungsdaten> = {}): Auswertungsdaten {
   return {
     orders: [], orderArticles: [], orderEmployees: {}, employees: [], articles: [],
-    einlagerungen: [], customers: [], vehicles: [], ...teil,
+    einlagerungen: [], customers: [], vehicles: [], auftragFahrzeuge: [], ...teil,
   } as Auswertungsdaten;
+}
+
+// Welches Auto an welchem Auftrag hing, steht seit Migration 44 in `auftrag_fahrzeuge` – und
+// seit Migration 51 nur noch dort. Vorher trug der Auftrag selbst ein einzelnes `vehicle_id`.
+function amAuftrag(orderId: string, vehicleId: string) {
+  return { id: `af-${orderId}-${vehicleId}`, order_id: orderId, vehicle_id: vehicleId,
+           kilometerstand: null, created_at: "2026-03-10", created_by: null } as never;
 }
 
 describe("kennzahlen", () => {
@@ -202,10 +209,13 @@ describe("zeitraumVorgabe", () => {
 describe("artikelDetail", () => {
   const basis = () => daten({
     orders: [
-      auftrag("a1", { customer_id: "k1", vehicle_id: "f1", order_date: "2026-03-10" }),
-      auftrag("a2", { customer_id: "k1", vehicle_id: "f1", order_date: "2026-04-05" }),
-      auftrag("a3", { customer_id: "k2", vehicle_id: "f2", order_date: "2026-04-20" }),
-      auftrag("a4", { customer_id: "k3", vehicle_id: "f3", order_date: "2026-04-21", status: "offen" }),
+      auftrag("a1", { customer_id: "k1", order_date: "2026-03-10" }),
+      auftrag("a2", { customer_id: "k1", order_date: "2026-04-05" }),
+      auftrag("a3", { customer_id: "k2", order_date: "2026-04-20" }),
+      auftrag("a4", { customer_id: "k3", order_date: "2026-04-21", status: "offen" }),
+    ],
+    auftragFahrzeuge: [
+      amAuftrag("a1", "f1"), amAuftrag("a2", "f1"), amAuftrag("a3", "f2"), amAuftrag("a4", "f3"),
     ],
     orderArticles: [
       position("a1", { article_id: "rad", quantity: 4, net_price: 10 }),
@@ -267,11 +277,34 @@ describe("artikelDetail", () => {
   // verwässern – das wäre eine Auskunft über die Datenpflege, nicht über die Fahrzeuge.
   it("übergeht Aufträge ohne Fahrzeug, statt eine Sammelzeile zu erfinden", () => {
     const d = artikelDetail(daten({
-      orders: [auftrag("a1", { vehicle_id: null })],
+      orders: [auftrag("a1")],
       orderArticles: [position("a1", { article_id: "rad", quantity: 4 })],
     }), Z, "rad");
     expect(d.menge).toBe(4);
     expect(d.jeFahrzeug).toEqual([]);
+  });
+
+  // Mehrere Autos an einem Auftrag (Migration 44): Aus den Daten geht nicht hervor, welcher
+  // Reifen an welches kam. Die Menge wird deshalb geteilt – die Summe über alle Fahrzeuge
+  // bleibt die Menge des Auftrags, und keine Zeile behauptet mehr, als bekannt ist. Der
+  // Auftrag selbst zählt bei jedem Auto voll: „an wie vielen Terminen war dieser Wagen dabei"
+  // ist eindeutig zu beantworten.
+  it("teilt die Menge, wenn mehrere Fahrzeuge am selben Auftrag hängen", () => {
+    const d = artikelDetail(daten({
+      orders: [auftrag("a1")],
+      orderArticles: [position("a1", { article_id: "rad", quantity: 12 })],
+      auftragFahrzeuge: [amAuftrag("a1", "f1"), amAuftrag("a1", "f2"), amAuftrag("a1", "f3")],
+      vehicles: [
+        { id: "f1", license_plate: "N-AB 1", make_model: null },
+        { id: "f2", license_plate: "N-AB 2", make_model: null },
+        { id: "f3", license_plate: "N-AB 3", make_model: null },
+      ] as never,
+    }), Z, "rad");
+    expect(d.menge).toBe(12);
+    expect(d.fahrzeuge).toBe(3);
+    expect(d.jeFahrzeug.map((f) => f.menge)).toEqual([4, 4, 4]);
+    expect(d.jeFahrzeug.reduce((sum, f) => sum + f.menge, 0)).toBe(12);
+    expect(d.jeFahrzeug.every((f) => f.auftraege === 1)).toBe(true);
   });
 
   it("gibt ohne gewählten Artikel nichts zurück", () => {
