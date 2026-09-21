@@ -92,8 +92,40 @@ verwechseln lassen; `lagerplatzIdAusCode()` und `satzIdAusCode()` prüfen deshal
 eigenen Parameternamen und lehnen den anderen mit einer Meldung ab, statt stillschweigend
 nichts zu tun (siehe `EinlagerungBlock.tsx`, `gescannt()`).
 
-Gedruckt wird, wie am Regal, über die Druckfunktion des Browsers, wahlweise auf A4-Bögen oder
-im Format kleiner Etikettenrollen (`ETIKETT_FORMATE` in `ReifensatzEtikett.tsx`).
+Gedruckt wird wahlweise auf A4-Bögen oder im Format kleiner Etikettenrollen
+(`ETIKETT_FORMATE` in `ReifensatzEtikett.tsx`). An erster Stelle der Formatliste steht seit dem
+21.09.2026 die Rolle **50 × 80 mm, hochkant** – die im Betrieb tatsächlich liegt. Sie ist höher
+als breit; deshalb steht der QR-Code oben (44 mm statt 21 mm) und der Text darunter, beide über
+die volle Breite. Im Querformat bleibt es bei QR-Code links, Text rechts. Die Umschaltung
+zwischen beiden Anordnungen ergibt sich allein aus den Maßen des gewählten Formats
+(`hochformat` in `ReifensatzEtikett.tsx`, `masse.hoeheMm > masse.breiteMm` in
+`lib/etikettBild.ts`) – kein eigenes Feld, das getrennt gepflegt würde.
+
+### Zwei Wege aufs Papier (21.09.2026)
+
+Gedruckt wird über den Druckdialog des Geräts. Am Rechner findet der jeden eingerichteten
+Systemdrucker; am iPhone findet Safari ausschließlich **AirPrint**-Drucker. Die kleinen
+Bluetooth-Etikettendrucker im Lager können kein AirPrint – sie sprechen nur mit ihrer eigenen
+Hersteller-App –, und ein Gerät, das beides kann (Akku **und** AirPrint), kostet ein
+Vielfaches. Im Fenster „Etikett für den Reifensatz" stehen deshalb zwei Knöpfe nebeneinander:
+
+- **Drucken** – der normale Weg über den Systemdruckdialog. Am Rechner mit jedem dort
+  eingerichteten Drucker, am Handy nur mit AirPrint-Geräten (Wireless Direct des Druckers,
+  nicht der Handy-Hotspot).
+- **Als Bild teilen** – das Etikett wird als PNG in exakt seiner physischen Größe erzeugt
+  (`lib/etikettBild.ts`, 8 Bildpunkte je Millimeter = 203 dpi, die Auflösung dieser
+  Etikettendrucker) und an das Teilen-Menü des Geräts übergeben. Von dort nimmt die App des
+  Etikettendruckers das Bild entgegen und druckt über Bluetooth. Zwei Tipper mehr als
+  „Drucken", dafür druckt jedes Bluetooth-Gerät, unabhängig von AirPrint. Kennt das Gerät kein
+  Teilen-Menü (z. B. ein Rechner), speichert die App das Bild stattdessen und sagt das auch so
+  – von dort lässt es sich in die Drucker-Software ziehen. Ein Abbrechen im Teilen-Menü löst
+  bewusst keine Fehlermeldung aus.
+
+Im Alltag am Regal: „Etikett drucken" im Einlagerungsblock oder am Reifensatz öffnen, Format
+wählen (die 50 × 80-Rolle steht als Erstes zur Auswahl), dann entweder **Drucken** tippen und
+im Systemdialog Ränder auf null und Skalierung auf 100 % stellen, oder – wenn nur der
+Bluetooth-Drucker zur Hand ist – **Als Bild teilen** tippen und im Teilen-Menü die App des
+Druckers antippen.
 
 ---
 

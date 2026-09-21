@@ -32,15 +32,16 @@
   Wurzelverzeichnis oder in `viana-pinpoints/`?") steckt in dieser Fassung nicht mehr – ein
   Push, bei dem der Anwendungsordner nicht exakt `viana-pinpoints` heißt, bricht wieder mit
   `Some specified paths were not resolved` ab.
-- **Tests**: Vitest **5**, `tests/*.test.ts` (22 Dateien) – weiterhin bewusst nur reine
+- **Tests**: Vitest **5**, `tests/*.test.ts` (23 Dateien) – weiterhin bewusst nur reine
   Rechen-/Prüffunktionen ohne UI (`environment: "node"`, kein jsdom), aber deutlich mehr Themen
   als ursprünglich: Preise/Rabatte/Endpreis, Rechnungsbeträge und -belege (`rechnung.test.ts`,
   `rechnungsbeleg.test.ts`, `rechnungsdaten.test.ts`), Rechte-Prüfung (`rechte.test.ts`),
   Protokoll-Aufbereitung (`protokoll.test.ts`), Gültigkeitszeiträume, Kalenderwochen und
   Stundenraster, Lagerplatz-Nummerierung und Regalwand-Layout, Lagerdauer, Profiltiefe,
-  Saisonliste, Aufkleber-Codes (`aufkleberCode.test.ts`), Adress-/Hausnummer-Abgleich,
-  Kundenzustand, Navigation, Sortieren/Suchen, Terminerinnerung und Vorgeschichte. Weiterhin
-  keine Komponententests.
+  Saisonliste, Aufkleber-Codes (`aufkleberCode.test.ts`), das Etikett-PNG fürs Teilen-Menü
+  (`etikettbild.test.ts`, 21.09.2026: Millimeter-Umrechnung, Textkürzung, Umbruch,
+  Dateiname), Adress-/Hausnummer-Abgleich, Kundenzustand, Navigation, Sortieren/Suchen,
+  Terminerinnerung und Vorgeschichte. Weiterhin keine Komponententests.
 - **TypeScript im `strict`-Modus** seit der Sanierung (vorher `strict: false`, damit waren
   null/undefined und implizite `any` ungeprüft).
 - **ESLint 9** mit `no-use-before-define` (`variables: true`, Funktionen und Klassen
@@ -165,6 +166,10 @@ viana-pinpoints/
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)
     aufkleberCode.ts                Codieren/Decodieren der QR-Aufkleber (Regal- vs. Satz-Code)
+    etikettBild.ts                  Reifensatz-/Rad-Etikett als PNG in Druckerauflösung
+                                    (203 dpi), für „Als Bild teilen" bei Druckern ohne AirPrint
+                                    (21.09.2026); zeichnet dieselbe Anordnung wie `.etikett` in
+                                    globals.css ein zweites Mal auf eine Leinwand
     module.ts / erscheinung.ts       App-Name/-Icon nach außen vs. innen (Sichtschutz, 18.09.2026)
     push.ts                        Client-seitige Push-Anmeldung (Versand liegt in app/api/push/*)
     pwaAktualisierung.ts / pwaInstallation.ts
@@ -467,7 +472,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   dem Zeitpunkt oft noch gar nicht gezeichnet ist. `lib/erscheinung.ts` sorgt dafür, dass App
   auf dem Homescreen und im Installationsdialog absichtlich unauffällig heißt/aussieht
   (Sichtschutz, kein Sicherheitsmechanismus – RLS bleibt die eigentliche Schranke).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v53`**, Konstante
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v54`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus

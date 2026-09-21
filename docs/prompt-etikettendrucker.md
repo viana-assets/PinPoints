@@ -2,6 +2,30 @@
 
 Alles unterhalb der Linie ist der Prompt. Kopieren, in eine KI mit Websuche einfügen, absenden.
 
+## Stand 21.09.2026: ein zweiter Weg aufs Papier – die harten Kriterien unten gelten seitdem nur
+## noch für den DIREKTEN Weg
+
+Seit dem 21.09.2026 hat die Anwendung neben dem Systemdruckdialog einen zweiten Weg, ein
+Etikett auf Papier zu bekommen: Es wird als PNG in exakt seiner physischen Größe erzeugt
+(`lib/etikettBild.ts`, 203 dpi) und an das **Teilen-Menü** des iPhones übergeben
+(`navigator.share` mit Datei). Von dort nimmt jede App, die Bilder annehmen kann – auch die
+Hersteller-App eines Bluetooth-Etikettendruckers –, das Bild entgegen; gedruckt wird über
+Bluetooth, in der App des Druckers. Kennt das Gerät kein Teilen-Menü, speichert die
+Anwendung das Bild stattdessen zum Herunterladen.
+
+Das ändert die Ausgangslage unten in einem Punkt, der bei der Recherche zu beachten ist:
+**AirPrint ist die eigentliche Hürde am iPhone, aber nur für den DIREKTEN Weg** über den
+Systemdruckdialog (Safari-Druckfunktion, Kriterium 1/2 unten). Ein Drucker, der nur über seine
+eigene Hersteller-App erreichbar ist (reines Bluetooth, kein AirPrint), ist über den zweiten
+Weg trotzdem nutzbar – zwei Tipper umständlicher als der direkte Druckdialog, aber
+funktionierend. Kriterium 1 und 2 unten schließen deshalb nicht mehr grundsätzlich aus, sie
+schließen nur vom **direkten** Weg aus. Bitte in der Recherche zu jedem Kandidaten beide Wege
+ausweisen: AirPrint-fähig (druckt direkt aus dem Systemdialog) versus nur über eigene App
+erreichbar (druckt über den Umweg „Bild teilen"). Eine native App bzw. ein Hersteller-SDK auf
+dem iPhone ist dafür weiterhin nicht nötig – die Anwendung selbst bleibt eine reine
+Web-Anwendung ohne Hersteller-Integration; der Umweg läuft über das ohnehin vorhandene
+Betriebssystem-Teilen-Menü, nicht über eine eigene Schnittstelle zum Drucker.
+
 ---
 
 ## Auftrag

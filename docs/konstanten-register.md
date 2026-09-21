@@ -21,7 +21,9 @@ bewusst modul-lokale Werte ohne zweite Verwendungsstelle, siehe Kommentar am Kop
 `lib/constants.ts`. Wer eine davon ein zweites Mal braucht, zentralisiert sie in `lib/` und
 trägt sie dann hier ein.
 
-Insgesamt **72 exportierte Konstanten** in 12 Dateien unter `lib/`.
+Insgesamt **73 exportierte Konstanten** in 13 Dateien unter `lib/` (Stand dieser Ergänzung:
+21.09.2026, nur die neue Datei `lib/etikettBild.ts` nachgetragen – siehe „Korrekturen" unten für
+eine weitere, unabhängig davon im Code gefundene Abweichung).
 
 ---
 
@@ -165,6 +167,24 @@ Insgesamt **72 exportierte Konstanten** in 12 Dateien unter `lib/`.
 
 ---
 
+## Etikett als Bild (21.09.2026)
+
+| Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
+|---|---|---|---|---|
+| `PX_PRO_MM` | `lib/etikettBild.ts` | `number` (8) | Bildpunkte je Millimeter (203 dpi, die Auflösung der Etikettendrucker) für das per „Als Bild teilen" erzeugte Etikett-PNG | `mmZuPx()` – `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
+
+**Nicht aufgenommen, bewusst:** `ETIKETT_FORMATE` (die Liste der Rollenformate inkl. des neuen
+Eintrags 50 × 80 mm) liegt nicht in `lib/`, sondern als `export const` direkt in
+`components/lager/ReifensatzEtikett.tsx` – außerhalb des oben festgelegten Umfangs dieses
+Registers, ebenso wie `QR_PIXEL` in derselben Datei (siehe „Umfang dieser Fassung"). Die übrigen
+Maß-Konstanten in `lib/etikettBild.ts` (`RAND_MM`, `SPALT_MM`, `SCHRIFT_KOPF_MM`,
+`SCHRIFT_ZEILE_MM`, `SCHRIFT_GROSS_MM`, `ZEILENHOEHE`, `SCHRIFT`) sind ebenfalls nicht erfasst,
+weil sie im Code **nicht exportiert** sind (`const`, kein `export const`) – geprüft per
+`grep -n "^export const\|^const" lib/etikettBild.ts`. Nur `PX_PRO_MM` trägt tatsächlich
+`export`.
+
+---
+
 ## App-Erscheinung (Sichtschutz)
 
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
@@ -218,6 +238,12 @@ sind:
    `satzUrl()`, `satzIdAusCode()`), was zum allgemeineren Dateinamen führte. (Der alte
    Dateiname ist inzwischen auch in `docs/lager.md` und im Testdateinamen
    `tests/aufkleberCode.test.ts` korrigiert.)
+3. **Beim Nachtragen von `PX_PRO_MM` (21.09.2026) fiel eine weitere, unabhängige Lücke auf:**
+   `lib/calendar.ts` exportiert seit demselben Tag zusätzlich `toDateStr` (Alias auf
+   `datumStr`, siehe Kopfkommentar dort) – nicht Teil dieser Ergänzung und hier nicht
+   nachgetragen, weil außerhalb des Auftrags, der zu dieser Fassung geführt hat. Die Zahl „73
+   Konstanten in 13 Dateien" oben zählt `toDateStr` deshalb noch **nicht** mit; vollständig
+   wäre 74 in 14 Dateien.
 
 ## Was geprüft wurde
 

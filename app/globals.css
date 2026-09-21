@@ -937,6 +937,21 @@ tr.klickbar:hover { background: var(--hover); }
    ein Modul zu wenige Druckpunkte bekommt. Nachgemessen, nicht geschätzt. */
 .etikett-rad .etikett-qr{width:calc(var(--etikett-qr, 21mm) - 3mm);
   height:calc(var(--etikett-qr, 21mm) - 3mm);}
+/* Hochformat (21.09.2026): Ist das Etikett höher als breit – wie die 50 × 80 mm-Rolle, die im
+   Betrieb liegt –, steht der QR-Code OBEN und der Text darunter, beide über die volle Breite.
+   Nebeneinander bliebe auf 80 mm Länge zwei Drittel der Fläche leer, und der Code bliebe
+   klein, obwohl gerade er von der Länge profitiert: Je größer er ist, desto weiter weg lässt
+   er sich scannen, und im Regal steht man selten davor.
+
+   Dieselbe Anordnung zeichnet `lib/etikettBild.ts` für das geteilte Bild. Wer hier etwas
+   ändert, ändert es dort mit – die beiden sind zwei Darstellungen desselben Etiketts. */
+.etikett.hoch{flex-direction:column;align-items:center;justify-content:flex-start;gap:2.1mm;}
+.etikett.hoch .etikett-qr{width:var(--etikett-qr,44mm);height:var(--etikett-qr,44mm);}
+.etikett.hoch .etikett-text{width:100%;flex:0 0 auto;}
+/* Der kleinere Code des Rad-Etiketts gilt im Hochformat NICHT: Dort nimmt ihm nichts die
+   Breite weg, und die Position steht ohnehin darunter statt daneben. */
+.etikett.hoch.etikett-rad .etikett-qr{width:var(--etikett-qr,44mm);height:var(--etikett-qr,44mm);}
+
 /* Im Vorschaubereich bekommt jedes Etikett eine gestrichelte Kontur, damit man seine Grenzen
    sieht. Auf dem Papier wäre sie Unsinn: Das Etikett IST die Seite. */
 .druckbogen .etikett{border:1px dashed #b9b1a1;border-radius:2px;}

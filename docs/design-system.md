@@ -539,6 +539,36 @@ Grundsatz oben („Seitenränder beim Druck gehören ins `@page`, nicht ins Padd
 Mechanismen hier entscheiden nur, WAS gedruckt wird und dass es sich über mehrere Seiten
 umbrechen darf; WO auf dem Papier es steht, bestimmt weiterhin `@page`.
 
+## Etikett-Hochformat: die Anordnung leitet sich aus den Maßen ab (21.09.2026)
+
+**Grundsatz: Ob QR-Code und Text neben- oder untereinander stehen, ist kein eigenes Feld,
+sondern eine Ableitung aus Breite und Höhe.** Ist ein Etikett höher als breit, steht der
+QR-Code OBEN über die volle Breite und der Text darunter – Beispiel: die Rolle 50 × 80 mm, die
+im Betrieb liegt. Ist es breiter als hoch, bleibt es bei QR-Code links, Text rechts. Die Regel
+dazu ist `.etikett.hoch` in `app/globals.css`:
+
+```
+.etikett.hoch{flex-direction:column;align-items:center;justify-content:flex-start;gap:2.1mm;}
+.etikett.hoch .etikett-qr{width:var(--etikett-qr,44mm);height:var(--etikett-qr,44mm);}
+.etikett.hoch .etikett-text{width:100%;flex:0 0 auto;}
+```
+
+Die Klasse `hoch` wird gesetzt, wenn `hoeheMm > breiteMm` des gewählten Formats gilt
+(`hochformat` in `ReifensatzEtikett.tsx`) – zwei Zahlen, die schon als `ETIKETT_FORMATE`-Eintrag
+vorliegen, statt ein zweites Mal als Schalter gepflegt zu werden. Zwei Angaben, die dasselbe
+sagen, laufen sonst irgendwann auseinander.
+
+**`lib/etikettBild.ts` zeichnet dieselbe Anordnung ein zweites Mal, auf eine Leinwand, für das
+Etikett als geteiltes PNG** (Knopf „Als Bild teilen", siehe `docs/lager.md`). Diese Dopplung ist
+bewusst und nicht vermeidbar: Ein HTML-Element in ein Bild zu verwandeln geht im Browser nur
+über Fremdbibliotheken oder `foreignObject`, und beides ist ausgerechnet in Safari unzuverlässig
+– dort, wo dieser Weg gebraucht wird. `etikettZeichnen()` prüft dieselbe Bedingung
+(`masse.hoeheMm > masse.breiteMm`) und positioniert QR-Code und Text dann exakt wie das CSS.
+**Wer die Anordnung ändert, ändert beide Stellen** – `.etikett`/`.etikett.hoch` in
+`globals.css` UND `etikettZeichnen()` in `lib/etikettBild.ts`; nur die Geometrie ist gedoppelt,
+nicht der Inhalt (der kommt in beiden Fällen aus derselben Liste `etiketten` in
+`ReifensatzEtikett.tsx`).
+
 ## Betriebsdaten-Maske (18.09.2026)
 
 `.betriebsdaten` (Admin-Bereich, `BetriebsdatenPanel`) ist die Eingabemaske für Briefkopf,

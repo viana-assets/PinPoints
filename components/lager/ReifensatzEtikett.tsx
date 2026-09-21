@@ -6,6 +6,7 @@ import type { Customer, EingelagertesRad, RadPosition, StorageSlot, TireStorage,
 import { RAD_POSITIONEN, RAD_POSITION_LABEL, SAISON_LABEL } from "@/lib/constants";
 import { formatDate, profilText, satzProfilMm } from "@/lib/helpers";
 import { satzUrl } from "@/lib/aufkleberCode";
+import { dateiName, etikettDatei, mmZuPx, type EtikettInhalt } from "@/lib/etikettBild";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
 //
@@ -16,9 +17,18 @@ import { satzUrl } from "@/lib/aufkleberCode";
 // liegt, wird beim Scannen nachgeschlagen. Ein Aufkleber, der einen Platz behauptet, wäre in
 // dem Moment falsch, in dem jemand umräumt – und genau dann braucht man ihn.
 //
-// Gedruckt wird über die Druckfunktion des Browsers, wie bei den Regalaufklebern. Für einen
-// kleinen Etikettendrucker heißt das: per USB als normaler Systemdrucker. Über Bluetooth laufen
-// diese Geräte nur über ihre eigene Hersteller-App, und dorthin kommt eine Webseite nicht.
+// ZWEI WEGE AUFS PAPIER
+//
+// 1. DRUCKEN über die Druckfunktion des Browsers. Am Rechner erreicht das jeden Drucker, der
+//    als Systemdrucker eingerichtet ist; am iPhone ausschließlich AirPrint-Drucker.
+// 2. ALS BILD TEILEN (21.09.2026): Das Etikett wird als PNG in exakt seiner physischen Größe
+//    erzeugt und an das Teilen-Menü des Geräts übergeben. Von dort nimmt es die App des
+//    Druckers entgegen und druckt über Bluetooth.
+//
+// Weg 2 gibt es, weil die kleinen Bluetooth-Etikettendrucker kein AirPrint können und ein
+// Gerät, das Akku UND AirPrint kann, ein Vielfaches kostet. Er ist zwei Tipper umständlicher
+// als „Drucken" – dafür braucht er keinen bestimmten Drucker. Wie das Bild entsteht, steht in
+// `lib/etikettBild.ts`.
 
 const QR_PIXEL = 512;
 
@@ -34,12 +44,30 @@ export type EtikettFormat = {
 };
 
 export const ETIKETT_FORMATE: EtikettFormat[] = [
-  { schluessel: "50x30", text: "Rolle 50 × 30 mm (empfohlen)", breiteMm: 50, hoeheMm: 30, qrMm: 21 },
+  // 50 × 80 mm steht oben, weil genau diese Rolle im Betrieb liegt (21.09.2026). Sie ist
+  // HOCH, nicht breit: Der QR-Code wandert nach oben und wird mit 44 mm mehr als doppelt so
+  // groß wie auf dem 30-mm-Etikett – gescannt wird im Regal aus einem Meter Abstand, und
+  // dort zählt die Kantenlänge des Codes mehr als jede Beschriftung.
+  { schluessel: "50x80", text: "Rolle 50 × 80 mm, hoch (vorhanden)", breiteMm: 50, hoeheMm: 80, qrMm: 44 },
+  { schluessel: "50x30", text: "Rolle 50 × 30 mm", breiteMm: 50, hoeheMm: 30, qrMm: 21 },
   { schluessel: "40x30", text: "Rolle 40 × 30 mm (eng – lange Namen brechen ab)", breiteMm: 40, hoeheMm: 30, qrMm: 21 },
   { schluessel: "57x40", text: "Rolle 57 × 40 mm", breiteMm: 57, hoeheMm: 40, qrMm: 30 },
   // hoeheMm null = kein Rollenformat, sondern mehrere Etiketten auf einem Blatt.
   { schluessel: "a4", text: "A4-Bogen (mehrere nebeneinander)", breiteMm: 50, hoeheMm: 30, qrMm: 21 },
 ];
+
+// Ein Bild im Browser speichern. Nur die Rückfallebene für Geräte ohne Teilen-Menü – am
+// Handy, wo dieser Weg gebraucht wird, greift immer das Teilen.
+function herunterladen(datei: File) {
+  const url = URL.createObjectURL(datei);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = datei.name;
+  a.click();
+  // Erst freigeben, wenn der Browser den Download angenommen hat. Sofortiges Freigeben
+  // liefert in Safari eine leere Datei.
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
 
 function QrBild({ text, alt }: { text: string; alt: string }) {
   const [datenUri, setDatenUri] = useState<string | null>(null);
@@ -82,10 +110,15 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   const [basis, setBasis] = useState("");
   const [format, setFormat] = useState<string>(ETIKETT_FORMATE[0].schluessel);
   const [art, setArt] = useState<EtikettArt>("satz");
+  const [teilenLaeuft, setTeilenLaeuft] = useState(false);
+  const [teilenHinweis, setTeilenHinweis] = useState<string | null>(null);
   useEffect(() => { setBasis(window.location.origin); }, []);
 
   const gewaehlt = ETIKETT_FORMATE.find((f) => f.schluessel === format) ?? ETIKETT_FORMATE[0];
   const rolle = gewaehlt.hoeheMm !== null;
+  // Höher als breit? Dann steht der QR-Code oben und der Text darunter. Abgeleitet und nicht
+  // als eigenes Feld gepflegt: Zwei Angaben, die dasselbe sagen, laufen auseinander.
+  const hochformat = (gewaehlt.hoeheMm ?? 0) > gewaehlt.breiteMm;
 
   function platzText(satz: TireStorage): string {
     const platz = slots.find((s) => s.id === satz.storage_slot_id);
@@ -125,6 +158,117 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   // Sammelmessung steht sie trotzdem, weil sie zum Reifensatz gehört und nicht zur Messart.
   function positionenZu(satz: TireStorage): RadPosition[] {
     return RAD_POSITIONEN.slice(0, Math.min(Math.max(satz.anzahl_raeder || 4, 1), RAD_POSITIONEN.length));
+  }
+
+  // ------------------------------------------------------------------ Der Inhalt
+  //
+  // Was auf einem Etikett steht, wird GENAU HIER entschieden – einmal. Die Darstellung auf dem
+  // Bildschirm (und damit der Ausdruck) und das geteilte PNG lesen dieselbe Liste. Stünde der
+  // Text an zwei Stellen, stünde er irgendwann verschieden da, und man merkte es erst an der
+  // Rolle. Was sich zwischen beiden Wegen unterscheiden DARF, ist allein die Geometrie.
+  type Bogen = {
+    schluessel: string;
+    satzId: string;
+    rad: boolean;
+    // Für den Dateinamen im Teilen-Menü – „Mustermann-VL.png" sagt mehr als „etikett-1.png".
+    bezeichnung: string;
+    inhalt: Omit<EtikettInhalt, "qr">;
+  };
+
+  const etiketten: Bogen[] = saetze.flatMap((satz): Bogen[] => {
+    const kunde = customers.find((c) => c.id === satz.customer_id);
+    const kundenName = kunde?.company || kunde?.name || "Unbekannter Kunde";
+
+    if (art === "satz") {
+      return [{
+        schluessel: satz.id, satzId: satz.id, rad: false, bezeichnung: kundenName,
+        inhalt: {
+          kopf: kundenName,
+          zeilen: [
+            fahrzeugText(satz),
+            // Das schwächste Rad, wenn einzeln gemessen wurde – dieselbe Regel wie überall
+            // sonst in der App. Ein Satz ist so gut wie sein schlechtester Reifen; der
+            // Durchschnitt wäre eine beruhigende Zahl ohne Aussage.
+            `${satz.saison ? SAISON_LABEL[satz.saison] : "Saison offen"} · ${profilText(satzProfilMm(satz, raederZu(satz)))}`,
+            `${platzText(satz)} · seit ${formatDate(satz.created_at.slice(0, 10))}`,
+          ],
+        },
+      }];
+    }
+
+    return positionenZu(satz).map((position): Bogen => {
+      const rad = radZu(satz, position);
+      const profil = radProfil(satz, rad);
+      return {
+        schluessel: `${satz.id}-${position}`, satzId: satz.id, rad: true,
+        bezeichnung: `${kundenName} ${position}`,
+        inhalt: {
+          gross: { links: position, rechts: profil.wert },
+          zeilen: [
+            // „Satzwert" steht hier unten und nicht oben im Kopf: Der Zusatz ist wichtig (die
+            // Zahl ist nicht an DIESEM Rad gemessen), aber er ist ein Vorbehalt, keine Ansage
+            // – und im Kopf hat er die Zeile gesprengt.
+            `${RAD_POSITION_LABEL[position]}${profil.satzwert ? " · Satzwert" : ""}`,
+            kundenName,
+            [rad?.reifengroesse, fahrzeugText(satz)].filter(Boolean).join(" · "),
+            platzText(satz),
+          ],
+        },
+      };
+    });
+  });
+
+  // ------------------------------------------------------------------ Als Bild teilen
+  //
+  // Der Ausweg für Drucker ohne AirPrint. Das Bild entsteht in der Auflösung des Druckers
+  // (203 dpi) und in exakt der Größe des gewählten Formats – der Drucker muss dann nichts mehr
+  // umrechnen, und genau das Umrechnen macht QR-Codes unlesbar.
+  async function alsBildTeilen() {
+    setTeilenHinweis(null);
+    setTeilenLaeuft(true);
+    try {
+      const dateien: File[] = [];
+      for (const [i, e] of etiketten.entries()) {
+        const masse = {
+          breiteMm: gewaehlt.breiteMm,
+          // Beim A4-Bogen gibt es keine Etikettenhöhe; fürs Bild gilt dann das Maß, das die
+          // Vorschau ohnehin zeichnet.
+          hoeheMm: gewaehlt.hoeheMm ?? 30,
+          // Das Rad-Etikett hat im Querformat einen kleineren QR-Code als das Satz-Etikett –
+          // links steht dort eine Angabe, die gelesen werden MUSS, und die braucht die
+          // Breite. Im Hochformat gilt das nicht: Dort steht die Angabe unter dem Code, nicht
+          // daneben. Derselbe Abzug und dieselbe Ausnahme wie im Stilblatt.
+          qrMm: e.rad && !hochformat ? gewaehlt.qrMm - 3 : gewaehlt.qrMm,
+        };
+        const qr = await QRCode.toDataURL(satzUrl(e.satzId, basis), {
+          width: mmZuPx(masse.qrMm), margin: 1, errorCorrectionLevel: "M",
+        });
+        dateien.push(await etikettDatei(
+          { ...e.inhalt, qr }, masse, dateiName(e.bezeichnung, i + 1, etiketten.length)
+        ));
+      }
+
+      const teilen = navigator.canShare && navigator.canShare({ files: dateien });
+      if (teilen) {
+        await navigator.share({ files: dateien });
+        return;
+      }
+      // Rechner ohne Teilen-Menü: speichern statt teilen. Von dort lässt sich das Bild in die
+      // Drucker-Software ziehen.
+      dateien.forEach(herunterladen);
+      setTeilenHinweis(
+        dateien.length === 1
+          ? "Dieses Gerät kennt kein Teilen-Menü – das Etikett wurde stattdessen gespeichert."
+          : `Dieses Gerät kennt kein Teilen-Menü – die ${dateien.length} Etiketten wurden stattdessen gespeichert.`
+      );
+    } catch (fehler) {
+      // Im Teilen-Menü auf Abbrechen zu tippen ist eine Entscheidung, kein Fehler. Eine
+      // Meldung darauf wäre eine Belehrung.
+      if (fehler instanceof DOMException && fehler.name === "AbortError") return;
+      setTeilenHinweis(fehler instanceof Error ? fehler.message : "Das Etikett konnte nicht erzeugt werden.");
+    } finally {
+      setTeilenLaeuft(false);
+    }
   }
 
   return (
@@ -197,72 +341,59 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
             "--etikett-qr": `${gewaehlt.qrMm}mm`,
           } as React.CSSProperties}
         >
-          {basis && saetze.flatMap((satz) => {
-            const kunde = customers.find((c) => c.id === satz.customer_id);
-            const kundenName = kunde?.company || kunde?.name || "Unbekannter Kunde";
-            const qr = <QrBild text={satzUrl(satz.id, basis)} alt="QR-Code Reifensatz" />;
-
-            if (art === "satz") {
-              return [(
-                <div key={satz.id} className="etikett">
-                  {qr}
-                  <div className="etikett-text">
-                    {/* Der Kundenname steht oben und fett: Er ist die Antwort auf die Frage, die
-                        dieses Etikett stellt. Alles andere ist Beleg. */}
-                    <div className="etikett-kunde">{kundenName}</div>
-                    <div className="etikett-zeile">{fahrzeugText(satz)}</div>
-                    <div className="etikett-zeile">
-                      {satz.saison ? SAISON_LABEL[satz.saison] : "Saison offen"}
-                      {" · "}
-                      {/* Das schwächste Rad, wenn einzeln gemessen wurde – dieselbe Regel wie
-                          überall sonst in der App. Ein Satz ist so gut wie sein schlechtester
-                          Reifen; der Durchschnitt wäre eine beruhigende Zahl ohne Aussage. */}
-                      {profilText(satzProfilMm(satz, raederZu(satz)))}
-                    </div>
-                    <div className="etikett-zeile">
-                      {platzText(satz)} · seit {formatDate(satz.created_at.slice(0, 10))}
-                    </div>
+          {basis && etiketten.map((e) => (
+            <div key={e.schluessel} className={"etikett" + (e.rad ? " etikett-rad" : "") + (hochformat ? " hoch" : "")}>
+              <QrBild text={satzUrl(e.satzId, basis)} alt="QR-Code Reifensatz" />
+              <div className="etikett-text">
+                {/* Position und Profil in EINER großen Zeile: Das sind die beiden Angaben,
+                    wegen denen man das Etikett überhaupt anschaut, wenn vier gleich
+                    aussehende Räder auf dem Boden liegen. */}
+                {e.inhalt.gross && (
+                  <div className="etikett-rad-kopf">
+                    <span className="etikett-pos">{e.inhalt.gross.links}</span>
+                    <span className="etikett-profil">{e.inhalt.gross.rechts}</span>
                   </div>
-                </div>
-              )];
-            }
-
-            return positionenZu(satz).map((position) => {
-              const rad = radZu(satz, position);
-              const profil = radProfil(satz, rad);
-              return (
-                <div key={`${satz.id}-${position}`} className="etikett etikett-rad">
-                  {qr}
-                  <div className="etikett-text">
-                    {/* Position und Profil in EINER großen Zeile: Das sind die beiden Angaben,
-                        wegen denen man das Etikett überhaupt anschaut, wenn vier gleich
-                        aussehende Räder auf dem Boden liegen. */}
-                    <div className="etikett-rad-kopf">
-                      <span className="etikett-pos">{position}</span>
-                      <span className="etikett-profil">{profil.wert}</span>
-                    </div>
-                    {/* „Satzwert" steht hier unten und nicht oben im Kopf: Der Zusatz ist
-                        wichtig (die Zahl ist nicht an DIESEM Rad gemessen), aber er ist ein
-                        Vorbehalt, keine Ansage – und im Kopf hat er die Zeile gesprengt. */}
-                    <div className="etikett-zeile">
-                      {RAD_POSITION_LABEL[position]}{profil.satzwert ? " · Satzwert" : ""}
-                    </div>
-                    <div className="etikett-zeile">{kundenName}</div>
-                    <div className="etikett-zeile">
-                      {[rad?.reifengroesse, fahrzeugText(satz)].filter(Boolean).join(" · ")}
-                    </div>
-                    <div className="etikett-zeile">{platzText(satz)}</div>
-                  </div>
-                </div>
-              );
-            });
-          })}
+                )}
+                {/* Der Kundenname steht oben und fett: Er ist die Antwort auf die Frage, die
+                    dieses Etikett stellt. Alles andere ist Beleg. */}
+                {e.inhalt.kopf && <div className="etikett-kunde">{e.inhalt.kopf}</div>}
+                {e.inhalt.zeilen.map((zeile, i) => (
+                  <div key={i} className="etikett-zeile">{zeile}</div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
 
-        <div className="row druck-weg" style={{ marginTop: 12 }}>
+        {/* Der Hinweis steht über den Knöpfen und nicht in einer Anleitung: Gelesen wird er in
+            der Sekunde, in der jemand vor dem Drucker steht. */}
+        <div className="small druck-weg" style={{ marginTop: 12 }}>
+          <b>Drucken</b> geht an jeden Drucker, den das Gerät kennt – am Rechner jeden
+          Systemdrucker, am Handy nur AirPrint-Drucker. <b>Als Bild teilen</b> ist der Weg für
+          Etikettendrucker, die nur über Bluetooth und ihre eigene App erreichbar sind: Das
+          Etikett geht als Bild ins Teilen-Menü, von dort in die App des Druckers.
+        </div>
+
+        <div className="row druck-weg" style={{ marginTop: 8 }}>
           <button className="btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>Drucken</button>
+          <button
+            className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }}
+            disabled={teilenLaeuft || !basis || etiketten.length === 0}
+            onClick={() => void alsBildTeilen()}
+          >
+            {teilenLaeuft
+              ? "einen Moment …"
+              : etiketten.length > 1 ? `${etiketten.length} Bilder teilen` : "Als Bild teilen"}
+          </button>
           <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={onClose}>Schließen</button>
         </div>
+
+        {teilenHinweis && (
+          <div className="fehler-hinweis druck-weg" role="status" style={{ marginTop: 8 }}>
+            <span>{teilenHinweis}</span>
+            <button type="button" onClick={() => setTeilenHinweis(null)} aria-label="Meldung schließen">×</button>
+          </div>
+        )}
       </div>
     </div>
   );
