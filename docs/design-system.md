@@ -473,6 +473,62 @@ feststeht (nicht im Entwurf) und eine IBAN hinterlegt ist – Details zur Berech
 einzelne Position über den Seitenumbruch zerrissen wird – Bezeichnung auf Seite 1, Betrag auf
 Seite 2 wäre genau die Zeile, über die ein Kunde anruft.
 
+## Drucken aus einem Fenster (21.09.2026)
+
+**Grundsatz: Gedruckt wird immer aus einem Fenster heraus, und ein Fenster ist
+Bildschirm-Möblierung.** Die Rechnung, die Reifensatz- und Rad-Etiketten, der Aufkleberbogen –
+in allen drei Fällen liegt der druckbare Inhalt in einem `.modal-overlay` mit
+`position:fixed`, eigener Rollfläche und Höhenbegrenzung in `vh`. Für den Ausdruck zählt nur,
+was darin steht; alles, was das Fenster zu einem Fenster macht, muss vorher weg – sonst druckt
+der Browser das Fenster als Möbelstück mit, statt seinen Inhalt als Dokument zu behandeln.
+
+**`overflow:hidden` verhindert den Seitenumbruch – das ist die eigentliche Lehre, und sie gilt
+für jedes künftige Layout, nicht nur für `#app`.** Ein Element mit `overflow:hidden` wird vom
+Browser nicht über mehrere Papierseiten hinweg umgebrochen: Es muss ganz auf eine Seite passen
+oder wird abgeschnitten. `#app` trägt `overflow:hidden`, weil es auf dem Bildschirm ein Raster
+in Fensterhöhe ist (siehe „Das Grundlayout ist ein Raster" oben) – beim Drucken ist genau das
+fatal. Nachgemessen am 21.09.2026: Mit `overflow:hidden` wurden aus vier Rad-Etiketten (je
+eine Seite) eine einzige Seite mit dem ersten Etikett, der Rest fiel weg; dieselbe Falle hätte
+eine zweiseitige Rechnung auf eine Seite gekürzt. Jeder Vorfahre eines künftigen Druck-Layouts
+mit `overflow:hidden` (oder `auto`/`scroll`, die sich beim Drucken gleich verhalten) deckelt
+den Ausdruck auf eine Seite, unabhängig davon, wie lang der Inhalt darunter ist.
+
+**iOS Safari druckt den Inhalt eines `position:fixed`-Elements nicht mit.** Am Rechner kam die
+Rechnung sauber heraus, am iPhone (Safari) ein leeres Blatt – bei der Rechnung wie bei den
+Etiketten, gemeldet aus dem Betrieb am 21.09.2026. Da jedes Fenster hier `position:fixed` ist,
+muss es für den Druck zu einem gewöhnlichen Block im Textfluss werden.
+
+**Drei Mechanismen wirken zusammen, jeder auf einer anderen Ebene** (`@media print` am Ende von
+`globals.css`):
+
+1. **`#app > * {display:none !important}` / `#app > .druck-fenster {display:block !important}`**
+   (Layout-Ebene) nimmt alles außer dem druckenden Fenster aus dem Seitenaufbau – nicht nur aus
+   dem Blick, sonst schöbe die unsichtbare Oberfläche leere Seiten vor den Ausdruck. Die Klasse
+   `.druck-fenster` sitzt an den drei druckbaren Fenstern (`RechnungModal.tsx`,
+   `ReifensatzEtikett.tsx`, `LagerplatzAufkleber.tsx`), bewusst nicht an `.modal-overlay`
+   allgemein: Beim Drucken der Rechnung steht das Auftragsfenster noch offen, und ohne eigene
+   Klasse käme es mit aufs Blatt.
+2. **`.druck-fenster` und `.druck-fenster .modal-box` werden zu gewöhnlichen Blöcken**
+   (`position:static !important`, keine Höhenbegrenzung, kein `overflow`, kein Hintergrund) –
+   das behebt gleichzeitig die `overflow:hidden`-Falle aus Punkt eins und das
+   `position:fixed`-Problem auf iOS. `!important` ist hier kein Komfort: Die Aufkleber-Fenster
+   setzen `position:relative` als Inline-Attribut am Element
+   (`style={{ position: "relative" }}`), und ein Attribut schlägt jede gewöhnliche Regel im
+   Stilblatt.
+3. **`visibility:hidden` (Aufkleberbogen/Rechnungsseite) und `.druck-weg{display:none}`**
+   bleiben als zweite Sicherung bestehen. Sie lösen ein anderes Problem als Punkt eins und
+   zwei: Sie legen fest, was von dem jetzt sichtbaren Fenster gedruckt wird – nicht, ob das
+   Fenster am Seitenumbruch teilnimmt. `visibility` erhält dabei den Seitenaufbau des
+   verbliebenen Inhalts (siehe „Druckansicht (Aufkleber)" oben); `.druck-weg` entfernt
+   einzelne Bedienelemente innerhalb des Fensters ganz aus dem Layout – Schließen-Knopf,
+   Überschriften, Filterleisten, Hinweistexte, die zwar im Fenster stehen, aber nicht aufs
+   Papier gehören.
+
+**Die Seitenränder kommen weiterhin aus `@page`, nicht aus dieser Regel** – siehe den
+Grundsatz oben („Seitenränder beim Druck gehören ins `@page`, nicht ins Padding"). Die drei
+Mechanismen hier entscheiden nur, WAS gedruckt wird und dass es sich über mehrere Seiten
+umbrechen darf; WO auf dem Papier es steht, bestimmt weiterhin `@page`.
+
 ## Betriebsdaten-Maske (18.09.2026)
 
 `.betriebsdaten` (Admin-Bereich, `BetriebsdatenPanel`) ist die Eingabemaske für Briefkopf,

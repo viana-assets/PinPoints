@@ -46,6 +46,13 @@ ohne die Vorschau, in der man Ränder und Skalierung im Druckdialog noch geradez
 Druckansicht steckt in `@media print` in `globals.css` und blendet über `visibility` alles außer
 dem Bogen aus.
 
+Das ist nicht die ganze Druckmechanik: Der Bogen liegt wie jedes druckbare Fenster in einem
+`position:fixed`-Dialog, und der Druck läuft nicht auf jedem Gerät gleich ab – iOS Safari
+druckt `position:fixed`-Inhalte gar nicht erst. Die Klasse `druck-fenster` am Fenster
+(`LagerplatzAufkleber.tsx`, `ReifensatzEtikett.tsx`) löst das zusammen mit der `@media
+print`-Regel an `#app` in `globals.css`; Herleitung und Begründung stehen in
+`docs/design-system.md`, Abschnitt „Drucken aus einem Fenster (21.09.2026)".
+
 ### Was im Code steht: ein Link, keine Zeichenkette
 
 Auf dem Aufkleber steht `https://‹diese Umgebung›/?lagerplatz=‹storage_slots.id›`

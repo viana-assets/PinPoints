@@ -867,7 +867,10 @@ tr.klickbar:hover { background: var(--hover); }
 .druck-modal{max-width:760px;}
 .druckbogen{display:flex;flex-wrap:wrap;gap:10px;max-height:52vh;overflow-y:auto;padding:4px;
   background:#ffffff;border:1px solid var(--border);border-radius:12px;}
+/* `break-inside:avoid`: Ein Aufkleber, den der Seitenumbruch halbiert, ist kein Aufkleber
+   mehr – oben der QR-Code, unten der Platzcode, und beides auf verschiedenen Blättern. */
 .aufkleber{width:150px;border:1px dashed #b9b1a1;border-radius:8px;padding:8px;
+  break-inside:avoid;page-break-inside:avoid;
   display:flex;flex-direction:column;align-items:center;gap:6px;background:#ffffff;
   break-inside:avoid;page-break-inside:avoid;}
 .qr-bild{width:104px;height:104px;display:block;image-rendering:pixelated;}
@@ -889,8 +892,7 @@ tr.klickbar:hover { background: var(--hover); }
   html, body{height:auto;overflow:visible;}
   body *{visibility:hidden;}
   .druckbogen, .druckbogen *{visibility:visible;}
-  .druckbogen{position:absolute;left:0;top:0;width:100%;max-height:none;overflow:visible;
-    border:none;padding:0;gap:6mm;}
+  .druckbogen{width:100%;max-height:none;overflow:visible;border:none;padding:0;gap:6mm;}
   .druck-weg{display:none !important;}
   .aufkleber{width:38mm;border:1px dashed #999999;}
   .qr-bild{width:26mm;height:26mm;}
@@ -944,10 +946,10 @@ tr.klickbar:hover { background: var(--hover); }
   /* Ein Etikett, eine Seite. Ohne das legt der Browser so viele nebeneinander, wie auf die
      schmale Rolle passen – also eines, und schiebt danach 30 mm Leerraum durch.
 
-     `position:static` hebt das `absolute` der Bogen-Regel darüber auf: Ein absolut
-     positionierter Block wird nicht zuverlässig über mehrere Seiten umbrochen, und genau das
-     ist hier der Normalfall – drei Sätze sind drei Etiketten und damit drei Seiten. */
-  .druckbogen.rolle{display:block;gap:0;position:static;padding:0;}
+     Seit dem 21.09.2026 steht der Bogen ohnehin im normalen Fluss (siehe den Abschnitt
+     „Drucken aus einem Fenster" am Ende dieser Datei); die Regel setzt hier nur noch das
+     Fließverhalten, nicht mehr die Positionierung. */
+  .druckbogen.rolle{display:block;gap:0;padding:0;}
   .druckbogen.rolle .etikett{border:none;border-radius:0;margin:0;
     break-after:page;page-break-after:always;}
   .druckbogen.rolle .etikett:last-child{break-after:auto;page-break-after:auto;}
@@ -1936,8 +1938,7 @@ tr.klickbar:hover { background: var(--hover); }
      umstellen. Stünde sie fest im Stilblatt, würde sie dem Etikettendruck von der Rolle in die
      Quere kommen, der seinerseits 50 × 30 mm setzt. */
   .rechnung-vorschau, .rechnung-vorschau *{visibility:visible;}
-  .rechnung-vorschau{position:absolute;left:0;top:0;
-    overflow:visible;background:none;padding:0;border:none;}
+  .rechnung-vorschau{overflow:visible;background:none;padding:0;border:none;}
   .rechnung-vorschau-rahmen{width:auto;height:auto;overflow:visible;}
   .rechnung-vorschau .rechnungsseite{transform:none;box-shadow:none;}
   /* Die Seitenränder kommen beim Drucken von `@page` (RECHNUNG_SEITE_CSS) und NICHT vom
@@ -2092,4 +2093,48 @@ tr.klickbar:hover { background: var(--hover); }
   /* Am Handy ist für vier feste Spalten kein Platz. Die Tabelle scrollt dann waagrecht –
      deshalb eine Mindestbreite, damit die Spalten nicht ineinanderlaufen. */
   .tages-tabelle{min-width:560px;}
+}
+
+/* ---------------- Drucken aus einem Fenster (21.09.2026) ---------------- */
+/*
+   Gedruckt wird in dieser Anwendung immer aus einem Fenster heraus: die Rechnung, die
+   Reifensatz- und Rad-Etiketten, die Aufkleber fürs Regal. Ein Fenster ist aber
+   Bildschirm-Möblierung – `position:fixed` im Blickfeld, eigene Rollfläche, Höhenbegrenzung
+   in `vh`. Auf Papier ist nichts davon sinnvoll, und eines davon ist sogar tödlich:
+
+   iOS Safari druckt den Inhalt eines `position:fixed`-Elements NICHT mit. Am Rechner kam
+   die Rechnung sauber heraus, am iPhone ein leeres Blatt – bei der Rechnung wie bei den
+   Etiketten. Gemeldet am 21.09.2026 aus dem Betrieb.
+
+   Deshalb wird das druckende Fenster hier zu einem gewöhnlichen Block im Textfluss, und die
+   restliche Oberfläche verschwindet nicht nur aus dem Blick, sondern aus dem Seitenaufbau.
+   Das `visibility`-Versteckspiel weiter oben bleibt als zweite Sicherung bestehen – es
+   blendet aus, was INNERHALB des Fensters nicht aufs Papier gehört.
+
+   Warum `.druck-fenster` und nicht `.modal-overlay`: Beim Drucken der Rechnung steht das
+   Auftragsfenster noch offen. Beide sind Kinder von `#app`, und ohne die eigene Klasse
+   käme das Auftragsfenster mit aufs Blatt.
+*/
+@media print{
+  /* `#app` ist auf dem Bildschirm ein Raster in Fensterhöhe mit `overflow:hidden`. Beides
+     muss weg, und das zweite ist der wichtigere Teil: Ein Element mit `overflow:hidden` wird
+     vom Browser NICHT über Seiten hinweg umbrochen – es ist ein Block, der ganz auf eine
+     Seite muss oder abgeschnitten wird. Gemessen: mit `overflow:hidden` wurden aus vier
+     Rad-Etiketten (je eine Seite) eine einzige Seite mit dem ersten Etikett, der Rest fiel
+     weg. Dieselbe Falle hätte eine zweiseitige Rechnung auf eine Seite gekürzt. */
+  #app{display:block;overflow:visible;height:auto;max-height:none;}
+
+  /* Die Oberfläche trägt keine Seitenhöhe mehr bei – sonst schöbe die unsichtbare Anwendung
+     leere Seiten vor den Ausdruck. */
+  #app > *{display:none !important;}
+  #app > .druck-fenster{display:block !important;}
+
+  /* `!important` ist hier nicht Bequemlichkeit: Die Aufkleber-Fenster setzen
+     `position:relative` als Attribut am Element, und ein Attribut schlägt jede gewöhnliche
+     Regel im Stilblatt. Bliebe es stehen, wäre das Fenster weiterhin Bezugsrahmen. */
+  .druck-fenster{position:static !important;display:block;inset:auto;z-index:auto;
+    background:none;padding:0;margin:0;}
+  .druck-fenster .modal-box{position:static !important;display:block;
+    width:auto;max-width:none;height:auto;max-height:none;overflow:visible;
+    background:none;box-shadow:none;border:none;border-radius:0;padding:0;margin:0;}
 }

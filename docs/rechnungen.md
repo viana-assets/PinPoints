@@ -331,6 +331,14 @@ Girocode-Block und die Fußzeile.
 Gedruckt wird über die Druckfunktion des Browsers (`window.print()`) – kein eigener
 PDF-Erzeuger.
 
+**Gedruckt wird dabei immer aus dem `RechnungModal` heraus, einem Fenster mit
+`position:fixed`.** Das ist nicht auf jedem Gerät folgenlos: iOS Safari druckt den Inhalt eines
+`position:fixed`-Elements nicht mit, und ein Vorfahre mit `overflow:hidden` (hier `#app`)
+verhindert den Seitenumbruch auf mehrseitigen Rechnungen. Die Klasse `druck-fenster` am
+Rechnungsfenster sowie die zugehörige `@media print`-Regel in `globals.css` lösen beides;
+Details und Begründung stehen in `docs/design-system.md`, Abschnitt „Drucken aus einem Fenster
+(21.09.2026)".
+
 ## Girocode / EPC-QR
 
 `girocodeText()` (`lib/rechnung.ts`) erzeugt den Inhalt für einen EPC-QR-Code nach Fassung 002

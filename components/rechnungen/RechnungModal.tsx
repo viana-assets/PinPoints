@@ -88,7 +88,7 @@ export function RechnungModal({
   const zeigbar = beleg ?? entwurf;
 
   return (
-    <div className="modal-overlay modal-rechnung" onClick={onClose}>
+    <div className="modal-overlay druck-fenster modal-rechnung" onClick={onClose}>
       <div className="modal-box rechnung-modal" onClick={(e) => e.stopPropagation()}>
         <style>{RECHNUNG_SEITE_CSS}</style>
 

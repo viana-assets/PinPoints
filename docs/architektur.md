@@ -467,7 +467,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   dem Zeitpunkt oft noch gar nicht gezeichnet ist. `lib/erscheinung.ts` sorgt dafür, dass App
   auf dem Homescreen und im Installationsdialog absichtlich unauffällig heißt/aussieht
   (Sichtschutz, kein Sicherheitsmechanismus – RLS bleibt die eigentliche Schranke).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v50`**, Konstante
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v51`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus
@@ -503,11 +503,9 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 ## Migrationsstand
 
-Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/` (01–51, mit `rollback/<nr>_rollback.sql`
-daneben); die Migrationen 34 und 35 liegen abweichend davon lose im Projektwurzel (`mig34.sql`/
-`mig34_rollback.sql`, `mig35.sql`/`mig35_rollback.sql`). Der aktuelle Stand reicht bis
-**Migration 51** (`orders.vehicle_id` entfernt, 21.09.2026). Fachlich wichtige
-Stationen seit dem 10.09.2026 (Migration 28):
+Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
+`supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
+**Migration 52** (21.09.2026). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -540,8 +538,13 @@ Stationen seit dem 10.09.2026 (Migration 28):
 - **51** – `orders.vehicle_id` entfernt: welches Fahrzeug ein Auftrag betrifft, steht nur noch
   in `auftrag_fahrzeuge`. Zuvor hatten Rechnung/Vollständigkeitsprüfung und der
   Vorgeschichte-Hinweis im Auftragsfenster jeweils eine andere der beiden Stellen gelesen.
+- **52** – holt aus `audit_log` die Fahrzeug-Zuordnungen nach, die beim Lauf von 51 verloren
+  gingen. Hintergrund: Der Supabase-SQL-Editor führt ein Skript Anweisung für Anweisung aus,
+  `begin`/`commit` hält nicht über die ganze Datei. Der Rettungsschritt in 51 hing an einer
+  temporären Tabelle, scheiterte deshalb – und das `drop column` danach lief trotzdem. Dass
+  sich das reparieren ließ, verdankt sich dem Protokoll aus Migration 18: Es hält die ganze
+  Zeile als jsonb fest und überlebt damit die Spalte, die es beschreibt.
 
-Ein `supabase/migrations/`-Ordner mit README („Bereits ausgeführt"/„Noch auszuführen"), wie ihn
-CLAUDE.md beschreibt, existiert in diesem Arbeitsstand nicht – die Historie steht ausschließlich
-in den Kopfkommentaren der einzelnen Dateien unter `supabase/migrations/` sowie in den Migrations-Hinweisen der
-Fach-Docs.
+`supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
+ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den
+Kopfkommentaren der einzelnen Migrationen.
