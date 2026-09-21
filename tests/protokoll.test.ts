@@ -64,7 +64,7 @@ describe("protokollFelder", () => {
       PROTOKOLL_FELD_LABEL
     );
     expect(zeilen.map((z) => z.label)).toEqual(["Nettopreis", "Status"]);
-    expect(zeilen[0]).toMatchObject({ alt: "10", neu: "12,5" });
+    expect(zeilen[0]).toMatchObject({ alt: "10,00\u00A0€", neu: "12,50\u00A0€" });
   });
 
   // `updated_at`/`updated_by` schreibt derselbe Trigger-Satz bei JEDER Änderung mit. Stünden
@@ -126,5 +126,81 @@ describe("protokollWer", () => {
   // weniger, als man will – aber sie ist wahr.
   it("fällt auf die gekürzte Kennung zurück, wenn der Zugang nicht mehr existiert", () => {
     expect(protokollWer("99999999-0000-4000-8000-000000000009", personen)).toBe("99999999…");
+  });
+});
+
+// ---------------------------------------------------------------- Namen statt Kennungen
+//
+// Das Protokoll hielt fest, WAS in der Datenbank steht: `article_id: c5cc3cb9-…`. Richtig und
+// fuer einen Menschen wertlos. Aufgeloest wird beim Lesen, nicht beim Schreiben.
+describe("protokollWert mit Namensverzeichnis", () => {
+  const namen = new Map([
+    ["c5cc3cb9-1111-4111-8111-111111111111", "Reifenwechsel mobil"],
+    ["67488ddc-2222-4222-8222-222222222222", "Auftrag 38"],
+  ]);
+
+  it("loest eine bekannte Kennung in Klartext auf", () => {
+    expect(protokollWert("c5cc3cb9-1111-4111-8111-111111111111", namen)).toBe("Reifenwechsel mobil");
+    expect(protokollWert("67488ddc-2222-4222-8222-222222222222", namen)).toBe("Auftrag 38");
+  });
+
+  it("kuerzt eine unbekannte Kennung wie bisher", () => {
+    // Ein geloeschter Datensatz steht in keinem Verzeichnis. Die gekuerzte Kennung ist
+    // weniger, als man will, aber wahr.
+    expect(protokollWert("aaaaaaaa-3333-4333-8333-333333333333", namen)).toBe("aaaaaaaa…");
+  });
+
+  it("ohne Verzeichnis bleibt alles wie vorher", () => {
+    expect(protokollWert("c5cc3cb9-1111-4111-8111-111111111111")).toBe("c5cc3cb9…");
+  });
+
+  it("laesst alles andere unberuehrt", () => {
+    expect(protokollWert(50, namen)).toBe("50");
+    expect(protokollWert(true, namen)).toBe("ja");
+    expect(protokollWert("Radlager Reifen VR", namen)).toBe("Radlager Reifen VR");
+  });
+});
+
+describe("protokollFelder laesst Rauschen weg", () => {
+  it("verschweigt angelegt am und angelegt von", () => {
+    // Beides steht bei einem Anlegen schon in der Kopfzeile des Eintrags – einmal als
+    // Klartext oben, einmal als rohe Kennung unten ist kein zusaetzlicher Beleg.
+    const felder = protokollFelder(
+      null,
+      { created_at: "2026-09-18T14:10:00Z", created_by: "039b29ac-4444-4444-8444-444444444444", quantity: 1 },
+      { quantity: "Menge" }
+    );
+    expect(felder.map((f) => f.feld)).toEqual(["quantity"]);
+  });
+
+  it("verschweigt, was schon in der Kopfzeile steht", () => {
+    const felder = protokollFelder(
+      null,
+      { order_id: "67488ddc-2222-4222-8222-222222222222", quantity: 1 },
+      { quantity: "Menge", order_id: "Auftrag" },
+      undefined,
+      new Set(["order_id"])
+    );
+    expect(felder.map((f) => f.feld)).toEqual(["quantity"]);
+  });
+});
+
+describe("Geld und Prozent im Protokoll", () => {
+  it("ein Preis ist ein Preis und keine Stueckzahl", () => {
+    // „Nettopreis 50" liest sich wie eine Anzahl.
+    const felder = protokollFelder(null, { net_price: 50 }, { net_price: "Nettopreis" });
+    // Das Leerzeichen vor dem Euro ist ein geschuetztes (U+00A0) – so liefert es
+    // `toLocaleString`, und so gehoert es auch: Ein Betrag bricht nicht vor seiner Waehrung um.
+    expect(felder[0].neu).toBe("50,00\u00A0€");
+  });
+
+  it("ein Steuersatz bekommt sein Prozentzeichen", () => {
+    const felder = protokollFelder(null, { vat_rate: 19 }, { vat_rate: "Steuersatz" });
+    expect(felder[0].neu).toBe("19 %");
+  });
+
+  it("eine gewoehnliche Zahl bleibt eine Zahl", () => {
+    const felder = protokollFelder(null, { quantity: 4 }, { quantity: "Menge" });
+    expect(felder[0].neu).toBe("4");
   });
 });
