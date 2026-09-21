@@ -486,8 +486,8 @@ der Browser das Fenster als Möbelstück mit, statt seinen Inhalt als Dokument z
 für jedes künftige Layout, nicht nur für `#app`.** Ein Element mit `overflow:hidden` wird vom
 Browser nicht über mehrere Papierseiten hinweg umgebrochen: Es muss ganz auf eine Seite passen
 oder wird abgeschnitten. `#app` trägt `overflow:hidden`, weil es auf dem Bildschirm ein Raster
-in Fensterhöhe ist (siehe „Das Grundlayout ist ein Raster" oben) – beim Drucken ist genau das
-fatal. Nachgemessen am 21.09.2026: Mit `overflow:hidden` wurden aus vier Rad-Etiketten (je
+in Fensterhöhe ist (siehe „Das Grundlayout ist ein Raster" oben), und die Modulfläche darunter
+trägt `overflow:auto` – beim Drucken ist beides gleich fatal. Nachgemessen am 21.09.2026: Mit `overflow:hidden` wurden aus vier Rad-Etiketten (je
 eine Seite) eine einzige Seite mit dem ersten Etikett, der Rest fiel weg; dieselbe Falle hätte
 eine zweiseitige Rechnung auf eine Seite gekürzt. Jeder Vorfahre eines künftigen Druck-Layouts
 mit `overflow:hidden` (oder `auto`/`scroll`, die sich beim Drucken gleich verhalten) deckelt
@@ -501,20 +501,30 @@ muss es für den Druck zu einem gewöhnlichen Block im Textfluss werden.
 **Drei Mechanismen wirken zusammen, jeder auf einer anderen Ebene** (`@media print` am Ende von
 `globals.css`):
 
-1. **`#app > * {display:none !important}` / `#app > .druck-fenster {display:block !important}`**
+1. **`body *:not(:has(.druck-fenster)):not(.druck-fenster):not(.druck-fenster *){display:none}`**
    (Layout-Ebene) nimmt alles außer dem druckenden Fenster aus dem Seitenaufbau – nicht nur aus
    dem Blick, sonst schöbe die unsichtbare Oberfläche leere Seiten vor den Ausdruck. Die Klasse
    `.druck-fenster` sitzt an den drei druckbaren Fenstern (`RechnungModal.tsx`,
    `ReifensatzEtikett.tsx`, `LagerplatzAufkleber.tsx`), bewusst nicht an `.modal-overlay`
    allgemein: Beim Drucken der Rechnung steht das Auftragsfenster noch offen, und ohne eigene
    Klasse käme es mit aufs Blatt.
-2. **`.druck-fenster` und `.druck-fenster .modal-box` werden zu gewöhnlichen Blöcken**
-   (`position:static !important`, keine Höhenbegrenzung, kein `overflow`, kein Hintergrund) –
-   das behebt gleichzeitig die `overflow:hidden`-Falle aus Punkt eins und das
-   `position:fixed`-Problem auf iOS. `!important` ist hier kein Komfort: Die Aufkleber-Fenster
-   setzen `position:relative` als Inline-Attribut am Element
-   (`style={{ position: "relative" }}`), und ein Attribut schlägt jede gewöhnliche Regel im
-   Stilblatt.
+
+   **Die Regel fragt den Baum, sie rät nicht.** Der erste Versuch am 21.09.2026 war
+   `#app > *{display:none}` plus `#app > .druck-fenster{display:block}` – gebaut auf die
+   Annahme, das Fenster sei ein direktes Kind von `#app`. Die Annahme stimmte nicht, und das
+   Ergebnis war ein leeres Blatt, jetzt auch am Rechner. `:has()` stellt stattdessen jedem
+   Element dieselbe Frage: Steckt das Druckfenster in dir? Vorfahren bleiben, das Fenster und
+   sein Inhalt bleiben, alles andere fällt weg – unabhängig davon, wie tief das Fenster hängt.
+   Fehlt einem Browser `:has()`, wird die Regel als Ganzes verworfen und die Oberfläche druckt
+   mit; unschön, aber lesbar. Ein leeres Blatt wäre die schlechtere Rückfallebene.
+2. **Jeder Vorfahre des Fensters, das Fenster selbst und `.modal-box` werden zu gewöhnlichen
+   Blöcken** (`body *:has(.druck-fenster), .druck-fenster, .druck-fenster .modal-box`):
+   `position:static`, keine feste Höhe, kein `overflow`, kein Hintergrund, kein `transform`.
+   Das behebt beides auf einmal – die `overflow:hidden`-Falle und das `position:fixed`-Problem
+   auf iOS – und zwar auf der ganzen Kette, nicht nur an einer vermuteten Stelle. `!important`
+   ist hier kein Komfort: In der Kette liegt `#app` (ID-Regel, wiegt schwerer als jede Klasse),
+   und die Aufkleber-Fenster setzen `position:relative` als Inline-Attribut am Element
+   (`style={{ position: "relative" }}`), was jede gewöhnliche Regel im Stilblatt schlägt.
 3. **`visibility:hidden` (Aufkleberbogen/Rechnungsseite) und `.druck-weg{display:none}`**
    bleiben als zweite Sicherung bestehen. Sie lösen ein anderes Problem als Punkt eins und
    zwei: Sie legen fest, was von dem jetzt sichtbaren Fenster gedruckt wird – nicht, ob das

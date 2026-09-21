@@ -88,9 +88,26 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
 - Er zeigt **weder `raise notice` noch `raise warning`** – nur Ergebnistabellen und den
   letzten Fehler. Ein Skript, das etwas mitteilen will, **gibt eine Ergebnistabelle aus**.
   Wo eine Meldung unvermeidlich ist, müssen *alle* Beanstandungen in den einen Fehlertext.
-- Jeder „Run" ist eine eigene Transaktion. „Erst laufen lassen, Ergebnis lesen, dann
-  festschreiben" gibt es dort nicht – deshalb werden Übernahme-Skripte in **zwei Dateien**
-  geteilt: `..._1_pruefen.sql` (nur Ergebnistabelle) und `..._2_uebernehmen.sql`.
+- „Erst laufen lassen, Ergebnis lesen, dann festschreiben" gibt es dort nicht – deshalb
+  werden Übernahme-Skripte in **zwei Dateien** geteilt: `..._1_pruefen.sql` (nur
+  Ergebnistabelle) und `..._2_uebernehmen.sql`.
+- **`begin;` … `commit;` hält NICHT über die ganze Datei.** Der Editor führt das Skript
+  Anweisung für Anweisung aus und schließt jede für sich ab. Das heißt:
+  - **Keine temporären Tabellen, keine Sitzungsvariablen, kein Zustand zwischen zwei
+    Anweisungen.** Eine `create temporary table … on commit drop` ist am Ende ihrer eigenen
+    Anweisung schon wieder fort. Jede Anweisung muss für sich allein stehen.
+  - **Eine Migration ist nicht atomar.** Scheitert Schritt 3, sind Schritt 1 und 2 trotzdem
+    festgeschrieben und Schritt 4 läuft womöglich weiter. Jede Migration muss deshalb so
+    geschrieben sein, dass ein Abbruch in der Mitte einen brauchbaren Zustand hinterlässt,
+    und jeder Schritt einzeln wiederholbar sein (`if exists`, `on conflict do nothing`).
+  - **Die gefährliche Reihenfolge ist „erst retten, dann löschen".** Genau daran ist
+    Migration 51 am 21.09.2026 gescheitert: Der Rettungsschritt hing an einer temporären
+    Tabelle und scheiterte, das `drop column` danach lief trotzdem. Wo ein Schritt einen
+    späteren absichert, gehören beide in **getrennte Dateien**, und die zweite wird erst
+    ausgeliefert, wenn die erste nachweislich durchgelaufen ist.
+- Diese Eigenheiten fallen beim Prüfen gegen ein lokales Postgres **nicht** auf – dort hält
+  `begin`/`commit`, und temporäre Tabellen leben. Ein grüner lokaler Lauf beweist, dass die
+  Logik stimmt, nicht dass das Skript im Editor durchläuft.
 
 ### Rechte und RLS
 
@@ -143,6 +160,12 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   beachten. Im Zweifel umformulieren statt escapen.
 - **Seitenränder beim Druck kommen aus `@page`, nicht aus dem Padding des Elements.**
   Padding wirkt nur auf Seite 1; ab Seite 2 steht der Text sonst am Papierrand.
+- **`overflow:hidden` verhindert Seitenumbrüche im Druck.** Ein Element mit `overflow:hidden`
+  wird nicht über mehrere Papierseiten umgebrochen; es muss ganz auf eine Seite passen oder
+  wird abgeschnitten – aus vier Rad-Etiketten wurde so eine einzige Seite.
+- **iOS Safari druckt den Inhalt von `position:fixed`-Elementen nicht.** Am Rechner kam die
+  Rechnung sauber heraus, am iPhone ein leeres Blatt; eine Druckausgabe, die nur am Rechner
+  geprüft wurde, ist nicht geprüft – beim Drucken ist das Handy das Zielgerät.
 - **Der Flex-Spalten-Trick** („Kopf bleibt stehen, Tabelle scrollt für sich",
   `flex:1; min-height:0`) trägt nur, solange über der Tabelle nichts wachsen kann. Sobald
   dort etwas mitwächst (Monatskalender), scrollt die Seite gar nicht mehr.
@@ -152,6 +175,16 @@ Jeder Punkt hier hat einmal Zeit gekostet.
 - **Snapshot-Prinzip bei Belegen.** Eine Rechnung speichert Empfänger, Absender, Positionen
   und Texte als jsonb-**Kopie**, nicht als Verweis. Eine spätere Stammdatenänderung darf
   eine ausgestellte Rechnung nicht verändern.
+- **Eine Druckregel darf den Aufbau nicht raten.** Der erste Anlauf gegen das leere Blatt
+  nahm an, das druckende Fenster sei ein direktes Kind von `#app`, und blendete mit
+  `#app > *{display:none}` alles andere aus. Es war kein direktes Kind – und damit war das
+  Blatt auch am Rechner leer. Wer beim Drucken ausblendet, fragt den Baum (`:has()`), statt
+  eine Verschachtelung anzunehmen, die er nicht geprüft hat.
+- **Ein Protokoll überlebt die Spalte, die es beschreibt.** `audit_log` hält ganze Zeilen als
+  jsonb fest; nach einem versehentlichen `drop column` steht der letzte Stand dort noch. Genau
+  so ließ sich der Schaden aus Migration 51 mit Migration 52 wieder einsammeln. Deshalb werden
+  Beschriftungen für gelöschte Spalten nicht mitgelöscht – und deshalb ist das Protokoll mehr
+  als eine Anzeige.
 - **`supabase-js` verliert bei dynamischem `select()` die Zeilentypisierung.** Entweder
   `select("*")` verwenden oder mit einem kommentierten expliziten Cast arbeiten.
 - **`public/sw.js`: die Konstante `FASSUNG` bei jeder Auslieferung hochzählen** – sonst

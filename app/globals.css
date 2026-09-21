@@ -2100,41 +2100,44 @@ tr.klickbar:hover { background: var(--hover); }
    Gedruckt wird in dieser Anwendung immer aus einem Fenster heraus: die Rechnung, die
    Reifensatz- und Rad-Etiketten, die Aufkleber fürs Regal. Ein Fenster ist aber
    Bildschirm-Möblierung – `position:fixed` im Blickfeld, eigene Rollfläche, Höhenbegrenzung
-   in `vh`. Auf Papier ist nichts davon sinnvoll, und eines davon ist sogar tödlich:
+   in `vh`, und es steckt tief im Aufbau der Seite. Auf Papier ist nichts davon sinnvoll, und
+   zwei Dinge daran sind sogar tödlich:
 
-   iOS Safari druckt den Inhalt eines `position:fixed`-Elements NICHT mit. Am Rechner kam
-   die Rechnung sauber heraus, am iPhone ein leeres Blatt – bei der Rechnung wie bei den
-   Etiketten. Gemeldet am 21.09.2026 aus dem Betrieb.
+   1. iOS Safari druckt den Inhalt eines `position:fixed`-Elements NICHT mit. Am Rechner kam
+      die Rechnung sauber heraus, am iPhone ein leeres Blatt – bei der Rechnung wie bei den
+      Etiketten. Gemeldet am 21.09.2026 aus dem Betrieb.
+   2. Ein Element mit `overflow:hidden` wird vom Browser nicht über Seiten hinweg umbrochen;
+      es muss ganz auf eine Seite oder wird abgeschnitten. `#app` ist auf dem Bildschirm genau
+      so ein Element. Gemessen: aus vier Rad-Etiketten (je eine Seite) wurde EINE Seite mit dem
+      ersten Etikett.
 
-   Deshalb wird das druckende Fenster hier zu einem gewöhnlichen Block im Textfluss, und die
-   restliche Oberfläche verschwindet nicht nur aus dem Blick, sondern aus dem Seitenaufbau.
-   Das `visibility`-Versteckspiel weiter oben bleibt als zweite Sicherung bestehen – es
-   blendet aus, was INNERHALB des Fensters nicht aufs Papier gehört.
+   DIE REGEL FRAGT DEN BAUM, SIE RÄT NICHT. Ein erster Versuch hat angenommen, das Fenster sei
+   ein direktes Kind von `#app`, und mit `#app > *{display:none}` gearbeitet. Stimmt die
+   Annahme nicht, ist das Blatt leer – und sie stimmte nicht. `:has()` fragt stattdessen jedes
+   Element, ob das Druckfenster in ihm steckt:
+
+     - Es steckt drin  -> es ist ein Vorfahre: bleibt, wird aber zum schlichten Block.
+     - Es IST es       -> bleibt.
+     - Es liegt darin  -> bleibt (was davon nicht aufs Papier soll, trägt `.druck-weg`).
+     - Nichts davon    -> weg, und zwar aus dem Seitenaufbau, nicht nur aus dem Blick.
+
+   Sollte `:has()` einem Browser fehlen, fällt die Regel als Ganzes weg: Dann druckt die
+   Oberfläche mit – unschön, aber lesbar. Ein leeres Blatt ist die schlechtere Rückfallebene.
 
    Warum `.druck-fenster` und nicht `.modal-overlay`: Beim Drucken der Rechnung steht das
-   Auftragsfenster noch offen. Beide sind Kinder von `#app`, und ohne die eigene Klasse
-   käme das Auftragsfenster mit aufs Blatt.
+   Auftragsfenster noch offen. Ohne eigene Klasse käme es mit aufs Blatt.
 */
 @media print{
-  /* `#app` ist auf dem Bildschirm ein Raster in Fensterhöhe mit `overflow:hidden`. Beides
-     muss weg, und das zweite ist der wichtigere Teil: Ein Element mit `overflow:hidden` wird
-     vom Browser NICHT über Seiten hinweg umbrochen – es ist ein Block, der ganz auf eine
-     Seite muss oder abgeschnitten wird. Gemessen: mit `overflow:hidden` wurden aus vier
-     Rad-Etiketten (je eine Seite) eine einzige Seite mit dem ersten Etikett, der Rest fiel
-     weg. Dieselbe Falle hätte eine zweiseitige Rechnung auf eine Seite gekürzt. */
-  #app{display:block;overflow:visible;height:auto;max-height:none;}
+  body *:not(:has(.druck-fenster)):not(.druck-fenster):not(.druck-fenster *){display:none;}
 
-  /* Die Oberfläche trägt keine Seitenhöhe mehr bei – sonst schöbe die unsichtbare Anwendung
-     leere Seiten vor den Ausdruck. */
-  #app > *{display:none !important;}
-  #app > .druck-fenster{display:block !important;}
-
-  /* `!important` ist hier nicht Bequemlichkeit: Die Aufkleber-Fenster setzen
-     `position:relative` als Attribut am Element, und ein Attribut schlägt jede gewöhnliche
-     Regel im Stilblatt. Bliebe es stehen, wäre das Fenster weiterhin Bezugsrahmen. */
-  .druck-fenster{position:static !important;display:block;inset:auto;z-index:auto;
-    background:none;padding:0;margin:0;}
-  .druck-fenster .modal-box{position:static !important;display:block;
-    width:auto;max-width:none;height:auto;max-height:none;overflow:visible;
-    background:none;box-shadow:none;border:none;border-radius:0;padding:0;margin:0;}
+  /* Jeder Vorfahre des Fensters wird zum gewöhnlichen Block – ohne feste Höhe, ohne
+     Beschnitt, ohne Bezugsrahmen. `!important`, weil darunter unter anderem `#app` liegt
+     (ID-Regel) und die Aufkleber-Fenster `position:relative` als Attribut am Element setzen;
+     ein Attribut schlägt jede gewöhnliche Regel im Stilblatt. */
+  body *:has(.druck-fenster), .druck-fenster, .druck-fenster .modal-box{
+    display:block !important;position:static !important;
+    width:auto !important;max-width:none !important;height:auto !important;max-height:none !important;
+    overflow:visible !important;inset:auto !important;z-index:auto !important;
+    background:none !important;box-shadow:none !important;border:none !important;
+    border-radius:0 !important;padding:0 !important;margin:0 !important;transform:none !important;}
 }
