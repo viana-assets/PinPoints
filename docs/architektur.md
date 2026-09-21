@@ -467,7 +467,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   dem Zeitpunkt oft noch gar nicht gezeichnet ist. `lib/erscheinung.ts` sorgt dafür, dass App
   auf dem Homescreen und im Installationsdialog absichtlich unauffällig heißt/aussieht
   (Sichtschutz, kein Sicherheitsmechanismus – RLS bleibt die eigentliche Schranke).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v52`**, Konstante
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v53`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus

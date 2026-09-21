@@ -2121,20 +2121,30 @@ tr.klickbar:hover { background: var(--hover); }
      - Es liegt darin  -> bleibt (was davon nicht aufs Papier soll, trägt `.druck-weg`).
      - Nichts davon    -> weg, und zwar aus dem Seitenaufbau, nicht nur aus dem Blick.
 
-   Sollte `:has()` einem Browser fehlen, fällt die Regel als Ganzes weg: Dann druckt die
-   Oberfläche mit – unschön, aber lesbar. Ein leeres Blatt ist die schlechtere Rückfallebene.
+   ZWEI RÜCKFALLEBENEN, BEIDE IN DIESELBE RICHTUNG: Fehlt einem Browser `:has()`, fällt die
+   Regel als Ganzes weg. Und fehlt die Klasse `.druck-fenster` auf der Seite, greift wegen des
+   führenden `body:has(.druck-fenster)` ebenfalls nichts. In beiden Fällen druckt die
+   Oberfläche mit – unschön, aber lesbar. Ein leeres Blatt ist die schlechtere Rückfallebene,
+   und genau darin lief der erste Anlauf zweimal auf.
 
    Warum `.druck-fenster` und nicht `.modal-overlay`: Beim Drucken der Rechnung steht das
    Auftragsfenster noch offen. Ohne eigene Klasse käme es mit aufs Blatt.
 */
 @media print{
-  body *:not(:has(.druck-fenster)):not(.druck-fenster):not(.druck-fenster *){display:none;}
+  /* Alles hängt am führenden `body:has(.druck-fenster)`: Gibt es auf der Seite KEIN so
+     markiertes Fenster, greift keine dieser Regeln, und es wird schlicht gedruckt, was
+     dasteht. Ohne diese Klammer versteckt die Regel darunter jedes Element – und aus einer
+     vergessenen Markierung (oder einer Datei, die beim Hochladen liegen geblieben ist) würde
+     ein leeres Blatt. Genau das ist am 21.09.2026 zweimal passiert: Das Stilblatt war
+     ausgeliefert, die drei Komponenten mit der Klasse nicht. Eine Regel, die im Fehlerfall
+     nichts druckt, ist schlechter als eine, die zu viel druckt. */
+  body:has(.druck-fenster) *:not(:has(.druck-fenster)):not(.druck-fenster):not(.druck-fenster *){display:none;}
 
   /* Jeder Vorfahre des Fensters wird zum gewöhnlichen Block – ohne feste Höhe, ohne
      Beschnitt, ohne Bezugsrahmen. `!important`, weil darunter unter anderem `#app` liegt
      (ID-Regel) und die Aufkleber-Fenster `position:relative` als Attribut am Element setzen;
      ein Attribut schlägt jede gewöhnliche Regel im Stilblatt. */
-  body *:has(.druck-fenster), .druck-fenster, .druck-fenster .modal-box{
+  body:has(.druck-fenster) *:has(.druck-fenster), .druck-fenster, .druck-fenster .modal-box{
     display:block !important;position:static !important;
     width:auto !important;max-width:none !important;height:auto !important;max-height:none !important;
     overflow:visible !important;inset:auto !important;z-index:auto !important;
