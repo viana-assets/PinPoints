@@ -222,6 +222,120 @@ Alle fünf gehören zur Sanierung aus `docs/architektur-review-2026-08.md` (Road
   Sicht daran, soll die Migration abbrechen und es sagen. Das Protokoll bleibt unberührt –
   `audit_log` hält die alten Werte als jsonb, und die bleiben lesbar.
 
+- `40_rechnung_erstellt.sql` – die zweite Hälfte des Schalters aus Migration 38. Der sagt
+  bisher nur, DASS eine Rechnung fällig ist, nicht ob sie geschrieben wurde – damit ist er
+  eine Kennzeichnung und keine Arbeitsliste. Neu: `rechnung_erstellt_am` (null = offen),
+  `rechnung_erstellt_von` und `rechnung_nummer` (die Nummer aus dem ERP, freiwillig, aber die
+  einzige Brücke zurück). Datum und Person setzt ein Trigger, nicht der Aufrufer – wie bei
+  `completed_at` in Migration 20. Eine Prüfregel und der Trigger verhindern gemeinsam eine
+  Rechnungsnummer ohne Rechnungsdatum: die Prüfregel beim INSERT, der Trigger beim UPDATE (er
+  meldet es, statt die Nummer stillschweigend wegzuwerfen). Dazu ein Teilindex auf genau die
+  Arbeitsliste. Techniker sind automatisch ausgeschlossen, weil
+  `restrict_techniker_order_update()` mit einer Positivliste arbeitet. Fügt nur hinzu,
+  zweimaliges Ausführen ist unschädlich.
+
+- `41_techniker_darf_bearbeiten.sql` – der Techniker darf seinen eigenen Auftrag bearbeiten
+  statt nur Status und Notiz. Entscheidung vom 16.09.2026: **alles außer wegnehmen** – auch
+  Preise und die Rechnungsschalter. Begründung ist nicht „ungefährlich", sondern das
+  Protokoll: Seit Migration 18/36 steht jede Änderung mit Person und Zeitpunkt darin, und am
+  Auftrag ist sie sichtbar. Gesperrt bleiben Stornieren, Löschen, Wiedereröffnen und das
+  Umhängen auf einen anderen Kunden. Zusätzlich darf er die Leistungen seines eigenen Auftrags
+  anlegen und ändern (`order_articles`); der Einfrier-Trigger aus Migration 20 gilt
+  unverändert weiter. Die Einteilung (`order_employees`) bleibt beim Büro.
+
+  **ACHTUNG, hier dreht sich eine Regel um:** Der Spaltenschutz wechselt von einer Positiv-
+  auf eine NEGATIVliste. Phase 6 hatte das absichtlich andersherum gemacht, damit eine
+  künftige Spalte automatisch geschützt ist. Mit der neuen Absicht („alles außer wegnehmen")
+  geht das nicht mehr – der Preis dafür: **Eine neue Spalte an `orders` ist für Techniker ab
+  sofort automatisch änderbar.** Wer eine anlegt, prüft, ob sie in die Sperrliste gehört.
+
+- `42_rechte_lesen_schreiben_loeschen.sql` – aus einem Haken je Modul werden **drei je Rolle**:
+  lesen, schreiben, löschen. `module_permissions` bekommt `read_roles` und `delete_roles`
+  (`edit_roles` bleibt und meint „schreiben"); neue Funktionen `public.darf(bereich, verb)` und
+  `public.ist_kollege(employee_id)`; alle Richtlinien neu geschrieben.
+
+  **Zweistufig**, und das ist nicht Kosmetik: Ein erster Entwurf schnitt die Bereiche an
+  TABELLEN („Lager und Lagerplätze", „Eingelagerte Reifen"). Beim Durchsprechen fiel auf, dass
+  dadurch zwei Haken schlicht falsch saßen – „Löschen" bei den Reifen hätte nicht das
+  Auslagern gesteuert (das ist ein `update` auf `removed_at`), und eine Leistung aus einem
+  Auftrag zu entfernen hing am selben Haken wie das Wegwerfen des ganzen Auftrags. Ein
+  Techniker konnte damit eine Leistung eintragen, aber seinen eigenen Tippfehler nicht mehr
+  korrigieren. Jetzt: Modulzeile = darf der Reiter geöffnet werden, eingerückte Zeilen = was
+  man mit den Daten TUT (`auftraege.auftrag`, `auftraege.leistungen`, `auftraege.einteilung`,
+  `lager.regale`, `lager.einlagerung`, `lager.raeder`).
+
+  **Fünf Dinge, die man dazu wissen muss:**
+
+  1. **Die Techniker-Regel „nur eigene Aufträge" bleibt und gilt ZUSÄTZLICH.** Sie steht jetzt
+     in DERSELBEN Richtlinie wie das Modulrecht und nicht daneben – mehrere Richtlinien für
+     dieselbe Aktion sind in Postgres ODER-verknüpft, eine zweite danebengestellt hätte die
+     Einschränkung also aufgehoben statt ergänzt.
+  2. **Löschen ist hier meistens ein `update`** (Soft-Delete seit Migration 19) und hinge damit
+     am Schreibrecht. Ein Trigger `pruefe_loeschrecht()` fängt beides ab.
+  3. **Die DELETE-Richtlinien fragen nach `lesen`, nicht nach `loeschen`.** Kein Versehen: Eine
+     Richtlinie, die die Zeile wegfiltert, lässt den Trigger gar nicht laufen, und der Nutzer
+     bekäme ein stummes „0 Zeilen" statt einer Begründung. Die Entscheidung trifft der Trigger.
+  4. **`tire_storage` hat keinen Löschtrigger und keine Löschrichtlinie.** Eine Einlagerung
+     wird nie gelöscht. Wenn die Anwendung etwas nie tut, soll auch kein Haken so tun, als
+     könnte man es erlauben.
+  5. **Ein Techniker sieht bei den Mitarbeitern nur noch Kollegen vom eigenen Auftrag**
+     (`ist_kollege()`). Bisher lag die Belegschaft offen und nur die Oberfläche blendete sie
+     aus – zwei Wahrheiten für dieselbe Frage.
+
+  Übernahme: jede bisherige Einstellung wird abgebildet. Wo mehrere alte Zeilen auf ein Verb
+  fallen, gilt die **Vereinigung** – eine Umstellung darf niemandem wegnehmen, was er gestern
+  konnte. Die alten Zeilen bleiben stehen und werden nur nicht mehr gelesen.
+
+- `43_aufraeumen_nach_42.sql` – entfernt die Spuren eines frühen Entwurfs von Migration 42
+  (Bereiche noch an Tabellen geschnitten: `lager`, `einlagerung`). **Nur nötig, wenn diese
+  frühe Fassung ausgeführt wurde** – sonst findet sie schlicht nichts und ist unschädlich.
+  Zweimaliges Ausführen ebenso.
+
+  Der ernste Punkt: Die überarbeitete Fassung benannte die Lager-Richtlinien um, räumte die
+  alten aber nicht weg (auch die `drop`-Anweisungen trugen den neuen Namen). Auf `warehouses`
+  und `storage_slots` lagen danach zwei Sätze Richtlinien, und mehrere Richtlinien für
+  dieselbe Aktion sind ODER-verknüpft: Wer „Regale und Plätze verwalten – Schreiben" abhakte,
+  nahm es damit NICHT weg. Eine Matrix, die ein Wegnehmen anzeigt, aber nicht vollzieht, ist
+  schlimmer als gar keine. Dazu zwei harmlosere Reste: die verwaiste Zeile `einlagerung` und
+  ein Löschtrigger auf `tire_storage`, der eine Handlung bewachte, die es nicht gibt.
+
+- `44_auftrag_fahrzeuge.sql` – neue Tabelle `auftrag_fahrzeuge`: welche Fahrzeuge betrifft ein
+  Auftrag, und mit welchem Kilometerstand. Ersetzt `orders.vehicle_id`, das nur EINES zuließ;
+  die alte Spalte wird übernommen und bleibt vorerst stehen (fällt in einer späteren
+  Migration, dieselbe Reihenfolge wie `discount_percent` 38 → 39).
+
+  **Der Kilometerstand gehört an die Verbindung Auftrag↔Fahrzeug, nicht ans Fahrzeug.** Er ist
+  eine Messung an einem Tag, keine Eigenschaft des Autos – am Fahrzeug stünde nach dem zweiten
+  Besuch eine Zahl, die zum ersten nicht mehr passt. Genau der Fehler, den Migration 34 bei
+  DOT-Datum und Profiltiefe wieder ausbauen musste.
+
+  Dazu `pruefe_rechnungsdaten()`: Ist „Rechnung benötigt" gesetzt, lässt sich der Auftrag nur
+  abschließen, wenn Name, Anschrift und E-Mail des Kunden da sind und jedes beteiligte
+  Fahrzeug Kennzeichen und Kilometerstand hat. Die Meldung nennt ALLES Fehlende auf einmal.
+  Der Trigger heißt `trg_pruefe_rechnungsdaten` – der Anfangsbuchstabe ist Absicht, damit er
+  NACH `trg_enforce_order_status_transition` läuft: Erst muss feststehen, dass der
+  Statuswechsel überhaupt erlaubt ist.
+
+  Die Maske führt dieselbe Prüfung als Abhakliste, sperrt aber nichts – man darf den Haken
+  setzen und später ergänzen. Eine Prüfung im Browser ist eine Bitte, eine im Trigger eine
+  Regel.
+
+- `45_techniker_sieht_eigene_kunden.sql` – **behebt einen Fehler aus Migration 42.** Dort
+  hängt das Lesen von `customers` und `vehicles` an `darf('kunden','lesen')`, und der
+  Techniker steht dort mit Absicht nicht drin. Damit sah er aber auch den Kunden seines
+  EIGENEN Auftrags nicht mehr: kein Name und keine Anschrift im Auftragsfenster, kein
+  Navigationsknopf, keine Kundensuche im Lager – und seit Migration 44 meldete die
+  Rechnungs-Abhakliste ihm „Name fehlt, Anschrift fehlt", obwohl beides gepflegt war.
+
+  Genau davor warnt der Abweichungs-Vermerk zu Phase 7 in `docs/roadmap.md` seit August
+  wörtlich. Die Warnung stand da, und sie wurde übersehen.
+
+  Die Korrektur gibt nicht alles wieder frei (dann wäre der Haken „Kunden lesen" wirkungslos),
+  sondern nimmt dieselbe Form wie bei Aufträgen und Mitarbeitern: **Modulrecht ODER eigener
+  Bezug.** Neue Funktion `ist_eigener_kunde()`. Die Kontakthistorie bleibt draußen – der
+  Techniker braucht die Anschrift, nicht den Vorgang. Das Schreiben bleibt unverändert beim
+  Büro.
+
 Nach dem Ausführen bitte hier nach oben unter "Bereits ausgeführt" verschieben.
 
 ## Welche Migrationen sind wirklich gelaufen?
@@ -332,3 +446,102 @@ Nummernreihenfolge ausführen. Die einzelnen Abhängigkeiten:
   laufende Fassung in Spalten, die es nicht mehr gibt. Die Rücknahme legt die drei Spalten
   LEER wieder an; die Werte sind mit dem `drop column` weg, die Sicherungsabfrage steht im
   Kopf von `39_rollback.sql`.
+- `40` braucht `03` (orders), `20` (der Trigger dort sperrt das UPDATE auf einem erledigten
+  Auftrag NICHT – nur die Positionen sind eingefroren, die Auftragszeile nicht) und `38`
+  (`rechnung_noetig`). Muss zusammen mit dem passenden Anwendungscode laufen: Der Code liest
+  die drei neuen Spalten, ohne sie gäbe es einen Fehler beim Laden der Aufträge. Deshalb
+  **SQL zuerst, dann die Dateien.** Die Rücknahme löscht mit den Spalten auch die Angabe,
+  welche Rechnungen bereits geschrieben wurden – die Sicherungsabfrage steht im Kopf von
+  `40_rollback.sql`.
+- `41` braucht `13`/`15` (`is_own_order`, `current_user_role`, der Spaltenschutz-Trigger),
+  `20` (die Fassung, die sie ersetzt) und `18` (das Protokoll, das die ganze Begründung
+  trägt). Legt keine Spalte an. Muss zusammen mit dem passenden Anwendungscode laufen –
+  sonst bietet die Oberfläche einem Techniker weiterhin nichts an, obwohl er dürfte.
+  Die Rücknahme stellt genau die Positivliste aus `20` wieder her.
+
+## Projektwache in jeder neuen Migration
+
+In derselben Supabase-Organisation liegen mehrere Projekte. Der SQL-Editor merkt sich, welches
+zuletzt offen war – **dreimal** ist eine Migration dadurch im falschen gelandet. Die Meldung
+war jedes Mal `relation "public.orders" does not exist`: technisch richtig und als Hinweis
+unbrauchbar, weil sie nach einem Fehler in der Migration aussieht statt nach der falschen
+Datenbank.
+
+**Ab Migration 40 beginnt jede Migration direkt hinter `begin;` mit dieser Prüfung:**
+
+```sql
+do $$
+begin
+  if to_regclass('public.orders') is null or to_regclass('public.tire_storage') is null then
+    raise exception
+      'FALSCHES PROJEKT: Hier gibt es kein public.orders / public.tire_storage. Diese Migration gehört zu PinPoints - oben links das Supabase-Projekt umschalten. Es wurde nichts geändert. (Datenbank: %)',
+      current_database();
+  end if;
+end $$;
+```
+
+Sie steht INNERHALB der Transaktion, damit der Abbruch alles Weitere mitnimmt und im Editor
+nur diese eine Meldung erscheint. Zwei Tabellen statt einer, weil ein Projekt durchaus eine
+Tabelle `orders` haben kann, aber kaum zusätzlich ein `tire_storage`.
+- `42` braucht `09`/`10` (module_permissions), `16` (die Richtlinien, die sie ersetzt), `15`
+  (`is_own_order`, `current_user_role`), `19` (Soft-Delete) und `41`. Muss zusammen mit dem
+  passenden Anwendungscode laufen: Die neue Fassung liest drei Spalten. **SQL zuerst.**
+  `is_own_order()` muss `security definer` sein (ist es seit `15`) – sonst ruft die
+  Auftrags-Richtlinie eine Funktion auf, die wieder auf `orders` zugreift, und Postgres bricht
+  mit „stack depth limit exceeded" ab. Die Rücknahme stellt die Richtlinien aus `16`, `13`/`15`
+  und `41` wieder her und lässt die neuen Spalten stehen.
+- `43` braucht `42`. Läuft danach auf jedem Stand, mit oder ohne die frühe Fassung im Rücken.
+  Die Kontrollabfragen stehen am Ende der Datei; beide müssen leer sein.
+- `44` braucht `03` (orders), `04` (vehicles), `20` (orders.vehicle_id), `38`
+  (`rechnung_noetig`), `42` (`darf`, `is_own_order`) und `18`/`36` (`stamp_row`, `audit_row` –
+  fehlen sie, überspringt die Migration die Protokoll-Trigger mit einer Notiz). Muss zusammen
+  mit dem passenden Anwendungscode laufen. **SQL zuerst.** Die Rücknahme löscht die Tabelle
+  samt aller Kilometerstände; das übernommene Erstfahrzeug steht weiter in
+  `orders.vehicle_id`.
+- `45` braucht `42` (`darf`), `13`/`15` (`current_employee_id`, `is_own_order`) und `44`
+  (`auftrag_fahrzeuge`, für den zweiten Weg auf die Fahrzeuge). Muss zusammen mit dem
+  passenden Anwendungscode laufen – der blendet dem Techniker das E-Mail-Feld in der
+  Abhakliste aus, weil die Datenbank es ihm ohnehin verweigert.
+- `46` braucht `22` (der Abschluss-Zwang, den sie aufhebt), `20` (`order_articles`) und `14`
+  (`articles`). Muss zusammen mit dem passenden Anwendungscode laufen. **SQL zuerst.** Sie
+  stuft jeden Artikel mit `braucht_lagerplatz` als Lagergebühr ein und meldet am Ende, welche
+  das waren – das bitte im Artikelstamm nachsehen, denn Migration `22` hatte den Haken
+  seinerzeit selbst geraten. `fragt_einlagerung` bleibt bewusst überall leer: Der Haken gehört
+  an die Wechsel-Leistungen, nicht an die Einlagerung, und was hier geraten würde, wäre falsch
+  geraten. Die Rücknahme stellt den Zwang aus `22` wieder her und lässt die neuen Spalten
+  stehen; `braucht_lagerplatz` bleibt vorerst als tote Spalte erhalten und fällt später.
+- `47` braucht `01` (`contact_history`), `03` (`orders`) und `23` (`kontakt_ergebnis`,
+  `wiedervorlage_am`). Läuft unabhängig vom Anwendungscode – die Regel steht vollständig in der
+  Datenbank, der Code lädt danach nur die Kunden neu. Der Trigger ist `security definer`, weil
+  der Techniker selbst kein Schreibrecht auf `customers` hat (`42`/`45`); ohne das würde die
+  Regel ausgerechnet für den nicht gelten, der draußen abschließt. `last_contact` rückt nur
+  vor, nie zurück – ein nachträglich abgeschlossener alter Auftrag stellt die Wiedervorlage-Uhr
+  also nicht heimlich zurück. Die Rücknahme entfernt nur den Trigger; geschriebene
+  Kontaktstände bleiben stehen, denn die Aufträge WURDEN abgeschlossen.
+- `48` braucht `03` (orders), `14` (articles), `38` (`betrieb`) und `42` (`darf`, für die
+  Richtlinien auf `rechnungen`). Sie legt den Briefkopf als Spalten an `betrieb`, vergibt
+  Kundennummern ab 10000, gibt dem Artikel eine Einheit und baut die Rechnungstabelle samt
+  Nummernvergabe, Unveränderbarkeit und Storno. **SQL zuerst**, danach die Anwendung.
+  Vor der ersten Rechnung: Betriebsdaten und die Startnummer des Kreises setzen (im
+  Adminbereich unter Betrieb – oder einmalig per Skript). Die Rücknahme verweigert den Dienst,
+  sobald eine einzige Rechnung existiert: Sie würde Belege löschen.
+- `49` braucht `48` (`rechnungen`) und `40` (`orders.rechnung_erstellt_am`, `stempel_rechnung`).
+  Sie verbindet Beleg und Auftrag: Eine ausgestellte Rechnung hakt ihren Auftrag ab, eine
+  Stornorechnung nimmt den Haken zurück und kennzeichnet die aufgehobene Rechnung – alles in
+  EINER Transaktion, damit es nicht halb passieren kann. Zusätzlich zwei Sperren: keine
+  Rechnung ohne Firmenname im Briefkopf (sonst wäre die Nummer für einen Beleg ohne Absender
+  verbraucht), und der Haken „Rechnung erstellt" lässt sich nicht mehr von Hand lösen, solange
+  ein gültiger Beleg am Auftrag hängt. Die Rücknahme setzt die drei Funktionen auf den Stand
+  von `40`/`48` zurück; ausgestellte Rechnungen bleiben unberührt.
+- `50` braucht `14` (`articles`) und `48` (`articles.einheit`). Sie gibt dem Artikel den Haken
+  `freitext`: Die Bezeichnung dieser Leistung wird am AUFTRAG eingegeben und ersetzt auf der
+  Rechnung den Artikelnamen – für Sammelpositionen wie „Sonstiges". Das Feld für den Text gibt
+  es seit `20` (`order_articles.note`), gedruckt wird es seit `48`; was fehlte, war die
+  Unterscheidung zwischen ERGÄNZEN und ERSETZEN. Muss zusammen mit dem passenden
+  Anwendungscode laufen. **SQL zuerst.**
+  Die Migration setzt den Haken bei KEINEM Artikel – ein Betrieb nennt seine Sammelposition
+  „Diverses", ein anderer hat einen echten Artikel, der so heißt. Die Abfrage am Ende zeigt den
+  ganzen Artikelstamm mit einem Hinweis, wo einer hingehört; gesetzt wird er im Artikelstamm
+  der Anwendung. Dieselbe Entscheidung wie bei `fragt_einlagerung` in `46`.
+  Die Rücknahme entfernt nur den Haken; die Texte bleiben und erscheinen dann wieder als
+  Zusatzzeile unter der Bezeichnung.

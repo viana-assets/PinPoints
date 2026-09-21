@@ -67,7 +67,36 @@ with pruefungen(nr, was, vorhanden) as (
                                               and to_regclass('public.betrieb') is not null),
     -- 39 prueft umgekehrt: Sie hat gewirkt, wenn die Spalten WEG sind.
     ('39', 'tote Spalten entfernt',              not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'assigned_employee_id')
-                                              and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'discount_percent'))
+                                              and not exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'discount_percent')),
+    ('40', 'Rechnung erstellt (Arbeitsliste)',  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'rechnung_erstellt_am')
+                                              and to_regprocedure('public.stempel_rechnung()') is not null),
+    -- 41 prueft am Text der Funktion: Die neue Fassung nennt die Sperrliste, die alte nicht.
+    ('41', 'Techniker darf bearbeiten',         exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+                                                        where n.nspname = 'public' and p.proname = 'restrict_techniker_order_update'
+                                                          and p.prosrc like '%gesperrt%')
+                                              and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'order_articles'
+                                                           and policyname = 'Techniker verwaltet Artikel eigener Auftraege')),
+    ('42', 'Rechte lesen/schreiben/loeschen',    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'module_permissions' and column_name = 'delete_roles')
+                                              and to_regprocedure('public.darf(text,text)') is not null
+                                              and to_regprocedure('public.pruefe_loeschrecht()') is not null
+                                              and to_regprocedure('public.ist_kollege(uuid)') is not null),
+    -- 43 prueft umgekehrt: Sie hat gewirkt, wenn die Altlasten WEG sind.
+    ('43', 'Altlasten aus 42 entfernt',         not exists (select 1 from pg_policies where schemaname = 'public' and policyname like 'Bereich lager %' and policyname not like '%lager.regale%')
+                                              and not exists (select 1 from public.module_permissions where module_key = 'einlagerung')),
+    ('44', 'Fahrzeuge am Auftrag + km',         to_regclass('public.auftrag_fahrzeuge') is not null
+                                              and to_regprocedure('public.pruefe_rechnungsdaten()') is not null),
+    ('45', 'Techniker sieht eigene Kunden',     to_regprocedure('public.ist_eigener_kunde(uuid)') is not null),
+    ('46', 'Lagergebuehr beim Auslagern',       exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'articles' and column_name = 'abrechnungsart')
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'articles' and column_name = 'fragt_einlagerung')
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'entnahme_order_id')),
+    ('47', 'Kontakt beim Abschliessen',       to_regprocedure('public.kontakt_aus_abschluss()') is not null
+                                              and exists (select 1 from pg_trigger where tgname = 'trg_kontakt_aus_abschluss')),
+    ('48', 'Rechnungen (Tabelle + Briefkopf)',  to_regclass('public.rechnungen') is not null
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'betrieb' and column_name = 'anschreiben')
+                                              and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'kundennummer')),
+    ('49', 'Rechnung haengt am Auftrag',        to_regprocedure('public.rechnung_am_auftrag()') is not null
+                                              and exists (select 1 from pg_trigger where tgname = 'trg_rechnung_am_auftrag')),
+    ('50', 'Freie Position (Freitext)',        exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'articles' and column_name = 'freitext'))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all
