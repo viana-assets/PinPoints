@@ -366,6 +366,12 @@ export const GEO_GENAUIGKEIT_LABEL: Record<GeoGenauigkeit, string> = {
 export const PROFIL_GESETZLICH_MM = 1.6;
 export const PROFIL_KRITISCH_MM = 3;
 export const PROFIL_HINWEIS_MM = 4;
+// Die obere Schranke der Eingabe. Ein fabrikneuer Reifen hat je nach Art 8 bis 10 mm, ein
+// grobstolliger Geländereifen kommt an 20 heran – 25 lässt jeden davon zu und fängt trotzdem
+// den Tippfehler ab, bei dem aus 6 eine 66 wird. Stand bis zum 21.09.2026 als nackte Zahl in
+// `RadBild.tsx`; seit dort auch von Hand getippt werden kann, gilt sie an zwei Stellen und
+// gehört deshalb hierher.
+export const PROFIL_MAX_MM = 25;
 
 // Ab wann ist an einem eingelagerten Satz etwas zu tun? Diese beiden Grenzen ergänzen die
 // Profiltiefe oben – zusammen bilden sie die Regel hinter dem orangen Punkt an der Regalwand

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { satzProfilMm, profilLage, profilText, raederNachSatz } from "@/lib/helpers";
+import { satzProfilMm, profilLage, profilText, profilAusText, profilZahl, raederNachSatz } from "@/lib/helpers";
 import { PROFIL_HINWEIS_MM, PROFIL_KRITISCH_MM } from "@/lib/constants";
 
 const GRENZEN = { hinweis: PROFIL_HINWEIS_MM, kritisch: PROFIL_KRITISCH_MM };
@@ -115,5 +115,78 @@ describe("Filter „schwaches Profil“", () => {
     // nicht gibt – und der Anruf beim Kunden fiele entsprechend aus.
     expect(istSchwach({ erfassungsart: "sammel", profiltiefe_mm: null }, [])).toBe(false);
     expect(istSchwach({ erfassungsart: "einzeln", profiltiefe_mm: null }, [])).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------- Eingabe von Hand
+//
+// Seit dem 21.09.2026 lässt sich die Profiltiefe nicht nur über die Plus/Minus-Tasten
+// verstellen, sondern auch direkt eintippen (RadBild.tsx). Der Grund kam aus dem Betrieb: Von
+// 6,0 auf 1,0 sind es über die Tasten fünfzig Tipper.
+describe("profilAusText", () => {
+  it("nimmt Komma und Punkt gleichermaßen an", () => {
+    expect(profilAusText("6,5")).toBe(6.5);
+    expect(profilAusText("6.5")).toBe(6.5);
+    expect(profilAusText("6")).toBe(6);
+  });
+
+  it("verträgt Leerzeichen am Rand", () => {
+    expect(profilAusText("  3,1  ")).toBe(3.1);
+  });
+
+  it("rundet auf eine Nachkommastelle", () => {
+    expect(profilAusText("3,14")).toBe(3.1);
+    expect(profilAusText("3,16")).toBe(3.2);
+  });
+
+  // `null` heißt „damit lässt sich nichts anfangen" – ausdrücklich etwas anderes als 0,0 mm.
+  // Ein leeres Feld als Null zu verbuchen wäre eine Messung, die niemand gemacht hat.
+  it("gibt null zurück, wenn nichts Verwertbares dasteht", () => {
+    expect(profilAusText("")).toBeNull();
+    expect(profilAusText("   ")).toBeNull();
+    expect(profilAusText("abc")).toBeNull();
+    expect(profilAusText("-2")).toBeNull();
+  });
+
+  // `parseFloat` würde aus „6x" klaglos eine 6 machen und aus „1,5 mm" eine 1.5. Eine
+  // Eingabe, die offensichtlich anders gemeint war, soll nicht zurechtgebogen werden.
+  it("biegt keine halb sinnvolle Eingabe zurecht", () => {
+    expect(profilAusText("6x")).toBeNull();
+    expect(profilAusText("1,5 mm")).toBeNull();
+    expect(profilAusText("3,1,4")).toBeNull();
+  });
+
+  // Fängt den Tippfehler ab, bei dem aus 6 eine 66 wird.
+  it("weist unmögliche Werte ab", () => {
+    expect(profilAusText("66")).toBeNull();
+    expect(profilAusText("25")).toBe(25);
+    expect(profilAusText("25,1")).toBeNull();
+  });
+
+  it("hält sich an eine mitgegebene Obergrenze", () => {
+    expect(profilAusText("12", 10)).toBeNull();
+    expect(profilAusText("9,5", 10)).toBe(9.5);
+  });
+
+  it("nimmt die Null als bewusste Eingabe an", () => {
+    expect(profilAusText("0")).toBe(0);
+    expect(profilAusText("0,0")).toBe(0);
+  });
+});
+
+describe("profilZahl", () => {
+  // Was im Eingabefeld steht – ohne Einheit, die steht daneben.
+  it("schreibt eine Nachkommastelle mit Komma", () => {
+    expect(profilZahl(6)).toBe("6,0");
+    expect(profilZahl(1.6)).toBe("1,6");
+    expect(profilZahl(0)).toBe("0,0");
+  });
+
+  // Hin und zurück muss denselben Wert ergeben – sonst springt die Zahl beim Verlassen des
+  // Feldes.
+  it("lässt sich verlustfrei wieder einlesen", () => {
+    for (const mm of [0, 1.6, 3, 6.5, 8.9, 25]) {
+      expect(profilAusText(profilZahl(mm))).toBe(mm);
+    }
   });
 });

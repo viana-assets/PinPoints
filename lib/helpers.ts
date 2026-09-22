@@ -256,7 +256,32 @@ export function profilLage(
 // Anzeige mit einer Nachkommastelle und Komma – „3,1 mm". `toFixed` allein liefert einen
 // Punkt, und 3.1 mm liest sich in einer deutschen Oberfläche falsch.
 export function profilText(mm: number | null): string {
-  return mm == null ? "–" : `${mm.toFixed(1).replace(".", ",")} mm`;
+  return mm == null ? "–" : `${profilZahl(mm)} mm`;
+}
+
+// Dieselbe Zahl OHNE Einheit – für das Eingabefeld, das die Einheit daneben stehen hat. Eine
+// eigene Funktion und kein `profilText(...).replace(" mm","")`: Wer die Einheit ändert, ändert
+// sonst unbemerkt auch das, was im Feld steht.
+export function profilZahl(mm: number): string {
+  return mm.toFixed(1).replace(".", ",");
+}
+
+// Aus einer Eingabe eine Profiltiefe machen. `null` heißt „damit lässt sich nichts anfangen" –
+// und das ist ausdrücklich etwas anderes als 0,0 mm. Ein leeres Feld als Null zu verbuchen
+// wäre eine Messung, die niemand gemacht hat.
+//
+// Angenommen wird Komma wie Punkt: Auf der deutschen Tastatur liegt das Komma näher, die
+// Zahlentastatur des iPhones bietet je nach Einstellung den Punkt. Beides meint dasselbe.
+export function profilAusText(text: string, maxMm = 25): number | null {
+  const roh = text.trim().replace(",", ".");
+  if (roh === "") return null;
+  // Nur Ziffern und höchstens ein Punkt. `parseFloat` würde aus „1,5 mm" klaglos 1.5 machen
+  // und aus „6x" eine 6 – eine Eingabe, die offensichtlich anders gemeint war, soll nicht
+  // stillschweigend zurechtgebogen werden.
+  if (!/^\d{1,3}(\.\d{1,2})?$/.test(roh)) return null;
+  const zahl = Number(roh);
+  if (!Number.isFinite(zahl) || zahl < 0 || zahl > maxMm) return null;
+  return Math.round(zahl * 10) / 10;
 }
 
 // Die Räder nach ihrem Satz gruppiert. Listen wie die Saisonliste oder das Lagerregal fragen
