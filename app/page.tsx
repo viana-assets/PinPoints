@@ -13,7 +13,7 @@ import {
   todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
   effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
-  getPhoneNumbers, navigationUrls,
+  getPhoneNumbers, navigationUrls, istHandy,
   formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, terminZeitraum,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
@@ -2189,13 +2189,12 @@ export default function HomePage() {
     setCallMenuPos({ top: clampMenuTop(rect, 60 + nums.length * 38), left: Math.min(rect.left, window.innerWidth - 220) });
     setCallMenuFor(cust);
   }
-  // Sitzt hier eine Maus oder ein Finger? `hover:hover` und `pointer:fine` sind die Frage, die
-  // der Browser ehrlich beantworten kann – im Gegensatz zu „welches Gerät bist du", worauf
-  // jeder Browser irgendwann lügt. Ein Touch-Notebook fällt auf die Rechner-Seite; das ist
-  // richtig, denn dort steht ein Bildschirm und ein Handy daneben.
+  // Sitzt hier ein Handy oder ein Rechner? Die Begründung für diesen Weg steht bei `istHandy`
+  // in lib/helpers.ts – kurz: Die Medienabfrage nach Maus und Schweben lieferte auf dem
+  // Arbeitsnotebook `false`, weil es einen Touchscreen hat.
   function amRechner(): boolean {
-    if (typeof window === "undefined" || !window.matchMedia) return false;
-    return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+    if (typeof navigator === "undefined") return false;
+    return !istHandy(navigator.userAgent, navigator.maxTouchPoints || 0);
   }
 
   async function aufsHandySchicken(cust: Customer) {

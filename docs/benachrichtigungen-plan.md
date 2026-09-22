@@ -381,8 +381,13 @@ Vier Entscheidungen, die man später sonst nicht mehr versteht:
    abgewiesen, und das ist richtig so. Ein großer Knopf ist ein Tippen mehr und dafür ein Weg,
    der immer funktioniert.
 
-Der Knopf erscheint **nur am Rechner** (`matchMedia("(hover: hover) and (pointer: fine)")`) –
-am Handy wäre „aufs Handy schicken" eine Meldung an sich selbst. Als Nebenwirkung öffnet der
+Der Knopf erscheint **nur am Rechner** – am Handy wäre „aufs Handy schicken" eine Meldung an
+sich selbst. Die Unterscheidung lief zuerst über
+`matchMedia("(hover: hover) and (pointer: fine)")`, die empfohlene Antwort auf „sitzt hier eine
+Maus". **Das war falsch:** Auf dem Arbeitsnotebook (Windows mit Touchscreen) liefert sie
+`false`, obwohl eine Maus angeschlossen ist – der Knopf erschien nie, und der Anrufknopf fiel
+auf „sofort wählen" zurück. Seit v57 entscheidet `istHandy()` in `lib/helpers.ts` über die
+Gerätekennung, mit Tests in `tests/geraeteart.test.ts` (darunter genau dieser Fall). Als Nebenwirkung öffnet der
 Anrufknopf am Rechner jetzt immer das kleine Menü, auch bei nur einer Nummer: Es gibt dort seit
 diesem Umbau zwei verschiedene Antworten auf denselben Klick, und eine Entscheidung, die es
 gibt, muss man auch treffen können. Am Handy bleibt es beim sofortigen Wählen.
