@@ -148,11 +148,42 @@ Auftragsfenster (kein separates Formular mehr, das Fahrzeug/Leistungen nicht ken
 | Kundenfenster (`DetailModal`) | steht fest | keiner |
 | Neuer Kunde, Ankreuzfeld „gleich einen Auftrag anlegen" | wird gerade angelegt | keiner |
 | Kontaktdialog, Ergebnis „Auftrag vereinbart" | steht fest | keiner (führt über denselben Weg wie das Karten-Popup) |
+| Einsatzplanung → Klick in eine freie Stelle des Stundenrasters | wird ausgewählt | `OrderModal` – Kundenauswahl, Termin steht schon fest |
 
 `AddOrderInline` ist bestätigt ersatzlos entfallen (`OrderModal.tsx` verweist im Kommentar
 selbst darauf). Ein neu angelegter Auftrag ist immer `offen`, mit heutigem Datum, Titel
 „Termin – ‹Kunde›" und ohne Uhrzeit; das Auftragsfenster zeigt einen Hinweis, was jetzt zu tun
 ist, und „Verwerfen" statt einer Löschen-Rückfrage.
+
+**Der Kalender-Weg im Einzelnen (22.09.2026).** Ein Klick in eine freie Stelle einer Tagesspalte
+öffnet dasselbe `OrderModal` wie der Aufträge-Reiter – nur mit dem angeklickten Zeitpunkt in
+einer Zeile darüber. Das ist bewusst **kein fünftes Formular**: Datum und Uhrzeit sind das
+Einzige, was der Klick weiß, und alles Weitere wird dort erfasst, wo es hingehört.
+
+* Die Uhrzeit entsteht in `terminAusKlick()` (`lib/calendar.ts`) aus der Höhe des Klicks, **auf
+  15 Minuten abgerundet**. Das feste Viertelstundenraster ist nicht das Terminraster des
+  Betriebs: Letzteres sagt, wie LANG ein Termin dauert (und liefert hier das Ende), das
+  Viertelstundenraster, wie genau man zielen kann. Ein 90-Minuten-Raster ergäbe Startzeiten
+  wie 10:30, 12:00, 13:30 – eine Reihe, die niemand erwartet.
+* **Abgerundet, nie zum nächsten Wert:** Wer auf die Linie „10:00" tippt, landet bei 10:00 und
+  nicht bei 09:45. Menschen zielen auf die Linie, nicht zwischen zwei Linien.
+* Gemessen wird gegen die **Tagesspalte** (`getBoundingClientRect`), nicht über
+  `nativeEvent.offsetY`: Getroffen wird fast immer eine der Stundenlinien, und deren offsetY
+  wäre höchstens eine Stunde groß – ein Fehler, der in der obersten Stunde nicht auffällt.
+* Bestehende Terminblöcke rufen `stopPropagation`, sonst öffnete ein Klick auf einen Termin
+  zusätzlich das Fenster „Neuer Auftrag".
+* Die Leiste **„ohne Uhrzeit"** steht seit diesem Umbau immer da, auch wenn sie leer ist: Sie
+  ist jetzt auch eine Fläche zum Anlegen (Tag ja, Uhrzeit nein), und eine Fläche, die nur
+  erscheint, wenn schon etwas darin liegt, kann man nicht benutzen, um das erste hineinzulegen.
+* Nach einer **Zwei-Finger-Zoomgeste** wird genau ein `click` geschluckt (`klickSchlucken` in
+  `Stundenraster.tsx`). Ohne das legte ein Zoomvorgang am Handy einen Auftrag an.
+* **Kunde noch nicht angelegt:** „Kunde ist noch nicht angelegt" führt in das Kundenformular;
+  der Termin wartet solange in `terminFuerNeuenKunden` (app/page.tsx), das Ankreuzfeld „gleich
+  einen Auftrag anlegen" ist dort von vornherein gesetzt und **nennt den Termin**. Verlässt man
+  den Reiter, wird der gemerkte Termin verworfen – ein Kunde, der Wochen später angelegt wird,
+  soll nicht die Uhrzeit von damals erben.
+* Ein Techniker bekommt die Klickfläche nicht (`onSlot` bleibt undefiniert) – dieselbe Grenze
+  wie beim „+ Auftrag"-Knopf im Aufträge-Reiter.
 
 ## 4. Termin und Zeitraum (Migration 37)
 

@@ -155,6 +155,22 @@ Zusätzlich, je nach Art der Änderung:
 
 Jeder Punkt hier hat einmal Zeit gekostet.
 
+- **`nativeEvent.offsetY` misst gegen das getroffene Element, nicht gegen das, an dem der
+  Handler hängt.** Im Stundenraster wird fast immer eine Stundenlinie getroffen; der Wert wäre
+  nie größer als eine Stunde. Wer aus einer Klickposition eine Größe ableitet, misst gegen
+  `e.currentTarget.getBoundingClientRect()`.
+- **Ein Klick auf ein Kindelement erreicht auch den Eltern-Handler.** Bekommt eine Fläche einen
+  Klick-Handler, brauchen alle Knöpfe darin `stopPropagation` – sonst tut ein Klick zwei Dinge.
+- **Nach einer Zwei-Finger-Geste kann noch ein `click` folgen.** Wer auf derselben Fläche zoomt
+  und klickt, muss genau einen Klick schlucken. Eine Sperre über `Date.now()` ist dabei nicht
+  nur unsauber, sondern scheitert am Linter (`react-hooks/purity`): Eine im Komponentenrumpf
+  deklarierte Funktion gilt als Render-Code. Ein Merker im Ref löst beides.
+- **Eine Fläche, die nur erscheint, wenn schon etwas darin liegt, taugt nicht zum Anlegen.**
+  Die Leiste „ohne Uhrzeit" musste dafür dauerhaft sichtbar werden.
+- **Hover-Einfärbung einer ganzen Tabellen- oder Kalenderspalte sieht nach „ausgewählt" oder
+  nach Fehler aus** – besonders, wenn die Spalte (heutiger Tag) ohnehin hinterlegt ist. Für
+  „hier entsteht etwas Neues" genügt `cursor:copy`. Im Bild geprüft, nicht vermutet.
+
 - **Deutsche Anführungszeichen in JS-Strings.** `„X"` in einem doppelt gequoteten
   TypeScript-String bricht die Datei. In JSX-Text zusätzlich `react/no-unescaped-entities`
   beachten. Im Zweifel umformulieren statt escapen.

@@ -453,6 +453,28 @@
     font-size:13px;border-radius:6px;color:var(--text);cursor:pointer;}
   .call-menu button:hover{background:var(--chip-hover);}
   .call-menu .num{color:var(--muted);font-size:11.5px;display:block;}
+  /* „Auf dem Handy anrufen": abgesetzt vom Wählen, weil es etwas anderes tut – es klingelt
+     hier nichts, sondern auf einem zweiten Gerät. */
+  .cm-trenner{height:1px;background:var(--border);margin:5px 2px;}
+  .call-menu button.cm-handy{font-weight:700;color:var(--accent);}
+  .cm-meldung{padding:6px 10px;font-size:12px;color:var(--muted);}
+  .cm-meldung.cm-fehler{color:var(--red);}
+
+  /* Das Anruf-Fenster auf dem Handy: ein Knopf je Rufnummer, groß genug für den Daumen im
+     Auto. Die Nummer steht darunter, damit man sieht, wen man gleich stört. */
+  .anruf-knopf{display:block;text-align:center;text-decoration:none;margin-top:8px;padding:12px 14px;}
+  .anruf-knopf .ak-label{display:block;font-size:15px;font-weight:700;}
+  .anruf-knopf .ak-nummer{display:block;font-size:12.5px;opacity:.85;font-variant-numeric:tabular-nums;}
+
+  /* Am Handy sind Fenster sonst formatfüllend (siehe die 700-px-Regel weiter unten). Für drei
+     Knöpfe wäre das eine weiße Seite mit einem Rest Inhalt oben. Dieses eine Fenster legt sich
+     deshalb als Blatt an den UNTEREN Rand: Es ist so hoch wie sein Inhalt, und die Knöpfe
+     liegen dort, wo der Daumen ohnehin ist. */
+  @media (max-width: 700px){
+    .modal-overlay:has(.anruf-fenster){align-items:flex-end;}
+    .modal-box.anruf-fenster{height:auto;max-height:90%;border-radius:18px 18px 0 0;
+      padding-bottom:calc(20px + env(safe-area-inset-bottom, 0px));}
+  }
   .header-row{display:flex;align-items:center;gap:8px;}
   .header-row h3{margin:0;flex:1;min-width:0;}
 
@@ -1640,6 +1662,27 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
 .rl-tag{position:relative;border-left:1px solid var(--border);}
 .rl-tag.ist-heute{background:color-mix(in srgb, var(--accent-bg) 45%, transparent);}
 .rl-linie{border-top:1px solid var(--border);}
+
+/* Ein Klick in eine freie Stelle legt einen Auftrag zu dieser Uhrzeit an.
+
+   NUR DER MAUSZEIGER sagt das, keine Einfärbung. Eine erste Fassung hellte beim Überfahren
+   die ganze Tagesspalte auf – und sah im Bild so aus, als sei der Tag ausgewählt oder etwas
+   kaputt: Die Spalte des heutigen Tages ist ohnehin schon hinterlegt, und beide Farben
+   zusammen ergaben einen orangefarbenen Block über den ganzen Tag. Gemessen wird hier nichts,
+   also entscheidet das Auge, und das sagte: zu laut. `copy` ist der übliche Zeiger für
+   „hier entsteht etwas Neues", dazu kommt der Tooltip.
+
+   `pointer-events:none` auf den Stundenlinien: Sie liegen über der Spalte und würden den
+   Klick sonst abfangen. Die Blöcke selbst müssen klickbar bleiben (sie öffnen ihren Auftrag)
+   und rufen dafür stopPropagation. */
+.rl-anlegbar{cursor:copy;}
+.rl-anlegbar .rl-linie{pointer-events:none;}
+.roz-anlegbar{cursor:copy;}
+
+/* Der vorbelegte Termin über der Kundenauswahl im Fenster „Neuer Auftrag". */
+.termin-vorgabe{margin:0 0 10px;padding:7px 10px;border-radius:9px;
+  background:var(--accent-bg);border:1px solid var(--border);
+  font-size:13px;font-weight:700;}
 
 /* Der Terminblock im Stundenraster. Hieß bis zum 17.09.2026 schlicht `.termin` – und damit
    genauso wie der neue KUNDENZUSTAND „Termin", dessen Klasse aus dem Zustandsnamen entsteht

@@ -14,6 +14,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ---
 
+## Zuletzt erledigt
+
+* **22.09.2026 – Auftrag aus dem Kalender.** Klick in eine freie Stelle des Stundenrasters →
+  Kundenauswahl mit vorbelegtem Termin → vollständiges Auftragsfenster. Kein fünftes Formular;
+  Einzelheiten in `docs/auftraege.md`, Abschnitt 3.
+* **22.09.2026 – „Auf dem Handy anrufen".** Am Rechner klicken, auf dem iPhone telefonieren
+  (`/api/push/anruf`). Einzelheiten in `docs/benachrichtigungen-plan.md`, letzter Abschnitt.
+  Steht und fällt mit F2 (Gerätetest der Push-Zustellung).
+
+---
+
 ## A. Sofort – kostet im Betrieb bereits Geld oder erzeugt falsche Belege
 
 Abschnitt A ist am 21.09.2026 abgearbeitet: die vier Punkte, die hier standen (Auslagern im

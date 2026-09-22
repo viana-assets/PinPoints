@@ -13,7 +13,12 @@ import { AdressFeld } from "@/components/AdressFeld";
 // Sache und konnte als einzige keine Leistungen erfassen. An seiner Stelle steht ein
 // Ankreuzfeld: ist es gesetzt, öffnet sich nach dem Anlegen das vollständige Auftragsfenster –
 // dasselbe wie überall sonst. Siehe docs/auftragsablauf.md.
-export function AddCustomerForm({ onAdd }: {
+export function AddCustomerForm({ onAdd, terminText }: {
+  // Kommt der Weg aus dem Kalender, wartet dort schon ein angeklickter Termin. Dann ist das
+  // Ankreuzfeld von vornherein gesetzt und nennt den Termin: Wer den Haken hier übersähe,
+  // verlöre den Zeitpunkt, den er zwei Klicks vorher ausgewählt hat – und merkte es erst,
+  // wenn der Auftrag im Kalender an der falschen Stelle steht.
+  terminText?: string;
   onAdd: (f: {
     name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
     company: string; email: string; anrede: "" | "Herr" | "Frau";
@@ -30,7 +35,7 @@ export function AddCustomerForm({ onAdd }: {
   const [landline, setLandline] = useState("");
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
-  const [auftragAnlegen, setAuftragAnlegen] = useState(false);
+  const [auftragAnlegen, setAuftragAnlegen] = useState(!!terminText);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -100,7 +105,11 @@ export function AddCustomerForm({ onAdd }: {
 
       <div className="checkbox-row">
         <input type="checkbox" id="gleichAuftrag" checked={auftragAnlegen} onChange={(e) => setAuftragAnlegen(e.target.checked)} />
-        <label htmlFor="gleichAuftrag">Direkt einen Auftrag anlegen (das Auftragsfenster öffnet sich danach)</label>
+        <label htmlFor="gleichAuftrag">
+          {terminText
+            ? `Direkt einen Auftrag anlegen – ${terminText} (das Auftragsfenster öffnet sich danach)`
+            : "Direkt einen Auftrag anlegen (das Auftragsfenster öffnet sich danach)"}
+        </label>
       </div>
 
       {status && <div className={status.ok ? "login-info" : "login-error"}>{status.text}</div>}

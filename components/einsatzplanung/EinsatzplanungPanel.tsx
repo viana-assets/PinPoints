@@ -4,13 +4,14 @@ import { todayStr, formatDate, orderDateTime, terminZeitraum } from "@/lib/helpe
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
 import { RasterLegende, Stundenraster } from "./Stundenraster";
+import { OrderModal } from "@/components/auftraege/OrderModal";
 import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, isTechniker }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, isTechniker }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Das Terminraster aus den Betriebseinstellungen – dieselbe Zahl wie im Auftragsfenster.
   standardDauerMin: number;
@@ -28,6 +29,14 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // Navigation zum Kunden (Google Maps / Apple Karten) – dieselbe Schaltfläche wie im
   // Aufträge-Tab, im Kundenfenster und im Karten-Popup.
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
+  // Auftrag aus dem Kalender heraus: Klick in eine freie Stelle des Stundenrasters, Kunde
+  // wählen, fertig. Es ist DERSELBE Weg wie überall sonst – die Zeile wird sofort angelegt und
+  // das vollständige Auftragsfenster geht auf; hier kommen nur Datum und Uhrzeit schon mit.
+  // Siehe docs/auftraege.md: Es gibt genau eine Anlegemaske, und das soll so bleiben.
+  onNeuerAuftrag: (kundenId: string, termin: { datum: string; von: string | null; bis: string | null }) => Promise<void>;
+  // Der Anrufer steht noch nicht in der Kartei: Das Kundenformular geht auf, der angeklickte
+  // Termin wird dort gemerkt und nach dem Anlegen eingesetzt.
+  onNeuerKunde: (termin: { datum: string; von: string | null; bis: string | null }) => void;
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), darf
   // in der Oberfläche zusätzlich keine Mitarbeiter-/Leistungen-Zuordnung oder Löschung anstoßen –
   // nur Status und die eigene Techniker-Notiz, siehe AuftraegePanel für dasselbe Muster.
@@ -45,6 +54,8 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // bewusst ein eigener Knopf: Das ist die Lücke, die man vor dem Tag schließen will.
   const [fahrzeugFilter, setFahrzeugFilter] = useState<"all" | "ohne" | string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  // Der angeklickte Zeitpunkt, solange die Kundenauswahl offen ist.
+  const [slot, setSlot] = useState<{ datum: string; von: string | null; bis: string | null } | null>(null);
   const [custFilter, setCustFilter] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "kunde" | "status">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -239,6 +250,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
               orderEmployees={orderEmployees}
               standardDauerMin={standardDauerMin}
               onOeffnen={onOpenOrder}
+              onSlot={isTechniker ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
             />
             <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} />
           </>
@@ -453,6 +465,27 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           )}
         </div>
       </div>
+
+      {/* Kundenauswahl nach einem Klick ins Raster. Dasselbe Fenster wie im Aufträge-Tab –
+          nur mit dem angeklickten Termin darüber. */}
+      {slot && (
+        <OrderModal
+          customers={customers}
+          terminText={terminVorgabeText(slot)}
+          onClose={() => setSlot(null)}
+          onWeiter={async (kundenId) => { await onNeuerAuftrag(kundenId, slot); }}
+          onNeuerKunde={() => { const s = slot; setSlot(null); onNeuerKunde(s); }}
+        />
+      )}
     </div>
   );
+}
+
+// Die Zeile über der Kundenauswahl: „Di, 22.9.2026 · 10:00–11:00". Ohne Uhrzeit steht dort,
+// dass keine gesetzt wird – sonst sieht das Fenster aus, als hätte man danebengeklickt.
+function terminVorgabeText(slot: { datum: string; von: string | null; bis: string | null }): string {
+  const tag = new Date(slot.datum + "T00:00:00").toLocaleDateString("de-DE", {
+    weekday: "short", day: "numeric", month: "numeric", year: "numeric",
+  });
+  return slot.von ? `${tag} · ${slot.von}–${slot.bis}` : `${tag} · ohne Uhrzeit`;
 }

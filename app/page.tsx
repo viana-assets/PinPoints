@@ -20,11 +20,14 @@ import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } fr
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
   ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
+  ANRUF_PARAMETER,
   PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
   type Verb,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/aufkleberCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
+import { anrufAufsHandy } from "@/lib/push";
+import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
 // Marke, Filter.
@@ -154,6 +157,20 @@ const LISTEN_SCHRITT = 200;
 // TabKey und die Modulliste stehen in lib/module.ts – EINE Liste für Seitenleiste und
 // Kachelseite „Weitere" (siehe dort, warum).
 
+// Ein aus dem Kalender angeklickter Zeitpunkt. `von`/`bis` sind null, wenn in die Leiste
+// „ohne Uhrzeit" geklickt wurde – dann steht nur der Tag fest.
+type NeuerTermin = { datum: string; von: string | null; bis: string | null };
+
+// Beschriftung eines gemerkten Termins. Steht hier und nicht in der Komponente, weil sie an
+// zwei Stellen gebraucht wird und beide dasselbe sagen müssen.
+function terminTextVon(termin: NeuerTermin | null): string | undefined {
+  if (!termin) return undefined;
+  const tag = new Date(termin.datum + "T00:00:00").toLocaleDateString("de-DE", {
+    weekday: "short", day: "numeric", month: "numeric", year: "numeric",
+  });
+  return termin.von ? `${tag}, ${termin.von}–${termin.bis}` : `${tag}, ohne Uhrzeit`;
+}
+
 export default function HomePage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -241,6 +258,9 @@ export default function HomePage() {
   // erst beim Absenden schreibt, könnte den wichtigsten Teil des Fensters nicht anbieten.
   // Siehe docs/termine-kontakt-auftrag-analyse.md.
   const [frischerAuftragId, setFrischerAuftragId] = useState<string | null>(null);
+  // Ein im Kalender angeklickter Termin, der auf einen Kunden wartet, den es noch nicht gibt.
+  // Er überlebt den Wechsel in das Kundenformular und wird nach dem Anlegen eingesetzt.
+  const [terminFuerNeuenKunden, setTerminFuerNeuenKunden] = useState<NeuerTermin | null>(null);
   // Lagerplatz aus einem gescannten QR-Aufkleber (?lagerplatz=…, siehe lib/aufkleberCode.ts).
   // Wird beim Start einmal aus der Adresszeile gelesen und danach an das Lager-Modul gereicht.
   const [gescannterLagerplatzId, setGescannterLagerplatzId] = useState<string | null>(null);
@@ -454,6 +474,12 @@ export default function HomePage() {
   const [listenGrenze, setListenGrenze] = useState(LISTEN_SCHRITT);
   const [callMenuFor, setCallMenuFor] = useState<Customer | null>(null);
   const [callMenuPos, setCallMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
+  // Rückmeldung des Knopfes „Auf dem Handy anrufen" – erscheint im selben kleinen Menü, in dem
+  // geklickt wurde. Ein Versand ohne sichtbare Antwort wäre schlimmer als gar keiner: Man
+  // wüsste nicht, ob man aufs Handy schauen soll.
+  const [handyMeldung, setHandyMeldung] = useState<{ ok: boolean; text: string } | null>(null);
+  // Kunde, dessen Anruf-Fenster offen ist (nach dem Antippen einer Anruf-Meldung).
+  const [anrufKundeId, setAnrufKundeId] = useState<string | null>(null);
   // Navigations-Button (Auftrag/Termin, wenn eine Adresse gepflegt ist): am Smartphone erst
   // fragen, ob mit Google Maps oder Apple Karten navigiert werden soll, statt direkt zu öffnen –
   // genau wie beim Anrufen-Button mit mehreren Nummern.
@@ -1225,7 +1251,15 @@ export default function HomePage() {
     // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist meist auch schon klar, worum es
     // geht. Statt eines eigenen kleinen Auftragsformulars hier führt der Weg über dieselbe
     // Maske wie überall: Zeile anlegen, vollständiges Auftragsfenster öffnen.
-    if (createdId && fields.auftragAnlegen) await neuenAuftragAnlegen(createdId);
+    if (createdId && fields.auftragAnlegen) {
+      // Kam der Weg über einen Klick in den Kalender, ist der Termin schon gewählt – er wartet
+      // seit dem Klick in `terminFuerNeuenKunden` und wird jetzt eingesetzt. Danach wird er
+      // gelöscht: Der nächste Kunde, der ohne Kalender angelegt wird, soll nicht die Uhrzeit
+      // von vorgestern erben.
+      const termin = terminFuerNeuenKunden;
+      setTerminFuerNeuenKunden(null);
+      await neuenAuftragAnlegen(createdId, termin);
+    }
     return lat != null;
   }
   // ---------------------------------------------------------------- Lager-Modul
@@ -1335,7 +1369,7 @@ export default function HomePage() {
   // Mitarbeiter-Zuordnung läuft komplett über `order_employees` (Migration 11) – ein Auftrag kann
   // mehreren Mitarbeitern zugeordnet sein (z. B. bei umfangreichen Aufträgen). `assignedEmployeeIds`
   // ist deshalb überall eine Liste, auch wenn sie in vielen Fällen nur ein Element hat.
-  async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
+  async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
     // Rückfallebene für alle Anlagemasken: bleibt der Titel leer, wird "Termin – ‹Kunde›"
     // eingesetzt. Die Masken belegen ihn zwar vor, aber so hängt es nicht daran, dass jede
     // einzelne daran denkt.
@@ -1356,11 +1390,19 @@ export default function HomePage() {
   //
   // `addOrder` wartet das Neuladen inzwischen wirklich ab (siehe `neuLaden`), sonst wäre die
   // frische Zeile im Zwischenspeicher noch nicht vorhanden und das Fenster bliebe zu.
-  async function neuenAuftragAnlegen(kundenId: string) {
+  async function neuenAuftragAnlegen(kundenId: string, termin?: NeuerTermin | null) {
     const kunde = customers.find((c) => c.id === kundenId);
     const id = await addOrder({
       customerId: kundenId, title: terminTitel(kunde?.name), description: "",
-      orderDate: todayStr(), time: "", status: "offen", assignedEmployeeIds: [],
+      // Ohne Vorgabe wie bisher: heute, ohne Uhrzeit. Kommt der Auftrag aus dem Kalender, steht
+      // der angeklickte Zeitpunkt schon drin – und der Block sitzt sofort dort, wohin geklickt
+      // wurde, statt in der Leiste „ohne Uhrzeit" zu landen.
+      orderDate: termin?.datum || todayStr(),
+      time: termin?.von || "",
+      // Ein Ende nur ZUSAMMEN mit einem Beginn: Die Datenbank lässt seit Migration 37 nichts
+      // anderes zu, und ohne Beginn wäre es auch keine Aussage.
+      endTime: termin?.von ? (termin.bis || "") : "",
+      status: "offen", assignedEmployeeIds: [],
     });
     if (!id) return;
     setFrischerAuftragId(id);
@@ -1882,6 +1924,13 @@ export default function HomePage() {
   // TypeScript nur sieht, weil die Abhängigkeitsliste ihn direkt nennt.
   useEffect(() => { syncMarkers(); }, [terminKundenIds]);
 
+  // Ein gemerkter Kalender-Termin gilt nur so lange, wie das Kundenformular offen ist. Wer
+  // abbricht und Wochen später einen Kunden anlegt, soll nicht die Uhrzeit von damals erben –
+  // das wäre ein Fehler, den man erst im Kalender sieht und dann nicht erklären kann.
+  useEffect(() => {
+    if (tab !== "add") setTerminFuerNeuenKunden(null);
+  }, [tab]);
+
   // Aufruf über einen QR-Aufkleber am Regal: die App öffnet sich mit ?lagerplatz=‹Kennung›.
   // Bewusst über `window.location` statt `useSearchParams()`: dieser Baum ist vollständig auf
   // dem Client zuhause, und `useSearchParams` verlangte in Next 14 eine Suspense-Grenze und
@@ -1939,6 +1988,16 @@ export default function HomePage() {
   // Der Aufruf ist auch dann richtig, wenn die Listen noch laden: beide Fenster merken sich die
   // Kennung und erscheinen, sobald der Bestand da ist.
   function zielOeffnen(parameter: URLSearchParams): void {
+    // „Anrufen" zuerst: Diese Meldung hat genau einen Zweck, und wer sie antippt, hat das Handy
+    // schon am Ohr im Sinn – da ist jedes andere Fenster im Weg.
+    const anrufId = parameter.get(ANRUF_PARAMETER);
+    if (anrufId) {
+      setAnrufKundeId(anrufId);
+      // Der Kunde kann am Rechner neu angelegt worden sein; der gespeicherte Stand auf dem
+      // Handy kennt ihn dann nicht. Dasselbe Muster wie beim Auftrag aus der Terminerinnerung.
+      void neuLaden(qk.kunden());
+      return;
+    }
     const auftragId = parameter.get(AUFTRAG_PARAMETER);
     if (auftragId) {
       setOffenerAuftragId(auftragId);
@@ -1963,10 +2022,11 @@ export default function HomePage() {
   // wieder auf denselben Auftrag.
   useEffect(() => {
     const parameter = new URLSearchParams(window.location.search);
-    if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER)) return;
+    if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER) && !parameter.get(ANRUF_PARAMETER)) return;
     const uebrig = new URLSearchParams(window.location.search);
     uebrig.delete(AUFTRAG_PARAMETER);
     uebrig.delete(KUNDE_PARAMETER);
+    uebrig.delete(ANRUF_PARAMETER);
     const rest = uebrig.toString();
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
     zielOeffnen(parameter);
@@ -2113,13 +2173,40 @@ export default function HomePage() {
   // erschien das Menü sogar immer an derselben Bildschirmecke statt am Knopf.
   function anrufAusloesen(cust: Customer, rect: DOMRect) {
     const nums = getPhoneNumbers(cust);
-    if (nums.length <= 1) {
+    // Am Handy bleibt alles wie bisher: eine Nummer, sofort wählen. Dort ist das Gerät, mit dem
+    // telefoniert wird, ohnehin in der Hand – eine Rückfrage wäre nur ein Tippen mehr.
+    //
+    // Am Rechner erscheint immer das Menü, auch bei nur einer Nummer: Dort gibt es seit
+    // "Weg 3" zwei verschiedene Antworten auf denselben Klick – hier wählen (über den
+    // Smartphone-Link) oder die Nummer aufs Handy schicken. Eine Entscheidung, die es gibt,
+    // muss man auch treffen können.
+    if (!amRechner() && nums.length <= 1) {
       if (nums.length === 1) window.location.href = "tel:" + telHref(nums[0].number);
       return;
     }
-    setCallMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
+    if (nums.length === 0) return;
+    setHandyMeldung(null);
+    setCallMenuPos({ top: clampMenuTop(rect, 60 + nums.length * 38), left: Math.min(rect.left, window.innerWidth - 220) });
     setCallMenuFor(cust);
   }
+  // Sitzt hier eine Maus oder ein Finger? `hover:hover` und `pointer:fine` sind die Frage, die
+  // der Browser ehrlich beantworten kann – im Gegensatz zu „welches Gerät bist du", worauf
+  // jeder Browser irgendwann lügt. Ein Touch-Notebook fällt auf die Rechner-Seite; das ist
+  // richtig, denn dort steht ein Bildschirm und ein Handy daneben.
+  function amRechner(): boolean {
+    if (typeof window === "undefined" || !window.matchMedia) return false;
+    return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+  }
+
+  async function aufsHandySchicken(cust: Customer) {
+    setHandyMeldung({ ok: true, text: "Wird geschickt …" });
+    const ergebnis = await anrufAufsHandy(cust.id);
+    setHandyMeldung(ergebnis);
+    // Bei Erfolg schließt sich das Menü von selbst – die Antwort steht dann auf dem Handy.
+    // Bei einem Fehler bleibt es offen, sonst verschwände die Begründung mit ihm.
+    if (ergebnis.ok) window.setTimeout(() => { setCallMenuFor(null); setHandyMeldung(null); }, 1200);
+  }
+
   function openCallMenu(e: React.MouseEvent, cust: Customer) {
     e.stopPropagation();
     anrufAusloesen(cust, (e.currentTarget as HTMLElement).getBoundingClientRect());
@@ -2585,6 +2672,8 @@ export default function HomePage() {
             onOpenOrder={setOffenerAuftragId}
             onDelete={deleteOrder}
             onNavigate={openNavMenu}
+            onNeuerAuftrag={neuenAuftragAnlegen}
+            onNeuerKunde={(termin) => { setTerminFuerNeuenKunden(termin); setTab("add"); }}
             isTechniker={isTechniker}
           />
           </>
@@ -2632,7 +2721,9 @@ export default function HomePage() {
           </div>
         )}
 
-        {tab === "add" && canView("kunden.schreiben") && <AddCustomerForm onAdd={addCustomer} />}
+        {tab === "add" && canView("kunden.schreiben") && (
+          <AddCustomerForm onAdd={addCustomer} terminText={terminTextVon(terminFuerNeuenKunden)} />
+        )}
 
         {tab === "settings" && canView("einstellungen") && (
           <SettingsPanel
@@ -2776,6 +2867,20 @@ export default function HomePage() {
         </button>
       )}
 
+      {/* Nach dem Antippen der Meldung „Anrufen: ‹Kunde›". Steht der Kunde noch nicht im
+          geladenen Bestand, wartet das Fenster – der Abruf läuft bereits (siehe zielOeffnen). */}
+      {anrufKundeId && (() => {
+        const kunde = customers.find((c) => c.id === anrufKundeId);
+        if (!kunde) return null;
+        return (
+          <AnrufFenster
+            kunde={kunde}
+            onClose={() => setAnrufKundeId(null)}
+            onKundeOeffnen={() => { setAnrufKundeId(null); openDetail(kunde.id); setTab("list"); }}
+          />
+        );
+      })()}
+
       {callMenuFor && (
         <>
           <div style={{ position: "fixed", inset: 0, zIndex: 19999 }} onClick={() => setCallMenuFor(null)} />
@@ -2785,6 +2890,19 @@ export default function HomePage() {
                 {n.label}<span className="num">{n.number}</span>
               </button>
             ))}
+            {/* Nur am Rechner: Auf dem Handy wäre „aufs Handy schicken" eine Meldung an sich
+                selbst. */}
+            {amRechner() && (
+              <>
+                <div className="cm-trenner" />
+                <button className="cm-handy" onClick={() => { void aufsHandySchicken(callMenuFor); }}>
+                  Auf dem Handy anrufen<span className="num">Meldung aufs iPhone</span>
+                </button>
+                {handyMeldung && (
+                  <div className={handyMeldung.ok ? "cm-meldung" : "cm-meldung cm-fehler"}>{handyMeldung.text}</div>
+                )}
+              </>
+            )}
           </div>
         </>
       )}

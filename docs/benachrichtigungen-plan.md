@@ -344,3 +344,49 @@ Bildschirm ankam (siehe „Was zuerst zu prüfen wäre" oben). **Offener Punkt (
 Dieser Test steht weiterhin aus.** Fällt er durch, ist die Terminerinnerung, so wie sie jetzt
 läuft, in Betrieb, ohne dass ihr eigentlicher Zweck – die Meldung im Auto, während der
 Fahrt – bestätigt ist.
+
+---
+
+## Zweite Nutzung derselben Leitung: „Auf dem Handy anrufen" (22.09.2026)
+
+Die Push-Strecke trägt seit dem 22.09.2026 eine zweite, ganz andere Aufgabe – und zwar ohne
+eine einzige neue Zeile im Service Worker: Die Zieladresse reist ohnehin mit jeder Meldung mit,
+also genügte ein neuer Adressparameter.
+
+**Das Problem.** Am Rechner ist das Fenster groß und die Arbeit bequem; telefoniert wird aber
+mit dem Handy. Bisher hieß das: Kunden am Rechner suchen, dann am Handy noch einmal suchen.
+
+**Weg 1 (ohne Code, zuerst probiert und erfolgreich).** Windows „Smartphone-Link" koppelt das
+iPhone per Bluetooth; in *Einstellungen → Apps → Standard-Apps → Smartphone-Link* wird das
+Protokoll **„Tel"** zugewiesen. Danach wählt der vorhandene `tel:`-Knopf in PinPoints am
+Rechner über das iPhone, das Gespräch läuft über Mikrofon und Lautsprecher des Rechners.
+Voraussetzung: Handy in Bluetooth-Reichweite.
+
+**Weg 3 (gebaut).** `POST /api/push/anruf` mit `{ kundeId }` schickt eine Meldung „Anrufen:
+‹Kunde›" an die **eigenen** Geräte. Antippen öffnet `/?anruf=<kundenId>` und damit das
+`AnrufFenster` – Name, Anschrift und je Rufnummer ein großer Knopf.
+
+Vier Entscheidungen, die man später sonst nicht mehr versteht:
+
+1. **Nur an die eigenen Geräte**, dieselbe Grenze wie bei der Testnachricht. Eine Route, die an
+   fremde Geräte senden kann, wäre eine Fernsteuerung für fremde Sperrbildschirme.
+2. **In der Adresse steht nur die Kennung des Kunden, nie eine Rufnummer.** Ein Adressparameter
+   landet im Verlauf, in Lesezeichen und in jedem Protokoll, das Adressen mitschreibt. Das
+   Fenster schlägt die Nummern beim Öffnen nach – und zeigt dann ALLE, nicht die eine, die der
+   Rechner geraten hat. Wer unterwegs anruft, erreicht den Festnetzanschluss ohnehin nicht.
+3. **Der Kunde wird mit der Anmeldung des Benutzers gelesen, nicht mit dem Admin-Zugang.** Damit
+   gilt dieselbe Row-Level-Security wie in der Oberfläche: Wer einen Kunden nicht sehen darf,
+   kann sich über diese Route auch keine Meldung über ihn schicken lassen.
+4. **Das Fenster wählt nicht von selbst.** Ein `tel:` ohne menschlichen Anstoß wird vom Browser
+   abgewiesen, und das ist richtig so. Ein großer Knopf ist ein Tippen mehr und dafür ein Weg,
+   der immer funktioniert.
+
+Der Knopf erscheint **nur am Rechner** (`matchMedia("(hover: hover) and (pointer: fine)")`) –
+am Handy wäre „aufs Handy schicken" eine Meldung an sich selbst. Als Nebenwirkung öffnet der
+Anrufknopf am Rechner jetzt immer das kleine Menü, auch bei nur einer Nummer: Es gibt dort seit
+diesem Umbau zwei verschiedene Antworten auf denselben Klick, und eine Entscheidung, die es
+gibt, muss man auch treffen können. Am Handy bleibt es beim sofortigen Wählen.
+
+**Abhängigkeit, die offen bleibt:** Dieser Weg steht und fällt mit derselben Frage wie die
+Terminerinnerung – kommt eine Web-Push-Meldung auf dem iPhone verlässlich an? Der Gerätetest
+bei gesperrtem Bildschirm steht weiterhin aus (siehe oben).

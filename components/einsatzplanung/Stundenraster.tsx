@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Customer, Employee, Order } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { KALENDER_VON_STUNDE, KALENDER_BIS_STUNDE } from "@/lib/constants";
-import { auftragsZeitraum, employeeColorFor, hhmmAus, layoutSpalten, toDateStr, zeitfenster } from "@/lib/calendar";
+import { auftragsZeitraum, employeeColorFor, hhmmAus, layoutSpalten, terminAusKlick, toDateStr, zeitfenster } from "@/lib/calendar";
 
 // Tages- und Wochenansicht als Stundenraster (Block B).
 //
@@ -57,8 +57,11 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
       className={`tm-block ${statusKlasse(auftrag.status)}${farbe ? "" : " tm-ohne-person"}${auftrag.geschaetzt ? " tm-geschaetzt" : ""}`}
       role="button"
       tabIndex={0}
-      onClick={() => onOeffnen(auftrag.id)}
-      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onOeffnen(auftrag.id); } }}
+      // `stopPropagation`: Die Tagesspalte darunter legt bei einem Klick einen neuen Auftrag
+      // an. Ohne das hier würde jeder Klick auf einen bestehenden Termin zusätzlich das
+      // Fenster „Neuer Auftrag" aufziehen.
+      onClick={(e) => { e.stopPropagation(); onOeffnen(auftrag.id); }}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onOeffnen(auftrag.id); } }}
       title={[
         `${hhmmAus(auftrag.start)}–${hhmmAus(auftrag.ende)}${auftrag.geschaetzt ? " (Ende angenommen)" : ""}`,
         auftrag.kunde?.name,
@@ -94,7 +97,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
   );
 }
 
-export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen }: {
+export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen, onSlot }: {
   // Ein Tag in der Tagesansicht, sieben in der Wochenansicht – sonst ändert sich nichts.
   tage: Date[];
   auftraege: Order[];
@@ -107,6 +110,11 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   // vorschlägt.
   standardDauerMin: number;
   onOeffnen: (id: string) => void;
+  // Klick in eine freie Stelle des Rasters: Datum und Uhrzeit des angeklickten Punktes.
+  // `von`/`bis` sind null, wenn in die Leiste „ohne Uhrzeit" geklickt wurde – dann steht der
+  // Tag fest und die Zeit noch nicht. Fehlt die Eigenschaft (Techniker-Ansicht), ist das
+  // Raster nur zum Ansehen da.
+  onSlot?: (datum: string, von: string | null, bis: string | null) => void;
 }) {
   const heute = toDateStr(new Date());
 
@@ -128,7 +136,12 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   //
   // Ein Ref überlebt das Rendern. Und weil die Listener nichts mehr aus dem Zustand lesen,
   // hängt der Effekt an nichts mehr und wird genau einmal aufgebaut.
-  const gesteRef = useRef({ startAbstand: 0, startHoehe: RASTER_STUNDE_STANDARD });
+  // `klickSchlucken`: Manche Browser schicken nach einer Zwei-Finger-Geste trotzdem noch ein
+  // `click` hinterher. Ohne diese Sperre legte ein Zoomvorgang am Handy einen Auftrag an.
+  // Geschluckt wird GENAU EIN Klick, und ein neues Antippen mit einem Finger hebt die Sperre
+  // ohnehin auf – eine Sperre, die liegen bleibt, wäre schlimmer als der Klick, den sie
+  // verhindern soll.
+  const gesteRef = useRef({ startAbstand: 0, startHoehe: RASTER_STUNDE_STANDARD, klickSchlucken: false });
   // Spiegelt den Zustand für `anfang()`, das die Höhe beim Aufsetzen braucht. Eigener kleiner
   // Effekt, damit die Listener davon unberührt bleiben.
   const hoeheRef = useRef(stundePx);
@@ -162,10 +175,12 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
       return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
     }
     function anfang(e: TouchEvent) {
+      // Ein bewusstes Antippen mit einem Finger hebt eine noch liegende Sperre auf.
+      if (e.touches.length === 1) gesteRef.current.klickSchlucken = false;
       if (e.touches.length !== 2) return;
       // Auch hier schon abwehren: Safari entscheidet früh, ob die Geste der Seite gehört.
       e.preventDefault();
-      gesteRef.current = { startAbstand: abstand(e), startHoehe: hoeheRef.current };
+      gesteRef.current = { ...gesteRef.current, startAbstand: abstand(e), startHoehe: hoeheRef.current };
     }
     function bewegung(e: TouchEvent) {
       const g = gesteRef.current;
@@ -176,7 +191,10 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
     function ende(e: TouchEvent) {
       // Erst wenn weniger als zwei Finger liegen, ist die Geste vorbei. Hebt jemand einen
       // Finger und setzt ihn wieder auf, soll nicht mitten im Ziehen neu gerechnet werden.
-      if (e.touches.length < 2) gesteRef.current.startAbstand = 0;
+      if (e.touches.length < 2) {
+        if (gesteRef.current.startAbstand !== 0) gesteRef.current.klickSchlucken = true;
+        gesteRef.current.startAbstand = 0;
+      }
     }
     // Safari auf dem iPhone meldet eine Zwei-Finger-Geste ZUSÄTZLICH als `gesture*` und
     // zoomt sonst die ganze Seite, auch wenn die Touch-Ereignisse abgewehrt sind.
@@ -248,6 +266,21 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   const vonMinute = vonStunde * 60;
   const gesamtHoehe = stunden.length * stundePx;
 
+  // Klick auf eine freie Stelle der Tagesspalte: Aus der Höhe wird die Uhrzeit.
+  //
+  // Gemessen wird gegen die Spalte selbst (`getBoundingClientRect`) und NICHT über
+  // `nativeEvent.offsetY`: Letzteres ist relativ zum getroffenen Element, und getroffen wird
+  // fast immer eine der Stundenlinien – der Wert wäre dann die Position innerhalb dieser einen
+  // Linie, also höchstens eine Stunde. Ein Fehler, der nur beim Klick in die obere Hälfte des
+  // Tages nicht auffällt.
+  function slotKlick(e: React.MouseEvent<HTMLDivElement>, datum: string) {
+    if (!onSlot) return;
+    if (gesteRef.current.klickSchlucken) { gesteRef.current.klickSchlucken = false; return; }
+    const kasten = e.currentTarget.getBoundingClientRect();
+    const { von, bis } = terminAusKlick(e.clientY - kasten.top, stundePx, vonMinute, standardDauerMin);
+    onSlot(datum, von, bis);
+  }
+
   // Bei flachen Stunden steht nicht mehr an jeder Linie eine Uhrzeit – sie überlappen sich
   // sonst. Ab 14 px nur noch jede vierte, ab 24 px jede zweite.
   const beschriftungJede = stundePx < 20 ? 4 : stundePx < 34 ? 2 : 1;
@@ -277,16 +310,25 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
         ))}
       </div>
 
-      {ohneZeitGesamt > 0 && (
+      {/* Die Leiste steht jetzt IMMER da und nicht mehr nur, wenn etwas drin ist. Grund: Sie
+          ist seit dem Kalender-Klick auch eine Fläche zum Anlegen – ein Termin, bei dem der
+          Tag feststeht und die Uhrzeit noch nicht. Eine Fläche, die nur erscheint, wenn schon
+          etwas darin liegt, kann man nicht benutzen, um das erste hineinzulegen. */}
+      {(ohneZeitGesamt > 0 || !!onSlot) && (
         <div className="raster-ohnezeit">
           <div className="rk-spalte-zeit">ohne Uhrzeit</div>
           {proTag.map(({ datum, ohneZeit }) => (
-            <div key={datum} className="roz-tag">
+            <div
+              key={datum}
+              className={"roz-tag" + (onSlot ? " roz-anlegbar" : "")}
+              title={onSlot ? "Klicken: Auftrag an diesem Tag, ohne feste Uhrzeit" : undefined}
+              onClick={onSlot ? () => onSlot(datum, null, null) : undefined}
+            >
               {ohneZeit.map((o) => (
                 <button
                   key={o.id} type="button" className="roz-chip"
                   title={`${o.kunde?.name || o.title} – keine Uhrzeit gepflegt`}
-                  onClick={() => onOeffnen(o.id)}
+                  onClick={(e) => { e.stopPropagation(); onOeffnen(o.id); }}
                 >
                   {o.kunde?.name || o.title}
                 </button>
@@ -305,7 +347,12 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
           ))}
         </div>
         {proTag.map(({ datum, mitZeit }) => (
-          <div key={datum} className={"rl-tag" + (datum === heute ? " ist-heute" : "")}>
+          <div
+            key={datum}
+            className={"rl-tag" + (datum === heute ? " ist-heute" : "") + (onSlot ? " rl-anlegbar" : "")}
+            title={onSlot ? "Klicken: neuer Auftrag zu dieser Uhrzeit" : undefined}
+            onClick={onSlot ? (e) => slotKlick(e, datum) : undefined}
+          >
             {stunden.map((h) => (
               <div key={h} className="rl-linie" style={{ height: `${stundePx}px` }} />
             ))}
