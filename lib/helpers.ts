@@ -158,6 +158,31 @@ export const KUNDEN_ZUSTAND_REIHENFOLGE: readonly KundenZustand[] = [
   "red", "wiedervorlage", "termin", "green", "kein-interesse",
 ];
 
+// ---------------------------------------------------------------- Handy oder Rechner?
+//
+// Gebraucht für genau EINE Entscheidung: Soll der Anrufknopf „Auf dem Handy anrufen" anbieten?
+// Am Handy wäre das eine Meldung an sich selbst.
+//
+// WARUM NICHT `matchMedia("(hover: hover) and (pointer: fine)")`, was die naheliegende und
+// eigentlich empfohlene Antwort wäre: Am 22.09.2026 auf dem Arbeitsnotebook gemessen – es
+// liefert dort `false`. Ein Windows-Notebook mit Touchscreen meldet den Finger als primären
+// Zeiger, auch wenn eine Maus angeschlossen ist und niemand den Bildschirm anfasst. Der Knopf
+// erschien damit nie, und der Anrufknopf fiel auf „sofort wählen" zurück. Die Medienabfrage
+// beantwortet die Frage „kann man hier zeigen und schweben" – nicht die Frage, die hier zählt.
+//
+// Also andersherum: Die Geräte, die ein Handy SIND, sind eine kurze, bekannte Liste; alles
+// andere ist ein Rechner. Das iPad meldet sich seit iPadOS 13 als „Macintosh" und ist nur an
+// den Berührungspunkten zu erkennen – deshalb der zweite Teil.
+//
+// Kennungen zu lesen ist unschön und altert schlecht. Bei einer Ja/Nein-Frage, deren falsche
+// Antwort nur einen zusätzlichen Menüeintrag kostet, ist es die verlässlichere Wahl.
+export function istHandy(kennung: string, beruehrpunkte: number): boolean {
+  if (/iPhone|iPod|Android|Windows Phone/i.test(kennung)) return true;
+  // iPad (und ein Mac mit Touch Bar hat keine Berührungspunkte, ist also nicht betroffen).
+  if (/iPad/i.test(kennung)) return true;
+  return /Macintosh/i.test(kennung) && beruehrpunkte > 1;
+}
+
 export function telHref(phone: string | null | undefined): string {
   return (phone || "").replace(/[^\d+]/g, "");
 }
