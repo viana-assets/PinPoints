@@ -65,6 +65,41 @@ export function hhmmAus(minuten: number): string {
   return `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 }
 
+// ---------------------------------------------------------------- Klick ins leere Raster
+//
+// Aus einem Klick in eine Tagesspalte wird ein Terminvorschlag (Block: Auftrag aus dem
+// Kalender heraus anlegen).
+//
+// WARUM EIN FESTES 15-MINUTEN-RASTER und nicht das Terminraster aus den Betriebseinstellungen:
+// Die beiden Zahlen beantworten verschiedene Fragen. Das Terminraster sagt, wie LANG ein
+// Termin üblicherweise dauert (60, 90 Minuten); hier geht es darum, wie genau man mit dem
+// Finger zielen kann. Ein 90-Minuten-Raster ergäbe Startzeiten wie 10:30, 12:00, 13:30 – eine
+// Reihe, die niemand erwartet. 15 Minuten trifft, was man meint, und lässt sich im
+// Auftragsfenster in einem Feld nachschärfen.
+//
+// Immer ABGERUNDET, nie zum nächsten Wert: Wer auf die Linie „10:00" tippt, landet dann auch
+// bei 10:00 und nicht bei 09:45 – Menschen zielen auf die Linie, nicht zwischen zwei Linien.
+export const KLICK_RASTER_MIN = 15;
+
+export function terminAusKlick(
+  offsetY: number,
+  stundePx: number,
+  vonMinute: number,
+  dauerMin: number
+): { von: string; bis: string } {
+  const roh = vonMinute + (offsetY / stundePx) * 60;
+  const start = Math.max(0, Math.min(
+    Math.floor(roh / KLICK_RASTER_MIN) * KLICK_RASTER_MIN,
+    24 * 60 - KLICK_RASTER_MIN
+  ));
+  // Ein Termin, der über Mitternacht hinausginge, endet um 23:59. Die Datenbank verlangt
+  // seit Migration 37 ein Ende NACH dem Beginn; ein auf 24:00 gestutzter Wert wäre je nach
+  // Beginn beides nicht mehr.
+  const dauer = Math.max(KLICK_RASTER_MIN, Math.round(dauerMin));
+  const ende = Math.min(start + dauer, 23 * 60 + 59);
+  return { von: hhmmAus(start), bis: hhmmAus(ende) };
+}
+
 export type Zeitraum = { start: number; ende: number };
 
 // Der Zeitraum eines Auftrags in Minuten seit Mitternacht.

@@ -147,6 +147,32 @@ export async function testNachrichtSenden(): Promise<{ ok: boolean; text: string
   return { ok: true, text: daten.meldung || "Testnachricht verschickt." };
 }
 
+/**
+ * Schickt eine Anruf-Meldung an die eigenen Geräte: „Anrufen: ‹Kunde›". Antippen öffnet dort
+ * das Fenster mit den Rufnummern.
+ *
+ * Übergeben wird NUR die Kennung des Kunden. Name und Nummern schlägt der Server nach – so
+ * steht keine Rufnummer in einer Anfrage, die irgendwo mitgeschrieben werden könnte, und der
+ * Server prüft nebenbei über die Row-Level-Security, ob dieser Kunde überhaupt gelesen werden
+ * darf.
+ */
+export async function anrufAufsHandy(kundeId: string): Promise<{ ok: boolean; text: string }> {
+  try {
+    const antwort = await fetch("/api/push/anruf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kundeId }),
+    });
+    const daten = await antwort.json().catch(() => ({}));
+    if (!antwort.ok) return { ok: false, text: daten.error || "Der Versand ist fehlgeschlagen." };
+    return { ok: true, text: daten.meldung || "Auf dein Handy geschickt." };
+  } catch {
+    // Offline ist der häufigste Fall und kein Fehler, den man erklären müsste – nur einer, den
+    // man nennen muss, damit niemand auf ein Klingeln wartet.
+    return { ok: false, text: "Keine Verbindung – die Meldung konnte nicht verschickt werden." };
+  }
+}
+
 // Grober Gerätename, damit man in der Liste erkennt, welches Handy gemeint ist. Bewusst kein
 // Fingerabdruck – nur das, was ohnehin in jeder Anfrage steht.
 function geraetName(): string {

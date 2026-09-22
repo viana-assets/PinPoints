@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auftragsZeitraum, hhmmAus, layoutSpalten, minutenAus, zeitfenster } from "@/lib/calendar";
+import { auftragsZeitraum, hhmmAus, layoutSpalten, minutenAus, terminAusKlick, zeitfenster } from "@/lib/calendar";
 
 // Die Rechnung hinter Tages- und Wochenansicht. Ein Fehler ist hier besonders tückisch: Er
 // sieht nicht nach einem Fehler aus, sondern nach einem leeren Kalender oder nach einem
@@ -143,5 +143,41 @@ describe("zeitfenster", () => {
   it("wird durch einen kurzen Tag nicht enger", () => {
     expect(zeitfenster([{ start: 10 * 60, ende: 11 * 60 }]))
       .toEqual({ vonStunde: 7, bisStunde: 19 });
+  });
+});
+
+// Der Klick in eine freie Stelle des Rasters. Ein Fehler hier ist besonders unangenehm, weil
+// er nicht auffällt: Der Auftrag entsteht, er steht nur zur falschen Zeit im Kalender.
+describe("terminAusKlick", () => {
+  // 52 px je Stunde ist die Voreinstellung, das Fenster beginnt um 7 Uhr.
+  const px = 52;
+  const von7 = 7 * 60;
+
+  it("trifft die Stunde, auf deren Linie geklickt wurde", () => {
+    expect(terminAusKlick(0, px, von7, 60)).toEqual({ von: "07:00", bis: "08:00" });
+    expect(terminAusKlick(3 * px, px, von7, 60)).toEqual({ von: "10:00", bis: "11:00" });
+  });
+
+  it("rundet auf die Viertelstunde ab, nicht zur nächsten", () => {
+    // 20 Minuten nach 10 Uhr: 13 px bei 39 px/Stunde – wer knapp unter die Linie tippt, soll
+    // nicht in der Stunde davor landen.
+    expect(terminAusKlick(3 * px + px * 20 / 60, px, von7, 60).von).toBe("10:15");
+    expect(terminAusKlick(3 * px + px * 14 / 60, px, von7, 60).von).toBe("10:00");
+    expect(terminAusKlick(3 * px + px * 59 / 60, px, von7, 60).von).toBe("10:45");
+  });
+
+  it("nimmt die Dauer aus dem Terminraster des Betriebs", () => {
+    expect(terminAusKlick(0, px, von7, 90)).toEqual({ von: "07:00", bis: "08:30" });
+    expect(terminAusKlick(0, px, von7, 30)).toEqual({ von: "07:00", bis: "07:30" });
+  });
+
+  it("läuft nicht über Mitternacht hinaus", () => {
+    // Klick ganz unten in einen bis 24 Uhr herausgezoomten Tag.
+    expect(terminAusKlick(23.9 * px, px, 0, 120)).toEqual({ von: "23:45", bis: "23:59" });
+  });
+
+  it("verträgt einen Klick oberhalb des Fensterbeginns", () => {
+    // Kann durch das Polster über der ersten Stundenlinie entstehen: negative Position.
+    expect(terminAusKlick(-9, px, 0, 60).von).toBe("00:00");
   });
 });

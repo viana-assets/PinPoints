@@ -309,6 +309,11 @@ export const ZEITZONE = "Europe/Berlin";
 // der letzten Jahre. `kunde` bleibt bestehen, weil es ohne Auftrag trotzdem sinnvoll ist.
 export const KUNDE_PARAMETER = "kunde";
 export const AUFTRAG_PARAMETER = "auftrag";
+// „Auf dem Handy anrufen" (app/api/push/anruf): Der Rechner schickt eine Meldung, das Antippen
+// öffnet auf dem Handy ein Fenster mit den Rufnummern dieses Kunden. In der Adresse steht NUR
+// die Kennung – eine Rufnummer als Adressparameter landete im Verlauf und in jedem Protokoll,
+// das Adressen mitschreibt.
+export const ANRUF_PARAMETER = "anruf";
 
 // ---------------------------------------------------------------- Lager: Saison
 //
