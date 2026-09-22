@@ -62,6 +62,7 @@ Alle Komponenten ziehen ihre Farben ausschließlich über CSS-Custom-Properties
 (`var(--accent)` etc.) – bei künftigen Anpassungen nur die Token-Werte ändern, nicht
 einzelne Komponenten hart verdrahten.
 
+
 ## Status-Kennzeichen und anklickbare Zeilen
 
 `.badge` in vier Farben, zentral zugeordnet über `ORDER_STATUS_FARBE` (`lib/constants.ts`):
@@ -568,6 +569,25 @@ bewusst und nicht vermeidbar: Ein HTML-Element in ein Bild zu verwandeln geht im
 `globals.css` UND `etikettZeichnen()` in `lib/etikettBild.ts`; nur die Geometrie ist gedoppelt,
 nicht der Inhalt (der kommt in beiden Fällen aus derselben Liste `etiketten` in
 `ReifensatzEtikett.tsx`).
+
+## Große Zahl UND Tastatur: das Profiltiefe-Feld
+
+Das Messfeld im Radbild (`.rad-wert-gross` mit `input.rad-wert-feld`) ist ein Fall, an dem
+zwei Regeln dieses Stilblatts aufeinandertreffen – beide richtig, beide hier zu beachten:
+
+1. **Die mobile 16-px-Regel am Dateiende** vergrößert jedes Eingabefeld auf mindestens 16 px,
+   damit Safari beim Antippen nicht hineinzoomt. Beim Messfeld wirkt sie umgekehrt: Es steht
+   bei 30 px, die Regel würde es also auf die Hälfte **verkleinern**. Deshalb ist
+   `.rad-wert-feld` in der Ausschlussliste dieser Regel eingetragen – sichtbar dort, wo die
+   Regel formuliert ist, und nicht als `!important` an anderer Stelle.
+2. **Eine Klasse allein reicht gegen `input[type=text]` nicht.** Die Grundregel für Textfelder
+   trifft über einen Typ-Selektor und wiegt damit schwerer als eine Klasse. Der Selektor heißt
+   deshalb `input.rad-wert-feld`, nicht `.rad-wert-feld`. Nachgemessen, nicht angenommen: mit
+   der Klasse allein blieb das Feld bei 13 px und voller Breite.
+
+Der farbige Rahmen (rot/orange/grün nach `profilLage()`) sitzt am umschließenden `label`, nicht
+am Feld. So bleibt die Farbe dort, wo sie vorher war, und die ganze Fläche – Zahl samt Einheit
+– ist antippbar statt nur die Ziffern.
 
 ## Betriebsdaten-Maske (18.09.2026)
 

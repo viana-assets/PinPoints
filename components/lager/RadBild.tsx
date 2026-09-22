@@ -2,9 +2,9 @@ import { useState } from "react";
 import type { EingelagertesRad, Felge, RadPosition } from "@/lib/types";
 import {
   RAD_POSITIONEN, RAD_POSITION_LABEL, FELGEN, FELGE_LABEL,
-  PROFIL_HINWEIS_MM, PROFIL_KRITISCH_MM, PROFIL_GESETZLICH_MM,
+  PROFIL_HINWEIS_MM, PROFIL_KRITISCH_MM, PROFIL_GESETZLICH_MM, PROFIL_MAX_MM,
 } from "@/lib/constants";
-import { profilLage, profilText, satzProfilMm } from "@/lib/helpers";
+import { profilAusText, profilLage, profilText, profilZahl, satzProfilMm } from "@/lib/helpers";
 import type { RadFelder } from "@/lib/api/lager";
 
 // Die vier Räder eines eingelagerten Satzes – als Bild statt als Formular
@@ -98,9 +98,17 @@ export function RadBild({ raeder, anzahlRaeder, gesperrt, onSpeichern, onEntfern
   );
 }
 
-// Die Eingabe zu einem Rad. Große Schaltflächen in 0,1-Schritten statt eines Zahlenfelds:
-// gemessen wird mit Handschuhen, im Stehen, mit dem Handy in einer Hand. Die Tastatur wäre
-// hier der langsamste Weg – tippbar schlägt tippbar-und-scrollbar.
+// Die Eingabe zu einem Rad. BEIDES: große Schaltflächen in 0,1-Schritten UND ein Feld, in das
+// man die Zahl direkt tippt.
+//
+// Zuerst gab es nur die Tasten, mit der Begründung, dass mit Handschuhen im Stehen gemessen
+// wird und eine Tastatur der langsamere Weg sei. Das stimmt für die Feinkorrektur und war für
+// den Sprung falsch: Von 6,0 auf 1,0 sind es fünfzig Tipper. Gemeldet aus dem Betrieb am
+// 21.09.2026.
+//
+// Die Tasten bleiben trotzdem, und zwar genauso groß: Wer 6,0 abliest und auf 5,8 korrigiert,
+// will nicht die Tastatur öffnen. Die beiden Wege widersprechen sich nicht – sie gehören zu
+// zwei verschiedenen Bewegungen.
 function RadEingabe({ position, rad, onSchliessen, onSpeichern, onEntfernen }: {
   position: RadPosition;
   rad: EingelagertesRad | null;
@@ -109,6 +117,10 @@ function RadEingabe({ position, rad, onSchliessen, onSpeichern, onEntfernen }: {
   onEntfernen: (radId: string) => Promise<void>;
 }) {
   const [mm, setMm] = useState<number>(rad?.profiltiefe_mm ?? 6);
+  // Was im Feld STEHT, während getippt wird – „1," ist unterwegs ein gültiger Zwischenstand,
+  // aber keine Zahl. Würde bei jedem Zeichen durch `mm` ersetzt, ließe sich das Komma nicht
+  // tippen. Beim Verlassen des Feldes wird daraus wieder ein Wert.
+  const [mmText, setMmText] = useState<string>(profilZahl(rad?.profiltiefe_mm ?? 6));
   const [felge, setFelge] = useState<Felge | null>(rad?.felge ?? null);
   const [sensor, setSensor] = useState<boolean>(rad?.sensor ?? false);
   const [groesse, setGroesse] = useState(rad?.reifengroesse || "");
@@ -118,10 +130,31 @@ function RadEingabe({ position, rad, onSchliessen, onSpeichern, onEntfernen }: {
 
   const lage = profilLage(mm, GRENZEN);
 
-  function stufe(delta: number) {
+  function setzen(wert: number) {
     // Auf eine Nachkommastelle runden: 5.2 + 0.1 ergibt in Gleitkomma sonst 5.300000000000001,
     // und das steht dann so in der Datenbank.
-    setMm((alt) => Math.min(25, Math.max(0, Math.round((alt + delta) * 10) / 10)));
+    const rund = Math.min(PROFIL_MAX_MM, Math.max(0, Math.round(wert * 10) / 10));
+    setMm(rund);
+    setMmText(profilZahl(rund));
+  }
+
+  function stufe(delta: number) {
+    // Grundlage ist, was IM FELD steht – nicht der zuletzt übernommene Wert. Wer 2,0 tippt
+    // und ohne Umweg auf Plus drückt, erwartet 2,1. Der Verlust des Fokus und der Klick sind
+    // zwei Ereignisse; ob React zwischen ihnen schon neu gezeichnet hat, ist nicht zugesichert
+    // – aus 2,0 plus einem Schritt würde dann 6,1. Der Text dagegen ist nach jedem Zeichen
+    // aktuell.
+    const basis = profilAusText(mmText, PROFIL_MAX_MM) ?? mm;
+    setzen(basis + delta);
+  }
+
+  // Beim Verlassen des Feldes (oder mit der Eingabetaste) wird aus dem Getippten ein Wert.
+  // Unsinn führt zurück auf den letzten gültigen Stand – ein leeres Feld stillschweigend als
+  // 0,0 mm zu verbuchen wäre eine Messung, die niemand gemacht hat.
+  function textUebernehmen() {
+    const zahl = profilAusText(mmText, PROFIL_MAX_MM);
+    if (zahl == null) { setMmText(profilZahl(mm)); return; }
+    setzen(zahl);
   }
 
   return (
@@ -133,9 +166,24 @@ function RadEingabe({ position, rad, onSchliessen, onSpeichern, onEntfernen }: {
 
       <div className="rad-stufen">
         <button type="button" className="btn-secondary rad-stufe" onClick={() => stufe(-0.1)} aria-label="0,1 mm weniger">−</button>
-        <div className={`rad-wert-gross rad-${lage}`}>
-          {mm.toFixed(1).replace(".", ",")}<span className="rad-einheit">mm</span>
-        </div>
+        <label className={`rad-wert-gross rad-${lage}`}>
+          <input
+            // `text` mit `inputMode="decimal"`, nicht `type="number"`: Ein Zahlenfeld nimmt in
+            // deutscher Eingabe kein Komma an und zeigt auf dem iPhone trotzdem eine Tastatur,
+            // auf der das Komma die naheliegende Taste ist. Hier wird beides angenommen.
+            type="text" inputMode="decimal" enterKeyHint="done"
+            className="rad-wert-feld" aria-label="Profiltiefe in Millimetern"
+            value={mmText}
+            onChange={(e) => setMmText(e.target.value)}
+            // Beim Antippen alles markieren: Wer die Zahl ändert, will sie ersetzen, nicht
+            // hinter ihr weiterschreiben. Ohne das entsteht aus 6,0 beim Tippen von 1,0
+            // schnell eine 6,01,0.
+            onFocus={(e) => e.currentTarget.select()}
+            onBlur={textUebernehmen}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.currentTarget.blur(); } }}
+          />
+          <span className="rad-einheit">mm</span>
+        </label>
         <button type="button" className="btn-secondary rad-stufe" onClick={() => stufe(0.1)} aria-label="0,1 mm mehr">+</button>
       </div>
 

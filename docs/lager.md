@@ -379,10 +379,25 @@ ohne Zahlenvergleich; sie meint ausdrücklich den **Zustand**, nicht die Belegun
 damit dasselbe Vokabular wie der Kundenzustand (`design-system.md`).
 
 Gemessen wird im Stehen, mit Handschuhen, das Handy in einer Hand. Deshalb ±0,1 mm als große
-Schaltflächen statt eines Zahlenfelds mit Tastatur. Die Grenzwerte stehen als Konstanten in
-`lib/constants.ts`: `PROFIL_GESETZLICH_MM` 1,6 (der gesetzliche Mindestwert), darüber
-`PROFIL_KRITISCH_MM` 3 und `PROFIL_HINWEIS_MM` 4 – die Schwellen, ab denen ein Winterreifen
-praktisch nichts mehr taugt bzw. die nächste Saison knapp wird.
+Schaltflächen. Die Zahl dazwischen ist seit dem 21.09.2026 **zusätzlich ein Eingabefeld**:
+Antippen, Wert tippen, fertig.
+
+Zuerst gab es nur die Tasten, mit genau der Begründung oben. Für die Feinkorrektur stimmt sie
+– wer 6,0 abliest und auf 5,8 geht, will keine Tastatur. Für den Sprung stimmte sie nicht: Von
+6,0 auf 1,0 sind es fünfzig Tipper, und genau das kam aus dem Betrieb zurück. Beide Wege
+bleiben nebeneinander stehen, weil sie zu zwei verschiedenen Bewegungen gehören.
+
+Das Feld nimmt Komma wie Punkt an und rundet auf eine Nachkommastelle (`profilAusText()` in
+`lib/helpers.ts`). Was sich nicht als Profiltiefe lesen lässt – ein leeres Feld, „6x", „66" –
+führt zurück auf den letzten gültigen Wert; ein leeres Feld stillschweigend als 0,0 mm zu
+verbuchen wäre eine Messung, die niemand gemacht hat. Beim Antippen wird der Inhalt markiert,
+damit Tippen ihn ersetzt statt anzuhängen.
+
+Die Grenzwerte stehen als Konstanten in `lib/constants.ts`: `PROFIL_GESETZLICH_MM` 1,6 (der
+gesetzliche Mindestwert), darüber `PROFIL_KRITISCH_MM` 3 und `PROFIL_HINWEIS_MM` 4 – die
+Schwellen, ab denen ein Winterreifen praktisch nichts mehr taugt bzw. die nächste Saison knapp
+wird. Dazu `PROFIL_MAX_MM` 25 als obere Schranke der Eingabe: Sie lässt jeden realen Reifen zu
+und fängt den Tippfehler ab, bei dem aus 6 eine 66 wird.
 
 **Position darf leer bleiben.** Das lose Ersatzrad, „zwei weggeworfen, zwei eingelagert" – es
 gibt reale Sätze, die keine vier zugeordneten Räder haben. Solche Räder stehen unter dem Bild

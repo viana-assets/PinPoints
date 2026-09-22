@@ -1122,8 +1122,15 @@ tr.klickbar:hover { background: var(--hover); }
      <input> ohne type-Angabe ist ein Textfeld und würde in einer Aufzählung fehlen. Erfasst
      sind damit alle Felder, in die man schreibt; ausgenommen nur die, die gar keine
      Tastatur öffnen. Der Selektor ist zugleich spezifischer als .plz-input, .feld-kompakt
-     und .login-box input und gewinnt deshalb gegen deren kleinere Schriftgrößen. */
-  input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=color]),
+     und .login-box input und gewinnt deshalb gegen deren kleinere Schriftgrößen.
+
+     `.rad-wert-feld` ist ebenfalls ausgenommen, und zwar aus dem umgekehrten Grund: Das große
+     Messfeld steht bei 30px, also weit über der Grenze, ab der Safari hineinzoomt. Die Regel
+     würde es also nicht schützen, sondern auf die Hälfte verkleinern – aus der Zahl, die man
+     mit Handschuhen ablesen soll, würde eine gewöhnliche Formulareingabe. Die Ausnahme steht
+     in der Liste und nicht als `!important` daneben: Sie gehört sichtbar dorthin, wo die
+     Regel formuliert ist. */
+  input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=color]):not(.rad-wert-feld),
   textarea, select{font-size:16px;}
 }
 
@@ -1158,12 +1165,29 @@ tr.klickbar:hover { background: var(--hover); }
 .rad-eingabe{margin-top:10px;border:1px solid var(--border);border-radius:12px;padding:10px;
   background:var(--panel);}
 .rad-eingabe-kopf{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-/* Große Flächen in 0,1-Schritten: gemessen wird im Stehen, mit Handschuhen, das Handy in einer
-   Hand. Eine Tastatur wäre hier der langsamste Weg. */
+/* Große Flächen in 0,1-Schritten für die Feinkorrektur – gemessen wird im Stehen, mit
+   Handschuhen, das Handy in einer Hand. Seit dem 21.09.2026 ist die Zahl dazwischen aber
+   auch ein Eingabefeld: Von 6,0 auf 1,0 wären es sonst fünfzig Tipper. Die beiden Wege
+   gehören zu zwei verschiedenen Bewegungen und schließen sich nicht aus. */
 .rad-stufen{display:flex;align-items:center;justify-content:center;gap:12px;}
 .rad-stufe{width:56px;height:56px;font-size:24px;font-weight:800;border-radius:14px;}
-.rad-wert-gross{min-width:110px;text-align:center;font-size:30px;font-weight:800;
+/* Der Rahmen um Zahl UND Einheit ist jetzt ein `label`; das Feld darin hat keinen eigenen.
+   So bleibt die Farbe der Lage (rot/orange/grün) am äußeren Element, wo sie bisher war, und
+   der Antippbereich ist die ganze Fläche statt nur der Ziffern. */
+.rad-wert-gross{display:inline-flex;align-items:baseline;justify-content:center;
+  min-width:110px;text-align:center;font-size:30px;font-weight:800;
   font-family:var(--font-brand);border-radius:14px;padding:6px 10px;border:2px solid var(--border);}
+/* `input.rad-wert-feld` und nicht `.rad-wert-feld` allein: Die Grundregel für Textfelder
+   weiter oben trifft über `input[type=text]` und wiegt damit schwerer als eine Klasse für
+   sich. Nachgemessen, nicht angenommen – mit der Klasse allein blieb das Feld bei 13px und
+   voller Breite, also genau so, wie es NICHT aussehen soll.
+
+   `width:4ch`: Vier Zeichen sind „12,5" – mehr braucht eine Profiltiefe nicht. Über die ganze
+   Breite sähe das Feld aus wie ein gewöhnliches Formularfeld und nicht wie die große Zahl,
+   die man mit Handschuhen ablesen können soll. */
+input.rad-wert-feld{width:4ch;min-width:0;padding:0;border:none;background:none;box-shadow:none;
+  font:inherit;color:inherit;text-align:right;border-radius:0;}
+input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box-shadow:none;border:none;}
 .rad-einheit{font-size:13px;font-weight:600;color:var(--muted);margin-left:4px;}
 
 /* Die Profiltiefe als Marke – in der Saisonliste, am Lagerplatz und in der Platz-Historie
