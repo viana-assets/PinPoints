@@ -86,6 +86,22 @@ async function serverKenntGeraet(endpoint: string): Promise<boolean | null> {
 }
 
 /** Meldet dieses Gerät an. Muss aus einer Nutzergeste heraus aufgerufen werden. */
+/**
+ * Die Zustelladresse DIESES Browsers, falls er angemeldet ist. Gebraucht für die Geräteliste in
+ * den Einstellungen: Nur hier im Browser ist bekannt, welche Zeile in der Datenbank die eigene
+ * ist – der Server bekommt die Adresse dafür nicht zu Gesicht.
+ */
+export async function eigeneZustelladresse(): Promise<string> {
+  try {
+    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return "";
+    const anmeldung = await navigator.serviceWorker.ready;
+    const abo = await anmeldung.pushManager.getSubscription();
+    return abo?.endpoint ?? "";
+  } catch {
+    return "";
+  }
+}
+
 export async function geraetAnmelden(): Promise<{ ok: true } | { ok: false; grund: string }> {
   const schluessel = await oeffentlicherSchluessel();
   if (!schluessel) return { ok: false, grund: "Auf dem Server ist kein Push-Schlüssel hinterlegt." };

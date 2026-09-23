@@ -79,7 +79,7 @@ export function isContactedActive(cust: Customer, periodMonths: number): boolean
 // heißt er jetzt nach dem, was er bedeutet, und nicht nach dem, wie er aussieht. Die drei
 // übrigen Namen bleiben vorerst – sie sind dieselbe Schwäche, aber ihre Farben stehen nicht
 // zur Debatte, und ein halber Umbau ist schlechter als ein aufgeschobener.
-export type KundenZustand = "green" | "termin" | "wiedervorlage" | "red" | "kein-interesse";
+export type KundenZustand = "green" | "termin" | "wiedervorlage" | "red" | "kein-interesse" | "laufkundschaft";
 
 // Welcher Zustand gilt für diesen Kunden? Die Reihenfolge der Prüfungen ist die Aussage:
 //
@@ -112,6 +112,11 @@ export type KundenZustand = "green" | "termin" | "wiedervorlage" | "red" | "kein
 export function effectiveColor(
   cust: Customer, periodMonths: number, heute: string = todayStr(), hatTermin = false
 ): KundenZustand {
+  // Die Laufkundschaft steht VOR allem anderen, auch vor einem Termin: Sie ist kein Kunde, den
+  // man anruft, sondern ein Sammelposten für Barverkäufe (Migration 53). Ohne diesen Ausstieg
+  // stünde sie für immer rot in der Anrufliste – „noch nicht kontaktiert" bei jemandem, den es
+  // als Person gar nicht gibt.
+  if (cust.laufkundschaft) return "laufkundschaft";
   if (hatTermin) return "termin";
   if (cust.kontakt_ergebnis === "kein_interesse") return "kein-interesse";
   if (cust.wiedervorlage_am && cust.wiedervorlage_am > heute) return "wiedervorlage";
@@ -148,12 +153,18 @@ export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
   wiedervorlage: "Wiedervorlage",
   red: "offen",
   "kein-interesse": "kein Interesse",
+  laufkundschaft: "Laufkundschaft",
 };
 
 
 // Reihenfolge in Legenden und Auswahlen: nach Dringlichkeit, nicht alphabetisch und nicht in
 // der Reihenfolge, in der die Zustände zufällig im Typ stehen. Wer eine Liste der Zustände
 // braucht, nimmt diese – damit sie überall gleich sortiert erscheint.
+//
+// Die Laufkundschaft steht hier bewusst NICHT: Diese Liste treibt die Kartenlegende und den
+// Kartenfilter, und die Laufkundschaft hat keine Anschrift, also auch keine Nadel. Ein
+// Filterknopf für einen einzigen Datensatz, der nie auf der Karte erscheint, wäre eine
+// Schaltfläche, die immer null zeigt.
 export const KUNDEN_ZUSTAND_REIHENFOLGE: readonly KundenZustand[] = [
   "red", "wiedervorlage", "termin", "green", "kein-interesse",
 ];
@@ -957,11 +968,18 @@ export function terminZeitraum(o: { time: string | null; end_time: string | null
 export type RechnungsMangel = { schluessel: string; text: string; behebbarHier: boolean };
 
 export function rechnungsdatenMaengel(
-  kunde: { name: string; address: string; email: string | null } | null,
+  kunde: { name: string; address: string; email: string | null; laufkundschaft?: boolean } | null,
   fahrzeuge: { kennzeichen: string | null; kilometerstand: number | null }[]
 ): RechnungsMangel[] {
   const leer = (t: string | null | undefined) => (t ?? "").trim() === "";
   const maengel: RechnungsMangel[] = [];
+
+  // Laufkundschaft (Migration 53): Der Beleg ist eine Kleinbetragsrechnung nach § 33 UStDV und
+  // braucht weder Empfängerangaben noch ein Fahrzeug. Dieselbe Ausnahme steht im Trigger
+  // `pruefe_rechnungsdaten()` – und muss dort auch stehen: Die Oberfläche darf die Datenbank
+  // nicht widerlegen, aber sie ersetzt sie auch nicht. Wer hier eine der beiden Stellen
+  // ändert, ändert beide.
+  if (kunde?.laufkundschaft) return maengel;
 
   if (!kunde || leer(kunde.name)) {
     maengel.push({ schluessel: "name", text: "Name des Kunden", behebbarHier: false });

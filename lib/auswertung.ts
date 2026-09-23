@@ -36,6 +36,11 @@ export type Kennzahlen = {
   kundenBedient: number;
   auftraegeJeKunde: number;
   einlagerungen: number;
+  // Was davon über die Laufkundschaft lief (Migration 53) – Barverkäufe ohne Kundenanlage.
+  // Eigene Zahl und nicht nur ein Filter: Sie beantwortet die Frage „lohnt sich das Geschäft
+  // am Straßenrand überhaupt", und die stellt sich nur, wenn man sie sieht.
+  auftraegeLaufkundschaft: number;
+  umsatzNettoLaufkundschaft: number;
 };
 
 export type Monatswert = { monat: string; auftraege: number; umsatzNetto: number };
@@ -79,16 +84,30 @@ export function kennzahlen(daten: Auswertungsdaten, z: Zeitraum): Kennzahlen {
   const auftraege = daten.orders.filter((o) => imZeitraum(o.order_date, z));
   const erledigt = auftraege.filter((o) => o.status === "erledigt");
 
+  // Wer ist die Laufkundschaft? Höchstens einer – die Datenbank lässt seit Migration 53 keinen
+  // zweiten zu. Als Menge geführt, damit der Code auch dann stimmt, wenn es später anders wäre.
+  const laufkundschaftIds = new Set(daten.customers.filter((c) => c.laufkundschaft).map((c) => c.id));
+
   let netto = 0, steuer = 0, liste = 0;
+  let nettoLauf = 0, auftraegeLauf = 0;
   for (const auftrag of erledigt) {
     const zeilen = positionenVon(daten, auftrag.id);
     const summen = orderArticleTotals(zeilen, auftrag.rechnung_noetig);
     netto += summen.net;
     steuer += summen.vat;
     liste += listenwert(zeilen);
+    if (laufkundschaftIds.has(auftrag.customer_id)) {
+      nettoLauf += summen.net;
+      auftraegeLauf += 1;
+    }
   }
 
-  const kunden = new Set(erledigt.map((o) => o.customer_id));
+  // „Bediente Kunden" zählt die Laufkundschaft NICHT mit, und das ist der Punkt: Sie ist ein
+  // Sammelposten, kein Kunde. Als einer gezählt, machte sie aus vierzig Barverkäufen einen
+  // einzigen Kunden mit vierzig Aufträgen – und „Aufträge je Kunde" wäre keine Kennzahl mehr,
+  // sondern ein Artefakt.
+  const kunden = new Set(erledigt.map((o) => o.customer_id).filter((id) => !laufkundschaftIds.has(id)));
+  const erledigtOhneLauf = erledigt.filter((o) => !laufkundschaftIds.has(o.customer_id));
   return {
     auftraegeErledigt: erledigt.length,
     auftraegeMitRechnung: erledigt.filter((o) => o.rechnung_noetig).length,
@@ -101,8 +120,10 @@ export function kennzahlen(daten: Auswertungsdaten, z: Zeitraum): Kennzahlen {
     // Nachlass – als „minus Rabatt" wäre es eine Falschaussage.
     nachlass: Math.max(0, liste - netto),
     kundenBedient: kunden.size,
-    auftraegeJeKunde: kunden.size === 0 ? 0 : erledigt.length / kunden.size,
+    auftraegeJeKunde: kunden.size === 0 ? 0 : erledigtOhneLauf.length / kunden.size,
     einlagerungen: daten.einlagerungen.filter((e) => imZeitraum(e.created_at, z)).length,
+    auftraegeLaufkundschaft: auftraegeLauf,
+    umsatzNettoLaufkundschaft: nettoLauf,
   };
 }
 

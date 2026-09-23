@@ -53,4 +53,18 @@ describe("rechnungsdatenMaengel", () => {
   it("kommt mit einem fehlenden Kunden zurecht", () => {
     expect(rechnungsdatenMaengel(null, [auto]).length).toBe(3);
   });
+
+  // Laufkundschaft (Migration 53): Kleinbetragsrechnung nach § 33 UStDV – weder Anschrift noch
+  // Fahrzeug sind erforderlich. Dieselbe Ausnahme steht im Trigger `pruefe_rechnungsdaten()`;
+  // wer eine der beiden Stellen aendert, muss beide aendern.
+  it("verlangt bei Laufkundschaft gar nichts", () => {
+    const lauf = { name: "Laufkundschaft", address: "", email: null, laufkundschaft: true };
+    expect(rechnungsdatenMaengel(lauf, [])).toEqual([]);
+  });
+
+  it("verlangt ohne das Kennzeichen weiterhin alles", () => {
+    const ohne = { name: "Laufkundschaft", address: "", email: null, laufkundschaft: false };
+    expect(rechnungsdatenMaengel(ohne, []).map((x) => x.schluessel))
+      .toEqual(["adresse", "email", "fahrzeug"]);
+  });
 });

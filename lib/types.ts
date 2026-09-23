@@ -43,6 +43,12 @@ export type Customer = {
   // Ab wann der Kunde wieder auf der Anrufliste stehen soll. Bis dahin ist er auf der Karte
   // hellblau, danach wieder fällig – siehe `effectiveColor()` in lib/helpers.ts.
   wiedervorlage_am: string | null; // YYYY-MM-DD
+  // Sammelkunde für Barverkäufe ohne Kundenanlage (Migration 53): der Anruf von der Autobahn,
+  // bei dem niemand eine Adresse hinterlässt. Höchstens EIN Kunde je Betrieb trägt dieses
+  // Kennzeichen (teilweiser eindeutiger Index). Es nimmt ihn aus der Anrufliste und hebt beim
+  // Abschließen die Pflicht zu Empfängerangaben und Fahrzeug auf – § 33 UStDV, eine
+  // Kleinbetragsrechnung bis 250 € brutto braucht weder Namen noch Anschrift des Empfängers.
+  laufkundschaft: boolean;
   active: boolean;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
   // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen

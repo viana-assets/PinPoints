@@ -311,3 +311,63 @@ describe("artikelDetail", () => {
     expect(artikelDetail(basis(), Z, "").menge).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------- Laufkundschaft
+//
+// Der Sammelposten für Barverkäufe (Migration 53). Er zählt beim Umsatz mit und bei „Kunden
+// bedient" NICHT – die Kennzahl, die sonst still falsch würde: Vierzig Barverkäufe an einem
+// Sammelkunden ergäben sonst „1 Kunde, 40 Aufträge je Kunde".
+describe("Laufkundschaft in den Kennzahlen", () => {
+  const kunden = [
+    { id: "k1", name: "Meyer", laufkundschaft: false },
+    { id: "lauf", name: "Laufkundschaft", laufkundschaft: true },
+  ] as never;
+
+  it("zählt den Umsatz mit, den Sammelkunden aber nicht als Kunden", () => {
+    const d = daten({
+      customers: kunden,
+      orders: [
+        auftrag("a", { customer_id: "k1" }),
+        auftrag("b", { customer_id: "lauf" }),
+        auftrag("c", { customer_id: "lauf" }),
+      ],
+      orderArticles: [position("a"), position("b"), position("c")],
+    });
+    const k = kennzahlen(d, Z);
+    // Drei Aufträge à 100 € netto.
+    expect(k.umsatzNetto).toBe(300);
+    expect(k.auftraegeErledigt).toBe(3);
+    // Bedient wurde EIN echter Kunde, mit EINEM Auftrag.
+    expect(k.kundenBedient).toBe(1);
+    expect(k.auftraegeJeKunde).toBe(1);
+    // Und die Laufkundschaft steht separat da.
+    expect(k.auftraegeLaufkundschaft).toBe(2);
+    expect(k.umsatzNettoLaufkundschaft).toBe(200);
+  });
+
+  it("bleibt bei null, wenn es keine Laufkundschaft gibt", () => {
+    const d = daten({
+      customers: [{ id: "k1", name: "Meyer", laufkundschaft: false }] as never,
+      orders: [auftrag("a", { customer_id: "k1" })],
+      orderArticles: [position("a")],
+    });
+    const k = kennzahlen(d, Z);
+    expect(k.auftraegeLaufkundschaft).toBe(0);
+    expect(k.umsatzNettoLaufkundschaft).toBe(0);
+    expect(k.kundenBedient).toBe(1);
+  });
+
+  // Die Artikelauswertung ist der eigentliche Zweck des Ganzen: „Wie viel von was habe ich
+  // verkauft." Dort MUSS die Laufkundschaft mitzählen.
+  it("zählt bei den Artikeln mit", () => {
+    const d = daten({
+      customers: kunden,
+      articles: [{ id: "a1", short_name: "Radwechsel" }] as never,
+      orders: [auftrag("b", { customer_id: "lauf" })],
+      orderArticles: [position("b", { quantity: 4 })],
+    });
+    expect(jeArtikel(d, Z)).toEqual([
+      { id: "a1", name: "Radwechsel", menge: 4, umsatzNetto: 400 },
+    ]);
+  });
+});

@@ -9,7 +9,7 @@ function kunde(teil: Partial<Customer>): Customer {
     id: "k1", kundennummer: null, name: "Testkunde", address: "Teststr. 1", phone_mobile: null, phone_landline: null,
     company: null, anrede: null, email: null,
     note: null, lat: null, lng: null, geo_genauigkeit: null, status: "offen", last_contact: null,
-    kontakt_ergebnis: null, wiedervorlage_am: null, active: true, deleted_at: null,
+    kontakt_ergebnis: null, wiedervorlage_am: null, laufkundschaft: false, active: true, deleted_at: null,
   };
   return Object.assign(standard, teil);
 }
@@ -104,5 +104,27 @@ describe("kundenMitTermin", () => {
   it("fasst mehrere Auftraege desselben Kunden zu einem Eintrag zusammen", () => {
     const menge = kundenMitTermin([auftrag({}), auftrag({ order_date: "2026-10-05" })], HEUTE);
     expect(menge.size).toBe(1);
+  });
+});
+
+// Laufkundschaft (Migration 53): der Sammelposten fuer Barverkaeufe. Er darf NIE rot werden –
+// sonst stuende er fuer immer auf der Anrufliste, als „noch nicht kontaktiert" bei jemandem,
+// den es als Person gar nicht gibt.
+describe("Laufkundschaft als Zustand", () => {
+  it("schlaegt jeden anderen Zustand, auch einen offenen Termin", () => {
+    const c = kunde({ laufkundschaft: true });
+    expect(effectiveColor(c, 3, HEUTE)).toBe("laufkundschaft");
+    expect(effectiveColor(c, 3, HEUTE, true)).toBe("laufkundschaft");
+  });
+
+  it("schlaegt auch eine faellige Wiedervorlage und kein-Interesse", () => {
+    expect(effectiveColor(kunde({ laufkundschaft: true, wiedervorlage_am: "2026-01-01" }), 3, HEUTE))
+      .toBe("laufkundschaft");
+    expect(effectiveColor(kunde({ laufkundschaft: true, kontakt_ergebnis: "kein_interesse" }), 3, HEUTE))
+      .toBe("laufkundschaft");
+  });
+
+  it("aendert ohne das Kennzeichen nichts", () => {
+    expect(effectiveColor(kunde({ laufkundschaft: false }), 3, HEUTE)).toBe("red");
   });
 });
