@@ -154,13 +154,19 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
   // Geokodierung – die Koordinate stammt dann aus demselben Treffer wie der Adresstext und
   // kann gar nicht dazu unpassend sein.
   koordinate?: { lat: number; lng: number } | null;
+  // Sammelkunde für Barverkäufe (Migration 53). Er hat keine Anschrift – und darf deshalb als
+  // einziger ohne angelegt werden.
+  laufkundschaft?: boolean;
 }): Promise<{ id: string | undefined; lat: number | null; lng: number | null }> {
   let lat: number | null = fields.koordinate?.lat ?? null;
   let lng: number | null = fields.koordinate?.lng ?? null;
   // Eine Koordinate aus einem angenommenen Adressvorschlag gehört zum Adresstext desselben
   // Treffers – sie ist damit so genau wie dieser Text.
   let genauigkeit: "exakt" | "ungefaehr" | null = lat === null ? null : "exakt";
-  if (lat === null) {
+  // Für die Laufkundschaft wird NICHT nachgeschlagen. Ohne diesen Ausstieg ginge eine Anfrage
+  // mit einem leeren oder erfundenen Adresstext an den Geokodierdienst – und im schlimmsten
+  // Fall käme ein Treffer zurück, der eine Nadel irgendwo in Nürnberg setzt.
+  if (lat === null && !fields.laufkundschaft && fields.address.trim()) {
     try {
       const res = await geocodeAddress(fields.address);
       if (res) { lat = res.lat; lng = res.lng; genauigkeit = res.genauigkeit; }
@@ -175,7 +181,7 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
       .from("customers")
       .insert({
         name, address, phone_mobile, phone_landline, note, lat, lng, geo_genauigkeit: genauigkeit,
-        status: "offen", active: true,
+        status: "offen", active: true, laufkundschaft: fields.laufkundschaft === true,
         // Leere Felder als null, nicht als leere Zeichenkette – sonst stünde "" neben null für
         // dieselbe Aussage, und die Prüfbedingung auf `anrede` lehnt "" ohnehin ab.
         company: fields.company.trim() || null,
