@@ -319,6 +319,15 @@ Gesetzt wird es im Kundenfenster ganz unten, bei den Dingen, die ein Kunde **ist
 bei den Feldern, die man bei jedem Besuch ändert. Es speichert sofort, ohne den
 Speichern-Knopf: ein Haken, der erst nach einem zweiten Klick gilt, wird vergessen.
 
+**Angelegt wird sie direkt unter „Neuer Kunde"**, mit einem eigenen Ankreuzfeld. Das war ein
+Nachtrag vom selben Tag: Die erste Fassung kannte das Kennzeichen nur im Kundenfenster – und
+dorthin kam man nicht, weil das Anlegeformular eine **Adresse verlangt** und die Laufkundschaft
+definitionsgemäß keine hat. Ist das Kästchen gesetzt, entfällt die Adresspflicht, die
+Beschriftung des Feldes sagt es auch („bei Laufkundschaft nicht nötig"), und **die Geokodierung
+wird übersprungen**: Ohne diesen Ausstieg ginge eine Anfrage mit leerem oder erfundenem
+Adresstext an den Dienst, und im schlimmsten Fall käme ein Treffer zurück, der eine Nadel
+irgendwo in Nürnberg setzt.
+
 **Was das Kennzeichen bewirkt, an genau drei Stellen:**
 
 1. **Zustand.** `effectiveColor()` gibt `"laufkundschaft"` zurück, und zwar **vor allem

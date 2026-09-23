@@ -228,6 +228,25 @@ Quelltext nennt das ausdrücklich: „Auffällig kurz, und das ist Absicht."
 Eine Korrektur läuft ausschließlich über eine Stornorechnung, die eine neue Rechnung für den
 Auftrag ermöglicht (`RechnungModal` bietet nach einem Storno wieder „Neuer Entwurf" an).
 
+**Der Grund ist Pflicht (Migration 54, 23.09.2026).** Eine Stornorechnung ohne Begründung lehnt
+die Datenbank ab – `rechnungen_storno_braucht_grund` prüft, dass `storno_grund` bei
+`art = 'storno'` nicht leer ist (Leerzeichen zählen nicht). Beim AUFTRAG war der Grund seit
+Migration 20 Pflicht; ausgerechnet der Beleg, der einen anderen Beleg aufhebt, stand bis dahin
+ohne da. Bei einer Prüfung ist die erste Frage nicht „gibt es ein Storno", sondern „warum".
+
+Drei Einzelheiten, die man später sonst nicht mehr versteht:
+
+* Die Prüfbedingung ist **`not valid`**, und das ist kein Versäumnis: Sie gilt ab jetzt. Ein
+  Storno aus der Zeit davor hat keinen Grund und bekommt auch keinen nachträglich eingesetzten –
+  ein erfundener Grund stünde im Beleg, als hätte ihn jemand damals aufgeschrieben. Für jede
+  neue oder geänderte Zeile prüft Postgres trotzdem vollständig.
+* `storno_grund` steht seit Migration 54 in der Feldliste von `rechnung_unveraenderlich()`. Ohne
+  das ließe sich ausgerechnet die Begründung nachträglich austauschen, während jedes andere Feld
+  gesperrt ist.
+* Der Grund steht **in der App, nicht auf dem gedruckten Beleg**. Er ist eine interne Notiz
+  („falscher Kunde ausgewählt") und geht den Empfänger nichts an. Soll er aufs Papier, gehört er
+  in die Schlusstexte, nicht in dieses Feld.
+
 **Wo der Storno-Knopf sitzt (Stand 22.09.2026): an beiden Stellen.** Ursprünglich gab es ihn
 ausdrücklich nur im Rechnungsfenster **am Auftrag**, mit dem Argument, man solle dabei den
 Zusammenhang sehen, aus dem die Rechnung entstand. In der Praxis hieß das: Wer im Rechnungsbuch

@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **23.09.2026 – Stornogrund ist Pflicht (Migration 54).** Beim Auftrag war er es seit
+  Migration 20, bei der Rechnung nicht. Einzelheiten in `docs/rechnungen.md`.
+* **23.09.2026 – Laufkundschaft direkt anlegbar.** Das Anlegeformular verlangte eine Adresse,
+  die dieser Kunde nicht hat; jetzt entfällt die Pflicht mit dem Kennzeichen.
+
 * **22.09.2026 – Laufkundschaft (Migration 53).** Sammelkunde für Barverkäufe ohne
   Kundenanlage; nimmt den Kunden aus der Anrufliste, hebt beim Abschließen die Empfänger- und
   Fahrzeugpflicht auf (§ 33 UStDV) und zählt in der Auswertung beim Umsatz mit, bei „Kunden

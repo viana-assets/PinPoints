@@ -27,19 +27,22 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
   // Rechnungsbuch eine falsche Rechnung fand, musste über „Zum Auftrag" springen und dort
   // dasselbe Fenster noch einmal öffnen – und hat den Storno gar nicht erst gefunden. Ein
   // Argument, das den Weg verlängert, ohne einen Fehler zu verhindern, trägt nicht.
-  onStornieren: (entwurf: RechnungEntwurf & { hebt_auf: string }) => Promise<Rechnung>;
+  onStornieren: (entwurf: RechnungEntwurf & { hebt_auf: string; storno_grund: string }) => Promise<Rechnung>;
 }) {
   const [suche, setSuche] = useState("");
   const [sicht, setSicht] = useState<Sicht>("alle");
   const [offen, setOffen] = useState<string | null>(null);
   const [stornoFrage, setStornoFrage] = useState<Rechnung | null>(null);
+  const [stornoGrund, setStornoGrund] = useState("");
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
 
   async function stornieren(r: Rechnung) {
+    if (!stornoGrund.trim()) return;
     setLaeuft(true); setFehler(null); setStornoFrage(null);
     try {
-      const neu = await onStornieren(stornoAus(r, todayStr()));
+      const neu = await onStornieren(stornoAus(r, todayStr(), stornoGrund));
+      setStornoGrund("");
       // Der frische Gegenbeleg wird gezeigt: Wer storniert, will sehen, was entstanden ist –
       // nicht die Rechnung, die er gerade aufgehoben hat.
       setOffen(neu.id);
@@ -164,7 +167,7 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
               )}
               {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (
                 <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
-                  onClick={() => setStornoFrage(beleg)}>
+                  onClick={() => { setStornoGrund(""); setStornoFrage(beleg); }}>
                   Stornieren
                 </button>
               )}
@@ -173,6 +176,9 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
                   Aufgehoben am {beleg.storniert_am ? formatDate(beleg.storniert_am.slice(0, 10)) : ""} durch{" "}
                   {rechnungen.find((r) => r.id === beleg.storniert_durch)?.nummer_text ?? "eine Stornorechnung"}.
                 </span>
+              )}
+              {beleg.art === "storno" && beleg.storno_grund && (
+                <span className="small">Grund: {beleg.storno_grund}</span>
               )}
               {beleg.order_id && onAuftragOeffnen && (
                 <button type="button" className="btn-secondary btn-rand"
@@ -200,8 +206,16 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
             <p className="small">
               Danach lässt sich für diesen Auftrag eine neue Rechnung ausstellen.
             </p>
+            <div className="field">
+              <label htmlFor="stornoGrundListe">Grund der Stornierung *</label>
+              <textarea
+                id="stornoGrundListe" rows={2} value={stornoGrund} autoFocus
+                onChange={(e) => setStornoGrund(e.target.value)}
+                placeholder="z. B. falscher Kunde ausgewählt, Leistung nicht erbracht, Preis falsch"
+              />
+            </div>
             <div className="re-fussleiste">
-              <button type="button" className="btn-primary" disabled={laeuft}
+              <button type="button" className="btn-primary" disabled={laeuft || !stornoGrund.trim()}
                 onClick={() => void stornieren(stornoFrage)}>
                 Stornorechnung erzeugen
               </button>

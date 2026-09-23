@@ -32,12 +32,14 @@ export function RechnungModal({
   rechnungen: Rechnung[];
   darfSchreiben: boolean;
   onAusstellen: (entwurf: RechnungEntwurf) => Promise<Rechnung>;
-  onStornieren: (entwurf: RechnungEntwurf & { hebt_auf: string }) => Promise<Rechnung>;
+  onStornieren: (entwurf: RechnungEntwurf & { hebt_auf: string; storno_grund: string }) => Promise<Rechnung>;
   onClose: () => void;
 }) {
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const [stornoFrage, setStornoFrage] = useState<Rechnung | null>(null);
+  // Der Stornogrund (Migration 54). Pflicht – ohne ihn lehnt die Datenbank den Beleg ab.
+  const [stornoGrund, setStornoGrund] = useState("");
   // Welcher Beleg gerade gezeigt wird. Null heißt „der Entwurf".
   const [gezeigt, setGezeigt] = useState<string | null>(
     () => rechnungen.find(istGueltig)?.id ?? rechnungen.find((r) => r.art === "rechnung")?.id ?? null
@@ -74,9 +76,11 @@ export function RechnungModal({
   }
 
   async function stornieren(r: Rechnung) {
+    if (!stornoGrund.trim()) return;
     setLaeuft(true); setFehler(null); setStornoFrage(null);
     try {
-      const neu = await onStornieren(stornoAus(r, todayStr()));
+      const neu = await onStornieren(stornoAus(r, todayStr(), stornoGrund));
+      setStornoGrund("");
       setGezeigt(neu.id);
     } catch (e) {
       setFehler(e instanceof Error ? e.message : "Die Rechnung konnte nicht storniert werden.");
@@ -165,7 +169,7 @@ export function RechnungModal({
               )}
               {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (
                 <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
-                  onClick={() => setStornoFrage(beleg)}>
+                  onClick={() => { setStornoGrund(""); setStornoFrage(beleg); }}>
                   Stornieren
                 </button>
               )}
@@ -174,6 +178,13 @@ export function RechnungModal({
                   Aufgehoben am {beleg.storniert_am ? formatDate(beleg.storniert_am.slice(0, 10)) : ""} durch{" "}
                   {rechnungen.find((r) => r.id === beleg.storniert_durch)?.nummer_text ?? "eine Stornorechnung"}.
                 </span>
+              )}
+              {/* Der Grund steht in der APP, nicht auf dem gedruckten Beleg: Er ist eine interne
+                  Notiz („Kunde hat storniert", „falscher Kunde ausgewählt") und geht den
+                  Empfänger nichts an. Wer ihn auf dem Papier haben will, sagt es – dann gehört
+                  er in die Schlusstexte, nicht hierher. */}
+              {beleg.art === "storno" && beleg.storno_grund && (
+                <span className="small">Grund: {beleg.storno_grund}</span>
               )}
             </>
           ) : (
@@ -204,8 +215,19 @@ export function RechnungModal({
               <p className="small">
                 Danach lässt sich für diesen Auftrag eine neue Rechnung ausstellen.
               </p>
+              {/* Pflichtfeld. Beim Auftrag ist der Stornogrund seit Migration 20 Pflicht – bei
+                  der Rechnung war er es bis Migration 54 nicht, und ausgerechnet der Beleg, der
+                  einen anderen aufhebt, stand ohne Begründung da. */}
+              <div className="field">
+                <label htmlFor="stornoGrund">Grund der Stornierung *</label>
+                <textarea
+                  id="stornoGrund" rows={2} value={stornoGrund} autoFocus
+                  onChange={(e) => setStornoGrund(e.target.value)}
+                  placeholder="z. B. falscher Kunde ausgewählt, Leistung nicht erbracht, Preis falsch"
+                />
+              </div>
               <div className="re-fussleiste">
-                <button type="button" className="btn-primary" disabled={laeuft}
+                <button type="button" className="btn-primary" disabled={laeuft || !stornoGrund.trim()}
                   onClick={() => void stornieren(stornoFrage)}>
                   Stornorechnung erzeugen
                 </button>

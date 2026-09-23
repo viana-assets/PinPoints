@@ -1620,7 +1620,7 @@ export default function HomePage() {
     return neu;
   }
 
-  async function rechnungStornieren(entwurf: RechnungEntwurf & { hebt_auf: string }) {
+  async function rechnungStornieren(entwurf: RechnungEntwurf & { hebt_auf: string; storno_grund: string }) {
     const neu = await storniereRechnung(supabase, entwurf);
     await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen());
     await refreshOrders();
