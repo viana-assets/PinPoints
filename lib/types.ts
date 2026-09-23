@@ -530,6 +530,10 @@ export type Rechnung = {
   storniert_am: string | null;
   // Auf der STORNORECHNUNG: welche Rechnung sie aufhebt.
   hebt_auf: string | null;
+  // Auf der STORNORECHNUNG: warum aufgehoben wurde (Migration 54, Pflicht). Auf einer normalen
+  // Rechnung null. Bei einer Prüfung ist die erste Frage nicht „gibt es ein Storno", sondern
+  // „warum" – und die beantwortet niemand ein Jahr später aus dem Gedächtnis.
+  storno_grund: string | null;
   order_id: string | null;
   customer_id: string | null;
   kundennummer: number | null;

@@ -188,7 +188,7 @@ export function girocodeText(r: Pick<Rechnung, "absender" | "brutto" | "nummer_t
 // `nummer_text` ist leer und `datum` das heutige: Beides setzt beim Ausstellen die Datenbank.
 // Ein Entwurf, der schon eine Nummer trägt, wäre eine Behauptung.
 export type RechnungEntwurf = Omit<Rechnung, "id" | "nummer" | "nummer_text" | "created_at" | "created_by"
-  | "storniert_durch" | "storniert_am" | "hebt_auf">;
+  | "storniert_durch" | "storniert_am" | "hebt_auf" | "storno_grund">;
 
 export function absenderAus(b: Betrieb): RechnungAbsender {
   return {
@@ -255,10 +255,16 @@ export function entwurfBauen(opts: {
 // Die Stornorechnung: derselbe Inhalt mit umgekehrtem Vorzeichen. Kein neuer Beleg mit
 // eigenem Inhalt, sondern die Aufhebung eines bestimmten – deshalb wird kopiert und nicht
 // neu gerechnet. Was auf der Originalrechnung stand, steht auch auf ihrer Aufhebung.
-export function stornoAus(r: Rechnung, heute: string): RechnungEntwurf & { hebt_auf: string } {
+export function stornoAus(
+  r: Rechnung, heute: string, grund: string
+): RechnungEntwurf & { hebt_auf: string; storno_grund: string } {
   return {
     art: "storno",
     hebt_auf: r.id,
+    // Pflicht seit Migration 54 – die Datenbank lehnt ein Storno ohne Grund ab. Hier wird nur
+    // getrimmt, nicht geprüft: Die Maske lässt den Knopf gar nicht erst zu, und die letzte
+    // Instanz ist ohnehin die Prüfbedingung in der Datenbank.
+    storno_grund: grund.trim(),
     order_id: r.order_id,
     customer_id: r.customer_id,
     kundennummer: r.kundennummer,

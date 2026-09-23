@@ -152,7 +152,7 @@ describe("anschriftZeilen", () => {
 function beleg(teil: Partial<Rechnung> = {}): Rechnung {
   return {
     id: "r1", nummer: 1782, nummer_text: "RE1782", art: "rechnung",
-    storniert_durch: null, storniert_am: null, hebt_auf: null,
+    storniert_durch: null, storniert_am: null, hebt_auf: null, storno_grund: null,
     order_id: "o1", customer_id: "k1", kundennummer: 10619,
     datum: "2026-09-18", lieferdatum: "2026-09-15",
     empfaenger: { name: "Meier", company: null, anrede: "Herr", address: "Hauptstr. 1, 90402 Nürnberg", email: null, kundennummer: 10619 },
@@ -193,7 +193,7 @@ describe("girocodeText", () => {
 
 describe("stornoAus", () => {
   it("dreht jedes Vorzeichen und behaelt den Inhalt", () => {
-    const s = stornoAus(beleg(), "2026-09-20");
+    const s = stornoAus(beleg(), "2026-09-20", "Testgrund");
     expect(s.art).toBe("storno");
     expect(s.hebt_auf).toBe("r1");
     expect(s.brutto).toBe(-119);
@@ -207,6 +207,19 @@ describe("stornoAus", () => {
     expect(s.datum).toBe("2026-09-20");
     expect(s.lieferdatum).toBe("2026-09-15");
   });
+
+  // Pflichtangabe seit Migration 54. Die Datenbank lehnt ein Storno ohne Grund ab; hier wird
+  // nur sichergestellt, dass der Text unveraendert und getrimmt ankommt.
+  it("uebernimmt den Grund und schneidet Leerraum ab", () => {
+    expect(stornoAus(beleg(), "2026-09-20", "  Falscher Kunde ausgewaehlt  ").storno_grund)
+      .toBe("Falscher Kunde ausgewaehlt");
+  });
+
+  it("erfindet keinen Grund, wenn keiner uebergeben wird", () => {
+    // Faellt dann in der Datenbank durch die Pruefbedingung – und das ist richtig so: Ein
+    // eingesetzter Platzhalter waere eine Behauptung, es haette jemand etwas aufgeschrieben.
+    expect(stornoAus(beleg(), "2026-09-20", "   ").storno_grund).toBe("");
+  });
 });
 
 describe("istGueltig", () => {
@@ -219,7 +232,7 @@ describe("istGueltig", () => {
 
 describe("der Snapshot traegt den Steuerausweis selbst", () => {
   it("stornoAus uebernimmt mit_steuer unveraendert", () => {
-    const s = stornoAus(beleg(), "2026-09-20");
+    const s = stornoAus(beleg(), "2026-09-20", "Testgrund");
     expect(s.texte.mit_steuer).toBe(true);
   });
 
@@ -231,7 +244,7 @@ describe("der Snapshot traegt den Steuerausweis selbst", () => {
     // Der Beleg sagt selbst, wie er ausgestellt wurde – er wird nicht aus `steuer !== 0`
     // erraten. Genau daran haengt der Fall „alle Positionen steuerfrei".
     expect(ohne.texte.mit_steuer).toBe(false);
-    expect(stornoAus(ohne, "2026-09-20").texte.mit_steuer).toBe(false);
+    expect(stornoAus(ohne, "2026-09-20", "Testgrund").texte.mit_steuer).toBe(false);
   });
 });
 

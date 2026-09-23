@@ -44,7 +44,7 @@ export async function stelleRechnungAus(supabase: SupabaseClient, entwurf: Rechn
 // Migration 49 – in derselben Transaktion, damit es nicht halb passieren kann.
 export async function storniereRechnung(
   supabase: SupabaseClient,
-  entwurf: RechnungEntwurf & { hebt_auf: string }
+  entwurf: RechnungEntwurf & { hebt_auf: string; storno_grund: string }
 ): Promise<Rechnung> {
   return qOne<Rechnung>(
     "Die Rechnung konnte nicht storniert werden",
