@@ -24,6 +24,7 @@ export function AddCustomerForm({ onAdd, terminText }: {
     company: string; email: string; anrede: "" | "Herr" | "Frau";
     koordinate: { lat: number; lng: number } | null;
     auftragAnlegen: boolean;
+    laufkundschaft: boolean;
   }) => Promise<boolean>;
 }) {
   const [company, setCompany] = useState("");
@@ -36,32 +37,42 @@ export function AddCustomerForm({ onAdd, terminText }: {
   const [email, setEmail] = useState("");
   const [note, setNote] = useState("");
   const [auftragAnlegen, setAuftragAnlegen] = useState(!!terminText);
+  // Der Sammelkunde für Barverkäufe (Migration 53). Er wird genau einmal angelegt – deshalb
+  // steht das Kästchen unten bei den Ausnahmen und nicht oben bei den Feldern.
+  const [laufkundschaft, setLaufkundschaft] = useState(false);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
   function leeren() {
     setCompany(""); setAnrede(""); setName(""); setAddress(""); setKoordinate(null);
     setMobile(""); setLandline(""); setEmail(""); setNote(""); setAuftragAnlegen(false);
+    setLaufkundschaft(false);
   }
 
   async function speichern() {
-    if (!name.trim() || !address.trim()) {
+    // Die Adresse ist Pflicht – außer bei der Laufkundschaft. Sie ist der eine Kunde, der
+    // definitionsgemäß keine hat: der Anruf von der Autobahn, der jedes Mal woanders steht.
+    // Ohne diese Ausnahme müsste man eine erfundene Adresse eintippen, und die stünde dann
+    // für immer im Datensatz – vermutlich sogar mit einer Nadel irgendwo auf der Karte.
+    if (!name.trim() || (!address.trim() && !laufkundschaft)) {
       setStatus({ text: "Bitte Name und Adresse angeben.", ok: false });
       return;
     }
     setBusy(true);
     // Nur wenn die Adresse von Hand getippt wurde, muss noch nachgeschlagen werden – bei einem
     // angenommenen Vorschlag liegt die Koordinate schon vor.
-    setStatus({ text: koordinate ? "Wird angelegt …" : "Suche Adresse auf der Karte …", ok: true });
+    setStatus({ text: koordinate || laufkundschaft ? "Wird angelegt …" : "Suche Adresse auf der Karte …", ok: true });
     const gefunden = await onAdd({
       name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(),
       phone_landline: landline.trim(), note: note.trim(),
       company: company.trim(), email: email.trim(), anrede,
-      koordinate, auftragAnlegen,
+      koordinate, auftragAnlegen, laufkundschaft,
     });
     setBusy(false);
     leeren();
-    setStatus(gefunden
+    setStatus(laufkundschaft
+      ? { text: "Laufkundschaft angelegt – ohne Anschrift und ohne Nadel auf der Karte.", ok: true }
+      : gefunden
       ? { text: "Kunde angelegt und auf der Karte platziert.", ok: true }
       : { text: "Kunde angelegt – Adresse nicht gefunden, er liegt unter „Ohne Karte“.", ok: false });
   }
@@ -88,7 +99,7 @@ export function AddCustomerForm({ onAdd, terminText }: {
         </div>
       </div>
       <div className="field">
-        <label>Adresse * (Straße, PLZ Ort)</label>
+        <label>{laufkundschaft ? "Adresse (bei Laufkundschaft nicht nötig)" : "Adresse * (Straße, PLZ Ort)"}</label>
         <AdressFeld
           wert={address}
           onChange={(v) => { setAddress(v); setKoordinate(null); }}
@@ -102,6 +113,23 @@ export function AddCustomerForm({ onAdd, terminText }: {
       </div>
       <div className="field"><label>E-Mail (optional)</label><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
       <div className="field"><label>Notiz (optional)</label><textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="z. B. Winterreifen 205/55 R16" /></div>
+
+      {/* Die Laufkundschaft (Migration 53) – der einzige Kunde ohne Anschrift. Das Kästchen
+          steht unten bei den Ausnahmen und nicht oben bei den Feldern: Es wird genau einmal
+          gesetzt, und wer es versehentlich anklickt, legt keinen kaputten Kunden an, sondern
+          einen, den es schon gibt (die Datenbank lässt keinen zweiten zu). */}
+      <div className="checkbox-row erklaert">
+        <input type="checkbox" id="istLaufkundschaft" checked={laufkundschaft}
+               onChange={(e) => setLaufkundschaft(e.target.checked)} />
+        <label htmlFor="istLaufkundschaft">
+          <b>Laufkundschaft</b> – Sammelkunde für Barverkäufe ohne Kundenanlage
+          <span className="small" style={{ display: "block" }}>
+            Dann ist die Adresse nicht nötig: keine Nadel auf der Karte, kein Eintrag in der
+            Anrufliste, und beim Abschließen fragt niemand nach Anschrift oder Fahrzeug.
+            Es kann nur einen solchen Kunden geben.
+          </span>
+        </label>
+      </div>
 
       <div className="checkbox-row">
         <input type="checkbox" id="gleichAuftrag" checked={auftragAnlegen} onChange={(e) => setAuftragAnlegen(e.target.checked)} />

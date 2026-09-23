@@ -419,6 +419,15 @@
   .checkbox-row{display:flex;align-items:center;gap:7px;margin:8px 0;}
   .checkbox-row input{width:auto;}
   .checkbox-row label{margin:0;color:var(--text);font-size:13px;}
+  /* Ein Ankreuzfeld mit Erklärung darunter. Zwei Unterschiede zur schlichten Zeile: Das
+     Kästchen sitzt OBEN (bei einem vierzeiligen Text stünde es sonst irgendwo in der Mitte und
+     sähe aus, als gehöre es zur dritten Zeile), und der erklärende Satz erbt nicht die
+     Schriftstärke der Beschriftung – sonst liest sich die Erklärung so wichtig wie die
+     Beschriftung selbst. */
+  .checkbox-row.erklaert{align-items:flex-start;}
+  .checkbox-row.erklaert input{margin-top:2px;}
+  .checkbox-row label .small,
+  .checkbox-row span .small{font-weight:400;color:var(--muted);line-height:1.45;margin-top:2px;}
   /* Hier standen die Regeln für #apptFields – den aufklappbaren Terminblock im Kontaktformular.
      Entfallen am 29.08.2026: Kontakt bestätigen und Auftrag anlegen sind seither zwei getrennte
      Handlungen, der Termin hängt nicht mehr als Ankreuzfeld am Kontakt

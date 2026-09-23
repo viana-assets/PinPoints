@@ -155,6 +155,29 @@ Zusätzlich, je nach Art der Änderung:
 
 Jeder Punkt hier hat einmal Zeit gekostet.
 
+- **Eine neue Funktion ist erst fertig, wenn der Weg dorthin begehbar ist.** Die Laufkundschaft
+  war vollständig gebaut – Migration, Trigger, Zustand, Auswertung, Tests – und trotzdem nicht
+  benutzbar: Das Anlegeformular verlangt eine Adresse, die dieser Kunde nicht hat. Beim Bauen
+  einer Ausnahme immer den ERSTEN Schritt mitgehen, nicht nur den Zustand danach.
+- **Eine Regel, die in der Datenbank UND in der Oberfläche steht, gehört an beiden Stellen
+  kommentiert – mit Verweis aufeinander.** Beispiel: die Laufkundschafts-Ausnahme in
+  `pruefe_rechnungsdaten()` (Migration 53) und in `rechnungsdatenMaengel()`. Die Oberfläche darf
+  die Datenbank nicht widerlegen, ersetzt sie aber auch nicht; wer eine Stelle ändert, muss
+  beide ändern.
+- **Ein neues Pflichtfeld im Typ `Customer` bricht jeden Testaufbau, der ihn von Hand baut.**
+  `tsc` findet das zuverlässig – aber erst nach dem Kopieren aller Dateien. Beim Erweitern eines
+  zentralen Typs gleich mit `grep` nach den Testgerüsten suchen.
+- **`matchMedia("(hover: hover) and (pointer: fine)")` ist NICHT die Frage „Rechner oder
+  Handy".** Auf dem Arbeitsnotebook (Windows mit Touchscreen) liefert sie `false`, obwohl eine
+  Maus angeschlossen ist – gemessen am 22.09.2026 in der Konsole, nachdem der neue
+  Menüeintrag „nie erschien". Wer wirklich die Geräteart braucht, liest die Kennung
+  (`istHandy` in `lib/helpers.ts`): Handys sind eine kurze bekannte Liste, alles andere ist
+  ein Rechner. Und: Eine solche Weiche gehört in eine geprüfte Funktion, nicht als Einzeiler
+  in die Komponente.
+- **Die Fassungsnummer im Service Worker beweist nur, dass `public/sw.js` angekommen ist.**
+  Sie sagt nichts darüber, ob `app/page.tsx` oder eine neue Komponente mit hochgeladen wurde.
+  Bei „neue Fassung läuft, Funktion fehlt trotzdem" zuerst im ausgelieferten Programm nach
+  einer Zeichenkette aus dem neuen Code suchen, statt die Logik zu verdächtigen.
 - **`nativeEvent.offsetY` misst gegen das getroffene Element, nicht gegen das, an dem der
   Handler hängt.** Im Stundenraster wird fast immer eine Stundenlinie getroffen; der Wert wäre
   nie größer als eine Stunde. Wer aus einer Klickposition eine Größe ableitet, misst gegen

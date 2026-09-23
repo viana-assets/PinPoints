@@ -293,7 +293,7 @@ export function DetailModal(props: {
             Gespeichert wird sofort und nicht erst mit dem Speichern-Knopf: Er gehört nicht zu
             den Stammdaten im Formular darüber, und ein Haken, der erst nach einem zweiten
             Klick gilt, wird vergessen. */}
-        <label className="checkbox-row" style={{ marginBottom: 8 }}>
+        <label className="checkbox-row erklaert" style={{ marginBottom: 8 }}>
           <input
             type="checkbox"
             checked={cust.laufkundschaft === true}

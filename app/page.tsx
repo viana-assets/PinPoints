@@ -1250,6 +1250,7 @@ export default function HomePage() {
     company: string; email: string; anrede: "" | "Herr" | "Frau";
     koordinate: { lat: number; lng: number } | null;
     auftragAnlegen: boolean;
+    laufkundschaft: boolean;
   }) {
     const { id: createdId, lat } = await insertCustomer(supabase, fields);
     await refreshCustomers();
