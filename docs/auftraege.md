@@ -311,6 +311,20 @@ bleibt bestehen und schreibt dieselben Kundenfelder direkt; sein Ergebnis „Auf
 Fünf getrennte Prüfungen, in dieser Reihenfolge (Trigger auf `orders` feuern alphabetisch nach
 Namen):
 
+> **Ausnahme Laufkundschaft (Migration 53).** Trägt der Kunde das Kennzeichen
+> `customers.laufkundschaft`, überspringt `pruefe_rechnungsdaten()` die Empfänger- und
+> Fahrzeugprüfung vollständig. Grundlage ist § 33 UStDV: Eine Kleinbetragsrechnung bis 250 €
+> brutto braucht weder Namen noch Anschrift des Empfängers. Der Haken „Rechnung benötigt"
+> bleibt dabei ausdrücklich gesetzt – nur so wird die Umsatzsteuer gerechnet; ohne ihn behandelt
+> `orderArticleTotals()` die Positionen als reines Netto, und die Steuer auf die Bareinnahme
+> stünde nirgends. Die 250-Euro-Grenze prüft die Datenbank bewusst NICHT (eine Zahl im Code,
+> die bei der nächsten Gesetzesänderung still falsch wird); das Auftragsfenster weist darauf hin.
+>
+> Dieselbe Ausnahme steht ein zweites Mal in `rechnungsdatenMaengel()` (lib/helpers.ts), weil die
+> Oberfläche die Abhakliste vor dem Abschließen zeigt. **Wer eine der beiden Stellen ändert,
+> muss beide ändern** – die Oberfläche darf die Datenbank nicht widerlegen, ersetzt sie aber
+> auch nicht.
+
 **(a) Der Übergang selbst** – `enforce_order_status_transition()` (Abschnitt 3): erlaubte
 Statuswechsel, Pflichtgrund bei Storno und Wiedereröffnung, Admin/Superadmin-Pflicht bei
 Wiedereröffnung, setzt/räumt Zeitstempel und Personen.

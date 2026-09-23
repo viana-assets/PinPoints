@@ -65,6 +65,23 @@ export function RechnungsdatenBlock({
   const fahrzeugMangel = maengel.find((m) => m.schluessel === "fahrzeug" || m.schluessel === "kennzeichen");
   const kmMangel = maengel.find((m) => m.schluessel === "kilometerstand");
 
+  // Laufkundschaft: Die ganze Prüfliste entfällt – es gibt keinen Empfänger und kein Fahrzeug,
+  // nach dem zu fragen wäre. Statt einer Liste aus lauter Haken steht hier der Satz, der
+  // erklärt, warum sie fehlt. Und die Grenze, die der Betrieb im Blick behalten muss: Die
+  // Datenbank prüft die 250 Euro bewusst nicht (siehe Migration 53).
+  if (kunde?.laufkundschaft) {
+    return (
+      <div className="rechnungsdaten vollstaendig">
+        <div className="rd-kopf">Laufkundschaft – Barverkauf ohne Kundenanlage.</div>
+        <div className="small" style={{ padding: "0 12px 10px" }}>
+          Der Beleg ist eine Kleinbetragsrechnung: Name und Anschrift des Empfängers sind nicht
+          erforderlich (§ 33 UStDV), die Umsatzsteuer wird trotzdem gerechnet. Die Grenze liegt
+          bei <b>250 € brutto</b> – darüber braucht es einen richtigen Kunden mit Anschrift.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={"rechnungsdaten" + (vollstaendig ? " vollstaendig" : "")}>
       <div className="rd-kopf">

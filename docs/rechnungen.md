@@ -228,6 +228,27 @@ Quelltext nennt das ausdrücklich: „Auffällig kurz, und das ist Absicht."
 Eine Korrektur läuft ausschließlich über eine Stornorechnung, die eine neue Rechnung für den
 Auftrag ermöglicht (`RechnungModal` bietet nach einem Storno wieder „Neuer Entwurf" an).
 
+**Wo der Storno-Knopf sitzt (Stand 22.09.2026): an beiden Stellen.** Ursprünglich gab es ihn
+ausdrücklich nur im Rechnungsfenster **am Auftrag**, mit dem Argument, man solle dabei den
+Zusammenhang sehen, aus dem die Rechnung entstand. In der Praxis hieß das: Wer im Rechnungsbuch
+eine falsche Rechnung fand, musste über „Zum Auftrag" springen und dort dasselbe Fenster noch
+einmal öffnen – und hat den Storno gar nicht erst gefunden. Ein Argument, das den Weg
+verlängert, ohne einen Fehler zu verhindern, trägt nicht. Beide Fenster zeigen jetzt dieselbe
+Rückfrage im **wortgleichen** Text: Zwei Formulierungen für dieselbe Handlung wären zwei
+Gelegenheiten, sie unterschiedlich zu verstehen.
+
+### Testbelege vor dem Echtbetrieb entfernen
+
+`supabase/einmalig/testrechnungen_entfernen.sql` – **keine Migration**, sondern ein einmaliges
+Skript mit Schritt-für-Schritt-Kommentaren. Es schaltet `trg_rechnung_unveraenderlich` für die
+Dauer des Vorgangs ab, entfernt erst die Stornos (wegen `hebt_auf`), dann die Rechnungen, setzt
+`betrieb.rechnung_naechste_nummer` auf 1 und schaltet den Schutz wieder ein; Schritt 0 zeigt
+vorher, was verschwinden würde, Schritt 5 kontrolliert hinterher.
+
+**Ab wann es nicht mehr ausgeführt werden darf:** sobald die erste Rechnung an einen echten
+Kunden gegangen ist. Ab dann ist jede Lücke im Nummernkreis eine Frage bei der nächsten
+Prüfung, und „das war ein Skript" ist keine Antwort darauf.
+
 ## Positionsberechnung
 
 `positionenAusAuftrag()` (`lib/rechnung.ts`) baut aus den `order_articles`-Zeilen eines

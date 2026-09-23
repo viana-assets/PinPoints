@@ -286,6 +286,29 @@ export function DetailModal(props: {
         ))}
 
         <hr />
+        {/* Laufkundschaft (Migration 53). Der Haken steht hier unten bei den Dingen, die ein
+            Kunde IST – nicht oben bei den Feldern, die man bei jedem Besuch ändert. Er wird
+            genau einmal gesetzt, an genau einem Datensatz.
+
+            Gespeichert wird sofort und nicht erst mit dem Speichern-Knopf: Er gehört nicht zu
+            den Stammdaten im Formular darüber, und ein Haken, der erst nach einem zweiten
+            Klick gilt, wird vergessen. */}
+        <label className="checkbox-row" style={{ marginBottom: 8 }}>
+          <input
+            type="checkbox"
+            checked={cust.laufkundschaft === true}
+            onChange={(e) => { void props.onSaveFields({ laufkundschaft: e.target.checked }); }}
+          />
+          <span>
+            <b>Laufkundschaft</b> – Sammelkunde für Barverkäufe ohne Kundenanlage
+            <span className="small" style={{ display: "block" }}>
+              Nimmt diesen Kunden aus der Anrufliste und verlangt beim Abschließen weder
+              Anschrift noch Fahrzeug. Zulässig als Kleinbetragsrechnung bis 250 € brutto
+              (§ 33 UStDV). Es kann nur einen solchen Kunden geben.
+            </span>
+          </span>
+        </label>
+
         <button className="btn-secondary btn-block" style={{ marginBottom: 8 }} onClick={props.onToggleActive}>
           {cust.active === false ? "✔ Kunde reaktivieren" : "🚫 Kunde deaktivieren"}
         </button>

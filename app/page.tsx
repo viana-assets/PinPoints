@@ -141,7 +141,9 @@ const MAX_MARKER = 600;
 // trennen sich durch HELLIGKEIT, nicht durch Farbton: Das bleibt auch dann lesbar, wenn Farben
 // schlecht unterschieden werden, und es nimmt Rot nichts weg. Ein fünfter warmer Ton hätte
 // genau das getan.
-const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse">, string> = {
+// „kein Interesse" und „Laufkundschaft" fehlen hier mit Absicht: Der erste bekommt eine eigene,
+// hohle Nadel (siehe unten), die zweite hat keine Anschrift und damit nie eine Position.
+const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse" | "laufkundschaft">, string> = {
   green: "#2f9e5c",
   termin: "#1E3A5F",
   wiedervorlage: "#4FA8DC",
@@ -954,7 +956,10 @@ export default function HomePage() {
         iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -11],
       });
     }
-    const bg = MARKER_FARBE[zustand];
+    // Die Laufkundschaft hat keine Anschrift und kommt deshalb nie bis hierher. Trotzdem eine
+    // Farbe statt eines Absturzes, falls doch einmal eine Position gesetzt wird: Grau sagt
+    // „gehört nicht in diese Reihe" und nimmt keinem Zustand seinen Ton weg.
+    const bg = zustand === "laufkundschaft" ? "#9a958c" : MARKER_FARBE[zustand];
     return L.divIcon({
       className: "custom-pin",
       html: ungefaehr
@@ -1757,7 +1762,7 @@ export default function HomePage() {
   // die Liste; die Karte zeigt immer alle. Sonst stünde am Schalter eine Zahl, die nicht zu dem
   // passt, was man vor sich sieht.
   const kartenZahlen = useMemo(() => {
-    const z: Record<KundenZustand, number> = { red: 0, wiedervorlage: 0, termin: 0, green: 0, "kein-interesse": 0 };
+    const z: Record<KundenZustand, number> = { red: 0, wiedervorlage: 0, termin: 0, green: 0, "kein-interesse": 0, laufkundschaft: 0 };
     activeCustomers.forEach((c) => {
       if (c.lat == null || c.lng == null) return;
       z[kundenZustand(c)]++;
@@ -2767,7 +2772,9 @@ export default function HomePage() {
           <RechnungenPanel
             rechnungen={rechnungenQuery.data ?? KEINE_RECHNUNGEN}
             laedt={rechnungenQuery.isLoading}
+            darfSchreiben={darf("rechnungen", "schreiben")}
             onAuftragOeffnen={auftragAusRechnungOeffnen}
+            onStornieren={rechnungStornieren}
           />
         )}
 

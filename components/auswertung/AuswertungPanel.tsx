@@ -150,6 +150,13 @@ export function AuswertungPanel({ employees, articles, customers, vehicles }: {
                   unten={`${k.auftraegeJeKunde.toFixed(1).replace(".", ",")} Aufträge je Kunde`} />
           <Kachel titel="Eingelagerte Sätze" wert={String(k.einlagerungen)}
                   unten="neu ins Lager gekommen" />
+          {/* Nur da, wenn es sie gab. Eine Kachel, die das ganze Jahr „0 €" zeigt, ist keine
+              Auskunft, sondern eine Lücke im Blick. Die Laufkundschaft steckt im Gesamtumsatz
+              mit drin – bei „Kunden bedient" aber NICHT, siehe lib/auswertung.ts. */}
+          {k.auftraegeLaufkundschaft > 0 && (
+            <Kachel titel="davon Laufkundschaft" wert={formatEUR(k.umsatzNettoLaufkundschaft)}
+                    unten={`${k.auftraegeLaufkundschaft} ${k.auftraegeLaufkundschaft === 1 ? "Barverkauf" : "Barverkäufe"} · nicht bei „Kunden bedient" gezählt`} />
+          )}
         </div>
 
         <h4>Verlauf – Umsatz je Monat</h4>

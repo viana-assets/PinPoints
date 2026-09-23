@@ -16,6 +16,18 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **22.09.2026 – Laufkundschaft (Migration 53).** Sammelkunde für Barverkäufe ohne
+  Kundenanlage; nimmt den Kunden aus der Anrufliste, hebt beim Abschließen die Empfänger- und
+  Fahrzeugpflicht auf (§ 33 UStDV) und zählt in der Auswertung beim Umsatz mit, bei „Kunden
+  bedient" aber nicht. Einzelheiten in `docs/kunden-und-karte.md`.
+* **22.09.2026 – Geräteliste in den Einstellungen.** Welche Geräte hängen an meinem Konto,
+  seit wann, und ein Knopf zum Entfernen. Anlass: „An 2 Geräte geschickt" bei einem Telefon –
+  eine Karteileiche vom Neuinstallieren der App, die nur in der Datenbank zu sehen war.
+* **22.09.2026 – Storno auch aus dem Rechnungsbuch.** Bis dahin nur über den Umweg
+  „Zum Auftrag".
+* **22.09.2026 – Skript zum Entfernen der Testrechnungen**
+  (`supabase/einmalig/testrechnungen_entfernen.sql`).
+
 * **22.09.2026 – Auftrag aus dem Kalender.** Klick in eine freie Stelle des Stundenrasters →
   Kundenauswahl mit vorbelegtem Termin → vollständiges Auftragsfenster. Kein fünftes Formular;
   Einzelheiten in `docs/auftraege.md`, Abschnitt 3.

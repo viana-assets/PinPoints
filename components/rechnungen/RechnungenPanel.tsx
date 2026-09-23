@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Rechnung } from "@/lib/types";
-import { formatDate, formatEUR, suchtreffer } from "@/lib/helpers";
-import { istGueltig, mailtoRechnung } from "@/lib/rechnung";
+import { formatDate, formatEUR, suchtreffer, todayStr } from "@/lib/helpers";
+import { istGueltig, mailtoRechnung, stornoAus, type RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 
@@ -13,16 +13,42 @@ import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 
 type Sicht = "alle" | "gueltig" | "storniert";
 
-export function RechnungenPanel({ rechnungen, laedt, onAuftragOeffnen }: {
+export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOeffnen, onStornieren }: {
   rechnungen: Rechnung[];
   laedt?: boolean;
+  darfSchreiben: boolean;
   // Der Weg zurück zum Auftrag. Null, wenn der Auftrag gelöscht wurde – die Rechnung bleibt
   // trotzdem: Sie ist ein Beleg, kein Anhang.
   onAuftragOeffnen?: (orderId: string) => void;
+  // Stornieren, seit dem 22.09.2026 auch von hier aus.
+  //
+  // Vorher gab es den Knopf ausdrücklich NUR am Auftrag, mit dem Argument, man solle dabei den
+  // Zusammenhang sehen, aus dem die Rechnung entstand. In der Praxis hieß das: Wer im
+  // Rechnungsbuch eine falsche Rechnung fand, musste über „Zum Auftrag" springen und dort
+  // dasselbe Fenster noch einmal öffnen – und hat den Storno gar nicht erst gefunden. Ein
+  // Argument, das den Weg verlängert, ohne einen Fehler zu verhindern, trägt nicht.
+  onStornieren: (entwurf: RechnungEntwurf & { hebt_auf: string }) => Promise<Rechnung>;
 }) {
   const [suche, setSuche] = useState("");
   const [sicht, setSicht] = useState<Sicht>("alle");
   const [offen, setOffen] = useState<string | null>(null);
+  const [stornoFrage, setStornoFrage] = useState<Rechnung | null>(null);
+  const [laeuft, setLaeuft] = useState(false);
+  const [fehler, setFehler] = useState<string | null>(null);
+
+  async function stornieren(r: Rechnung) {
+    setLaeuft(true); setFehler(null); setStornoFrage(null);
+    try {
+      const neu = await onStornieren(stornoAus(r, todayStr()));
+      // Der frische Gegenbeleg wird gezeigt: Wer storniert, will sehen, was entstanden ist –
+      // nicht die Rechnung, die er gerade aufgehoben hat.
+      setOffen(neu.id);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : "Die Rechnung konnte nicht storniert werden.");
+    } finally {
+      setLaeuft(false);
+    }
+  }
 
   const gezeigt = useMemo(() => {
     return rechnungen.filter((r) => {
@@ -117,6 +143,7 @@ export function RechnungenPanel({ rechnungen, laedt, onAuftragOeffnen }: {
             <div className="re-kopfleiste druck-weg">
               <h3>
                 {beleg.art === "storno" ? "Stornorechnung" : "Rechnung"} {beleg.nummer_text}
+                {beleg.art === "storno" && <span className="re-pille storno">Storno</span>}
                 {beleg.storniert_durch && <span className="re-pille aufgehoben">storniert</span>}
               </h3>
               <button type="button" className="modal-close" onClick={() => setOffen(null)} aria-label="Schließen">×</button>
@@ -135,14 +162,52 @@ export function RechnungenPanel({ rechnungen, laedt, onAuftragOeffnen }: {
                   E-Mail vorbereiten
                 </a>
               )}
-              {/* Storniert wird am Auftrag, nicht hier: Dort ist der Zusammenhang sichtbar,
-                  aus dem die Rechnung entstanden ist. */}
+              {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (
+                <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
+                  onClick={() => setStornoFrage(beleg)}>
+                  Stornieren
+                </button>
+              )}
+              {beleg.storniert_durch && (
+                <span className="small">
+                  Aufgehoben am {beleg.storniert_am ? formatDate(beleg.storniert_am.slice(0, 10)) : ""} durch{" "}
+                  {rechnungen.find((r) => r.id === beleg.storniert_durch)?.nummer_text ?? "eine Stornorechnung"}.
+                </span>
+              )}
               {beleg.order_id && onAuftragOeffnen && (
                 <button type="button" className="btn-secondary btn-rand"
                   onClick={() => { setOffen(null); onAuftragOeffnen(beleg.order_id!); }}>
                   Zum Auftrag
                 </button>
               )}
+            </div>
+            {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Wortgleich zur Rückfrage im Auftragsfenster – dieselbe Handlung, dieselbe Erklärung.
+          Zwei verschiedene Texte für dasselbe wären zwei Gelegenheiten, es unterschiedlich zu
+          verstehen. */}
+      {stornoFrage && (
+        <div className="modal-overlay modal-storno" onClick={() => setStornoFrage(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ margin: "0 0 10px" }}>Rechnung {stornoFrage.nummer_text} stornieren?</h3>
+            <p>
+              Die Rechnung bleibt stehen und bekommt eine Stornorechnung mit eigener Nummer
+              daneben – so verlangt es der lückenlose Nummernkreis. Gelöscht wird nichts.
+            </p>
+            <p className="small">
+              Danach lässt sich für diesen Auftrag eine neue Rechnung ausstellen.
+            </p>
+            <div className="re-fussleiste">
+              <button type="button" className="btn-primary" disabled={laeuft}
+                onClick={() => void stornieren(stornoFrage)}>
+                Stornorechnung erzeugen
+              </button>
+              <button type="button" className="btn-secondary btn-rand" onClick={() => setStornoFrage(null)}>
+                Abbrechen
+              </button>
             </div>
           </div>
         </div>

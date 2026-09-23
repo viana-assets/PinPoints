@@ -300,3 +300,44 @@ und der Hinweis „weitere Kunden in diesem Ausschnitt" zählte Kunden mit, die 
 sehen will. Das Bedienelement steht als Geschwister von `#map` und nicht darin, weil Leaflet
 Zieh-Gesten am Kartencontainer abgreift und ein Kind darin beim Wischen die Karte mitziehen
 würde.
+
+## Laufkundschaft: der Sammelkunde für Barverkäufe (Migration 53, 22.09.2026)
+
+Es ruft jemand von der Autobahn an, braucht sofort Hilfe, zahlt bar und fährt weiter. Für jeden
+dieser Fälle einen Kunden anzulegen – mit einer Anschrift, die es nicht gibt, und einem
+Fahrzeug, das man nie wiedersieht – ist Aufwand ohne Gegenwert. Trotzdem soll die Leistung in
+der Auswertung auftauchen: *„Wie viel von was habe ich verkauft"* ist die Frage, um die es geht.
+
+**Die Lösung ist ein Kennzeichen am Kunden, keine neue Tabelle und kein Auftrag ohne Kunden.**
+`orders.customer_id` ist not null, und das soll so bleiben: Ein Auftrag ohne Kunden hätte keinen
+Ansprechpartner, keine Historie und keinen Platz in einer Kundenakte. Stattdessen gibt es EINEN
+Kunden „Laufkundschaft", an dem alle diese Aufträge hängen. Ein teilweiser eindeutiger Index
+(`customers_eine_laufkundschaft`) lässt keinen zweiten zu – zwei Sammelposten nebeneinander
+wären genau die Karteileiche, gegen die das Kennzeichen antritt.
+
+Gesetzt wird es im Kundenfenster ganz unten, bei den Dingen, die ein Kunde **ist** – nicht oben
+bei den Feldern, die man bei jedem Besuch ändert. Es speichert sofort, ohne den
+Speichern-Knopf: ein Haken, der erst nach einem zweiten Klick gilt, wird vergessen.
+
+**Was das Kennzeichen bewirkt, an genau drei Stellen:**
+
+1. **Zustand.** `effectiveColor()` gibt `"laufkundschaft"` zurück, und zwar **vor allem
+   anderen** – auch vor einem offenen Termin. Ohne diesen Ausstieg stünde der Sammelposten für
+   immer rot in der Anrufliste, als „noch nicht kontaktiert" bei jemandem, den es als Person gar
+   nicht gibt. Der Zustand steht bewusst NICHT in `KUNDEN_ZUSTAND_REIHENFOLGE`: Diese Liste
+   treibt Kartenlegende und Kartenfilter, und ohne Anschrift gibt es keine Nadel – ein
+   Filterknopf, der immer null zeigt, ist keine Hilfe.
+2. **Abschließen.** `pruefe_rechnungsdaten()` (Migration 53) und `rechnungsdatenMaengel()`
+   überspringen Empfänger- und Fahrzeugprüfung. Begründung und der Hinweis, dass beide Stellen
+   zusammengehören: `docs/auftraege.md`, Abschnitt 8.
+3. **Auswertung.** Der Umsatz zählt normal mit, bei **„Kunden bedient" aber nicht**. Als Kunde
+   gezählt, machte der Sammelposten aus vierzig Barverkäufen einen einzigen Kunden mit vierzig
+   Aufträgen – „Aufträge je Kunde" wäre dann keine Kennzahl mehr, sondern ein Artefakt. Gab es
+   im Zeitraum Barverkäufe, erscheint zusätzlich eine eigene Kachel „davon Laufkundschaft".
+
+**Die Karte löst sich von selbst:** keine Anschrift → keine Koordinate → keine Nadel. Es gibt
+trotzdem eine graue Markerfarbe für den Fall, dass doch einmal jemand von Hand einen Punkt
+setzt – ein Absturz wäre die schlechtere Antwort.
+
+**Was das Kennzeichen NICHT tut:** Es begrenzt keine Beträge. Ein Barverkauf über 250 € an einen
+namenlosen Kunden ist keine Frage der Datenbank, sondern eine des Betriebs.
