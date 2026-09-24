@@ -41,6 +41,11 @@ export function CustomerOrderRow({ order, employees, assignedEmployeeIds, orderA
         <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
       </div>
       <div><span className="small">Auftrag {order.order_number}</span> · {order.title}{order.description ? ` – ${order.description}` : ""}</div>
+      {/* Nur bei Aufträgen der Laufkundschaft gefüllt (Migration 57): In deren Kundenakte ist das
+          die Liste aller Barverkäufe – und hier steht, wer es jeweils war. */}
+      {(order.laufkunde_name || order.laufkunde_ort) && (
+        <div className="small">🧾 {[order.laufkunde_name, order.laufkunde_telefon, order.laufkunde_ort].filter(Boolean).join(" · ")}</div>
+      )}
       {empNames && <div className="small">👤 {empNames}</div>}
       <div className="small">
         {orderArticles.length === 0

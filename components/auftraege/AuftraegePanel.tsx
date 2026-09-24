@@ -5,6 +5,7 @@ import type { SortRichtung } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { IconAuftraege, IconTrash, IconNavPin } from "@/components/icons";
 import { OrderModal } from "./OrderModal";
+import { kundeFuerAuftrag } from "@/lib/laufkunde";
 
 // Aufträge-Modul: filter-/sortierbare Tabelle aller Aufträge (Status, Mitarbeiter, Kunde) sowie
 // ein Modal zum Neuanlegen. Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
@@ -87,7 +88,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
     .filter((o) => {
       if (!custFilter.trim()) return true;
-      const cust = customers.find((c) => c.id === o.customer_id);
+      const cust = kundeFuerAuftrag(o, customers);
       return !!cust && cust.name.toLowerCase().includes(custFilter.toLowerCase());
     });
 
@@ -96,7 +97,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   const SORTWERT: Record<string, (o: Order) => unknown> = {
     nr: (o) => o.order_number,
     termin: (o) => o.order_date + (o.time || ""),
-    kunde: (o) => customers.find((c) => c.id === o.customer_id)?.name ?? null,
+    kunde: (o) => kundeFuerAuftrag(o, customers)?.name ?? null,
     mitarbeiter: (o) => employeeNamesFor(o.id),
     leistungen: (o) => orderArticlesLabel(o.id),
     status: (o) => ORDER_STATUS_LABEL[o.status],
@@ -168,7 +169,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                 </tr></thead>
               <tbody>
                 {sichtbareOrders.map((o) => {
-                  const cust = customers.find((c) => c.id === o.customer_id);
+                  const cust = kundeFuerAuftrag(o, customers);
                   return (
                     <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
                       <td className="small">{o.order_number}</td>

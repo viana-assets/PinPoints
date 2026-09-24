@@ -14,19 +14,21 @@ import {
   effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
   getPhoneNumbers, navigationUrls, istHandy,
-  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, terminZeitraum,
+  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, terminZeitraum, currentArticlePrice,
 } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
   ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
-  ANRUF_PARAMETER,
+  ANRUF_PARAMETER, MITNEHMEN_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD,
   PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
   type Verb,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/aufkleberCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
 import { anrufAufsHandy } from "@/lib/push";
+import { MitnehmenFenster } from "@/components/auftraege/MitnehmenFenster";
+import { kundeZumAuftrag } from "@/lib/laufkunde";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
@@ -36,7 +38,7 @@ import {
   IconNavPin, IconMarke, IconFilter, navPinSvgHtml,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
-import { MODULE, SEKUNDAERE_TABS, type TabKey } from "@/lib/module";
+import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
 import { OfflineHinweis, useIstOffline } from "@/components/OfflineHinweis";
@@ -143,7 +145,7 @@ const MAX_MARKER = 600;
 // genau das getan.
 // „kein Interesse" und „Laufkundschaft" fehlen hier mit Absicht: Der erste bekommt eine eigene,
 // hohle Nadel (siehe unten), die zweite hat keine Anschrift und damit nie eine Position.
-const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse" | "laufkundschaft">, string> = {
+const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse" | "laufkundschaft" | "einmalkunde">, string> = {
   green: "#2f9e5c",
   termin: "#1E3A5F",
   wiedervorlage: "#4FA8DC",
@@ -193,7 +195,8 @@ export default function HomePage() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [myRole, setMyRole] = useState<Role>("user");
   const [userEmail, setUserEmail] = useState("");
-  const [tab, setTab] = useState<TabKey>("dashboard");
+  // Startet in der Einsatzplanung (START_TAB in lib/module.ts), nicht mehr im Dashboard.
+  const [tab, setTab] = useState<TabKey>(START_TAB);
   // Vollseiten-Module: hier ergibt die Karte keinen Sinn, der Inhalt bekommt die volle Breite.
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
@@ -209,6 +212,7 @@ export default function HomePage() {
   // Abfragen (siehe weiter unten beim "selectedId"-Block und in lib/queries/hooks.ts).
   const [settings, setSettings] = useState<UserSettings>({
     user_id: "", period_months: 3, map_style: "strasse", row_display: "datum",
+    abendhinweis_aktiv: true, abendhinweis_uhrzeit: ABENDHINWEIS_UHRZEIT_STANDARD,
   });
 
   const [search, setSearch] = useState("");
@@ -245,6 +249,9 @@ export default function HomePage() {
   // der Initialisierung. TypeScript kann das nicht sehen, weil der Zugriff in einem
   // find()-Callback steckt – zur Laufzeit wirft es.
   const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
+  // Abendhinweis „Reifen mitnehmen" (Migration 55): Für welchen Tag ist die Mitnehmen-Liste
+  // offen? Null = zu. Gesetzt über `?mitnehmen=YYYY-MM-DD` aus der angetippten Meldung.
+  const [mitnehmenDatum, setMitnehmenDatum] = useState<string | null>(null);
   // Zu welchem Auftrag das Rechnungsfenster offen ist. Eigener Zustand und nicht ein Schalter
   // im Auftragsfenster: Die Rechnungsliste öffnet dasselbe Fenster, ohne dass ein Auftrag
   // geöffnet sein muss.
@@ -321,7 +328,7 @@ export default function HomePage() {
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
-  const brauchtLager = tab === "lager" || tab === "saison" || kundeOffen || offenerAuftragId !== null;
+  const brauchtLager = tab === "lager" || tab === "saison" || kundeOffen || offenerAuftragId !== null || mitnehmenDatum !== null;
 
   const kundenQuery = useKunden(supabase, sitzungBereit);
   // "Kein Netz" aus DREI Quellen, weil keine für sich zuverlässig ist:
@@ -354,7 +361,7 @@ export default function HomePage() {
   // (Migration 30).
   // Auch für die Artikelauswertung: „wie viel geht auf ein Fahrzeug" braucht die Kennzeichen
   // aller Fahrzeuge, nicht nur die des geöffneten Kunden.
-  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison" || tab === "auswertung"));
+  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison" || tab === "auswertung" || mitnehmenDatum !== null));
   // Die eigenen Transporter: kleine Stammdatenliste, gebraucht überall dort, wo ein Auftrag
   // gezeigt oder eingeteilt wird (Migration 32).
   const firmenfahrzeugeQuery = useFirmenfahrzeuge(
@@ -762,6 +769,20 @@ export default function HomePage() {
     if (regel === "admin") return isAdmin;
     return canView(regel);
   }
+  // Rückfall beim Start: Darf diese Rolle die Einsatzplanung nicht sehen, bliebe die Seite beim
+  // Öffnen leer. Dann geht es aufs Dashboard – aber erst, wenn Rolle und Modulrechte wirklich
+  // geladen sind; vorher gelten Vorgaben, und ein zu früher Wechsel wäre ein Sprung, den der
+  // Nutzer nicht bestellt hat. Nur einmal: danach entscheidet allein, wohin jemand tippt.
+  //
+  // Bewusst im Rendern und nicht in einem Effekt (React-Muster „Zustand beim Rendern
+  // anpassen"): So erscheint nie für einen Augenblick eine leere Einsatzplanung, und der Linter
+  // (react-hooks/set-state-in-effect) hat nichts einzuwenden.
+  const [startGeprueft, setStartGeprueft] = useState(false);
+  if (!startGeprueft && sitzungBereit && modulrechteQuery.isSuccess) {
+    setStartGeprueft(true);
+    const startRegel = MODULE.find((m) => m.tab === START_TAB)?.sichtbar ?? null;
+    if (tab === START_TAB && !modulSichtbar(startRegel)) setTab(START_TAB_ERSATZ);
+  }
   async function loadHistory(customerId: string) {
     neuLaden(qk.kundeHistorie(customerId));
   }
@@ -959,7 +980,9 @@ export default function HomePage() {
     // Die Laufkundschaft hat keine Anschrift und kommt deshalb nie bis hierher. Trotzdem eine
     // Farbe statt eines Absturzes, falls doch einmal eine Position gesetzt wird: Grau sagt
     // „gehört nicht in diese Reihe" und nimmt keinem Zustand seinen Ton weg.
-    const bg = zustand === "laufkundschaft" ? "#9a958c" : MARKER_FARBE[zustand];
+    // Dasselbe für den Einmalkunden ohne Termin (Migration 57): Er fällt schon im Kartenfilter
+    // heraus, weil sein Zustand nicht in KUNDEN_ZUSTAND_REIHENFOLGE steht.
+    const bg = zustand === "laufkundschaft" || zustand === "einmalkunde" ? "#9a958c" : MARKER_FARBE[zustand];
     return L.divIcon({
       className: "custom-pin",
       html: ungefaehr
@@ -1251,6 +1274,7 @@ export default function HomePage() {
     koordinate: { lat: number; lng: number } | null;
     auftragAnlegen: boolean;
     laufkundschaft: boolean;
+    einmalkunde: boolean;
   }) {
     const { id: createdId, lat } = await insertCustomer(supabase, fields);
     await refreshCustomers();
@@ -1490,7 +1514,10 @@ export default function HomePage() {
     await neuLaden(qk.eingelagerteRaeder());
   }
 
-  async function updateOrder(id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean; status: OrderStatus; assignedEmployeeIds: string[] }) {
+  async function updateOrder(id: string, fields: {
+    title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean;
+    status: OrderStatus; assignedEmployeeIds: string[]; laufkunde?: { name: string; telefon: string; ort: string };
+  }) {
     await updateOrderById(supabase, id, fields);
     // Die Einteilung nur anfassen, wenn sie sich wirklich geändert hat. Zwei Gründe, und der
     // zweite ist der wichtigere:
@@ -1753,7 +1780,9 @@ export default function HomePage() {
       else if (farbe === "green") z.ok++;
       else if (farbe === "wiedervorlage") z.wiedervorlage++;
       else if (farbe === "termin") z.termin++;
-      else z.kein_interesse++;
+      // Nur „kein Interesse" zählt hier. Bis zum 24.09.2026 stand ein bloßes `else` – damit
+      // zählte die Laufkundschaft unter „kein Interesse" mit, und der Einmalkunde täte es auch.
+      else if (farbe === "kein-interesse") z.kein_interesse++;
     });
     return z;
   }, [vorgefiltert, kundenZustand]);
@@ -1763,7 +1792,7 @@ export default function HomePage() {
   // die Liste; die Karte zeigt immer alle. Sonst stünde am Schalter eine Zahl, die nicht zu dem
   // passt, was man vor sich sieht.
   const kartenZahlen = useMemo(() => {
-    const z: Record<KundenZustand, number> = { red: 0, wiedervorlage: 0, termin: 0, green: 0, "kein-interesse": 0, laufkundschaft: 0 };
+    const z: Record<KundenZustand, number> = { red: 0, wiedervorlage: 0, termin: 0, green: 0, "kein-interesse": 0, laufkundschaft: 0, einmalkunde: 0 };
     activeCustomers.forEach((c) => {
       if (c.lat == null || c.lng == null) return;
       z[kundenZustand(c)]++;
@@ -1828,7 +1857,9 @@ export default function HomePage() {
     () =>
       customers
         .filter((c) => c.active !== false)
-        .flatMap((c) => (auftraegeJeKunde[c.id] || KEINE_AUFTRAEGE).map((o) => ({ cust: c, order: o, past: isOrderPast(o) })))
+        // `kundeZumAuftrag`: Bei der Laufkundschaft steht der eingetragene Laufkunde da, mit
+        // seiner Nummer und seinem Einsatzort (Migration 57, lib/laufkunde.ts).
+        .flatMap((c) => (auftraegeJeKunde[c.id] || KEINE_AUFTRAEGE).map((o) => ({ cust: kundeZumAuftrag(o, c) ?? c, order: o, past: isOrderPast(o) })))
         .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime()),
     [customers, auftraegeJeKunde]
   );
@@ -1872,6 +1903,15 @@ export default function HomePage() {
   // Sätze OHNE Saison verschwinden nicht, sie tauchen unter „Alle" auf. Sie stillschweigend
   // wegzufiltern hieße, eine Lücke unsichtbar zu machen – und die Liste behauptete
   // Vollständigkeit, die sie nicht hat.
+  // Der heute gültige Monatspreis der Lagergebühr, für die Langlieger-Übersicht (Fahrplan E4).
+  // Gibt es mehrere Gebührenartikel, zählt der erste aktive – derselbe, den der Auslagern-Dialog
+  // vorschlägt. Ohne gepflegten Preis null: Dann rechnet die Übersicht nur in Monaten.
+  const lagergebuehrJeMonat = useMemo(() => {
+    const artikel = articles.find((a) => a.active && a.abrechnungsart === "lagergebuehr");
+    if (!artikel) return null;
+    return currentArticlePrice(articlePrices.filter((p) => p.article_id === artikel.id), todayStr())?.net_price ?? null;
+  }, [articles, articlePrices]);
+
   const saisonZeilen = useMemo<SaisonZeile[]>(() => {
     if (tab !== "saison") return [];
     const kundeNach = new Map(customers.map((c) => [c.id, c]));
@@ -2004,6 +2044,17 @@ export default function HomePage() {
       void neuLaden(qk.kunden());
       return;
     }
+    // Abendhinweis „Reifen mitnehmen": die Liste für den genannten Tag. Nur ein gültiges Datum –
+    // ein verstümmelter Parameter öffnet nichts, statt eine leere Liste zu zeigen.
+    const mitnehmen = parameter.get(MITNEHMEN_PARAMETER);
+    if (mitnehmen && /^\d{4}-\d{2}-\d{2}$/.test(mitnehmen)) {
+      setMitnehmenDatum(mitnehmen);
+      // Aufträge und Lager frisch holen: Der gespeicherte Stand auf dem Handy kann von heute
+      // Mittag sein, der Hinweis rechnet mit dem Stand von eben.
+      void auftraegeNeuLaden();
+      void neuLaden(qk.einlagerungen());
+      return;
+    }
     const auftragId = parameter.get(AUFTRAG_PARAMETER);
     if (auftragId) {
       setOffenerAuftragId(auftragId);
@@ -2028,8 +2079,10 @@ export default function HomePage() {
   // wieder auf denselben Auftrag.
   useEffect(() => {
     const parameter = new URLSearchParams(window.location.search);
-    if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER) && !parameter.get(ANRUF_PARAMETER)) return;
+    if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER) && !parameter.get(ANRUF_PARAMETER)
+      && !parameter.get(MITNEHMEN_PARAMETER)) return;
     const uebrig = new URLSearchParams(window.location.search);
+    uebrig.delete(MITNEHMEN_PARAMETER);
     uebrig.delete(AUFTRAG_PARAMETER);
     uebrig.delete(KUNDE_PARAMETER);
     uebrig.delete(ANRUF_PARAMETER);
@@ -2271,7 +2324,7 @@ export default function HomePage() {
   const occupiedSlots = lagerKennzahlenQuery.data?.belegt ?? 0;
   const slotsGesamt = lagerKennzahlenQuery.data?.gesamt ?? 0;
   const openOrders = orders.filter((o) => o.status !== "erledigt").length;
-  // Hauptnavigation: Dashboard/Kunden/Aufträge sind immer sichtbar. Alles andere ist auf dem
+  // Hauptnavigation: Dashboard/Einsatzplanung/Aufträge/Kunden stehen vorn (lib/module.ts). Alles andere ist auf dem
   // Desktop Teil der breiten Seitenleiste (wie in einem ERP-System), auf dem Handy dagegen
   // hinter "Weitere" versteckt, damit die schmale Leiste dort nicht überladen wirkt.
   const isMoreActive = SEKUNDAERE_TABS.includes(tab);
@@ -2640,6 +2693,8 @@ export default function HomePage() {
             storageSlots={storageSlots}
             tireStorages={tireStorages}
             eingelagerteRaeder={eingelagerteRaeder}
+            lagergebuehrJeMonat={lagergebuehrJeMonat}
+            onOpenCustomer={openDetail}
             onAddWarehouse={addWarehouse}
             onUpdateWarehouse={updateWarehouse}
             onDeleteWarehouse={deleteWarehouse}
@@ -2759,6 +2814,7 @@ export default function HomePage() {
             onFirmenfahrzeugAendern={firmenfahrzeugAendern}
             onFirmenfahrzeugAusmustern={firmenfahrzeugStilllegen}
             onKundeOeffnen={openDetail}
+            onKundenbestandGeaendert={() => { void neuLaden(qk.kunden()); void auftraegeNeuLaden(); }}
           />
         )}
 
@@ -2888,6 +2944,23 @@ export default function HomePage() {
         );
       })()}
 
+      {/* Nach dem Antippen des Abendhinweises „Morgen … mitnehmen" (Migration 55). */}
+      {mitnehmenDatum && (
+        <MitnehmenFenster
+          supabase={supabase}
+          datum={mitnehmenDatum}
+          orders={orders}
+          tireStorages={tireStorages}
+          customers={customers}
+          vehicles={alleFahrzeuge}
+          storageSlots={storageSlots}
+          warehouses={warehouses}
+          laedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
+          onClose={() => setMitnehmenDatum(null)}
+          onAuftragOeffnen={(id) => { setMitnehmenDatum(null); setOffenerAuftragId(id); }}
+        />
+      )}
+
       {callMenuFor && (
         <>
           <div style={{ position: "fixed", inset: 0, zIndex: 19999 }} onClick={() => setCallMenuFor(null)} />
@@ -3008,7 +3081,12 @@ export default function HomePage() {
 
       {offenerAuftrag && (
         <AuftragModal
+          // Ein anderer Auftrag = ein neues Fenster mit frischem Entwurf (Fahrplan D6).
+          key={offenerAuftrag.id}
           order={offenerAuftrag}
+          andereAuftraege={orders}
+          auftragsZuordnungen={orderEmployees}
+          kundeName={(id) => customers.find((c) => c.id === id)?.name ?? "Unbekannter Kunde"}
           customer={customers.find((c) => c.id === offenerAuftrag.customer_id)}
           vehicles={auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE}
           employees={employees}

@@ -25,6 +25,7 @@ export function AddCustomerForm({ onAdd, terminText }: {
     koordinate: { lat: number; lng: number } | null;
     auftragAnlegen: boolean;
     laufkundschaft: boolean;
+    einmalkunde: boolean;
   }) => Promise<boolean>;
 }) {
   const [company, setCompany] = useState("");
@@ -40,13 +41,16 @@ export function AddCustomerForm({ onAdd, terminText }: {
   // Der Sammelkunde für Barverkäufe (Migration 53). Er wird genau einmal angelegt – deshalb
   // steht das Kästchen unten bei den Ausnahmen und nicht oben bei den Feldern.
   const [laufkundschaft, setLaufkundschaft] = useState(false);
+  // Einmalkunde (Migration 57): Anschrift wie jeder andere, aber ohne Nadel und ohne Platz in der
+  // Anrufliste – außer solange ein Termin vor ihm liegt. Schließt die Laufkundschaft aus.
+  const [einmalkunde, setEinmalkunde] = useState(false);
   const [status, setStatus] = useState<{ text: string; ok: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
   function leeren() {
     setCompany(""); setAnrede(""); setName(""); setAddress(""); setKoordinate(null);
     setMobile(""); setLandline(""); setEmail(""); setNote(""); setAuftragAnlegen(false);
-    setLaufkundschaft(false);
+    setLaufkundschaft(false); setEinmalkunde(false);
   }
 
   async function speichern() {
@@ -66,12 +70,14 @@ export function AddCustomerForm({ onAdd, terminText }: {
       name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(),
       phone_landline: landline.trim(), note: note.trim(),
       company: company.trim(), email: email.trim(), anrede,
-      koordinate, auftragAnlegen, laufkundschaft,
+      koordinate, auftragAnlegen, laufkundschaft, einmalkunde: einmalkunde && !laufkundschaft,
     });
     setBusy(false);
     leeren();
     setStatus(laufkundschaft
       ? { text: "Laufkundschaft angelegt – ohne Anschrift und ohne Nadel auf der Karte.", ok: true }
+      : einmalkunde && gefunden
+      ? { text: "Einmalkunde angelegt – eine Nadel erscheint nur, solange ein Termin ansteht.", ok: true }
       : gefunden
       ? { text: "Kunde angelegt und auf der Karte platziert.", ok: true }
       : { text: "Kunde angelegt – Adresse nicht gefunden, er liegt unter „Ohne Karte“.", ok: false });
@@ -120,13 +126,28 @@ export function AddCustomerForm({ onAdd, terminText }: {
           einen, den es schon gibt (die Datenbank lässt keinen zweiten zu). */}
       <div className="checkbox-row erklaert">
         <input type="checkbox" id="istLaufkundschaft" checked={laufkundschaft}
-               onChange={(e) => setLaufkundschaft(e.target.checked)} />
+               onChange={(e) => { setLaufkundschaft(e.target.checked); if (e.target.checked) setEinmalkunde(false); }} />
         <label htmlFor="istLaufkundschaft">
           <b>Laufkundschaft</b> – Sammelkunde für Barverkäufe ohne Kundenanlage
           <span className="small" style={{ display: "block" }}>
             Dann ist die Adresse nicht nötig: keine Nadel auf der Karte, kein Eintrag in der
             Anrufliste, und beim Abschließen fragt niemand nach Anschrift oder Fahrzeug.
             Es kann nur einen solchen Kunden geben.
+          </span>
+        </label>
+      </div>
+
+      {/* Einmalkunde (Migration 57) – gleich unter der Laufkundschaft, weil beides Ausnahmen
+          vom normalen Rhythmus sind; es gilt immer nur eines von beiden. */}
+      <div className="checkbox-row erklaert">
+        <input type="checkbox" id="istEinmalkunde" checked={einmalkunde}
+               onChange={(e) => { setEinmalkunde(e.target.checked); if (e.target.checked) setLaufkundschaft(false); }} />
+        <label htmlFor="istEinmalkunde">
+          <b>Einmalkunde</b> – für die Nadeln nicht beachten
+          <span className="small" style={{ display: "block" }}>
+            Mit Anschrift wie jeder andere, aber keine rote Nadel und kein Eintrag in der
+            Anrufliste. Solange ein Termin vor ihm liegt, zeigt ihn die dunkelblaue Termin-Nadel.
+            Kommt er doch wieder, im Kundenfenster den Haken herausnehmen.
           </span>
         </label>
       </div>

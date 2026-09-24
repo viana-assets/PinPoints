@@ -3,6 +3,7 @@ import type { Customer, Employee, Order } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { KALENDER_VON_STUNDE, KALENDER_BIS_STUNDE } from "@/lib/constants";
 import { auftragsZeitraum, employeeColorFor, hhmmAus, layoutSpalten, terminAusKlick, toDateStr, zeitfenster } from "@/lib/calendar";
+import { kundeFuerAuftrag } from "@/lib/laufkunde";
 
 // Tages- und Wochenansicht als Stundenraster (Block B).
 //
@@ -231,7 +232,8 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
     for (const o of desTages) {
       const angereichert: RasterAuftrag = {
         ...o,
-        kunde: customers.find((c) => c.id === o.customer_id) ?? null,
+        // Bei der Laufkundschaft der eingetragene Laufkunde (Migration 57, lib/laufkunde.ts).
+        kunde: kundeFuerAuftrag(o, customers) ?? null,
         mitarbeiterIds: orderEmployees[o.id] ?? [],
       };
       const zeitraum = auftragsZeitraum(o, standardDauerMin);

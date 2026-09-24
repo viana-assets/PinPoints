@@ -16,6 +16,48 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **24.09.2026 – Laufkunde am Auftrag und Einmalkunde (Migration 57, Service Worker v63).**
+  Aufträge der Laufkundschaft tragen Name (Pflicht beim Abschließen), Telefon und Einsatzort;
+  der Name erscheint überall statt „Laufkundschaft" und als Empfänger auf der Rechnung. Neuer
+  Haken „Einmalkunde": keine Nadel und keine Anrufliste – außer als Termin-Nadel, solange ein
+  Termin ansteht. Einzelheiten in `docs/kunden-und-karte.md`.
+
+* **23.09.2026 – Navigation neu geordnet (Service Worker v62/v63).** Dashboard, Einsatzplanung,
+  Aufträge, Kunden, dann alles Weitere – in der Seitenleiste wie in der unteren Leiste am Handy,
+  die damit fünf statt vier Punkte hat. Eine Liste für beide: `MODULE` in `lib/module.ts`.
+  **Die App startet in der Einsatzplanung** (`START_TAB`); wer sie nicht sehen darf, landet auf
+  dem Dashboard.
+
+* **23.09.2026 – Runde 35 (Migrationen 55 und 56, Service Worker v61).** In einem Zug:
+  * **D1** Hinweis auf Doppelbuchung beim Einteilen von Mitarbeiter oder Transporter – kein
+    Verbot, ein bernsteinfarbener Hinweis direkt unter der Auswahl (`lib/ueberschneidung.ts`).
+  * **D3** Ein belegter Lagerplatz und ein Lager mit belegten Plätzen lassen sich nicht mehr
+    löschen, auch nicht über die Datenbank. Frühere Einlagerungen sperren nicht; die Rückfrage
+    nennt, wie viele mitgelöscht werden (entschieden am 23.09.2026).
+  * **D7** Die nächste Rechnungsnummer ist fest, sobald eine Rechnung existiert – nur noch
+    „höchste vergebene plus eins", in der Maske und im Trigger.
+  * **C4, D5, D6** Protokoll-Beschriftungen nachgezogen (alle Spalten aller protokollierten
+    Tabellen gegengeprüft); alte stornierte Aufträge fallen aus dem Zeitfenster; das
+    Auftragsfenster setzt beim Auftragswechsel über `key` vollständig neu auf.
+  * **E4** Langlieger-Übersicht auf der Lager-Startseite, Schwellen einstellbar.
+  * **B1** Das Protokoll wird nach **36 Monaten** geschwärzt (Name, Anschrift, Telefon, E-Mail,
+    Koordinaten, Kennzeichen, Freitexte) – nächtlich über pg_cron, die Zeile bleibt stehen.
+  * **B2** Papierkorb im Adminbereich: Wiederherstellen, und für den Superadmin endgültig
+    löschen samt Protokoll. Ausgestellte Rechnungen bleiben als Beleg.
+  * **Neu: Abendhinweis „Reifen mitnehmen"** – um eine Uhrzeit je Person (Vorgabe 20:00) eine
+    Meldung, welche eingelagerten Sätze morgen mitmüssen, mit Name und Lagerplatz. Einzelheiten
+    in `docs/benachrichtigungen-plan.md`, letzter Abschnitt.
+  * **Tarnung auch in den Meldungen:** Push-Meldungen tragen das Symbol und bei der
+    Testnachricht den Namen aus `lib/erscheinung.ts` („Settings"), nicht mehr PinPoints.
+  * **Das Skript `supabase/einmalig/testrechnungen_entfernen.sql` ist entfernt.** Es hätte ohne
+    Sperre ALLE Rechnungen gelöscht und den Kreis auf 1 gesetzt – seit RE1783 (echte Rechnung)
+    darf es nicht mehr laufen. Seit Migration 55 würde der Trigger das Zurücksetzen ohnehin
+    ablehnen, solange Rechnungen existieren.
+
+* **23.09.2026 – Push bei gesperrtem Bildschirm und im Fokus „Fahren" bestätigt** (vormals F2).
+  Die Frage stand seit dem 09.09.2026 offen und war die Voraussetzung für Terminerinnerung und
+  „Auf dem Handy anrufen". Beide tragen damit im Alltag.
+
 * **23.09.2026 – Stornogrund ist Pflicht (Migration 54).** Beim Auftrag war er es seit
   Migration 20, bei der Rechnung nicht. Einzelheiten in `docs/rechnungen.md`.
 * **23.09.2026 – Laufkundschaft direkt anlegbar.** Das Anlegeformular verlangte eine Adresse,
@@ -30,15 +72,16 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
   eine Karteileiche vom Neuinstallieren der App, die nur in der Datenbank zu sehen war.
 * **22.09.2026 – Storno auch aus dem Rechnungsbuch.** Bis dahin nur über den Umweg
   „Zum Auftrag".
-* **22.09.2026 – Skript zum Entfernen der Testrechnungen**
-  (`supabase/einmalig/testrechnungen_entfernen.sql`).
+* **22.09.2026 – Skript zum Entfernen der Testrechnungen** – am 23.09.2026 wieder entfernt,
+  siehe oben.
 
 * **22.09.2026 – Auftrag aus dem Kalender.** Klick in eine freie Stelle des Stundenrasters →
   Kundenauswahl mit vorbelegtem Termin → vollständiges Auftragsfenster. Kein fünftes Formular;
   Einzelheiten in `docs/auftraege.md`, Abschnitt 3.
 * **22.09.2026 – „Auf dem Handy anrufen".** Am Rechner klicken, auf dem iPhone telefonieren
   (`/api/push/anruf`). Einzelheiten in `docs/benachrichtigungen-plan.md`, letzter Abschnitt.
-  Steht und fällt mit F2 (Gerätetest der Push-Zustellung).
+  Die Zustellung auf dem iPhone ist seit dem 23.09.2026 bestätigt, auch bei gesperrtem
+  Bildschirm.
 
 ---
 
@@ -47,39 +90,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 Abschnitt A ist am 21.09.2026 abgearbeitet: die vier Punkte, die hier standen (Auslagern im
 Auftragsfenster ohne Gebühr, der ungeprüft bestätigbare Auslagern-Dialog ohne gültigen Preis,
 das doppelt gepflegte Fahrzeug am Auftrag, `todayStr()` in UTC statt Ortszeit) sind behoben –
-Details dazu stehen in `auftraege.md`, `lager.md` und `architektur.md`, nicht mehr hier. Nach
-der Reihenfolge in Abschnitt G ist der nächste, dringendste offene Punkt **F2** (Gerätetest der
-Terminerinnerung bei gesperrtem Bildschirm/Fokusmodus „Fahren") – zehn Minuten Aufwand, die
-klären, ob die Push-Erinnerung im Alltag überhaupt ankommt.
+Details dazu stehen in `auftraege.md`, `lager.md` und `architektur.md`, nicht mehr hier. Der
+Gerätetest der Terminerinnerung (vormals F2) ist am 23.09.2026 ebenfalls erledigt: Die Meldung
+kommt bei gesperrtem Bildschirm und im Fokusmodus „Fahren" an. Damit steht die Push-Strecke
+vollständig – auch „Auf dem Handy anrufen", das daran hing.
 
 ---
 
 ## B. Sicherheit, Recht, Datenschutz
 
-### B1. Das Protokoll wächst unbegrenzt und enthält personenbezogene Daten
-
-`audit_log` speichert vollständige Zeilenstände als jsonb – also auch Name, Adresse,
-Telefonnummern, E-Mail und Koordinaten, und zwar dauerhaft. Migration 36 sagt das selbst:
-es ist die einzige Tabelle, die nie kleiner wird. Die 90 Tage in der Oberfläche sind ein
-Anzeigefilter, keine Aufbewahrungsregel.
-
-Ein gelöschter Kunde bleibt damit über sein Änderungsprotokoll unbegrenzt einsehbar. Für
-ein DSGVO-Löschkonzept fehlt beides: eine Frist und ein Weg, sie umzusetzen.
-
-*Zu entscheiden:* Aufbewahrungsfrist festlegen (z. B. 24 Monate), danach die
-personenbezogenen Felder in alten Einträgen anonymisieren statt die Zeile zu löschen –
-die Nachvollziehbarkeit „wer hat wann was geändert" bleibt dann erhalten.
-Aufwand: mittel. Vorher fachlich/rechtlich klären, nicht einfach bauen.
-
-### B2. Kein Löschkonzept für Kunden
-
-Kunden werden nur als gelöscht markiert (`deleted_at`). Es gibt keinen Weg, einen Kunden
-auf Wunsch tatsächlich zu entfernen, und keine Ansicht, die zeigt, seit wann etwas als
-gelöscht markiert ist. Für eine Auskunfts- oder Löschanfrage nach DSGVO gibt es damit
-heute keinen bedienbaren Ablauf.
-
-*Vorschlag:* erst die kleine Stufe – Papierkorb-Ansicht mit Löschdatum. Die endgültige
-Löschung danach entscheiden, zusammen mit B1. Aufwand: klein (Stufe 1).
+*B1 (Protokoll-Aufbewahrung) und B2 (Löschkonzept für Kunden) sind am 23.09.2026 erledigt,
+siehe „Zuletzt erledigt".*
 
 ### B3. Geokodierung: Drosselung wirkt nur je Serverinstanz
 
@@ -143,13 +164,6 @@ sind. Sie stehen hier, damit sie niemand in guter Absicht kaputtmacht:
 - `AuftraegePanel.tsx` und `EinsatzplanungPanel.tsx` tragen noch Kommentare aus der Zeit
   vor Migration 41 („Techniker darf keine Leistungen ändern") – das stimmt nicht mehr.
 
-### C4. Protokoll-Beschriftungen nachziehen
-
-`auftrag_fahrzeuge` und das Feld `kilometerstand` (Migration 44) fehlen in
-`PROTOKOLL_TABELLE_LABEL` bzw. `PROTOKOLL_FELD_LABEL`. Sie erscheinen im Protokoll als
-Rohname. Zwei Zeilen. Aufwand: winzig – und genau der Fehler, vor dem der Kommentar an
-dieser Konstante selbst warnt.
-
 ### C5. Große Dateien
 
 `app/page.tsx` ist wieder auf rund 3.100 Zeilen gewachsen (nach der Sanierung waren es
@@ -181,13 +195,8 @@ Nach Nutzen sortiert.
 
 | # | Was | Warum | Aufwand |
 |---|---|---|---|
-| D1 | **Warnung bei Terminüberschneidung** beim Zuordnen von Mitarbeiter oder Firmenfahrzeug (nicht blockierend) | Doppelbuchungen fallen heute nur auf, wenn man zufällig genau diesen Tag im Stundenraster öffnet. Bei wenigen Technikern kostet jede Doppelbuchung einen halben Tag. | mittel |
 | D2 | **Löschen eines Auftrags absichern**, wenn eine Rechnung dazu existiert oder der Auftrag erledigt/storniert ist | Heute lässt sich ein abgerechneter Auftrag ohne Warnung aus allen Listen entfernen. Die Rechnung bleibt als Beleg bestehen, ist aber nicht mehr auffindbar. | klein |
-| D3 | **Lager bzw. Lagerplatz nicht löschen, solange er belegt ist** – oder wenigstens die Zahl der belegten Plätze in die Rückfrage schreiben | Ein Lager mit vierzig eingelagerten Kundensätzen lässt sich heute mit einem Klick und einer nichtssagenden Rückfrage löschen. | klein |
 | D4 | **Zweites Sortierkriterium** bei allen Auftragsabfragen (`order_date`, dann Auftragsnummer) | Ohne zweites Kriterium ist die Reihenfolge bei gleichem Datum nicht festgelegt; zusammen mit der seitenweisen Abfrage können Zeilen doppelt oder gar nicht erscheinen. | klein |
-| D5 | **Stornierte Aufträge ins Zeitfenster einbeziehen** – die Bedingung schließt heute nur alte *erledigte* aus, alte stornierte werden immer alle geladen | Genau das Wachstumsproblem, wegen dem das Zeitfenster eingeführt wurde. | klein |
-| D6 | **Entwurfszustand im Auftragsfenster vollständig zurücksetzen** beim direkten Wechsel auf einen anderen Auftrag | Zurückgesetzt werden heute nur Titel, Datum, Zeit, Beschreibung, Fahrzeuge, Mitarbeiter und Notiz – nicht die Altreifen-Rückfrage, der Einlagerungsblock, Storno- und Wiedereröffnen-Zustand. Springt man aus einer Push-Benachrichtigung direkt in einen anderen Auftrag, unterbleibt die Altreifen-Frage. Am einfachsten über `key={order.id}` an der Komponente. | klein |
-| D7 | **Nächste Rechnungsnummer gegen den Bestand prüfen**, bevor sie gespeichert wird | In den Betriebsdaten lässt sich heute jede Zahl ≥ 1 eintragen. Ein Tippfehler erzeugt eine doppelte oder übersprungene Nummer, ohne dass die Datenbank es merkt. | klein |
 | D8 | **`mit_steuer` nicht mehr raten.** `RechnungDokument` fällt bei alten Belegen ohne dieses Feld auf `steuer !== 0` zurück – bei einer Rechnung über lauter steuerfreie Positionen ist das falsch. Für Altbestände einmalig setzen statt schätzen. | klein |
 | D9 | **Einheitliche Löschbestätigung mit Auftragsnummer** – es gibt vier Stellen mit drei verschiedenen Texten, einer davon ohne jede Kennung | Bei lauter Aufträgen namens „Termin" ist der Titel keine brauchbare Rückfrage. | klein |
 | D10 | **Telefonnummern kanonisch speichern** (zusätzliche Vergleichsform) | Voraussetzung für zuverlässige Suche und für die Dublettenerkennung (E1). Heute sind „0911 12345", „0911/12345" und „+49 911 12345" drei verschiedene Nummern. | mittel |
@@ -215,6 +224,12 @@ normalisierter Telefonnummer, dazu eine Admin-Ansicht mit Zusammenführen-Knopf.
 *Aufwand: mittel. Setzt D10 voraus.*
 
 ### E2. Kommissionierliste „Was muss heute mit"
+
+**Teilweise vorhanden seit 23.09.2026:** Die eingelagerten Sätze, die mitmüssen, zeigt die
+Mitnehmen-Liste hinter dem Abendhinweis (`lib/mitnehmen.ts`,
+`components/auftraege/MitnehmenFenster.tsx`). Was fehlt, sind die Leistungen und Reifengrößen –
+E2 baut auf dieser Liste auf, statt eine zweite zu beginnen.
+
 Aus allen Terminen eines Tages die zugeordneten Leistungen und die Reifengrößen der
 betroffenen Fahrzeuge zusammenziehen, als eine Liste für die Beladung des Transporters am
 Morgen. Nutzt ausschließlich Daten, die schon da sind.
@@ -225,13 +240,6 @@ Zustand der Reifen vorher/nachher fotografieren und den Kunden auf dem Handy qui
 lassen. Bei Reklamationen ist das der Unterschied zwischen Aussage gegen Aussage und einem
 Beleg. Das Datenmodell war dafür von Anfang an mitgedacht.
 *Aufwand: mittel bis groß (Dateiablage nötig).*
-
-### E4. Langlieger-Übersicht
-Die Schwellen (18 Monate bzw. 150 €) sind bereits im Code, greifen aber nur im
-Auslagern-Dialog beim einzelnen Satz. Eine filterbare Liste „alle Sätze über X Monaten,
-sortiert nach Kunde und Betrag" macht vergessene Sätze sichtbar, statt darauf zu warten,
-dass zufällig jemand auslagert. Das ist unmittelbar Umsatz.
-*Aufwand: klein bis mittel.*
 
 ### E5. Tagesroute nach Fahrstrecke sortieren
 Die Tagesliste sortiert nach Uhrzeit. Für einen mobilen Dienst mit mehreren Stopps wäre
@@ -277,19 +285,33 @@ Fächer schickt.
 
 ---
 
+### E13. Auswertungen ausbauen – Vorschlag vom 23.09.2026, noch zu besprechen
+Die Seite ist heute starr: drei Zeiträume, eine Kachelreihe, ein Balkendiagramm, zwei Tabellen,
+kein Vergleich, kein Hineinklicken, kein Export. Inhaltlich wichtiger: Der Umsatz wird aus
+erledigten Aufträgen nach Auftragsdatum gerechnet, nicht aus dem Rechnungsbuch – seit PinPoints
+die Rechnungen ausstellt, laufen damit zwei Umsatzzahlen nebeneinander.
+
+Vorgeschlagen: feste Ansichten, aber jede filterbar, vergleichbar (Vorjahr/Vorsaison) und
+anklickbar bis zum Auftrag; dazu Reiter für Umsatz & Rechnungen (Rechnungsbuch als Quelle,
+„erbracht, nicht abgerechnet", DATEV-Export), Kunden (Wiederkehr, absehbarer Umsatz aus dem
+Regal), Einsatz (Stunden, Wochentag × Uhrzeit) und Lager (Belegung im Verlauf). Die Entscheidung
+„kein Auswertungsbaukasten" (Abschnitt 7 der alten Liste) bliebe bestehen: keine freie
+Kreuztabelle. *Aufwand: etwa drei Runden. Wird vor dem Bau gemeinsam festgelegt.*
+
 ## F. Aus der alten Planung übernommen
 
 ### F1. Offline schreiben (PWA Stufe 4)
 Lesen funktioniert offline (Stufen 1–3 sind gebaut). Schreiben nicht: es fehlt eine
-Warteschlange und eine Konfliktbehandlung. Der kleine Zuschnitt – nur Status, Notiz und
-Radmessung offline – ist der sinnvolle erste Schritt. Siehe `pwa-plan.md`.
-*Aufwand: groß.*
+Warteschlange und eine Konfliktbehandlung.
 
-### F2. Gerätetest der Terminerinnerung
-Der Push ist scharfgeschaltet, aber nie bei gesperrtem Bildschirm und im Fokusmodus
-„Fahren" ausprobiert worden. Das ist zehn Minuten Arbeit und entscheidet, ob die Funktion
-im Alltag trägt. Siehe `benachrichtigungen-plan.md`.
-*Aufwand: winzig, und trotzdem der Punkt mit dem höchsten Verhältnis von Erkenntnis zu Aufwand.*
+**Entschieden am 23.09.2026: der GROSSE Zuschnitt, als eigene Runde** – alles am Auftrag außer
+Abschließen (Status „in Arbeit", Notiz, Uhrzeit, Titel/Beschreibung, Leistungen, Endpreis,
+Fahrzeug und Kilometerstand, Radmessung), mit Konfliktabfrage bei gleichem Feld. Nicht offline:
+Abschließen, Ein- und Auslagern, Auftrag anlegen/stornieren, Kunden, Stammdaten. Die Bauvorgabe
+je Handlung steht im Projektkonzept „Offline schreiben" (Tabellen „Was offline gehen SOLL");
+dort ist nur die Zeile „Rechnung erstellt abhaken" überholt – seit Migration 48/49 entsteht die
+Rechnung in PinPoints, und Ausstellen bleibt netzgebunden. Siehe auch `pwa-plan.md`.
+*Aufwand: zwei bis drei Runden plus Test mit absichtlich abgeschaltetem Telefon.*
 
 ### F3. Welche Geräte sind eigentlich im Einsatz?
 Aus dem PWA-Plan unbeantwortet: welche iOS-Fassungen, ob der QR-Scanner in der
@@ -301,6 +323,10 @@ Push-Terminerinnerung (Phase 14) und das Offline-Lesen (PWA Stufe 3) sind **geba
 alte `roadmap.md` führte alle drei noch als offen.
 
 ### F5. Hinfällig
+**Entschieden am 23.09.2026, nicht benötigt:** die Übernahme der Kundennummern aus dem
+Altsystem (die Nummern bleiben die von PinPoints vergebenen) und die E-Rechnung
+(ZUGFeRD/XRechnung). Beides bitte nicht erneut vorschlagen, solange sich daran nichts ändert.
+
 Der zentrale Warteschlangenlauf für die Geokodierung beim Massenimport war für die
 Übernahme der Bestandskunden gedacht. Die ist über direktes SQL gelaufen, ohne diese
 Route. Die technische Lücke bleibt (siehe B3), der ursprüngliche Anlass ist weg.
@@ -309,14 +335,13 @@ Route. Die technische Lücke bleibt (siehe B3), der ursprüngliche Anlass ist we
 
 ## G. Reihenfolge, wenn man einfach anfangen will
 
-Abschnitt A ist am 21.09.2026 abgearbeitet (Runde 34, Migration 51, Service Worker v50).
-Ab hier:
+Runde 35 (23.09.2026, Migrationen 55/56, Service Worker v61) hat D1, D3, C4, D5, D6, D7, E4,
+B1 und B2 erledigt. Ab hier:
 
-1. **F2** – zehn Minuten am Gerät, bevor mehr in die Erinnerung investiert wird. Das beste
-   Verhältnis von Erkenntnis zu Aufwand in dieser ganzen Liste.
-2. **C4, D5, D6, D7** – Kleinkram, der in einem Zug mitgeht.
-3. **E4 und E2** – die beiden Funktionen mit dem besten Verhältnis von Aufwand zu Nutzen.
-4. **D1 und D3** – die beiden Warnungen, die einen teuren Fehler verhindern (Doppelbuchung,
-   Löschen eines belegten Lagers).
-5. **B1/B2** – Löschkonzept, sobald jemand Zeit für die fachliche Entscheidung hat.
-6. **F1** – Offline schreiben, als eigenes Vorhaben, nicht nebenbei.
+1. **F1** – Offline schreiben im großen Zuschnitt, als eigenes Vorhaben (entschieden am
+   23.09.2026). Erste Runde: Warteschlange, Anzeige „n Änderungen warten", Status/Notiz/Radmessung;
+   zweite Runde: Leistungen, Uhrzeit, Fahrzeug, Konfliktabfrage.
+2. **D2** – Löschen eines Auftrags mit Rechnung absichern (klein, schützt Belege).
+3. **E13** – Auswertungen ausbauen, sobald der Zuschnitt besprochen ist.
+4. **E2** – Kommissionierliste, auf der Mitnehmen-Liste aufbauend.
+5. **D17, D4, B3** – Kleinkram, der in einem Zug mitgeht.

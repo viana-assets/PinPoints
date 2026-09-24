@@ -251,6 +251,33 @@ eine Tabellenspalte); beides steht im Auftragsfenster.
 Mitarbeiter-/Leistungs-Zuordnung bleibt Popover direkt in der Zeile (Büro); ein Techniker sieht
 dort nur Text, keinen Bearbeiten-Knopf.
 
+### Doppelbuchungen (Fahrplan D1, 23.09.2026)
+
+Beim Einteilen im Auftragsfenster prüft `terminUeberschneidungen()` (`lib/ueberschneidung.ts`),
+ob der gewählte Mitarbeiter oder Transporter zur selben Zeit schon an einem anderen Auftrag
+hängt, und zeigt es bernsteinfarben direkt unter der Auswahl: „Max ist 10:00–11:00 schon bei
+Auftrag 214 · Müller". Geprüft wird gegen den ENTWURF im Fenster – der Hinweis kommt beim
+Anhaken, nicht erst nach dem Speichern.
+
+- **Ein Hinweis, keine Sperre.** Zwei Aufträge beim selben Kunden, ein Zeitfenster „zwischen 10
+  und 12", eine geschätzte Endzeit – es gibt gute Gründe für eine Überschneidung.
+- Stornierte und gelöschte Aufträge zählen nicht, Aufträge ohne Uhrzeit auch nicht, und
+  Berührung ist keine Überschneidung (10–11 und 11–12 passen hintereinander).
+- Ohne Endzeit gilt das Terminraster (`betrieb.termin_intervall_min`), wie im Stundenraster –
+  dann steht „Ende geschätzt" dabei.
+- Geprüft wird gegen die **geladenen** Aufträge, also das Zeitfenster aus Abschnitt 6. Das
+  reicht, weil offene Aufträge immer mitkommen. Techniker sehen den Hinweis nicht: Sie ändern
+  die Einteilung nicht und sehen fremde Aufträge ohnehin nicht (RLS).
+
+### Das Auftragsfenster beginnt bei jedem Auftrag von vorn (Fahrplan D6, 23.09.2026)
+
+`app/page.tsx` gibt dem Auftragsfenster `key={offenerAuftrag.id}`. Wechselt ein anderer Auftrag
+hinein – etwa aus einer angetippten Meldung heraus, während schon einer offen ist –, entsteht ein
+neues Fenster mit frischem Entwurf. Bis dahin setzte ein Effekt sieben Felder von Hand zurück und
+vergaß „Bis", „Rechnung benötigt", die Altreifen-Rückfrage, den Einlagerungsblock und die
+Storno-/Wiedereröffnen-Blöcke. Das Neuladen nach dem Speichern trifft denselben Auftrag und damit
+denselben Schlüssel; eine laufende Eingabe bleibt dabei stehen.
+
 ## 6. Das geladene Zeitfenster
 
 Aufträge wachsen anders als der Kundenstamm unbegrenzt mit jedem Betriebsjahr. Deshalb lädt die
@@ -260,14 +287,18 @@ Einsatzplanung (ein State `auftragsFenster`):
 
 | Auswahl | Was geladen wird |
 |---|---|
-| **Aktuell** (Standard) | erledigte Aufträge der letzten 30 Tage – **plus alle nicht-erledigten, egal wie alt** |
-| **Dieses Jahr** | alles ab dem 1. Januar des laufenden Jahres, plus alle nicht-erledigten |
+| **Aktuell** (Standard) | erledigte und stornierte Aufträge der letzten 30 Tage – **plus alle offenen und begonnenen, egal wie alt** |
+| **Dieses Jahr** | alles ab dem 1. Januar des laufenden Jahres, plus alle offenen und begonnenen |
 | **Alle** | ohne Begrenzung |
 
 Der wichtige Teil ist die Ausnahme, unverändert seit Einführung: **was noch offen oder in
-Arbeit ist, kommt immer mit**, unabhängig vom Datum – ausgeblendet werden ausschließlich alte,
-bereits erledigte Aufträge. Umgesetzt über eine Supabase-`.or()`-Bedingung
-(`order_date.gte.<Stichtag>,status.neq.erledigt`).
+Arbeit ist, kommt immer mit**, unabhängig vom Datum – ausgeblendet werden alte, bereits
+abgeschlossene Aufträge. Umgesetzt über eine Supabase-`.or()`-Bedingung
+(`order_date.gte.<Stichtag>,status.in.(offen,in_arbeit)`).
+
+Bis zum 23.09.2026 lautete sie `status.neq.erledigt` – damit kamen auch ALLE alten stornierten
+Aufträge bei jedem Laden mit, egal wie alt (Fahrplan D5). Ein Storno ist abgeschlossen wie ein
+Abschluss; wer ältere sucht, schaltet auf „Dieses Jahr" oder „Alle".
 
 Zwei Stellen bleiben bewusst vom Fenster ausgenommen: das **Kundendetail**
 (`fetchOrdersFuerKunde`) zeigt die vollständige Auftragshistorie dieses einen Kunden ohne

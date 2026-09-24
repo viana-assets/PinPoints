@@ -50,7 +50,7 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 |---|---|---|---|---|
 | `MODULE` | `lib/module.ts` | `ModulEintrag[]` | Alle Module/Reiter der App: Label, Beschreibung, Icon, Sichtbarkeitsschlüssel, Reihenfolge, primär/sekundär | `app/page.tsx` (Seitenleiste Desktop + Kachelseite „Weitere" am Handy), `tests/navigation.test.ts` |
 | `SEKUNDAERE_TABS` | `lib/module.ts` | `TabKey[]` (aus `MODULE` abgeleitet) | Welche Reiter am Handy hinter „Weitere" stecken | `app/page.tsx`, `tests/navigation.test.ts` |
-
+| `START_TAB` / `START_TAB_ERSATZ` | `lib/module.ts` | `TabKey` ("einsatzplanung" / "dashboard") | Womit die App beim Öffnen startet, und der Rückfall, wenn die Rolle das Startmodul nicht sehen darf (23.09.2026) | `app/page.tsx` |
 ---
 
 ## Aufträge & Status
@@ -164,6 +164,9 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `ZIEL_SPEICHER` | `lib/benachrichtigungZiel.ts` | `string` ("pinpoints-ziel") | Name des Cache-Storage-Bereichs für das Benachrichtigungsziel | **nur intern**; muss wortgleich in `public/sw.js` gepflegt werden (Service Worker kann dieses Modul nicht importieren) |
 | `ZIEL_SCHLUESSEL` | `lib/benachrichtigungZiel.ts` | `string` | Schlüssel des abgelegten Navigationsziels | **nur intern**, über `zielAbholen()` (`app/page.tsx`); dito wortgleich in `public/sw.js` |
 | `PROTOKOLL_SCHLUESSEL` | `lib/benachrichtigungZiel.ts` | `string` | Schlüssel für „zuletzt angetippt" (Diagnose auf iPhones ohne Konsole) | **nur intern**, über `letztesAntippen()` (`PushEinstellung`); dito wortgleich in `public/sw.js` |
+| `MITNEHMEN_PARAMETER` | `lib/constants.ts` | `string` ("mitnehmen") | Aufrufparameter des Abendhinweises: `/?mitnehmen=YYYY-MM-DD` öffnet die Mitnehmen-Liste (Migration 55, 23.09.2026) | `lib/abendhinweisVersand.ts`, `app/page.tsx` (`zielOeffnen`) |
+| `ABENDHINWEIS_UHRZEIT_STANDARD` | `lib/constants.ts` | `string` ("20:00") | Uhrzeit des Abendhinweises ohne eigene Einstellung. Dieselbe Vorgabe steht als Spaltenvorgabe in `user_settings.abendhinweis_uhrzeit` (Migration 55) – beide gemeinsam ändern | `lib/mitnehmen.ts` (`abendhinweisFaellig`), `SettingsPanel`, `app/page.tsx` |
+| `PUSH_ABSENDER` | `lib/pushInhalt.ts` | `string` (aus `ERSCHEINUNG.kurzname`) | Titel der Testnachricht; folgt der Tarnung (23.09.2026) | `app/api/push/test` |
 
 ---
 

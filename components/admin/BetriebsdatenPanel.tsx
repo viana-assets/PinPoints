@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import type { Betrieb, BetriebFelder } from "@/lib/types";
 import { LOGO_MAX_BYTES, LOGO_TYPEN } from "@/lib/constants";
+import { nummernkreisFehler } from "@/lib/rechnung";
 
 // Der Briefkopf (Migration 48). Was hier steht, steht auf jeder Rechnung, die das Haus
 // verlässt – und zwar als ABSCHRIFT: Eine Rechnung von letztem Jahr behält den Briefkopf, den
@@ -34,12 +35,15 @@ function Feld({ label, wert, onChange, hinweis, breit, mehrzeilig, platzhalter }
   );
 }
 
-export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis }: {
+export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoechsteVergebene }: {
   betrieb: Betrieb;
   onSpeichern: (felder: BetriebFelder) => Promise<void>;
   // Getrennt vom Rest: Dieser eine Wert verschiebt einen Nummernkreis. Er gehört nicht in
   // dasselbe Formular wie eine Telefonnummer, die man nebenbei korrigiert.
   onNummernkreis: (nummer: number) => Promise<void>;
+  // Die höchste bereits vergebene Nummer (null = noch keine Rechnung). `undefined` heißt: wird
+  // noch geladen – dann bleibt der Knopf „Ändern" gesperrt, statt ohne Prüfung zu setzen.
+  hoechsteVergebene: number | null | undefined;
 }) {
   const [f, setF] = useState<BetriebFelder>({
     firma: betrieb.firma, inhaber: betrieb.inhaber, strasse: betrieb.strasse,
@@ -90,12 +94,25 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis }: {
     leser.readAsDataURL(datei);
   }
 
-  async function nummernkreisSetzen() {
-    const wert = parseInt(nummer, 10);
-    if (!Number.isFinite(wert) || wert < 1) { setFehler("Die nächste Nummer muss eine Zahl ab 1 sein."); return; }
+  // Fahrplan D7: Die Zahl wird gegen den Bestand geprüft, bevor sie gespeichert wird. Die
+  // Datenbank prüft dasselbe noch einmal (Migration 55) – hier steht es, damit die Erklärung
+  // kommt, bevor jemand auf „Setzen" drückt, und nicht als Fehlermeldung danach.
+  const richtigeNummer = hoechsteVergebene == null ? null : hoechsteVergebene + 1;
+  const kreisStimmt = richtigeNummer == null || betrieb.rechnung_naechste_nummer === richtigeNummer;
+  const praefix = betrieb.rechnung_praefix || "RE";
+  const eingabeFehler = nummerOffen ? nummernkreisFehler(parseInt(nummer, 10), hoechsteVergebene ?? null, praefix) : null;
+
+  async function nummernkreisSetzen(wert = parseInt(nummer, 10)) {
+    const grund = nummernkreisFehler(wert, hoechsteVergebene ?? null, praefix);
+    if (grund) { setFehler(grund); return; }
     setFehler(null);
-    await onNummernkreis(wert);
-    setNummerOffen(false);
+    try {
+      await onNummernkreis(wert);
+      setNummer(String(wert));
+      setNummerOffen(false);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : "Die Nummer konnte nicht gesetzt werden.");
+    }
   }
 
   return (
@@ -198,18 +215,40 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis }: {
             <div className="small">
               Zählt die Datenbank selbst hoch. Von Hand gesetzt wird sie genau einmal: bei der
               Übernahme aus dem Altsystem.
+              {hoechsteVergebene != null && <> Zuletzt vergeben: <b>{praefix}{hoechsteVergebene}</b>.</>}
             </div>
           </div>
-          {nummerOffen ? (
+          {hoechsteVergebene === undefined ? (
+            <span className="small">prüft …</span>
+          ) : richtigeNummer != null && kreisStimmt ? (
+            // Es gibt Belege und der Zähler steht richtig: Dann gibt es nichts zu ändern – jede
+            // andere Zahl wäre eine Doppelvergabe oder eine Lücke.
+            <span className="small">fest – es gibt bereits Rechnungen</span>
+          ) : richtigeNummer != null ? (
+            // Der Zähler passt nicht zum Bestand (etwa weil er vor Migration 55 von Hand gesetzt
+            // wurde). Dann gibt es genau eine Korrektur, und die bietet der Knopf an.
+            <button type="button" className="btn-primary" onClick={() => void nummernkreisSetzen(richtigeNummer)}>
+              Auf {praefix}{richtigeNummer} korrigieren
+            </button>
+          ) : nummerOffen ? (
             <span className="bd-nummer-eingabe">
               <input type="number" min={1} className="feld-kompakt" value={nummer} onChange={(e) => setNummer(e.target.value)} />
-              <button type="button" className="btn-primary" onClick={() => void nummernkreisSetzen()}>Setzen</button>
+              <button type="button" className="btn-primary" disabled={!!eingabeFehler} onClick={() => void nummernkreisSetzen()}>Setzen</button>
               <button type="button" className="btn-secondary btn-rand" onClick={() => { setNummer(String(betrieb.rechnung_naechste_nummer)); setNummerOffen(false); }}>Abbrechen</button>
             </span>
           ) : (
             <button type="button" className="btn-secondary btn-rand" onClick={() => setNummerOffen(true)}>Ändern</button>
           )}
         </div>
+        {richtigeNummer != null && !kreisStimmt && (
+          <div className="hinweis-pflicht" style={{ marginTop: 6 }}>
+            Der Zähler steht auf {praefix}{betrieb.rechnung_naechste_nummer}, zuletzt vergeben wurde
+            aber {praefix}{hoechsteVergebene}. Die nächste Rechnung muss {praefix}{richtigeNummer} sein.
+          </div>
+        )}
+        {eingabeFehler && nummer.trim() !== "" && (
+          <div className="hinweis-pflicht" style={{ marginTop: 6 }}>{eingabeFehler}</div>
+        )}
         {nummerOffen && (
           <div className="hinweis-pflicht" style={{ marginTop: 6 }}>
             Eine bereits vergebene Nummer ein zweites Mal zu vergeben, bekommt man nachträglich

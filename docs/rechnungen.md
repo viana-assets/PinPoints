@@ -165,6 +165,21 @@ Die nächste Nummer lässt sich in der Betriebsdaten-Maske von Hand setzen
 (`setzeNaechsteRechnungsnummer()`) – vorgesehen für die einmalige Übernahme aus einem
 Altsystem, mit deutlicher Warnung vor doppelt oder übersprungen vergebenen Nummern.
 
+**Seit Migration 55 (23.09.2026, Fahrplan D7) ist sie fest, sobald eine Rechnung existiert.**
+Dann gibt es genau eine zulässige Zahl: die höchste vergebene plus eins. Kleiner vergäbe eine
+Nummer doppelt, größer risse eine Lücke. Die Regel steht zweimal, mit Verweis aufeinander:
+
+- `pruefe_rechnungsnummernkreis()` (Trigger auf `betrieb`, nur wenn sich die Zahl ändert) lehnt
+  jede andere Zahl mit Begründung ab. Ausgenommen ist das Hochzählen durch
+  `vergib_rechnungsnummer()` selbst – das läuft aus einem Trigger heraus
+  (`pg_trigger_depth() > 1`), in einem Moment, in dem die neue Rechnung noch keine Zeile ist.
+- `nummernkreisFehler()` in `lib/rechnung.ts` erklärt es in der Maske vorher. Existieren
+  Rechnungen und der Zähler stimmt, gibt es dort keinen „Ändern"-Knopf mehr; stimmt er nicht
+  (etwa weil er vor Migration 55 von Hand verstellt wurde), bietet die Maske genau die eine
+  Korrektur an.
+
+Ohne jede Rechnung bleibt jede Zahl ab 1 zulässig – das ist der Moment der Übernahme.
+
 Ausstellen und Stornieren sind die einzigen beiden schreibenden Vorgänge, die in `rechnungen`
 etwas erzeugen; beide laufen über denselben Trigger und damit über denselben Nummernkreis –
 eine Stornorechnung ist eine ganz normale Zeile mit `art = 'storno'` und bekommt genauso ihre
@@ -256,17 +271,24 @@ verlängert, ohne einen Fehler zu verhindern, trägt nicht. Beide Fenster zeigen
 Rückfrage im **wortgleichen** Text: Zwei Formulierungen für dieselbe Handlung wären zwei
 Gelegenheiten, sie unterschiedlich zu verstehen.
 
-### Testbelege vor dem Echtbetrieb entfernen
+### Testbelege vor dem Echtbetrieb entfernen – erledigt, Skript entfernt (23.09.2026)
 
-`supabase/einmalig/testrechnungen_entfernen.sql` – **keine Migration**, sondern ein einmaliges
-Skript mit Schritt-für-Schritt-Kommentaren. Es schaltet `trg_rechnung_unveraenderlich` für die
-Dauer des Vorgangs ab, entfernt erst die Stornos (wegen `hebt_auf`), dann die Rechnungen, setzt
-`betrieb.rechnung_naechste_nummer` auf 1 und schaltet den Schutz wieder ein; Schritt 0 zeigt
-vorher, was verschwinden würde, Schritt 5 kontrolliert hinterher.
+Bis zum 23.09.2026 lag dafür `supabase/einmalig/testrechnungen_entfernen.sql` im Repository.
+Es schaltete den Schutz aus, löschte **alle** Rechnungen und setzte den Kreis auf 1 – ohne
+Sperre. Seit RE1783 an einen echten Kunden gegangen ist, durfte es nicht mehr laufen; deshalb ist
+es gelöscht. Testaufträge und -rechnungen wurden über die App aufgeräumt (löschen bzw.
+stornieren). Der alte Wortlaut steht im Git-Verlauf.
 
-**Ab wann es nicht mehr ausgeführt werden darf:** sobald die erste Rechnung an einen echten
-Kunden gegangen ist. Ab dann ist jede Lücke im Nummernkreis eine Frage bei der nächsten
-Prüfung, und „das war ein Skript" ist keine Antwort darauf.
+Seit Migration 55 würde das Zurücksetzen auf 1 ohnehin scheitern, solange eine Rechnung
+existiert.
+
+### Empfänger bei der Laufkundschaft (Migration 57, 24.09.2026)
+
+Steht am Auftrag der Laufkundschaft ein Name (`orders.laufkunde_name`), wird er beim Entwurf der
+Empfänger – ohne Anschrift, E-Mail oder Anrede (`empfaengerFuerAuftrag()` in `lib/rechnung.ts`).
+Der Einsatzort ist ein Treffpunkt, keine Rechnungsanschrift, und die Kleinbetragsrechnung braucht
+keine. Die Kundennummer bleibt die des Sammelkunden. Ohne Namen bleibt der Empfänger
+„Laufkundschaft" wie bisher. Wie jeder Empfänger steht er als Kopie im Beleg.
 
 ## Positionsberechnung
 

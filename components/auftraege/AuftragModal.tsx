@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Article, ArticlePrice, AuftragFahrzeug, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import { formatDate, formatOrderDateTime, getPhoneNumbers, handlungsgruende, lagermonate, todayStr } from "@/lib/helpers";
 import { hhmmAus, minutenAus } from "@/lib/calendar";
+import { terminUeberschneidungen } from "@/lib/ueberschneidung";
+import { istLaufkundenAuftrag, kundeZumAuftrag } from "@/lib/laufkunde";
 import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, ORDER_STATUS_FARBE, ORDER_STATUS_LABEL,
   PROFIL_KRITISCH_MM, SAISON_LABEL, STANDARD_DAUER_MIN, istAbgeschlossen,
@@ -37,7 +39,15 @@ export function AuftragModal({
   onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
+  andereAuftraege, auftragsZuordnungen, kundeName,
 }: {
+  // Für den Hinweis auf Doppelbuchungen (Fahrplan D1): die geladenen Aufträge samt ihrer
+  // Mitarbeiter, und wie der Kunde eines Auftrags heißt. Geprüft wird gegen den ENTWURF in
+  // diesem Fenster, nicht gegen das Gespeicherte – der Hinweis soll beim Anhaken kommen, nicht
+  // erst nach dem Speichern.
+  andereAuftraege: Order[];
+  auftragsZuordnungen: Record<string, string[]>;
+  kundeName: (kundeId: string) => string;
   order: Order;
   customer: Customer | undefined;
   vehicles: Vehicle[];
@@ -88,7 +98,12 @@ export function AuftragModal({
   warehouses: Warehouse[];
   belegteSlotIds: Set<string>;
   onClose: () => void;
-  onSaveFields: (id: string, fields: { title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean; status: OrderStatus; assignedEmployeeIds: string[] }) => Promise<void>;
+  onSaveFields: (id: string, fields: {
+    title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean;
+    status: OrderStatus; assignedEmployeeIds: string[];
+    // Nur bei der Laufkundschaft (Migration 57). Fehlt das Feld, bleibt der Wert unverändert.
+    laufkunde?: { name: string; telefon: string; ort: string };
+  }) => Promise<void>;
   // Hakt „Rechnung erstellt" ab oder nimmt es zurück (Migration 40). Optional: Wer das Fenster
   // ohne diese Zusage einbindet, bekommt den Block gar nicht erst zu sehen.
   // Öffnet das Rechnungsfenster. Es liegt NICHT in diesem Bauteil: Es braucht Betriebsdaten
@@ -161,6 +176,10 @@ export function AuftragModal({
   // an irgendeinem das Fahrzeug, steht es hier – auch wenn zwei andere vollständig sind.
   if (einlagerungen.some((e) => !e.vehicle_id)) abschlussFehlt.push("Fahrzeug");
   if (einlagerungen.some((e) => !e.saison)) abschlussFehlt.push("Saison");
+  // Laufkundschaft (Migration 57): Wer es war, gehört vor dem Abschließen in den Auftrag – die
+  // Datenbank verlangt es (`pruefe_laufkunde()`), hier steht es vorher.
+  const laufkunde = istLaufkundenAuftrag(customer);
+  if (laufkunde && !(order.laufkunde_name ?? "").trim()) abschlussFehlt.push("Name des Laufkunden");
 
   // ---------------------------------------------------------------- Entwurf
   // Alle Angaben dieses Fensters werden ZUERST hier gesammelt und erst auf „Speichern"
@@ -209,27 +228,29 @@ export function AuftragModal({
   const [firmenfahrzeugId, setFirmenfahrzeugId] = useState(order.firmenfahrzeug_id || "");
   const [mitarbeiterIds, setMitarbeiterIds] = useState<string[]>(assignedEmployeeIds);
   const [notiz, setNotiz] = useState(order.techniker_notiz || "");
+  // Der Laufkunde (Migration 57) – Teil des Entwurfs wie Titel und Uhrzeit, gespeichert mit
+  // „Speichern". Bei jedem anderen Kunden bleiben die drei Felder unsichtbar und unangetastet.
+  const [lkName, setLkName] = useState(order.laufkunde_name || "");
+  const [lkTelefon, setLkTelefon] = useState(order.laufkunde_telefon || "");
+  const [lkOrt, setLkOrt] = useState(order.laufkunde_ort || "");
+  const kundeAnzeige = laufkunde
+    ? kundeZumAuftrag({ laufkunde_name: lkName, laufkunde_telefon: lkTelefon, laufkunde_ort: lkOrt }, customer)
+    : customer;
   const [speichert, setSpeichert] = useState(false);
   const [gespeichert, setGespeichert] = useState(false);
   const [schliessenNachfrage, setSchliessenNachfrage] = useState(false);
 
-  // Der Entwurf wird neu aufgesetzt, wenn ein ANDERER Auftrag ins Fenster kommt – nicht bei
-  // jeder Prop-Änderung. Sonst würde das Neuladen nach dem Speichern (oder eine Änderung durch
-  // jemand anderen) mitten im Tippen die Eingabe überschreiben.
-  const zuletztGezeigt = useRef(order.id);
-  useEffect(() => {
-    if (zuletztGezeigt.current === order.id) return;
-    zuletztGezeigt.current = order.id;
-    setTitel(order.title);
-    setDatum(order.order_date);
-    setZeit(order.time || "");
-    setBeschreibung(order.description || "");
-    setFirmenfahrzeugId(order.firmenfahrzeug_id || "");
-    setMitarbeiterIds(assignedEmployeeIds);
-    setNotiz(order.techniker_notiz || "");
-    setGespeichert(false);
-    setSchliessenNachfrage(false);
-  }, [order, assignedEmployeeIds]);
+  // Wechselt ein ANDERER Auftrag ins Fenster, setzt die Seite dieses Fenster vollständig neu
+  // auf (`key={order.id}` in app/page.tsx) – jeder Entwurfszustand beginnt dann von vorn.
+  //
+  // Bis zum 23.09.2026 stand hier ein Effekt, der beim Auftragswechsel einzelne Felder von
+  // Hand zurücksetzte: Titel, Datum, Zeit, Beschreibung, Fahrzeug, Mitarbeiter, Notiz. Nicht
+  // dabei waren „Bis", „Rechnung benötigt", die Altreifen-Rückfrage, der Einlagerungsblock und
+  // die Storno-/Wiedereröffnen-Blöcke (Fahrplan D6). Sprang man aus einer Benachrichtigung
+  // direkt in einen anderen Auftrag, galt die Altreifen-Frage als schon gestellt und blieb aus.
+  // Eine Liste, die man bei jedem neuen Feld nachziehen muss, vergisst man; ein neues Bauteil
+  // vergisst nichts. Das Neuladen nach dem Speichern trifft denselben Auftrag und damit
+  // denselben Schlüssel – die Eingabe bleibt dabei stehen.
 
   const gleicheListe = (a: string[], b: string[]) =>
     a.length === b.length && a.every((id) => b.includes(id));
@@ -250,6 +271,9 @@ export function AuftragModal({
     beschreibung !== (order.description || "") ||
     firmenfahrzeugId !== (order.firmenfahrzeug_id || "") ||
     notiz !== (order.techniker_notiz || "") ||
+    lkName !== (order.laufkunde_name || "") ||
+    lkTelefon !== (order.laufkunde_telefon || "") ||
+    lkOrt !== (order.laufkunde_ort || "") ||
     !gleicheListe(mitarbeiterIds, assignedEmployeeIds);
   // Zwei Handlungen brauchen eine Begründung. Statt eines Browser-Dialogs klappt hier ein
   // kleiner Block auf – der Nutzer sieht dabei weiterhin den Auftrag, um den es geht.
@@ -287,6 +311,23 @@ export function AuftragModal({
   // sind hier sichtbar, das dritte nicht – deshalb nennt der Hinweis nur, was hier fehlt, und
   // behauptet nichts über den Rest.
   const zugeordnete = employees.filter((e) => mitarbeiterIds.includes(e.id));
+
+  // Doppelbuchungen (Fahrplan D1). Nur für die, die einteilen dürfen: Ein Techniker sieht
+  // fremde Aufträge ohnehin nicht (RLS, Migration 13/15) und ändert die Einteilung nicht.
+  // Ein Hinweis, keine Sperre – siehe lib/ueberschneidung.ts.
+  const doppelt = gesperrt || isTechniker ? [] : terminUeberschneidungen(
+    { id: order.id, order_date: datum, time: zeit.trim() || null, end_time: zeitBis.trim() || null },
+    mitarbeiterIds, firmenfahrzeugId || null, andereAuftraege, auftragsZuordnungen, terminIntervallMin,
+  );
+  function doppeltText(u: (typeof doppelt)[number]): string {
+    const wer = u.art === "mitarbeiter"
+      ? employees.find((e) => e.id === u.werId)?.name ?? "Unbekannt"
+      : firmenfahrzeugText(u.werId) || "Dieses Fahrzeug";
+    return `${wer} ist ${u.von}–${u.bis}${u.geschaetzt ? " (Ende geschätzt)" : ""} schon bei `
+      + `Auftrag ${u.auftrag.order_number} · ${kundeName(u.auftrag.customer_id)}`;
+  }
+  const doppeltMitarbeiter = doppelt.filter((u) => u.art === "mitarbeiter");
+  const doppeltFahrzeug = doppelt.filter((u) => u.art === "fahrzeug");
   const mitKonto = zugeordnete.filter((e) => e.profile_id);
   const erinnerungsHinweis =
     zugeordnete.length === 0
@@ -350,6 +391,7 @@ export function AuftragModal({
         rechnungNoetig,
         status: order.status,
         assignedEmployeeIds: mitarbeiterIds,
+        ...(laufkunde ? { laufkunde: { name: lkName, telefon: lkTelefon, ort: lkOrt } } : {}),
       });
       if (firmenfahrzeugId !== (order.firmenfahrzeug_id || "")) await onSetFirmenfahrzeug(order.id, firmenfahrzeugId || null);
       if (notiz !== (order.techniker_notiz || "")) await onUpdateTechnikerNotiz(order.id, notiz);
@@ -435,7 +477,46 @@ export function AuftragModal({
           {/* ---------------------------------------------------------------- Kunde */}
           <div className="auftrag-block">
             <div className="auftrag-block-titel">Kunde</div>
-            {customer ? (
+            {customer && laufkunde && kundeAnzeige ? (
+              // Laufkundschaft (Migration 57): Der Sammelkunde hat keinen Namen, keine Nummer und
+              // keinen Ort – das steht hier am Auftrag. Die Knöpfe lesen den ENTWURF, damit eine
+              // eben eingetippte Nummer sofort anrufbar ist.
+              <div className="laufkunde-block">
+                <div className="auftrag-kunde">
+                  <div>
+                    <b>Laufkundschaft</b>
+                    <div className="small">Barverkauf ohne Kundenanlage – wer es war, steht hier am Auftrag.</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 6, flex: "0 0 auto" }}>
+                    {kundeAnzeige.address.trim() && (
+                      <button className="call-icon-btn small nav-icon-btn" title="Navigation zum Einsatzort" onClick={(e) => onNavigate(e, kundeAnzeige)}>
+                        <IconNavPin />
+                      </button>
+                    )}
+                    {getPhoneNumbers(kundeAnzeige).length > 0 && (
+                      <button className="call-icon-btn small" title="Anrufen" onClick={(e) => onCall(e, kundeAnzeige)}>📞</button>
+                    )}
+                  </div>
+                </div>
+                {gesperrt ? (
+                  <div className="small" style={{ marginTop: 6 }}>
+                    {[order.laufkunde_name, order.laufkunde_telefon, order.laufkunde_ort].filter((x) => (x ?? "").trim()).join(" · ") || "– kein Name eingetragen –"}
+                  </div>
+                ) : (
+                  <div className="laufkunde-felder">
+                    <div className="field"><label>Name des Laufkunden *</label>
+                      <input type="text" value={lkName} onChange={(e) => setLkName(e.target.value)} placeholder="z. B. Max Mustermann" />
+                    </div>
+                    <div className="field"><label>Telefon</label>
+                      <input type="tel" value={lkTelefon} onChange={(e) => setLkTelefon(e.target.value)} placeholder="für Rückfragen" />
+                    </div>
+                    <div className="field"><label>Einsatzort</label>
+                      <input type="text" value={lkOrt} onChange={(e) => setLkOrt(e.target.value)} placeholder="z. B. Rastplatz A9 Feucht, Parkplatz Süd" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : customer ? (
               <div className="auftrag-kunde">
                 <div>
                   <b>{customer.name}</b>
@@ -505,6 +586,12 @@ export function AuftragModal({
                   <option value={firmenfahrzeugId}>{firmenfahrzeugText(firmenfahrzeugId)} (ausgemustert)</option>
                 )}
               </select>
+            )}
+            {doppeltFahrzeug.length > 0 && (
+              <div className="doppelbuchung" role="status">
+                <b>Überschneidung:</b>
+                <ul>{doppeltFahrzeug.map((u) => <li key={u.auftrag.id}>{doppeltText(u)}</li>)}</ul>
+              </div>
             )}
           </div>
 
@@ -595,6 +682,12 @@ export function AuftragModal({
                 value={mitarbeiterIds}
                 onChange={setMitarbeiterIds}
               />
+            )}
+            {doppeltMitarbeiter.length > 0 && (
+              <div className="doppelbuchung" role="status">
+                <b>Überschneidung:</b>
+                <ul>{doppeltMitarbeiter.map((u) => <li key={`${u.auftrag.id}-${u.werId}`}>{doppeltText(u)}</li>)}</ul>
+              </div>
             )}
 
             {/* Hinweis zur Terminerinnerung (docs/benachrichtigungen-plan.md).

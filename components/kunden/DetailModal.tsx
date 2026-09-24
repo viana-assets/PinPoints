@@ -297,7 +297,9 @@ export function DetailModal(props: {
           <input
             type="checkbox"
             checked={cust.laufkundschaft === true}
-            onChange={(e) => { void props.onSaveFields({ laufkundschaft: e.target.checked }); }}
+            // Beides zugleich lehnt die Datenbank ab (Migration 57) – wer Laufkundschaft setzt,
+            // nimmt den Einmalkunden-Haken im selben Zug heraus.
+            onChange={(e) => { void props.onSaveFields(e.target.checked ? { laufkundschaft: true, einmalkunde: false } : { laufkundschaft: false }); }}
           />
           <span>
             <b>Laufkundschaft</b> – Sammelkunde für Barverkäufe ohne Kundenanlage
@@ -308,6 +310,27 @@ export function DetailModal(props: {
             </span>
           </span>
         </label>
+
+        {/* Einmalkunde (Migration 57). Derselbe Ort und dieselbe Art wie die Laufkundschaft: ein
+            Haken für das, was ein Kunde IST, sofort gespeichert. Kommt er nach Jahren doch
+            wieder, nimmt man den Haken heraus – und er läuft wieder im normalen Rhythmus. */}
+        {!cust.laufkundschaft && (
+          <label className="checkbox-row erklaert" style={{ marginBottom: 8 }}>
+            <input
+              type="checkbox"
+              checked={cust.einmalkunde === true}
+              onChange={(e) => { void props.onSaveFields({ einmalkunde: e.target.checked }); }}
+            />
+            <span>
+              <b>Einmalkunde</b> – für die Nadeln nicht beachten
+              <span className="small" style={{ display: "block" }}>
+                Keine Nadel auf der Karte und nicht in der Anrufliste. Solange ein Termin vor ihm
+                liegt, steht er als dunkelblaue Termin-Nadel da; ist der Termin vorbei,
+                verschwindet auch sie. Haken heraus = wieder ein normaler Kunde.
+              </span>
+            </span>
+          </label>
+        )}
 
         <button className="btn-secondary btn-block" style={{ marginBottom: 8 }} onClick={props.onToggleActive}>
           {cust.active === false ? "✔ Kunde reaktivieren" : "🚫 Kunde deaktivieren"}

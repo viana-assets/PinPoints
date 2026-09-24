@@ -14,6 +14,8 @@ import type { AuditEintrag, ProtokollPerson } from "@/lib/types";
 import { PROTOKOLL_TAGE_STANDARD, TERMIN_INTERVALLE } from "@/lib/constants";
 import { fetchBetrieb, setzeTerminIntervall, speichereBetrieb, setzeNaechsteRechnungsnummer } from "@/lib/api/betrieb";
 import { BetriebsdatenPanel } from "./BetriebsdatenPanel";
+import { PapierkorbPanel } from "./PapierkorbPanel";
+import { hoechsteRechnungsnummer } from "@/lib/api/rechnungen";
 import { GeokodierLauf } from "./GeokodierLauf";
 import { AdressenPruefen } from "./AdressenPruefen";
 import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
@@ -27,8 +29,10 @@ import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
 export function AdminPanel({
   isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, onUpdateEmployeeProfileId, modulePermissions, onUpdateModulePermissions,
   firmenfahrzeuge, onFirmenfahrzeugAnlegen, onFirmenfahrzeugAendern, onFirmenfahrzeugAusmustern,
-  onKundeOeffnen,
+  onKundeOeffnen, onKundenbestandGeaendert,
 }: {
+  // Nach dem Wiederherstellen aus dem Papierkorb (Migration 56): Kundenliste neu laden.
+  onKundenbestandGeaendert: () => void;
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
   // Aus der Adressprüfung heraus das Kundenfenster öffnen (Wartung). Der Admin-Bereich ist
   // ein Reiter, kein Fenster – das Kundenfenster legt sich darüber und lässt die Liste stehen.
@@ -53,7 +57,7 @@ export function AdminPanel({
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung" | "protokoll" | "betrieb">("users");
+  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung" | "protokoll" | "betrieb" | "papierkorb">("users");
   // Betriebseinstellungen (Migration 38/48): gelten für alle, nicht je Nutzer.
   // Die ganze Zeile und nicht nur das Intervall – seit Migration 48 steht der Briefkopf mit
   // darin, und ein zweiter Ladevorgang für dieselbe eine Zeile wäre eine Abfrage zu viel.
@@ -98,6 +102,21 @@ export function AdminPanel({
     });
     return () => { abgebrochen = true; };
   }, [adminTab, betrieb, supabase]);
+
+  // Die höchste vergebene Rechnungsnummer – für die Prüfung des Nummernkreises (Fahrplan D7).
+  // Bei jedem Öffnen des Reiters neu gelesen: Zwischendurch kann jemand eine Rechnung
+  // ausgestellt haben, und ein alter Wert hieße hier eine falsche Freigabe.
+  const [hoechsteVergebene, setHoechsteVergebene] = useState<number | null | undefined>(undefined);
+  useEffect(() => {
+    if (adminTab !== "betrieb") return;
+    let abgebrochen = false;
+    hoechsteRechnungsnummer(supabase)
+      .then((n) => { if (!abgebrochen) setHoechsteVergebene(n); })
+      // Ohne Leserecht auf die Rechnungen bleibt die Prüfung hier aus – die Datenbank prüft
+      // trotzdem. „undefined" hält den Knopf dann gesperrt, statt ungeprüft freizugeben.
+      .catch(() => { if (!abgebrochen) setHoechsteVergebene(undefined); });
+    return () => { abgebrochen = true; };
+  }, [adminTab, supabase]);
 
   async function intervallSpeichern(minuten: number) {
     setBetrieb((b) => (b ? { ...b, termin_intervall_min: minuten } : b));
@@ -219,6 +238,7 @@ export function AdminPanel({
           <button type="button" className={`chip ${adminTab === "wartung" ? "active" : ""}`} onClick={() => setAdminTab("wartung")}>Wartung</button>
           <button type="button" className={`chip ${adminTab === "protokoll" ? "active" : ""}`} onClick={() => setAdminTab("protokoll")}>Protokoll</button>
           <button type="button" className={`chip ${adminTab === "betrieb" ? "active" : ""}`} onClick={() => setAdminTab("betrieb")}>Betrieb</button>
+          <button type="button" className={`chip ${adminTab === "papierkorb" ? "active" : ""}`} onClick={() => setAdminTab("papierkorb")}>Papierkorb</button>
         </div>
 
         {adminTab === "betrieb" ? (
@@ -231,6 +251,7 @@ export function AdminPanel({
               betrieb={betrieb}
               onSpeichern={betriebsdatenSpeichern}
               onNummernkreis={nummernkreisSetzen}
+              hoechsteVergebene={hoechsteVergebene}
             />
           )}
           <div className="admin-card">
@@ -269,6 +290,8 @@ export function AdminPanel({
             )}
           </div>
           </>
+        ) : adminTab === "papierkorb" ? (
+          <PapierkorbPanel supabase={supabase} isSuperAdmin={isSuperAdmin} onKundenbestandGeaendert={onKundenbestandGeaendert} />
         ) : adminTab === "protokoll" ? (
           <ProtokollPanel
             eintraege={protokoll}

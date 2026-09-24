@@ -28,6 +28,22 @@ der Oberfläche: zwei parallele Zuordnungen erzeugten zwei aktive Zeilen, und we
 wurde, war Zufall. Seit Migration 18 muss außerdem ein Lagerplatz-Code innerhalb eines Lagers
 eindeutig sein.
 
+**Belegt heißt: nicht löschbar** (Migration 55, Fahrplan D3, 23.09.2026). Ein Lagerplatz mit
+einem liegenden Satz und ein Lager mit mindestens einem belegten Platz lassen sich nicht
+löschen – der Trigger `lager_belegt_nicht_loeschen()` lehnt mit Platz-Code bzw. Zahl der
+belegten Plätze ab, die Oberfläche sagt es schon vor der Rückfrage. Bis dahin löschte ein Klick
+den Platz und über den Fremdschlüssel (`on delete cascade`, Migration 02) still den Satz des
+Kunden mit. **Frühere** Einlagerungen sperren nicht (entschieden am 23.09.2026): Ihr Verlauf geht
+beim Löschen mit, und die Rückfrage nennt vorher, wie viele es sind.
+
+**Langlieger** (Fahrplan E4, 23.09.2026). Auf der Lager-Startseite steht zugeklappt die Liste
+aller liegenden Sätze ab 18 Monaten oder 150 € netto Gebühr bis heute
+(`components/lager/LangliegerListe.tsx`, Rechnung in `lib/langlieger.ts`). Die Schwellen sind
+dort einstellbar; Vorgabe sind `LANGLIEGER_MONATE` und `LANGLIEGER_EURO` aus dem
+Auslagern-Dialog. Die Gebühr rechnet wie beim Auslagern: `lagermonate()` mal der heute gültige
+Monatspreis des ersten aktiven Lagergebühr-Artikels; ohne gepflegten Preis zählt nur die
+Monatsschwelle. Ein Klick auf den Kunden öffnet das Kundenfenster, einer auf den Platz das Lager.
+
 ---
 
 ## QR-Aufkleber am Regal (Migration 22)

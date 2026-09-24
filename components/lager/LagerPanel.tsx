@@ -8,6 +8,7 @@ import { formatDate, handlungsgruende, nachReihen, raederNachSatz, suchtreffer }
 import { IconLager, IconTrash } from "@/components/icons";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
+import { LangliegerListe } from "./LangliegerListe";
 import { ProfilMarke } from "./ProfilMarke";
 import { RadBild } from "./RadBild";
 
@@ -62,11 +63,15 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
   customers: Customer[];
   // Alle Kundenfahrzeuge. Das Lager-Modul arbeitet nicht mit einem geöffneten Kunden, sondern
   // mit vielen Sätzen nebeneinander – deshalb hier der Vollabzug statt der Ausschnitt je Kunde.
   vehicles: Vehicle[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
+  // Für die Langlieger-Übersicht (Fahrplan E4): der heute gültige Monatspreis der Lagergebühr
+  // (null = keiner gepflegt) und der Weg ins Kundenfenster.
+  lagergebuehrJeMonat: number | null;
+  onOpenCustomer?: (kundeId: string) => void;
   // Die einzeln gemessenen Räder (Migration 33). Hier nur zum Anzeigen: Bearbeitet werden sie
   // im Auftragsfenster, wo der Satz in der Hand liegt.
   eingelagerteRaeder: EingelagertesRad[];
@@ -309,6 +314,19 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             </>
           )}
 
+          {tireStorages.some((t) => !t.removed_at) && (
+            <LangliegerListe
+              tireStorages={tireStorages}
+              customers={customers}
+              vehicles={vehicles}
+              storageSlots={storageSlots}
+              warehouses={warehouses}
+              monatspreisNetto={lagergebuehrJeMonat}
+              onOpenCustomer={onOpenCustomer}
+              onOpenWarehouse={(id) => setSelectedWarehouseId(id)}
+            />
+          )}
+
           <div className="card-grid">
             {warehouses.map((w) => {
               const total = storageSlots.filter((s) => s.warehouse_id === w.id).length;
@@ -419,7 +437,23 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                 </button>
               )}
               {canDeleteWarehouse && (
-                <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm(`Lager "${selectedWarehouse.name}" wirklich löschen? Alle Lagerplätze und Zuordnungen darin werden mitgelöscht.`)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); } }}>
+                <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => {
+                  // Fahrplan D3: Bis zum 23.09.2026 ließ sich ein Lager mit vierzig
+                  // eingelagerten Kundensätzen mit einem Klick und einer nichtssagenden
+                  // Rückfrage löschen. Belegt heißt jetzt: gesperrt, auch in der Datenbank
+                  // (Migration 55). Ohne Belegung nennt die Rückfrage, was verloren geht.
+                  const belegt = occupiedCount(selectedWarehouse.id);
+                  if (belegt > 0) {
+                    alert(`Lager "${selectedWarehouse.name}" kann nicht gelöscht werden: ${belegt} ${belegt === 1 ? "Platz ist" : "Plätze sind"} belegt. Erst auslagern oder umlagern.`);
+                    return;
+                  }
+                  const plaetze = storageSlots.filter((sl) => sl.warehouse_id === selectedWarehouse.id);
+                  const verlauf = tireStorages.filter((t) => plaetze.some((sl) => sl.id === t.storage_slot_id)).length;
+                  const text = `Lager "${selectedWarehouse.name}" wirklich löschen?\n\n`
+                    + `Mitgelöscht werden ${plaetze.length} ${plaetze.length === 1 ? "Lagerplatz" : "Lagerplätze"}`
+                    + (verlauf > 0 ? ` und der Verlauf von ${verlauf} früheren ${verlauf === 1 ? "Einlagerung" : "Einlagerungen"}.` : ".");
+                  if (confirm(text)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); }
+                }}>
                   Lager löschen
                 </button>
               )}
@@ -564,6 +598,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                       canDelete={canDeleteSlot}
                       onOeffnen={() => setAssignSlot(slot)}
                       onAufkleber={() => setAufkleberFuer([slot])}
+                      verlauf={historyFor(slot.id).length}
                       onLoeschen={() => onDeleteSlot(slot.id)}
                     />
                   );
@@ -613,7 +648,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
 // Warum ein div mit role="button" und nicht ein <button>: In der Kachel stecken zwei eigene
 // Knöpfe (Aufkleber, Löschen). Ein Knopf im Knopf ist ungültiges HTML – das alte
 // Kachelgitter hatte genau das. Tastaturbedienung ist deshalb hier von Hand nachgezogen.
-function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, aus, canAssign, canDelete, onOeffnen, onAufkleber, onLoeschen }: {
+function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, aus, canAssign, canDelete, verlauf, onOeffnen, onAufkleber, onLoeschen }: {
   slot: StorageSlot;
   assignment: TireStorage | null;
   kunde: Customer | null;
@@ -626,6 +661,9 @@ function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, aus, c
   aus?: boolean;
   canAssign: boolean;
   canDelete: boolean;
+  // Wie viele FRÜHERE Einlagerungen auf diesem Platz lagen. Sie gehen beim Löschen mit
+  // (die Datenbank löscht sie über den Fremdschlüssel mit) – das steht in der Rückfrage.
+  verlauf: number;
   onOeffnen: () => void;
   onAufkleber: () => void;
   onLoeschen: () => void;
@@ -703,7 +741,20 @@ function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, aus, c
             type="button"
             className="btn-secondary"
             title={`Lagerplatz ${slot.code} löschen`}
-            onClick={(e) => { e.stopPropagation(); if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?`)) onLoeschen(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              // Fahrplan D3: Ein belegter Platz wird nicht gelöscht – das erzwingt seit
+              // Migration 55 auch die Datenbank. Hier steht es vorher, damit niemand erst
+              // bestätigt und dann eine Fehlermeldung bekommt.
+              if (belegt) {
+                alert(`Lagerplatz "${slot.code}" ist belegt${kunde ? ` (${kunde.name})` : ""}. Erst den Satz auslagern oder umlagern, dann löschen.`);
+                return;
+              }
+              const zusatz = verlauf > 0
+                ? `\n\nAuf diesem Platz lagen früher ${verlauf} ${verlauf === 1 ? "Satz" : "Sätze"}. Dieser Verlauf wird mitgelöscht.`
+                : "";
+              if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?${zusatz}`)) onLoeschen();
+            }}
           >
             <IconTrash />
           </button>

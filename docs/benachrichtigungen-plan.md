@@ -334,16 +334,21 @@ notify pgrst, 'reload schema';
 Ein „policy … already exists" beim erneuten Ausführen heißt übrigens nur, dass die Migration in
 diesem Projekt schon einmal gelaufen ist – die Tabelle ist dann dort vorhanden.
 
-### Die Frage, um die es geht
+### Die Frage, um die es geht – beantwortet am 23.09.2026: JA
 
 Kommt die Meldung an – **bei gesperrtem Bildschirm** und **im Fokus „Fahren"**? iOS
 unterdrückt Mitteilungen im Fahrmodus standardmäßig; PinPoints muss dort je Gerät einmal als
 erlaubte App eingetragen werden. Ursprünglich sollte dieser Test vor dem Bau stehen, nicht
 danach – tatsächlich wurde weitergebaut, sobald die einfache Testnachricht bei entsperrtem
-Bildschirm ankam (siehe „Was zuerst zu prüfen wäre" oben). **Offener Punkt (Stand 18.09.2026):
-Dieser Test steht weiterhin aus.** Fällt er durch, ist die Terminerinnerung, so wie sie jetzt
-läuft, in Betrieb, ohne dass ihr eigentlicher Zweck – die Meldung im Auto, während der
-Fahrt – bestätigt ist.
+Bildschirm ankam (siehe „Was zuerst zu prüfen wäre" oben). Zwei Wochen lang stand er als
+offener Punkt hier, mit dem unangenehmen Beigeschmack, dass die Terminerinnerung in Betrieb
+war, ohne dass ihr eigentlicher Zweck – die Meldung im Auto, während der Fahrt – bestätigt
+gewesen wäre.
+
+**Am 23.09.2026 am Gerät bestätigt: Die Meldung kommt an, gesperrt und im Fokus „Fahren".**
+Damit trägt die Push-Strecke im Alltag und nicht nur am Schreibtisch. Der Abschnitt bleibt
+stehen, weil die Überlegung dahinter weiter gilt: Ein Weg, der nur unter Laborbedingungen
+funktioniert, ist keiner – und bei einem neuen Gerät ist diese Frage wieder offen.
 
 ---
 
@@ -392,6 +397,83 @@ Anrufknopf am Rechner jetzt immer das kleine Menü, auch bei nur einer Nummer: E
 diesem Umbau zwei verschiedene Antworten auf denselben Klick, und eine Entscheidung, die es
 gibt, muss man auch treffen können. Am Handy bleibt es beim sofortigen Wählen.
 
-**Abhängigkeit, die offen bleibt:** Dieser Weg steht und fällt mit derselben Frage wie die
-Terminerinnerung – kommt eine Web-Push-Meldung auf dem iPhone verlässlich an? Der Gerätetest
-bei gesperrtem Bildschirm steht weiterhin aus (siehe oben).
+**Die Abhängigkeit ist aufgelöst (23.09.2026):** Dieser Weg stand und fiel mit derselben Frage
+wie die Terminerinnerung – kommt eine Web-Push-Meldung auf dem iPhone verlässlich an? **Ja**,
+auch bei gesperrtem Bildschirm und im Fokusmodus „Fahren" (siehe oben). Damit ist „Auf dem
+Handy anrufen" kein Versprechen auf Probe mehr.
+
+## Dritte Nutzung: der Abendhinweis „Reifen mitnehmen" (23.09.2026, Migration 55)
+
+**Wozu.** Am Vorabend soll klar sein, welche eingelagerten Sätze morgen in den Transporter
+müssen – nicht erst beim Kunden, wenn der Satz im Regal liegt. Um eine einstellbare Uhrzeit kommt
+EINE Meldung, zusammengefasst:
+
+> **Morgen 3 Sätze mitnehmen**
+> 08:00 Müller (A-12) · 10:30 Schmidt (B-03, B-04) · Weber (A-07)
+
+Antippen öffnet `/?mitnehmen=YYYY-MM-DD` und damit die Mitnehmen-Liste
+(`components/auftraege/MitnehmenFenster.tsx`): je Auftrag Uhrzeit, Kunde, Lagerplatz, Fahrzeug,
+Saison; ein Tippen auf die Zeile öffnet den Auftrag. Der Tag steht in der Adresse und nicht
+„morgen", weil die Meldung abends kommt und oft erst am nächsten Morgen angetippt wird.
+
+**Entschieden am 23.09.2026:**
+
+1. **Welche Aufträge:** jeder offene oder begonnene Auftrag des Tages, dessen Kunde einen Satz im
+   Regal hat. Bewusst NICHT an eine Wechselleistung gebunden – die wird oft erst vor Ort
+   eingetragen. Hängen Fahrzeuge am Auftrag, zählen nur deren Sätze (plus Sätze ohne Fahrzeug).
+   Die Regel steht an EINER Stelle, `mitnehmenListe()` in `lib/mitnehmen.ts`; Versand und Fenster
+   rechnen beide damit.
+2. **Uhrzeit je Person** in den eigenen Einstellungen, Vorgabe 20:00, abschaltbar
+   (`user_settings.abendhinweis_aktiv`, `abendhinweis_uhrzeit`).
+3. **Empfänger:** die eingeteilten Mitarbeiter mit verknüpftem Konto. Ist niemand erreichbar –
+   niemand eingeteilt, oder keiner der Eingeteilten hat ein Konto –, gehen diese Aufträge an die
+   Admins. Sonst bliebe genau der Satz liegen, um den sich niemand kümmert.
+4. **Inhalt:** Name und Lagerplatz, wie bei der Terminerinnerung.
+
+**Wie es läuft.** Kein zweiter Zeitgeber: Der Minutentakt aus Migration 28 ruft ohnehin
+`/api/push/senden` auf, und diese Route erledigt den Abendhinweis mit
+(`lib/abendhinweisVersand.ts`). Beide Teile laufen getrennt – scheitert der eine, geht der andere
+trotzdem. Die Antwort der Route trägt den Abendhinweis als eigenes Feld `abendhinweis` mit, so
+steht er in `net._http_response` gleich daneben.
+
+Tagsüber ist der Lauf billig: Er endet, sobald feststeht, dass für niemanden die Uhrzeit erreicht
+ist. Ab der Uhrzeit bis Mitternacht wird nachgeholt, falls der Zeitgeber einmal ausfällt.
+
+**Einmal je Abend** sichert `push_abendhinweis` (Primärschlüssel Person + Tag) – nach demselben
+Muster „erst eintragen, dann das Eingetragene senden" wie `push_versand`. Wer nichts mitnehmen
+muss, bekommt nichts und wird auch nicht eingetragen: Kommt um 21 Uhr noch ein Auftrag für
+morgen dazu, geht der Hinweis dann um 21:01. Ist er einmal gegangen, kommt am selben Abend kein
+zweiter – auch nicht, wenn danach noch ein Auftrag dazukommt.
+
+**Zum Prüfen**, ohne bis 20 Uhr zu warten: in den Einstellungen die Uhrzeit auf eine Minute in
+der Zukunft stellen und einen offenen Auftrag für morgen bei einem Kunden mit eingelagertem Satz
+haben, sich selbst als Mitarbeiter eingeteilt. Danach:
+
+```sql
+select * from public.push_abendhinweis order by gesendet_am desc limit 5;
+select content from net._http_response order by created desc limit 3;  -- Feld "abendhinweis"
+```
+
+Zum erneuten Testen am selben Abend die eigene Zeile für morgen in `push_abendhinweis` löschen.
+
+## Die Tarnung gilt auch für die Meldungen (23.09.2026)
+
+Die App heißt auf dem Homescreen „Settings" (`lib/erscheinung.ts`). Die Meldungen trugen bis
+hierher trotzdem das PinPoints-Symbol, und die Testnachricht den Titel „PinPoints" – auf dem
+Sperrbildschirm, der viel sichtbarer ist als ein App-Symbol.
+
+`public/sw.js` ist eine statische Datei und kann die Konstante nicht lesen. Deshalb reist das
+Symbol jetzt MIT der Meldung: Alle Versandwege setzen den Inhalt über `pushNutzlast()` in
+`lib/pushInhalt.ts` zusammen, und die hängt `ERSCHEINUNG.symbol192` an. Der Service Worker zeigt
+nur an, was ankommt; sein Ersatz für unlesbare Meldungen ist neutral („Hinweis", Zahnrad).
+Zurückstellen bleibt damit eine Zeile: `GETARNT = false`.
+
+Den App-Namen über dem Titel setzt iOS selbst aus dem Namen der installierten App – der lautet
+ohnehin „Settings". Titel und Text der Terminerinnerung (Uhrzeit, Kunde, Anschrift) sind
+unverändert; das ist die Entscheidung aus „Die Datenschutzfrage" weiter oben.
+
+## Nachtrag: Terminerinnerung bei der Laufkundschaft (24.09.2026, Migration 57)
+
+Bei einem Auftrag der Laufkundschaft nennt die Erinnerung statt „Laufkundschaft" den am Auftrag
+eingetragenen Namen, den Einsatzort und die Nummer: „Termin 10:00 Uhr – Max Muster · Rastplatz A9
+Feucht · 0171 …". Ohne eingetragenen Namen steht wie bisher der Sammelkunde da.

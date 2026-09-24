@@ -350,3 +350,70 @@ setzt – ein Absturz wäre die schlechtere Antwort.
 
 **Was das Kennzeichen NICHT tut:** Es begrenzt keine Beträge. Ein Barverkauf über 250 € an einen
 namenlosen Kunden ist keine Frage der Datenbank, sondern eine des Betriebs.
+
+
+### Wer war der Laufkunde? (Migration 57, 24.09.2026)
+
+Seit Migration 57 trägt jeder Auftrag der Laufkundschaft drei eigene Angaben: **Name** (Pflicht
+beim Abschließen – `pruefe_laufkunde()` lehnt sonst ab, das Auftragsfenster sagt es vorher),
+**Telefon** und **Einsatzort** (beide freiwillig). Sie stehen im Kundenblock des Auftragsfensters,
+sobald der Kunde die Laufkundschaft ist, und gehören zum Entwurf wie Titel und Uhrzeit.
+
+- Überall, wo ein Auftrag seinen Kunden zeigt – Aufträge-Tab, Einsatzplanung (Kalender und
+  Listen), Termine-Tab –, steht „Max Muster (Laufkunde)" statt „Laufkundschaft". Die eine
+  Stelle dafür ist `kundeZumAuftrag()` in `lib/laufkunde.ts`; sie macht aus Sammelkunde und
+  Auftrag einen Kunden, wie ihn die Bauteile ohnehin erwarten.
+- Der Anrufknopf ruft die eingetragene Nummer, die Navigation sucht nach dem Einsatzort als
+  Text. **Der Einsatzort wird nicht geokodiert und setzt keine Nadel.**
+- Die Terminerinnerung nennt Name, Einsatzort und Nummer.
+- In der Kundenakte der Laufkundschaft steht an jedem Auftrag, wer es war – das ist die Liste
+  aller Barverkäufe.
+- **Auf der Rechnung** steht der eingetragene Name als Empfänger, ohne Anschrift
+  (`empfaengerFuerAuftrag()` in `lib/rechnung.ts`). Ohne Namen bleibt es wie bisher.
+
+Einen Termin für die Laufkundschaft legt man wie jeden anderen an: in der Einsatzplanung ins
+Raster klicken und „Laufkundschaft" als Kunden wählen.
+
+## Einmalkunde: für die Nadeln nicht beachten (Migration 57, 24.09.2026)
+
+Ein richtiger Kunde mit Anschrift, von dem man schon weiß, dass er nur einmal kommt. Der Haken
+steht bei „Neuer Kunde" unter der Laufkundschaft und im Kundenfenster ganz unten; er speichert
+sofort. Laufkundschaft und Einmalkunde schließen sich aus (Prüfbedingung
+`customers_lauf_oder_einmal`).
+
+- **Ohne Termin**: Zustand „Einmalkunde" (hohler grauer Ring in der Liste). Keine Nadel auf der
+  Karte, nicht in der Anrufliste, nicht unter „fällig" in der Saisonliste – egal wie lange der
+  letzte Kontakt her ist.
+- **Mit Termin** (offen oder in Arbeit, Datum ab heute): Zustand „Termin", dunkelblaue Nadel wie
+  bei jedem anderen. Ist der Termin vorbei, verschwindet die Nadel wieder.
+- **Kommt er doch wieder**: Haken im Kundenfenster heraus – ab dann läuft er im normalen
+  Rhythmus (rot, grün, Wiedervorlage).
+
+Gespeichert wird nur der Haken; der Zustand wird abgeleitet (`effectiveColor()`), genau wie
+„Termin". Die Karte zeichnet nur Zustände aus `KUNDEN_ZUSTAND_REIHENFOLGE`, und „einmalkunde"
+steht dort mit Absicht nicht.
+
+## Papierkorb und endgültiges Löschen (Migration 56, Fahrplan B2, 23.09.2026)
+
+Ein gelöschter Kunde wird weiterhin zuerst nur markiert (`deleted_at`, Migration 19) und
+verschwindet aus allen Listen. Neu ist, dass man ihn wiederfindet: **Admin → Papierkorb** zeigt
+alle gelöschten Kunden mit Löschdatum (`components/admin/PapierkorbPanel.tsx`).
+
+- **Wiederherstellen** darf, wer Kunden schreiben darf. Die mitgelöschten Aufträge kommen über den
+  Trigger aus Migration 19 mit zurück – genau die, nicht die, die schon vorher gelöscht waren.
+- **Endgültig löschen** nur der Superadmin, mit ausdrücklicher Bestätigung, über
+  `kunde_endgueltig_loeschen()`. Unumkehrbar. Weg sind danach Kunde, Fahrzeuge, Aufträge samt
+  Positionen, Kontakte, frühere Einlagerungen samt Rädern und alle Protokolleinträge dazu –
+  auch die, die das Löschen selbst gerade erzeugt hat. Übrig bleibt ein einziger
+  Protokolleintrag ohne Personenbezug (Kundennummer, „endgültig gelöscht", wer, wann).
+- **Nicht** endgültig löschbar: ein Kunde, der nicht im Papierkorb liegt, einer mit Reifen im
+  Regal und die Laufkundschaft (Sammelkunde aller Barverkäufe).
+- **Ausgestellte Rechnungen bleiben.** Sie sind Belege mit Aufbewahrungspflicht und tragen
+  Empfänger und Positionen als eigene Kopie (Migration 48); nur ihr Verweis auf Kunde und
+  Auftrag wird leer. Das gehört so in die Antwort auf eine Löschanfrage.
+
+Unabhängig davon schwärzt ein nächtlicher Lauf (`protokoll_schwaerzen()`, pg_cron, 03:15 UTC)
+nach **36 Monaten** die personenbezogenen Felder in alten Protokolleinträgen (Fahrplan B1):
+Name, Firma, Anrede, Anschrift, E-Mail, Telefon, Koordinaten, Kennzeichen und die Freitexte. Die
+Zeile bleibt stehen, „wer hat wann was geändert" bleibt nachvollziehbar. Geschwärzte Einträge
+tragen `audit_log.geschwaerzt_am`.

@@ -3,9 +3,16 @@ import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabaseServer";
 import { erinnerungFaellig, minutenAusUhrzeit } from "@/lib/helpers";
 import { AUFTRAG_PARAMETER, VORLAUF_MINUTEN, ZEITZONE } from "@/lib/constants";
+import { pushNutzlast } from "@/lib/pushInhalt";
+import { abendhinweiseVersenden, type AbendhinweisErgebnis } from "@/lib/abendhinweisVersand";
 
 // Terminerinnerung: verschickt die Meldung „Termin in 5 Minuten" an die zugeordneten
 // Techniker (docs/benachrichtigungen-plan.md, Teile 3 bis 5).
+//
+// Seit dem 23.09.2026 (Migration 55) läuft im selben Minutentakt auch der Abendhinweis
+// „Reifen mitnehmen" (lib/abendhinweisVersand.ts). Derselbe Aufruf statt einer zweiten Route:
+// kein zweiter Zeitgeber, kein zweites Geheimnis, kein zweiter Eintrag in der Ausnahmeliste
+// von proxy.ts. Die beiden laufen getrennt – scheitert der eine, geht der andere trotzdem.
 //
 // Aufgerufen im Minutentakt von pg_cron (Migration 28), nicht von einem Menschen. Deshalb
 // keine Anmeldung über Cookies, sondern ein gemeinsames Geheimnis im Kopffeld – und deshalb
@@ -62,24 +69,37 @@ export async function POST(request: Request) {
 
   const supabase = createAdminClient();
   const { datum, minuten } = jetztVorOrt();
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:vhermann@samhammer.de", oeffentlich, privat);
+
+  // Der Abendhinweis zuerst und für sich: Ein Fehler darin darf die Terminerinnerung nicht
+  // mitreißen, und umgekehrt. Sein Ergebnis steht in jeder Antwort mit dabei – so sieht man es
+  // in `net._http_response`, ohne eine zweite Stelle abfragen zu müssen.
+  let abendhinweis: AbendhinweisErgebnis | { fehler: string };
+  try {
+    abendhinweis = await abendhinweiseVersenden(supabase, { datum, minuten });
+  } catch (e) {
+    abendhinweis = { fehler: e instanceof Error ? e.message : String(e) };
+  }
+  const antwort = (daten: Record<string, unknown>, init?: ResponseInit) =>
+    NextResponse.json({ ...daten, abendhinweis }, init);
 
   // Nur der heutige Tag: ein Termin um 00:02 würde eine Erinnerung um 23:57 des Vortages
   // brauchen und fiele durch dieses Raster. Für einen Reifenwechsel-Betrieb ist das kein
   // wirklicher Fall – falls doch, ist es hier zu erweitern und nicht anderswo.
   const { data: auftraege, error: auftragsFehler } = await supabase
     .from("orders")
-    .select("id,title,order_date,time,customer_id")
+    .select("id,title,order_date,time,customer_id,laufkunde_name,laufkunde_telefon,laufkunde_ort")
     .eq("order_date", datum)
     .in("status", ["offen", "in_arbeit"])
     .is("deleted_at", null)
     .not("time", "is", null);
-  if (auftragsFehler) return NextResponse.json({ error: auftragsFehler.message }, { status: 500 });
+  if (auftragsFehler) return antwort({ error: auftragsFehler.message }, { status: 500 });
 
   const faellig = (auftraege || []).filter((a) => {
     const start = minutenAusUhrzeit(a.time);
     return start !== null && erinnerungFaellig(start, minuten, VORLAUF_MINUTEN, FENSTER_MINUTEN);
   });
-  if (faellig.length === 0) return NextResponse.json({ faellig: 0, gesendet: 0 });
+  if (faellig.length === 0) return antwort({ faellig: 0, gesendet: 0 });
 
   const auftragsIds = faellig.map((a) => a.id);
 
@@ -91,7 +111,7 @@ export async function POST(request: Request) {
     .select("order_id,employee_id")
     .in("order_id", auftragsIds);
   const mitarbeiterIds = Array.from(new Set((zuordnungen || []).map((z) => z.employee_id)));
-  if (mitarbeiterIds.length === 0) return NextResponse.json({ faellig: faellig.length, gesendet: 0 });
+  if (mitarbeiterIds.length === 0) return antwort({ faellig: faellig.length, gesendet: 0 });
 
   const { data: mitarbeiter } = await supabase
     .from("employees")
@@ -127,7 +147,7 @@ export async function POST(request: Request) {
     if (paare.some((p) => p.order_id === z.order_id && p.profile_id === konto)) return;
     paare.push({ order_id: z.order_id, profile_id: konto, termin });
   });
-  if (paare.length === 0) return NextResponse.json({ faellig: faellig.length, gesendet: 0 });
+  if (paare.length === 0) return antwort({ faellig: faellig.length, gesendet: 0 });
 
   // Eintragen und dabei erfahren, was neu ist. `ignoreDuplicates` macht daraus ein
   // "on conflict do nothing"; zurück kommen nur die tatsächlich geschriebenen Zeilen.
@@ -135,12 +155,12 @@ export async function POST(request: Request) {
     .from("push_versand")
     .upsert(paare, { onConflict: "order_id,profile_id,termin", ignoreDuplicates: true })
     .select("order_id,profile_id");
-  if (eintragFehler) return NextResponse.json({ error: eintragFehler.message }, { status: 500 });
-  if (!neu || neu.length === 0) return NextResponse.json({ faellig: faellig.length, gesendet: 0 });
+  if (eintragFehler) return antwort({ error: eintragFehler.message }, { status: 500 });
+  if (!neu || neu.length === 0) return antwort({ faellig: faellig.length, gesendet: 0 });
 
   const { data: kunden } = await supabase
     .from("customers")
-    .select("id,name,address")
+    .select("id,name,address,laufkundschaft")
     .in("id", Array.from(new Set(faellig.map((a) => a.customer_id))));
   const kundeNach = new Map((kunden || []).map((k) => [k.id, k]));
 
@@ -155,8 +175,6 @@ export async function POST(request: Request) {
     geraeteNach.set(g.profile_id, liste);
   });
 
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:vhermann@samhammer.de", oeffentlich, privat);
-
   let gesendet = 0;
   const verwaist: string[] = [];
   await Promise.all(
@@ -164,11 +182,17 @@ export async function POST(request: Request) {
       const auftrag = faellig.find((a) => a.id === zeile.order_id);
       if (!auftrag) return;
       const kunde = kundeNach.get(auftrag.customer_id);
-      const inhalt = JSON.stringify({
+      const inhalt = pushNutzlast({
         titel: `Termin ${auftrag.time} Uhr`,
         // Name und Adresse stehen im Text, weil eine Meldung auf dem Sperrbildschirm oft die
         // einzige Information ist, die jemand im Vorbeigehen liest.
-        text: [kunde?.name, kunde?.address, auftrag.title].filter(Boolean).join(" · "),
+        //
+        // Bei der Laufkundschaft (Migration 57) stehen dort der eingetragene Name, der
+        // Einsatzort und die Nummer – „Laufkundschaft" sagte im Auto nichts.
+        text: (kunde?.laufkundschaft
+          ? [auftrag.laufkunde_name || kunde.name, auftrag.laufkunde_ort, auftrag.laufkunde_telefon, auftrag.title]
+          : [kunde?.name, kunde?.address, auftrag.title]
+        ).filter(Boolean).join(" · "),
         // Antippen führt direkt in das Auftragsfenster (app/page.tsx wertet den Parameter
         // aus): dort stehen Fahrzeug, Leistungen und die Knöpfe für Navigation und Anruf.
         url: `/?${AUFTRAG_PARAMETER}=${auftrag.id}`,
@@ -193,7 +217,7 @@ export async function POST(request: Request) {
     await supabase.from("push_geraete").delete().in("endpoint", verwaist);
   }
 
-  return NextResponse.json({ faellig: faellig.length, erinnerungen: neu.length, gesendet });
+  return antwort({ faellig: faellig.length, erinnerungen: neu.length, gesendet });
 }
 
 // Vergleich in immer gleicher Zeit: läuft über die volle Länge, egal wo der erste Unterschied

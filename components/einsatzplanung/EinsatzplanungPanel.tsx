@@ -6,6 +6,7 @@ import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber 
 import { RasterLegende, Stundenraster } from "./Stundenraster";
 import { OrderModal } from "@/components/auftraege/OrderModal";
 import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
+import { kundeFuerAuftrag } from "@/lib/laufkunde";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
@@ -130,7 +131,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     .filter(passtZumFahrzeug)
     .filter((o) => {
       if (!custFilter.trim()) return true;
-      const cust = customers.find((c) => c.id === o.customer_id);
+      const cust = kundeFuerAuftrag(o, customers);
       return !!cust && cust.name.toLowerCase().includes(custFilter.toLowerCase());
     })
     .slice()
@@ -138,8 +139,8 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
       let cmp = 0;
       if (sortBy === "date") cmp = orderDateTime(a).getTime() - orderDateTime(b).getTime();
       else if (sortBy === "kunde") {
-        const an = customers.find((c) => c.id === a.customer_id)?.name || "";
-        const bn = customers.find((c) => c.id === b.customer_id)?.name || "";
+        const an = kundeFuerAuftrag(a, customers)?.name || "";
+        const bn = kundeFuerAuftrag(b, customers)?.name || "";
         cmp = an.localeCompare(bn);
       } else cmp = a.status.localeCompare(b.status);
       return sortDir === "asc" ? cmp : -cmp;
@@ -333,7 +334,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                     <thead><tr><th>Uhrzeit</th><th>Kunde</th><th>Fahrzeug</th><th>Status</th></tr></thead>
                     <tbody>
                       {g.orders.map((o) => {
-                        const cust = customers.find((c) => c.id === o.customer_id);
+                        const cust = kundeFuerAuftrag(o, customers);
                         return (
                           <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
                             {/* Auch hier von–bis: Die Spalte heißt „Uhrzeit" und zeigte nur
@@ -408,7 +409,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
               </thead>
               <tbody>
                 {listOrders.map((o) => {
-                  const cust = customers.find((c) => c.id === o.customer_id);
+                  const cust = kundeFuerAuftrag(o, customers);
                   return (
                     <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
                       <td className="date-cell">

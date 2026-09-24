@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@/lib/supabaseServer";
+import { PUSH_ABSENDER, pushNutzlast } from "@/lib/pushInhalt";
 
 // Testnachricht an die eigenen Geräte (docs/benachrichtigungen-plan.md, Vortest).
 //
@@ -77,8 +78,9 @@ export async function POST() {
     geheim
   );
 
-  const inhalt = JSON.stringify({
-    titel: "PinPoints",
+  const inhalt = pushNutzlast({
+    // Folgt der Erscheinung der App: getarnt „Settings" (lib/erscheinung.ts).
+    titel: PUSH_ABSENDER,
     text: "Testnachricht – wenn du das liest, funktioniert der Weg bis auf dein Gerät.",
     url: "/",
   });

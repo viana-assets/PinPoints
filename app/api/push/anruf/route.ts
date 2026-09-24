@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createClient } from "@/lib/supabaseServer";
 import { ANRUF_PARAMETER } from "@/lib/constants";
+import { pushNutzlast } from "@/lib/pushInhalt";
 
 // „Auf dem Handy anrufen": Der Rechner schickt eine Meldung an die EIGENEN Geräte, das Antippen
 // öffnet in der App ein kleines Fenster mit den Rufnummern dieses Kunden.
@@ -75,7 +76,7 @@ export async function POST(request: Request) {
 
   webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:vhermann@samhammer.de", oeffentlich, geheim);
 
-  const inhalt = JSON.stringify({
+  const inhalt = pushNutzlast({
     titel: `Anrufen: ${kunde.name}`,
     // Die Nummern gehören in den Text: Auf dem Sperrbildschirm ist die Meldung oft das Einzige,
     // was gelesen wird – genau wie bei der Terminerinnerung.

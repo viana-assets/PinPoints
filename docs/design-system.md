@@ -101,10 +101,13 @@ Eine Struktur, zwei Layouts (`#iconNav` in `app/page.tsx` + `globals.css`):
 
 - **Desktop**: `#iconNav` ist eine breite (232px), beschriftete Seitenleiste wie in einem
   ERP-System – Icon + Textlabel nebeneinander, alle Punkte direkt sichtbar (Dashboard,
-  Kunden, Aufträge, Trenner, Termine/Lager/Einsatzplanung/Neuer Kunde/Inaktive,
-  Abstandshalter, Admin/Einstellungen unten).
-- **Mobil** (`@media max-width:700px`): schlanke 4-Punkte-Leiste
-  (Dashboard/Kunden/Aufträge/Weitere) – alle übrigen Punkte tragen die Klasse
+  Einsatzplanung, Aufträge, Kunden, Trenner, Termine/Lager/Saisonliste/Neuer Kunde/Inaktive/…,
+  Abstandshalter, Admin/Einstellungen unten). Reihenfolge seit 23.09.2026 in der Reihenfolge
+  des Tages: erst der Plan, dann die Arbeit, dann die Kartei. **Beim Öffnen** steht die App in
+  der Einsatzplanung (`START_TAB` in `lib/module.ts`); ohne Leserecht dort fällt sie auf das
+  Dashboard zurück (`START_TAB_ERSATZ`), das für alle sichtbar ist.
+- **Mobil** (`@media max-width:700px`): schlanke 5-Punkte-Leiste
+  (Dashboard/Einsatzplanung/Aufträge/Kunden/Weitere) – alle übrigen Punkte tragen die Klasse
   `.nav-secondary` und werden dort per CSS ausgeblendet, `.nav-more-btn` wird eingeblendet
   und öffnet `tab === "more"`, eine flache Kartenübersicht mit allen übrigen Zielen.
   `SEKUNDAERE_TABS` (`lib/module.ts`) bestimmt, wann der "Weitere"-Button dort aktiv markiert

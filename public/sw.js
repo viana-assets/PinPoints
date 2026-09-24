@@ -17,7 +17,7 @@
 
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
-const FASSUNG = "v60";
+const FASSUNG = "v63";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 // Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
 // stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg
@@ -86,12 +86,18 @@ self.addEventListener("push", (ereignis) => {
   } catch {
     daten = {};
   }
-  const titel = daten.titel || "Viana PinPoints";
+  // Titel und Symbol kommen vom Server (lib/pushInhalt.ts), weil nur er die Erscheinung der
+  // App kennt – getarnt „Settings" mit Zahnrad, sonst PinPoints (lib/erscheinung.ts). Diese
+  // Datei kann die Konstante nicht lesen. Der Ersatz greift nur, wenn eine Meldung gar nicht
+  // lesbar war, und ist bewusst neutral: Bis zum 23.09.2026 stand hier „Viana PinPoints" mit
+  // dem PinPoints-Symbol – auf dem Sperrbildschirm, trotz Tarnung.
+  const titel = daten.titel || "Hinweis";
+  const symbol = daten.symbol || "/icons/settings-192.png";
   ereignis.waitUntil(
     self.registration.showNotification(titel, {
       body: daten.text || "",
-      icon: "/icons/icon-192.png",
-      badge: "/icons/icon-192.png",
+      icon: symbol,
+      badge: symbol,
       // Die Zieladresse reist mit der Meldung und wird beim Antippen unten ausgewertet.
       data: { url: daten.url || "/" },
       // Gleiche Kennung ersetzt eine noch offene Meldung, statt eine zweite daneben zu legen –
