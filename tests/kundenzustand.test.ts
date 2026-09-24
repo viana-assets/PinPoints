@@ -9,7 +9,7 @@ function kunde(teil: Partial<Customer>): Customer {
     id: "k1", kundennummer: null, name: "Testkunde", address: "Teststr. 1", phone_mobile: null, phone_landline: null,
     company: null, anrede: null, email: null,
     note: null, lat: null, lng: null, geo_genauigkeit: null, status: "offen", last_contact: null,
-    kontakt_ergebnis: null, wiedervorlage_am: null, laufkundschaft: false, active: true, deleted_at: null,
+    kontakt_ergebnis: null, wiedervorlage_am: null, laufkundschaft: false, einmalkunde: false, active: true, deleted_at: null,
   };
   return Object.assign(standard, teil);
 }
@@ -126,5 +126,34 @@ describe("Laufkundschaft als Zustand", () => {
 
   it("aendert ohne das Kennzeichen nichts", () => {
     expect(effectiveColor(kunde({ laufkundschaft: false }), 3, HEUTE)).toBe("red");
+  });
+});
+
+// Einmalkunde (Migration 57): keine Nadel, keine Anrufliste – außer mit Termin.
+describe("effectiveColor – Einmalkunde", () => {
+  it("ist ohne Termin nie rot, sondern Einmalkunde", () => {
+    expect(effectiveColor(kunde({ einmalkunde: true }), 3, HEUTE)).toBe("einmalkunde");
+    expect(effectiveColor(kunde({ einmalkunde: true, wiedervorlage_am: "2026-01-01" }), 3, HEUTE)).toBe("einmalkunde");
+    expect(effectiveColor(kunde({ einmalkunde: true, status: "kontaktiert", last_contact: "2026-08-01" }), 3, HEUTE)).toBe("einmalkunde");
+  });
+
+  it("zeigt mit Termin den Termin – die dunkelblaue Nadel", () => {
+    expect(effectiveColor(kunde({ einmalkunde: true }), 3, HEUTE, true)).toBe("termin");
+  });
+
+  it("fällt nach dem Termin nicht auf Rot zurück", () => {
+    // Der Termin liegt gestern: kundenMitTermin zählt ihn nicht mehr.
+    const mitTermin = kundenMitTermin([{ customer_id: "k1", order_date: "2026-08-28", status: "offen" }], HEUTE);
+    expect(effectiveColor(kunde({ einmalkunde: true }), 3, HEUTE, mitTermin.has("k1"))).toBe("einmalkunde");
+  });
+
+  it("ist nach dem Herausnehmen des Hakens wieder ein normaler Kunde", () => {
+    expect(effectiveColor(kunde({ einmalkunde: false }), 3, HEUTE)).toBe("red");
+  });
+
+  it("steht nicht in der Kartenreihenfolge – also keine Nadel ohne Termin", async () => {
+    const { KUNDEN_ZUSTAND_REIHENFOLGE } = await import("@/lib/helpers");
+    expect(KUNDEN_ZUSTAND_REIHENFOLGE).not.toContain("einmalkunde");
+    expect(KUNDEN_ZUSTAND_REIHENFOLGE).toContain("termin");
   });
 });

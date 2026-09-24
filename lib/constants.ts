@@ -314,6 +314,16 @@ export const AUFTRAG_PARAMETER = "auftrag";
 // die Kennung – eine Rufnummer als Adressparameter landete im Verlauf und in jedem Protokoll,
 // das Adressen mitschreibt.
 export const ANRUF_PARAMETER = "anruf";
+// Abendhinweis „Reifen mitnehmen" (Migration 55): Das Antippen öffnet die Liste der Sätze, die
+// am genannten Tag mitmüssen – `/?mitnehmen=YYYY-MM-DD`. Der Tag steht in der Adresse und nicht
+// „morgen", weil die Meldung abends kommt und oft erst am nächsten Morgen angetippt wird.
+export const MITNEHMEN_PARAMETER = "mitnehmen";
+
+// Wann der Abendhinweis kommt, solange jemand nichts anderes einstellt. Dieselbe Vorgabe steht
+// als Spaltenvorgabe in der Datenbank (`user_settings.abendhinweis_uhrzeit`, Migration 55) –
+// dort, weil eine Zeile ohne Wert sonst keinen hätte; hier, weil die Versandroute auch für
+// Konten ohne Einstellungszeile eine Antwort braucht.
+export const ABENDHINWEIS_UHRZEIT_STANDARD = "20:00";
 
 // ---------------------------------------------------------------- Lager: Saison
 //
@@ -426,6 +436,8 @@ export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
   articles: "Artikel",
   article_prices: "Artikelpreis",
   firmenfahrzeuge: "Firmenfahrzeug",
+  // Migration 44. Fehlte bis zum 23.09.2026 (Fahrplan C4) und erschien im Protokoll als Rohname.
+  auftrag_fahrzeuge: "Fahrzeug am Auftrag",
   employees: "Mitarbeiter",
   profiles: "Zugang",
   module_permissions: "Rechte",
@@ -475,6 +487,25 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   // Auftrag / Lager, Nachzügler
   end_time: "Uhrzeit bis", entnahme_order_id: "Auslagerung am Auftrag",
   kundennummer: "Kundennummer",
+  // Nachgezogen am 23.09.2026 (Fahrplan C4): Diese Spalten stehen in protokollierten Tabellen,
+  // hatten aber keine Beschriftung und erschienen im Protokoll als Rohname. Gegengeprüft gegen
+  // alle Spalten aller Tabellen mit Protokoll-Trigger; ohne Beschriftung bleiben nur die
+  // technischen, die ohnehin nicht angezeigt werden (siehe `PROTOKOLL_STILLE_FELDER` in
+  // lib/helpers.ts).
+  kilometerstand: "Kilometerstand", laufkundschaft: "Laufkundschaft",
+  // Migration 57
+  laufkunde_name: "Name des Laufkunden", laufkunde_telefon: "Telefon des Laufkunden",
+  laufkunde_ort: "Einsatzort des Laufkunden", einmalkunde: "Einmalkunde",
+  kennzeichen: "Kennzeichen", bezeichnung: "Bezeichnung", bemerkung: "Bemerkung",
+  notiz: "Notiz", aktiv: "aktiv", date: "Datum",
+  short_name: "Kurzbezeichnung", long_name: "Langbezeichnung", article_number: "Artikelnummer",
+  valid_from: "gültig ab", valid_to: "gültig bis",
+  read_roles: "Rollen mit Leserecht", edit_roles: "Rollen mit Schreibrecht",
+  delete_roles: "Rollen mit Löschrecht",
+  felge: "Felge", sensor: "RDKS-Sensor", reifengroesse: "Reifengröße",
+  // Migration 56: der eine Eintrag, der nach dem endgültigen Löschen eines Kunden übrig bleibt.
+  endgueltig_geloescht: "endgültig gelöscht (DSGVO)",
+  tire_storage_id: "Einlagerung", braucht_lagerplatz: "braucht Lagerplatz (bis Migration 46)",
   // Betrieb: der Briefkopf (Migration 38/48). Er steht im Protokoll, weil er auf jeder
   // Rechnung landet – „warum steht auf den Rechnungen seit gestern eine andere IBAN" ist
   // genau die Frage, für die es das Protokoll gibt.

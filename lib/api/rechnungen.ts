@@ -15,6 +15,16 @@ export async function fetchRechnungen(supabase: SupabaseClient): Promise<Rechnun
   );
 }
 
+// Die höchste je vergebene Rechnungsnummer (Rechnungen UND Stornos teilen sich den Kreis), oder
+// null, wenn es noch keinen Beleg gibt. Für die Prüfung des Nummernkreises (Fahrplan D7).
+export async function hoechsteRechnungsnummer(supabase: SupabaseClient): Promise<number | null> {
+  const zeilen = await q<{ nummer: number }[]>(
+    "Die zuletzt vergebene Rechnungsnummer konnte nicht gelesen werden",
+    supabase.from("rechnungen").select("nummer").order("nummer", { ascending: false }).limit(1)
+  );
+  return zeilen && zeilen.length > 0 ? zeilen[0].nummer : null;
+}
+
 // Die Belege zu EINEM Auftrag – für das Rechnungsfenster. Getrennt vom Vollabzug, weil das
 // Auftragsfenster nicht alle Rechnungen des Hauses laden soll, um eine anzuzeigen.
 export async function fetchRechnungenZuAuftrag(supabase: SupabaseClient, orderId: string): Promise<Rechnung[]> {

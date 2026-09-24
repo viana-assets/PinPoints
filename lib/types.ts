@@ -49,6 +49,10 @@ export type Customer = {
   // Abschließen die Pflicht zu Empfängerangaben und Fahrzeug auf – § 33 UStDV, eine
   // Kleinbetragsrechnung bis 250 € brutto braucht weder Namen noch Anschrift des Empfängers.
   laufkundschaft: boolean;
+  // Einmalkunde (Migration 57): echter Kunde mit Anschrift, der voraussichtlich nur einmal kommt.
+  // Keine Nadel und kein Platz in der Anrufliste – außer solange ein Termin vor ihm liegt, dann
+  // steht er als Termin-Nadel da. Abgeleitet in `effectiveColor()`; gespeichert wird nur der Haken.
+  einmalkunde: boolean;
   active: boolean;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
   // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen
@@ -120,6 +124,9 @@ export type UserSettings = {
   period_months: number;
   map_style: string;
   row_display: RowDisplay;
+  // Abendhinweis „Reifen mitnehmen" (Migration 55): an/aus und Uhrzeit HH:MM, je Person.
+  abendhinweis_aktiv: boolean;
+  abendhinweis_uhrzeit: string;
 };
 
 export type Warehouse = {
@@ -267,6 +274,12 @@ export type Order = {
   rechnung_erstellt_von: string | null;
   // Die Nummer des Belegs aus `rechnungen` – lückenlos vergeben (Migration 48).
   rechnung_nummer: string | null;
+  // Nur bei Aufträgen der Laufkundschaft (Migration 57): wer es war, wie man ihn erreicht und
+  // wo der Einsatz ist. Der Name ist Pflicht beim Abschließen und steht als Empfänger auf der
+  // Rechnung; der Einsatzort ist Freitext und wird nicht geokodiert.
+  laufkunde_name: string | null;
+  laufkunde_telefon: string | null;
+  laufkunde_ort: string | null;
   created_at: string;
   updated_at: string;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile

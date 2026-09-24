@@ -157,6 +157,9 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
   // Sammelkunde für Barverkäufe (Migration 53). Er hat keine Anschrift – und darf deshalb als
   // einziger ohne angelegt werden.
   laufkundschaft?: boolean;
+  // Einmalkunde (Migration 57): normale Anlage MIT Anschrift und Geokodierung – die Position
+  // braucht er für die Termin-Nadel. Nur ohne Termin erscheint er nicht auf der Karte.
+  einmalkunde?: boolean;
 }): Promise<{ id: string | undefined; lat: number | null; lng: number | null }> {
   let lat: number | null = fields.koordinate?.lat ?? null;
   let lng: number | null = fields.koordinate?.lng ?? null;
@@ -182,6 +185,8 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
       .insert({
         name, address, phone_mobile, phone_landline, note, lat, lng, geo_genauigkeit: genauigkeit,
         status: "offen", active: true, laufkundschaft: fields.laufkundschaft === true,
+        // Beides zugleich lehnt die Datenbank ab (Migration 57); die Laufkundschaft gewinnt.
+        einmalkunde: fields.einmalkunde === true && fields.laufkundschaft !== true,
         // Leere Felder als null, nicht als leere Zeichenkette – sonst stünde "" neben null für
         // dieselbe Aussage, und die Prüfbedingung auf `anrede` lehnt "" ohnehin ab.
         company: fields.company.trim() || null,
@@ -275,4 +280,53 @@ export async function setzePositionVonHand(
   supabase: SupabaseClient, id: string, lat: number, lng: number
 ): Promise<void> {
   await setzeKundenKoordinaten(supabase, id, lat, lng, "hand");
+}
+
+// ---------------------------------------------------------------- Papierkorb (Fahrplan B2)
+//
+// Gelöschte Kunden – bis hierher waren sie nur in der Datenbank zu sehen. Die Liste steht im
+// Adminbereich; wiederherstellen darf, wer Kunden schreiben darf, endgültig löschen nur der
+// Superadmin (erzwungen in `kunde_endgueltig_loeschen()`, Migration 56).
+
+export type PapierkorbKunde = Pick<Customer, "id" | "name" | "company" | "address" | "kundennummer" | "laufkundschaft"> & {
+  deleted_at: string;
+};
+
+export async function fetchPapierkorb(supabase: SupabaseClient): Promise<PapierkorbKunde[]> {
+  return fetchPaged<PapierkorbKunde>("Der Papierkorb konnte nicht geladen werden", (von, bis) =>
+    supabase.from("customers")
+      .select("id,name,company,address,kundennummer,laufkundschaft,deleted_at")
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false })
+      .range(von, bis)
+  );
+}
+
+// Wiederherstellen. Die Aufträge kommen über den Trigger aus Migration 19 mit zurück – genau
+// die, die mit dem Kunden zusammen gelöscht wurden, nicht die, die schon vorher gelöscht waren.
+export async function kundeWiederherstellen(supabase: SupabaseClient, id: string): Promise<void> {
+  await qWrite(
+    "Der Kunde konnte nicht wiederhergestellt werden",
+    supabase.from("customers").update({ deleted_at: null }).eq("id", id)
+  );
+}
+
+export type EndgueltigGeloescht = {
+  kundennummer: number | null;
+  auftraege: number;
+  fahrzeuge: number;
+  protokolleintraege: number;
+  rechnungen_bleiben: number;
+};
+
+// Endgültig löschen – unumkehrbar. Die Vorbedingungen prüft die Datenbank und sagt im Klartext,
+// woran es scheitert (nicht im Papierkorb, Reifen im Regal, Laufkundschaft, kein Superadmin).
+export async function kundeEndgueltigLoeschen(supabase: SupabaseClient, id: string): Promise<EndgueltigGeloescht> {
+  const zeilen = await q<EndgueltigGeloescht[]>(
+    "Der Kunde konnte nicht endgültig gelöscht werden",
+    supabase.rpc("kunde_endgueltig_loeschen", { p_kunde: id })
+  );
+  const erste = zeilen?.[0];
+  if (!erste) throw new ApiError("Der Kunde konnte nicht endgültig gelöscht werden", { message: "keine Rückmeldung der Datenbank." });
+  return erste;
 }

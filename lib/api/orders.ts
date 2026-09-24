@@ -19,7 +19,8 @@ export const AUFTRAGSFENSTER_LABEL: Record<AuftragsFenster, string> = {
   alles: "Alle",
 };
 
-// Ab welchem Datum erledigte Aufträge noch mitgeladen werden. null = ohne Begrenzung.
+// Ab welchem Datum abgeschlossene Aufträge (erledigt UND storniert) noch mitgeladen werden.
+// null = ohne Begrenzung.
 export function fensterStartdatum(fenster: AuftragsFenster): string | null {
   if (fenster === "alles") return null;
   if (fenster === "jahr") return `${new Date().getFullYear()}-01-01`;
@@ -73,8 +74,14 @@ export async function fetchOrders(supabase: SupabaseClient, fenster: AuftragsFen
       .is("deleted_at", null)
       .order("order_date", { ascending: false })
       .range(von, bis);
-    // Offene Aufträge kommen immer mit, auch wenn sie älter sind als das Fenster.
-    return ab ? abfrage.or(`order_date.gte.${ab},status.neq.erledigt`) : abfrage;
+    // Offene und begonnene Aufträge kommen immer mit, auch wenn sie älter sind als das
+    // Fenster – was noch zu tun ist, darf nie aus dem Blick geraten.
+    //
+    // Bis zum 23.09.2026 stand hier `status.neq.erledigt`. Damit kamen auch ALLE alten
+    // stornierten Aufträge jedes Mal mit, egal wie alt – genau das Wachstum, wegen dem es das
+    // Fenster überhaupt gibt (Fahrplan D5). Ein Storno ist abgeschlossen wie ein Abschluss; wer
+    // ältere sucht, schaltet auf „Dieses Jahr" oder „Alle".
+    return ab ? abfrage.or(`order_date.gte.${ab},status.in.(offen,in_arbeit)`) : abfrage;
   });
   return aufteilen(zeilen);
 }
@@ -131,6 +138,9 @@ export async function insertOrder(supabase: SupabaseClient, fields: {
 export async function updateOrderById(supabase: SupabaseClient, id: string, fields: {
   title: string; description: string; orderDate: string; time: string; endTime?: string;
   rechnungNoetig?: boolean; status: OrderStatus;
+  // Nur bei der Laufkundschaft (Migration 57). Fehlt es, bleiben die drei Spalten unberührt –
+  // derselbe Grund wie bei `rechnungNoetig` darunter.
+  laufkunde?: { name: string; telefon: string; ort: string };
 }): Promise<void> {
   await qWrite(
     "Der Auftrag konnte nicht gespeichert werden",
@@ -143,6 +153,11 @@ export async function updateOrderById(supabase: SupabaseClient, id: string, fiel
       // Nur schreiben, wenn der Aufrufer etwas dazu sagt: Ein `undefined` würde den Schalter
       // sonst bei jedem Speichern aus einem anderen Fenster stillschweigend auf „aus" setzen.
       ...(fields.rechnungNoetig === undefined ? {} : { rechnung_noetig: fields.rechnungNoetig }),
+      ...(fields.laufkunde === undefined ? {} : {
+        laufkunde_name: fields.laufkunde.name.trim() || null,
+        laufkunde_telefon: fields.laufkunde.telefon.trim() || null,
+        laufkunde_ort: fields.laufkunde.ort.trim() || null,
+      }),
       status: fields.status,
     }).eq("id", id)
   );

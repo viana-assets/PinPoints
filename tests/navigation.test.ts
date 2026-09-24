@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { MODULE, SEKUNDAERE_TABS } from "@/lib/module";
+import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ } from "@/lib/module";
 import { RECHTE_KATALOG, RECHTE_VORGABE, VERBEN, type Verb } from "@/lib/constants";
 
 // Diese Tests prüfen keine Rechenlogik, sondern eine Erfahrung: Am 10.09.2026 fehlten die
@@ -44,7 +44,19 @@ describe("Modulliste", () => {
     expect(SEKUNDAERE_TABS).toContain("artikel");
   });
 
-  it("hält die drei Alltagsmodule in der unteren Leiste", () => {
-    expect(MODULE.filter((m) => m.primaer).map((m) => m.tab)).toEqual(["dashboard", "list", "auftraege"]);
+  it("hält die vier Alltagsmodule in der unteren Leiste – in der Reihenfolge des Tages", () => {
+    // Entschieden am 23.09.2026: Dashboard, Einsatzplanung, Aufträge, Kunden, dann „Weitere".
+    expect(MODULE.filter((m) => m.primaer).map((m) => m.tab)).toEqual(["dashboard", "einsatzplanung", "auftraege", "list"]);
+  });
+
+  it("stellt dieselben vier auch in der Seitenleiste nach vorn", () => {
+    expect(MODULE.slice(0, 4).map((m) => m.tab)).toEqual(["dashboard", "einsatzplanung", "auftraege", "list"]);
+  });
+
+  it("startet in der Einsatzplanung und fällt auf ein Modul zurück, das jeder sehen darf", () => {
+    // Entschieden am 23.09.2026. Der Rückfall muss für ALLE sichtbar sein – sonst bliebe die
+    // Seite beim Öffnen für eine Rolle ohne Einsatzplanung leer.
+    expect(START_TAB).toBe("einsatzplanung");
+    expect(MODULE.find((m) => m.tab === START_TAB_ERSATZ)?.sichtbar).toBeNull();
   });
 });

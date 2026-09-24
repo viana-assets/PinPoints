@@ -7,7 +7,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 18.09.2026 (nach der vollständigen Projektdurchsicht, Migrationen bis 50).
+Stand: 23.09.2026 (Migrationen bis 56; Regeln seit der Projektdurchsicht vom 18.09.2026).
 
 ---
 
@@ -233,6 +233,17 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   mitführen.
 - **In PL/pgSQL kollidieren Variablennamen mit Spaltennamen.** Schleifenvariablen anders
   benennen als die Spalten, die sie lesen.
+- **Eine Prüfregel auf einer Zeile, die ein anderer Trigger selbst weiterschreibt, muss diesen
+  Fall erkennen.** Migration 55 prüft, dass `betrieb.rechnung_naechste_nummer` nur „höchste
+  vergebene plus eins" sein darf. Beim Ausstellen zählt aber `vergib_rechnungsnummer()` genau
+  diese Zahl hoch – BEVOR die neue Rechnung als Zeile existiert. Ohne Ausnahme hätte die Regel
+  jede Rechnung verhindert. Erkennungsmerkmal: `pg_trigger_depth() > 1` (Aufruf aus einem
+  Trigger heraus). Nachgewiesen im lokalen Test, der nach dem Verstellen des Zählers auch eine
+  zweite Rechnung ausstellt – ein Test, der nur den Zähler verstellt, hätte die Falle nie gezeigt.
+- **Ein Löschen, das Datenschutz herstellen soll, erzeugt selbst Protokoll.** Die Protokoll-
+  Trigger schreiben beim DELETE die ganze Zeile mit – also genau das, was verschwinden soll.
+  `kunde_endgueltig_loeschen()` (Migration 56) räumt deshalb NACH dem Löschen auch diese frischen
+  Einträge ab und hinterlässt einen einzigen ohne Personenbezug.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 

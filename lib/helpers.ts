@@ -79,7 +79,7 @@ export function isContactedActive(cust: Customer, periodMonths: number): boolean
 // heißt er jetzt nach dem, was er bedeutet, und nicht nach dem, wie er aussieht. Die drei
 // übrigen Namen bleiben vorerst – sie sind dieselbe Schwäche, aber ihre Farben stehen nicht
 // zur Debatte, und ein halber Umbau ist schlechter als ein aufgeschobener.
-export type KundenZustand = "green" | "termin" | "wiedervorlage" | "red" | "kein-interesse" | "laufkundschaft";
+export type KundenZustand = "green" | "termin" | "wiedervorlage" | "red" | "kein-interesse" | "laufkundschaft" | "einmalkunde";
 
 // Welcher Zustand gilt für diesen Kunden? Die Reihenfolge der Prüfungen ist die Aussage:
 //
@@ -118,6 +118,11 @@ export function effectiveColor(
   // als Person gar nicht gibt.
   if (cust.laufkundschaft) return "laufkundschaft";
   if (hatTermin) return "termin";
+  // Der Einmalkunde (Migration 57) steht NACH dem Termin: Solange ein Termin vor ihm liegt, ist
+  // er ein Termin wie jeder andere – dunkelblaue Nadel, in der Liste „Termin". Danach fällt er
+  // nicht auf Rot zurück, sondern aus der Anrufliste und von der Karte: Man weiß ja schon, dass
+  // er nicht wiederkommt. Haken heraus, und er läuft wieder im normalen Rhythmus.
+  if (cust.einmalkunde) return "einmalkunde";
   if (cust.kontakt_ergebnis === "kein_interesse") return "kein-interesse";
   if (cust.wiedervorlage_am && cust.wiedervorlage_am > heute) return "wiedervorlage";
   if (cust.wiedervorlage_am) return "red";
@@ -154,6 +159,7 @@ export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
   red: "offen",
   "kein-interesse": "kein Interesse",
   laufkundschaft: "Laufkundschaft",
+  einmalkunde: "Einmalkunde",
 };
 
 
@@ -165,6 +171,11 @@ export const KUNDEN_ZUSTAND_LABEL: Record<KundenZustand, string> = {
 // Kartenfilter, und die Laufkundschaft hat keine Anschrift, also auch keine Nadel. Ein
 // Filterknopf für einen einzigen Datensatz, der nie auf der Karte erscheint, wäre eine
 // Schaltfläche, die immer null zeigt.
+//
+// Der Einmalkunde (Migration 57) steht aus demselben Grund nicht hier – aber mit anderem
+// Ergebnis: Er HAT eine Anschrift, und genau deshalb muss er hier fehlen. Die Karte zeichnet nur
+// Zustände aus dieser Liste; ein Einmalkunde ohne Termin bekommt so keine Nadel. Mit Termin ist
+// sein Zustand „termin", und dann steht er da.
 export const KUNDEN_ZUSTAND_REIHENFOLGE: readonly KundenZustand[] = [
   "red", "wiedervorlage", "termin", "green", "kein-interesse",
 ];

@@ -34,22 +34,25 @@ export type ModulEintrag = {
   // für dieselbe Aussage laufen auseinander, sobald jemand nur einen davon umstellt – und
   // dann steht in der Modulverwaltung etwas anderes, als die Datenbank tut.
   sichtbar: string | null | "admin";
-  // Die drei wichtigsten Module stehen am Handy in der unteren Leiste, alles andere hinter
-  // „Weitere". Am Desktop ist beides dieselbe, breite Seitenleiste.
+  // Die vier wichtigsten Module stehen am Handy in der unteren Leiste, alles andere hinter
+  // „Weitere" (seit 23.09.2026 vier statt drei: Einsatzplanung kam dazu). Am Desktop ist beides dieselbe, breite Seitenleiste.
   primaer?: boolean;
   // Trennlinie bzw. Abstandhalter VOR diesem Eintrag (nur Seitenleiste).
   trennerDavor?: "linie" | "abstand";
 };
 
 export const MODULE: ModulEintrag[] = [
+  // Reihenfolge seit dem 23.09.2026: Dashboard, Einsatzplanung, Aufträge, Kunden – so, wie der
+  // Tag abläuft (erst der Plan, dann die Arbeit daran, dann die Kartei). Gilt für beide
+  // Navigationen: die Seitenleiste am Rechner und die untere Leiste am Handy.
   { tab: "dashboard",      label: "Dashboard",        beschreibung: "Kennzahlen und der Überblick über den Tag",                 Icon: IconDashboard,      sichtbar: null,                primaer: true },
-  { tab: "list",           label: "Kunden",           beschreibung: "Kundenliste mit Karte, Filtern und Kontakt",                Icon: IconKunden,         sichtbar: "kunden",            primaer: true },
+  { tab: "einsatzplanung", label: "Einsatzplanung",   beschreibung: "Aufträge nach Tag, Mitarbeiter und Fahrzeug planen",        Icon: IconEinsatzplanung, sichtbar: "einsatzplanung",    primaer: true },
   { tab: "auftraege",      label: "Aufträge",         beschreibung: "Alle Aufträge, Leistungen und Zustände",                    Icon: IconAuftraege,      sichtbar: "auftraege",         primaer: true },
+  { tab: "list",           label: "Kunden",           beschreibung: "Kundenliste mit Karte, Filtern und Kontakt",                Icon: IconKunden,         sichtbar: "kunden",            primaer: true },
 
   { tab: "termine",        label: "Termine",          beschreibung: "Chronologische Terminübersicht (Aufträge mit Uhrzeit)",     Icon: IconTermine,        sichtbar: "termine",           trennerDavor: "linie" },
   { tab: "lager",          label: "Lager",            beschreibung: "Lager & Lagerplätze verwalten, Reifen zuordnen",            Icon: IconLager,          sichtbar: "lager" },
   { tab: "saison",         label: "Saisonliste",      beschreibung: "Wer hat welche Reifen bei uns liegen – die Anrufliste",     Icon: IconSaison,         sichtbar: "saison" },
-  { tab: "einsatzplanung", label: "Einsatzplanung",   beschreibung: "Aufträge nach Tag, Mitarbeiter und Fahrzeug planen",        Icon: IconEinsatzplanung, sichtbar: "einsatzplanung" },
   { tab: "add",            label: "Neuer Kunde",      beschreibung: "Kunden anlegen, optional gleich mit Auftrag",               Icon: IconNeu,            sichtbar: "kunden.schreiben" },
   { tab: "inactive",       label: "Inaktive Kunden",  beschreibung: "Deaktivierte Kunden ansehen & reaktivieren",                Icon: IconInaktiv,        sichtbar: "kunden.lesen" },
   { tab: "artikel",        label: "Artikel",          beschreibung: "Artikelstamm und Preis-Historie",                           Icon: IconArtikel,        sichtbar: "artikel" },
@@ -59,6 +62,13 @@ export const MODULE: ModulEintrag[] = [
   { tab: "admin",          label: "Admin",            beschreibung: "Nutzer einladen & verwalten, Mitarbeiter, Firmenfahrzeuge", Icon: IconAdmin,          sichtbar: "admin", trennerDavor: "abstand" },
   { tab: "settings",       label: "Einstellungen",    beschreibung: "Anzeige, Wiedervorlage-Zeitraum, App, Abmelden",            Icon: IconSettings,       sichtbar: "einstellungen" },
 ];
+
+// Womit die App beim Öffnen startet (seit 23.09.2026): die Einsatzplanung – der Plan des Tages
+// ist das Erste, was man sehen will. Darf jemand die Einsatzplanung nicht sehen, fällt die
+// Seite auf das Dashboard zurück (app/page.tsx), das für alle sichtbar ist. Links aus
+// Benachrichtigungen und QR-Aufklebern öffnen weiterhin ihr eigenes Ziel.
+export const START_TAB: TabKey = "einsatzplanung";
+export const START_TAB_ERSATZ: TabKey = "dashboard";
 
 // Welche Reiter stecken auf dem Handy hinter „Weitere"? Ergibt sich aus der Liste, statt
 // daneben gepflegt zu werden – sonst leuchtet der Knopf irgendwann beim falschen Modul.

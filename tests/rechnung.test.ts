@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rechnungOffen } from "@/lib/helpers";
+import { nummernkreisFehler } from "@/lib/rechnung";
 
 // Die Arbeitsliste „welche Rechnung muss ich noch schreiben". Ein Fehler hier heisst: ein
 // Auftrag wird nie abgerechnet, und zwar ohne dass irgendwo etwas fehlt - er taucht einfach
@@ -44,5 +45,30 @@ describe("rechnungOffen", () => {
   it("kommt ohne deleted_at zurecht", () => {
     const ohne = { status: "erledigt", rechnung_noetig: true, rechnung_erstellt_am: null };
     expect(rechnungOffen(ohne)).toBe(true);
+  });
+});
+
+// Fahrplan D7: Die nächste Rechnungsnummer wird gegen den Bestand geprüft.
+
+describe("nummernkreisFehler", () => {
+  it("lässt ohne jede Rechnung jede Zahl ab 1 zu – das ist die Übernahme aus dem Altsystem", () => {
+    expect(nummernkreisFehler(1782, null)).toBeNull();
+    expect(nummernkreisFehler(1, null)).toBeNull();
+  });
+  it("lehnt 0, negative und gebrochene Zahlen ab", () => {
+    expect(nummernkreisFehler(0, null)).toMatch(/ab 1/);
+    expect(nummernkreisFehler(-5, null)).toMatch(/ab 1/);
+    expect(nummernkreisFehler(12.5, null)).toMatch(/ab 1/);
+    expect(nummernkreisFehler(Number.NaN, null)).toMatch(/ab 1/);
+  });
+  it("lässt nach vorhandenen Rechnungen genau die nächste zu", () => {
+    expect(nummernkreisFehler(1785, 1784)).toBeNull();
+  });
+  it("benennt eine Doppelvergabe", () => {
+    expect(nummernkreisFehler(1783, 1784, "RE")).toMatch(/RE1783 ist schon vergeben.*RE1785/);
+  });
+  it("benennt die Lücke, die entstünde", () => {
+    expect(nummernkreisFehler(1786, 1784, "RE")).toMatch(/fehlten die Nummern RE1785 im Kreis/);
+    expect(nummernkreisFehler(1790, 1784, "RE")).toMatch(/RE1785 bis RE1789/);
   });
 });

@@ -211,6 +211,18 @@ export function empfaengerAus(k: Customer): RechnungEmpfaenger {
   };
 }
 
+// Der Empfänger einer Rechnung zu DIESEM Auftrag. Normalerweise der Kunde. Bei der
+// Laufkundschaft (Migration 57, entschieden am 24.09.2026) der am Auftrag eingetragene Name –
+// OHNE Anschrift: Der Einsatzort ist ein Treffpunkt und keine Rechnungsanschrift, und eine
+// Kleinbetragsrechnung braucht keine (§ 33 UStDV). Ohne eingetragenen Namen bleibt es beim
+// Sammelkunden, wie bisher. Die Kundennummer bleibt die des Sammelkunden – sie verbindet den
+// Beleg mit dem Datensatz, an dem der Auftrag hängt.
+export function empfaengerFuerAuftrag(auftrag: Pick<Order, "laufkunde_name">, k: Customer): RechnungEmpfaenger {
+  const name = (auftrag.laufkunde_name ?? "").trim();
+  if (!k.laufkundschaft || !name) return empfaengerAus(k);
+  return { name, company: null, anrede: null, address: "", email: null, kundennummer: k.kundennummer };
+}
+
 export function entwurfBauen(opts: {
   auftrag: Order;
   kunde: Customer;
@@ -222,7 +234,7 @@ export function entwurfBauen(opts: {
 }): RechnungEntwurf {
   const positionen = positionenAusAuftrag(opts.zeilen, opts.artikel);
   const summen = rechnungSummen(positionen, opts.auftrag.rechnung_noetig);
-  const empfaenger = empfaengerAus(opts.kunde);
+  const empfaenger = empfaengerFuerAuftrag(opts.auftrag, opts.kunde);
   const texte: RechnungTexte = {
     mit_steuer: opts.auftrag.rechnung_noetig,
     anschreiben: opts.betrieb.anschreiben,
@@ -326,6 +338,29 @@ export function firmaOhneInhaber(firma: string, inhaber: string): string {
 // und nicht die Nummer allein.
 export function voraussichtlicheNummer(b: Pick<Betrieb, "rechnung_praefix" | "rechnung_naechste_nummer">): string {
   return `${b.rechnung_praefix || "RE"}${b.rechnung_naechste_nummer}`;
+}
+
+// Darf die nächste Rechnungsnummer auf diesen Wert gesetzt werden? (Fahrplan D7)
+//
+// Solange KEINE Rechnung existiert, ist jede Zahl ab 1 zulässig – das ist der eine Moment, in
+// dem der Kreis von Hand angesetzt wird (Übernahme aus dem Altsystem). Sobald eine existiert,
+// gibt es genau EINE richtige Zahl: die höchste vergebene plus eins. Kleiner hieße, eine
+// Nummer ein zweites Mal zu vergeben; größer, eine Lücke zu reißen. Beides bekommt man nicht
+// mehr auseinander, und beides erklärt man bei der nächsten Prüfung.
+//
+// Dieselbe Regel steht in der Datenbank (Migration 55, `pruefe_rechnungsnummernkreis()`) – dort
+// als Zwang, hier als Erklärung vor dem Absenden. Wer eine Stelle ändert, ändert beide.
+//
+// Rückgabe: null = in Ordnung, sonst der Grund in Klartext.
+export function nummernkreisFehler(wert: number, hoechsteVergebene: number | null, praefix = "RE"): string | null {
+  if (!Number.isInteger(wert) || wert < 1) return "Die nächste Nummer muss eine ganze Zahl ab 1 sein.";
+  if (hoechsteVergebene == null) return null;
+  const richtig = hoechsteVergebene + 1;
+  if (wert === richtig) return null;
+  const p = praefix || "RE";
+  return wert < richtig
+    ? `${p}${wert} ist schon vergeben – zuletzt ausgestellt wurde ${p}${hoechsteVergebene}. Die nächste Nummer kann nur ${p}${richtig} sein.`
+    : `Mit ${p}${wert} fehlten die Nummern ${p}${richtig}${wert - richtig > 1 ? ` bis ${p}${wert - 1}` : ""} im Kreis. Die nächste Nummer kann nur ${p}${richtig} sein.`;
 }
 
 // ---------------------------------------------------------------- Die Mail an den Kunden
