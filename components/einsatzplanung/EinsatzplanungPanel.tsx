@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Customer, Employee, Firmenfahrzeug, Order, OrderStatus } from "@/lib/types";
+import type { Customer, Employee, Firmenfahrzeug, Order } from "@/lib/types";
 import { todayStr, formatDate, orderDateTime, terminZeitraum } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
@@ -54,7 +54,11 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // Zweiter Filter neben dem Mitarbeiter, mit derselben Bedienung. „Nicht eingeteilt" ist
   // bewusst ein eigener Knopf: Das ist die Lücke, die man vor dem Tag schließen will.
   const [fahrzeugFilter, setFahrzeugFilter] = useState<"all" | "ohne" | string>("all");
-  const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
+  // Nur die Zustände, die noch Arbeit bedeuten (24.09.2026). Erledigte und stornierte Aufträge
+  // gehören in den Aufträge-Tab – in der Planung sind sie Ballast, und am Monatsende stand die
+  // Liste voller grüner „Erledigt"-Zeilen, zwischen denen die offenen verschwanden. Im Raster
+  // bleiben sie sichtbar (✓ / ✕): Dort sagen sie, wo der Tag schon belegt WAR.
+  const [statusFilter, setStatusFilter] = useState<"all" | "offen" | "in_arbeit">("all");
   // Der angeklickte Zeitpunkt, solange die Kundenauswahl offen ist.
   const [slot, setSlot] = useState<{ datum: string; von: string | null; bis: string | null } | null>(null);
   const [custFilter, setCustFilter] = useState("");
@@ -126,6 +130,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
 
   // Volle Liste unter dem Kalender – unabhängig vom ausgewählten Tag, mit eigenen Filtern/Sortierung.
   const listOrders = orders
+    .filter((o) => o.status === "offen" || o.status === "in_arbeit")
     .filter((o) => statusFilter === "all" || o.status === statusFilter)
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
     .filter(passtZumFahrzeug)
@@ -186,6 +191,11 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           </div>
         </div>
 
+        {/* Die Bedienleiste bleibt beim Scrollen stehen (24.09.2026): Wer im Stundenraster
+            nach 16 Uhr scrollte, hatte Mitarbeiter, Fahrzeug und Ansicht aus dem Blick – und
+            musste zum Umschalten erst wieder ganz nach oben. Am Handy werden die Chipreihen
+            dafür einzeilig und wischbar, sonst nähme die Leiste den halben Bildschirm. */}
+        <div className="planung-leiste">
         <div className="row" style={{ maxWidth: 420, alignItems: "center" }}>
           <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() - 1, 1))}>‹</button>
           <div style={{ flex: 1, textAlign: "center", fontWeight: 700 }}>{monthLabel}</div>
@@ -240,6 +250,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
             </>
           )}
         </div>
+        </div>
 
         {ansicht !== "monat" && (
           <>
@@ -287,7 +298,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                     type="button"
                     key={ds}
                     className={`calendar-day ${inMonth ? "" : "outside"} ${ds === todayStr() ? "today" : ""} ${ds === selectedDay ? "selected" : ""}`}
-                    onClick={() => setSelectedDay(ds)}
+                    // Ein Tag im Monat angetippt = in diesen Tag hineinzoomen (24.09.2026), wie
+                    // im Google-Kalender. Vorher erschien nur eine Tabelle darunter, die man am
+                    // Handy erst suchen musste.
+                    onClick={() => { setSelectedDay(ds); setAnsicht("tag"); }}
                   >
                     <span className="calendar-daynum">{d.getDate()}</span>
                     {ordersToday.length > 0 && (
@@ -374,12 +388,11 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
         )}
 
         <hr />
-        <h4 style={{ margin: "4px 0 0" }}>Alle Aufträge</h4>
+        <h4 style={{ margin: "4px 0 0" }}>Offene Aufträge <span className="small">– erledigte und stornierte stehen unter „Aufträge“</span></h4>
         <div className="filterbar">
-          <button type="button" className={`chip ${statusFilter === "all" ? "active" : ""}`} onClick={() => setStatusFilter("all")}>Alle</button>
+          <button type="button" className={`chip ${statusFilter === "all" ? "active" : ""}`} onClick={() => setStatusFilter("all")}>Alle offenen</button>
           <button type="button" className={`chip ${statusFilter === "offen" ? "active" : ""}`} onClick={() => setStatusFilter("offen")}>Offen</button>
           <button type="button" className={`chip ${statusFilter === "in_arbeit" ? "active" : ""}`} onClick={() => setStatusFilter("in_arbeit")}>In Arbeit</button>
-          <button type="button" className={`chip ${statusFilter === "erledigt" ? "active" : ""}`} onClick={() => setStatusFilter("erledigt")}>Erledigt</button>
         </div>
         <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
 
@@ -388,7 +401,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
             tut, was man erwartet. */}
         <div className="tabelle-breit">
           {listOrders.length === 0 ? (
-            <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
+            <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine offenen Aufträge für diesen Filter."}</div>
           ) : (
             <table className="appt-table">
               <thead>

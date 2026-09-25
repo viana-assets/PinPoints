@@ -225,9 +225,10 @@ Monatsübersicht, die in der vorigen Fassung dieses Dokuments beschrieben war:
   `addDays`, `toDateStr`, `isoWeekNumber`, jetzt in `lib/calendar.ts` statt lose in
   `app/page.tsx`). Jeder Tag zeigt farbige Punkte je eingesetztem Mitarbeiter
   (`EMP_COLORS`/`employeeColorFor`) plus einen grauen Punkt für noch nicht zugeordnete
-  Aufträge. Die KW-Spalte ist anklickbar und öffnet die Wochenansicht auf diesem Montag. Klick
-  auf einen Tag zeigt darunter die Aufträge dieses Tages, gruppiert nach Mitarbeiter (inkl.
-  „Nicht zugeordnet").
+  Aufträge. Die KW-Spalte ist anklickbar und öffnet die Wochenansicht auf diesem Montag. **Klick
+  auf einen Tag zoomt in diesen Tag hinein** – die Tagesansicht (Stundenraster) öffnet sich
+  (seit 24.09.2026; vorher erschien nur eine Tabelle darunter). Die Tabelle „Aufträge am …",
+  gruppiert nach Mitarbeiter, steht in der Monatsansicht weiter für den ausgewählten Tag.
 - **Woche** und **Tag**: ein Stundenraster (`Stundenraster.tsx`, Rechenlogik in
   `lib/calendar.ts`), dieselbe Komponente für beide – der Unterschied ist nur die Länge der
   Tage-Liste. Grundfenster 7–19 Uhr (`KALENDER_VON_STUNDE`/`KALENDER_BIS_STUNDE`), dehnt sich
@@ -240,11 +241,18 @@ Monatsübersicht, die in der vorigen Fassung dieses Dokuments beschrieben war:
   Zoom per Strg+Mausrad, Zwei-Finger-Geste oder ±-Knöpfen zwischen 14 und 120 px je Stunde;
   beim Herauszoomen öffnet sich gleichzeitig das Zeitfenster gleitend gegen 0–24 Uhr.
 
+**Bedienleiste bleibt stehen** (seit 24.09.2026, `.planung-leiste`): Monatsnavigation,
+Mitarbeiter, Fahrzeuge und Monat/Woche/Tag kleben beim Scrollen oben; am Handy sind die
+Chipreihen dafür einzeilig und seitlich wischbar. In der Wochenansicht am Handy bleibt beim
+seitlichen Wischen die **Uhrzeitspalte links stehen** (`.rk-spalte-zeit` sticky).
+
 Zwei Filterleisten gelten für Raster **und** die volle Liste darunter gleichermaßen:
 Mitarbeiter (Chips) und, seit Migration 32, Firmenfahrzeuge (Chips je Kennzeichen plus „Nicht
-eingeteilt", nur sichtbar wenn aktive Firmenfahrzeuge existieren). Die volle Liste unter dem
-Kalender ist unabhängig vom ausgewählten Tag, mit eigenen Status-/Mitarbeiter-/Fahrzeug-/
-Kunden-Filtern und sortierbaren Spalten (Termin/Kunde/Status). Titel- und Notiz-Spalten sind
+eingeteilt", nur sichtbar wenn aktive Firmenfahrzeuge existieren). Die Liste unter dem
+Kalender heißt seit dem 24.09.2026 **„Offene Aufträge"** und zeigt nur offene und in Arbeit
+befindliche Aufträge – erledigte und stornierte stehen im Aufträge-Tab, im Raster bleiben sie
+als ✓/✕ sichtbar. Sie ist unabhängig vom ausgewählten Tag, mit eigenen Status-/Mitarbeiter-/
+Fahrzeug-/Kunden-Filtern und sortierbaren Spalten (Termin/Kunde/Status). Titel- und Notiz-Spalten sind
 dort seit dem 18.09.2026 entfallen (Titel dupliziert meist „Termin – Kunde", die Notiz sprengt
 eine Tabellenspalte); beides steht im Auftragsfenster.
 

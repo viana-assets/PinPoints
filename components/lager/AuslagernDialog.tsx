@@ -96,7 +96,7 @@ export function AuslagernDialog({
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onAbbrechen(); }}>
+    <div className="modal-overlay modal-auslagern" onClick={(e) => { if (e.target === e.currentTarget) onAbbrechen(); }}>
       <div className="modal-box" style={{ position: "relative", maxWidth: 480 }}>
         <button className="modal-close" onClick={onAbbrechen} aria-label="Schließen">✕</button>
         <h2>Reifen auslagern</h2>

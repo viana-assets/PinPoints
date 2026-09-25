@@ -13,7 +13,11 @@ import { AdressFeld } from "@/components/AdressFeld";
 // Sache und konnte als einzige keine Leistungen erfassen. An seiner Stelle steht ein
 // Ankreuzfeld: ist es gesetzt, öffnet sich nach dem Anlegen das vollständige Auftragsfenster –
 // dasselbe wie überall sonst. Siehe docs/auftragsablauf.md.
-export function AddCustomerForm({ onAdd, terminText }: {
+export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null }: {
+  // Name der schon vorhandenen Laufkundschaft, sonst null. Es gibt sie höchstens einmal
+  // (Migration 53) – ist sie da, bleibt das Kästchen gesperrt und sagt, wo sie zu finden ist.
+  // Vorher lief man in die rohe Datenbankmeldung „customers_eine_laufkundschaft".
+  laufkundschaftName?: string | null;
   // Kommt der Weg aus dem Kalender, wartet dort schon ein angeklickter Termin. Dann ist das
   // Ankreuzfeld von vornherein gesetzt und nennt den Termin: Wer den Haken hier übersähe,
   // verlöre den Zeitpunkt, den er zwei Klicks vorher ausgewählt hat – und merkte es erst,
@@ -66,12 +70,27 @@ export function AddCustomerForm({ onAdd, terminText }: {
     // Nur wenn die Adresse von Hand getippt wurde, muss noch nachgeschlagen werden – bei einem
     // angenommenen Vorschlag liegt die Koordinate schon vor.
     setStatus({ text: koordinate || laufkundschaft ? "Wird angelegt …" : "Suche Adresse auf der Karte …", ok: true });
-    const gefunden = await onAdd({
-      name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(),
-      phone_landline: landline.trim(), note: note.trim(),
-      company: company.trim(), email: email.trim(), anrede,
-      koordinate, auftragAnlegen, laufkundschaft, einmalkunde: einmalkunde && !laufkundschaft,
-    });
+    let gefunden: boolean;
+    try {
+      gefunden = await onAdd({
+        name: name.trim(), address: address.trim(), phone_mobile: mobile.trim(),
+        phone_landline: landline.trim(), note: note.trim(),
+        company: company.trim(), email: email.trim(), anrede,
+        koordinate, auftragAnlegen, laufkundschaft, einmalkunde: einmalkunde && !laufkundschaft,
+      });
+    } catch (grund) {
+      // Ein Fehler darf den Knopf nicht auf „Wird angelegt …" stehen lassen. Die Eingaben
+      // bleiben stehen, damit nichts neu getippt werden muss.
+      setBusy(false);
+      const text = String(grund instanceof Error ? grund.message : grund);
+      setStatus({
+        text: text.includes("customers_eine_laufkundschaft")
+          ? "Die Laufkundschaft gibt es schon – bitte den Auftrag dort anlegen und den Namen im Auftrag eintragen."
+          : text,
+        ok: false,
+      });
+      return;
+    }
     setBusy(false);
     leeren();
     setStatus(laufkundschaft
@@ -126,13 +145,14 @@ export function AddCustomerForm({ onAdd, terminText }: {
           einen, den es schon gibt (die Datenbank lässt keinen zweiten zu). */}
       <div className="checkbox-row erklaert">
         <input type="checkbox" id="istLaufkundschaft" checked={laufkundschaft}
+               disabled={laufkundschaftName !== null}
                onChange={(e) => { setLaufkundschaft(e.target.checked); if (e.target.checked) setEinmalkunde(false); }} />
         <label htmlFor="istLaufkundschaft">
           <b>Laufkundschaft</b> – Sammelkunde für Barverkäufe ohne Kundenanlage
           <span className="small" style={{ display: "block" }}>
-            Dann ist die Adresse nicht nötig: keine Nadel auf der Karte, kein Eintrag in der
-            Anrufliste, und beim Abschließen fragt niemand nach Anschrift oder Fahrzeug.
-            Es kann nur einen solchen Kunden geben.
+            {laufkundschaftName !== null
+              ? `Gibt es schon („${laufkundschaftName}"). Für einen Laufkunden dort einen Auftrag anlegen und Name, Telefon und Einsatzort im Auftrag eintragen.`
+              : "Dann ist die Adresse nicht nötig: keine Nadel auf der Karte, kein Eintrag in der Anrufliste, und beim Abschließen fragt niemand nach Anschrift oder Fahrzeug. Es kann nur einen solchen Kunden geben."}
           </span>
         </label>
       </div>

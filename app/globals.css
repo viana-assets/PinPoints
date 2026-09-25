@@ -674,6 +674,9 @@
    Regel daraus: Ein Fenster über einem Fenster braucht einen eigenen z-index. Gleicher Wert
    heißt nicht „gleich wichtig", sondern „die Quelltextreihenfolge entscheidet". */
 .modal-kontakt { z-index: 10002; }
+/* Der Auslagern-Dialog öffnet sich auch AUS dem Auftragsfenster (10001). Bis v64 lag er ohne
+   eigenen Wert auf 10000 dahinter – man sah ihn erst nach dem Schließen des Auftrags. */
+.modal-auslagern { z-index: 10002; }
 /* Das Rechnungsfenster öffnet AUS dem Auftragsfenster (10001), die Storno-Rückfrage wiederum
    aus dem Rechnungsfenster. Jede Ebene bekommt ihren eigenen Wert – dieselbe Regel wie oben. */
 .modal-rechnung { z-index: 10003; }
@@ -1762,6 +1765,28 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
   .raster-woche .raster-ohnezeit,
   .raster-woche .raster-leib{min-width:640px;}
   .tm-block .tm-wer{font-size:11px;}
+  /* Die Uhrzeiten bleiben links stehen, wenn man die Woche seitlich wischt (24.09.2026).
+     Vorher rollten sie mit hinaus, und ab Donnerstag stand das Raster ohne Uhrzeit da. Jede
+     der drei Zeilen (Kopf, „ohne Uhrzeit", Stunden) hat ihre eigene erste Spalte – alle drei
+     kleben, sonst verrutschen sie gegeneinander. Deckend hinterlegt, damit die Termine
+     darunter hindurchgleiten statt durchzuscheinen. */
+  .raster-woche .rk-spalte-zeit{position:sticky;left:0;z-index:3;}
+  .raster-woche .raster-kopf .rk-spalte-zeit{background:var(--bg);}
+  .raster-woche .raster-ohnezeit .rk-spalte-zeit{background:var(--hover);}
+  .raster-woche .rl-stunden{background:var(--panel);box-shadow:1px 0 0 var(--border);}
+}
+
+/* Bedienleiste der Einsatzplanung: bleibt beim Scrollen oben stehen (24.09.2026). Der
+   Scrollbereich ist `.tabpanel` mit 12px Innenabstand – daher `top:-12px`, sonst bliebe
+   darüber ein Spalt, durch den der Kalender hindurchscrollt. */
+.planung-leiste{position:sticky;top:-12px;z-index:20;background:var(--bg);
+  display:flex;flex-direction:column;gap:6px;padding:8px 0 8px;margin-top:-8px;}
+.planung-leiste .filterbar{margin-bottom:0;}
+@media (max-width: 700px){
+  .planung-leiste .filterbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;}
+  .planung-leiste .filterbar::-webkit-scrollbar{display:none;}
+  .planung-leiste .filterbar > *{flex:0 0 auto;}
 }
 
 @media (prefers-reduced-motion: reduce){

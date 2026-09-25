@@ -425,6 +425,7 @@ export default function HomePage() {
 
   // Das Kundendetail zeigt die VOLLSTÄNDIGE Auftragshistorie eines Kunden, unabhängig vom
   // Zeitfenster der Listen – dort will man sehen, was es zu diesem Kunden je gab.
+  const gewaehlterKunde = selectedId ? customers.find((c) => c.id === selectedId) : undefined;
   const kundeAuftraege = kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
 
   // Mitarbeiter- und Leistungszuordnungen kommen seit Phase 10 verschachtelt mit den Aufträgen
@@ -1248,9 +1249,12 @@ export default function HomePage() {
   }
   async function deleteCustomerById(id: string) {
     await deleteCustomerRow(supabase, id);
+    // Erst das Fenster schließen, DANN neu laden. Umgekehrt stand der Kunde nach dem Neuladen
+    // nicht mehr in der Liste, das Fenster war aber noch offen und griff ins Leere – die ganze
+    // Seite brach mit „This page couldn't load" ab (24.09.2026, beim Löschen der Laufkundschaft).
+    setSelectedId(null);
     await refreshCustomers();
     await refreshOrders();
-    setSelectedId(null);
   }
   async function updateCustomerFields(id: string, fields: Partial<Customer>) {
     const cust = customers.find((c) => c.id === id);
@@ -2782,7 +2786,11 @@ export default function HomePage() {
         )}
 
         {tab === "add" && canView("kunden.schreiben") && (
-          <AddCustomerForm onAdd={addCustomer} terminText={terminTextVon(terminFuerNeuenKunden)} />
+          <AddCustomerForm
+            onAdd={addCustomer}
+            terminText={terminTextVon(terminFuerNeuenKunden)}
+            laufkundschaftName={customers.find((c) => c.laufkundschaft)?.name ?? null}
+          />
         )}
 
         {tab === "settings" && canView("einstellungen") && (
@@ -3201,9 +3209,11 @@ export default function HomePage() {
         );
       })()}
 
-      {selectedId && (
+      {/* Nur öffnen, solange es den Kunden in der Liste gibt: Nach dem Löschen – auch auf einem
+          anderen Gerät – ist er weg, und ein Fenster ohne Kunde riss die ganze Seite mit. */}
+      {selectedId && gewaehlterKunde && (
         <DetailModal
-          customer={customers.find((c) => c.id === selectedId)!}
+          customer={gewaehlterKunde}
           orders={kundeAuftraege}
           employees={employees}
           orderEmployees={orderEmployees}

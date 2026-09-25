@@ -16,6 +16,20 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **24.09.2026 – Einsatzplanung am Handy und Auslagern-Fenster (Service Worker v65).**
+  Ein Tag im Monat angetippt öffnet die Tagesansicht. Die Liste darunter zeigt nur noch offene
+  und laufende Aufträge. Die Bedienleiste (Monat, Mitarbeiter, Fahrzeuge, Ansicht) bleibt beim
+  Scrollen stehen, in der Wochenansicht die Uhrzeitspalte beim seitlichen Wischen. Der
+  Auslagern-Dialog liegt jetzt über dem Auftragsfenster statt dahinter (`.modal-auslagern`).
+
+* **24.09.2026 – Absturz beim Löschen eines Kunden behoben (Service Worker v64).** Nach dem
+  Löschen wurde erst neu geladen und dann das Kundenfenster geschlossen; dazwischen griff das
+  noch offene Fenster auf einen Kunden, den es nicht mehr gab, und die Seite zeigte „This page
+  couldn't load". Jetzt schließt das Fenster zuerst, und es öffnet sich nur, solange der Kunde
+  existiert. Dazu: „Neuer Kunde" sperrt das Kästchen Laufkundschaft, wenn es sie schon gibt,
+  und bleibt bei einem Fehler nicht mehr auf „Wird angelegt …" stehen. Die Prüfabfrage meldete
+  Migration 41 fälschlich als NEIN (Migration 42 ersetzt die geprüfte Richtlinie).
+
 * **24.09.2026 – Laufkunde am Auftrag und Einmalkunde (Migration 57, Service Worker v63).**
   Aufträge der Laufkundschaft tragen Name (Pflicht beim Abschließen), Telefon und Einsatzort;
   der Name erscheint überall statt „Laufkundschaft" und als Empfänger auf der Rechnung. Neuer
