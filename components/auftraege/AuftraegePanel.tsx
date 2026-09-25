@@ -1,259 +1,304 @@
 import { useState } from "react";
 import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
-import { formatDate, getPhoneNumbers, rechnungOffen, sortiere, terminZeitraum } from "@/lib/helpers";
-import type { SortRichtung } from "@/lib/helpers";
+import { getPhoneNumbers, rechnungOffen, todayStr } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
-import { IconAuftraege, IconTrash, IconNavPin } from "@/components/icons";
+import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
+import { AUFTRAGSFENSTER_LABEL, type AuftragsFenster } from "@/lib/api/orders";
+import { AUFTRAGS_SORTIERUNG_LABEL, auftragsGruppen, ausgeblendet, type AuftragsSortierung } from "@/lib/auftragsAnsicht";
+import { datumKurz } from "@/lib/dashboard";
+import { IconTrash, IconNavPin } from "@/components/icons";
 import { OrderModal } from "./OrderModal";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
+import { auftragsNr } from "@/lib/testkunde";
 
-// Aufträge-Modul: filter-/sortierbare Tabelle aller Aufträge (Status, Mitarbeiter, Kunde) sowie
-// ein Modal zum Neuanlegen. Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
+// Aufträge-Modul (neu gestaltet am 26.09.2026, Entwurf „K · Aufträge").
 //
-// Seit Migration 20 (docs/auftragsablauf.md) ist die Tabelle eine ÜBERSICHT, kein Bearbeitungs-
-// formular: ein Klick auf die Zeile öffnet das Auftragsfenster, in dem gehandelt wird. Der
-// Status ist deshalb nur noch ein farbiges Kennzeichen und kein Auswahlfeld mehr – man wählt
-// nicht "erledigt", man schließt den Auftrag ab. Das frühere Leistungen-Popover ist ersatzlos
-// entfallen; es war für die Positionserfassung ohnehin zu klein.
-// Ein anklickbarer Spaltenkopf. Der Pfeil steht NUR an der Spalte, nach der gerade sortiert
-// wird – ein Pfeil an jeder Spalte sähe aus, als wären alle gleichzeitig sortiert.
+// Seit Migration 20 (docs/auftragsablauf.md) ist die Liste eine ÜBERSICHT, kein Bearbeitungs-
+// formular: ein Klick auf einen Auftrag öffnet das Auftragsfenster, in dem gehandelt wird.
 //
-// Steht außerhalb von AuftraegePanel, nicht darin: Ein Bauteil, das bei jedem Rendern neu
-// entsteht, verliert jedes Mal seinen Zustand und wird von React als neues Element behandelt.
-function Kopf({ schluessel, aktiv, richtung, onSortieren, children }: {
-  schluessel: string;
-  aktiv: boolean;
-  richtung: SortRichtung;
-  onSortieren: (schluessel: string) => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <th
-      className={`sortierbar${aktiv ? " aktiv" : ""}`}
-      onClick={() => onSortieren(schluessel)}
-      aria-sort={aktiv ? (richtung === "auf" ? "ascending" : "descending") : "none"}
-      title="Zum Sortieren klicken"
-    >
-      {children}<span className="sort-pfeil">{aktiv ? (richtung === "auf" ? "▲" : "▼") : ""}</span>
-    </th>
-  );
-}
+// Vorher eine breite Tabelle mit sortierbaren Spaltenköpfen, zwei Chip-Reihen und einem
+// Zeitraum-Balken darüber. Jetzt Karten im Stil der Einsatzplanung, und die Liste beantwortet
+// „was ist noch zu tun?": Oben steht, was liegen geblieben ist, dann heute (auch das heute
+// Erledigte) und die nächsten Tage. Abgeschlossene Aufträge von gestern und früher sind
+// ausgeblendet – „Vergangene anzeigen" am Ende holt sie zurück. Die Regeln stehen in
+// lib/auftragsAnsicht.ts.
 
-export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onNavigate, onCall, isTechniker, onUpdateTechnikerNotiz }: {
+const STATUS_WAHL: ("all" | OrderStatus)[] = ["all", "offen", "in_arbeit", "erledigt", "storniert"];
+
+export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, leistungenText, onOpenCustomer, onOpenOrder, onNavigate, onCall, isTechniker, fenster }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Legt für den gewählten Kunden einen Auftrag an und öffnet das Auftragsfenster – derselbe
   // Weg wie im Karten-Popup und im Kundenfenster (docs/auftragsablauf.md).
   onNeuerAuftrag: (customerId: string) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onEditEmployees: (e: React.MouseEvent, orderId: string) => void;
-  employeeNamesFor: (orderId: string) => string;
-  orderArticlesLabel: (orderId: string) => string;
+  // „Räderwechsel · Einlagerung · 89,50 €" – Namen der Leistungen und Betrag.
+  leistungenText: (orderId: string) => string;
   onOpenCustomer: (customerId: string) => void;
   onOpenOrder: (orderId: string) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
-  // Anrufen direkt aus der Liste. Dasselbe Menü wie in der Kundenliste und im Kartenpopup –
+  // Anrufen direkt aus der Karte. Dasselbe Menü wie in der Kundenliste und im Kartenpopup –
   // ein Kunde kann Mobil UND Festnetz haben, und welche Nummer gemeint ist, entscheidet nicht
   // die Anwendung.
   onCall: (e: React.MouseEvent, cust: Customer) => void;
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (siehe Migration 13),
   // darf in der Oberfläche aber zusätzlich keine Aufträge anlegen/löschen und keine
-  // Mitarbeiter-/Leistungen-Zuordnung ändern – nur Status und die eigene Techniker-Notiz.
+  // Mitarbeiter-Zuordnung ändern.
   isTechniker: boolean;
-  onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
-  // Hakt „Rechnung erstellt" ab (Migration 40). Die Nummer ist freiwillig; Datum und Person
-  // setzt die Datenbank.
+  // Der geladene Zeitraum (docs/architektur.md, „Datenladen") – seit dem 26.09.2026 als
+  // Auswahlknopf in der Bedienleiste statt als eigener Balken darüber, wie in der Einsatzplanung.
+  fenster?: { wert: AuftragsFenster; onChange: (w: AuftragsFenster) => void; laedt: boolean };
 }) {
+  const heute = todayStr();
   const [showAdd, setShowAdd] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
   const [empFilter, setEmpFilter] = useState<"all" | string>("all");
-  const [custFilter, setCustFilter] = useState("");
-  // „Rechnung offen" ist kein Status, sondern eine Arbeitsliste – deshalb ein eigener
-  // Schalter und keine sechste Marke in der Statusleiste. Ist er an, gelten die anderen
-  // Filter weiter: Man kann die offenen Rechnungen eines einzelnen Kunden sehen.
+  const [suche, setSuche] = useState("");
+  // „Rechnung offen" ist kein Status, sondern eine Arbeitsliste – deshalb eine eigene Karte und
+  // keine sechste Pille. Ist sie an, gelten die anderen Filter weiter.
   const [nurRechnungOffen, setNurRechnungOffen] = useState(false);
-  // Sortierung. Vorgabe ist der Termin, absteigend – das Jüngste oben, so wie die Liste
-  // bisher schon kam. `spalte` ist ein Schlüssel aus SPALTEN weiter unten.
-  const [sortSpalte, setSortSpalte] = useState<string>("termin");
-  const [sortRichtung, setSortRichtung] = useState<SortRichtung>("ab");
-  function sortierenNach(schluessel: string) {
-    // Erneutes Klicken auf dieselbe Spalte dreht um; eine andere Spalte fängt aufsteigend an.
-    // Aufsteigend ist der ruhigere Anfang: A vor Z, klein vor groß, früh vor spät.
-    if (schluessel === sortSpalte) setSortRichtung((r) => (r === "auf" ? "ab" : "auf"));
-    else { setSortSpalte(schluessel); setSortRichtung("auf"); }
-  }
+  const [sort, setSort] = useState<AuftragsSortierung>("anstehend");
+  const [vergangene, setVergangene] = useState(false);
+  const [blatt, setBlatt] = useState<null | "person" | "zeitraum" | "sort">(null);
+  const [menuFuer, setMenuFuer] = useState<string | null>(null);
+
+  const kundeName = (o: Order) => {
+    const c = kundeFuerAuftrag(o, customers);
+    return (c?.company || "").trim() || c?.name || o.title;
+  };
   const offeneRechnungen = orders.filter(rechnungOffen).length;
-  const filteredOrders = orders
+
+  const q = suche.trim().toLowerCase().replace(/^#/, "");
+  const vorgefiltert = orders
     .filter((o) => !nurRechnungOffen || rechnungOffen(o))
-    .filter((o) => statusFilter === "all" || o.status === statusFilter)
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
     .filter((o) => {
-      if (!custFilter.trim()) return true;
+      if (!q) return true;
       const cust = kundeFuerAuftrag(o, customers);
-      return !!cust && cust.name.toLowerCase().includes(custFilter.toLowerCase());
+      return auftragsNr(o.order_number).toLowerCase().includes(q.toLowerCase())
+        || (cust?.name ?? "").toLowerCase().includes(q)
+        || (cust?.company ?? "").toLowerCase().includes(q);
     });
+  // Wer oben ausdrücklich „Erledigt" oder „Storniert" wählt, will auch die alten sehen.
+  const zeigtAlte = vergangene || statusFilter === "erledigt" || statusFilter === "storniert";
+  const passtStatus = (o: Order, s: "all" | OrderStatus) => s === "all" || o.status === s;
+  const sichtbar = vorgefiltert.filter((o) => passtStatus(o, statusFilter) && (zeigtAlte || !ausgeblendet(o, heute)));
+  const versteckt = vorgefiltert.filter((o) => passtStatus(o, statusFilter) && ausgeblendet(o, heute)).length;
+  const zahl = (s: "all" | OrderStatus) => vorgefiltert.filter((o) => passtStatus(o, s)
+    && (s === "erledigt" || s === "storniert" || vergangene || !ausgeblendet(o, heute))).length;
+  const gruppen = auftragsGruppen(sichtbar, heute, sort, kundeName);
+  const offenGesamt = orders.filter((o) => o.status === "offen" || o.status === "in_arbeit").length;
 
-  // Woraus sich die Reihenfolge je Spalte ergibt. Bewusst der WERT und nicht der angezeigte
-  // Text: „3.11.2026" steht als Text vor „19.10.2026", als Datum dahinter.
-  const SORTWERT: Record<string, (o: Order) => unknown> = {
-    nr: (o) => o.order_number,
-    termin: (o) => o.order_date + (o.time || ""),
-    kunde: (o) => kundeFuerAuftrag(o, customers)?.name ?? null,
-    mitarbeiter: (o) => employeeNamesFor(o.id),
-    leistungen: (o) => orderArticlesLabel(o.id),
-    status: (o) => ORDER_STATUS_LABEL[o.status],
-  };
-  const sichtbareOrders = sortiere(filteredOrders, SORTWERT[sortSpalte] ?? SORTWERT.termin, sortRichtung);
+  const morgen = toDateStr(addDays(new Date(heute + "T12:00:00"), 1));
+  const gestern = toDateStr(addDays(new Date(heute + "T12:00:00"), -1));
+  function tagTitel(datum: string): string {
+    const vorsatz = datum === heute ? "HEUTE · " : datum === morgen ? "MORGEN · " : datum === gestern ? "GESTERN · " : "";
+    return vorsatz + datumKurz(datum).toUpperCase();
+  }
+  const empName = empFilter === "all" ? "Mitarbeiter" : employees.find((e) => e.id === empFilter)?.name ?? "Mitarbeiter";
 
+  const pfeil = <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>;
 
+  function karte(o: Order) {
+    const cust = kundeFuerAuftrag(o, customers);
+    const wer = orderEmployees[o.id] || [];
+    const vergangenFertig = ausgeblendet(o, heute);
+    const offeneRechnung = rechnungOffen(o);
+    return (
+      <div key={o.id} className={"au-karte" + (vergangenFertig ? " vergangen" : "")} role="button" tabIndex={0}
+        onClick={() => onOpenOrder(o.id)} onKeyDown={(e) => { if (e.key === "Enter") onOpenOrder(o.id); }}>
+        <span className="au-zeit">
+          <b>{o.time ? o.time.slice(0, 5) : "–"}</b>
+          {o.end_time && <span>bis {o.end_time.slice(0, 5)}</span>}
+        </span>
+        <span className="au-strich" style={{ background: wer.length ? employeeColorFor(employees, wer[0]) : "var(--frei-linie)" }} />
+        <span className="au-text">
+          <span className="au-zeile1">
+            <span className="au-kunde">{kundeName(o)}</span>
+            <span className="au-nr">#{auftragsNr(o.order_number)}</span>{o.order_number < 0 && <span className="test-marke">TEST</span>}
+            {/* Das Menü sitzt in der ersten Zeile und nicht unter Navigation und Anruf – eine
+                dritte Knopfreihe machte jede Karte am Handy fast doppelt so hoch. */}
+            <span className="au-menue-platz" onClick={(e) => e.stopPropagation()}>
+              <span className="op-menue-anker au-menue">
+                <button type="button" className="op-mehr-knopf" aria-label="Weitere Aktionen" onClick={() => setMenuFuer(menuFuer === o.id ? null : o.id)}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.8" /><circle cx="12" cy="12" r="1.8" /><circle cx="12" cy="19" r="1.8" /></svg>
+                </button>
+                {menuFuer === o.id && (
+                  <span className="op-menue">
+                    <button type="button" onClick={() => { setMenuFuer(null); onOpenOrder(o.id); }}>Auftrag öffnen</button>
+                    {!isTechniker && <button type="button" onClick={(e) => { setMenuFuer(null); onEditEmployees(e, o.id); }}>Mitarbeiter zuteilen</button>}
+                    {cust && <button type="button" onClick={() => { setMenuFuer(null); onOpenCustomer(cust.id); }}>Kunde öffnen</button>}
+                    {!isTechniker && (
+                      <button type="button" className="gefahr" onClick={() => { setMenuFuer(null); if (confirm(`Auftrag ${auftragsNr(o.order_number)} wirklich löschen?`)) onDelete(o.id); }}>
+                        <IconTrash /> Löschen
+                      </button>
+                    )}
+                  </span>
+                )}
+              </span>
+            </span>
+          </span>
+          <span className="au-leistungen">{leistungenText(o.id)}</span>
+          <span className="au-marken">
+            {wer.map((id) => (
+              <span key={id} className="au-wer" style={{ background: employeeColorFor(employees, id) }}>
+                {employees.find((e) => e.id === id)?.name ?? "?"}
+              </span>
+            ))}
+            {wer.length === 0 && !isTechniker && (
+              <button type="button" className="au-wer leer" onClick={(e) => { e.stopPropagation(); onEditEmployees(e, o.id); }}>+ Mitarbeiter</button>
+            )}
+            <span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
+            {offeneRechnung && !nurRechnungOffen && <span className="au-rechnung">Rechnung offen</span>}
+          </span>
+          {/* In der Arbeitsliste „Rechnungen" der Weg dorthin, wo die Rechnung entsteht – der
+              Haken kommt danach von der Datenbank (Migration 40). */}
+          {offeneRechnung && nurRechnungOffen && (
+            <button type="button" className="au-rechnung-knopf" onClick={(e) => { e.stopPropagation(); onOpenOrder(o.id); }}>Rechnung erstellen</button>
+          )}
+        </span>
+        <span className="au-knoepfe" onClick={(e) => e.stopPropagation()}>
+          {cust && cust.address.trim() && (
+            <button type="button" className="kl-rund nav" title="Navigation starten (Google Maps / Apple Karten)" aria-label="Navigation" onClick={(e) => onNavigate(e, cust)}>
+              <IconNavPin />
+            </button>
+          )}
+          {/* Nur mit hinterlegter Nummer – ein Hörer, der zu einem leeren Menü führt, ist
+              schlechter als keiner. Dieselbe Bedingung wie in der Kundenliste. */}
+          {cust && getPhoneNumbers(cust).length > 0 && (
+            <button type="button" className="kl-rund anruf" title="Kunde anrufen" aria-label="Kunde anrufen" onClick={(e) => onCall(e, cust)}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" /></svg>
+            </button>
+          )}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="tabpanel active">
-      <div className="module-page modul-flaeche">
-        <div className="module-header">
-          <div className="mh-icon"><IconAuftraege /></div>
-          <div className="mh-text">
-            <h2>Aufträge &amp; Termine</h2>
-            <p>{orders.length} Aufträge insgesamt – ein Termin ist ein Auftrag mit Uhrzeit</p>
+      <div className="module-page au-seite">
+        <div className="lg-leiste">
+          <div className="lg-kopf">
+            <div className="lg-titel">
+              <h2>Aufträge</h2>
+              <span className="lg-unter" title="Ein Termin ist ein Auftrag mit Uhrzeit">{orders.length} Aufträge · {offenGesamt} offen</span>
+            </div>
+            {!isTechniker && (
+              <button type="button" className="kl-neu" onClick={() => setShowAdd(true)}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                Auftrag
+              </button>
+            )}
           </div>
-        </div>
-
-        <div className="header-row">
-          <div className="filterbar" style={{ flex: 1 }}>
-            <button type="button" className={`chip ${statusFilter === "all" ? "active" : ""}`} onClick={() => setStatusFilter("all")}>Alle</button>
-            <button type="button" className={`chip ${statusFilter === "offen" ? "active" : ""}`} onClick={() => setStatusFilter("offen")}>Offen</button>
-            <button type="button" className={`chip ${statusFilter === "in_arbeit" ? "active" : ""}`} onClick={() => setStatusFilter("in_arbeit")}>In Arbeit</button>
-            <button type="button" className={`chip ${statusFilter === "erledigt" ? "active" : ""}`} onClick={() => setStatusFilter("erledigt")}>Erledigt</button>
-            <button type="button" className={`chip ${statusFilter === "storniert" ? "active" : ""}`} onClick={() => setStatusFilter("storniert")}>Storniert</button>
-          </div>
-          {!isTechniker && <button className="btn-primary" style={{ flex: "0 0 auto" }} onClick={() => setShowAdd(true)}>+ Auftrag</button>}
-        </div>
-        {employees.length > 0 && (
-          <div className="filterbar">
-            <button type="button" className={`chip ${empFilter === "all" ? "active" : ""}`} onClick={() => setEmpFilter("all")}>Alle Mitarbeiter</button>
-            {employees.map((emp) => (
-              <button key={emp.id} type="button" className={`chip ${empFilter === emp.id ? "active" : ""}`} onClick={() => setEmpFilter(emp.id)}>{emp.name}</button>
+          <label className="lg-suchfeld au-suche">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
+            <input type="search" placeholder="Kunde oder Auftragsnummer …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Auftrag suchen" />
+          </label>
+          <div className="pl-filter au-filter" role="group" aria-label="Status">
+            {STATUS_WAHL.map((s) => (
+              <button key={s} type="button" className={"pl-pille" + (statusFilter === s ? " aktiv" : "")} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
+                {s === "all" ? "Alle" : ORDER_STATUS_LABEL[s]}<span className="op-zahl">{zahl(s)}</span>
+              </button>
             ))}
           </div>
-        )}
-        {/* Der Zähler steht am Schalter und nicht daneben: Eine Zahl, die man erst durch
-            Anklicken sieht, beantwortet die Frage „muss ich da ran?" nicht. Steht sie auf
-            null, verschwindet der Schalter – nichts zu tun ist keine Schaltfläche wert. */}
-        {!isTechniker && (offeneRechnungen > 0 || nurRechnungOffen) && (
-          <div className="filterbar">
-            <button
-              type="button"
-              className={`chip ${nurRechnungOffen ? "active" : ""}`}
-              onClick={() => setNurRechnungOffen((v) => !v)}
-            >
-              Rechnung offen ({offeneRechnungen})
+          <div className="pl-filter au-filter">
+            {employees.length > 0 && (
+              <button type="button" className={"pl-pille" + (empFilter !== "all" ? " aktiv" : "")} onClick={() => setBlatt("person")}>
+                {empFilter !== "all" && <span className="pl-punkt" style={{ background: employeeColorFor(employees, empFilter) }} />}
+                {empName}{pfeil}
+              </button>
+            )}
+            {fenster && (
+              <button type="button" className={"pl-pille" + (fenster.wert !== "aktuell" ? " aktiv" : "")} onClick={() => setBlatt("zeitraum")}>
+                Zeitraum: {AUFTRAGSFENSTER_LABEL[fenster.wert]}{fenster.laedt ? " …" : ""}{pfeil}
+              </button>
+            )}
+            <button type="button" className={"pl-pille" + (sort !== "anstehend" ? " aktiv" : "")} onClick={() => setBlatt("sort")}>
+              {AUFTRAGS_SORTIERUNG_LABEL[sort]}{pfeil}
             </button>
+          </div>
+        </div>
+
+        {/* Der Zähler steht auf der Karte und nicht erst dahinter: Eine Zahl, die man erst durch
+            Anklicken sieht, beantwortet die Frage „muss ich da ran?" nicht. Steht sie auf null,
+            verschwindet die Karte. */}
+        {!isTechniker && (offeneRechnungen > 0 || nurRechnungOffen) && (
+          <button type="button" className={"sl-chance au-rechnungen" + (nurRechnungOffen ? " aktiv" : "")} onClick={() => setNurRechnungOffen(!nurRechnungOffen)} aria-pressed={nurRechnungOffen}>
+            <span className="db-punkt-zahl rot">{offeneRechnungen}</span>
+            <span className="db-punkt-text">
+              <span className="db-punkt-titel">{offeneRechnungen === 1 ? "Rechnung noch nicht ausgestellt" : "Rechnungen noch nicht ausgestellt"}</span>
+              <span className="small">{nurRechnungOffen ? "nur diese werden gezeigt" : "erledigt, mit „Rechnung nötig“"}</span>
+            </span>
+            <span className="db-link">{nurRechnungOffen ? "Alle ✕" : "Zeigen ›"}</span>
+          </button>
+        )}
+
+        {sichtbar.length === 0 && (
+          <div className="db-karte">
+            <div className="db-leer">
+              {orders.length === 0 ? "Noch keine Aufträge angelegt."
+                : versteckt > 0 && !zeigtAlte ? "Nichts mehr zu tun – nur abgeschlossene Aufträge aus den letzten Tagen."
+                : "Keine Aufträge für diesen Filter."}
+            </div>
           </div>
         )}
 
-        <input type="text" placeholder="Nach Kunde filtern…" value={custFilter} onChange={(e) => setCustFilter(e.target.value)} style={{ maxWidth: 320 }} />
+        {gruppen.map((g, i) => (
+          <div key={(g.datum ?? g.art) + i} className="op-gruppe">
+            <div className="au-gruppe-kopf">
+              <span className={"op-gruppe-titel" + (g.art === "liegen" ? " rot" : g.datum === heute && g.art === "tag" ? " heute" : g.art === "vergangen" ? " grau" : "")}>
+                {g.art === "liegen" ? "NOCH ZU ERLEDIGEN"
+                  : g.art === "flach" ? AUFTRAGS_SORTIERUNG_LABEL[sort].toUpperCase()
+                  : (g.art === "vergangen" ? "VERGANGEN · " : "") + tagTitel(g.datum!)}
+              </span>
+              <span className="small">{g.auftraege.length} {g.auftraege.length === 1 ? "Auftrag" : "Aufträge"}</span>
+            </div>
+            {g.auftraege.map(karte)}
+          </div>
+        ))}
 
-        <div className="modul-tabelle">
-          {filteredOrders.length === 0 ? (
-            <div className="empty">{orders.length === 0 ? "Noch keine Aufträge angelegt." : "Keine Aufträge für diesen Filter."}</div>
-          ) : (
-            <table className="appt-table">
-              <thead><tr>
-                  <Kopf schluessel="nr" aktiv={sortSpalte === "nr"} richtung={sortRichtung} onSortieren={sortierenNach}>Nr.</Kopf>
-                  <Kopf schluessel="termin" aktiv={sortSpalte === "termin"} richtung={sortRichtung} onSortieren={sortierenNach}>Termin</Kopf>
-                  <Kopf schluessel="kunde" aktiv={sortSpalte === "kunde"} richtung={sortRichtung} onSortieren={sortierenNach}>Kunde</Kopf>
-                  <Kopf schluessel="mitarbeiter" aktiv={sortSpalte === "mitarbeiter"} richtung={sortRichtung} onSortieren={sortierenNach}>Mitarbeiter</Kopf>
-                  <Kopf schluessel="leistungen" aktiv={sortSpalte === "leistungen"} richtung={sortRichtung} onSortieren={sortierenNach}>Leistungen</Kopf>
-                  <Kopf schluessel="status" aktiv={sortSpalte === "status"} richtung={sortRichtung} onSortieren={sortierenNach}>Status</Kopf>
-                  {nurRechnungOffen && <th>Rechnung</th>}
-                  <th></th>
-                </tr></thead>
-              <tbody>
-                {sichtbareOrders.map((o) => {
-                  const cust = kundeFuerAuftrag(o, customers);
-                  return (
-                    <tr key={o.id} className="klickbar" onClick={() => onOpenOrder(o.id)} title="Auftrag öffnen">
-                      <td className="small">{o.order_number}</td>
-                      <td className="date-cell">
-                        {formatDate(o.order_date)}
-                        {/* Die Zeitspanne unter dem Datum statt dahinter: Ein Termin von 9 bis
-                            halb 11 ist zwei Angaben, und nebeneinander drängt die zweite das
-                            Datum zusammen. Untereinander liest man erst WANN, dann WIE LANGE. */}
-                        {terminZeitraum(o) && <><br /><span className="small">{terminZeitraum(o)}</span></>}
-                      </td>
-                      <td>
-                        {cust ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}
-                              style={{ background: "none", border: "none", padding: 0, font: "inherit", color: "var(--accent)", cursor: "pointer", fontWeight: 700, textAlign: "left" }}
-                            >
-                              {cust.name}
-                            </button>
-                            {cust.address.trim() && <><br /><span className="small">{cust.address}</span></>}
-                          </>
-                        ) : "–"}
-                      </td>
-                      <td onClick={(e) => e.stopPropagation()}>
-                        {isTechniker ? employeeNamesFor(o.id) : (
-                          <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={(e) => onEditEmployees(e, o.id)}>
-                            {employeeNamesFor(o.id)}
-                          </button>
-                        )}
-                      </td>
-                      <td>{orderArticlesLabel(o.id)}</td>
-                      <td>
-                        <span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
-                      </td>
-                      {/* Nur in der Arbeitsliste. Sie steht hier und nicht dauerhaft in der
-                          Tabelle, weil sie nur dort etwas zu sagen hat – eine Spalte, die in
-                          neun von zehn Ansichten „–" zeigt, kostet Breite und sagt nichts.
-
-                          Bis zum 18.09.2026 stand hier ein Eingabefeld für die Nummer aus dem
-                          ERP und ein Haken „erstellt". Seit PinPoints die Rechnung selbst
-                          ausstellt, gibt es nichts mehr abzuhaken: Der Knopf führt dorthin, wo
-                          die Rechnung entsteht, und der Haken kommt von der Datenbank. */}
-                      {nurRechnungOffen && (
-                        <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
-                          <button
-                            type="button" className="btn-primary" style={{ padding: "4px 9px", fontSize: 12 }}
-                            onClick={() => onOpenOrder(o.id)}
-                          >
-                            Rechnung erstellen
-                          </button>
-                        </td>
-                      )}
-                      <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
-                        {cust && cust.address.trim() && (
-                          <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => onNavigate(e, cust)}>
-                            <IconNavPin />
-                          </button>
-                        )}
-                        {/* Der Knopf erscheint nur, wenn eine Nummer hinterlegt ist. Ein
-                            Telefonhörer, der zu einem leeren Menü führt, ist schlechter als
-                            keiner – dieselbe Bedingung wie in der Kundenliste. */}
-                        {cust && getPhoneNumbers(cust).length > 0 && (
-                          <button className="call-icon-btn small" title="Anrufen" onClick={(e) => onCall(e, cust)}>📞</button>
-                        )}
-                        {!isTechniker && (
-                          <button type="button" className="btn-secondary" style={{ padding: "4px 8px" }} onClick={() => { if (confirm(`Auftrag "${o.title}" wirklich löschen?`)) onDelete(o.id); }}>
-                            <IconTrash />
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          )}
-        </div>
+        {((!zeigtAlte && versteckt > 0) || vergangene) && (
+          <button type="button" className="au-vergangene" onClick={() => setVergangene(!vergangene)}>
+            {vergangene ? "Vergangene wieder ausblenden" : `Vergangene anzeigen · ${versteckt} abgeschlossen`}
+          </button>
+        )}
       </div>
 
-      {/* Nach dem Anlegen geht der frische Auftrag direkt auf – hier genauso wie beim Weg über
-          das Karten-Popup. Ein neu angelegter Auftrag ist nie fertig: Fahrzeug und Leistungen
-          fehlen noch, und wer ihn erst in der Liste wiedersuchen muss, trägt sie oft gar nicht
-          nach. Siehe docs/termine-kontakt-auftrag-analyse.md. */}
+      {blatt && (
+        <div className="modal-overlay auswahl-overlay" onClick={() => setBlatt(null)}>
+          <div className="auswahl-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Auswahl">
+            <div className="ab-griff" />
+            <div className="ab-titel">{blatt === "person" ? "Mitarbeiter" : blatt === "zeitraum" ? "Geladener Zeitraum" : "Sortieren"}</div>
+            {blatt === "person" && [{ id: "all", name: "Alle Mitarbeiter" }, ...employees].map((e) => (
+              <button key={e.id} type="button" className={"ab-option" + (empFilter === e.id ? " aktiv" : "")} onClick={() => { setEmpFilter(e.id); setBlatt(null); }}>
+                <span className="pl-punkt" style={{ background: e.id === "all" ? "var(--text)" : employeeColorFor(employees, e.id) }} />
+                <span className="ab-text">{e.name}</span>
+                {empFilter === e.id && <span className="ab-haken">✓</span>}
+              </button>
+            ))}
+            {blatt === "zeitraum" && fenster && (["aktuell", "jahr", "alles"] as const).map((w) => (
+              <button key={w} type="button" className={"ab-option" + (fenster.wert === w ? " aktiv" : "")} onClick={() => { fenster.onChange(w); setBlatt(null); }}>
+                <span className="ab-text">{AUFTRAGSFENSTER_LABEL[w]}</span>
+                {w === "aktuell" && <span className="small">erledigte der letzten 30 Tage, offene immer</span>}
+                {fenster.wert === w && <span className="ab-haken">✓</span>}
+              </button>
+            ))}
+            {blatt === "sort" && (Object.keys(AUFTRAGS_SORTIERUNG_LABEL) as AuftragsSortierung[]).map((s) => (
+              <button key={s} type="button" className={"ab-option" + (sort === s ? " aktiv" : "")} onClick={() => { setSort(s); setBlatt(null); }}>
+                <span className="ab-text">{AUFTRAGS_SORTIERUNG_LABEL[s]}</span>
+                {s === "anstehend" && <span className="small">Liegengebliebenes oben, dann heute und die nächsten Tage</span>}
+                {s === "neu" && <span className="small">alle Tage, jüngster oben</span>}
+                {sort === s && <span className="ab-haken">✓</span>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Nach dem Anlegen geht der frische Auftrag direkt auf. Ein neu angelegter Auftrag ist nie
+          fertig: Fahrzeug und Leistungen fehlen noch, und wer ihn erst in der Liste wiedersuchen
+          muss, trägt sie oft gar nicht nach. Siehe docs/termine-kontakt-auftrag-analyse.md. */}
       {showAdd && !isTechniker && (
         <OrderModal
           customers={customers}

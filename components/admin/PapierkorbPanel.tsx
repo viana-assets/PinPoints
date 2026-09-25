@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { fetchPapierkorb, kundeEndgueltigLoeschen, kundeWiederherstellen, type PapierkorbKunde } from "@/lib/api/customers";
+import { fetchPapierkorb, kundeEndgueltigLoeschen, kundeWiederherstellen, testkundeLoeschen, type PapierkorbKunde } from "@/lib/api/customers";
 import { formatDate } from "@/lib/helpers";
 
 // Der Papierkorb für Kunden (Fahrplan B2, Migration 56).
@@ -50,6 +50,22 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
     }
   }
 
+  // Ein Testkunde (Migration 60) geht restlos – samt Testrechnungen, die beim echten Kunden
+  // als Beleg bleiben müssten. `kunde_endgueltig_loeschen()` verweist ihn deshalb hierher.
+  async function testkundeWeg(k: PapierkorbKunde) {
+    setLaeuft(k.id); setFehler(null); setMeldung(null);
+    try {
+      const r = await testkundeLoeschen(supabase, k.id);
+      setMeldung(`Testkunde restlos gelöscht: ${r.auftraege} ${r.auftraege === 1 ? "Auftrag" : "Aufträge"}, ${r.rechnungen} Testrechnungen, ${r.fahrzeuge} ${r.fahrzeuge === 1 ? "Fahrzeug" : "Fahrzeuge"}, ${r.protokolleintraege} Protokolleinträge.`);
+      setBestaetigen(null);
+      setStand((n) => n + 1);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLaeuft(null);
+    }
+  }
+
   async function endgueltig(k: PapierkorbKunde) {
     setLaeuft(k.id); setFehler(null); setMeldung(null);
     try {
@@ -69,66 +85,79 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
     }
   }
 
+  const initialen = (n: string) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? "").join("") || "?";
+
   return (
-    <div className="admin-card">
-      <h4 style={{ margin: 0 }}>Papierkorb – gelöschte Kunden</h4>
-      <p className="small" style={{ marginTop: 2 }}>
+    <div className="ad-abschnitt">
+      <span className="small ad-hilfe">
         Ein gelöschter Kunde ist aus allen Listen verschwunden, aber noch gespeichert – samt Aufträgen
         und Protokoll. Hier lässt er sich zurückholen oder
-        {isSuperAdmin ? " endgültig entfernen, etwa auf eine Löschanfrage hin." : " vom Superadmin endgültig entfernen."}
-      </p>
+        {isSuperAdmin ? " endgültig entfernen, etwa auf eine Löschanfrage (DSGVO) hin." : " vom Superadmin endgültig entfernen."}
+        {" "}Rechnungen bleiben als Beleg erhalten.
+      </span>
 
       {meldung && <div className="hinweis-ok" role="status">{meldung}</div>}
       {fehler && <div className="hinweis-pflicht" role="alert">{fehler}</div>}
 
       {liste === null ? (
-        <div className="small">Lädt …</div>
+        <div className="db-karte"><div className="db-leer">Lädt …</div></div>
       ) : liste.length === 0 ? (
-        <div className="empty">Der Papierkorb ist leer.</div>
+        <div className="db-karte"><div className="db-leer">Der Papierkorb ist leer.</div></div>
       ) : (
         // Eine Karte je Kunde statt einer Tabelle: Die Bestätigung zum endgültigen Löschen ist
         // ein ganzer Absatz, und in einer Tabellenzelle wird sie am Handy zur Spalte aus
         // Einzelwörtern.
-        <div className="papierkorb-liste">
-          {liste.map((k) => (
-            <div key={k.id} className="papierkorb-eintrag">
-              <div className="pk-kopf">
-                <div className="pk-wer">
-                  <b>{k.name}</b>{k.company ? <span className="small"> · {k.company}</span> : null}
-                  <div className="small">
-                    {k.address ? `${k.address} · ` : ""}gelöscht am {formatDate(k.deleted_at)}
-                    {k.kundennummer ? ` · Nr. ${k.kundennummer}` : ""}
-                  </div>
-                </div>
-                <div className="pk-knoepfe">
-                  <button type="button" className="btn-secondary btn-rand" disabled={laeuft !== null} onClick={() => void wiederherstellen(k)}>
-                    Wiederherstellen
+        liste.map((k) => (
+          <div key={k.id} className="ad-karte ad-karte-block">
+            <div className="ad-karte-zeile">
+              <span className="ad-kreis grau">{initialen(k.company?.trim() || k.name)}</span>
+              <span className="ad-karte-text">
+                <b>{k.name}{k.company ? ` · ${k.company}` : ""}{k.testkunde && <span className="test-marke">TEST</span>}</b>
+                <span className="small">
+                  gelöscht {formatDate(k.deleted_at)}
+                  {k.kundennummer ? ` · Kd.-Nr. ${k.kundennummer}` : ""}
+                  {k.address ? ` · ${k.address}` : ""}
+                </span>
+              </span>
+              <span className="ad-karte-knoepfe">
+                <button type="button" className="db-link" disabled={laeuft !== null} onClick={() => void wiederherstellen(k)}>
+                  {laeuft === k.id && bestaetigen !== k.id ? "…" : "Wiederherstellen"}
+                </button>
+                {isSuperAdmin && !k.laufkundschaft && bestaetigen !== k.id && (
+                  <button type="button" className="db-link ad-gefahr-link" disabled={laeuft !== null} onClick={() => setBestaetigen(k.id)}>
+                    {k.testkunde ? "Restlos löschen …" : "Endgültig löschen …"}
                   </button>
-                  {isSuperAdmin && !k.laufkundschaft && bestaetigen !== k.id && (
-                    <button type="button" className="btn-secondary btn-rand" style={{ color: "#b33" }}
-                            disabled={laeuft !== null} onClick={() => setBestaetigen(k.id)}>
-                      Endgültig löschen …
-                    </button>
-                  )}
+                )}
+              </span>
+            </div>
+            {bestaetigen === k.id && k.testkunde && (
+              <div className="hinweis-pflicht">
+                <b>Testkunde restlos löschen?</b> Entfernt werden der Kunde, seine Aufträge,
+                Testrechnungen, Fahrzeuge, Reifen, Kontakte und alle Protokolleinträge dazu.
+                <div className="pk-knoepfe" style={{ marginTop: 8 }}>
+                  <button type="button" className="btn-danger" disabled={laeuft !== null} onClick={() => void testkundeWeg(k)}>
+                    {laeuft === k.id ? "Löscht …" : "Ja, restlos löschen"}
+                  </button>
+                  <button type="button" className="btn-secondary btn-rand" onClick={() => setBestaetigen(null)}>Abbrechen</button>
                 </div>
               </div>
-              {bestaetigen === k.id && (
-                <div className="hinweis-pflicht" style={{ marginTop: 8 }}>
-                  <b>Endgültig löschen ist nicht rückgängig zu machen.</b> Entfernt werden der
-                  Kunde, seine Fahrzeuge, Aufträge, Kontakte, früheren Einlagerungen und alle
-                  Protokolleinträge dazu. Ausgestellte Rechnungen bleiben als Beleg erhalten –
-                  dazu besteht eine Aufbewahrungspflicht.
-                  <div className="pk-knoepfe" style={{ marginTop: 8 }}>
-                    <button type="button" className="btn-danger" disabled={laeuft !== null} onClick={() => void endgueltig(k)}>
-                      {laeuft === k.id ? "Löscht …" : "Ja, endgültig löschen"}
-                    </button>
-                    <button type="button" className="btn-secondary btn-rand" onClick={() => setBestaetigen(null)}>Abbrechen</button>
-                  </div>
+            )}
+            {bestaetigen === k.id && !k.testkunde && (
+              <div className="hinweis-pflicht">
+                <b>Endgültig löschen ist nicht rückgängig zu machen.</b> Entfernt werden der
+                Kunde, seine Fahrzeuge, Aufträge, Kontakte, früheren Einlagerungen und alle
+                Protokolleinträge dazu. Ausgestellte Rechnungen bleiben als Beleg erhalten –
+                dazu besteht eine Aufbewahrungspflicht.
+                <div className="pk-knoepfe" style={{ marginTop: 8 }}>
+                  <button type="button" className="btn-danger" disabled={laeuft !== null} onClick={() => void endgueltig(k)}>
+                    {laeuft === k.id ? "Löscht …" : "Ja, endgültig löschen"}
+                  </button>
+                  <button type="button" className="btn-secondary btn-rand" onClick={() => setBestaetigen(null)}>Abbrechen</button>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+              </div>
+            )}
+          </div>
+        ))
       )}
     </div>
   );

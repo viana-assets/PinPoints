@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import type { Rechnung } from "@/lib/types";
 import { formatDate, formatEUR, suchtreffer, todayStr } from "@/lib/helpers";
+import { monatLang } from "@/lib/auswertungAnsicht";
 import { istGueltig, mailtoRechnung, stornoAus, type RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
+import { auftragsNr, istTestrechnung } from "@/lib/testkunde";
 
 // Das Rechnungsbuch. Es zeigt, was das Haus ausgestellt hat – in der Reihenfolge der Nummern,
 // absteigend, weil die letzte Rechnung die ist, nach der gefragt wird.
@@ -13,7 +15,14 @@ import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 
 type Sicht = "alle" | "gueltig" | "storniert";
 
-export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOeffnen, onStornieren }: {
+// Ein erledigter Auftrag mit „Rechnung nötig", aber ohne Rechnung (Entwurf P, 26.09.2026).
+export type OffeneRechnung = { id: string; nummer: number; kunde: string; datum: string; netto: number };
+
+export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOeffnen, onKundeOeffnen, onStornieren, offene = [] }: {
+  // Noch nicht ausgestellt – dieselbe Liste wie die Karte in den Aufträgen (`rechnungOffen`).
+  offene?: OffeneRechnung[];
+  // Der Weg zum Kunden aus dem Beleg (neu am 26.09.2026).
+  onKundeOeffnen?: (customerId: string) => void;
   rechnungen: Rechnung[];
   laedt?: boolean;
   darfSchreiben: boolean;
@@ -36,6 +45,9 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
   const [stornoGrund, setStornoGrund] = useState("");
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
+  const jahre = useMemo(() => [...new Set(rechnungen.map((r) => r.datum.slice(0, 4)))].sort().reverse(), [rechnungen]);
+  const [jahr, setJahr] = useState<string | null>(() => todayStr().slice(0, 4));
+  const [offeneZeigen, setOffeneZeigen] = useState(false);
 
   async function stornieren(r: Rechnung) {
     if (!stornoGrund.trim()) return;
@@ -55,88 +67,146 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
 
   const gezeigt = useMemo(() => {
     return rechnungen.filter((r) => {
+      if (jahr && r.datum.slice(0, 4) !== jahr) return false;
       if (sicht === "gueltig" && !istGueltig(r)) return false;
       if (sicht === "storniert" && !(r.art === "storno" || r.storniert_durch)) return false;
       if (!suche.trim()) return true;
       return suchtreffer(
-        [r.nummer_text, r.empfaenger?.name, r.empfaenger?.company, String(r.kundennummer ?? ""), String(r.texte?.auftragsnummer ?? "")],
+        [r.nummer_text, r.empfaenger?.name, r.empfaenger?.company, String(r.kundennummer ?? ""), r.texte?.auftragsnummer != null ? auftragsNr(r.texte.auftragsnummer) : ""],
         suche
       );
     });
-  }, [rechnungen, sicht, suche]);
+  }, [rechnungen, sicht, suche, jahr]);
 
   // Die Summen beziehen sich auf das, was in der Liste steht – nicht auf den Gesamtbestand.
   // Eine Kennzahl, die etwas anderes zählt als das Sichtbare, ist eine Falle.
-  const summe = gezeigt.reduce((s, r) => s + r.brutto, 0);
+  // Testrechnungen (Migration 60) zählen in keiner Summe.
+  const summe = gezeigt.filter((r) => !istTestrechnung(r)).reduce((s, r) => s + r.brutto, 0);
   const beleg = offen ? rechnungen.find((r) => r.id === offen) ?? null : null;
+
+  // Nach Monaten gruppiert (Entwurf P). Die Liste ist nach Nummer absteigend sortiert; Nummern und
+  // Monate laufen gemeinsam, also bleiben die Gruppen zusammenhängend.
+  // Testrechnungen haben negative Nummern und stehen deshalb ohnehin am Ende; sie bekommen eine
+  // eigene Gruppe, statt einen Monat ein zweites Mal aufzumachen.
+  const gruppen: { monat: string; belege: Rechnung[] }[] = [];
+  const testbelege = gezeigt.filter(istTestrechnung);
+  for (const r of gezeigt.filter((x) => !istTestrechnung(x))) {
+    const m = r.datum.slice(0, 7);
+    const g = gruppen[gruppen.length - 1];
+    if (g && g.monat === m) g.belege.push(r); else gruppen.push({ monat: m, belege: [r] });
+  }
+  const zahl = (x: Sicht) => rechnungen.filter((r) => (!jahr || r.datum.slice(0, 4) === jahr)
+    && (x === "alle" || (x === "gueltig" ? istGueltig(r) : r.art === "storno" || !!r.storniert_durch))).length;
+  const imJahr = rechnungen.filter((r) => !jahr || r.datum.slice(0, 4) === jahr);
+  const gueltigSumme = imJahr.filter((r) => !r.storniert_durch && !istTestrechnung(r)).reduce((n, r) => n + r.brutto, 0);
+  const letzteEchte = rechnungen.find((r) => !istTestrechnung(r));
+  const offenSumme = offene.reduce((n, o) => n + o.netto, 0);
 
   return (
     <div className="tabpanel active">
-      <div className="row" style={{ marginBottom: 8 }}>
-        <input
-          type="search" placeholder="Nummer, Kunde, Kundennummer oder Auftrag …"
-          value={suche} onChange={(e) => setSuche(e.target.value)}
-        />
-      </div>
-      <div className="filterbar" style={{ marginBottom: 8 }}>
-        <button type="button" className={`chip ${sicht === "alle" ? "active" : ""}`} onClick={() => setSicht("alle")}>Alle</button>
-        <button type="button" className={`chip ${sicht === "gueltig" ? "active" : ""}`} onClick={() => setSicht("gueltig")}>Gültig</button>
-        <button type="button" className={`chip ${sicht === "storniert" ? "active" : ""}`} onClick={() => setSicht("storniert")}>Storniert</button>
+      <div className="module-page re-seite">
+        <div className="lg-leiste">
+          <div className="lg-kopf">
+            <div className="lg-titel">
+              <h2>Rechnungen</h2>
+              <span className="lg-unter">
+                {jahr ?? "Alle Jahre"}: {imJahr.length} {imJahr.length === 1 ? "Beleg" : "Belege"} · {formatEUR(gueltigSumme)} brutto
+                {letzteEchte ? ` · zuletzt ${letzteEchte.nummer_text}` : ""}
+              </span>
+            </div>
+          </div>
+          <label className="lg-suchfeld re-suche">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
+            <input type="search" placeholder="Nummer, Kunde oder Auftrag …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Rechnung suchen" />
+          </label>
+          <div className="pl-filter au-filter" role="group" aria-label="Sicht">
+            {([["alle", "Alle"], ["gueltig", "Gültig"], ["storniert", "Storniert"]] as const).map(([w, t]) => (
+              <button key={w} type="button" className={"pl-pille" + (sicht === w ? " aktiv" : "")} aria-pressed={sicht === w} onClick={() => setSicht(w)}>
+                {t}<span className="op-zahl">{zahl(w)}</span>
+              </button>
+            ))}
+            {jahre.length > 0 && <span className="re-trenner" aria-hidden="true" />}
+            {jahre.map((j2) => (
+              <button key={j2} type="button" className={"pl-pille" + (jahr === j2 ? " aktiv" : "")} onClick={() => setJahr(j2)}>{j2}</button>
+            ))}
+            {jahre.length > 1 && (
+              <button type="button" className={"pl-pille" + (jahr === null ? " aktiv" : "")} onClick={() => setJahr(null)}>Alle Jahre</button>
+            )}
+          </div>
+        </div>
+
+        {offene.length > 0 && (
+          <button type="button" className="sl-chance au-rechnungen" onClick={() => setOffeneZeigen(true)}>
+            <span className="db-punkt-zahl rot">{offene.length}</span>
+            <span className="db-punkt-text">
+              <span className="db-punkt-titel">Noch nicht ausgestellt</span>
+              <span className="small">erledigt mit „Rechnung nötig“ · {formatEUR(offenSumme)} netto</span>
+            </span>
+            <span className="db-link">Ausstellen ›</span>
+          </button>
+        )}
+
+        {laedt && rechnungen.length === 0 ? (
+          <div className="db-karte"><div className="db-leer">Lädt …</div></div>
+        ) : gezeigt.length === 0 ? (
+          <div className="db-karte"><div className="db-leer">
+            {rechnungen.length === 0 ? "Es ist noch keine Rechnung ausgestellt. Sie entstehen am Auftrag." : "Kein Treffer."}
+          </div></div>
+        ) : (
+          [...gruppen, ...(testbelege.length ? [{ monat: "test", belege: testbelege }] : [])].map((g) => {
+            const test = g.monat === "test";
+            const summeG = test ? 0 : g.belege.filter((r) => !r.storniert_durch).reduce((n, r) => n + r.brutto, 0);
+            return (
+              <div key={g.monat} className="op-gruppe">
+                <div className="au-gruppe-kopf">
+                  <span className="op-gruppe-titel">{test ? "TESTRECHNUNGEN" : monatLang(g.monat).toUpperCase()}</span>
+                  <span className="small">{g.belege.length} {g.belege.length === 1 ? "Beleg" : "Belege"}{test ? " · zählen nicht mit" : ` · ${formatEUR(summeG)}`}</span>
+                </div>
+                {g.belege.map((r) => {
+                  const aufgehoben = !!r.storniert_durch;
+                  const storno = r.art === "storno";
+                  return (
+                    <button key={r.id} type="button" className={"re-karte" + (aufgehoben ? " aufgehoben" : "") + (storno ? " storno" : "")} onClick={() => setOffen(r.id)}>
+                      <span className="re-nr"><b>{r.nummer_text}</b><span>{formatDate(r.datum)}</span></span>
+                      <span className="re-text">
+                        <span className="re-kunde">{r.empfaenger?.company?.trim() || r.empfaenger?.name || "ohne Namen"}</span>
+                        <span className="small">{[r.kundennummer != null ? `Kd.-Nr. ${r.kundennummer}` : null, r.texte?.auftragsnummer != null ? `Auftrag #${auftragsNr(r.texte.auftragsnummer)}` : null].filter(Boolean).join(" · ")}</span>
+                      </span>
+                      <span className="re-betrag">
+                        <b>{formatEUR(r.brutto)}</b>
+                        <span className={"re-marke" + (storno || aufgehoben ? " grau" : "")}>{storno ? "Storno" : aufgehoben ? "storniert" : "gültig"}</span>
+                        {test && <span className="test-marke">TEST</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })
+        )}
+        {gezeigt.length > 0 && (
+          <span className="small sl-fuss">
+            {gezeigt.length} {gezeigt.length === 1 ? "Beleg" : "Belege"} · Summe brutto {formatEUR(summe)}
+            {(sicht !== "alle" || suche.trim()) && " (nur die angezeigte Auswahl)"}
+          </span>
+        )}
       </div>
 
-      {laedt && rechnungen.length === 0 ? (
-        <div className="empty">Lädt …</div>
-      ) : gezeigt.length === 0 ? (
-        <div className="empty">
-          {rechnungen.length === 0
-            ? "Es ist noch keine Rechnung ausgestellt. Sie entstehen am Auftrag."
-            : "Kein Treffer."}
-        </div>
-      ) : (
-        <>
-          <table className="appt-table rechnungsbuch">
-            <thead>
-              <tr>
-                <th>Nummer</th><th>Datum</th><th>Kunde</th>
-                <th className="rb-zahl">Kundennr.</th><th className="rb-zahl">Auftrag</th>
-                <th className="rb-zahl">Netto</th><th className="rb-zahl">Brutto</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {gezeigt.map((r) => {
-                const aufgehoben = !!r.storniert_durch;
-                return (
-                  <tr key={r.id} className={(aufgehoben ? "aufgehoben " : "") + (r.art === "storno" ? "storno" : "")}>
-                    <td>
-                      <b>{r.nummer_text}</b>
-                      {r.art === "storno" && <span className="re-pille storno">Storno</span>}
-                      {aufgehoben && <span className="re-pille aufgehoben">storniert</span>}
-                    </td>
-                    <td>{formatDate(r.datum)}</td>
-                    <td>{r.empfaenger?.company?.trim() || r.empfaenger?.name || <i>ohne Namen</i>}</td>
-                    <td className="rb-zahl">{r.kundennummer ?? ""}</td>
-                    <td className="rb-zahl">
-                      {r.texte?.auftragsnummer != null && r.order_id && onAuftragOeffnen ? (
-                        <button type="button" className="link-knopf" onClick={() => onAuftragOeffnen(r.order_id!)}>
-                          {r.texte.auftragsnummer}
-                        </button>
-                      ) : (r.texte?.auftragsnummer ?? "")}
-                    </td>
-                    <td className="rb-zahl">{formatEUR(r.netto)}</td>
-                    <td className="rb-zahl">{formatEUR(r.brutto)}</td>
-                    <td>
-                      <button type="button" className="btn-secondary btn-rand" onClick={() => setOffen(r.id)}>ansehen</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className="small" style={{ marginTop: 8 }}>
-            {gezeigt.length} {gezeigt.length === 1 ? "Beleg" : "Belege"} · Summe brutto {formatEUR(summe)}
-            {sicht !== "alle" && " (nur die angezeigte Auswahl)"}
+      {offeneZeigen && (
+        <div className="modal-overlay auswahl-overlay" onClick={() => setOffeneZeigen(false)}>
+          <div className="auswahl-blatt am-breit" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Noch nicht ausgestellt">
+            <div className="ab-griff" />
+            <div className="ab-titel">Noch nicht ausgestellt</div>
+            <span className="small">Erledigte Aufträge mit „Rechnung nötig“, aber ohne Rechnung. Die Rechnung entsteht im Auftrag.</span>
+            {offene.map((o) => (
+              <div key={o.id} className="am-listen-zeile statisch">
+                <span className="am-lz-text"><b>{o.kunde}</b><span className="small">erledigt {formatDate(o.datum)} · #{auftragsNr(o.nummer)}</span></span>
+                <b>{formatEUR(o.netto)}</b>
+                {onAuftragOeffnen && <button type="button" className="am-mini" onClick={() => { setOffeneZeigen(false); onAuftragOeffnen(o.id); }}>Rechnung</button>}
+              </div>
+            ))}
           </div>
-        </>
+        </div>
       )}
 
       {beleg && (
@@ -184,6 +254,12 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
                 <button type="button" className="btn-secondary btn-rand"
                   onClick={() => { setOffen(null); onAuftragOeffnen(beleg.order_id!); }}>
                   Zum Auftrag
+                </button>
+              )}
+              {beleg.customer_id && onKundeOeffnen && (
+                <button type="button" className="btn-secondary btn-rand"
+                  onClick={() => { setOffen(null); onKundeOeffnen(beleg.customer_id!); }}>
+                  Zum Kunden
                 </button>
               )}
             </div>

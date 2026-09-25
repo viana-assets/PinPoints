@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { AuftragFahrzeug, Customer, Employee, Order, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, SAISON_LABEL } from "@/lib/constants";
-import { formatEUR, getPhoneNumbers, LANGLIEGER_MONATE, minutenAusUhrzeit, naechsteSaison, terminZeitraum } from "@/lib/helpers";
+import { formatEUR, getPhoneNumbers, LANGLIEGER_MONATE, naechsteSaison, terminZeitraum } from "@/lib/helpers";
+import { naechsterWann } from "@/lib/terminAnsicht";
 import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { mitnehmenListe } from "@/lib/mitnehmen";
@@ -56,6 +57,11 @@ export function DashboardPanel(p: {
   onZuLager: () => void;
   onZuSaison: (saison: "sommer" | "winter") => void;
   onZuAnrufliste: () => void;
+  // Hinweis auf „Was gibt es Neues" (nur Admin/Superadmin, nur solange ungelesen).
+  neuigkeit?: { version: string; titel: string } | null;
+  onNeuigkeiten?: () => void;
+  // Nur die fälligen Rückrufe in der Kundenliste (Filter „rueckruf", 26.09.2026).
+  onZuRueckrufe?: () => void;
   onZuRechnungen?: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -142,14 +148,8 @@ export function DashboardPanel(p: {
   // ---------------------------------------------------------------- Als Nächstes
   const naechster = alsNaechstes(p.orders, heute, jetztMin, p.standardDauerMin);
   const naechsterKunde = naechster ? kundeVon(naechster) : null;
-  let wann = "";
-  if (naechster) {
-    const start = minutenAusUhrzeit(naechster.time);
-    if (naechster.order_date === heute && start != null) {
-      wann = start <= jetztMin ? "LÄUFT GERADE" : start - jetztMin < 90 ? `IN ${start - jetztMin} MIN` : `HEUTE ${naechster.time?.slice(0, 5)}`;
-    } else if (naechster.order_date === morgen) wann = `MORGEN${naechster.time ? " " + naechster.time.slice(0, 5) : ""}`;
-    else wann = datumKurz(naechster.order_date).toUpperCase() + (naechster.time ? " " + naechster.time.slice(0, 5) : "");
-  }
+  // Dieselbe Beschriftung wie in der Terminliste (lib/terminAnsicht.ts).
+  const wann = naechster ? naechsterWann(naechster, heute, jetztMin) : "";
   const naechsterWer = naechster ? (p.orderEmployees[naechster.id] || []).map((id) => p.employees.find((e) => e.id === id)?.name).filter(Boolean).join(", ") : "";
 
   // ---------------------------------------------------------------- Unten
@@ -186,6 +186,17 @@ export function DashboardPanel(p: {
             <span className="db-k-unter">Aufträge</span>
           </button>
         </div>
+
+        {p.neuigkeit && p.onNeuigkeiten && (
+          <button type="button" className="sl-chance nw-hinweis" onClick={p.onNeuigkeiten}>
+            <span className="nw-version">{p.neuigkeit.version}</span>
+            <span className="db-punkt-text">
+              <span className="db-punkt-titel">Neu: {p.neuigkeit.titel}</span>
+              <span className="small">Was sich in dieser Fassung geändert hat</span>
+            </span>
+            <span className="db-link">Ansehen ›</span>
+          </button>
+        )}
 
         {naechster && (
           <div className="db-naechster">
@@ -283,7 +294,7 @@ export function DashboardPanel(p: {
                       </button>
                     ))}
                     {pt.zeilen.length > 12 && <span className="small">… und {pt.zeilen.length - 12} weitere</span>}
-                    {pt.id === "rueckrufe" && p.darfKunden && <button type="button" className="db-link" onClick={p.onZuAnrufliste}>Zur Anrufliste ›</button>}
+                    {pt.id === "rueckrufe" && p.darfKunden && <button type="button" className="db-link" onClick={p.onZuRueckrufe ?? p.onZuAnrufliste}>Zur Kundenliste ›</button>}
                     {pt.id === "rechnungen" && p.onZuRechnungen && <button type="button" className="db-link" onClick={p.onZuRechnungen}>Zu den Rechnungen ›</button>}
                   </div>
                 )}

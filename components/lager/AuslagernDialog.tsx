@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Article, ArticlePrice, Customer, Order, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { currentArticlePrice, formatDate, formatEUR, istLanglieger, lagermonate, todayStr } from "@/lib/helpers";
+import { auftragsNr } from "@/lib/testkunde";
 
 // Was beim Auslagern passieren soll. Der Aufrufer entscheidet nicht selbst, sondern bekommt
 // die Wahl des Nutzers als ein Stück – sonst müsste jede Aufrufstelle dieselben vier Fälle
@@ -204,7 +205,7 @@ export function AuslagernDialog({
                     <select id="auslagern-ziel" value={ziel} onChange={(e) => setZiel(e.target.value)}>
                       {offeneAuftraege.map((o) => (
                         <option key={o.id} value={o.id}>
-                          {o.order_number} · {formatDate(o.order_date)} · {o.title}
+                          {auftragsNr(o.order_number)} · {formatDate(o.order_date)} · {o.title}
                         </option>
                       ))}
                       <option value="neu">Neuen Auftrag für diesen Kunden anlegen</option>

@@ -5,6 +5,7 @@ import type { RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 import { formatDate, formatEUR, todayStr } from "@/lib/helpers";
+import { auftragsNr } from "@/lib/testkunde";
 
 // Das Rechnungsfenster am Auftrag.
 //
@@ -98,7 +99,7 @@ export function RechnungModal({
 
         <div className="re-kopfleiste druck-weg">
           <h3>
-            Rechnung zu Auftrag {auftrag.order_number}
+            Rechnung zu Auftrag {auftragsNr(auftrag.order_number)}
             {beleg && <span className={"re-pille" + (beleg.art === "storno" ? " storno" : beleg.storniert_durch ? " aufgehoben" : "")}>
               {beleg.art === "storno" ? "Storno" : beleg.storniert_durch ? "storniert" : "ausgestellt"}
             </span>}

@@ -6,6 +6,19 @@
   Kennzeichen, Marke/Modell, montierter Reifengröße, DOT-Datum, Profiltiefe, optionaler
   Verknüpfung zu einem im Lager eingelagerten Reifensatz), Kontakt erfassen, **Aufträge &
   Termine** dieses Kunden (siehe `auftraege.md`), Kontakt-Historie.
+- **Kundenliste, neu gestaltet am 26.09.2026** (Entwurf „J · Kundenliste",
+  `components/kunden/KundenListePanel.tsx`, Regeln in `lib/kundenAnsicht.ts`): Bedienleiste, die
+  beim Scrollen stehen bleibt – Titel mit Zahl und „+ Neu", Suche, Zustand als Pillen mit
+  Farbpunkt wie die Nadeln und Trefferzahl, „Gebiet" (PLZ-Blatt mit Vorschlägen, dieselben wie
+  in der Saisonliste) und „A–Z" (Buchstabenblatt) statt PLZ-Feld und Buchstabenleiste. Darüber
+  der Liste die Karte **„Rückrufe heute fällig"** (Wiedervorlage erreicht, Kunde offen –
+  `rueckrufFaellig`, dieselbe Regel wie im Dashboard); antippen setzt den Filter `rueckruf`.
+  Die Kunden stehen nach Anfangsbuchstaben gruppiert in weißen Karten: Kreis mit Initialen in
+  der Nadelfarbe, Firma bzw. Name, Ansprechpartner und Adresse, Statuspille (Termin mit Datum,
+  Wiedervorlage mit Datum, „Rückruf seit …"), darunter die Zeilenanzeige aus den Einstellungen;
+  rechts Navigation und Anrufen. **Sortierung, Gruppen und A–Z richten sich seitdem nach dem
+  angezeigten Namen** (`anzeigeName`: bei Firmenkunden die Firma) – vorher nach dem
+  Ansprechpartner, sodass eine Firma unter dem Buchstaben ihres Ansprechpartners stand.
 - **Kundenliste**: alle Kunden werden einmal geladen und im Browser gefiltert – dadurch
   reagieren Suche, Buchstaben- und PLZ-Filter ohne Verzögerung. **Gezeichnet** werden jeweils
   200 Zeilen (`LISTEN_SCHRITT` in `app/page.tsx`), weitere per Knopf am Listenende; gefiltert
@@ -417,3 +430,45 @@ nach **36 Monaten** die personenbezogenen Felder in alten Protokolleinträgen (F
 Name, Firma, Anrede, Anschrift, E-Mail, Telefon, Koordinaten, Kennzeichen und die Freitexte. Die
 Zeile bleibt stehen, „wer hat wann was geändert" bleibt nachvollziehbar. Geschwärzte Einträge
 tragen `audit_log.geschwaerzt_am`.
+
+## Das Kundenfenster in Reitern (Entwurf „O · Kunde", 26.09.2026)
+
+`DetailModal.tsx` zeigt oben den Kunden mit Kreis in der Zustandsfarbe, Kundennummer und
+Adresse, darunter vier Handgriffe: Anrufen, Navigation, Kontakt (öffnet den bekannten
+Kontaktdialog, jetzt als Blatt), Auftrag (legt einen an und öffnet ihn). Reiter:
+
+- **Übersicht**: nächster Termin (mit Mitarbeiter und „Auftrag öffnen"), Kontakt-Karte mit
+  letztem Kontakt und Wiedervorlage, eingelagerte Reifen, Kontaktdaten mit Kartenposition.
+- **Fahrzeuge**: je Fahrzeug eine Karte mit Kennzeichen-Schild und Lagerplatz; Bearbeiten und
+  Löschen in der Karte.
+- **Aufträge**: „+ Neuer Auftrag", die Aufträge neueste zuerst, darunter der Umsatz netto aus
+  den erledigten Aufträgen. Gelöscht wird ein Auftrag nicht mehr von hier, sondern im Menü des
+  Auftragsfensters – dort, wo auch die Rechte dazu gelten.
+- **Verlauf**: Kontakte und abgeschlossene Aufträge in einer Zeitleiste.
+- **Daten**: das Formular (Privat/Firma, Anrede, Name, Adresse, Telefon, E-Mail, Notiz) mit
+  Kartenposition, „Neu suchen" und „Auf Karte setzen". Mit ungespeicherten Änderungen trägt der
+  Reiter einen Punkt, und das Schließen fragt nach.
+
+Hinter „⋯": Einmalkunde und Laufkundschaft (sofort gespeichert, wie bisher), „Auf offen
+setzen", deaktivieren/reaktivieren und „In den Papierkorb".
+
+„Inaktive Kunden" ist eine Liste im Stil der Kundenliste mit Suche und „Reaktivieren" /
+„Rückgängig"; „Neuer Kunde" hat die Art (Kunde, Einmalkunde, Laufkundschaft) und Privat/Firma
+als Umschalter, den Hinweis „Gibt es schon?" ab vier Zeichen und „Gleich einen Auftrag anlegen"
+als Schalter.
+
+## Testkunden (Migration 60, 26.09.2026)
+
+Nur der Superadmin legt einen Kunden als **Testkunden** an – im Formular „Neuer Kunde" als
+Schalter, oder später im Menü „⋯" des Kundenfensters, solange der Kunde noch keinen Auftrag hat
+(die Datenbank prüft beides in `pruefe_testkunde()`). Ein Testkunde hat keine Kundennummer,
+seine Aufträge heißen T1, T2 …, seine Rechnungen T-RE1 … Er ist für alle sichtbar – so lässt
+sich auch der Ablauf eines Technikers durchspielen – und überall mit **TEST** markiert
+(Kundenliste, Kundenfenster, Aufträge, Auftragsfenster, Rechnungsbuch, Papierkorb). In
+Auswertungen, DATEV-Export und Wochenumsatz zählt er nicht.
+
+„Testkunde restlos löschen" (Menü „⋯", nur Superadmin) ruft `testkunde_loeschen()` auf: weg sind
+Kunde, Aufträge, Testrechnungen, Fahrzeuge, Reifen im Regal, Kontakte und alle
+Protokolleinträge dazu – ohne Papierkorb. Landet ein Testkunde doch im Papierkorb (etwa weil ein
+Admin ihn gelöscht hat), bietet der Papierkorb dem Superadmin dasselbe „Restlos löschen" an;
+`kunde_endgueltig_loeschen()` verweist Testkunden dorthin.

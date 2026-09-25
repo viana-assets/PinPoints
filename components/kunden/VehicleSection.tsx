@@ -30,14 +30,20 @@ function VehicleFieldsForm({ values, onChangeField }: {
 }) {
   return (
     <>
-      <div className="row" style={{ marginBottom: 4 }}>
-        <input type="text" placeholder="Kennzeichen" value={values.licensePlate} onChange={(e) => onChangeField("licensePlate", e.target.value)} />
-        <input type="text" placeholder="Marke / Modell" value={values.makeModel} onChange={(e) => onChangeField("makeModel", e.target.value)} />
+      <div className="nk-zeile">
+        <label className="nk-feld"><span>Kennzeichen</span>
+          <input type="text" placeholder="z. B. FÜ-AB 123" value={values.licensePlate} onChange={(e) => onChangeField("licensePlate", e.target.value)} />
+        </label>
+        <label className="nk-feld"><span>Marke / Modell</span>
+          <input type="text" placeholder="z. B. VW Golf" value={values.makeModel} onChange={(e) => onChangeField("makeModel", e.target.value)} />
+        </label>
       </div>
-      <div className="row" style={{ marginBottom: 4 }}>
-        <input type="text" placeholder="Reifengröße z. B. 205/55 R16" value={values.tireSize} onChange={(e) => onChangeField("tireSize", e.target.value)} />
-      </div>
-      <textarea placeholder="Notiz (optional)" value={values.note} onChange={(e) => onChangeField("note", e.target.value)} />
+      <label className="nk-feld"><span>Reifengröße</span>
+        <input type="text" placeholder="z. B. 205/55 R16" value={values.tireSize} onChange={(e) => onChangeField("tireSize", e.target.value)} />
+      </label>
+      <label className="nk-feld"><span>Notiz (optional)</span>
+        <textarea rows={2} value={values.note} onChange={(e) => onChangeField("note", e.target.value)} />
+      </label>
     </>
   );
 }
@@ -61,30 +67,32 @@ export function VehicleRow({ vehicle, tireStorages, storageSlots, warehouses, on
 
   if (editing) {
     return (
-      <div className="appt-item">
+      <div className="db-karte dm-fahrzeug-form">
         <VehicleFieldsForm
           values={values}
           onChangeField={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
         />
-        <div className="appt-actions">
-          <button className="btn-primary" onClick={() => { onUpdate(vehicle.id, values); setEditing(false); }}>Speichern</button>
-          <button className="btn-secondary" onClick={() => setEditing(false)}>Abbrechen</button>
+        <div className="ad-knoepfe">
+          <button type="button" className="es-knopf ad-gefahr" onClick={() => { if (confirm("Dieses Fahrzeug wirklich löschen?")) onDelete(vehicle.id); }}>Löschen</button>
+          <span className="ad-luecke" />
+          <button type="button" className="es-knopf" onClick={() => setEditing(false)}>Abbrechen</button>
+          <button type="button" className="am-mini" onClick={() => { onUpdate(vehicle.id, values); setEditing(false); }}>Speichern</button>
         </div>
       </div>
     );
   }
   return (
-    <div className="appt-item">
-      <div><span className="appt-date">{vehicle.license_plate || "Ohne Kennzeichen"}</span>{vehicle.make_model ? " – " + vehicle.make_model : ""}</div>
-      <div className="small">
-        {vehicle.tire_size ? `Reifengröße: ${vehicle.tire_size}` : "Keine Reifengröße hinterlegt"}
+    <div className="db-karte dm-fahrzeug">
+      <div className="dm-fz-kopf">
+        <span className="dm-kz">{vehicle.license_plate || "ohne Kz."}</span>
+        <span className="dm-fz-text">
+          <b>{vehicle.make_model || "Fahrzeug"}</b>
+          <span className="small">{vehicle.tire_size || "keine Reifengröße hinterlegt"}</span>
+        </span>
+        <button type="button" className="db-link" onClick={() => setEditing(true)}>Bearbeiten</button>
       </div>
-      {linked && <div className="small">Im Lager: {tireStorageLabel(linked, storageSlots, warehouses)}</div>}
-      {vehicle.note && <div className="small">{vehicle.note}</div>}
-      <div className="appt-actions">
-        <button className="btn-secondary" onClick={() => setEditing(true)}>Bearbeiten</button>
-        <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => { if (confirm("Dieses Fahrzeug wirklich löschen?")) onDelete(vehicle.id); }}>Löschen</button>
-      </div>
+      {linked && <span className="dm-fz-lager">Im Lager: {tireStorageLabel(linked, storageSlots, warehouses)}</span>}
+      {vehicle.note && <span className="small">{vehicle.note}</span>}
     </div>
   );
 }
@@ -98,17 +106,19 @@ export function AddVehicleInline({ tireStorages, storageSlots, warehouses, onAdd
   const [values, setValues] = useState<VehicleFieldValues>(empty);
 
   if (!open) {
-    return <button className="btn-secondary btn-block" onClick={() => setOpen(true)}>+ Fahrzeug hinzufügen</button>;
+    return <button type="button" className="dm-plus" onClick={() => setOpen(true)}>+ Fahrzeug hinzufügen</button>;
   }
   return (
-    <div className="appt-item">
+    <div className="db-karte dm-fahrzeug-form">
+      <b>Neues Fahrzeug</b>
       <VehicleFieldsForm
         values={values}
         onChangeField={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
       />
-      <div className="appt-actions">
-        <button className="btn-primary" onClick={() => { onAdd(values); setValues(empty); setOpen(false); }}>Fahrzeug speichern</button>
-        <button className="btn-secondary" onClick={() => { setValues(empty); setOpen(false); }}>Abbrechen</button>
+      <div className="ad-knoepfe">
+        <span className="ad-luecke" />
+        <button type="button" className="es-knopf" onClick={() => { setValues(empty); setOpen(false); }}>Abbrechen</button>
+        <button type="button" className="am-mini" onClick={() => { onAdd(values); setValues(empty); setOpen(false); }}>Fahrzeug speichern</button>
       </div>
     </div>
   );

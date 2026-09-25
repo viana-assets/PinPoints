@@ -96,19 +96,27 @@ viana-pinpoints/
     PwaBereit.tsx / PwaFassung.tsx / PwaInstallieren.tsx
                                     Installations-/Update-Mechanik der PWA
     PushEinstellung.tsx             An-/Abmelden für Push-Benachrichtigungen (Einstellungen)
+    NeuigkeitenBlatt.tsx            „Was gibt es Neues" (Admin/Superadmin), aus `NEUIGKEITEN`
+    WeiterePanel.tsx                Handy-Seite „Weitere": Kacheln nach `WEITERE_GRUPPEN`, je
+                                    Kachel ein Hinweis, ob dort etwas wartet (Entwurf V)
     kunden/
       CustomerRowMeta.tsx           Meta-Zeile in der Kundenliste
-      AddCustomerForm.tsx           Formular "Neuer Kunde"
-      DetailModal.tsx                Das große Kunden-Detailfenster
-      CustomerOrderRow.tsx           Ein Auftrag im Detailfenster
-      KontaktModal.tsx                Kontakt erfassen/Wiedervorlage setzen
+      AddCustomerForm.tsx           Formular "Neuer Kunde" (Art, Privat/Firma, „Gibt es schon?")
+      InaktivePanel.tsx             Tab "Inaktive Kunden": Suche, Reaktivieren/Rückgängig
+      DetailModal.tsx                Das Kundenfenster: Kopf, vier Handgriffe, Reiter Übersicht/
+                                     Fahrzeuge/Aufträge/Verlauf/Daten, Menü „⋯" (Entwurf O)
+      CustomerOrderRow.tsx           Ein Auftrag im Kundenfenster (Karte, öffnet das Auftragsfenster)
+      KontaktModal.tsx                Kontakt erfassen/Wiedervorlage setzen (Blatt)
       VehicleSection.tsx             Fahrzeuge je Kunde (VehicleRow, AddVehicleInline)
     admin/
-      SettingsPanel.tsx              Tab "Einstellungen"
-      AdminPanel.tsx                 Tab "Admin" – fünf Unter-Reiter: Nutzerverwaltung,
-                                     Modulverwaltung, Wartung, Protokoll, Betrieb
-      PermissionMatrix.tsx           Modulverwaltung (Rollen × Bereich × lesen/schreiben/löschen)
-      BetriebsdatenPanel.tsx          Briefkopf/Rechnungseinstellungen (Migration 38/48)
+      SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Anzeige, App)
+      AdminPanel.tsx                 Tab "Admin" – Reiter Nutzer, Mitarbeiter, Transporter,
+                                     Rechte (Superadmin), Betrieb, Wartung, Protokoll, Papierkorb
+      PermissionMatrix.tsx           Reiter „Rechte": je Rolle Bereich × lesen/schreiben/löschen
+      BetriebsdatenPanel.tsx          Betrieb als Zeilenliste, je Abschnitt ein Blatt mit eigenem
+                                      „Speichern" (Briefkopf, Bank, Logo, Texte, Nummernkreis,
+                                      DATEV, Terminraster; Migration 38/48/59)
+      PapierkorbPanel.tsx             Gelöschte Kunden wiederherstellen / endgültig löschen
       ProtokollPanel.tsx              Änderungsprotokoll lesen (Migration 18/36)
       FirmenfahrzeugPanel.tsx         Eigene Transporter (Migration 32)
       AdressenPruefen.tsx             Korrekturliste für ungenau geokodierte Kundenadressen
@@ -117,15 +125,16 @@ viana-pinpoints/
         ArticleAdminPanel.tsx          Tab "Artikel" (eigene Kachel, nicht mehr Teil von Admin –
                                        Ordnerpfad bewusst historisch belassen, um keine
                                        verwaiste Kopie im OneDrive-Ordner zu hinterlassen)
-        ArticleDetailEditor.tsx        Artikel bearbeiten + Preis-Historie + Abrechnungsart/
-                                       Einheit/Freitext-Haken
+        ArticleDetailEditor.tsx        Blatt: Artikel bearbeiten + Preis-Historie als Zeitleiste +
+                                       Abrechnungsart/Einheit/Freitext-Schalter
     auftraege/
       AuftraegePanel.tsx             Tab "Aufträge & Termine" (Übersicht, Klick öffnet das Fenster)
-      AuftragModal.tsx               Das Auftragsfenster: alles zu einem Auftrag, und hier wird
-                                     gehandelt, ~1.030 Zeilen (siehe docs/auftraege.md)
+      AuftragModal.tsx               Das Auftragsfenster in Karten, Blätter für Termin & Team,
+                                     Menü „⋯", Fuß mit der Handlung, die dran ist (Entwurf N;
+                                     siehe docs/auftraege.md)
       OrderModal.tsx                 Neuen Auftrag anlegen (aus dem Aufträge-Tab)
-      ArticleAssignPanel.tsx         Leistungen/Artikel einem Auftrag zuordnen (Endpreis statt
-                                     Prozentrabatt, Migration 38)
+      ArticleAssignPanel.tsx         Leistungen am Auftrag: −/+ je Zeile, Endpreis/Text
+                                     aufklappbar, Blatt „Leistung hinzufügen" (Migration 38/50)
       EinlagerungBlock.tsx            Reifen ein-/auslagern direkt am Auftrag
       FahrzeugeBlock.tsx              Fahrzeuge am Auftrag inkl. Kilometerstand, immer sichtbar
                                       (Migration 44/51)
@@ -144,10 +153,11 @@ viana-pinpoints/
       ReifensatzEtikett.tsx / LagerplatzAufkleber.tsx
                                         QR-Aufkleber für Satz bzw. Regalplatz
     auswertung/
-      AuswertungPanel.tsx             Tab "Auswertungen": Umsatz, Steuer, Nachlass,
-                                      Saisonalität, Mitarbeiter, Artikel
+      AuswertungPanel.tsx             Tab "Auswertungen" (Entwurf M, 26.09.2026): Reiter Umsatz,
+                                      Kunden, Einsatz, Lager, Artikel; Export DATEV/CSV
     rechnungen/
-      RechnungenPanel.tsx             Tab "Rechnungen": Liste, Suche, Storno
+      RechnungenPanel.tsx             Tab "Rechnungen": Monatsgruppen, Suche, Jahr, „Noch nicht
+                                      ausgestellt", Beleg, Storno (Entwurf P)
       RechnungModal.tsx               Eine Rechnung ausstellen/stornieren
       RechnungDokument.tsx            Druckansicht des Belegs (Briefkopf, Positionen, Summen)
   lib/
@@ -159,12 +169,20 @@ viana-pinpoints/
                                  `GEO_GENAUIGKEIT_LABEL`, `PROTOKOLL_*_LABEL`,
                                  `TERMIN_INTERVALLE` – siehe konstanten-register.md
     module.ts                    Die Modul-/Navigationsliste (`MODULE`), einmal für
-                                 Seitenleiste UND die Handy-Kachelseite „Weitere"
+                                 Seitenleiste UND die Handy-Kachelseite „Weitere"; dazu
+                                 `WEITERE_GRUPPEN`/`weitereGruppen()`
+    version.ts                    `APP_VERSION` und `NEUIGKEITEN` (gleichlaufend mit public/sw.js)
+    testkunde.ts                  Testkunden lesen: `auftragsNr()` („T3"), `istTestauftrag`,
+                                  `ohneTest…`-Filter für Auswertungen und Exporte (Migration 60)
     calendar.ts                   Reine Kalender-Hilfsfunktionen (Wochenstart, ISO-KW, Mitarbeiterfarbe)
     helpers.ts                  Datum/Distanz/Telefon/Preis-Hilfsfunktionen, ~970 Zeilen
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)
+    auswertungAnsicht.ts           Zeiträume/Saison/Vorjahr, Umsatz aus dem Rechnungsbuch,
+                                   Kunden, Einsatz, Lager (Entwurf M, reine Funktionen)
+    datev.ts                       DATEV-Buchungsstapel, Debitoren-/Rechnungsliste, CSV,
+                                   Windows-1252 (reine Funktionen)
     aufkleberCode.ts                Codieren/Decodieren der QR-Aufkleber (Regal- vs. Satz-Code)
     etikettBild.ts                  Reifensatz-/Rad-Etikett als PNG in Druckerauflösung
                                     (203 dpi), für „Als Bild teilen" bei Druckern ohne AirPrint

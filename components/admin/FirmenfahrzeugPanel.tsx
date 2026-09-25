@@ -40,55 +40,50 @@ export function FirmenfahrzeugPanel({ fahrzeuge, onAnlegen, onAendern, onAusmust
   const ausgemusterte = fahrzeuge.filter((f) => !f.aktiv);
 
   return (
-    <div>
-      <h4 style={{ margin: "0 0 4px" }}>Firmenfahrzeuge</h4>
-      <div className="small" style={{ marginBottom: 6 }}>
-        Die eigenen Transporter – nicht die Autos der Kunden. Sie lassen sich am Auftrag
-        einteilen und in der Einsatzplanung filtern.
-      </div>
-
-      <div className="row" style={{ maxWidth: 520 }}>
-        <input
-          type="text" placeholder="Kennzeichen, z. B. N-VI 100"
-          value={kennzeichen} onChange={(e) => setKennzeichen(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") void anlegen(); }}
-        />
-        <input
-          type="text" placeholder="Bezeichnung, z. B. Sprinter weiß"
-          value={bezeichnung} onChange={(e) => setBezeichnung(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") void anlegen(); }}
-        />
-        <button className="btn-primary" style={{ flex: "0 0 auto" }} disabled={laeuft || !kennzeichen.trim()} onClick={() => void anlegen()}>
-          + Fahrzeug
+    <div className="ad-abschnitt">
+      <div className="db-karte ad-aktion">
+        <b className="ad-aktion-titel">Transporter anlegen</b>
+        <span className="small">Die eigenen Transporter – nicht die Autos der Kunden. Sie lassen sich am Auftrag einteilen und in der Einsatzplanung filtern.</span>
+        <div className="ad-aktion-zeile">
+          <input
+            type="text" placeholder="Kennzeichen, z. B. N-VI 100" aria-label="Kennzeichen"
+            value={kennzeichen} onChange={(e) => setKennzeichen(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void anlegen(); }}
+          />
+          <input
+            type="text" placeholder="Bezeichnung, z. B. Sprinter weiß" aria-label="Bezeichnung"
+            value={bezeichnung} onChange={(e) => setBezeichnung(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void anlegen(); }}
+          />
+        </div>
+        {fehler && <div className="hinweis-pflicht">{fehler}</div>}
+        <button type="button" className="am-knopf" disabled={laeuft || !kennzeichen.trim()} onClick={() => void anlegen()}>
+          + Transporter
         </button>
       </div>
-      {fehler && <div className="hinweis-pflicht" style={{ marginTop: 6, maxWidth: 520 }}>{fehler}</div>}
 
       {fahrzeuge.length === 0 ? (
-        <div className="empty" style={{ marginTop: 8 }}>Noch kein Firmenfahrzeug angelegt.</div>
+        <div className="db-karte"><div className="db-leer">Noch kein Transporter angelegt.</div></div>
       ) : (
-        <table className="appt-table" style={{ maxWidth: 720, marginTop: 8 }}>
-          <thead><tr><th>Kennzeichen</th><th>Bezeichnung</th><th>Notiz</th><th></th></tr></thead>
-          <tbody>
-            {[...aktive, ...ausgemusterte].map((f) => (
-              <FahrzeugZeile
-                key={f.id}
-                fahrzeug={f}
-                offen={offen === f.id}
-                onOeffnen={() => setOffen(offen === f.id ? null : f.id)}
-                onAendern={onAendern}
-                onAusmustern={onAusmustern}
-              />
-            ))}
-          </tbody>
-        </table>
+        [...aktive, ...ausgemusterte].map((f, i) => (
+          <FahrzeugZeile
+            key={f.id}
+            fahrzeug={f}
+            nr={i + 1}
+            offen={offen === f.id}
+            onOeffnen={() => setOffen(offen === f.id ? null : f.id)}
+            onAendern={onAendern}
+            onAusmustern={onAusmustern}
+          />
+        ))
       )}
     </div>
   );
 }
 
-function FahrzeugZeile({ fahrzeug, offen, onOeffnen, onAendern, onAusmustern }: {
+function FahrzeugZeile({ fahrzeug, nr, offen, onOeffnen, onAendern, onAusmustern }: {
   fahrzeug: Firmenfahrzeug;
+  nr: number;
   offen: boolean;
   onOeffnen: () => void;
   onAendern: (id: string, felder: FirmenfahrzeugFelder) => Promise<string | null>;
@@ -100,69 +95,69 @@ function FahrzeugZeile({ fahrzeug, offen, onOeffnen, onAendern, onAusmustern }: 
   const [fehler, setFehler] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState(false);
 
+  async function ausmustern() {
+    // Ausmustern statt löschen – siehe Kopf der Datei. Deshalb auch nur eine kurze
+    // Rückfrage: es ist umkehrbar.
+    if (fahrzeug.aktiv && !window.confirm(`${fahrzeug.kennzeichen} ausmustern? Es verschwindet aus der Auswahl für neue Aufträge, bleibt aber an den bisherigen erhalten.`)) return;
+    setLaeuft(true);
+    try {
+      await onAusmustern(fahrzeug.id, !fahrzeug.aktiv);
+      if (offen) onOeffnen();
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
   if (!offen) {
     return (
-      <tr style={fahrzeug.aktiv ? undefined : { opacity: 0.55 }}>
-        <td style={{ fontWeight: 700 }}>{fahrzeug.kennzeichen}{fahrzeug.aktiv ? "" : " (ausgemustert)"}</td>
-        <td>{fahrzeug.bezeichnung || "–"}</td>
-        <td className="small">{fahrzeug.notiz || ""}</td>
-        <td style={{ whiteSpace: "nowrap" }}>
-          <button type="button" className="btn-secondary" style={{ padding: "3px 8px", fontSize: 11.5, fontWeight: 400 }} onClick={onOeffnen}>
-            Bearbeiten
-          </button>
-        </td>
-      </tr>
+      <div className={"ad-karte" + (fahrzeug.aktiv ? "" : " blass")}>
+        <span className={"ad-kreis" + (fahrzeug.aktiv ? " navy" : " grau")}>{fahrzeug.aktiv ? nr : "–"}</span>
+        <span className="ad-karte-text">
+          <b>{fahrzeug.kennzeichen}{fahrzeug.bezeichnung ? ` · ${fahrzeug.bezeichnung}` : ""}</b>
+          <span className="small">{fahrzeug.aktiv ? (fahrzeug.notiz || "im Einsatz") : `ausgemustert${fahrzeug.notiz ? ` · ${fahrzeug.notiz}` : ""}`}</span>
+        </span>
+        {fahrzeug.aktiv ? (
+          <button type="button" className="db-link" onClick={onOeffnen}>Bearbeiten</button>
+        ) : (
+          <button type="button" className="db-link" disabled={laeuft} onClick={() => void ausmustern()}>Wieder in Betrieb</button>
+        )}
+      </div>
     );
   }
 
   return (
-    <tr>
-      <td colSpan={4} style={{ background: "rgba(0,0,0,.02)" }}>
-        <div className="row" style={{ marginBottom: 4 }}>
-          <input type="text" className="feld-kompakt" value={kennzeichen} onChange={(e) => setKennzeichen(e.target.value)} placeholder="Kennzeichen" />
-          <input type="text" className="feld-kompakt" value={bezeichnung} onChange={(e) => setBezeichnung(e.target.value)} placeholder="Bezeichnung" />
-        </div>
-        <input type="text" className="feld-kompakt" value={notiz} onChange={(e) => setNotiz(e.target.value)} placeholder="Notiz (optional)" />
-        {fehler && <div className="hinweis-pflicht" style={{ marginTop: 6 }}>{fehler}</div>}
-        <div className="appt-actions" style={{ marginTop: 6 }}>
-          <button
-            className="btn-primary"
-            disabled={laeuft || !kennzeichen.trim()}
-            onClick={async () => {
-              setLaeuft(true);
-              setFehler(null);
-              try {
-                const meldung = await onAendern(fahrzeug.id, { kennzeichen, bezeichnung, notiz, aktiv: fahrzeug.aktiv });
-                if (meldung) { setFehler(meldung); return; }
-                onOeffnen();
-              } finally {
-                setLaeuft(false);
-              }
-            }}
-          >
-            Speichern
-          </button>
-          <button className="btn-secondary" onClick={onOeffnen}>Abbrechen</button>
-          <button
-            className="btn-secondary"
-            disabled={laeuft}
-            onClick={async () => {
-              // Ausmustern statt löschen – siehe Kopf der Datei. Deshalb auch nur eine kurze
-              // Rückfrage: es ist umkehrbar.
-              if (fahrzeug.aktiv && !window.confirm(`${fahrzeug.kennzeichen} ausmustern? Es verschwindet aus der Auswahl für neue Aufträge, bleibt aber an den bisherigen erhalten.`)) return;
-              setLaeuft(true);
-              try {
-                await onAusmustern(fahrzeug.id, !fahrzeug.aktiv);
-                onOeffnen();
-              } finally {
-                setLaeuft(false);
-              }
-            }}
-          >
-            {fahrzeug.aktiv ? "Ausmustern" : "Wieder in Betrieb nehmen"}
-          </button>
-        </div>
-      </td>
-    </tr>
+    <div className="db-karte ad-aktion">
+      <b className="ad-aktion-titel">{fahrzeug.kennzeichen} bearbeiten</b>
+      <div className="ad-aktion-zeile">
+        <input type="text" value={kennzeichen} onChange={(e) => setKennzeichen(e.target.value)} placeholder="Kennzeichen" aria-label="Kennzeichen" />
+        <input type="text" value={bezeichnung} onChange={(e) => setBezeichnung(e.target.value)} placeholder="Bezeichnung" aria-label="Bezeichnung" />
+      </div>
+      <input type="text" className="ad-eingabe" value={notiz} onChange={(e) => setNotiz(e.target.value)} placeholder="Notiz (optional), z. B. Regal für 8 Sätze" aria-label="Notiz" />
+      {fehler && <div className="hinweis-pflicht">{fehler}</div>}
+      <div className="ad-knoepfe">
+        <button type="button" className="es-knopf ad-gefahr" disabled={laeuft} onClick={() => void ausmustern()}>
+          {fahrzeug.aktiv ? "Ausmustern" : "Wieder in Betrieb nehmen"}
+        </button>
+        <span className="ad-luecke" />
+        <button type="button" className="es-knopf" onClick={onOeffnen}>Abbrechen</button>
+        <button
+          type="button" className="am-mini"
+          disabled={laeuft || !kennzeichen.trim()}
+          onClick={async () => {
+            setLaeuft(true);
+            setFehler(null);
+            try {
+              const meldung = await onAendern(fahrzeug.id, { kennzeichen, bezeichnung, notiz, aktiv: fahrzeug.aktiv });
+              if (meldung) { setFehler(meldung); return; }
+              onOeffnen();
+            } finally {
+              setLaeuft(false);
+            }
+          }}
+        >
+          Speichern
+        </button>
+      </div>
+    </div>
   );
 }

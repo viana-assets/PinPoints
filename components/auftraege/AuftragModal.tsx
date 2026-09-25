@@ -1,21 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Article, ArticlePrice, AuftragFahrzeug, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
-import { formatDate, formatOrderDateTime, getPhoneNumbers, handlungsgruende, lagermonate, todayStr } from "@/lib/helpers";
-import { hhmmAus, minutenAus } from "@/lib/calendar";
+import { formatDate, formatEUR, getPhoneNumbers, handlungsgruende, lagermonate, rechnungsdatenMaengel, todayStr } from "@/lib/helpers";
+import { employeeColorFor, hhmmAus, minutenAus } from "@/lib/calendar";
+import { datumKurz } from "@/lib/dashboard";
 import { terminUeberschneidungen } from "@/lib/ueberschneidung";
 import { istLaufkundenAuftrag, kundeZumAuftrag } from "@/lib/laufkunde";
 import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, ORDER_STATUS_FARBE, ORDER_STATUS_LABEL,
   PROFIL_KRITISCH_MM, SAISON_LABEL, STANDARD_DAUER_MIN, istAbgeschlossen,
 } from "@/lib/constants";
-import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { ArticleAssignPanel } from "./ArticleAssignPanel";
-import { IconNavPin, IconTrash } from "@/components/icons";
+import { IconNavPin } from "@/components/icons";
 import { EinlagerungBlock } from "./EinlagerungBlock";
 import { RechnungsdatenBlock } from "./RechnungsdatenBlock";
 import { FahrzeugeBlock } from "./FahrzeugeBlock";
 import { AuftragProtokoll } from "./AuftragProtokoll";
+import { auftragsNr } from "@/lib/testkunde";
 
 // Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
 //
@@ -28,6 +29,12 @@ import { AuftragProtokoll } from "./AuftragProtokoll";
 // nicht "erledigt", man drückt "Auftrag abschließen" – und daraufhin friert die Datenbank die
 // Positionen ein. Welche Übergänge erlaubt sind, entscheidet ein Trigger; diese Komponente zeigt
 // nur an, was gerade möglich ist.
+//
+// Seit 26.09.2026 (Entwurf N) in Karten: oben wer, wann, wo (mit Navigation und Anruf), darunter
+// was für den Abschluss fehlt, Team & Transporter, Fahrzeug, Leistungen, Rechnung, Reifen,
+// Notiz. Termin und Team werden in einem Blatt geändert („Übernehmen" speichert), der Fuß trägt
+// genau die eine Handlung, die im jeweiligen Zustand dran ist. Seltenes – Stornieren, Löschen,
+// Wiedereröffnen, Historie – steht im Menü „⋯".
 export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
@@ -39,8 +46,11 @@ export function AuftragModal({
   onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
-  andereAuftraege, auftragsZuordnungen, kundeName,
+  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen,
 }: {
+  // Springt vom Auftrag in das Kundenfenster. Optional: Wer das Fenster ohne diese Zusage
+  // einbindet, bekommt den Knopf „Kunde" nicht zu sehen.
+  onKundeOeffnen?: (kundeId: string) => void;
   // Für den Hinweis auf Doppelbuchungen (Fahrplan D1): die geladenen Aufträge samt ihrer
   // Mitarbeiter, und wie der Kunde eines Auftrags heißt. Geprüft wird gegen den ENTWURF in
   // diesem Fenster, nicht gegen das Gespeicherte – der Hinweis soll beim Anhaken kommen, nicht
@@ -324,7 +334,7 @@ export function AuftragModal({
       ? employees.find((e) => e.id === u.werId)?.name ?? "Unbekannt"
       : firmenfahrzeugText(u.werId) || "Dieses Fahrzeug";
     return `${wer} ist ${u.von}–${u.bis}${u.geschaetzt ? " (Ende geschätzt)" : ""} schon bei `
-      + `Auftrag ${u.auftrag.order_number} · ${kundeName(u.auftrag.customer_id)}`;
+      + `Auftrag ${auftragsNr(u.auftrag.order_number)} · ${kundeName(u.auftrag.customer_id)}`;
   }
   const doppeltMitarbeiter = doppelt.filter((u) => u.art === "mitarbeiter");
   const doppeltFahrzeug = doppelt.filter((u) => u.art === "fahrzeug");
@@ -417,137 +427,315 @@ export function AuftragModal({
     onClose();
   }
 
+  // ---------------------------------------------------------------- Blätter
+  // „Termin & Team" ändert den Entwurf. Beim Öffnen wird der Stand gemerkt: Wer das Blatt
+  // ohne „Übernehmen" schließt, bekommt ihn zurück – sonst trüge das Fenster Änderungen, die
+  // man eben verworfen zu haben glaubt.
+  const [terminOffen, setTerminOffen] = useState(false);
+  const terminStand = useRef<{ datum: string; zeit: string; zeitBis: string; ende: boolean; ma: string[]; ff: string } | null>(null);
+  const [menueOffen, setMenueOffen] = useState(false);
+  const protokollRef = useRef<HTMLDivElement>(null);
+
+  function terminOeffnen() {
+    if (gesperrt) return;
+    terminStand.current = { datum, zeit, zeitBis, ende: endeVorgeschlagen, ma: mitarbeiterIds, ff: firmenfahrzeugId };
+    setTerminOffen(true);
+  }
+  function terminVerwerfen() {
+    const st = terminStand.current;
+    if (st) {
+      setDatum(st.datum); setZeit(st.zeit); setZeitBis(st.zeitBis); setEndeVorgeschlagen(st.ende);
+      setMitarbeiterIds(st.ma); setFirmenfahrzeugId(st.ff);
+    }
+    setTerminOffen(false);
+  }
+  async function terminUebernehmen() {
+    await speichern();
+    terminStand.current = null;
+    setTerminOffen(false);
+  }
+
+  // Ein Zustandswechsel mit ungespeichertem Entwurf speichert ihn vorher. Bis zum 26.09.2026
+  // blieb der Entwurf beim Abschließen einfach liegen – danach war der Auftrag gesperrt, der
+  // Speichern-Knopf verschwand, und die Änderung war still verloren.
+  async function erstSpeichern(): Promise<boolean> {
+    if (!geaendert || gesperrt) return true;
+    if (zeitFehlt || endeVorAnfang) { terminOeffnen(); return false; }
+    await speichern();
+    return true;
+  }
+  async function statusSetzen(status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
+    if (!(await erstSpeichern())) return;
+    await onSetStatus(order.id, status, grund);
+  }
+  function abschliessen() {
+    // Die Frage schiebt sich EINMAL dazwischen und sperrt nichts: Wer sie beantwortet, ist im
+    // selben Klick fertig.
+    if (altreifenOffen) { setAltreifenFrage(true); setAltreifenGefragt(true); return; }
+    void statusSetzen("erledigt");
+  }
+
+  const zugeteilt = employees.filter((e) => mitarbeiterIds.includes(e.id));
+  const terminText = datum
+    ? `${datumKurz(datum)}${datum.slice(0, 4) !== todayStr().slice(0, 4) ? datum.slice(0, 4) : ""}`
+      + (zeit.trim() ? ` · ${zeit.slice(0, 5)}${zeitBis.trim() ? `–${zeitBis.slice(0, 5)}` : ""}` : " · ohne Uhrzeit")
+    : "ohne Datum";
+  // Was dem Abschluss noch im Weg steht – dieselbe Liste wie bisher am Knopf, dazu die Uhrzeit.
+  // Eine Vorschau: Die Regeln stehen in der Datenbank (Migration 22, 30, 57), und der Knopf
+  // bleibt deshalb anklickbar.
+  //
+  // Dazu die Rechnungsangaben, sobald „Rechnung nötig" gesetzt ist (Migration 44): Ohne sie
+  // lehnt die Datenbank den Abschluss ab – dieselbe Liste wie im Rechnungsblock
+  // (`rechnungsdatenMaengel`), nicht eine zweite.
+  const rechnungsMaengel = rechnungNoetig
+    ? rechnungsdatenMaengel(customer ?? null, auftragsFahrzeuge.map((f) => ({ kennzeichen: f.fahrzeug?.license_plate ?? null, kilometerstand: f.kilometerstand })))
+    : [];
+  const fehltListe = gesperrt ? [] : [...new Set([...(zeitFehlt ? ["Uhrzeit"] : []), ...abschlussFehlt, ...rechnungsMaengel.map((m) => m.text)])];
+  const telefonDa = !!kundeAnzeige && getPhoneNumbers(kundeAnzeige).length > 0;
+  const adresseDa = !!kundeAnzeige && kundeAnzeige.address.trim() !== "";
+  const summen = orderArticles.reduce((n, r) => n + (r.endpreis_netto ?? r.quantity * r.net_price), 0);
+  const rechnungDa = !!order.rechnung_nummer;
+
+  // Die eine Handlung, die in diesem Zustand dran ist.
+  let fussHinweis: string;
+  let fussHinweisArt: "grau" | "warn" | "ok" = "grau";
+  if (order.status === "offen") {
+    fussHinweis = "„Arbeit beginnen“ stellt den Auftrag auf „In Arbeit“ – das Büro sieht, dass jemand dran ist.";
+  } else if (order.status === "in_arbeit") {
+    fussHinweis = fehltListe.length ? `Fehlt noch: ${fehltListe.join(" · ")}` : "Bereit zum Abschließen – geprüft wird beim Klick.";
+    fussHinweisArt = fehltListe.length ? "warn" : "ok";
+  } else if (order.status === "erledigt") {
+    fussHinweis = `Abgeschlossen${order.completed_at ? ` am ${formatDate(order.completed_at.slice(0, 10))}` : ""} · die Leistungen stehen fest`;
+  } else {
+    fussHinweis = `Storniert${order.cancelled_at ? ` am ${formatDate(order.cancelled_at.slice(0, 10))}` : ""}${order.cancel_reason ? ` – ${order.cancel_reason}` : ""}`;
+  }
+
+  type MenuePunkt = "termin" | "wieder" | "rechnung" | "historie" | "storno" | "loeschen";
+  const menue: { key: MenuePunkt; text: string; info?: string; gefahr?: boolean; aus?: boolean }[] = [];
+  if (!gesperrt && feldeAendern) menue.push({ key: "termin", text: "Termin & Team ändern", info: "Datum, von–bis, Mitarbeiter, Transporter" });
+  if (gesperrt) {
+    menue.push(darfWiedereroeffnen
+      ? { key: "wieder", text: "Wiedereröffnen", info: "mit Grund" }
+      : { key: "wieder", text: "Wiedereröffnen", info: "dazu wird Admin-Recht benötigt", aus: true });
+  }
+  if (rechnungDa && onRechnungOeffnen) menue.push({ key: "rechnung", text: "Rechnung ansehen", info: order.rechnung_nummer ?? undefined });
+  menue.push({ key: "historie", text: "Historie", info: "wer hat was geändert" });
+  if (!gesperrt && !isTechniker) menue.push({ key: "storno", text: "Stornieren", info: "mit Grund – bleibt in der Liste", gefahr: true });
+  // Einen Auftrag, den man vor einer Sekunde selbst erzeugt hat, löscht man nicht – man nimmt
+  // ihn zurück. Deshalb dort keine Rückfrage; es kann nichts verloren gehen.
+  if (!isTechniker) menue.push(frischAngelegt
+    ? { key: "loeschen", text: "Verwerfen", info: "der Auftrag wurde eben erst angelegt", gefahr: true }
+    : { key: "loeschen", text: "Löschen", info: "mit Rückfrage", gefahr: true });
+
+  function menueAktion(k: MenuePunkt) {
+    if (k === "loeschen") {
+      if (!frischAngelegt && !confirm(`Auftrag ${auftragsNr(order.order_number)} wirklich löschen?`)) return;
+      setMenueOffen(false);
+      void onDelete(order.id);
+      onClose();
+      return;
+    }
+    setMenueOffen(false);
+    if (k === "termin") terminOeffnen();
+    else if (k === "wieder") setWiederOffen(true);
+    else if (k === "rechnung") onRechnungOeffnen?.(order.id);
+    else if (k === "historie") protokollRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    else if (k === "storno") setStornoOffen(true);
+  }
+
+  const statusKlasse = ORDER_STATUS_FARBE[order.status];
+
   return (
     // „modal-auftrag" hebt dieses Fenster über das Kundenfenster: Aus dem Kundenfenster
     // heraus lässt sich ein Auftrag öffnen, und dann liegen beide gleichzeitig offen.
     // Verlässt man sich dabei auf die Reihenfolge im Quelltext, kippt die Anzeige beim
     // nächsten Umsortieren lautlos – die Ebene gehört deshalb ins Stilblatt.
-    <div className="modal-overlay modal-auftrag" onClick={schliessenVersuchen}>
-      <div className="modal-box auftrag-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="auftrag-kopf">
-          <div>
-            <h3 style={{ margin: 0 }}>{frischAngelegt ? "Neuer Auftrag" : "Auftrag"} {order.order_number}</h3>
-            <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
-          </div>
-          {/* Speichern steht oben und nicht unten im Fuß: der Fuß trägt die Zustandswechsel
-              („Abschließen", „Stornieren"), und ein Speichern-Knopf daneben lädt dazu ein,
-              versehentlich den Auftrag abzuschließen, wenn man nur die Uhrzeit ändern wollte.
-              Der Knopf erscheint erst, wenn es etwas zu speichern gibt – ein dauerhaft
-              sichtbarer, meist wirkungsloser Knopf sagt nichts über den Zustand aus. */}
-          <div className="auftrag-kopf-aktionen">
-            {gespeichert && !geaendert && (
-              <span className="gespeichert-haken" role="status">✓ Gespeichert</span>
-            )}
-            {geaendert && !gesperrt && (
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={speichern}
-                disabled={speichert || zeitFehlt || endeVorAnfang}
-                title={zeitFehlt ? "Bitte zuerst eine Uhrzeit eintragen." : endeVorAnfang ? "Das Ende muss nach dem Anfang liegen." : undefined}
-              >
-                {speichert ? "Speichert …" : "Speichern"}
-              </button>
-            )}
-            <button type="button" className="btn-secondary auftrag-schliessen" onClick={schliessenVersuchen} aria-label="Schließen">×</button>
-          </div>
+    <div className="modal-overlay modal-auftrag ao-overlay" onClick={schliessenVersuchen}>
+      <div className="ao-fenster" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={`Auftrag ${auftragsNr(order.order_number)}`}>
+        <div className="ao-kopf">
+          <button type="button" className="dm-zu" onClick={schliessenVersuchen} aria-label="Schließen">×</button>
+          <span className="ao-kopf-text">
+            <b>{frischAngelegt ? "Neuer Auftrag" : "Auftrag"} #{auftragsNr(order.order_number)}{order.order_number < 0 && <span className="test-marke">TEST</span>}</b>
+            <span className={"small" + (geaendert && !gesperrt ? " ao-ungespeichert" : "")}>
+              {speichert ? "speichert …" : geaendert && !gesperrt ? "Änderungen noch nicht gespeichert" : gespeichert ? "✓ gespeichert" : ORDER_STATUS_LABEL[order.status]}
+            </span>
+          </span>
+          {/* Speichern steht oben und nicht unten im Fuß: der Fuß trägt die Zustandswechsel,
+              und ein Speichern-Knopf daneben lädt dazu ein, versehentlich den Auftrag
+              abzuschließen, wenn man nur die Uhrzeit ändern wollte. Er erscheint erst, wenn es
+              etwas zu speichern gibt. */}
+          {geaendert && !gesperrt && (
+            <button
+              type="button" className="am-mini ao-speichern"
+              onClick={speichern}
+              disabled={speichert || zeitFehlt || endeVorAnfang}
+              title={zeitFehlt ? "Bitte zuerst eine Uhrzeit eintragen." : endeVorAnfang ? "Das Ende muss nach dem Anfang liegen." : undefined}
+            >
+              {speichert ? "…" : "Speichern"}
+            </button>
+          )}
+          <button type="button" className="dm-mehr" onClick={() => setMenueOffen(true)} aria-label="Weitere Aktionen" title="Weitere Aktionen">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.9" /><circle cx="12" cy="12" r="1.9" /><circle cx="12" cy="19" r="1.9" /></svg>
+          </button>
         </div>
 
         {schliessenNachfrage && (
-          <div className="auftrag-nachfrage">
+          <div className="auftrag-nachfrage ao-nachfrage">
             <span>Es gibt ungespeicherte Änderungen.</span>
             <div className="auftrag-nachfrage-knoepfe">
-              <button type="button" className="btn-secondary" onClick={() => setSchliessenNachfrage(false)}>Zurück</button>
-              <button type="button" className="btn-secondary" style={{ color: "#b33" }} onClick={onClose}>Verwerfen</button>
-              <button type="button" className="btn-primary" disabled={speichert || zeitFehlt || endeVorAnfang} onClick={async () => { await speichern(); onClose(); }}>
+              <button type="button" className="es-knopf" onClick={() => setSchliessenNachfrage(false)}>Zurück</button>
+              <button type="button" className="es-knopf ad-gefahr" onClick={onClose}>Verwerfen</button>
+              <button type="button" className="am-mini" disabled={speichert || zeitFehlt || endeVorAnfang} onClick={async () => { await speichern(); onClose(); }}>
                 Speichern und schließen
               </button>
             </div>
           </div>
         )}
 
-        <div className="auftrag-inhalt">
+        <div className="ao-inhalt">
           {frischAngelegt && (
-            <div className="auftrag-hinweis">
-              Angelegt mit heutigem Datum und dem Titel &bdquo;{order.title}&ldquo;. Termin,
-              Fahrzeug, Mitarbeiter und Leistungen jetzt hier eintragen – zum Schluss oben auf
-              &bdquo;Speichern&ldquo;.
+            <div className="auftrag-hinweis ao-hinweis">
+              Angelegt mit heutigem Datum und dem Titel &bdquo;{order.title}&ldquo;. Termin & Team,
+              Fahrzeug und Leistungen jetzt eintragen – Termin & Team mit &bdquo;Übernehmen&ldquo;,
+              alles andere oben mit &bdquo;Speichern&ldquo;.
             </div>
           )}
-          {/* ---------------------------------------------------------------- Kunde */}
-          <div className="auftrag-block">
-            <div className="auftrag-block-titel">Kunde</div>
+
+          {/* ---------------------------------------------------------------- Wer, wann, wo */}
+          <div className="ao-wer">
+            <div className="ao-wer-kopf">
+              <span className={"ao-status " + statusKlasse}>{ORDER_STATUS_LABEL[order.status]}</span>
+              <button type="button" className="ao-termin" disabled={gesperrt || !feldeAendern} onClick={terminOeffnen}>
+                {terminText}{!gesperrt && feldeAendern ? " ›" : ""}
+              </button>
+            </div>
             {customer && laufkunde && kundeAnzeige ? (
-              // Laufkundschaft (Migration 57): Der Sammelkunde hat keinen Namen, keine Nummer und
-              // keinen Ort – das steht hier am Auftrag. Die Knöpfe lesen den ENTWURF, damit eine
-              // eben eingetippte Nummer sofort anrufbar ist.
-              <div className="laufkunde-block">
-                <div className="auftrag-kunde">
-                  <div>
-                    <b>Laufkundschaft</b>
-                    <div className="small">Barverkauf ohne Kundenanlage – wer es war, steht hier am Auftrag.</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 6, flex: "0 0 auto" }}>
-                    {kundeAnzeige.address.trim() && (
-                      <button className="call-icon-btn small nav-icon-btn" title="Navigation zum Einsatzort" onClick={(e) => onNavigate(e, kundeAnzeige)}>
-                        <IconNavPin />
-                      </button>
-                    )}
-                    {getPhoneNumbers(kundeAnzeige).length > 0 && (
-                      <button className="call-icon-btn small" title="Anrufen" onClick={(e) => onCall(e, kundeAnzeige)}>📞</button>
-                    )}
-                  </div>
-                </div>
-                {gesperrt ? (
-                  <div className="small" style={{ marginTop: 6 }}>
-                    {[order.laufkunde_name, order.laufkunde_telefon, order.laufkunde_ort].filter((x) => (x ?? "").trim()).join(" · ") || "– kein Name eingetragen –"}
-                  </div>
-                ) : (
-                  <div className="laufkunde-felder">
-                    <div className="field"><label>Name des Laufkunden *</label>
-                      <input type="text" value={lkName} onChange={(e) => setLkName(e.target.value)} placeholder="z. B. Max Mustermann" />
-                    </div>
-                    <div className="field"><label>Telefon</label>
-                      <input type="tel" value={lkTelefon} onChange={(e) => setLkTelefon(e.target.value)} placeholder="für Rückfragen" />
-                    </div>
-                    <div className="field"><label>Einsatzort</label>
-                      <input type="text" value={lkOrt} onChange={(e) => setLkOrt(e.target.value)} placeholder="z. B. Rastplatz A9 Feucht, Parkplatz Süd" />
-                    </div>
-                  </div>
+              <>
+                <b className="ao-wer-name">{lkName.trim() || "Laufkundschaft"}</b>
+                <span className="ao-wer-adr">{[lkOrt.trim(), "Barverkauf ohne Kundenanlage"].filter(Boolean).join(" · ")}</span>
+              </>
+            ) : customer ? (
+              <>
+                <b className="ao-wer-name">{(customer.company || "").trim() || customer.name}</b>
+                <span className="ao-wer-adr">{customer.address.trim() || "ohne Adresse"}</span>
+              </>
+            ) : (
+              <b className="ao-wer-name">Kunde nicht gefunden</b>
+            )}
+            {kundeAnzeige && (
+              <div className="ao-wer-knoepfe">
+                <button type="button" disabled={!adresseDa} onClick={(e) => onNavigate(e, kundeAnzeige)} title="Navigation starten">
+                  <IconNavPin /> Navigation
+                </button>
+                {/* Die Knöpfe lesen beim Laufkunden den ENTWURF, damit eine eben eingetippte
+                    Nummer sofort anrufbar ist. */}
+                <button type="button" disabled={!telefonDa} onClick={(e) => onCall(e, kundeAnzeige)} title="Anrufen">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" /></svg>
+                  Anrufen
+                </button>
+                {onKundeOeffnen && customer && !laufkunde && (
+                  <button type="button" className="ao-kunde" onClick={() => { if (geaendert && !gesperrt) { setSchliessenNachfrage(true); return; } onKundeOeffnen(customer.id); }}>Kunde ›</button>
                 )}
               </div>
-            ) : customer ? (
-              <div className="auftrag-kunde">
-                <div>
-                  <b>{customer.name}</b>
-                  {customer.address.trim() && <div className="small">{customer.address}</div>}
-                </div>
-                <div style={{ display: "flex", gap: 6, flex: "0 0 auto" }}>
-                  {customer.address.trim() && (
-                    <button className="call-icon-btn small nav-icon-btn" title="Navigation starten" onClick={(e) => onNavigate(e, customer)}>
-                      <IconNavPin />
-                    </button>
-                  )}
-                  {getPhoneNumbers(customer).length > 0 && (
-                    <button className="call-icon-btn small" title="Anrufen" onClick={(e) => onCall(e, customer)}>📞</button>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="small">Kunde nicht gefunden.</div>
             )}
+          </div>
+
+          {/* ---------------------------------------------------------------- Laufkunde */}
+          {/* Laufkundschaft (Migration 57): Der Sammelkunde hat keinen Namen, keine Nummer und
+              keinen Ort – das steht hier am Auftrag, Teil des Entwurfs wie Titel und Uhrzeit. */}
+          {customer && laufkunde && (
+            <div className="db-karte ao-karte">
+              <div className="db-karte-kopf"><span className="db-karte-titel">Laufkunde</span></div>
+              {gesperrt ? (
+                <span className="small">
+                  {[order.laufkunde_name, order.laufkunde_telefon, order.laufkunde_ort].filter((x) => (x ?? "").trim()).join(" · ") || "– kein Name eingetragen –"}
+                </span>
+              ) : (
+                <>
+                  <label className="nk-feld"><span>Name des Laufkunden *</span>
+                    <input type="text" value={lkName} onChange={(e) => setLkName(e.target.value)} placeholder="z. B. Max Mustermann" />
+                  </label>
+                  <div className="nk-zeile">
+                    <label className="nk-feld"><span>Telefon</span>
+                      <input type="tel" value={lkTelefon} onChange={(e) => setLkTelefon(e.target.value)} placeholder="für Rückfragen" />
+                    </label>
+                    <label className="nk-feld"><span>Einsatzort</span>
+                      <input type="text" value={lkOrt} onChange={(e) => setLkOrt(e.target.value)} placeholder="z. B. Rastplatz A9, Parkplatz Süd" />
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ---------------------------------------------------------------- Noch offen */}
+          {fehltListe.length > 0 && (
+            <div className="ao-fehlt">
+              <span className="ao-fehlt-titel">FÜR DEN ABSCHLUSS FEHLT NOCH</span>
+              <div className="ao-fehlt-liste">
+                {fehltListe.map((f) => <span key={f}>{f}</span>)}
+              </div>
+            </div>
+          )}
+
+          {/* ---------------------------------------------------------------- Worum geht's */}
+          <div className="db-karte ao-karte">
+            <div className="db-karte-kopf"><span className="db-karte-titel">Auftrag</span></div>
+            {feldeAendern ? (
+              <>
+                <label className="nk-feld"><span>Titel</span>
+                  <input type="text" value={titel} onChange={(e) => setTitel(e.target.value)} />
+                </label>
+                <label className="nk-feld"><span>Beschreibung</span>
+                  <textarea rows={2} value={beschreibung} onChange={(e) => setBeschreibung(e.target.value)} />
+                </label>
+              </>
+            ) : (
+              <>
+                <b>{order.title}</b>
+                {order.description && <span className="small">{order.description}</span>}
+              </>
+            )}
+          </div>
+
+          {/* ---------------------------------------------------------------- Team */}
+          {/* Zwei Dinge in einer Karte, weil sie zusammen entschieden werden: wer fährt, und
+              womit. Das Auto des Kunden steht darunter getrennt – beides heißt „Fahrzeug", ist
+              aber etwas anderes, und genau deshalb gibt es zwei Tabellen. */}
+          <div className="db-karte ao-karte">
+            <div className="db-karte-kopf">
+              <span className="db-karte-titel">Team &amp; Transporter</span>
+              {!gesperrt && feldeAendern && <button type="button" className="db-link" onClick={terminOeffnen}>Ändern</button>}
+            </div>
+            <div className="ao-chips">
+              {zugeteilt.length === 0 && <span className="ao-chip leer">niemand zugeteilt</span>}
+              {zugeteilt.map((m) => (
+                <span key={m.id} className="ao-chip ma" style={{ background: employeeColorFor(employees, m.id) }}>{m.name}</span>
+              ))}
+              <span className="ao-chip-trenner" aria-hidden="true" />
+              <span className="ao-chip">🚐 {firmenfahrzeugText(firmenfahrzeugId || null) || "kein Transporter"}</span>
+            </div>
+            {doppelt.length > 0 && (
+              <div className="doppelbuchung" role="status">
+                <b>Überschneidung – kein Hindernis:</b>
+                <ul>
+                  {doppeltMitarbeiter.map((u) => <li key={`${u.auftrag.id}-${u.werId}`}>{doppeltText(u)}</li>)}
+                  {doppeltFahrzeug.map((u) => <li key={`f-${u.auftrag.id}`}>{doppeltText(u)}</li>)}
+                </ul>
+              </div>
+            )}
+            {/* Hinweis zur Terminerinnerung (docs/benachrichtigungen-plan.md): Sie geht an die
+                zugeordneten Mitarbeiter – und nur an die, deren Name mit einem Benutzerkonto
+                verknüpft ist. Die Lücke steht hier, im Moment des Einteilens. */}
+            {zeit.trim() && erinnerungsHinweis && <span className="small">{erinnerungsHinweis}</span>}
           </div>
 
           {/* ---------------------------------------------------------------- Fahrzeug */}
           {/* Ein Auftrag kann mehrere Autos betreffen („die drei Firmenwagen"), und zu jedem
-              gehört ein Kilometerstand. Bis zum 21.09.2026 stand hier ein Auswahlkasten für
-              GENAU EIN Fahrzeug (`orders.vehicle_id`), und die Liste, die es wirklich kann,
-              versteckte sich hinter dem Haken „Rechnung benötigt". Geschrieben wurden beide,
-              abgeglichen keines: Die Rechnung las nur die Liste, der Vorgeschichte-Hinweis nur
-              den Kasten. Jetzt gibt es nur noch die Liste, und sie steht immer da – welches
-              Auto bearbeitet wird, ist keine Frage der Abrechnung. */}
-          <div className="auftrag-block">
-            <div className="auftrag-block-titel">Fahrzeug</div>
+              gehört ein Kilometerstand (Migration 44). Es gibt nur diese Liste – welches Auto
+              bearbeitet wird, ist keine Frage der Abrechnung. */}
+          <div className="db-karte ao-karte">
+            <div className="db-karte-kopf"><span className="db-karte-titel">Fahrzeug</span></div>
             <FahrzeugeBlock
               gesperrt={gesperrt}
               fahrzeuge={auftragsFahrzeuge}
@@ -559,155 +747,15 @@ export function AuftragModal({
             />
           </div>
 
-          {/* ---------------------------------------------------------------- Unser Fahrzeug */}
-          {/* Getrennt vom Block darüber, obwohl beides „Fahrzeug" heißt: Das eine ist das Auto
-              des Kunden (was wird gemacht), das andere unser Transporter (wer fährt hin, und
-              was ist geladen). Sie in einen Block zu legen wäre genau die Vermischung, wegen
-              der es zwei Tabellen gibt. Techniker sehen die Einteilung, ändern dürfen sie sie
-              nicht – das macht das Büro, und die Datenbank erzwingt es (Migration 32). */}
-          <div className="auftrag-block">
-            <div className="auftrag-block-titel">Unser Fahrzeug</div>
-            {gesperrt ? (
-              <div>{firmenfahrzeugText(order.firmenfahrzeug_id) || "– nicht eingeteilt –"}</div>
-            ) : aktiveFirmenfahrzeuge.length === 0 && !firmenfahrzeugId ? (
-              <div className="small">
-                Es sind noch keine Firmenfahrzeuge angelegt (Admin &rarr; Firmenfahrzeuge).
-              </div>
-            ) : (
-              <select value={firmenfahrzeugId} onChange={(e) => setFirmenfahrzeugId(e.target.value)}>
-                <option value="">– nicht eingeteilt –</option>
-                {aktiveFirmenfahrzeuge.map((f) => (
-                  <option key={f.id} value={f.id}>{firmenfahrzeugLabel(f)}</option>
-                ))}
-                {/* Ein inzwischen ausgemustertes Fahrzeug bleibt wählbar, solange es an
-                    diesem Auftrag hängt – sonst verschwände die Angabe beim nächsten
-                    Speichern stillschweigend. */}
-                {firmenfahrzeugId && !aktiveFirmenfahrzeuge.some((f) => f.id === firmenfahrzeugId) && (
-                  <option value={firmenfahrzeugId}>{firmenfahrzeugText(firmenfahrzeugId)} (ausgemustert)</option>
-                )}
-              </select>
-            )}
-            {doppeltFahrzeug.length > 0 && (
-              <div className="doppelbuchung" role="status">
-                <b>Überschneidung:</b>
-                <ul>{doppeltFahrzeug.map((u) => <li key={u.auftrag.id}>{doppeltText(u)}</li>)}</ul>
-              </div>
-            )}
-          </div>
-
-          {/* ---------------------------------------------------------------- Auftragsdaten */}
-          <div className="auftrag-block">
-            <div className="auftrag-block-titel">Auftrag</div>
-            {feldeAendern ? (
-              <>
-                <div className="field"><label>Titel</label>
-                  <input type="text" value={titel} onChange={(e) => setTitel(e.target.value)} />
-                </div>
-                <div className="row">
-                  {/* Kein `style={{flex:1}}` mehr: Ein Flex-Wert am Element schlägt jede
-                      Regel im Stilblatt – auch die Handy-Regel, die diese beiden Felder
-                      umbrechen lässt, wenn sie nebeneinander nicht mehr passen. Dieselbe
-                      Lehre wie bei der Schriftgröße und beim Modul-Layout: Layoutwerte
-                      gehören ins Stilblatt. `.row > *` setzt flex:1 ohnehin. */}
-                  <div className="field"><label>Datum</label>
-                    <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
-                  </div>
-                  {/* Von–bis statt einer einzelnen Uhrzeit (Migration 37). Zwei Uhrzeiten
-                      und keine Dauer, weil ein Mensch „von acht bis halb zehn" sagt und
-                      nicht „um acht für neunzig Minuten" – und weil der Kalender die Höhe
-                      eines Blocks direkt daraus rechnet. */}
-                  <div className="field">
-                    <label>Von</label>
-                    <input
-                      type="time"
-                      value={zeit}
-                      onChange={(e) => anfangAendern(e.target.value)}
-                      aria-invalid={zeitFehlt}
-                      className={zeitFehlt ? "feld-fehlt" : undefined}
-                    />
-                  </div>
-                  <div className="field">
-                    <label>Bis (optional)</label>
-                    <input
-                      type="time"
-                      value={zeitBis}
-                      onChange={(e) => endeAendern(e.target.value)}
-                      aria-invalid={endeVorAnfang}
-                      className={endeVorAnfang ? "feld-fehlt" : undefined}
-                    />
-                  </div>
-                </div>
-                {endeVorAnfang && (
-                  <div className="hinweis-pflicht">
-                    Das Ende liegt vor dem Anfang. Termine über Mitternacht kennt der Kalender
-                    nicht – so ein Auftrag gehört auf zwei Tage aufgeteilt.
-                  </div>
-                )}
-                {!zeitBis.trim() && !!zeit.trim() && (
-                  <div className="small" style={{ color: "var(--muted)" }}>
-                    Ohne Ende rechnet der Kalender mit {terminIntervallMin || STANDARD_DAUER_MIN} Minuten
-                    und zeichnet die Unterkante gestrichelt.
-                  </div>
-                )}
-                {zeitFehlt && (
-                  <div className="hinweis-pflicht">
-                    Ohne Uhrzeit lässt sich der Auftrag nicht speichern. Wird sie jetzt nicht
-                    festgehalten, muss der Kunde später noch einmal angerufen werden.
-                  </div>
-                )}
-                <div className="field"><label>Beschreibung</label>
-                  <textarea value={beschreibung} onChange={(e) => setBeschreibung(e.target.value)} />
-                </div>
-              </>
-            ) : (
-              <>
-                <div><b>{order.title}</b></div>
-                <div className="small">{formatOrderDateTime(order)}</div>
-                {order.description && <div style={{ marginTop: 4 }}>{order.description}</div>}
-              </>
-            )}
-          </div>
-
-          {/* ---------------------------------------------------------------- Mitarbeiter */}
-          <div className="auftrag-block">
-            <div className="auftrag-block-titel">Mitarbeiter</div>
-            {/* Die Einteilung bleibt beim Büro – `order_employees` lässt einen Techniker per
-                RLS weiterhin nur lesen (Migration 15, von 41 nicht angefasst). Wer sich selbst
-                Aufträge zuteilen kann, teilt sich auch fremde zu. */}
-            {gesperrt || isTechniker ? (
-              <div>{employees.filter((e) => mitarbeiterIds.includes(e.id)).map((e) => e.name).join(", ") || "– niemand zugeordnet –"}</div>
-            ) : (
-              <EmployeeCheckboxList
-                employees={employees}
-                value={mitarbeiterIds}
-                onChange={setMitarbeiterIds}
-              />
-            )}
-            {doppeltMitarbeiter.length > 0 && (
-              <div className="doppelbuchung" role="status">
-                <b>Überschneidung:</b>
-                <ul>{doppeltMitarbeiter.map((u) => <li key={`${u.auftrag.id}-${u.werId}`}>{doppeltText(u)}</li>)}</ul>
-              </div>
-            )}
-
-            {/* Hinweis zur Terminerinnerung (docs/benachrichtigungen-plan.md).
-                Sie geht an die zugeordneten Mitarbeiter – und nur an die, deren Name mit einem
-                Benutzerkonto verknüpft ist. Beides ist beim Anlegen leicht zu übersehen, und
-                das Ausbleiben einer Erinnerung merkt man erst, wenn sie fehlt. Deshalb steht
-                die Lücke hier, im Moment des Einteilens. */}
-            {zeit.trim() && erinnerungsHinweis && (
-              <div className="small" style={{ marginTop: 6, color: "var(--muted)" }}>
-                {erinnerungsHinweis}
-              </div>
-            )}
-          </div>
-
           {/* ---------------------------------------------------------------- Leistungen */}
-          <div className="auftrag-block">
-            {/* D2/D3: Was beim letzten Mal an diesem Fahrzeug auffiel. Der Hinweis steht
-                ÜBER den Leistungen, weil genau hier die Entscheidung fällt, ob man Neureifen
-                anbietet – darunter wäre er die Antwort auf eine Frage, die niemand mehr
-                stellt. */}
+          <div className="db-karte ao-karte">
+            <div className="db-karte-kopf">
+              <span className="db-karte-titel">Leistungen</span>
+              {orderArticles.length > 0 && <span className="small">{orderArticles.length} · {formatEUR(summen)} netto</span>}
+            </div>
+            {/* D2/D3: Was beim letzten Mal an diesem Fahrzeug auffiel. Der Hinweis steht ÜBER
+                den Leistungen, weil genau hier die Entscheidung fällt, ob man Neureifen
+                anbietet. */}
             {vorgeschichte.length > 0 && (
               <div className="vorgeschichte">
                 <b>Beim letzten Mal an diesem Fahrzeug:</b>
@@ -716,7 +764,6 @@ export function AuftragModal({
                 </ul>
               </div>
             )}
-
             <ArticleAssignPanel
               rechnungNoetig={rechnungNoetig}
               orderId={order.id}
@@ -730,33 +777,24 @@ export function AuftragModal({
               onUpdateText={onUpdateArticleText}
               onRemove={onRemoveArticle}
             />
+          </div>
 
-            {/* „Rechnung benötigt" (Migration 38) – unter den Leistungen, weil er die Summe
-                darüber verändert und man die Wirkung sofort sieht.
-
-                Ein Kontrollkästchen und kein Auswahlfeld: Es gibt zwei Zustände, und ein
-                Häkchen sagt beide gleichzeitig. Der Satz daneben nennt die Wirkung, nicht die
-                Einstellung – „mit Steuer" ist die Auskunft, „Schalter aktiv" wäre keine. */}
-            <label className={"rechnung-schalter" + (gesperrt ? " gesperrt" : "")}>
-              <input
-                type="checkbox"
-                checked={rechnungNoetig}
-                disabled={gesperrt}
-                onChange={(e) => setRechnungNoetig(e.target.checked)}
-              />
-              <span>
-                <b>Rechnung benötigt</b>
-                <span className="small">
-                  {rechnungNoetig
-                    ? "Auf den Nettobetrag kommt die Umsatzsteuer."
-                    : "Es gilt der Nettobetrag, ohne Steuer."}
-                </span>
+          {/* ---------------------------------------------------------------- Rechnung */}
+          <div className="db-karte ao-karte">
+            {/* „Rechnung nötig" (Migration 38) – entscheidet, ob auf den Nettobetrag die Steuer
+                kommt. Der Satz darunter nennt die Wirkung, nicht die Einstellung. Teil des
+                Entwurfs, gespeichert mit „Speichern". */}
+            <button type="button" className="sl-chance nk-schalter ar-schalter ao-schalter" aria-pressed={rechnungNoetig} disabled={gesperrt}
+              onClick={() => setRechnungNoetig(!rechnungNoetig)}>
+              <span className="db-punkt-text">
+                <span className="db-punkt-titel">Rechnung nötig</span>
+                <span className="small">{rechnungNoetig ? "Auf den Nettobetrag kommt die Umsatzsteuer." : "Es gilt der Nettobetrag, ohne Steuer."}</span>
               </span>
-            </label>
-
-            {/* Sobald „Rechnung benötigt" gesetzt ist: was dafür noch fehlt (Migration 44).
-                Die Liste sperrt nichts – man darf den Haken setzen und später ergänzen.
-                Verlangt werden die Angaben erst beim Abschließen, und dort von der Datenbank. */}
+              <span className={"nk-spur" + (rechnungNoetig ? " an" : "")} aria-hidden="true"><span /></span>
+            </button>
+            {/* Sobald „Rechnung nötig" gesetzt ist: was dafür noch fehlt (Migration 44). Die
+                Liste sperrt nichts – verlangt werden die Angaben erst beim Abschließen, und dort
+                von der Datenbank. */}
             {rechnungNoetig && (
               <RechnungsdatenBlock
                 kunde={customer ?? null}
@@ -766,353 +804,357 @@ export function AuftragModal({
                 onEmailSpeichern={(email) => onEmailSpeichern(order.customer_id, email)}
               />
             )}
-
-            {/* Der zweite Halbsatz: die Rechnung selbst (Migration 48/49).
-
-                Bis zum 18.09.2026 stand hier ein Eingabefeld für die Nummer aus dem ERP und
-                ein Haken „erstellt" – eine Notiz über etwas, das woanders passiert ist. Seit
-                PinPoints der rechnungsführende Teil ist, entsteht der Beleg hier, und der
-                Haken kommt von der Datenbank (Trigger, Migration 49). Zurücknehmen lässt er
-                sich nicht mehr: Eine Rechnung wird storniert, nicht abgehakt.
-
-                Erscheint erst beim erledigten Auftrag: Vorher steht nicht fest, was
-                abgerechnet wird, und eine Nummer, die man zurücknehmen müsste, ist eine Lücke
-                im Kreis. */}
+            {/* Die Rechnung selbst (Migration 48/49). Erscheint erst beim erledigten Auftrag:
+                Vorher steht nicht fest, was abgerechnet wird, und eine Nummer, die man
+                zurücknehmen müsste, ist eine Lücke im Kreis. */}
             {rechnungNoetig && order.status === "erledigt" && onRechnungOeffnen && (
-              <div className={"rechnung-stand" + (order.rechnung_nummer ? " erledigt" : "")}>
+              <div className={"rechnung-stand" + (rechnungDa ? " erledigt" : "")}>
                 <span>
-                  <b>{order.rechnung_nummer ? `Rechnung ${order.rechnung_nummer}` : "Rechnung steht noch aus"}</b>
+                  <b>{rechnungDa ? `Rechnung ${order.rechnung_nummer}` : "Rechnung steht noch aus"}</b>
                   <span className="small">
-                    {order.rechnung_nummer
+                    {rechnungDa
                       ? `Ausgestellt am ${order.rechnung_erstellt_am ? formatDate(order.rechnung_erstellt_am.slice(0, 10)) : ""} – ansehen, drucken oder stornieren.`
-                      : "Die Leistungen oben stehen schon drin. Im Fenster erst ansehen, dann ausstellen."}
+                      : "Die Leistungen stehen schon drin. Im Fenster erst ansehen, dann ausstellen."}
                   </span>
                 </span>
-                <button
-                  type="button"
-                  className={order.rechnung_nummer ? "btn-secondary btn-rand" : "btn-primary"}
-                  style={{ flex: "0 0 auto" }}
-                  onClick={() => onRechnungOeffnen(order.id)}
-                >
-                  {order.rechnung_nummer ? "Rechnung ansehen" : "Rechnung erstellen"}
+                <button type="button" className={rechnungDa ? "es-knopf" : "am-mini"} onClick={() => onRechnungOeffnen(order.id)}>
+                  {rechnungDa ? "Rechnung ansehen" : "Rechnung erstellen"}
                 </button>
               </div>
             )}
           </div>
 
-          {/* ---------------------------------------------------------------- Einlagerung */}
-          {/* Steht direkt hinter den Leistungen, weil die Pflicht von genau dort kommt: erst
-              wenn eine Leistung mit dem Kennzeichen im Auftrag steht, wird ein Lagerplatz
-              verlangt. Der Block wird auch ohne Pflicht gezeigt, solange eine Einlagerung
-              vorhanden ist – sonst verschwände sie beim Entfernen der Leistung aus dem Blick,
-              obwohl die Reifen weiter im Regal liegen. */}
-          {/* Seit Migration 46 ist der Block IMMER erreichbar – vorher erschien er nur, wenn der
-              Gebührenartikel auf dem Auftrag stand. Genau daran hing das Problem: Man kam an
-              den Lagerplatz nur heran, indem man die Gebühr buchte, die zu diesem Zeitpunkt
-              noch gar nicht bezifferbar ist. Wer nichts einlagert, klappt den Block zu und
-              sieht ihn nicht weiter. */}
-          {/* Ein Block je Satz (17.09.2026). Ein Auftrag mit drei Autos braucht drei Plätze,
-              drei Fahrzeugzuordnungen und drei Profilmessungen – ein einziger Block konnte das
-              nicht abbilden, und schlimmer: Der Platz-Knopf zog den vorhandenen Satz um, statt
-              einen zweiten anzulegen. Von außen sah es aus, als ginge nur ein Satz.
-
-              Die Datenbank konnte es die ganze Zeit: Eindeutig ist der PLATZ (ein aktiver Satz
-              je Platz, Migration 15), nicht der Auftrag. */}
-          {(einlagerungOffen || einlagerungen.length > 0) ? (
-            <>
-              {einlagerungen.map((satz, i) => (
-                <div key={satz.id}>
-                  <EinlagerungBlock
-                    /* Die Nummer steht nur da, wenn es mehr als einen gibt. Bei einem Satz
-                       wäre „Satz 1 von 1" eine Zählung ohne Gezähltes. */
-                    titel={einlagerungen.length > 1 ? `Einlagerung · Satz ${i + 1} von ${einlagerungen.length}` : "Einlagerung"}
-                    pflicht={false}
-                    einlagerung={satz}
-                    slots={storageSlots}
-                    warehouses={warehouses}
-                    belegteSlotIds={belegteSlotIds}
-                    gesperrt={gesperrt}
-                    vehicles={vehicles}
-                    raeder={raeder.filter((r) => r.tire_storage_id === satz.id)}
-                    onEinlagern={(lagerplatzId) => onEinlagern(lagerplatzId, satz.id)}
-                    onEntfernen={onEinlagerungEntfernen}
-                    onAngabenAendern={onEinlagerungAngaben}
-                    onErfassungsart={onErfassungsart}
-                    onAnzahlRaeder={onAnzahlRaeder}
-                    onRadSpeichern={onRadSpeichern}
-                    onRadEntfernen={onRadEntfernen}
-                    onFahrzeugAnlegen={(kennzeichen, modell) => onFahrzeugAnlegen(kennzeichen, modell, satz.id)}
-                    onEtikett={onEtikett}
-                  />
-                </div>
-              ))}
-              {/* Der leere Block zum Anlegen des nächsten Satzes: Er hat noch keine Zeile in
-                  der Datenbank, deshalb `einlagerung={null}` und ein `onEinlagern` OHNE Id –
-                  erst die Platzwahl legt den Satz an. */}
-              {einlagerungOffen && (
-                <div>
-                  <EinlagerungBlock
-                    titel={einlagerungen.length > 0 ? `Einlagerung · Satz ${einlagerungen.length + 1}` : "Einlagerung"}
-                    pflicht={false}
-                    einlagerung={null}
-                    slots={storageSlots}
-                    warehouses={warehouses}
-                    belegteSlotIds={belegteSlotIds}
-                    gesperrt={gesperrt}
-                    vehicles={vehicles}
-                    raeder={[]}
-                    onEinlagern={async (lagerplatzId) => { await onEinlagern(lagerplatzId); setEinlagerungOffen(false); }}
-                    onEntfernen={onEinlagerungEntfernen}
-                    onAngabenAendern={onEinlagerungAngaben}
-                    onErfassungsart={onErfassungsart}
-                    onAnzahlRaeder={onAnzahlRaeder}
-                    onRadSpeichern={onRadSpeichern}
-                    onRadEntfernen={onRadEntfernen}
-                    onFahrzeugAnlegen={onFahrzeugAnlegen}
-                  />
-                </div>
-              )}
-              {/* „Noch ein Satz" statt eines dauerhaft offenen Leerblocks: Wer einen Satz
-                  eingelagert hat, ist im Normalfall fertig. Der zweite ist die Ausnahme und
-                  bekommt deshalb einen Knopf, keinen bleibenden Platzhalter. */}
-              {!gesperrt && !einlagerungOffen && (
-                <div className="auftrag-block">
-                  <button
-                    type="button"
-                    className="btn-secondary btn-rand"
-                    onClick={() => setEinlagerungOffen(true)}
-                  >
-                    Noch einen Satz einlagern
-                  </button>
-                  <div className="small" style={{ marginTop: 6 }}>
-                    Für ein weiteres Fahrzeug auf diesem Auftrag. Jeder Satz bekommt seinen
-                    eigenen Lagerplatz, sein eigenes Fahrzeug und seine eigene Profilmessung.
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="auftrag-block">
-              <div className="auftrag-block-titel">Reifen einlagern</div>
-              {/* Der Normalfall beim Saisonwechsel: Auf demselben Auftrag wird ein Satz
-                  herausgegeben (das ist die Gebühr) und der andere kommt herein. Beides
-                  nebeneinander, beides richtig – genau das konnte die Fassung vor
-                  Migration 46 nicht. */}
-              {hatLagergebuehr && (
-                <p className="small" style={{ margin: "0 0 8px" }}>
-                  Auf diesem Auftrag steht eine Lagergebühr – hier wurde also ausgelagert.
-                  Kommt der andere Satz jetzt ins Regal, hier weitermachen.
-                </p>
-              )}
-              <p className="small" style={{ margin: "0 0 8px" }}>
-                Nimmt der Kunde seine alten Reifen nicht mit, kommen sie hier ins Regal. Das
-                kostet an dieser Stelle noch nichts – die Gebühr wird erst beim Auslagern
-                fällig, wenn die Zahl der Monate feststeht.
-              </p>
-              <button
-                type="button"
-                className="btn-secondary btn-rand"
-                disabled={gesperrt}
-                onClick={() => setEinlagerungOffen(true)}
-              >
-                Reifen einlagern
-              </button>
-              {gesperrt && (
-                <div className="small" style={{ marginTop: 6 }}>
-                  Der Auftrag ist abgeschlossen – eingelagert wird über die Regalwand.
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ------------------------------------------------- Was sonst noch im Regal liegt */}
-          {/* Der Saisonwechsel besteht aus zwei Hälften: Der eine Satz kommt heraus, der
-              andere geht hinein. Die zweite Hälfte stand schon immer oben; die erste fehlte,
-              weil der Block dort nur zeigt, was AN DIESEM Auftrag hängt. Der alte Satz gehört
-              aber zum Auftrag vom letzten Frühjahr – und war damit hier unsichtbar.
-
-              Die Gebühr entsteht genau hier, deshalb steht der Knopf hier und nicht nur an
-              der Regalwand. */}
-          {fremdeSaetze.length > 0 && (
-            <div className="auftrag-block">
-              <div className="auftrag-block-titel">Im Regal für diesen Kunden</div>
-              {fremdeSaetze.map((satz) => {
-                const platz = storageSlots.find((sl) => sl.id === satz.storage_slot_id);
-                const lager = warehouses.find((w) => w.id === platz?.warehouse_id);
-                const fz = vehicles.find((v) => v.id === satz.vehicle_id);
-                const monate = lagermonate(satz.created_at, todayStr());
-                return (
-                  <div key={satz.id} className="regalsatz-zeile">
-                    <div>
-                      <strong>{[lager?.name, platz?.code].filter(Boolean).join(" · ") || "Lagerplatz unbekannt"}</strong>
-                      {satz.saison ? ` · ${SAISON_LABEL[satz.saison]}` : ""}
-                      {fz ? ` · ${[fz.license_plate, fz.make_model].filter(Boolean).join(" ")}` : ""}
-                      <div className="small">
-                        seit {formatDate(satz.created_at.slice(0, 10))} · {monate}{" "}
-                        {monate === 1 ? "angefangener Monat" : "angefangene Monate"}
-                      </div>
+          {/* ---------------------------------------------------------------- Reifen */}
+          {/* Der Saisonwechsel besteht aus zwei Hälften: Der eine Satz kommt heraus (das ist
+              die Gebühr), der andere geht hinein. Beides steht hier nebeneinander – was schon im
+              Regal liegt, und was an diesem Auftrag eingelagert wird (Migration 46). */}
+          <div className="ao-reifen">
+            <span className="op-gruppe-titel ao-gruppe">REIFEN</span>
+            {fremdeSaetze.length > 0 && (
+              <div className="db-karte ao-karte">
+                <div className="db-karte-kopf"><span className="db-karte-titel">Im Regal für diesen Kunden</span></div>
+                {fremdeSaetze.map((satz) => {
+                  const platz = storageSlots.find((sl) => sl.id === satz.storage_slot_id);
+                  const lager = warehouses.find((w) => w.id === platz?.warehouse_id);
+                  const fz = vehicles.find((v) => v.id === satz.vehicle_id);
+                  const monate = lagermonate(satz.created_at, todayStr());
+                  return (
+                    <div key={satz.id} className="ao-regal">
+                      <span className="ao-platz">{platz?.code || "?"}</span>
+                      <span className="dm-fz-text">
+                        <b>{[satz.saison ? SAISON_LABEL[satz.saison] : "Reifensatz", fz ? [fz.license_plate, fz.make_model].filter(Boolean).join(" ") : null].filter(Boolean).join(" · ")}</b>
+                        <span className="small">
+                          {lager?.name ? `${lager.name} · ` : ""}seit {formatDate(satz.created_at.slice(0, 10))} · {monate}{" "}
+                          {monate === 1 ? "angefangener Monat" : "angefangene Monate"}
+                        </span>
+                      </span>
+                      <button type="button" className="es-knopf" disabled={gesperrt} onClick={() => onAuslagern(satz.id)}>Auslagern</button>
                     </div>
-                    <button
-                      type="button" className="btn-secondary btn-rand"
-                      disabled={gesperrt}
-                      onClick={() => onAuslagern(satz.id)}
-                    >
-                      Auslagern
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Ein Block je Satz (17.09.2026): Ein Auftrag mit drei Autos braucht drei Plätze,
+                drei Fahrzeugzuordnungen und drei Profilmessungen. Eindeutig ist der PLATZ (ein
+                aktiver Satz je Platz, Migration 15), nicht der Auftrag. */}
+            {einlagerungen.map((satz, i) => (
+              <EinlagerungBlock
+                key={satz.id}
+                /* Die Nummer steht nur da, wenn es mehr als einen gibt. */
+                titel={einlagerungen.length > 1 ? `Einlagerung · Satz ${i + 1} von ${einlagerungen.length}` : "Einlagerung"}
+                pflicht={false}
+                einlagerung={satz}
+                slots={storageSlots}
+                warehouses={warehouses}
+                belegteSlotIds={belegteSlotIds}
+                gesperrt={gesperrt}
+                vehicles={vehicles}
+                raeder={raeder.filter((r) => r.tire_storage_id === satz.id)}
+                onEinlagern={(lagerplatzId) => onEinlagern(lagerplatzId, satz.id)}
+                onEntfernen={onEinlagerungEntfernen}
+                onAngabenAendern={onEinlagerungAngaben}
+                onErfassungsart={onErfassungsart}
+                onAnzahlRaeder={onAnzahlRaeder}
+                onRadSpeichern={onRadSpeichern}
+                onRadEntfernen={onRadEntfernen}
+                onFahrzeugAnlegen={(kennzeichen, modell) => onFahrzeugAnlegen(kennzeichen, modell, satz.id)}
+                onEtikett={onEtikett}
+              />
+            ))}
+            {/* Der leere Block zum Anlegen des nächsten Satzes: Er hat noch keine Zeile in der
+                Datenbank, deshalb `einlagerung={null}` und ein `onEinlagern` OHNE Id – erst die
+                Platzwahl legt den Satz an. */}
+            {einlagerungOffen && (
+              <EinlagerungBlock
+                titel={einlagerungen.length > 0 ? `Einlagerung · Satz ${einlagerungen.length + 1}` : "Einlagerung"}
+                pflicht={false}
+                einlagerung={null}
+                slots={storageSlots}
+                warehouses={warehouses}
+                belegteSlotIds={belegteSlotIds}
+                gesperrt={gesperrt}
+                vehicles={vehicles}
+                raeder={[]}
+                onEinlagern={async (lagerplatzId) => { await onEinlagern(lagerplatzId); setEinlagerungOffen(false); }}
+                onEntfernen={onEinlagerungEntfernen}
+                onAngabenAendern={onEinlagerungAngaben}
+                onErfassungsart={onErfassungsart}
+                onAnzahlRaeder={onAnzahlRaeder}
+                onRadSpeichern={onRadSpeichern}
+                onRadEntfernen={onRadEntfernen}
+                onFahrzeugAnlegen={onFahrzeugAnlegen}
+              />
+            )}
+            {!einlagerungOffen && (
+              gesperrt ? (
+                einlagerungen.length === 0 && fremdeSaetze.length === 0 && (
+                  <span className="small">Nichts eingelagert. Der Auftrag ist abgeschlossen – eingelagert wird jetzt über die Regalwand.</span>
+                )
+              ) : (
+                <>
+                  <button type="button" className="dm-plus" onClick={() => setEinlagerungOffen(true)}>
+                    {einlagerungen.length > 0 ? "+ Noch einen Satz einlagern" : "+ Reifen einlagern"}
+                  </button>
+                  <span className="small">
+                    {einlagerungen.length > 0
+                      ? "Für ein weiteres Fahrzeug auf diesem Auftrag – mit eigenem Platz, Fahrzeug und Profil."
+                      : hatLagergebuehr
+                        ? "Auf diesem Auftrag steht eine Lagergebühr – hier wurde ausgelagert. Kommt der andere Satz jetzt ins Regal, hier weitermachen."
+                        : "Nimmt der Kunde seine alten Reifen nicht mit, kommen sie hier ins Regal. Die Gebühr wird erst beim Auslagern fällig."}
+                  </span>
+                </>
+              )
+            )}
+          </div>
 
           {/* ---------------------------------------------------------------- Notiz */}
-          <div className="auftrag-block">
-            <div className="auftrag-block-titel">Notiz des Technikers</div>
+          <div className="db-karte ao-karte">
+            <div className="db-karte-kopf"><span className="db-karte-titel">Notiz des Technikers</span></div>
             <textarea
+              className="ao-notiz"
+              rows={2}
               value={notiz}
               placeholder="Was vor Ort aufgefallen ist …"
               onChange={(e) => setNotiz(e.target.value)}
             />
           </div>
 
-          {/* ---------------------------------------------------------------- Abschluss-Auskunft */}
-          {order.status === "erledigt" && order.completed_at && (
-            <div className="auftrag-hinweis">Abgeschlossen am {formatDate(order.completed_at.slice(0, 10))}.</div>
-          )}
-          {order.status === "storniert" && (
-            <div className="auftrag-hinweis">
-              Storniert{order.cancelled_at ? ` am ${formatDate(order.cancelled_at.slice(0, 10))}` : ""}
-              {order.cancel_reason ? ` – ${order.cancel_reason}` : ""}.
-            </div>
-          )}
+          {/* Die Historie steht ganz unten und zugeklappt: Sie beantwortet eine Frage, die man
+              selten stellt („wer hat das geändert?"). Das Menü „⋯" springt hierher. */}
+          <div ref={protokollRef} className="db-karte ao-karte ao-historie">
+            <AuftragProtokoll auftragId={order.id} />
+          </div>
         </div>
 
-        {/* ---------------------------------------------------------------- Handlungen */}
-        <div className="auftrag-fuss">
-          {stornoOffen ? (
-            <div className="auftrag-grund">
-              <div className="field"><label>Warum wird der Auftrag storniert?</label>
-                <input type="text" value={stornoGrund} onChange={(e) => setStornoGrund(e.target.value)} autoFocus />
-              </div>
-              <div className="auftrag-grund-knoepfe">
-                <button type="button" className="btn-secondary" onClick={() => { setStornoOffen(false); setStornoGrund(""); }}>Abbrechen</button>
-                <button
-                  type="button" className="btn-red"
-                  disabled={!stornoGrund.trim()}
-                  onClick={async () => { await onSetStatus(order.id, "storniert", { stornoGrund: stornoGrund.trim() }); setStornoOffen(false); }}
-                >
-                  Stornierung bestätigen
-                </button>
-              </div>
-            </div>
-          ) : altreifenFrage ? (
-            /* Der Ersatz für den Abschluss-Zwang aus Migration 22 (siehe Migration 46).
-               Dieselbe Bauart wie der D2/D3-Hinweis: Die Anwendung erinnert an das
-               Wahrscheinliche, ohne den Ausnahmefall zu verbieten. Beide Wege führen weiter –
-               nur einer davon führt sofort weiter. */
-            <div className="auftrag-grund">
-              <div className="auftrag-frage-text">
-                Auf diesem Auftrag steht eine Leistung, bei der alte Reifen anfallen – es wurde
-                aber nichts eingelagert. Nimmt der Kunde die alten Reifen mit?
-              </div>
-              <div className="auftrag-grund-knoepfe">
-                <button
-                  type="button" className="btn-secondary"
-                  onClick={() => { setAltreifenFrage(false); setEinlagerungOffen(true); }}
-                >
-                  Nein – einlagern
-                </button>
-                <button
-                  type="button" className="btn-green"
-                  onClick={async () => { setAltreifenFrage(false); await onSetStatus(order.id, "erledigt"); }}
-                >
-                  Ja, mitgenommen – abschließen
-                </button>
-              </div>
-            </div>
-          ) : wiederOffen ? (
-            <div className="auftrag-grund">
-              <div className="field"><label>Warum wird der Auftrag wiedereröffnet?</label>
-                <input type="text" value={wiederGrund} onChange={(e) => setWiederGrund(e.target.value)} autoFocus />
-              </div>
-              <div className="auftrag-grund-knoepfe">
-                <button type="button" className="btn-secondary" onClick={() => { setWiederOffen(false); setWiederGrund(""); }}>Abbrechen</button>
-                <button
-                  type="button" className="btn-primary"
-                  disabled={!wiederGrund.trim()}
-                  onClick={async () => { await onSetStatus(order.id, "in_arbeit", { wiedereroeffnungsGrund: wiederGrund.trim() }); setWiederOffen(false); }}
-                >
-                  Wiedereröffnen
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="auftrag-fuss-links">
-                {!gesperrt && !isTechniker && (
-                  <button type="button" className="btn-secondary" onClick={() => setStornoOffen(true)}>Stornieren</button>
-                )}
-                {!isTechniker && (
-                  frischAngelegt ? (
-                    <button
-                      type="button" className="btn-secondary" style={{ color: "#b33" }}
-                      onClick={() => { onDelete(order.id); onClose(); }}
-                    >
-                      Verwerfen
-                    </button>
-                  ) : (
-                    <button
-                      type="button" className="btn-secondary" style={{ color: "#b33" }}
-                      onClick={() => { if (confirm(`Auftrag ${order.order_number} wirklich löschen?`)) { onDelete(order.id); onClose(); } }}
-                    >
-                      <IconTrash />
-                    </button>
-                  )
-                )}
-              </div>
-              <div className="auftrag-fuss-rechts">
-                {order.status === "offen" && (
-                  <button type="button" className="btn-secondary" onClick={() => onSetStatus(order.id, "in_arbeit")}>Arbeit beginnen</button>
-                )}
-                {/* Was dem Abschluss noch im Weg steht, steht AM KNOPF – nicht nur weiter oben
-                    im Einlagerungsblock, den man dafür erst hochscrollen müsste. Der Knopf
-                    bleibt trotzdem anklickbar: Die Regel steht in der Datenbank (Migration 22
-                    und 30), und diese Zeile ist nur ihre Vorschau. Ein hier gesperrter Knopf
-                    würde behaupten, alle Bedingungen zu kennen – das tut er nicht. */}
-                {!gesperrt && abschlussFehlt.length > 0 && (
-                  <span className="hinweis-pflicht" style={{ alignSelf: "center" }}>
-                    Fehlt noch: {abschlussFehlt.join(", ")}
-                  </span>
-                )}
-                {!gesperrt && (
-                  <button
-                    type="button" className="btn-green"
-                    onClick={() => {
-                      // Die Frage schiebt sich EINMAL dazwischen und sperrt nichts: Wer sie
-                      // beantwortet, ist im selben Klick fertig.
-                      if (altreifenOffen) { setAltreifenFrage(true); setAltreifenGefragt(true); return; }
-                      onSetStatus(order.id, "erledigt");
-                    }}
-                  >
-                    Auftrag abschließen
-                  </button>
-                )}
-                {gesperrt && darfWiedereroeffnen && (
-                  <button type="button" className="btn-secondary" onClick={() => setWiederOffen(true)}>Wiedereröffnen</button>
-                )}
-                {gesperrt && !darfWiedereroeffnen && (
-                  <span className="small">Zum Wiedereröffnen wird Admin-Recht benötigt.</span>
-                )}
-              </div>
-            </>
-          )}
+        {/* ---------------------------------------------------------------- Fuß */}
+        <div className="ao-fuss">
+          <span className={"ao-fuss-hinweis " + fussHinweisArt}>{fussHinweis}</span>
+          <div className="ao-fuss-knoepfe">
+            {order.status === "offen" && (
+              <>
+                <button type="button" className="ao-zweit" onClick={abschliessen}>Abschließen</button>
+                <button type="button" className="ao-haupt orange" onClick={() => void statusSetzen("in_arbeit")}>Arbeit beginnen</button>
+              </>
+            )}
+            {order.status === "in_arbeit" && (
+              <button type="button" className="ao-haupt gruen" onClick={abschliessen}>Auftrag abschließen</button>
+            )}
+            {order.status === "erledigt" && rechnungNoetig && onRechnungOeffnen && (
+              rechnungDa
+                ? <button type="button" className="ao-zweit" onClick={() => onRechnungOeffnen(order.id)}>Rechnung {order.rechnung_nummer} ansehen</button>
+                : <button type="button" className="ao-haupt orange" onClick={() => onRechnungOeffnen(order.id)}>Rechnung erstellen</button>
+            )}
+            {gesperrt && darfWiedereroeffnen && !(order.status === "erledigt" && rechnungNoetig && !rechnungDa && onRechnungOeffnen) && (
+              <button type="button" className="ao-zweit" onClick={() => setWiederOffen(true)}>Wiedereröffnen</button>
+            )}
+          </div>
         </div>
-
-        {/* Die Historie steht ganz unten und zugeklappt: Sie beantwortet eine Frage, die man
-            selten stellt („wer hat das geändert?"), und wer sie nicht stellt, soll nicht an
-            ihr vorbeiscrollen müssen, um zum Abschließen-Knopf zu kommen. */}
-        <AuftragProtokoll auftragId={order.id} />
       </div>
+
+      {/* ---------------------------------------------------------------- Blatt: Termin & Team */}
+      {terminOffen && (
+        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); terminVerwerfen(); }}>
+          <div className="auswahl-blatt am-breit ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Termin und Team">
+            <div className="ab-griff" />
+            <div className="ar-blatt-kopf">
+              <div className="ab-titel">Termin &amp; Team</div>
+              <button type="button" className="modal-close" onClick={terminVerwerfen} aria-label="Schließen">×</button>
+            </div>
+            {/* Von–bis statt einer einzelnen Uhrzeit (Migration 37): Ein Mensch sagt „von acht
+                bis halb zehn" und nicht „um acht für neunzig Minuten". */}
+            <div className="ao-termin-felder">
+              <label className="nk-feld"><span>Datum</span>
+                <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
+              </label>
+              <label className="nk-feld"><span>Von</span>
+                <input type="time" value={zeit} onChange={(e) => anfangAendern(e.target.value)} aria-invalid={zeitFehlt} className={zeitFehlt ? "feld-fehlt" : undefined} />
+              </label>
+              <label className="nk-feld"><span>Bis (optional)</span>
+                <input type="time" value={zeitBis} onChange={(e) => endeAendern(e.target.value)} aria-invalid={endeVorAnfang} className={endeVorAnfang ? "feld-fehlt" : undefined} />
+              </label>
+            </div>
+            {endeVorAnfang && (
+              <div className="hinweis-pflicht">
+                Das Ende liegt vor dem Anfang. Termine über Mitternacht kennt der Kalender nicht –
+                so ein Auftrag gehört auf zwei Tage aufgeteilt.
+              </div>
+            )}
+            {!zeitBis.trim() && !!zeit.trim() && (
+              <span className="small">Ohne „bis“ rechnet der Kalender mit {terminIntervallMin || STANDARD_DAUER_MIN} Minuten und zeichnet die Unterkante gestrichelt.</span>
+            )}
+            {zeitFehlt && (
+              <div className="hinweis-pflicht">
+                Ohne Uhrzeit lässt sich der Auftrag nicht speichern. Wird sie jetzt nicht
+                festgehalten, muss der Kunde später noch einmal angerufen werden.
+              </div>
+            )}
+
+            <span className="op-gruppe-titel">MITARBEITER</span>
+            {/* Die Einteilung bleibt beim Büro – `order_employees` lässt einen Techniker per RLS
+                nur lesen (Migration 15). Wer sich selbst Aufträge zuteilen kann, teilt sich
+                auch fremde zu. */}
+            {isTechniker ? (
+              <span className="small">{zugeteilt.map((e) => e.name).join(", ") || "– niemand zugeordnet –"} · die Einteilung macht das Büro</span>
+            ) : employees.length === 0 ? (
+              <span className="small">Noch keine Mitarbeiter angelegt (Admin → Mitarbeiter).</span>
+            ) : (
+              <div className="ao-wahl">
+                {employees.map((m) => {
+                  const an = mitarbeiterIds.includes(m.id);
+                  return (
+                    <button key={m.id} type="button" className={"ao-wahl-chip" + (an ? " an" : "")} aria-pressed={an}
+                      onClick={() => setMitarbeiterIds(an ? mitarbeiterIds.filter((x) => x !== m.id) : [...mitarbeiterIds, m.id])}>
+                      <span className="ao-wahl-punkt" style={{ background: employeeColorFor(employees, m.id) }} />
+                      {m.name}{an ? " ✓" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {doppeltMitarbeiter.length > 0 && (
+              <div className="doppelbuchung" role="status">
+                <b>Überschneidung:</b>
+                <ul>{doppeltMitarbeiter.map((u) => <li key={`${u.auftrag.id}-${u.werId}`}>{doppeltText(u)}</li>)}</ul>
+              </div>
+            )}
+
+            <span className="op-gruppe-titel">TRANSPORTER</span>
+            {/* Techniker sehen die Einteilung, ändern dürfen sie sie nicht – das macht das Büro,
+                und die Datenbank erzwingt es (Migration 32). */}
+            {isTechniker ? (
+              <span className="small">{firmenfahrzeugText(firmenfahrzeugId || null) || "– nicht eingeteilt –"}</span>
+            ) : aktiveFirmenfahrzeuge.length === 0 && !firmenfahrzeugId ? (
+              <span className="small">Es sind noch keine Transporter angelegt (Admin → Transporter).</span>
+            ) : (
+              <div className="ao-wahl">
+                <button type="button" className={"ao-wahl-chip" + (!firmenfahrzeugId ? " an" : "")} aria-pressed={!firmenfahrzeugId} onClick={() => setFirmenfahrzeugId("")}>keiner</button>
+                {aktiveFirmenfahrzeuge.map((f) => (
+                  <button key={f.id} type="button" className={"ao-wahl-chip" + (firmenfahrzeugId === f.id ? " an" : "")} aria-pressed={firmenfahrzeugId === f.id} onClick={() => setFirmenfahrzeugId(f.id)}>
+                    🚐 {firmenfahrzeugLabel(f)}
+                  </button>
+                ))}
+                {/* Ein inzwischen ausgemustertes Fahrzeug bleibt sichtbar, solange es an diesem
+                    Auftrag hängt – sonst verschwände die Angabe beim nächsten Speichern still. */}
+                {firmenfahrzeugId && !aktiveFirmenfahrzeuge.some((f) => f.id === firmenfahrzeugId) && (
+                  <button type="button" className="ao-wahl-chip an" aria-pressed>{firmenfahrzeugText(firmenfahrzeugId)} (ausgemustert)</button>
+                )}
+              </div>
+            )}
+            {doppeltFahrzeug.length > 0 && (
+              <div className="doppelbuchung" role="status">
+                <b>Überschneidung:</b>
+                <ul>{doppeltFahrzeug.map((u) => <li key={u.auftrag.id}>{doppeltText(u)}</li>)}</ul>
+              </div>
+            )}
+            <button type="button" className="am-knopf" disabled={speichert || zeitFehlt || endeVorAnfang} onClick={() => void terminUebernehmen()}>
+              {speichert ? "Speichert …" : "Übernehmen"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- Blatt: Menü */}
+      {menueOffen && (
+        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); setMenueOffen(false); }}>
+          <div className="auswahl-blatt ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Weitere Aktionen">
+            <div className="ab-griff" />
+            <div className="ab-titel">Auftrag #{auftragsNr(order.order_number)}</div>
+            {menue.map((m) => (
+              <button key={m.key} type="button" className={"ab-option ao-menue-punkt" + (m.gefahr ? " gefahr" : "")} disabled={m.aus} onClick={() => menueAktion(m.key)}>
+                <span className="ab-text">
+                  <b>{m.text}</b>
+                  {m.info && <span className="small">{m.info}</span>}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- Blatt: Altreifen */}
+      {/* Der Ersatz für den Abschluss-Zwang aus Migration 22 (siehe Migration 46). Die
+          Anwendung erinnert an das Wahrscheinliche, ohne den Ausnahmefall zu verbieten. Beide
+          Wege führen weiter – nur einer davon führt sofort weiter. Eine Frage, keine Warnung:
+          kein Rot. */}
+      {altreifenFrage && (
+        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); setAltreifenFrage(false); }}>
+          <div className="auswahl-blatt ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Altreifen">
+            <div className="ab-griff" />
+            <div className="ab-titel">Nimmt der Kunde die alten Reifen mit?</div>
+            <span className="small">Auf diesem Auftrag steht eine Leistung, bei der alte Reifen anfallen – eingelagert ist aber nichts.</span>
+            <button type="button" className="ab-option" onClick={() => { setAltreifenFrage(false); setEinlagerungOffen(true); }}>
+              <span className="ab-text"><b>Nein – Reifen einlagern</b></span>
+            </button>
+            <button type="button" className="am-knopf gruen" onClick={async () => { setAltreifenFrage(false); await statusSetzen("erledigt"); }}>
+              Ja, mitgenommen – abschließen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- Blatt: Stornieren */}
+      {/* Zwei Handlungen brauchen eine Begründung. Statt eines Browser-Dialogs ein Blatt – der
+          Auftrag, um den es geht, bleibt dahinter sichtbar. */}
+      {stornoOffen && (
+        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); setStornoOffen(false); setStornoGrund(""); }}>
+          <div className="auswahl-blatt ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Stornieren">
+            <div className="ab-griff" />
+            <div className="ab-titel">Auftrag #{auftragsNr(order.order_number)} stornieren</div>
+            <span className="small">Der Auftrag bleibt in der Liste, grau und mit dem Grund.</span>
+            <label className="nk-feld"><span>Warum wird der Auftrag storniert?</span>
+              <input type="text" value={stornoGrund} onChange={(e) => setStornoGrund(e.target.value)} autoFocus />
+            </label>
+            <button
+              type="button" className="am-knopf rot"
+              disabled={!stornoGrund.trim()}
+              onClick={async () => { await statusSetzen("storniert", { stornoGrund: stornoGrund.trim() }); setStornoOffen(false); }}
+            >
+              Stornierung bestätigen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- Blatt: Wiedereröffnen */}
+      {wiederOffen && (
+        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); setWiederOffen(false); setWiederGrund(""); }}>
+          <div className="auswahl-blatt ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Wiedereröffnen">
+            <div className="ab-griff" />
+            <div className="ab-titel">Auftrag #{auftragsNr(order.order_number)} wiedereröffnen</div>
+            <label className="nk-feld"><span>Warum wird der Auftrag wiedereröffnet?</span>
+              <input type="text" value={wiederGrund} onChange={(e) => setWiederGrund(e.target.value)} autoFocus />
+            </label>
+            <button
+              type="button" className="am-knopf"
+              disabled={!wiederGrund.trim()}
+              onClick={async () => { await onSetStatus(order.id, "in_arbeit", { wiedereroeffnungsGrund: wiederGrund.trim() }); setWiederOffen(false); }}
+            >
+              Wiedereröffnen
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,20 +1,46 @@
 # Lager-Modul
 
-Eigener Top-Level-Tab `tab === "lager"`: zweistufige Navigation wie ein eigenes Modul –
-erst Kartenübersicht aller Lager mit Auslastungsbalken und Lageradresse (`LagerPanel`,
-Ebene 1), dann nach Klick auf ein Lager (Breadcrumb "Lager › {Name}") die Lagerplätze als
-Karten-Grid mit Belegt/Frei-Status (Ebene 2). Klick auf einen Lagerplatz öffnet
-`TireAssignModal`: Kunde+Fahrzeug+Saison+DOT-Datum+Profiltiefe zuordnen/ändern/entfernen, plus **Historie**
-des Lagerplatzes (frühere Einlagerungen, Migration 06 – Entfernen ist ein Soft-Delete über
-`tire_storage.removed_at`, nicht `delete`).
+Eigener Top-Level-Tab `tab === "lager"` (`components/lager/LagerPanel.tsx`). **Seit dem
+26.09.2026 eine einzige Seite** (Entwurf „H · Lager", im Stil von Einsatzplanung und Dashboard);
+vorher zwei Ebenen – erst eine Kachelübersicht aller Lager, dann die Regalwand eines Lagers.
+
+- **Bedienleiste** (bleibt beim Scrollen stehen): „Wo liegt …?" sucht über **alle** Lager nach
+  Kunde, Firma, Kennzeichen, Fahrzeug, Saison, Notiz und Platz-Code; daneben der **Scan-Knopf**
+  (Regal-Aufkleber oder Satz-Etikett, siehe unten); darunter die Lager als Umschalter mit
+  Belegung (nur bei mehr als einem Lager). Hinter „⋯": Lager bearbeiten, Plätze anlegen
+  (einzeln oder nach Nummerierung), Aufkleber für alle Plätze drucken, neues Lager, Lager löschen.
+- **Drei Zahlen** des gewählten Lagers: belegt, frei, zu prüfen. „Frei" und „Zu prüfen" filtern
+  beim Antippen.
+- **Filter in einer Zeile**: Alle · Zu prüfen · Frei · Sommer · Winter · Ganzjahr
+  (`passtZumFilter` in `lib/lagerAnsicht.ts`). „Zu prüfen" ist der frühere Schalter „nur
+  Handlungsbedarf" – dieselbe Regel (`handlungsgruende`).
+- **Je Reihe eine Karte** mit kleiner Regalwand: ein Kästchen je Platz in der Reihenfolge des
+  Regals (blau = belegt, gestrichelt = frei, orange Kante = zu prüfen). Antippen klappt die Plätze
+  als Zeilen auf: Code, Kunde, Kennzeichen · Saison · Größe, der Grund in Orange, rechts die
+  Profiltiefe. Ohne Filter ist die erste Reihe offen, mit Filter alle; Reihen ohne Treffer
+  verschwinden. Am Rechner stehen die Zeilen zweispaltig. Die Reihen kommen wie bisher aus den
+  Codes (`nachReihen`), der Titel aus `reiheTitel`.
+- **Ein Platz öffnet ein Blatt** (`components/lager/PlatzBlatt.tsx`) statt gleich das
+  Bearbeitungsfenster: Kunde (→ Kundenfenster), Gründe, Fahrzeug, Saison · Größe, DOT, seit wann
+  eingelagert mit Gebühr bis heute, Profiltiefe je Rad farbig, Notiz. Knöpfe: **Auslagern** (über
+  den Auslagern-Dialog mit Gebühr, wie bisher „Zuordnung entfernen"), **Bearbeiten**
+  (`TireAssignModal`), Etikett für den Satz, Aufkleber fürs Regal, Verlauf der früheren
+  Einlagerungen. Ein freier Platz: **Reifen einlagern**, Aufkleber, Platz löschen. Das Blatt ist
+  auch ohne Schreibrecht lesbar; die Knöpfe richten sich nach den Rechten.
+
+**Scannen im Lager** (26.09.2026). Der Knopf neben der Suche öffnet den vorhandenen
+`QrScanner` und nimmt beide Aufkleber an (`scanZiel` in `lib/lagerAnsicht.ts`): der
+Regal-Aufkleber öffnet seinen Platz, das Satz-Etikett den Platz, auf dem der Satz liegt – ist er
+schon ausgelagert, das Kundenfenster. Ein fremder Code bekommt einen Hinweis statt eines Fehlers.
+Dieselbe Weiche wie beim Aufruf über die Handy-Kamera (`?lagerplatz=` / `?satz=`).
 
 **Lager-Einstellungen**: Beim Anlegen eines neuen Lagers können direkt Name, Lageradresse
 (Migration 08, `warehouses.address`) und Notiz hinterlegt sowie die Lagerplätze über eine
 Nummerierungslogik (Präfix + Von/Bis-Nummer + Stellenanzahl, z. B. `A` 1–20 zweistellig →
 `A-01` … `A-20`, `buildSlotCodes()`/`SlotNumberingFields` in `app/page.tsx`) in einem Zug
 erzeugt werden, statt hinterher einzeln. Ein bestehendes Lager lässt sich über
-"Lager bearbeiten" (Ebene 2) nachträglich umbenennen/Adresse+Notiz ändern
-(`updateWarehouse`), und über "+ Mehrere Lagerplätze nach Nummerierung anlegen" lassen sich
+„⋯ → Lager bearbeiten" nachträglich umbenennen/Adresse+Notiz ändern
+(`updateWarehouse`), und über „⋯ → Plätze anlegen" lassen sich
 jederzeit weitere Plätze nach demselben Schema nachrüsten (`addStorageSlotsBulk`).
 
 Berechtigungen für dieses Modul sind am feinsten granular geregelt, siehe
@@ -36,13 +62,13 @@ den Platz und über den Fremdschlüssel (`on delete cascade`, Migration 02) stil
 Kunden mit. **Frühere** Einlagerungen sperren nicht (entschieden am 23.09.2026): Ihr Verlauf geht
 beim Löschen mit, und die Rückfrage nennt vorher, wie viele es sind.
 
-**Langlieger** (Fahrplan E4, 23.09.2026). Auf der Lager-Startseite steht zugeklappt die Liste
+**Langlieger** (Fahrplan E4, 23.09.2026). Unter den Reihen steht zugeklappt die Liste
 aller liegenden Sätze ab 18 Monaten oder 150 € netto Gebühr bis heute
 (`components/lager/LangliegerListe.tsx`, Rechnung in `lib/langlieger.ts`). Die Schwellen sind
 dort einstellbar; Vorgabe sind `LANGLIEGER_MONATE` und `LANGLIEGER_EURO` aus dem
 Auslagern-Dialog. Die Gebühr rechnet wie beim Auslagern: `lagermonate()` mal der heute gültige
 Monatspreis des ersten aktiven Lagergebühr-Artikels; ohne gepflegten Preis zählt nur die
-Monatsschwelle. Ein Klick auf den Kunden öffnet das Kundenfenster, einer auf den Platz das Lager.
+Monatsschwelle. Seit dem 26.09.2026 als Zeilen statt als Tabelle; eine Zeile öffnet das Blatt des Platzes.
 
 ---
 
@@ -244,7 +270,7 @@ fest. Zwei Felder tragen das:
 
 ### Der Auslagern-Dialog
 
-Wer eine Einlagerung entfernt – am Regal (Ebene 2) oder im Auftragsfenster über „Im Regal für
+Wer eine Einlagerung entfernt – am Regal (Platz-Blatt im Lager) oder im Auftragsfenster über „Im Regal für
 diesen Kunden" (siehe unten) – bekommt seit Migration 46 nicht mehr einen stillen
 Datenbankschreibvorgang, sondern einen Dialog (`AuslagernDialog`, `lib/helpers.ts`:
 `lagermonate()`, `istLanglieger()`):
@@ -312,7 +338,7 @@ Bedingung zu prüfen: Ein seit Monaten eingelagerter Satz, der zufällig über d
 Auftrag lief, ließ sich damit kostenlos auslagern – ohne Gebühr und ohne `entnahme_order_id`.
 Über die Regalwand lief derselbe Vorgang die ganze Zeit richtig, weil dort gar kein
 `ausAuftragId` mitgegeben wird und der Dialog deshalb immer erscheint. Abgerechnet wird
-weiterhin ausschließlich über „Auslagern" (Regalwand oder „Im Regal für diesen Kunden") bzw.
+weiterhin ausschließlich über „Auslagern" (Platz-Blatt im Lager oder „Im Regal für diesen Kunden") bzw.
 über den engen Ausnahmefall oben.
 
 ---
@@ -530,7 +556,27 @@ vorhandenen: aktive Einlagerungen + Saison + Kunde + Fahrzeug + Platz.
 Januar die Winterliste, sonst die Sommerliste. Wer die Liste öffnet, sieht meistens sofort die
 richtige – umschalten geht jederzeit.
 
-**Filter:** Saison, Postleitzahl (Präfix) und „nur fällige". Es gibt kein PLZ-Feld an den
+**Neu gestaltet am 26.09.2026** (Entwurf „I · Saisonliste", `components/lager/SaisonPanel.tsx`,
+Regeln in `lib/saisonAnsicht.ts`). Statt einer breiten Tabelle mit einer Zeile je Satz eine
+Liste zum Abtelefonieren:
+
+- Oben die Saison als Umschalter, darunter die **Antwort** im dunklen Kasten („86 Kunden haben
+  Winterreifen bei uns liegen · 112 Sätze") mit einem Balken, wie viele schon einen
+  Wechseltermin haben. Die Antwort zählt nur nach Saison (`saisonBasis` in `app/page.tsx`) – sie
+  ändert sich nicht, wenn man filtert.
+- **Filter in einer Zeile:** *Ohne Termin* (neu, von vornherein an – wer schon einen Termin hat,
+  muss nicht angerufen werden; dieselbe Regel wie `kundenMitTermin`), *Fällig*, *Profil unter
+  3 mm*, *Gebiet* (Blatt mit den größten PLZ-Bereichen, `plzVorschlaege`, oder eigener Eingabe).
+- Eine Karte **„Neue Reifen fällig"** zählt die Kunden mit schwachem Profil und filtert beim
+  Antippen.
+- **Je Kunde eine Karte**, gruppiert nach Postleitzahl (`saisonGruppen`): Name, Ort, Status
+  (Fällig · Termin mit Datum · Wiedervorlage · kontaktiert), Navigation und Anruf; darunter jeder
+  Satz mit Lagerplatz, Fahrzeug, Saison · Größe · DOT und Profil. Ein Kunde mit zwei Autos steht
+  einmal da.
+- **„Anrufliste erzeugen"** öffnet ein Blatt mit „in 2 / 4 / 6 Wochen" oder freiem Datum; das Blatt
+  nennt die Zahl und ersetzt die frühere Rückfrage.
+
+**Filter** (bis zur Neugestaltung): Saison, Postleitzahl (Präfix) und „nur fällige". Es gibt kein PLZ-Feld an den
 Kunden; `plzAus()` liest sie aus der einzeiligen Adresse und lässt sich dabei von Hausnummern
 nicht täuschen (`tests/saisonliste.test.ts`).
 

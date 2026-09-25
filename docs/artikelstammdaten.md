@@ -129,3 +129,20 @@ Namen im Code. Kommt morgen „Felgen einlagern" dazu oder wird „Sonstiges" in
 umbenannt, wird im Artikelstamm umgestellt statt Code geändert – ein Vergleich auf einen
 Artikelnamen wäre beim ersten Umbenennen still kaputt, und still kaputte Prüfungen sind
 schlimmer als keine.
+
+## Die Artikel-Seite (Entwurf „Q · Artikel", 26.09.2026)
+
+Karten statt Tabelle: Nummer, Kurz- und Langbezeichnung, Marken (Lagergebühr · beim Auslagern,
+fragt nach Altreifen, Text am Auftrag, inaktiv) und der heute gültige Preis mit Einheit. Suche
+über Nummer und Bezeichnung, Filter Aktiv · Inaktiv · Ohne Preis · Alle. „Ohne Preis" zählt nur
+aktive Artikel, die einen Preis brauchen – eine freie Position bekommt ihren Preis am Auftrag.
+
+„+ Artikel" fragt Kurz- und Langbezeichnung ab und öffnet danach gleich das Blatt des neuen
+Artikels. Im Blatt: Nummer, Bezeichnungen, Einheit, aktiv, Abrechnung als Umschalter, die beiden
+Kennzeichen als Schalter – übernommen mit „Speichern" (mit Rückfrage beim Schließen, wenn etwas
+geändert wurde). Die Preis-Historie steht als Zeitleiste darunter („heute gültig" orange);
+„+ Neuer Preis ab …", Ändern und Löschen wirken sofort, wie bisher.
+
+Am Auftrag (`ArticleAssignPanel`) kommt eine Leistung aus dem Blatt „Leistung hinzufügen" mit
+Menge 1; Menge per −/+, Endpreis und Rechnungstext klappen unter der Zeile auf.
+

@@ -56,38 +56,36 @@ export function ProtokollPanel({ eintraege, personen, namen, laedt, vonDatum, on
   );
 
   return (
-    <div className="admin-card">
-      <h4 style={{ margin: 0 }}>Protokoll</h4>
-      <p className="small" style={{ marginTop: 2 }}>
-        Jede Änderung an Aufträgen, Kunden, Lager, Artikeln, Zugängen und Rechten – mit Person
-        und Zeitpunkt. Wird von der Datenbank geschrieben und lässt sich aus der App heraus
-        weder ändern noch löschen.
-      </p>
-
-      <div className="row" style={{ marginTop: 8, flexWrap: "wrap" }}>
-        <div className="field" style={{ marginBottom: 0, minWidth: 150 }}>
-          <label>Ab Datum</label>
-          <input type="date" value={vonDatum} onChange={(e) => onVonDatum(e.target.value)} />
-        </div>
-        <div className="field" style={{ marginBottom: 0, minWidth: 170 }}>
-          <label>Bereich</label>
-          <select value={tabelle} onChange={(e) => setTabelle(e.target.value)}>
+    <div className="ad-abschnitt">
+      <div className="ad-filter" role="group" aria-label="Protokoll eingrenzen">
+        <label className="ad-auswahl">
+          <span>ab</span>
+          <input type="date" value={vonDatum} onChange={(e) => onVonDatum(e.target.value)} aria-label="Ab Datum" />
+        </label>
+        <label className="ad-auswahl">
+          <span>Bereich</span>
+          <select value={tabelle} onChange={(e) => setTabelle(e.target.value)} aria-label="Bereich">
             <option value="">alle</option>
             {tabellen.map((t) => (
               <option key={t} value={t}>{PROTOKOLL_TABELLE_LABEL[t] ?? t}</option>
             ))}
           </select>
-        </div>
-        <div className="field" style={{ marginBottom: 0, minWidth: 190 }}>
-          <label>Person</label>
-          <select value={wer} onChange={(e) => setWer(e.target.value)}>
+        </label>
+        <label className="ad-auswahl">
+          <span>Person</span>
+          <select value={wer} onChange={(e) => setWer(e.target.value)} aria-label="Person">
             <option value="">alle</option>
             {leute.map((p) => <option key={p} value={p}>{p}</option>)}
           </select>
-        </div>
+        </label>
       </div>
+      <span className="small ad-hilfe">
+        Jede Änderung an Aufträgen, Kunden, Lager, Artikeln, Zugängen und Rechten – mit Person
+        und Zeitpunkt. Wird von der Datenbank geschrieben und lässt sich aus der App heraus
+        weder ändern noch löschen. Antippen zeigt vorher / nachher.
+      </span>
 
-      <div className="small" style={{ margin: "8px 0 4px", color: "var(--muted)" }}>
+      <div className="small ad-hilfe">
         {laedt ? "Lädt …"
           : gefiltert.length === 0 ? "Keine Einträge für diese Auswahl."
           : `${gefiltert.length} ${gefiltert.length === 1 ? "Eintrag" : "Einträge"}`}

@@ -4,6 +4,7 @@ import type { Rechnung } from "@/lib/types";
 import { formatDate, formatEUR } from "@/lib/helpers";
 import { anschriftZeilen, firmaOhneInhaber, girocodeText, rechnungSummen } from "@/lib/rechnung";
 import type { RechnungEntwurf } from "@/lib/rechnung";
+import { auftragsNr } from "@/lib/testkunde";
 
 // Das Dokument – A4, im Layout der bisherigen Rechnungen des Betriebs.
 //
@@ -96,7 +97,7 @@ export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
             <div><span>Rechnungsdatum</span><b>{formatDate(daten.datum)}</b></div>
             {daten.lieferdatum && <div><span>Lieferdatum</span><b>{formatDate(daten.lieferdatum)}</b></div>}
             {e.kundennummer != null && <div><span>Kundennr.</span><b>{e.kundennummer}</b></div>}
-            {t.auftragsnummer != null && <div><span>Auftrag</span><b>{t.auftragsnummer}</b></div>}
+            {t.auftragsnummer != null && <div><span>Auftrag</span><b>{auftragsNr(t.auftragsnummer)}</b></div>}
           </div>
         </div>
 

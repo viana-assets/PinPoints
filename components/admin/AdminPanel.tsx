@@ -5,7 +5,7 @@ import type { Verb } from "@/lib/constants";
 import type { FirmenfahrzeugFelder } from "@/lib/api/firmenfahrzeuge";
 import { createClient } from "@/lib/supabaseClient";
 import { ROLE_LABEL } from "@/lib/constants";
-import { IconAdmin, IconTrash } from "@/components/icons";
+import { employeeColorFor } from "@/lib/calendar";
 import { PermissionMatrix } from "./PermissionMatrix";
 import { ProtokollPanel, tageZurueck } from "./ProtokollPanel";
 import { fetchProtokoll, fetchProtokollPersonen } from "@/lib/api/audit";
@@ -26,6 +26,26 @@ import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
 // dritter Unter-Tab eingebunden, ist aber seit Phase 4 eine eigene Kachel in der
 // Hauptnavigation (siehe components/admin/artikel/ArticleAdminPanel.tsx, app/page.tsx).
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
+type AdminReiter = "nutzer" | "mitarbeiter" | "transporter" | "rechte" | "betrieb" | "wartung" | "protokoll" | "papierkorb";
+const ADMIN_REITER: { key: AdminReiter; label: string; nurSuperadmin?: boolean }[] = [
+  { key: "nutzer", label: "Nutzer" },
+  { key: "mitarbeiter", label: "Mitarbeiter" },
+  { key: "transporter", label: "Transporter" },
+  { key: "rechte", label: "Rechte", nurSuperadmin: true },
+  { key: "betrieb", label: "Betrieb" },
+  { key: "wartung", label: "Wartung" },
+  { key: "protokoll", label: "Protokoll" },
+  { key: "papierkorb", label: "Papierkorb" },
+];
+
+// Farbe des Kreises je Rolle – dieselben Töne wie die Rollen-Pille daneben.
+const ROLLEN_KLASSE: Record<Role, string> = { superadmin: "navy", admin: "blau", techniker: "orange", user: "gruen" };
+
+function initialen(text: string): string {
+  const teile = text.split(/[\s@._-]+/).filter(Boolean);
+  return (teile.slice(0, 2).map((t) => t[0]).join("") || "?").toUpperCase();
+}
+
 export function AdminPanel({
   isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, onUpdateEmployeeProfileId, modulePermissions, onUpdateModulePermissions,
   firmenfahrzeuge, onFirmenfahrzeugAnlegen, onFirmenfahrzeugAendern, onFirmenfahrzeugAusmustern,
@@ -57,7 +77,9 @@ export function AdminPanel({
   const [inviteRole, setInviteRole] = useState<Role>("user");
   const [sending, setSending] = useState(false);
   const [newEmployeeName, setNewEmployeeName] = useState("");
-  const [adminTab, setAdminTab] = useState<"users" | "modules" | "wartung" | "protokoll" | "betrieb" | "papierkorb">("users");
+  // Die Reiter seit 26.09.2026 (Entwurf U): Nutzer, Mitarbeiter und Transporter getrennt statt
+  // untereinander auf einer Seite, die Rechte (nur Superadmin) als eigener Reiter.
+  const [adminTab, setAdminTab] = useState<AdminReiter>("nutzer");
   // Betriebseinstellungen (Migration 38/48): gelten für alle, nicht je Nutzer.
   // Die ganze Zeile und nicht nur das Intervall – seit Migration 48 steht der Briefkopf mit
   // darin, und ein zweiter Ladevorgang für dieselbe eine Zeile wäre eine Abfrage zu viel.
@@ -219,80 +241,91 @@ export function AdminPanel({
     );
   }
 
+  const intervallText = (m: number) => (m < 60 ? `${m} Min.` : `${(m / 60).toLocaleString("de-DE")} Std.`);
+  const endeUm = (m: number) => `${String(Math.floor((8 * 60 + m) / 60)).padStart(2, "0")}:${String((8 * 60 + m) % 60).padStart(2, "0")}`;
+  const terminrasterInhalt = (
+    <>
+      <span className="small">
+        In welchen Schritten die Terminlänge vorgeschlagen wird. Trägt jemand eine Anfangszeit ein,
+        steht das Ende sofort da – um genau diese Spanne später. Dieselbe Zahl gilt im Kalender für
+        Termine, bei denen niemand ein Ende gepflegt hat.
+      </span>
+      <span className="small">
+        Gilt für alle: Hätte jeder seinen eigenen Wert, hinge die Dauer eines Termins davon ab, wer
+        ihn angelegt hat. Bereits gespeicherte Endzeiten ändern sich nicht. Wirkt sofort.
+      </span>
+      {terminIntervall === null ? (
+        <div className="small">Lädt …</div>
+      ) : (
+        <>
+          <div className="pl-filter ad-raster" role="group" aria-label="Terminraster">
+            {TERMIN_INTERVALLE.map((m) => (
+              <button
+                key={m} type="button"
+                className={"pl-pille" + (terminIntervall === m ? " aktiv" : "")}
+                aria-pressed={terminIntervall === m}
+                onClick={() => { void intervallSpeichern(m); }}
+              >
+                {/* Deutsches Komma: `${m / 60}` liefert „1.5 Std." */}
+                {intervallText(m)}
+              </button>
+            ))}
+          </div>
+          <div className={"small" + (intervallStand === "gespeichert" ? " ad-ok" : "")}>
+            {intervallStand === "speichert" ? "Speichert …"
+              : intervallStand === "gespeichert" ? "Gespeichert ✓"
+              : `Ein Termin um 08:00 endet standardmäßig um ${endeUm(terminIntervall)}.`}
+          </div>
+        </>
+      )}
+    </>
+  );
+
+  const reiter = ADMIN_REITER.filter((r) => !r.nurSuperadmin || isSuperAdmin);
+  const aktiverReiter = reiter.some((r) => r.key === adminTab) ? adminTab : "nutzer";
+
   return (
     <div className="tabpanel active">
-      <div className="module-page">
-        <div className="module-header">
-          <div className="mh-icon"><IconAdmin /></div>
-          <div className="mh-text">
-            <h2>Admin</h2>
-            <p>Nutzerverwaltung, Modulverwaltung und Wartung.</p>
+      <div className="module-page ad-seite">
+        <div className="lg-leiste ad-leiste">
+          <div className="lg-kopf">
+            <div className="lg-titel">
+              <h2>Admin</h2>
+              <span className="lg-unter">Angemeldet als {isSuperAdmin ? ROLE_LABEL.superadmin : ROLE_LABEL.admin}</span>
+            </div>
+          </div>
+          <div className="ad-reiter" role="tablist" aria-label="Admin-Bereich">
+            {reiter.map((r) => (
+              <button
+                key={r.key} type="button" role="tab" aria-selected={aktiverReiter === r.key}
+                className={aktiverReiter === r.key ? "aktiv" : ""}
+                onClick={() => setAdminTab(r.key)}
+              >
+                {r.label}
+              </button>
+            ))}
           </div>
         </div>
 
-        <div className="filterbar" style={{ marginBottom: 4 }}>
-          <button type="button" className={`chip ${adminTab === "users" ? "active" : ""}`} onClick={() => setAdminTab("users")}>Nutzerverwaltung</button>
-          {isSuperAdmin && (
-            <button type="button" className={`chip ${adminTab === "modules" ? "active" : ""}`} onClick={() => setAdminTab("modules")}>Modulverwaltung</button>
-          )}
-          <button type="button" className={`chip ${adminTab === "wartung" ? "active" : ""}`} onClick={() => setAdminTab("wartung")}>Wartung</button>
-          <button type="button" className={`chip ${adminTab === "protokoll" ? "active" : ""}`} onClick={() => setAdminTab("protokoll")}>Protokoll</button>
-          <button type="button" className={`chip ${adminTab === "betrieb" ? "active" : ""}`} onClick={() => setAdminTab("betrieb")}>Betrieb</button>
-          <button type="button" className={`chip ${adminTab === "papierkorb" ? "active" : ""}`} onClick={() => setAdminTab("papierkorb")}>Papierkorb</button>
-        </div>
-
-        {adminTab === "betrieb" ? (
-          <>
-          {/* Der Briefkopf steht ZUERST: Er ist die Voraussetzung dafür, dass überhaupt eine
-              Rechnung ausgestellt werden kann, und wird beim Einrichten gesucht. Das
-              Terminraster darunter ist eine Einstellung, die man einmal setzt und vergisst. */}
-          {betrieb && (
+        {aktiverReiter === "betrieb" ? (
+          /* Der Briefkopf steht ZUERST: Er ist die Voraussetzung dafür, dass überhaupt eine
+             Rechnung ausgestellt werden kann, und wird beim Einrichten gesucht. Das
+             Terminraster ist eine Einstellung, die man einmal setzt und vergisst. */
+          betrieb ? (
             <BetriebsdatenPanel
               betrieb={betrieb}
               onSpeichern={betriebsdatenSpeichern}
               onNummernkreis={nummernkreisSetzen}
               hoechsteVergebene={hoechsteVergebene}
+              terminrasterInfo={terminIntervall === null ? "Lädt …" : `${intervallText(terminIntervall)} · ein Termin um 08:00 endet um ${endeUm(terminIntervall)}`}
+              terminraster={terminrasterInhalt}
             />
-          )}
-          <div className="admin-card">
-            <h4 style={{ margin: 0 }}>Terminraster</h4>
-            <p className="small" style={{ marginTop: 2 }}>
-              In welchen Schritten die Terminlänge vorgeschlagen wird. Trägt jemand eine
-              Anfangszeit ein, steht das Ende sofort da – um genau diese Spanne später. Dieselbe
-              Zahl gilt im Kalender für Termine, bei denen niemand ein Ende gepflegt hat.
-            </p>
-            <p className="small" style={{ color: "var(--muted)" }}>
-              Gilt für alle: Hätte jeder seinen eigenen Wert, hinge die Dauer eines Termins
-              davon ab, wer ihn angelegt hat. Bereits gespeicherte Endzeiten ändern sich nicht.
-            </p>
-            {terminIntervall === null ? (
-              <div className="small">Lädt …</div>
-            ) : (
-              <>
-                <div className="filterbar" style={{ marginTop: 6 }}>
-                  {TERMIN_INTERVALLE.map((m) => (
-                    <button
-                      key={m} type="button"
-                      className={`chip ${terminIntervall === m ? "active" : ""}`}
-                      onClick={() => { void intervallSpeichern(m); }}
-                    >
-                      {/* Deutsches Komma: `${m / 60}` liefert „1.5 Std." */}
-                      {m < 60 ? `${m} Min.` : `${(m / 60).toLocaleString("de-DE")} Std.`}
-                    </button>
-                  ))}
-                </div>
-                <div className="small" style={{ marginTop: 6, color: intervallStand === "gespeichert" ? "var(--green)" : "var(--muted)" }}>
-                  {intervallStand === "speichert" ? "Speichert …"
-                    : intervallStand === "gespeichert" ? "Gespeichert ✓"
-                    : `Ein Termin um 08:00 endet standardmäßig um ${String(Math.floor((8 * 60 + terminIntervall) / 60)).padStart(2, "0")}:${String((8 * 60 + terminIntervall) % 60).padStart(2, "0")}.`}
-                </div>
-              </>
-            )}
-          </div>
-          </>
-        ) : adminTab === "papierkorb" ? (
+          ) : (
+            <div className="db-karte"><div className="db-leer">Lädt …</div></div>
+          )
+        ) : aktiverReiter === "papierkorb" ? (
           <PapierkorbPanel supabase={supabase} isSuperAdmin={isSuperAdmin} onKundenbestandGeaendert={onKundenbestandGeaendert} />
-        ) : adminTab === "protokoll" ? (
+        ) : aktiverReiter === "protokoll" ? (
           <ProtokollPanel
             eintraege={protokoll}
             personen={protokollPersonen}
@@ -301,7 +334,7 @@ export function AdminPanel({
             vonDatum={protokollVon}
             onVonDatum={setProtokollVon}
           />
-        ) : adminTab === "wartung" ? (
+        ) : aktiverReiter === "wartung" ? (
           /* Wartung sammelt Läufe, die über den ganzen Bestand gehen und deshalb nirgends in
              den Fachmodulen hingehören.
 
@@ -310,153 +343,150 @@ export function AdminPanel({
              Rest. Andersherum arbeitete man Adressen von Hand durch, die der Sammellauf eine
              Minute später ohnehin gefunden hätte. `wartungStand` zwingt die Korrekturliste
              nach einer Übernahme zum Neuaufbau, sonst stünden dort erledigte Zeilen weiter. */
-          <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <GeokodierLauf supabase={supabase} />
-            <AdressenPruefen key={wartungStand} supabase={supabase} onFertig={() => undefined} onKundeOeffnen={onKundeOeffnen} />
-            <button type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setWartungStand((n) => n + 1)}>
-              Liste neu aufbauen
-            </button>
+          <div className="ad-abschnitt">
+            <div className="db-karte ad-wartung"><GeokodierLauf supabase={supabase} /></div>
+            <div className="db-karte ad-wartung">
+              <AdressenPruefen key={wartungStand} supabase={supabase} onFertig={() => undefined} onKundeOeffnen={onKundeOeffnen} />
+              <button type="button" className="es-knopf ad-links" onClick={() => setWartungStand((n) => n + 1)}>
+                Liste neu aufbauen
+              </button>
+            </div>
           </div>
-        ) : adminTab === "modules" && isSuperAdmin ? (
+        ) : aktiverReiter === "rechte" && isSuperAdmin ? (
           <PermissionMatrix modulePermissions={modulePermissions} onUpdateModulePermissions={onUpdateModulePermissions} />
-        ) : (
-        <>
-        {status && (
-          <div className={status.type === "ok" ? "login-info" : "login-error"}>{status.text}</div>
-        )}
-
-        <h4 style={{ margin: "4px 0 0" }}>Neuen Nutzer einladen</h4>
-        <form onSubmit={sendInvite} style={{ maxWidth: 420 }}>
-          <div className="row">
-            <div className="field" style={{ flex: 2 }}>
-              <label>E-Mail-Adresse</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="kollege@firma.de" required />
-            </div>
-            <div className="field" style={{ flex: 1 }}>
-              <label>Rolle</label>
-              <select value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Role)}>
-                <option value="user">Nutzer</option>
-                <option value="techniker">Techniker</option>
-                <option value="admin">Admin</option>
-                {isSuperAdmin && <option value="superadmin">Superadmin</option>}
-              </select>
-            </div>
-          </div>
-          <button className="btn-primary" type="submit" disabled={sending}>
-            {sending ? "Sende Einladung…" : "Einladung senden"}
-          </button>
-        </form>
-
-        {isSuperAdmin && (
-          <>
-            <hr />
-            <h4 style={{ margin: 0 }}>Alle Nutzer</h4>
-            {loadingList ? (
-              <div className="small">Lädt…</div>
-            ) : profiles.length === 0 ? (
-              <div className="empty">Keine Nutzer gefunden.</div>
-            ) : (
-              <table className="appt-table" style={{ maxWidth: 560 }}>
-                <thead><tr><th>E-Mail</th><th>Rolle</th></tr></thead>
-                <tbody>
-                  {profiles.map((p) => (
-                    <tr key={p.id}>
-                      <td>{p.email || "–"}{p.id === ownUserId ? <span className="small"> (Du)</span> : ""}</td>
-                      <td>
-                        <select value={p.role} onChange={(e) => changeRole(p.id, e.target.value as Role)} className="feld-kompakt">
-                          <option value="user">{ROLE_LABEL.user}</option>
-                          <option value="techniker">{ROLE_LABEL.techniker}</option>
-                          <option value="admin">{ROLE_LABEL.admin}</option>
-                          <option value="superadmin">{ROLE_LABEL.superadmin}</option>
-                        </select>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </>
-        )}
-
-        <hr />
-        {/* Die eigenen Transporter (Migration 32). Sie stehen bei den Mitarbeitern und nicht
-            im Lager-Modul: Beides sind Stammdaten, die die Einsatzplanung braucht – wer fährt,
-            und womit. */}
-        <FirmenfahrzeugPanel
-          fahrzeuge={firmenfahrzeuge}
-          onAnlegen={onFirmenfahrzeugAnlegen}
-          onAendern={onFirmenfahrzeugAendern}
-          onAusmustern={onFirmenfahrzeugAusmustern}
-        />
-
-        <hr />
-        <h4 style={{ margin: 0 }}>Mitarbeiter (Einsatzplanung)</h4>
-        <div className="small" style={{ marginBottom: 4 }}>
-          Für die Zuordnung von Aufträgen – muss kein eingeladener Account sein, auch Namen ohne
-          eigenen Login können hier hinterlegt werden.
-        </div>
-        <div className="row" style={{ maxWidth: 420 }}>
-          <input
-            type="text"
-            placeholder="Name des Mitarbeiters"
-            value={newEmployeeName}
-            onChange={(e) => setNewEmployeeName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && newEmployeeName.trim()) { onAddEmployee(newEmployeeName.trim()); setNewEmployeeName(""); } }}
+        ) : aktiverReiter === "transporter" ? (
+          /* Die eigenen Transporter (Migration 32). Stammdaten, die die Einsatzplanung braucht –
+             wer fährt, und womit. */
+          <FirmenfahrzeugPanel
+            fahrzeuge={firmenfahrzeuge}
+            onAnlegen={onFirmenfahrzeugAnlegen}
+            onAendern={onFirmenfahrzeugAendern}
+            onAusmustern={onFirmenfahrzeugAusmustern}
           />
-          <button
-            className="btn-primary"
-            style={{ flex: "0 0 auto" }}
-            onClick={() => { if (!newEmployeeName.trim()) return; onAddEmployee(newEmployeeName.trim()); setNewEmployeeName(""); }}
-          >
-            + Mitarbeiter
-          </button>
-        </div>
-        {isSuperAdmin && (
-          <div className="small" style={{ marginBottom: 4 }}>
-            Mit einem Login-Account verknüpfte Mitarbeiter sehen als Techniker-Rolle nur noch
-            ihre eigenen zugeordneten Aufträge (Phase 4, siehe <code>docs/roadmap.md</code>).
-          </div>
-        )}
-        {employees.length === 0 ? (
-          <div className="empty">Noch keine Mitarbeiter angelegt.</div>
-        ) : (
-          <table className="appt-table" style={{ maxWidth: 620 }}>
-            <thead><tr><th>Name</th>{isSuperAdmin && <th>Verknüpfter Account</th>}<th></th></tr></thead>
-            <tbody>
-              {employees.map((emp) => (
-                <tr key={emp.id}>
-                  <td>{emp.name}</td>
-                  {isSuperAdmin && (
-                    <td>
-                      <select
-                        value={emp.profile_id || ""}
-                        onChange={(e) => onUpdateEmployeeProfileId(emp.id, e.target.value || null)}
-                        className="feld-kompakt"
-                      >
-                        <option value="">– kein Account –</option>
-                        {profiles.map((p) => (
-                          <option key={p.id} value={p.id}>{p.email || p.id} ({ROLE_LABEL[p.role]})</option>
-                        ))}
-                      </select>
-                    </td>
-                  )}
-                  <td>
+        ) : aktiverReiter === "mitarbeiter" ? (
+          <div className="ad-abschnitt">
+            <div className="db-karte ad-aktion">
+              <b className="ad-aktion-titel">Mitarbeiter anlegen</b>
+              <span className="small">
+                Für die Zuordnung von Aufträgen – muss kein eingeladener Account sein, auch Namen ohne
+                eigenen Login können hier hinterlegt werden.
+              </span>
+              <div className="ad-aktion-zeile">
+                <input
+                  type="text"
+                  placeholder="Name des Mitarbeiters"
+                  aria-label="Name des Mitarbeiters"
+                  value={newEmployeeName}
+                  onChange={(e) => setNewEmployeeName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newEmployeeName.trim()) { onAddEmployee(newEmployeeName.trim()); setNewEmployeeName(""); } }}
+                />
+                <button
+                  type="button"
+                  className="am-mini ad-hoch"
+                  disabled={!newEmployeeName.trim()}
+                  onClick={() => { if (!newEmployeeName.trim()) return; onAddEmployee(newEmployeeName.trim()); setNewEmployeeName(""); }}
+                >
+                  + Mitarbeiter
+                </button>
+              </div>
+            </div>
+            <span className="small ad-hilfe">
+              Die Farbe gilt überall – Kalender, Termine, Aufträge.
+              {isSuperAdmin && " Mit einem Login-Account verknüpfte Mitarbeiter sehen als Techniker-Rolle nur ihre eigenen zugeordneten Aufträge."}
+            </span>
+            {employees.length === 0 ? (
+              <div className="db-karte"><div className="db-leer">Noch keine Mitarbeiter angelegt.</div></div>
+            ) : (
+              employees.map((emp) => {
+                const konto = profiles.find((p) => p.id === emp.profile_id);
+                return (
+                  <div key={emp.id} className="ad-karte">
+                    <span className="ad-kreis" style={{ background: employeeColorFor(employees, emp.id) }}>{initialen(emp.name).slice(0, 1)}</span>
+                    <span className="ad-karte-text">
+                      <b>{emp.name}</b>
+                      {isSuperAdmin ? (
+                        <select
+                          className="ad-verknuepfung"
+                          aria-label={`Account von ${emp.name}`}
+                          value={emp.profile_id || ""}
+                          onChange={(e) => onUpdateEmployeeProfileId(emp.id, e.target.value || null)}
+                        >
+                          <option value="">kein Konto verknüpft</option>
+                          {profiles.map((p) => (
+                            <option key={p.id} value={p.id}>verknüpft mit {p.email || p.id} ({ROLE_LABEL[p.role]})</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="small">{emp.profile_id ? (konto?.email ? `verknüpft mit ${konto.email}` : "mit einem Konto verknüpft") : "kein Konto verknüpft"}</span>
+                      )}
+                    </span>
                     <button
                       type="button"
-                      className="btn-secondary"
-                      style={{ padding: "1px 5px" }}
+                      className="db-link ad-gefahr-link"
                       onClick={() => { if (confirm(`Mitarbeiter "${emp.name}" wirklich löschen? Zuordnungen auf Aufträgen werden entfernt.`)) onDeleteEmployee(emp.id); }}
                     >
-                      <IconTrash />
+                      Löschen
                     </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        ) : (
+          <div className="ad-abschnitt">
+            {status && (
+              <div className={status.type === "ok" ? "login-info" : "login-error"}>{status.text}</div>
+            )}
+            <form className="db-karte ad-aktion" onSubmit={sendInvite}>
+              <b className="ad-aktion-titel">Nutzer einladen</b>
+              <div className="ad-aktion-zeile">
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="E-Mail-Adresse" aria-label="E-Mail-Adresse" required />
+                <select className="ad-rollenwahl" value={inviteRole} onChange={(e) => setInviteRole(e.target.value as Role)} aria-label="Rolle">
+                  <option value="user">{ROLE_LABEL.user}</option>
+                  <option value="techniker">{ROLE_LABEL.techniker}</option>
+                  <option value="admin">{ROLE_LABEL.admin}</option>
+                  {isSuperAdmin && <option value="superadmin">{ROLE_LABEL.superadmin}</option>}
+                </select>
+              </div>
+              <button className="am-knopf" type="submit" disabled={sending}>
+                {sending ? "Sende Einladung …" : "Einladung senden"}
+              </button>
+            </form>
 
-        </>
+            {isSuperAdmin ? (
+              loadingList ? (
+                <div className="db-karte"><div className="db-leer">Lädt …</div></div>
+              ) : profiles.length === 0 ? (
+                <div className="db-karte"><div className="db-leer">Keine Nutzer gefunden.</div></div>
+              ) : (
+                profiles.map((p) => {
+                  const mitarbeiter = employees.find((e) => e.profile_id === p.id);
+                  return (
+                    <div key={p.id} className="ad-karte">
+                      <span className={"ad-kreis " + ROLLEN_KLASSE[p.role]}>{initialen(p.email || "?")}</span>
+                      <span className="ad-karte-text">
+                        <b>{p.email || "–"}{p.id === ownUserId ? " (du)" : ""}</b>
+                        <span className="small">{mitarbeiter ? `Mitarbeiter ${mitarbeiter.name}` : "kein Mitarbeiter verknüpft"}</span>
+                      </span>
+                      <select
+                        className={"ad-rolle " + ROLLEN_KLASSE[p.role]}
+                        value={p.role}
+                        aria-label={`Rolle von ${p.email || "Nutzer"}`}
+                        onChange={(e) => changeRole(p.id, e.target.value as Role)}
+                      >
+                        <option value="user">{ROLE_LABEL.user}</option>
+                        <option value="techniker">{ROLE_LABEL.techniker}</option>
+                        <option value="admin">{ROLE_LABEL.admin}</option>
+                        <option value="superadmin">{ROLE_LABEL.superadmin}</option>
+                      </select>
+                    </div>
+                  );
+                })
+              )
+            ) : (
+              <span className="small ad-hilfe">Die Liste aller Zugänge und das Ändern von Rollen sind dem Superadmin vorbehalten.</span>
+            )}
+          </div>
         )}
       </div>
     </div>

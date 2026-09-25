@@ -11,7 +11,7 @@ import { langlieger } from "@/lib/langlieger";
 // eine Lagerfrage („was liegt hier zu lange"), und wer sie braucht, ist ohnehin im Lager.
 // Zugeklappt, solange niemand hineinsieht – aber mit der Zahl in der Überschrift, damit sie
 // auffällt, ohne im Weg zu stehen.
-export function LangliegerListe({ tireStorages, customers, vehicles, storageSlots, warehouses, monatspreisNetto, onOpenCustomer, onOpenWarehouse }: {
+export function LangliegerListe({ tireStorages, customers, vehicles, storageSlots, warehouses, monatspreisNetto, onOpenPlatz }: {
   tireStorages: TireStorage[];
   customers: Customer[];
   vehicles: Vehicle[];
@@ -20,8 +20,9 @@ export function LangliegerListe({ tireStorages, customers, vehicles, storageSlot
   // Heute gültiger Monatspreis der Lagergebühr, netto. null = kein Preis gepflegt – dann
   // zählt nur die Monatsschwelle, und die Spalte „Gebühr bis heute" bleibt leer.
   monatspreisNetto: number | null;
-  onOpenCustomer?: (kundeId: string) => void;
-  onOpenWarehouse: (warehouseId: string) => void;
+  // Öffnet das Blatt des Platzes (26.09.2026). Dort stehen Kunde, Gebühr und „Auslagern" – die
+  // frühere Tabelle führte mit zwei Links getrennt zum Kunden und ins Lager.
+  onOpenPlatz: (slotId: string) => void;
 }) {
   const [abMonaten, setAbMonaten] = useState(String(LANGLIEGER_MONATE));
   const [abEuro, setAbEuro] = useState(String(LANGLIEGER_EURO));
@@ -69,43 +70,32 @@ export function LangliegerListe({ tireStorages, customers, vehicles, storageSlot
       {zeilen.length === 0 ? (
         <div className="empty">Kein eingelagerter Satz reißt diese Schwellen.</div>
       ) : (
-        <div className="modul-tabelle">
-          <table className="appt-table">
-            <thead>
-              <tr>
-                <th>Monate</th><th>Kunde</th><th>Platz</th><th>Fahrzeug</th><th>Saison</th>
-                <th>eingelagert</th><th>Gebühr bis heute</th><th>letzter Kontakt</th>
-              </tr>
-            </thead>
-            <tbody>
-              {zeilen.map(({ satz, monate, summeNetto }) => {
-                const kunde = kundeNach.get(satz.customer_id);
-                const platz = platzNach.get(satz.storage_slot_id);
-                const lager = platz ? lagerNach.get(platz.warehouse_id) : undefined;
-                const fahrzeug = satz.vehicle_id ? fahrzeugNach.get(satz.vehicle_id) : undefined;
-                return (
-                  <tr key={satz.id}>
-                    <td><b>{monate}</b></td>
-                    <td>
-                      {kunde && onOpenCustomer
-                        ? <button type="button" className="link-knopf" onClick={() => onOpenCustomer(kunde.id)}>{kunde.name}</button>
-                        : kunde?.name ?? "Unbekannter Kunde"}
-                    </td>
-                    <td>
-                      {platz && lager
-                        ? <button type="button" className="link-knopf" onClick={() => onOpenWarehouse(lager.id)}>{platz.code} · {lager.name}</button>
-                        : "–"}
-                    </td>
-                    <td>{fahrzeug ? [fahrzeug.license_plate, fahrzeug.make_model].filter(Boolean).join(" · ") : "–"}</td>
-                    <td>{satz.saison ? SAISON_LABEL[satz.saison] : "–"}</td>
-                    <td>{formatDate(satz.created_at.slice(0, 10))}</td>
-                    <td>{summeNetto == null ? "–" : formatEUR(summeNetto)}</td>
-                    <td>{kunde?.last_contact ? formatDate(kunde.last_contact.slice(0, 10)) : "nie"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="lg-zeilen langlieger-zeilen">
+          {zeilen.map(({ satz, monate, summeNetto }) => {
+            const kunde = kundeNach.get(satz.customer_id);
+            const platz = platzNach.get(satz.storage_slot_id);
+            const lager = platz ? lagerNach.get(platz.warehouse_id) : undefined;
+            const fahrzeug = satz.vehicle_id ? fahrzeugNach.get(satz.vehicle_id) : undefined;
+            return (
+              <button key={satz.id} type="button" className="lg-zeile" disabled={!platz} onClick={() => { if (platz) onOpenPlatz(platz.id); }}>
+                <span className="lg-code">{platz?.code ?? "–"}</span>
+                <span className="lg-zeile-text">
+                  <span className="lg-zeile-kunde">{kunde?.name ?? "Unbekannter Kunde"}</span>
+                  <span className="lg-zeile-info">
+                    {[
+                      `seit ${monate} Monaten`,
+                      warehouses.length > 1 ? lager?.name : null,
+                      fahrzeug?.license_plate,
+                      satz.saison ? SAISON_LABEL[satz.saison] : null,
+                      `eingelagert ${formatDate(satz.created_at.slice(0, 10))}`,
+                      `Kontakt ${kunde?.last_contact ? formatDate(kunde.last_contact.slice(0, 10)) : "nie"}`,
+                    ].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                {summeNetto != null && <span className="lg-betrag">{formatEUR(summeNetto)}</span>}
+              </button>
+            );
+          })}
         </div>
       )}
     </details>

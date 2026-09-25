@@ -39,7 +39,7 @@ export function FahrzeugeBlock({
   const waehlbar = alleFahrzeuge.filter((v) => !schonDran.has(v.id));
 
   return (
-    <div className="rd-fahrzeuge">
+    <div className="ao-fahrzeuge">
       {fahrzeuge.length === 0 && (
         <div className="small">
           {alleFahrzeuge.length === 0
@@ -47,19 +47,25 @@ export function FahrzeugeBlock({
             : "Noch kein Fahrzeug eingetragen."}
         </div>
       )}
-      {fahrzeuge.map((f, i) => {
+      {fahrzeuge.map((f) => {
         const kennzeichen = f.fahrzeug?.license_plate?.trim() || "";
         return (
-          <div key={f.id} className="rd-fahrzeug">
-            <span className="rd-nr">Fahrzeug {i + 1}</span>
-            <span className="rd-kennzeichen">
-              {kennzeichen || <i>ohne Kennzeichen</i>}
-              {f.fahrzeug?.make_model && <span className="small"> · {f.fahrzeug.make_model}</span>}
-            </span>
-            <label className="rd-km">
-              km
+          <div key={f.id} className="ao-fz">
+            <div className="dm-fz-kopf">
+              <span className="dm-kz">{kennzeichen || "ohne Kz."}</span>
+              <span className="dm-fz-text">
+                <b>{f.fahrzeug?.make_model || "Fahrzeug"}</b>
+                <span className="small">{f.fahrzeug?.tire_size || "keine Reifengröße hinterlegt"}</span>
+              </span>
+              {!gesperrt && (
+                <button type="button" className="ao-weg" title="Fahrzeug vom Auftrag entfernen" aria-label="Fahrzeug vom Auftrag entfernen"
+                  onClick={() => void onFahrzeugEntfernen(f.id)}>×</button>
+              )}
+            </div>
+            <label className="ao-km">
+              <span>Kilometerstand</span>
               <input
-                type="number" min={0} className="feld-kompakt" placeholder="Stand"
+                type="number" min={0} inputMode="numeric" placeholder="ablesen"
                 disabled={gesperrt}
                 defaultValue={f.kilometerstand ?? ""}
                 onBlur={(e) => {
@@ -69,44 +75,40 @@ export function FahrzeugeBlock({
                   if (wert !== f.kilometerstand && !(wert != null && isNaN(wert))) void onKilometerstand(f.id, wert);
                 }}
               />
+              <span>km</span>
             </label>
-            {!gesperrt && (
-              <button type="button" className="btn-secondary rd-weg" title="Fahrzeug vom Auftrag entfernen"
-                onClick={() => void onFahrzeugEntfernen(f.id)}>×</button>
-            )}
           </div>
         );
       })}
 
       {!gesperrt && (
-        <div className="rd-hinzu">
+        <div className="ao-fz-hinzu">
           {waehlbar.length > 0 && (
-            <>
-              <select value={auswahl} onChange={(e) => { setAuswahl(e.target.value); if (e.target.value) { void onFahrzeugHinzufuegen(e.target.value); setAuswahl(""); } }}>
-                <option value="">
-                  {fahrzeuge.length === 0 ? "– Fahrzeug des Kunden wählen –" : "– weiteres Fahrzeug des Kunden –"}
+            <select aria-label="Fahrzeug des Kunden wählen" value={auswahl} onChange={(e) => { setAuswahl(e.target.value); if (e.target.value) { void onFahrzeugHinzufuegen(e.target.value); setAuswahl(""); } }}>
+              <option value="">
+                {fahrzeuge.length === 0 ? "+ Fahrzeug des Kunden wählen" : "+ weiteres Fahrzeug des Kunden"}
+              </option>
+              {waehlbar.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {[v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen"}
                 </option>
-                {waehlbar.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {[v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen"}
-                  </option>
-                ))}
-              </select>
-              <span className="small">oder</span>
-            </>
+              ))}
+            </select>
           )}
-          <input
-            type="text" className="feld-kompakt" placeholder="Neues Kennzeichen"
-            value={neuesKennzeichen}
-            onChange={(e) => setNeuesKennzeichen(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter" && neuesKennzeichen.trim()) { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); } }}
-          />
-          <button
-            type="button" className="btn-secondary" disabled={!neuesKennzeichen.trim()}
-            onClick={() => { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); }}
-          >
-            + anlegen
-          </button>
+          <span className="ao-fz-neu">
+            <input
+              type="text" placeholder="Neues Kennzeichen" aria-label="Neues Kennzeichen"
+              value={neuesKennzeichen}
+              onChange={(e) => setNeuesKennzeichen(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && neuesKennzeichen.trim()) { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); } }}
+            />
+            <button
+              type="button" className="es-knopf" disabled={!neuesKennzeichen.trim()}
+              onClick={() => { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); }}
+            >
+              + anlegen
+            </button>
+          </span>
           <span className="small">Neue Fahrzeuge werden beim Kunden hinterlegt.</span>
         </div>
       )}

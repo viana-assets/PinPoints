@@ -1,7 +1,6 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import type { Article, ArticlePrice, OrderArticle } from "@/lib/types";
 import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
-import { IconTrash } from "@/components/icons";
 
 // Leistungen/Artikel-Zuordnung zu einem Auftrag: Liste bereits zugeordneter Positionen (Menge,
 // Endpreis je Position, Listenpreis als Schnappschuss vom Zuordnungszeitpunkt) plus eine
@@ -12,6 +11,12 @@ import { IconTrash } from "@/components/icons";
 // war, rechnet die Anwendung aus und zeigt es daneben – nicht umgekehrt. Wird sowohl im Popover (Aufträge-Tab &
 // Einsatzplanung) als auch direkt inline im Kunden-Detailfenster verwendet. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
+//
+// Seit 26.09.2026 (Entwurf N): je Position eine Zeile mit −/+ statt eines Zahlenfelds, der
+// Endpreis und der Rechnungstext klappen unter der Zeile auf. Neue Leistungen kommen aus einem
+// Blatt mit Suche – ein Tipp legt sie mit Menge 1 an. Bei einer freien Position (Migration 50)
+// klappt die Zeile von selbst auf, solange ihr Text fehlt: Auf der Rechnung stünde sonst
+// „Sonstiges".
 export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove }: {
   orderId: string;
   articles: Article[];
@@ -38,232 +43,181 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   onRemove: (id: string) => Promise<void>;
 }) {
   const activeArticles = articles.filter((a) => a.active);
-  const [articleId, setArticleId] = useState("");
-  const [qty, setQty] = useState("1");
-  const [endpreis, setEndpreis] = useState("");
-  const [text, setText] = useState("");
+  const [blattOffen, setBlattOffen] = useState(false);
+  const [suche, setSuche] = useState("");
+  const [fuegtHinzu, setFuegtHinzu] = useState<string | null>(null);
+  const [offeneZeile, setOffeneZeile] = useState<string | null>(null);
   const totals = orderArticleTotals(rows, rechnungNoetig);
-
-  // Der heute gültige Listenpreis des oben gewählten Artikels. Ohne ihn stand im Zuordnen-
-  // Bereich nur ein leeres Feld mit dem Platzhalter „Listenpreis" – man musste raten, wie hoch
-  // der ist, und ein Platzhalter, der einen Wert BENENNT, den er nicht zeigt, ist eine
-  // Zumutung. `null` heißt: für diesen Artikel ist kein Preis gepflegt.
-  const gewaehlterPreis = articleId
-    ? currentArticlePrice(articlePrices.filter((p) => p.article_id === articleId))
-    : null;
-  const gewaehlterArtikel = articleId ? articles.find((a) => a.id === articleId) ?? null : null;
+  const preisVon = (id: string) => currentArticlePrice(articlePrices.filter((p) => p.article_id === id));
 
   // Mengen sind bei allen Leistungen Stückzahlen – halbe Reifenwechsel gibt es nicht. Deshalb
-  // ganze Zahlen, mindestens 1: mit step="0.01" zählten die Pfeiltasten in Hundertstel-Schritten.
+  // ganze Zahlen, mindestens 1.
   function ganzeMenge(text: string): number {
     const zahl = Math.round(parseFloat(text.replace(",", ".")));
     return isNaN(zahl) || zahl < 1 ? 1 : zahl;
   }
 
-  // Was diese Zeile kosten wird, BEVOR sie angelegt ist.
-  //
-  // Der Grund steht im Feld daneben: „Endpreis netto" ist der Betrag der ganzen POSITION,
-  // nicht der Stückpreis (so rechnet auch `orderArticleTotals`). Solange daneben nur
-  // „50,00 € / Stk." stand, las man bei Menge 3 eine 50 und hätte sie beinahe als Endpreis
-  // eingetragen – aus 150 wären 50 geworden, und niemand hätte es gemerkt. Die Summe hier
-  // sagt, was ohne Eingabe gilt, und rechnet beim Tippen mit.
-  const mengeJetzt = ganzeMenge(qty);
-  const endpreisJetzt = endpreis.trim() === "" ? null : (parseFloat(endpreis.replace(",", ".")) || 0);
-  const listenwertJetzt = gewaehlterPreis ? mengeJetzt * gewaehlterPreis.net_price : null;
-  const summeJetzt = endpreisJetzt ?? listenwertJetzt;
+  const s = suche.trim().toLowerCase();
+  const katalog = activeArticles
+    .filter((a) => !s || `${a.article_number} ${a.short_name} ${a.long_name}`.toLowerCase().includes(s))
+    .slice()
+    .sort((a, b) => a.article_number - b.article_number);
+
+  async function hinzufuegen(a: Article) {
+    if (fuegtHinzu) return;
+    setFuegtHinzu(a.id);
+    try {
+      await onAdd(orderId, a.id, 1, null, null);
+      setBlattOffen(false);
+      setSuche("");
+    } finally {
+      setFuegtHinzu(null);
+    }
+  }
 
   return (
-    <div>
-      <div className="small" style={{ fontWeight: 700, padding: "2px 0 4px" }}>Leistungen / Artikel</div>
-      {rows.length === 0 ? (
-        <div className="small" style={{ marginBottom: 6 }}>Noch keine Leistungen zugeordnet.</div>
-      ) : (
-        <table className="appt-table" style={{ marginBottom: 6 }}>
-          <thead><tr><th>Artikel</th><th>Menge</th><th>Endpreis netto</th><th>Summe netto</th><th></th></tr></thead>
-          <tbody>
-            {rows.map((r) => {
-              const art = articles.find((a) => a.id === r.article_id);
-              const listenwert = positionListenwert(r);
-              const lineNet = r.endpreis_netto ?? listenwert;
-              const nachlass = listenwert - lineNet;
-              // Zwei Zeilen je Position: die Zahlen oben, der Text darunter über die ganze
-              // Breite. Der Text stand zuerst in der Artikel-Zelle – am Handy blieben davon
-              // 90 Pixel übrig, und in 90 Pixel tippt niemand einen Satz. Im Browser bei
-              // 390 px gemessen.
-              return (
-                <Fragment key={r.id}>
-                <tr className="za-zeile">
-                  <td className="za-artikel">
-                    {art ? art.short_name : "(gelöschter Artikel)"}
-                    <div className="small">{formatEUR(r.net_price)} / {art?.einheit?.trim() || "Stk."}</div>
-                  </td>
-                  <td>
-                    {gesperrt ? r.quantity : (
-                      <input
-                        type="number" min={1} step={1} value={r.quantity} style={{ width: 56 }}
-                        onChange={(e) => onUpdateQty(r.id, ganzeMenge(e.target.value))}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {gesperrt ? (r.endpreis_netto == null ? "–" : formatEUR(r.endpreis_netto)) : (
-                      <input
-                        type="number" min={0} step="0.01" style={{ width: 82 }}
-                        // Leeres Feld = kein Sonderpreis. Deshalb hier bewusst der leere
-                        // String und nicht der errechnete Betrag als Vorbelegung: Stünde der
-                        // Listenpreis drin, wäre jede Position sofort ein „Sonderpreis" in
-                        // Höhe des Listenpreises – und der Nachlass in der Auswertung
-                        // dauerhaft 0, obwohl niemand etwas eingegeben hat.
-                        placeholder={listenwert.toFixed(2)}
-                        value={r.endpreis_netto ?? ""}
-                        onChange={(e) => {
-                          const text = e.target.value.trim();
-                          onUpdateEndpreis(r.id, text === "" ? null : (parseFloat(text.replace(",", ".")) || 0));
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {formatEUR(lineNet)}
-                    {/* Der Nachlass ist abgeleitet und wird deshalb angezeigt, nicht
-                        eingegeben. */}
-                    {nachlass > 0.004 && <div className="small">−{formatEUR(nachlass)}</div>}
-                  </td>
-                  <td>
-                    {!gesperrt && (
-                      <button type="button" className="btn-secondary" style={{ padding: "2px 6px" }} onClick={() => onRemove(r.id)}><IconTrash /></button>
-                    )}
-                  </td>
-                </tr>
+    <div className="ls-liste">
+      {rows.length === 0 && (
+        <div className="small ls-leer">Noch keine Leistungen zugeordnet.</div>
+      )}
+      {rows.map((r) => {
+        const art = articles.find((a) => a.id === r.article_id);
+        const listenwert = positionListenwert(r);
+        const lineNet = r.endpreis_netto ?? listenwert;
+        const nachlass = listenwert - lineNet;
+        // Fehlt bei einem Freitext-Artikel der Text, steht die Zeile offen und das Feld hat
+        // einen farbigen Rand: Auf der Rechnung stünde dann „Sonstiges". Das ist kein Fehler,
+        // aber es ist nicht gemeint – gefragt wird, gesperrt nicht.
+        const textFehlt = !!art?.freitext && !r.note?.trim();
+        const offen = !gesperrt && (offeneZeile === r.id || textFehlt);
+        const info = [
+          `${formatEUR(r.net_price)} / ${art?.einheit?.trim() || "Stk."}`,
+          r.endpreis_netto != null ? "Sonderpreis" : null,
+        ].filter(Boolean).join(" · ");
+        return (
+          <div key={r.id} className={"ls-zeile" + (offen ? " offen" : "")}>
+            <div className="ls-haupt">
+              <button type="button" className="ls-name" disabled={gesperrt} onClick={() => setOffeneZeile(offeneZeile === r.id ? null : r.id)}
+                aria-expanded={offen} title={gesperrt ? undefined : "Endpreis und Text auf der Rechnung"}>
+                <b>{art?.freitext && r.note?.trim() ? r.note : art ? art.short_name : "(gelöschter Artikel)"}</b>
+                <span className="small">{info}</span>
+                {r.note && !art?.freitext && <span className="small ls-zusatz">{r.note}</span>}
+              </button>
+              {gesperrt ? (
+                <span className="ls-menge-fest">{r.quantity} ×</span>
+              ) : (
+                <span className="ls-stepper">
+                  <button type="button" aria-label="Eins weniger" disabled={r.quantity <= 1} onClick={() => void onUpdateQty(r.id, r.quantity - 1)}>−</button>
+                  <b>{r.quantity}</b>
+                  <button type="button" aria-label="Eins mehr" onClick={() => void onUpdateQty(r.id, r.quantity + 1)}>+</button>
+                </span>
+              )}
+              <span className="ls-summe">
+                <b>{formatEUR(lineNet)}</b>
+                {/* Der Nachlass ist abgeleitet und wird deshalb angezeigt, nicht eingegeben. */}
+                {nachlass > 0.004 && <span className="small">−{formatEUR(nachlass)}</span>}
+              </span>
+            </div>
+            {offen && (
+              <div className="ls-details">
+                <div className="nk-zeile">
+                  <label className="nk-feld"><span>Menge</span>
+                    <input type="number" min={1} step={1} value={r.quantity} onChange={(e) => void onUpdateQty(r.id, ganzeMenge(e.target.value))} />
+                  </label>
+                  <label className="nk-feld"><span>Endpreis netto (ganze Position)</span>
+                    <input
+                      type="number" min={0} step="0.01" inputMode="decimal"
+                      // Leeres Feld = kein Sonderpreis. Deshalb hier bewusst der leere String
+                      // und nicht der errechnete Betrag als Vorbelegung: Stünde der Listenpreis
+                      // drin, wäre jede Position sofort ein „Sonderpreis" in Höhe des
+                      // Listenpreises – und der Nachlass in der Auswertung dauerhaft 0.
+                      placeholder={listenwert.toFixed(2)}
+                      value={r.endpreis_netto ?? ""}
+                      onChange={(e) => {
+                        const t = e.target.value.trim();
+                        void onUpdateEndpreis(r.id, t === "" ? null : (parseFloat(t.replace(",", ".")) || 0));
+                      }}
+                    />
+                  </label>
+                </div>
                 {/* Der Text auf der Rechnung (Migration 50). Bei einem Freitext-Artikel ist er
                     die BEZEICHNUNG und ersetzt den Artikelnamen; sonst steht er als
-                    Zusatzzeile darunter. Welches von beidem, entscheidet der Haken am
-                    Artikel – deshalb hier nur eine andere Beschriftung.
+                    Zusatzzeile darunter. Welches von beidem, entscheidet der Haken am Artikel. */}
+                <label className="nk-feld"><span>{art?.freitext ? "Bezeichnung auf der Rechnung" : "Zusatz auf der Rechnung (optional)"}</span>
+                  <input
+                    type="text"
+                    className={textFehlt ? "ls-fehlt" : undefined}
+                    placeholder={art?.freitext ? "Was wurde gemacht?" : "z. B. Radlager Reifen VR"}
+                    defaultValue={r.note ?? ""}
+                    onBlur={(e) => {
+                      const neu = e.target.value.trim();
+                      if (neu !== (r.note ?? "").trim()) void onUpdateText(r.id, neu || null);
+                    }}
+                  />
+                </label>
+                <div className="ad-knoepfe">
+                  <button type="button" className="es-knopf ad-gefahr" onClick={() => { setOffeneZeile(null); void onRemove(r.id); }}>Entfernen</button>
+                  <span className="ad-luecke" />
+                  {!textFehlt && <button type="button" className="es-knopf" onClick={() => setOffeneZeile(null)}>Fertig</button>}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
 
-                    Fehlt er bei einem Freitext-Artikel, bekommt das Feld einen farbigen Rand:
-                    Auf der Rechnung stünde dann „Sonstiges". Das ist kein Fehler, aber es ist
-                    nicht gemeint – gefragt wird, gesperrt nicht. */}
-                {(!gesperrt || r.note) && (
-                  <tr className="za-textzeile">
-                    <td colSpan={5}>
-                      {gesperrt ? (
-                        <span className="small za-text-fest">{r.note}</span>
-                      ) : (
-                        <input
-                          type="text"
-                          className={"za-text" + (art?.freitext && !r.note?.trim() ? " fehlt" : "")}
-                          placeholder={art?.freitext
-                            ? "Was wurde gemacht? Dieser Text steht auf der Rechnung."
-                            : "Zusatz auf der Rechnung, z. B. Radlager Reifen VR – optional"}
-                          defaultValue={r.note ?? ""}
-                          onBlur={(e) => {
-                            const neu = e.target.value.trim();
-                            if (neu !== (r.note ?? "").trim()) void onUpdateText(r.id, neu || null);
-                          }}
-                        />
-                      )}
-                    </td>
-                  </tr>
-                )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
+      {gesperrt ? (
+        rows.length > 0 && <div className="small ls-hinweis">Der Auftrag ist abgeschlossen – die Leistungen stehen fest.</div>
+      ) : activeArticles.length === 0 ? (
+        <div className="small ls-hinweis">Noch keine Artikel im Artikelstamm angelegt (Artikel → + Artikel).</div>
+      ) : (
+        <button type="button" className="dm-plus" onClick={() => setBlattOffen(true)}>+ Leistung hinzufügen</button>
       )}
+
       {rows.length > 0 && (
-        <div className="small" style={{ marginBottom: 6 }}>
+        <div className="ls-summen">
           {rechnungNoetig ? (
-            <>Netto {formatEUR(totals.net)} · MwSt. {formatEUR(totals.vat)} · <b>Brutto {formatEUR(totals.gross)}</b></>
+            <>
+              <span className="small">Netto {formatEUR(totals.net)} · MwSt. {formatEUR(totals.vat)}</span>
+              <b>Brutto {formatEUR(totals.gross)}</b>
+            </>
           ) : (
-            <><b>Netto {formatEUR(totals.net)}</b> · ohne Steuer, weil keine Rechnung benötigt wird</>
+            <>
+              <span className="small">ohne Steuer – keine Rechnung nötig</span>
+              <b>Netto {formatEUR(totals.net)}</b>
+            </>
           )}
         </div>
       )}
-      {gesperrt ? (
-        <div className="small">Der Auftrag ist abgeschlossen – die Leistungen stehen fest und lassen sich nicht mehr ändern.</div>
-      ) : activeArticles.length === 0 ? (
-        <div className="small">Noch keine Artikel im Artikelstamm angelegt (Admin → Artikelstamm).</div>
-      ) : (
-        /* Eigene Zeile statt `.row`, weil hier vier Felder plus Knopf stehen: `.row` bricht
-           nie um, und am Handy wären das fünf Spalten auf 350 px. Diese Zeile bricht, sobald
-           es eng wird, und behält dabei Feldbreiten, mit denen man noch tippen kann. */
-        <div className="zuordnen-zeile">
-          <div className="field zuordnen-artikel">
-            <label>Artikel</label>
-            <select value={articleId} onChange={(e) => setArticleId(e.target.value)}>
-              <option value="">– wählen –</option>
-              {activeArticles.map((a) => {
-                const preis = currentArticlePrice(articlePrices.filter((p) => p.article_id === a.id));
-                return (
-                  <option key={a.id} value={a.id}>
-                    {a.short_name}{preis ? ` – ${formatEUR(preis.net_price)}` : ""}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          <div className="field zuordnen-menge">
-            <label>Menge</label>
-            <input type="number" min={1} step={1} value={qty} onChange={(e) => setQty(e.target.value)} />
-          </div>
-          <div className="field zuordnen-preis">
-            {/* Die Beschriftung trug bis zum 17.09.2026 den Listenpreis als zweiten Text.
-                Bei schmaler Spalte wurde sie dadurch zweizeilig – und weil die Zeile ihre
-                Felder am unteren Rand ausrichtet, wuchs sie nach OBEN in die Zeile darüber
-                hinein. Was neben einer Beschriftung steht, muss in eine Zeile passen oder
-                woanders hin; hier gehört es in die Summe nebenan. */}
-            <label>Endpreis netto</label>
-            <input
-              type="number" min={0} step="0.01"
-              // Der Platzhalter zeigt, was ohne Eingabe gilt – und das ist der Betrag der
-              // ganzen Position, nicht der Stückpreis. Vorher stand hier der Stückpreis:
-              // bei Menge 3 also 50, wo 150 gilt.
-              placeholder={listenwertJetzt !== null ? String(listenwertJetzt) : "Listenpreis"}
-              value={endpreis} onChange={(e) => setEndpreis(e.target.value)}
-            />
-          </div>
-          {/* Das Textfeld erscheint IMMER, nicht nur beim Freitext-Artikel: Die Zusatzzeile
-              („Radlager Reifen VR") ist bei jeder Position möglich, und ein Feld, das je nach
-              Artikel erscheint und verschwindet, lässt die Zeile bei jeder Auswahl springen.
-              Was sich ändert, ist nur die Beschriftung – und die sagt, was der Text bewirkt. */}
-          <div className="field zuordnen-text">
-            <label>{gewaehlterArtikel?.freitext ? "Bezeichnung" : "Text auf der Rechnung"}</label>
-            <input
-              type="text"
-              placeholder={gewaehlterArtikel?.freitext ? "Was wurde gemacht?" : "optional, z. B. Radlager Reifen VR"}
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-            />
-          </div>
-          <div className="field zuordnen-summe-feld">
-            <label>Summe netto</label>
-            <div className="zuordnen-summe">
-              {!articleId ? (
-                <span className="zuordnen-summe-leer">–</span>
-              ) : summeJetzt === null ? (
-                <span className="zuordnen-summe-leer">kein Preis gepflegt</span>
-              ) : (
-                formatEUR(summeJetzt)
-              )}
+
+      {blattOffen && (
+        <div className="modal-overlay auswahl-overlay ls-overlay" onClick={() => setBlattOffen(false)}>
+          <div className="auswahl-blatt am-breit ls-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Leistung hinzufügen">
+            <div className="ab-griff" />
+            <div className="ar-blatt-kopf">
+              <div className="ab-titel">Leistung hinzufügen</div>
+              <button type="button" className="modal-close" onClick={() => setBlattOffen(false)} aria-label="Schließen">×</button>
             </div>
-          </div>
-          <button
-            type="button"
-            className="btn-primary zuordnen-plus"
-            onClick={() => {
-              if (!articleId) return;
-              const preisText = endpreis.trim();
-              onAdd(
-                orderId, articleId, ganzeMenge(qty),
-                preisText === "" ? null : (parseFloat(preisText.replace(",", ".")) || 0),
-                text.trim() || null
+            <label className="lg-suchfeld ls-suche">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
+              <input type="search" placeholder="Leistung suchen …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Leistung suchen" autoFocus />
+            </label>
+            <span className="small">Menge 1 – Menge, Endpreis und Text danach an der Zeile.</span>
+            {katalog.length === 0 && <span className="small ls-leer">Kein Treffer.</span>}
+            {katalog.map((a) => {
+              const preis = preisVon(a.id);
+              return (
+                <button key={a.id} type="button" className="ab-option ls-artikel" disabled={!!fuegtHinzu} onClick={() => void hinzufuegen(a)}>
+                  <span className="ab-text ls-artikel-text">
+                    <b>{a.short_name}</b>
+                    <span className="small">{a.freitext ? "Bezeichnung wird am Auftrag eingegeben" : a.long_name}</span>
+                  </span>
+                  <span className="ls-artikel-preis">{preis ? formatEUR(preis.net_price) : a.freitext ? "frei" : "–"}</span>
+                  <span className="ls-artikel-plus" aria-hidden="true">{fuegtHinzu === a.id ? "…" : "+"}</span>
+                </button>
               );
-              setArticleId(""); setQty("1"); setEndpreis(""); setText("");
-            }}
-          >
-            +
-          </button>
+            })}
+          </div>
         </div>
       )}
     </div>

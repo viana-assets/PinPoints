@@ -129,8 +129,11 @@ Feiner verdrahtet ist das Lager: `LagerPanel` bekommt sechs einzelne Boolean-Pro
 `darf("lager.einlagerung","schreiben")`.
 
 Die Maske selbst ist `components/admin/PermissionMatrix.tsx` (Admin-Bereich, Reiter
-„Modulverwaltung", nur für den Superadmin sichtbar): links die Bereiche aus
-`RECHTE_KATALOG`, oben je Rolle drei Spalten. **Jeder Klick speichert sofort und für sich** –
+„Rechte", nur für den Superadmin sichtbar; bis 26.09.2026 „Modulverwaltung"): oben die Wahl der
+Rolle, darunter links die Bereiche aus `RECHTE_KATALOG` und drei Spalten Lesen · Schreiben ·
+Löschen für diese eine Rolle (vorher alle Rollen nebeneinander, neun Spalten – am Handy nicht
+lesbar). Graue Felder gibt es im Bereich nicht; der Grund steht im Titel, die Erklärung der Zeile
+klappt beim Antippen des Namens auf. **Jeder Klick speichert sofort und für sich** –
 ein „Speichern"-Knopf über einer Matrix mit knapp vierzig Haken ist eine Einladung, die halbe
 Arbeit zu verlieren. Der Datenzugriff dazu liegt in `lib/api/permissions.ts`;
 `upsertModulePermissions()` schickt bewusst nur das eine geänderte Verb mit, weil ein Aufruf

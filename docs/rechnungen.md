@@ -42,6 +42,7 @@ Migration 48 hat sie um den Briefkopf und den Nummernkreis erweitert:
 | `rechnung_praefix` | Präfix der Rechnungsnummer, Vorgabe `RE` |
 | `rechnung_naechste_nummer` | nächste zu vergebende Rechnungsnummer, Vorgabe `1` |
 | `kunde_naechste_nummer` | nächste zu vergebende Kundennummer, Vorgabe `10000` |
+| `datev_*` (Migration 59) | DATEV-Export: Berater, Mandant, WJ-Beginn (Monat), Sachkontenlänge, Kontenrahmen, Erlöskonten 19/7/0 %, Debitor-Basis, Sammeldebitor – siehe „Auswertungen und DATEV-Export" |
 | `updated_at`, `updated_by` | von der Datenbank gesetzt |
 
 Gelesen werden darf die Zeile von allen angemeldeten Nutzern (das Terminraster braucht jeder),
@@ -455,10 +456,13 @@ Hinweistext statt des Knopfs).
 
 ## Betriebsdaten-Maske
 
-`BetriebsdatenPanel` (Admin-Bereich) gliedert sich in fünf Karten:
+`BetriebsdatenPanel` (Admin → Betrieb) ist seit dem 26.09.2026 eine Liste mit einer Zeile je
+Abschnitt; jede Zeile zeigt den gespeicherten Stand und öffnet ein Blatt mit eigenem
+„Speichern" (Entwurf U). Die Abschnitte:
 
 1. **Briefkopf** – Firma, Inhaber, Anschrift, Kontakt, USt-IdNr., Steuernummer.
-2. **Bankverbindung** – Kontoinhaber, Bank, IBAN, BIC; Grundlage des Girocodes.
+2. **Bankverbindung** – Kontoinhaber, Bank, IBAN, BIC; Grundlage des Girocodes. Die Zeile
+   zeigt nur die letzten vier Stellen der IBAN.
 3. **Logo** – Upload als Datei, im Browser über `FileReader.readAsDataURL()` in eine
    `data:`-URI umgewandelt und so in `betrieb.logo` gespeichert. Zulässige Typen
    `LOGO_TYPEN = ["image/png", "image/jpeg", "image/svg+xml"]`, maximale Größe
@@ -466,13 +470,26 @@ Hinweistext statt des Knopfs).
    Datenbankzeile, empfohlen werden rund 300 Pixel Breite.
 4. **Texte auf der Rechnung** – Anschreiben (mehrzeilig, Leerzeilen bleiben über
    `white-space: pre-line` erhalten) sowie die drei Fußzeilentexte Zahlung/Hinweis/Dank.
-5. **Der Nummernkreis** – Präfix-Feld plus Anzeige der nächsten Nummer mit separatem
-   „Ändern"-Vorgang (`onNummernkreis`/`setzeNaechsteRechnungsnummer()`), bewusst getrennt vom
-   übrigen Formular.
+5. **Nummernkreis** – Präfix-Feld (mit „Speichern") plus Anzeige der nächsten Nummer mit
+   separatem „Ändern"-Vorgang (`onNummernkreis`/`setzeNaechsteRechnungsnummer()`), bewusst
+   getrennt vom übrigen Formular.
+6. **DATEV-Export** (Migration 59) – Berater- und Mandantennummer, Wirtschaftsjahr, Sachkontenlänge,
+   Kontenrahmen, Erlöskonten, Debitor = Kundennummer + Basis, Sammeldebitor. Wird als Text
+   getippt und beim Speichern umgewandelt; was keine Zahl ist, verhindert das Speichern. Die
+   Zeile meldet orange, solange der Export gesperrt ist.
+7. **Terminraster** – kein Rechnungsthema, steht aber als Betriebseinstellung hier; wirkt sofort.
 
-Das restliche Formular speichert erst auf Knopfdruck („Briefkopf speichern“,
-`speichereBetrieb()`), nicht sofort bei jeder Eingabe wie das Terminraster – eine halb
-eingetippte IBAN soll nie eine Sekunde lang die gültige sein.
+Gespeichert wird je Blatt auf Knopfdruck (`speichereBetrieb()` mit allen Feldern), nicht sofort
+bei jeder Eingabe – eine halb eingetippte IBAN soll nie eine Sekunde lang die gültige sein. Beim
+Öffnen eines Blattes wird der Entwurf aus dem gespeicherten Stand neu gefüllt, damit Verworfenes
+aus einem anderen Blatt nicht im nächsten Speichern mitreist.
+
+**Das Rechnungsbuch** (`RechnungenPanel`, seit 26.09.2026 Entwurf P) zeigt die Belege nach Monaten
+gruppiert, mit Suche (Nummer, Kunde, Kundennummer, Auftrag), den Pillen Alle/Gültig/Storniert
+und dem Jahr. Aufgehobene Belege bleiben durchgestrichen stehen – eine Liste, die sie
+wegblendet, hätte Lücken im Nummernkreis. Oben die Karte „Noch nicht ausgestellt": erledigte
+Aufträge mit „Rechnung nötig" ohne Rechnung (`rechnungOffen`), im Blatt mit dem Weg zum Auftrag.
+Im Beleg neu „Zum Kunden".
 
 ## Berechtigung `rechnungen`
 
@@ -493,6 +510,36 @@ allein wäre nur eine Bitte.
 
 Ein Techniker sieht mit dieser Vorgabe keine Rechnungen und kann keine ausstellen, unabhängig
 davon, ob er den zugehörigen Auftrag sehen darf.
+
+## Auswertungen und DATEV-Export (26.09.2026, Entwurf M)
+
+**Umsatz kommt aus dem Rechnungsbuch** (`umsatzposten()` in `lib/auswertungAnsicht.ts`): jede
+Rechnung am Rechnungsdatum, jedes Storno mit seinem negativen Betrag an seinem Datum. Dazu
+erledigte Aufträge OHNE „Rechnung nötig" – die tauchen in keinem Rechnungsbuch auf. Erledigte
+Aufträge MIT „Rechnung nötig", aber ohne Rechnung, sind noch kein Umsatz; sie stehen als
+„Erbracht, noch nicht abgerechnet" daneben (dieselbe Regel wie `rechnungOffen()`), unabhängig
+vom Zeitraum. Ohne Leserecht auf das Rechnungsbuch liefert die Datenbank still keine Rechnungen;
+dann rechnet die Seite wie bisher aus allen erledigten Aufträgen und sagt das im Kopf
+(„Quelle: erledigte Aufträge"). Je Mitarbeiter und je Artikel bleiben aus den erledigten
+Aufträgen (`lib/auswertung.ts`) – eine Rechnung kennt keinen Mitarbeiter.
+
+**DATEV-Buchungsstapel** (`datevBuchungsstapel()` in `lib/datev.ts`): Format EXTF, Version 700,
+Kategorie 21, Formatversion 13; Kopfzeile mit 31 Feldern, 125 Spalten. Eine Buchung je Rechnung
+und Steuersatz: Bruttobetrag, Soll (Storno: Haben), Konto = Debitor (Kundennummer + Basis,
+ohne Kundennummer der Sammeldebitor), Gegenkonto = Erlöskonto des Steuersatzes (SKR03 8400/8300
+sind Automatikkonten, deshalb kein BU-Schlüssel), Belegdatum TTMM, Belegfeld 1 = Rechnungsnummer,
+Buchungstext = Empfänger, Leistungsdatum aus dem Lieferdatum. Rundungsrest auf die letzte Buchung
+einer Rechnung, damit die Summe dem Beleg entspricht. Nicht festgeschrieben (Feld 21 = 0). Datei in
+Windows-1252. Gesperrt, solange Berater oder Mandant fehlen, wenn der Zeitraum über zwei
+Wirtschaftsjahre reicht oder ein Debitor außerhalb 10000–69999 läge – jeweils mit Klartext.
+
+Dazu die **Debitorenliste** (Konto, Kundennummer, Name, Anschrift aus der jüngsten Rechnung, also
+aus dem Beleg), die **Rechnungsliste** und die aktuelle Ansicht als CSV (UTF-8 mit BOM, Semikolon,
+Dezimalkomma – für Excel). Die Dateien enthalten Kundennamen; die Seite sagt das dazu.
+
+**Vor dem regelmäßigen Einsatz:** die erste DATEV-Datei beim Steuerberater probeweise einlesen
+lassen. Aufgebaut nach der DATEV-Formatbeschreibung und der Feldliste von `ledermann/datev`;
+geprüft sind Aufbau, Feldzahl und Inhalt (`tests/datev.test.ts`), nicht der Import in DATEV selbst.
 
 ## Fallstricke
 
@@ -543,3 +590,15 @@ davon, ob er den zugehörigen Auftrag sehen darf.
   Rechnungstext am Auftrag.
 - `supabase/migrations/48_rechnungen.sql`, `49_rechnung_am_auftrag.sql`, `50_freitext_position.sql` –
   die zugehörigen Migrationen.
+
+## Testrechnungen (Migration 60, 26.09.2026)
+
+Rechnungen eines Testkunden bekommen in `vergib_rechnungsnummer()` eine **negative** `nummer` aus
+der Folge `test_rechnung_nummer_seq` und den Text „T-" + Präfix + Zahl („T-RE1").
+`betrieb.rechnung_naechste_nummer` zählt dabei nicht weiter; der echte Kreis bleibt lückenlos, und
+die Prüfung aus Migration 55 („höchste vergebene plus eins") sieht nur die positiven Nummern.
+Eine Sequence ist hier ausdrücklich in Ordnung: Lücken im Testkreis stören niemanden.
+Testrechnungen – und nur sie – lassen sich löschen (`rechnung_unveraenderlich()`); gelöscht werden
+sie mit ihrem Kunden über `testkunde_loeschen()`, das abbricht, falls wider Erwarten eine echte
+Rechnung am Kunden hängt. Im Rechnungsbuch stehen sie in einer eigenen Gruppe „Testrechnungen"
+und zählen in keiner Summe; DATEV-Stapel, Rechnungs- und Debitorenliste lassen sie aus.

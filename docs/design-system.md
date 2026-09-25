@@ -77,15 +77,29 @@ aufrufen, sonst öffnet jeder Klick darauf zusätzlich das Auftragsfenster.
 
 ## Auftragsfenster
 
-`.modal-box.auftrag-modal` ist mit 720 px bewusst breiter als die übrigen Dialoge (440 px).
-Der Grund steht in `auftraege.md`: hier werden Positionen erfasst, und genau daran ist
-das frühere Leistungen-Popover gescheitert. Aufbau: fester Kopf, scrollender Inhalt in
-`.auftrag-block`-Abschnitten, fester Fuß mit den Handlungen – links das Zurückhaltende
-(Stornieren, Löschen), rechts das, was man im Normalfall will (Abschließen).
+Seit dem 26.09.2026 (Entwurf N) `.ao-fenster`: am Rechner 680 px breit und bis 94 vh hoch, am
+Handy (≤ 700 px) bildschirmfüllend. Aufbau: feste Kopfleiste (Schließen, „Auftrag #…", Stand
+„Änderungen noch nicht gespeichert" / „✓ gespeichert", „Speichern" nur bei Änderungen, „⋯"),
+scrollender Inhalt in Karten, fester Fuß `.ao-fuss` mit genau der Handlung, die dran ist
+(offen: „Arbeit beginnen" + „Abschließen"; in Arbeit: „Auftrag abschließen"; erledigt mit
+„Rechnung nötig": „Rechnung erstellen"/„ansehen"). Darüber steht, was fehlt – orange, sonst
+grün „Bereit zum Abschließen".
 
-Begründungen für Stornierung und Wiedereröffnung werden **nicht** über `prompt()` abgefragt,
-sondern klappen im Fuß als `.auftrag-grund` auf. So sieht der Nutzer beim Eintippen weiterhin
-den Auftrag, um den es geht.
+Der dunkle Kasten `.ao-wer` oben beantwortet wer, wann, wo – mit Navigation, Anrufen und
+„Kunde ›". Die Uhrzeit darin ist ein Knopf und öffnet das Blatt „Termin & Team" (Datum,
+von–bis, Mitarbeiter als farbige Wahlchips, Transporter). „Übernehmen" speichert; wer das Blatt
+ohne schließt, bekommt den vorherigen Stand zurück.
+
+Stornieren, Wiedereröffnen, die Altreifen-Rückfrage und „Leistung hinzufügen" sind Blätter
+(`.auswahl-blatt`) statt aufklappender Fußzeilen oder `prompt()` – der Auftrag bleibt dahinter
+sichtbar. Die Einlagerungsblöcke (`.auftrag-block`) behalten ihr Innenleben und bekommen in
+`.ao-reifen` nur den Kartenrahmen.
+
+Leistungen (`.ls-*`): eine Zeile je Position mit −/+; Endpreis und Rechnungstext klappen
+darunter auf (bei einer freien Position ohne Text von selbst, mit orangem Rand).
+
+Kein Kind eines `.auswahl-blatt` darf schrumpfen (`flex-shrink:0`): Das Blatt scrollt, und ein
+Umschalter, der auf null Höhe gedrückt wird, ist unsichtbar statt erreichbar.
 
 ## Fehlermeldung
 
@@ -592,29 +606,25 @@ Der farbige Rahmen (rot/orange/grün nach `profilLage()`) sitzt am umschließend
 am Feld. So bleibt die Farbe dort, wo sie vorher war, und die ganze Fläche – Zahl samt Einheit
 – ist antippbar statt nur die Ziffern.
 
-## Betriebsdaten-Maske (18.09.2026)
+## Betriebsdaten-Maske (18.09.2026, seit 26.09.2026 als Zeilenliste)
 
-`.betriebsdaten` (Admin-Bereich, `BetriebsdatenPanel`) ist die Eingabemaske für Briefkopf,
-Bankverbindung, Logo, Rechnungstexte und den Nummernkreis – Details zu den Feldern stehen in
-`rechnungen.md`, hier geht es um die Gestaltung:
+`.betriebsdaten` (Admin → Betrieb, `BetriebsdatenPanel`) ist seit Entwurf U eine Karte mit
+einer Zeile je Abschnitt (`.ad-zeile`: Briefkopf, Bankverbindung, Logo, Texte, Nummernkreis,
+DATEV-Export, Terminraster). Die Zeile zeigt den **gespeicherten** Stand, eine Lücke orange
+(„Berater- oder Mandantennummer fehlt – Export gesperrt"). Jede Zeile öffnet ein Blatt mit
+eigenem „Speichern"; beim Öffnen wird der Entwurf aus dem gespeicherten Stand neu gefüllt, beim
+Schließen mit Änderungen kommt eine Rückfrage. Ein langes Formular mit einem Knopf am Ende
+verleitete dazu, oben etwas zu ändern und unten nie anzukommen. Details zu den Feldern stehen in
+`rechnungen.md`.
 
-- **`.bd-raster`** ist am Desktop zweispaltig, am Handy (`@media max-width:720px`) einspaltig.
-  Zwei Spalten deshalb, weil PLZ und Ort auch im gedruckten Briefkopf eine Zeile bilden – ein
-  Formular, das anders gruppiert als sein Ergebnis, lässt den Nutzer zweimal überlegen. Felder,
-  die die volle Breite brauchen (Anschreiben, Fußzeilentexte), tragen zusätzlich `.breit`
-  (`grid-column:1 / -1`).
-- **`.bd-logo-feld`** zeigt das Logo vor einem hellen Karomuster statt vor durchgehendem Weiß.
-  Ein Logo mit durchsichtigem Hintergrund ist auf Weiß sonst nicht von einem mit weißem
-  Hintergrund zu unterscheiden – und genau das ist die Frage, die man beim Hochladen beantwortet
-  haben will.
-- **`.bd-nummer`** (der Nummernkreis) sitzt mit eigener Trennlinie am Ende der Maske, bewusst
-  getrennt vom übrigen, sofort speicherbaren Formular – ein falsch gesetzter Wert hier erzeugt
-  doppelt oder übersprungen vergebene Rechnungsnummern und verdient einen eigenen,
-  unübersehbaren Bedienschritt.
-- **`.bd-speichern` klebt bewusst nicht am unteren Rand.** Ein schwebender Speichern-Balken
-  verdeckt genau das Feld, das man zuletzt bearbeitet hat – im Browser nachgesehen, lag er
-  mitten auf dem Logo-Block und schnitt dessen zweiten Knopf ab. Die Maske ist kurz genug, dass
-  man zum Speichern nicht weit scrollen muss.
+- **`.bd-raster`** ist zweispaltig, am Handy (`@media max-width:720px`) einspaltig. Zwei Spalten
+  deshalb, weil PLZ und Ort auch im gedruckten Briefkopf eine Zeile bilden. Felder mit voller
+  Breite tragen `.breit`.
+- **`.bd-logo-feld`** zeigt das Logo vor einem hellen Karomuster statt vor durchgehendem Weiß –
+  sonst ist ein durchsichtiger Hintergrund nicht von einem weißen zu unterscheiden.
+- **`.bd-nummer`** (der Nummernkreis) bleibt ein eigener Bedienschritt mit eigener Prüfung –
+  „Speichern" im selben Blatt übernimmt nur das Präfix.
+- Das **Terminraster** wirkt sofort und hat deshalb im Blatt keinen Speichern-Knopf.
 
 ## Einsatzplanungs-Tabellen: feste Breiten statt Inhalts-Raten
 
@@ -661,28 +671,13 @@ nicht-primären Module.
 **Ein neues Modul braucht ab jetzt genau drei Handgriffe:** Eintrag in `lib/module.ts`,
 Schlüssel in `RECHTE_VORGABE`, und der Block, der es rendert. Alles andere folgt.
 
-## Fahrzeug-Block am Handy: Raster statt Umbruch (21.09.2026)
+## Fahrzeug-Block am Auftrag (21.09.2026, seit 26.09.2026 als Karte)
 
-`.rd-fahrzeug` (eine Zeile im Block „Fahrzeug" am Auftrag, `FahrzeugeBlock.tsx`) reiht am
-Desktop vier Dinge nebeneinander: Nummer, Kennzeichen, Kilometerstand-Feld, Löschkreuz
-(`display:flex; flex-wrap:wrap`). Für die Zeile ist am Handy keine Breite für alle vier da; vor
-dem 21.09.2026 brach sie deshalb einfach um, und das Kreuz landete allein in der nächsten Zeile
-ganz links – ein Löschknopf, der neben nichts steht und aussieht, als gehöre er zum Eintrag
-darunter statt zu dem darüber.
-
-Unter `560px` gilt seither ein festes Raster statt des Umbruchs:
-
-```
-grid-template-columns: 1fr auto;
-grid-template-areas: "nr weg" "kennzeichen kennzeichen" "km km";
-```
-
-Nummer und Löschkreuz stehen oben in einer Zeile (das Kreuz am rechten Rand, wo es der Daumen
-erreicht), darunter über die volle Breite das Kennzeichen, darunter der Kilometerstand. Stehen
-mehrere Fahrzeuge am Auftrag, braucht das Auge eine Grenze zwischen ihnen – sonst liest sich das
-Kennzeichen des einen wie die Fortsetzung des anderen: `.rd-fahrzeug + .rd-fahrzeug` bekommt
-deshalb in derselben `@media`-Regel eine gestrichelte Trennlinie oberhalb (`border-top:1px dashed
-var(--border)`).
+Jedes Fahrzeug am Auftrag ist seit Entwurf N eine eigene helle Fläche (`.ao-fz`): oben
+Kennzeichen als Schild (`.dm-kz`), Modell, Reifengröße und rechts das Entfernen-Kreuz, darunter
+über die volle Breite der Kilometerstand. Das löst die Frage vom 21.09.2026 (Kreuz allein in der
+nächsten Zeile) ohne eigenes Handy-Raster: Das Kreuz steht immer oben rechts bei seinem
+Kennzeichen, und die Fläche selbst ist die Grenze zum nächsten Fahrzeug.
 
 ## Dashboard im Kartenstil (25.09.2026)
 
@@ -698,3 +693,93 @@ Orange nur für das, was zu tun ist (Hauptknopf, Links, „noch offen"). Zahlen 
 - Der Lagerplatz steht bei „Reifen mitnehmen" groß und blau rechts – im Lager ist er die Frage.
   Ein abgehakter Satz wird durchgestrichen und blasser, bleibt aber in der Liste.
 - Klassen: `db-*` in `app/globals.css`, Abschnitt „Dashboard".
+
+## Lager im Kartenstil (26.09.2026)
+
+Die Lagerseite übernimmt die Bausteine von Einsatzplanung und Dashboard, statt eigene zu
+erfinden: Bedienleiste wie `.planung-leiste` (klebt oben), Zahlen als `db-kachel`, Filter als
+`pl-pille`, Blätter als `.auswahl-blatt`. Eigen ist nur, was es nur im Lager gibt:
+
+- **Die kleine Wand** (`.lg-wand`): ein Kästchen je Platz. Blau gefüllt = belegt, gestrichelt =
+  frei, orange Unterkante = zu prüfen. Dieselben drei Zeichen trägt der Platz-Code in der Zeile
+  (`.lg-code`, `.frei`, `.pruefen`) – wer die Wand liest, liest auch die Liste.
+- **Der Platz-Code** steht immer links in Navy auf hellem Blau, wie bei „Reifen mitnehmen" im
+  Dashboard. Er ist im Lager die Frage.
+- **Grün/Orange/Rot bleiben dem Zustand vorbehalten** (Profiltiefe, Gründe) – Belegung ist
+  Blau/gestrichelt, nie Grün/Rot.
+- Klassen: `lg-*` in `app/globals.css`, Abschnitt „Lager".
+
+## Saisonliste im Kartenstil (26.09.2026)
+
+Gleiche Bausteine wie das Lager (`lg-leiste`, `lg-lagerwahl` als Saison-Umschalter, `lg-code`)
+und das Dashboard (`db-naechster` für die Antwort). Die Statuspille der Kundenkarte nimmt die
+Farben des Kundenzustands auf: Rot = fällig, Grün = Termin, Hellblau = Wiedervorlage, Grau =
+kontaktiert oder kein Interesse – dieselben wie die Nadeln auf der Karte daneben. Klassen `sl-*`.
+
+## Kundenliste im Kartenstil (26.09.2026)
+
+Dieselbe Bedienleiste wie Lager und Saisonliste. Der **Kreis mit Initialen** vor dem Namen trägt
+die Farbe der Nadel auf der Karte (`.kl-kreis.*` spiegelt `.dot.*`): Rot offen, Grün
+kontaktiert, Hellblau Wiedervorlage, Navy Termin, weiß mit rotem Rand kein Interesse, Grau ohne
+Kartenposition. Dieselbe Farbe steht als Punkt an der Filterpille – wer die Karte lesen kann,
+kann die Liste lesen. Navigation und Anruf sind 38-px-Kreise statt der früheren 24 px. Klassen
+`kl-*`.
+
+## Auftragsliste im Kartenstil (26.09.2026)
+
+Die Auftragskarte folgt der Karte „Offene Aufträge" der Einsatzplanung: Uhrzeit links, ein
+Farbstreifen in der Mitarbeiterfarbe, rechts Navigation und Anruf als 36-px-Kreise, das Menü „⋯"
+in der ersten Zeile (eine dritte Knopfreihe hätte jede Karte am Handy fast verdoppelt).
+Gruppenköpfe tragen die Dringlichkeit: Rot „Noch zu erledigen", Orange „Heute", Grau
+„Vergangen". Abgeschlossene vergangene Karten sind auf 72 % Deckkraft zurückgenommen. Klassen
+`au-*`.
+
+## Terminliste als Zeitleiste (26.09.2026)
+
+Links die Uhrzeit, in der Mitte eine Achse aus Punkt und Linie, rechts die Karte mit den Teilen
+der Auftragskarte (`au-text`, `au-marken`, `kl-rund`). Der Punkt trägt die Phase: grau gefüllt =
+vorbei, orange gefüllt mit hellem Ring = läuft gerade (die Karte bekommt dazu einen orangen
+Rahmen), weiß mit Ring in der Mitarbeiterfarbe = kommt noch. Die Jetzt-Linie ist rot
+(`--red`) mit Uhrzeit links, freie Lücken stehen als grauer Text zwischen zwei Karten auf der
+Achse. Der Zeitraum-Umschalter ist der des Lagers (`lg-lagerwahl`), für die 352 px der
+Seitenleiste enger gesetzt. Klassen `te-*` (`tm-*` gehört dem Stundenraster).
+
+## Auswertungen (26.09.2026)
+
+Dieselbe Bedienleiste wie die übrigen Seiten, darunter aber Reiter (Umsatz · Kunden · Einsatz ·
+Lager · Artikel) als Textreiter mit oranger Unterkante – sie wechseln die Frage, nicht einen
+Filter. Jeder Reiter beginnt mit einem dunklen Kasten, der die Antwort gibt (wie „Als Nächstes"
+im Dashboard), dann Kacheln und Karten. Vergleich mit dem Vorjahr: gestrichelte Säule neben der
+vollen, Veränderung grün/rot mit Pfeil. Säulen im Zeitraum orange, übrige Monate sandfarben;
+Lagerbelegung navy mit roter Kapazitätslinie. Raster Wochentag × Uhrzeit in fünf Orangestufen.
+Klassen `am-*` (die alten `aw-*` sind entfallen).
+
+## Kunden- und Auftragsfenster, Rechnungen, Artikel, Admin, Einstellungen (26.09.2026)
+
+Die Entwürfe N–V auf einmal umgesetzt, alle im selben Baukasten wie die Listen:
+
+- **Kundenfenster** (`.dm-*`, `DetailModal`): Kopf mit Kreis in der Zustandsfarbe (`.kl-kreis`),
+  vier Handgriffe (Anrufen, Navigation, Kontakt, Auftrag), Reiter Übersicht · Fahrzeuge ·
+  Aufträge · Verlauf · Daten. Übersicht: dunkler Kasten „Nächster Termin", Kontakt-Karte,
+  eingelagerte Reifen, Kontaktdaten. Verlauf: Kontakte und abgeschlossene Aufträge in einer
+  Zeitleiste. Seltenes (Einmalkunde, Laufkundschaft, „offen", deaktivieren, Papierkorb) im
+  Blatt hinter „⋯". Der Kontaktdialog ist ein Blatt mit drei großen Ausgängen (`.kt-*`).
+- **Rechnungen** (`.re-*`): Monatsgruppen statt Tabelle, Jahr als Pille, Karte „Noch nicht
+  ausgestellt" mit Blatt. Aufgehobene Belege bleiben stehen und sind durchgestrichen.
+- **Artikel** (`.ar-*`): Karten mit Nummer, Marken (Lagergebühr, Altreifen, Text am Auftrag,
+  inaktiv) und aktuellem Preis; Bearbeiten im Blatt mit Preis-Historie als Zeitleiste.
+- **Admin** (`.ad-*`): Reiter Nutzer · Mitarbeiter · Transporter · Rechte · Betrieb · Wartung ·
+  Protokoll · Papierkorb; Anlegen oben als Karte (`.ad-aktion`), darunter eine Karte je
+  Eintrag (`.ad-karte`). Rechte (`.rm-*`) je Rolle mit drei Spalten statt neun.
+- **Einstellungen** (`.es-*`), **Neuer Kunde** (`.nk-*`), **Inaktive Kunden** (`.ik-*`) und
+  **Weitere** (`.wt-*`, Kacheln nach Gruppen mit Hinweis, ob dort etwas wartet – orange, wenn
+  etwas zu tun ist).
+
+## Kennzeichen TEST und „Was gibt es Neues" (26.09.2026)
+
+`.test-marke` ist ein kleines violettes Kennzeichen „TEST" hinter Name bzw. Nummer – violett, weil
+es keine der Zustandsfarben (rot, orange, grün, blau, navy) belegen darf. Der Schalter
+„Testkunde" im Formular bekommt eingeschaltet denselben violetten Rand (`.nk-test.an`).
+„Was gibt es Neues" (`.nw-*`) ist ein Blatt mit einer Karte je Fassung; ungelesene tragen den
+orangen Rand und „neu". Im Dashboard steht für Admin und Superadmin ein Hinweis, solange die
+neueste Fassung ungelesen ist.

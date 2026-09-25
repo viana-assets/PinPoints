@@ -323,12 +323,95 @@ vergaß „Bis", „Rechnung benötigt", die Altreifen-Rückfrage, den Einlageru
 Storno-/Wiedereröffnen-Blöcke. Das Neuladen nach dem Speichern trifft denselben Auftrag und damit
 denselben Schlüssel; eine laufende Eingabe bleibt dabei stehen.
 
+### Das Auftragsfenster in Karten (Entwurf „N · Auftrag", 26.09.2026)
+
+Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
+
+- **Oben wer, wann, wo.** Ein dunkler Kasten mit Zustand, Termin (antippen öffnet „Termin &
+  Team"), Kunde samt Adresse und den Knöpfen Navigation, Anrufen, „Kunde ›" (schließt den
+  Auftrag und öffnet das Kundenfenster; mit ungespeicherten Änderungen erst die Rückfrage).
+- **„Für den Abschluss fehlt noch"** zählt auf, was die Datenbank beim Abschließen verlangen
+  wird: Uhrzeit, Fahrzeug und Saison am eingelagerten Satz, Name des Laufkunden und – bei
+  „Rechnung nötig" – die Rechnungsangaben aus `rechnungsdatenMaengel()` (dieselbe Liste wie im
+  Rechnungsblock). Eine Vorschau, kein Riegel: Der Knopf bleibt anklickbar.
+- **Termin & Team** ist ein Blatt: Datum, von–bis, Mitarbeiter, Transporter. „Übernehmen"
+  speichert den ganzen Entwurf; wer das Blatt ohne schließt, bekommt Datum, Zeiten, Mitarbeiter
+  und Transporter wie beim Öffnen zurück. Ein Techniker sieht Mitarbeiter und Transporter nur.
+- **Leistungen** mit −/+ je Zeile; Endpreis und Rechnungstext klappen darunter auf. Neue
+  Leistungen kommen aus einem Blatt mit Suche und werden mit Menge 1 angelegt.
+- **Der Fuß** trägt die eine Handlung, die dran ist. Stornieren, Löschen/Verwerfen,
+  Wiedereröffnen und „Historie" stehen im Menü „⋯"; Storno- und Wiedereröffnungsgrund sowie die
+  Altreifen-Rückfrage sind Blätter.
+- **Neu: Ein Zustandswechsel speichert vorher den Entwurf.** Bis zum 26.09.2026 blieb eine
+  ungespeicherte Änderung beim Abschließen einfach liegen – danach war der Auftrag gesperrt,
+  der Speichern-Knopf weg und die Änderung still verloren. Fehlt dabei die Uhrzeit, öffnet sich
+  statt des Wechsels das Blatt „Termin & Team".
+
+## 5a. Die Auftragsliste (neu gestaltet am 26.09.2026, Entwurf „K · Aufträge")
+
+`components/auftraege/AuftraegePanel.tsx`, Regeln in `lib/auftragsAnsicht.ts`. Statt der
+breiten Tabelle mit Spaltenköpfen Karten im Stil der Einsatzplanung – und die Liste beantwortet
+**„was ist noch zu tun?"**:
+
+- **Bedienleiste** (bleibt stehen): Titel mit Zahl, „+ Auftrag", Suche nach Kunde, Firma oder
+  **Auftragsnummer** (auch mit „#"), Status als Pillen mit Zahl, dazu Mitarbeiter, Zeitraum und
+  Sortierung als Auswahlknöpfe mit Blatt.
+- **„Anstehende zuerst"** (Vorgabe, vorher „neueste zuerst"): oben rot **„Noch zu erledigen"** –
+  vergangene Aufträge, die nicht abgeschlossen sind (offen, in Arbeit, erledigt mit offener
+  Rechnung); dann **Heute** (auch das heute Erledigte – man sieht, was geschafft wurde); dann die
+  folgenden Tage aufsteigend. Weitere Sortierungen: neueste zuerst (alle Tage absteigend),
+  Kunde A–Z und Auftragsnummer (flache Liste).
+- **Abgeschlossene Aufträge von gestern und früher sind ausgeblendet** (`ausgeblendet`:
+  vor heute und erledigt ohne offene Rechnung oder storniert). Am Ende steht **„Vergangene
+  anzeigen · n abgeschlossen"**; eingeblendet stehen sie unten, jüngster Tag zuerst, leicht
+  zurückgenommen. Wer oben „Erledigt" oder „Storniert" wählt, sieht sie ohnehin alle. Die Zahlen
+  an den Pillen zählen genau das, was ein Tippen zeigen würde.
+- **Die Karte**: Uhrzeit mit Ende, Farbstreifen des (ersten) Mitarbeiters, Kunde bzw. Firma und
+  Nummer, Leistungen mit Namen und Betrag (`leistungenText` in `app/page.tsx`), Mitarbeiter als
+  Farbmarken – ohne Mitarbeiter „+ Mitarbeiter" zum direkten Zuteilen –, Status, „Rechnung
+  offen". Rechts **Navigation und Anrufen** (nur mit Adresse bzw. Nummer), in der ersten Zeile
+  „⋯" mit Öffnen, Mitarbeiter zuteilen, Kunde öffnen, Löschen.
+- **„Rechnungen noch nicht ausgestellt"** ist eine Karte über der Liste; angetippt zeigt die Liste
+  nur diese, jede mit Knopf „Rechnung erstellen" (öffnet das Auftragsfenster).
+- Techniker: kein „+ Auftrag", kein Zuteilen, kein Löschen – wie bisher.
+
+## 5b. Die Terminliste (neu gestaltet am 26.09.2026, Entwurf „L · Termine")
+
+`components/termine/TerminePanel.tsx`, Regeln in `lib/terminAnsicht.ts`. Dieselben Aufträge wie
+die Auftragsliste, aber als Antwort auf **„wo muss ich heute hin – und was kommt danach?"**. Ein
+Seitenleisten-Reiter neben der Karte; gefiltert wird in `app/page.tsx`, weil dieselbe Auswahl die
+Kartennadeln steuert (`terminKundenIds`).
+
+- **Bedienleiste**: Titel mit Datum und „n heute, m erledigt", Zeitraum als Umschalter mit Zahl
+  (Heute · Morgen · 7 Tage · Anstehend · Alle, Vorgabe weiterhin „Anstehend"), darunter **neu die
+  Mitarbeiter als Pillen** (`terminPerson`). Die Zahlen am Zeitraum gelten für den gewählten
+  Mitarbeiter. Beim Techniker entfällt die Pillenreihe (er sieht nur sich selbst).
+- **„Als Nächstes"** nur bei „Heute": derselbe dunkle Kasten wie im Dashboard (`alsNaechstes`,
+  Beschriftung `naechsterWann`, beide Stellen nutzen dieselbe Funktion) mit Navigation, Anrufen,
+  Auftrag.
+- **Phase je Termin** (`terminPhase`): *vorbei* – früherer Tag, heute schon zu Ende, oder
+  erledigt/storniert; *läuft* – heute und „In Arbeit" oder jetzt zwischen Beginn und Ende;
+  *kommt* – alles andere, auch ein Termin ohne Uhrzeit von heute. Ohne Endzeit gilt die
+  Standarddauer. „Anstehend" = nicht vorbei; damit bleibt ein laufender Termin in der Liste (bis
+  26.09.2026 fiel er mit seiner Anfangszeit heraus).
+- **Zeitleiste** (`terminTage`): je Tag eine Gruppe, darin erst die Termine mit Uhrzeit nach
+  Beginn, dann die ohne. Die rote **Jetzt-Linie** steht heute vor dem ersten Termin, der nicht
+  vorbei ist – nicht, wenn gerade einer läuft (der ist orange umrandet). **Freie Lücken** ab
+  `TERMIN_LUECKE_AB_MIN` (60 Minuten) als „frei 13:00–15:15 · 2 Std.", gerechnet gegen das
+  späteste Ende aller vorherigen Termine des Tages (bei „Alle Mitarbeiter" ist erst frei, wenn
+  keiner mehr unterwegs ist); heute erst ab jetzt, vergangene Tage ohne Lücken.
+- **Die Karte**: Kunde (bei Laufkundschaft der eingetragene Laufkunde), Adresse, Leistungen mit
+  Betrag, Mitarbeiter als Farbmarken, Status (bzw. „Läuft gerade"). Rechts Navigation und Anrufen,
+  in der ersten Zeile „⋯" mit Auftrag öffnen, Kunde öffnen, Mitarbeiter zuteilen (nicht für
+  Techniker). Ein Tippen auf die Karte öffnet das Auftragsfenster – wie seit 29.08.2026.
+
 ## 6. Das geladene Zeitfenster
 
 Aufträge wachsen anders als der Kundenstamm unbegrenzt mit jedem Betriebsjahr. Deshalb lädt die
 App kein Vollabbild, sondern ein Zeitfenster (`fetchOrders(fenster)` in `lib/api/orders.ts`),
-umschaltbar über `FensterSchalter` in `app/page.tsx`, gemeinsam für den Aufträge-Tab und die
-Einsatzplanung (ein State `auftragsFenster`):
+umschaltbar über den Auswahlknopf „Zeitraum" in der Bedienleiste von Einsatzplanung und
+Aufträgen (bis 26.09.2026 ein eigener Balken `FensterSchalter`), gemeinsam für beide (ein State
+`auftragsFenster`):
 
 | Auswahl | Was geladen wird |
 |---|---|
@@ -531,3 +614,12 @@ selbst bei jedem beteiligten Fahrzeug voll zählt.
   ohne Uhrzeit gilt also praktisch den ganzen Tag über noch nicht als „vergangen".
 - **Rechnungsnummer und -datum lassen sich seit Migration 49 nicht mehr per Haken
   zurücknehmen** (nur per Stornorechnung) – eine Maske, die das anders anbietet, ist veraltet.
+
+## Testaufträge (Migration 60, 26.09.2026)
+
+Die Auftragsnummer vergibt seit Migration 60 der Trigger `vergib_auftragsnummer()` statt des
+Spalten-Vorgabewerts (der vor jedem Trigger ausgewertet würde und so auch für Testaufträge eine
+echte Nummer verbraucht hätte). Aufträge eines Testkunden bekommen eine negative Nummer aus
+`test_auftrag_nummer_seq`; angezeigt wird sie über `auftragsNr()` als „T1" – auch im
+Kontakteintrag beim Abschließen („Auftrag T1 abgeschlossen", `auftrag_nr_text()`). Ein Auftrag
+zieht nicht zwischen Test- und echtem Kunden um (`auftrag_bleibt_test_oder_echt()`).

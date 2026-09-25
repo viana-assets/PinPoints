@@ -1,6 +1,8 @@
 import type { Employee, Order, OrderArticle } from "@/lib/types";
 import { formatEUR, formatOrderDateTime, isOrderPast, orderArticleTotals } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/constants";
+import { datumKurz } from "@/lib/dashboard";
+import { auftragsNr } from "@/lib/testkunde";
 
 // Ein Auftrag/Termin im Kunden-Detailfenster – als ZUSAMMENFASSUNG mit einem Weg hinein,
 // nicht als zweite Bearbeitungsmaske.
@@ -19,50 +21,45 @@ import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, istAbgeschlossen } from "@/lib/
 // bei der Profiltiefe (Migration 33), nur für Oberflächen statt für Daten: Es gibt die Sache
 // einmal, nicht zweimal.
 
-export function CustomerOrderRow({ order, employees, assignedEmployeeIds, orderArticles, onOpen, onDelete }: {
+// Seit 26.09.2026 (Entwurf O) eine Karte wie in der Auftragsliste: Datum links, Titel und
+// Angaben in der Mitte, Zustand rechts. Das Löschen steht nicht mehr hier, sondern im Menü
+// des Auftragsfensters – dort, wo auch die Rechte dazu geprüft und erklärt werden.
+
+export function CustomerOrderRow({ order, employees, assignedEmployeeIds, orderArticles, onOpen }: {
   order: Order;
   employees: Employee[];
   assignedEmployeeIds: string[];
   // Nur zum Anzeigen – geändert werden die Positionen im Auftragsfenster.
   orderArticles: OrderArticle[];
   onOpen: (id: string) => void;
-  onDelete: (id: string) => void;
 }) {
   const gesperrt = istAbgeschlossen(order.status);
   const past = isOrderPast(order);
   const empNames = employees.filter((e) => assignedEmployeeIds.includes(e.id)).map((e) => e.name).join(", ");
   const summen = orderArticleTotals(orderArticles, order.rechnung_noetig);
+  const angaben = [
+    `#${auftragsNr(order.order_number)}`,
+    order.time ? `${order.time.slice(0, 5)} Uhr` : null,
+    empNames || null,
+    orderArticles.length === 0 ? "keine Leistungen" : `${formatEUR(order.rechnung_noetig ? summen.gross : summen.net)}${order.rechnung_noetig ? " brutto" : " netto"}`,
+  ].filter(Boolean).join(" · ");
 
   return (
-    <div className="appt-item klickbar" onClick={() => onOpen(order.id)} title="Auftrag öffnen">
-      <div>
-        <span className="appt-date">{formatOrderDateTime(order)}</span>
-        {past && !gesperrt ? " (vergangen)" : ""}{" "}
-        <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
-      </div>
-      <div><span className="small">Auftrag {order.order_number}</span> · {order.title}{order.description ? ` – ${order.description}` : ""}</div>
-      {/* Nur bei Aufträgen der Laufkundschaft gefüllt (Migration 57): In deren Kundenakte ist das
-          die Liste aller Barverkäufe – und hier steht, wer es jeweils war. */}
-      {(order.laufkunde_name || order.laufkunde_ort) && (
-        <div className="small">🧾 {[order.laufkunde_name, order.laufkunde_telefon, order.laufkunde_ort].filter(Boolean).join(" · ")}</div>
-      )}
-      {empNames && <div className="small">👤 {empNames}</div>}
-      <div className="small">
-        {orderArticles.length === 0
-          ? "Noch keine Leistungen zugeordnet."
-          : `${orderArticles.length} ${orderArticles.length === 1 ? "Leistung" : "Leistungen"} · ${formatEUR(summen.gross)}${order.rechnung_noetig ? " brutto" : " netto"}`}
-      </div>
-      {/* Die Knöpfe halten den Klick an, damit ein „Löschen" nicht nebenbei auch das
-          Auftragsfenster öffnet. */}
-      <div className="appt-actions" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="btn-primary" onClick={() => onOpen(order.id)}>Auftrag öffnen</button>
-        <button
-          type="button" className="btn-secondary" style={{ color: "#b33" }}
-          onClick={() => { if (confirm("Diesen Auftrag wirklich löschen?")) onDelete(order.id); }}
-        >
-          Löschen
-        </button>
-      </div>
-    </div>
+    <button type="button" className={"dm-auftrag" + (past && !gesperrt ? " vergangen" : "")} onClick={() => onOpen(order.id)} title={`Auftrag öffnen – ${formatOrderDateTime(order)}`}>
+      <span className="dm-datum">
+        <b>{order.order_date ? datumKurz(order.order_date) : "ohne"}</b>
+        <span>{order.order_date ? order.order_date.slice(0, 4) : "Datum"}</span>
+      </span>
+      <span className="dm-auftrag-text">
+        <b>{order.title}{past && !gesperrt ? " (vergangen)" : ""}</b>
+        <span className="small">{angaben}</span>
+        {/* Nur bei Aufträgen der Laufkundschaft gefüllt (Migration 57): In deren Kundenakte ist das
+            die Liste aller Barverkäufe – und hier steht, wer es jeweils war. */}
+        {(order.laufkunde_name || order.laufkunde_ort) && (
+          <span className="small">🧾 {[order.laufkunde_name, order.laufkunde_telefon, order.laufkunde_ort].filter(Boolean).join(" · ")}</span>
+        )}
+      </span>
+      <span className={`dm-status ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>
+    </button>
   );
 }

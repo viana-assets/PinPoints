@@ -16,6 +16,74 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.09.2026 – Versionsanzeige, „Was gibt es Neues" und Testkunden (Service Worker v78,
+  Migration 60).** Die Fassung steht in den Einstellungen (`APP_VERSION` in `lib/version.ts`,
+  gleichlaufend mit `public/sw.js`); Admin und Superadmin sehen „Was gibt es Neues" (Blatt mit
+  allen Fassungen, ungelesene markiert, Hinweis im Dashboard; gemerkt je Person in
+  `user_settings.neuigkeiten_gesehen`). Testkunden: nur der Superadmin, beim Anlegen oder im Menü
+  „⋯" solange kein Auftrag besteht; Aufträge T1…, Rechnungen T-RE1…, keine Kundennummer – die
+  echten Kreise zählen nicht weiter; überall TEST markiert, aus Auswertungen, DATEV und
+  Wochenumsatz ausgenommen; „Testkunde restlos löschen" (`testkunde_loeschen()`) entfernt alles
+  samt Rechnungen und Protokoll. Lexware: offen, welches Produkt im Einsatz ist (siehe unten).
+
+* **26.09.2026 – Die übrigen Module im Kartenstil (Service Worker v77, keine Migration).**
+  Entwürfe N–V in einem Zug: Auftragsfenster (Karten, „Termin & Team" als Blatt, Fuß mit der
+  Handlung, die dran ist, Menü „⋯"; ein Zustandswechsel speichert jetzt vorher den Entwurf),
+  Kundenfenster (vier Handgriffe, Reiter, Verlauf aus Kontakten und Aufträgen, Menü „⋯";
+  Kontaktdialog als Blatt), Rechnungen (Monatsgruppen, Jahr, „Noch nicht ausgestellt"),
+  Artikel (Karten, Blatt mit Preis-Zeitleiste), Neuer Kunde, Inaktive Kunden, Einstellungen,
+  „Weitere" als Kacheln nach Gruppen und Admin (Reiter Nutzer · Mitarbeiter · Transporter ·
+  Rechte · Betrieb · Wartung · Protokoll · Papierkorb; Rechte je Rolle; Betrieb als Zeilen mit
+  je einem Blatt). Einzelheiten in `docs/design-system.md` (letzter Abschnitt),
+  `docs/auftraege.md`, `docs/kunden-und-karte.md`, `docs/rechnungen.md`.
+
+* **26.09.2026 – Auswertungen neu gebaut, E13 (Service Worker v76, Migration 59).** Entwurf M
+  umgesetzt: fünf Reiter (Umsatz, Kunden, Einsatz, Lager, Artikel), Zeitraum Monat/Saison/Quartal/
+  Jahr/12 Monate/frei, Vergleich mit dem Vorjahr bis zum selben Tag, Mitarbeiter-Filter. Umsatz
+  aus dem Rechnungsbuch (plus erledigte Aufträge ohne „Rechnung nötig"), „Erbracht, noch nicht
+  abgerechnet", Monatssäule antippen bis zur Rechnung. Kunden: Wiederkehr Frühjahr → Herbst,
+  „Absehbar aus dem Regal", umsatzstärkste Kunden, neu/Bestand. Einsatz: Stunden aus von–bis,
+  Wochentag × Uhrzeit. Lager: Belegung im Verlauf mit Kapazität, Ausblick aus dem Vorjahr,
+  Liegedauer, Langlieger. Export: DATEV-Buchungsstapel (SKR03, je Kunde ein Debitor –
+  entschieden am 26.09.2026), Debitorenliste, Rechnungsliste, Ansicht als CSV. DATEV-Angaben in
+  den Betriebsdaten (Migration 59). Einzelheiten in `docs/rechnungen.md`, Abschnitt „Auswertungen
+  und DATEV-Export".
+
+* **26.09.2026 – Terminliste neu gestaltet (Service Worker v75).** Entwurf L umgesetzt: statt der
+  Tabelle der Tag als Zeitleiste (vorbei grau, läuft gerade orange, kommt noch im Ring der
+  Mitarbeiterfarbe), Jetzt-Linie, freie Lücken ab einer Stunde. Zeitraum als Umschalter mit Zahl,
+  neu ein Mitarbeiter-Filter (steuert auch die Kartennadeln), bei „Heute" der Kasten „Als Nächstes".
+  Navigation und Anrufen an jeder Karte, Kunde und Mitarbeiter zuteilen hinter „⋯". Nebenbei:
+  „Morgen"/„7 Tage" rechneten über `toISOString()` in UTC – jetzt in Ortszeit; ein laufender
+  Termin zählt jetzt noch zu „Anstehend". Einzelheiten in `docs/auftraege.md`, Abschnitt 5b.
+
+* **26.09.2026 – Auftragsliste neu gestaltet (Service Worker v74).** Entwurf K umgesetzt: Karten
+  statt Tabelle, Bedienleiste mit Suche (auch Auftragsnummer), Status-Pillen und Auswahlknöpfen für
+  Mitarbeiter, Zeitraum und Sortierung (der Zeitraum-Balken darüber entfällt). Vorgabe „Anstehende
+  zuerst": oben „Noch zu erledigen", dann heute und die nächsten Tage; abgeschlossene Aufträge ab
+  gestern ausgeblendet, „Vergangene anzeigen" holt sie zurück. Anruf-Knopf direkt an der Karte.
+  Einzelheiten in `docs/auftraege.md`, Abschnitt 5a.
+
+* **26.09.2026 – Kundenliste neu gestaltet (Service Worker v73).** Entwurf J umgesetzt:
+  Bedienleiste mit Suche, Zustands-Pillen mit Nadelfarbe und Zahl, Gebiet- und A–Z-Blatt, Karte
+  „Rückrufe heute fällig" (neuer Filter `rueckruf`, auch aus dem Dashboard erreichbar), Kunden nach
+  Anfangsbuchstaben in Karten mit Initialenkreis, Status und großen Knöpfen für Navigation und
+  Anruf. Sortierung und A–Z jetzt nach dem angezeigten Namen (Firma vor Ansprechpartner).
+  Einzelheiten in `docs/kunden-und-karte.md`.
+
+* **26.09.2026 – Saisonliste neu gestaltet (Service Worker v72).** Entwurf I umgesetzt: Saison
+  als Umschalter, die Antwort im dunklen Kasten mit Termin-Balken, Karte „Neue Reifen fällig",
+  Filter Ohne Termin (neu, vorbelegt) · Fällig · Profil unter 3 mm · Gebiet (PLZ-Vorschläge), je
+  Kunde eine Karte gruppiert nach Postleitzahl, „Anrufliste erzeugen" als Blatt mit 2/4/6 Wochen.
+  Einzelheiten in `docs/lager.md`, Abschnitt „Die Saisonliste".
+
+* **26.09.2026 – Lager neu gestaltet (Service Worker v71).** Entwurf H umgesetzt: eine Seite
+  statt zwei Ebenen – Suche über alle Lager, Scan-Knopf (Regal-Aufkleber und Satz-Etikett), Lager
+  als Umschalter, drei Zahlen (belegt, frei, zu prüfen), eine Zeile Filter, je Reihe eine Karte mit
+  kleiner Regalwand, ein Blatt je Platz (Auslagern, Bearbeiten, Etiketten, Verlauf), Langlieger als
+  Zeilen. Die alte Regalwand mit Wand/Liste-Umschalter ist entfallen, ebenso
+  `REGAL_LISTE_BREITE_PX`. Einzelheiten in `docs/lager.md`.
+
 * **25.09.2026 – Dashboard neu (Service Worker v70, Migration 58).** Entwurf G umgesetzt:
   drei Zahlen (heute, morgen, offen), „Als Nächstes" mit Navigation und Anrufen, „Reifen
   mitnehmen" für heute oder morgen zum Abhaken beim Einladen – der Haken ist fürs ganze Team
@@ -327,19 +395,6 @@ Fächer schickt.
 
 ---
 
-### E13. Auswertungen ausbauen – Vorschlag vom 23.09.2026, noch zu besprechen
-Die Seite ist heute starr: drei Zeiträume, eine Kachelreihe, ein Balkendiagramm, zwei Tabellen,
-kein Vergleich, kein Hineinklicken, kein Export. Inhaltlich wichtiger: Der Umsatz wird aus
-erledigten Aufträgen nach Auftragsdatum gerechnet, nicht aus dem Rechnungsbuch – seit PinPoints
-die Rechnungen ausstellt, laufen damit zwei Umsatzzahlen nebeneinander.
-
-Vorgeschlagen: feste Ansichten, aber jede filterbar, vergleichbar (Vorjahr/Vorsaison) und
-anklickbar bis zum Auftrag; dazu Reiter für Umsatz & Rechnungen (Rechnungsbuch als Quelle,
-„erbracht, nicht abgerechnet", DATEV-Export), Kunden (Wiederkehr, absehbarer Umsatz aus dem
-Regal), Einsatz (Stunden, Wochentag × Uhrzeit) und Lager (Belegung im Verlauf). Die Entscheidung
-„kein Auswertungsbaukasten" (Abschnitt 7 der alten Liste) bliebe bestehen: keine freie
-Kreuztabelle. *Aufwand: etwa drei Runden. Wird vor dem Bau gemeinsam festgelegt.*
-
 ## F. Aus der alten Planung übernommen
 
 ### F1. Offline schreiben (PWA Stufe 4)
@@ -384,6 +439,14 @@ B1 und B2 erledigt. Ab hier:
    23.09.2026). Erste Runde: Warteschlange, Anzeige „n Änderungen warten", Status/Notiz/Radmessung;
    zweite Runde: Leistungen, Uhrzeit, Fahrzeug, Konfliktabfrage.
 2. **D2** – Löschen eines Auftrags mit Rechnung absichern (klein, schützt Belege).
-3. **E13** – Auswertungen ausbauen, sobald der Zuschnitt besprochen ist.
+3. **DATEV-Probeimport** – die erste Datei beim Steuerberater einlesen lassen (E13 ist gebaut).
 4. **E2** – Kommissionierliste, auf der Mitnehmen-Liste aufbauend.
 5. **D17, D4, B3** – Kleinkram, der in einem Zug mitgeht.
+
+## Offen: Lexware (Stand 26.09.2026)
+
+Entschieden: PinPoints schreibt weiter die Rechnungen. Offen ist, ob und wie Lexware die Belege
+bekommt – das hängt am Produkt: **Lexware Office** (Cloud, früher lexoffice) hat eine Public API
+(ab Tarif XL, ohne Aufpreis) für Kontakte, Rechnungen und das Hochladen von Belegen; einen
+Datei-Import für Rechnungen oder Buchungen hat es nicht. **Lexware Desktop** (faktura+auftrag)
+importiert per CSV nur Kunden und Artikel. Nächster Schritt: Vitali klärt das Produkt.

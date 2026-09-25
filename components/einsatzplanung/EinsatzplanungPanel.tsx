@@ -9,6 +9,7 @@ import { OrderModal } from "@/components/auftraege/OrderModal";
 import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { terminUeberschneidungen } from "@/lib/ueberschneidung";
+import { auftragsNr } from "@/lib/testkunde";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
@@ -542,7 +543,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                         {menuFuer === o.id && (
                           <span className="op-menue" onClick={(e) => e.stopPropagation()}>
                             <button type="button" onClick={(e) => { setMenuFuer(null); onEditEmployees(e, o.id); }}>Mitarbeiter zuteilen</button>
-                            <button type="button" className="gefahr" onClick={() => { setMenuFuer(null); if (confirm(`Auftrag ${o.order_number} wirklich löschen?`)) onDelete(o.id); }}>
+                            <button type="button" className="gefahr" onClick={() => { setMenuFuer(null); if (confirm(`Auftrag ${auftragsNr(o.order_number)} wirklich löschen?`)) onDelete(o.id); }}>
                               <IconTrash /> Löschen
                             </button>
                           </span>

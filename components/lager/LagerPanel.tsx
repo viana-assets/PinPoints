@@ -1,20 +1,26 @@
 import { useEffect, useState } from "react";
 import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import {
-  DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM, REGAL_LISTE_BREITE_PX,
+  DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM,
   SAISON_LABEL, SAISON_LISTE,
 } from "@/lib/constants";
-import { formatDate, handlungsgruende, nachReihen, raederNachSatz, suchtreffer } from "@/lib/helpers";
-import { IconLager, IconTrash } from "@/components/icons";
+import { handlungsgruende, nachReihen, raederNachSatz, suchtreffer } from "@/lib/helpers";
+import { passtZumFilter, reiheTitel, scanZiel, type LagerFilter } from "@/lib/lagerAnsicht";
 import { CustomerPicker } from "@/components/CustomerPicker";
+import { QrScanner } from "@/components/QrScanner";
 import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
 import { LangliegerListe } from "./LangliegerListe";
+import { PlatzBlatt } from "./PlatzBlatt";
 import { ProfilMarke } from "./ProfilMarke";
 import { RadBild } from "./RadBild";
 
-// Lager-Modul: zwei Ebenen wie ein eigenständiges Modul – erst die Übersicht aller Lager
-// (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze, inkl. Reifen-
-// Zuordnung über TireAssignModal. Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
+// Lager-Modul, neu gestaltet am 26.09.2026 (Entwurf „H · Lager", docs/lager.md).
+//
+// Vorher zwei Ebenen: erst eine Übersicht aller Lager als Kacheln, dann nach Klick die
+// Regalwand eines Lagers. Jetzt EINE Seite: oben die Suche über alle Lager, der Scan-Knopf und
+// die Lager als Umschalter; darunter die Zahlen des gewählten Lagers, eine Zeile Filter und je
+// Reihe eine Karte mit kleiner Regalwand, die sich zu den Plätzen aufklappt. Ein Platz öffnet
+// ein Blatt (PlatzBlatt.tsx) statt gleich das Bearbeitungsfenster.
 
 // Erzeugt Lagerplatz-Codes aus einer einfachen Nummerierungslogik, z. B.
 // Präfix "A", 1–20, 2-stellig gepolstert → A-01 … A-20.
@@ -68,8 +74,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   // Alle Kundenfahrzeuge. Das Lager-Modul arbeitet nicht mit einem geöffneten Kunden, sondern
   // mit vielen Sätzen nebeneinander – deshalb hier der Vollabzug statt der Ausschnitt je Kunde.
   vehicles: Vehicle[]; warehouses: Warehouse[]; storageSlots: StorageSlot[]; tireStorages: TireStorage[];
-  // Für die Langlieger-Übersicht (Fahrplan E4): der heute gültige Monatspreis der Lagergebühr
-  // (null = keiner gepflegt) und der Weg ins Kundenfenster.
+  // Für die Langlieger-Übersicht (Fahrplan E4) und die Gebühr im Platz-Blatt: der heute
+  // gültige Monatspreis der Lagergebühr (null = keiner gepflegt) und der Weg ins Kundenfenster.
   lagergebuehrJeMonat: number | null;
   onOpenCustomer?: (kundeId: string) => void;
   // Die einzeln gemessenen Räder (Migration 33). Hier nur zum Anzeigen: Bearbeitet werden sie
@@ -82,6 +88,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   onAddSlotsBulk: (warehouseId: string, codes: string[]) => Promise<void>;
   onDeleteSlot: (id: string) => Promise<void>;
   onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
+  // Auslagern. Führt in app/page.tsx über den Auslagern-Dialog (Gebühr, Migration 46) – die
+  // Entscheidung „mit oder ohne Dialog" steht dort, nicht hier.
   onRemoveAssignment: (id: string) => Promise<void>;
   // Etikett für den Satz auf diesem Platz nachdrucken (17.09.2026). Der erste Druck passiert im
   // Auftragsfenster; hier geht es um den abgerissenen – dieselbe Begründung wie beim
@@ -98,15 +106,35 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   canAssignTire: boolean;
   // Lagerplatz, der beim Öffnen des Moduls direkt aufgeschlagen werden soll – gesetzt, wenn
   // die App über einen gescannten QR-Aufkleber aufgerufen wurde (?lagerplatz=…). Das Lager
-  // dazu wird mit ausgewählt, damit man nicht auf einer Lagerübersicht landet und selbst
-  // suchen muss. `onLagerplatzGeoeffnet` meldet zurück, dass der Sprung erledigt ist.
+  // dazu wird mit ausgewählt. `onLagerplatzGeoeffnet` meldet zurück, dass der Sprung erledigt ist.
   springeZuLagerplatzId?: string | null;
   onLagerplatzGeoeffnet?: () => void;
 }) {
-  // Zwei Ebenen wie ein eigenständiges Modul: erst die Übersicht aller Lager
-  // (mit Auslastung), dann – nach Klick auf ein Lager – dessen Lagerplätze.
-  const [selectedWarehouseId, setSelectedWarehouseId] = useState<string | null>(null);
-  const [showAddWarehouse, setShowAddWarehouse] = useState(false);
+  // Welches Lager gezeigt wird. `null` = das erste – so steht beim Öffnen sofort ein Lager da,
+  // statt einer Übersicht, die man erst wegklicken muss.
+  const [gewaehltesLagerId, setGewaehltesLagerId] = useState<string | null>(null);
+  const lager = warehouses.find((w) => w.id === gewaehltesLagerId) ?? warehouses[0] ?? null;
+  const plaetzeImLager = lager ? storageSlots.filter((s) => s.warehouse_id === lager.id) : [];
+
+  // „Wo liegt …?" sucht über ALLE Lager – niemand fragt „ist Müller in Lager 2", sondern „wo ist
+  // Müller". Der Filter darunter gilt für das gewählte Lager.
+  const [suche, setSuche] = useState("");
+  const [filter, setFilterRoh] = useState<LagerFilter>("alle");
+  // Aufgeklappte Reihen, Schlüssel „Lager|Reihe". Fehlt ein Schlüssel, gilt die Vorgabe: ohne
+  // Filter nur die erste Reihe, mit Filter alle – wer filtert, will die Treffer sehen.
+  const [offen, setOffen] = useState<Record<string, boolean>>({});
+  const setFilter = (f: LagerFilter) => { setFilterRoh(f); setOffen({}); };
+
+  const [blattSlotId, setBlattSlotId] = useState<string | null>(null);
+  const [bearbeitenSlot, setBearbeitenSlot] = useState<StorageSlot | null>(null);
+  // Lagerplätze, für die gerade ein Aufkleberbogen offen ist: ein einzelner Platz beim
+  // Nachdruck, alle Plätze eines Lagers bei der Erstausstattung.
+  const [aufkleberFuer, setAufkleberFuer] = useState<StorageSlot[] | null>(null);
+  // Das Blatt hinter „⋯": erst die Liste, dann das jeweilige Formular.
+  const [menue, setMenue] = useState<null | "liste" | "bearbeiten" | "plaetze" | "neu">(null);
+  const [scannerOffen, setScannerOffen] = useState(false);
+  const [scanHinweis, setScanHinweis] = useState<string | null>(null);
+
   const [newWarehouseName, setNewWarehouseName] = useState("");
   const [newWarehouseAddress, setNewWarehouseAddress] = useState("");
   const [newWarehouseNote, setNewWarehouseNote] = useState("");
@@ -115,57 +143,27 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   const [newEnd, setNewEnd] = useState("10");
   const [newDigits, setNewDigits] = useState("2");
   const [newSlotCode, setNewSlotCode] = useState("");
-  const [assignSlot, setAssignSlot] = useState<StorageSlot | null>(null);
-  // Lagerplätze, für die gerade ein Aufkleberbogen offen ist: ein einzelner Platz beim
-  // Nachdruck, alle Plätze eines Lagers bei der Erstausstattung.
-  const [aufkleberFuer, setAufkleberFuer] = useState<StorageSlot[] | null>(null);
-  const [editingWarehouse, setEditingWarehouse] = useState(false);
-  const [showAddMoreSlots, setShowAddMoreSlots] = useState(false);
   const [morePrefix, setMorePrefix] = useState("");
   const [moreStart, setMoreStart] = useState("1");
   const [moreEnd, setMoreEnd] = useState("10");
   const [moreDigits, setMoreDigits] = useState("2");
-
-  // Suchen und Filtern. Der Zustand steht hier oben, weil BEIDE Ebenen ihn brauchen: In der
-  // Lagerübersicht beantwortet dieselbe Eingabe „wo liegt N-AB 123?" über alle Lager hinweg,
-  // im geöffneten Lager filtert sie die Regalwand. Wer sucht, öffnet ein Lager und müsste
-  // sonst dieselben acht Zeichen ein zweites Mal tippen.
-  const [suche, setSuche] = useState("");
-  const [nurHandlung, setNurHandlung] = useState(false);
-  // Wand oder Liste. "auto" heißt: die Fensterbreite entscheidet – so war es bisher und so
-  // bleibt es, solange niemand widerspricht. Die beiden anderen Werte sind der Widerspruch.
-  const [ansicht, setAnsicht] = useState<"auto" | "wand" | "liste">("auto");
-  // Ist das Fenster schmal? Früher stand diese Regel im Stilblatt; sie steht jetzt hier, weil
-  // sonst der Umschalter dieselben zwanzig Layoutregeln ein zweites Mal gebraucht hätte.
-  // `null` heißt „noch nicht gemessen" – auf dem Server gibt es kein Fenster.
-  const [schmal, setSchmal] = useState<boolean | null>(null);
-  useEffect(() => {
-    const mq = window.matchMedia(`(max-width: ${REGAL_LISTE_BREITE_PX}px)`);
-    const merken = () => setSchmal(mq.matches);
-    merken();
-    mq.addEventListener("change", merken);
-    return () => mq.removeEventListener("change", merken);
-  }, []);
-
-  const selectedWarehouse = warehouses.find((w) => w.id === selectedWarehouseId) || null;
-  const slotsInWarehouse = storageSlots.filter((s) => s.warehouse_id === selectedWarehouseId);
+  const [editName, setEditName] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editNote, setEditNote] = useState("");
 
   // Kommt die App über einen gescannten Aufkleber (?lagerplatz=…), wird das passende Lager
-  // aufgeschlagen und der Platz gleich geöffnet. Läuft erst, wenn die Lagerplätze geladen
+  // gewählt und das Blatt des Platzes geöffnet. Läuft erst, wenn die Lagerplätze geladen
   // sind – deshalb hängt der Effekt an `storageSlots` und nicht nur an der Kennung.
   useEffect(() => {
     if (!springeZuLagerplatzId) return;
     const platz = storageSlots.find((sl) => sl.id === springeZuLagerplatzId);
     if (!platz) return;
-    setSelectedWarehouseId(platz.warehouse_id);
-    if (canAssignTire) setAssignSlot(platz);
+    setGewaehltesLagerId(platz.warehouse_id);
+    setBlattSlotId(platz.id);
     onLagerplatzGeoeffnet?.();
-  }, [springeZuLagerplatzId, storageSlots, canAssignTire, onLagerplatzGeoeffnet]);
-  const [editName, setEditName] = useState(selectedWarehouse?.name || "");
-  const [editAddress, setEditAddress] = useState(selectedWarehouse?.address || "");
-  const [editNote, setEditNote] = useState(selectedWarehouse?.note || "");
+  }, [springeZuLagerplatzId, storageSlots, onLagerplatzGeoeffnet]);
 
-  // Einmal gruppieren statt je Lagerplatzkarte den ganzen Radbestand zu durchsuchen.
+  // Einmal gruppieren statt je Platz den ganzen Radbestand zu durchsuchen.
   const raederJeSatz = raederNachSatz(eingelagerteRaeder);
   const raederVon = (satzId: string): EingelagertesRad[] => raederJeSatz.get(satzId) ?? [];
 
@@ -179,21 +177,14 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
       .filter((t) => t.storage_slot_id === slotId && !!t.removed_at)
       .sort((a, b) => (b.removed_at || "").localeCompare(a.removed_at || ""));
   }
-  // Warum an diesem Platz etwas zu tun ist – leere Liste heißt: nichts. Wird zweimal
-  // gebraucht (Punkt an der Kachel, Begründung im Zuordnungsfenster), deshalb hier und
-  // nicht in der Kachel.
+  // Warum an diesem Platz etwas zu tun ist – leere Liste heißt: nichts.
   function gruendeFuer(satz: TireStorage | null): string[] {
     if (!satz) return [];
     return handlungsgruende(satz, raederVon(satz.id), HANDLUNG_GRENZEN);
   }
 
-  // Die Felder, über die ein Lagerplatz gefunden wird – an EINER Stelle zusammengestellt,
-  // damit die Suche über alle Lager und der Filter in der Regalwand dieselben Treffer
-  // liefern. Zwei Listen wären zwei Suchen, die sich still voneinander entfernen: Man trägt
-  // das Kennzeichen an einer Stelle nach und wundert sich an der anderen.
-  //
-  // Der Platz-Code steht auch bei einem FREIEN Platz drin. „Wo ist A-14" ist eine legitime
-  // Frage, und die Antwort „A-14 ist leer" ist eine Antwort.
+  // Die Felder, über die ein Lagerplatz gefunden wird. Der Platz-Code steht auch bei einem
+  // FREIEN Platz drin: „Wo ist A-14" ist eine legitime Frage, und „A-14 ist leer" eine Antwort.
   function platzFelder(slot: StorageSlot, satz: TireStorage | null): (string | null | undefined)[] {
     if (!satz) return [slot.code];
     const kunde = customers.find((c) => c.id === satz.customer_id);
@@ -206,8 +197,32 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   }
 
   function occupiedCount(warehouseId: string): number {
-    const slotIds = storageSlots.filter((s) => s.warehouse_id === warehouseId).map((s) => s.id);
-    return tireStorages.filter((t) => slotIds.includes(t.storage_slot_id) && !t.removed_at).length;
+    const slotIds = new Set(storageSlots.filter((s) => s.warehouse_id === warehouseId).map((s) => s.id));
+    return tireStorages.filter((t) => slotIds.has(t.storage_slot_id) && !t.removed_at).length;
+  }
+
+  function platzOeffnen(slot: StorageSlot) {
+    setGewaehltesLagerId(slot.warehouse_id);
+    setBlattSlotId(slot.id);
+  }
+
+  // Der Scan-Knopf nimmt Regal-Aufkleber UND Satz-Etikett (lib/lagerAnsicht.ts, `scanZiel`).
+  function gescannt(text: string) {
+    setScannerOffen(false);
+    const ziel = scanZiel(text, storageSlots, tireStorages);
+    if (ziel.art === "platz") {
+      const platz = storageSlots.find((sl) => sl.id === ziel.slotId);
+      if (platz) { setSuche(""); setScanHinweis(null); platzOeffnen(platz); }
+      return;
+    }
+    if (ziel.art === "kunde") {
+      setScanHinweis("Dieser Satz ist schon ausgelagert – er liegt auf keinem Platz mehr.");
+      onOpenCustomer?.(ziel.kundeId);
+      return;
+    }
+    setScanHinweis(ziel.art === "unbekannt"
+      ? "Diesen Platz oder Satz gibt es in der App nicht (mehr)."
+      : "Das war kein PinPoints-Aufkleber.");
   }
 
   async function createWarehouse() {
@@ -217,153 +232,379 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     if (id && codes.length > 0) await onAddSlotsBulk(id, codes);
     setNewWarehouseName(""); setNewWarehouseAddress(""); setNewWarehouseNote("");
     setNewPrefix(""); setNewStart("1"); setNewEnd("10"); setNewDigits("2");
-    setShowAddWarehouse(false);
+    if (id) setGewaehltesLagerId(id);
+    setMenue(null);
   }
 
   function startEditWarehouse() {
-    if (!selectedWarehouse) return;
-    setEditName(selectedWarehouse.name);
-    setEditAddress(selectedWarehouse.address || "");
-    setEditNote(selectedWarehouse.note || "");
-    setEditingWarehouse(true);
+    if (!lager) return;
+    setEditName(lager.name);
+    setEditAddress(lager.address || "");
+    setEditNote(lager.note || "");
+    setMenue("bearbeiten");
   }
 
   async function saveEditWarehouse() {
-    if (!selectedWarehouse || !editName.trim()) return;
-    await onUpdateWarehouse(selectedWarehouse.id, { name: editName.trim(), address: editAddress.trim(), note: editNote.trim() });
-    setEditingWarehouse(false);
+    if (!lager || !editName.trim()) return;
+    await onUpdateWarehouse(lager.id, { name: editName.trim(), address: editAddress.trim(), note: editNote.trim() });
+    setMenue(null);
   }
 
   async function addMoreSlots() {
-    if (!selectedWarehouse) return;
+    if (!lager) return;
     const codes = buildSlotCodes(morePrefix, parseInt(moreStart, 10), parseInt(moreEnd, 10), parseInt(moreDigits, 10) || 2);
     if (codes.length === 0) return;
-    await onAddSlotsBulk(selectedWarehouse.id, codes);
+    await onAddSlotsBulk(lager.id, codes);
     setMorePrefix(""); setMoreStart("1"); setMoreEnd("10"); setMoreDigits("2");
-    setShowAddMoreSlots(false);
+    setMenue(null);
   }
 
-  // ---------------- Ebene 1: alle Lager ----------------
-  if (!selectedWarehouse) {
-    // „Wo liegt …?" – die Frage, die im Lager tatsächlich gestellt wird. Sie steht hier oben
-    // und nicht erst im geöffneten Lager, weil niemand fragt „ist Müller in Lager 2", sondern
-    // „wo ist Müller". Deckel bei 60 Treffern: Wer mehr bekommt, hat nicht gesucht, sondern
-    // geblättert – und für Blättern gibt es die Regalwand.
-    const trefferListe = suche.trim()
-      ? storageSlots
-          .map((sl) => ({ slot: sl, satz: currentAssignment(sl.id) }))
-          .filter(({ slot, satz }) => suchtreffer(platzFelder(slot, satz), suche))
-      : [];
+  async function addOneSlot() {
+    if (!lager || !newSlotCode.trim()) return;
+    await onAddSlot(lager.id, newSlotCode.trim());
+    setNewSlotCode("");
+  }
 
+  function lagerLoeschen() {
+    if (!lager) return;
+    // Fahrplan D3: Belegt heißt gesperrt, auch in der Datenbank (Migration 55). Ohne Belegung
+    // nennt die Rückfrage, was verloren geht.
+    const belegt = occupiedCount(lager.id);
+    if (belegt > 0) {
+      alert(`Lager "${lager.name}" kann nicht gelöscht werden: ${belegt} ${belegt === 1 ? "Platz ist" : "Plätze sind"} belegt. Erst auslagern oder umlagern.`);
+      return;
+    }
+    const verlauf = tireStorages.filter((t) => plaetzeImLager.some((sl) => sl.id === t.storage_slot_id)).length;
+    const text = `Lager "${lager.name}" wirklich löschen?\n\n`
+      + `Mitgelöscht werden ${plaetzeImLager.length} ${plaetzeImLager.length === 1 ? "Lagerplatz" : "Lagerplätze"}`
+      + (verlauf > 0 ? ` und der Verlauf von ${verlauf} früheren ${verlauf === 1 ? "Einlagerung" : "Einlagerungen"}.` : ".");
+    if (confirm(text)) { onDeleteWarehouse(lager.id); setGewaehltesLagerId(null); setMenue(null); }
+  }
+
+  // ---------------------------------------------------------------- Zahlen
+  const belegtGesamt = tireStorages.filter((t) => !t.removed_at && storageSlots.some((s) => s.id === t.storage_slot_id)).length;
+  const belegungen = plaetzeImLager.map((sl) => ({ slot: sl, satz: currentAssignment(sl.id) }));
+  const belegtImLager = belegungen.filter((b) => b.satz).length;
+  const freiImLager = plaetzeImLager.length - belegtImLager;
+  const zuPruefen = belegungen.filter((b) => gruendeFuer(b.satz).length > 0).length;
+  const reihen = nachReihen(plaetzeImLager);
+  const hatMenue = (lager && (canEditWarehouse || canCreateSlot || canDeleteWarehouse || plaetzeImLager.length > 0)) || canCreateWarehouse;
+
+  const trefferListe = suche.trim()
+    ? storageSlots
+        .map((sl) => ({ slot: sl, satz: currentAssignment(sl.id) }))
+        .filter(({ slot, satz }) => suchtreffer(platzFelder(slot, satz), suche))
+    : [];
+
+  // Eine Zeile für einen Platz – in der Suche und in der aufgeklappten Reihe dieselbe.
+  function platzZeile(slot: StorageSlot, satz: TireStorage | null, mitLager: boolean) {
+    const kunde = satz ? customers.find((c) => c.id === satz.customer_id) : null;
+    const fahrzeug = satz?.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
+    const gruende = gruendeFuer(satz);
+    const lagerName = mitLager ? warehouses.find((w) => w.id === slot.warehouse_id)?.name : null;
+    const info = satz
+      ? [lagerName, fahrzeug?.license_plate, satz.saison ? SAISON_LABEL[satz.saison] : null, fahrzeug?.tire_size].filter(Boolean).join(" · ")
+      : [lagerName, canAssignTire ? "antippen zum Einlagern" : null].filter(Boolean).join(" · ");
     return (
-      <div className="tabpanel active">
-        <div className="module-page">
-          <div className="module-header">
-            <div className="mh-icon"><IconLager /></div>
-            <div className="mh-text">
+      <button key={slot.id} type="button" className={"lg-zeile" + (satz ? "" : " frei")} onClick={() => platzOeffnen(slot)}>
+        <span className={"lg-code" + (satz ? "" : " frei") + (gruende.length ? " pruefen" : "")}>{slot.code}</span>
+        <span className="lg-zeile-text">
+          <span className="lg-zeile-kunde">{satz ? (kunde?.name ?? "Unbekannter Kunde") : "frei"}</span>
+          {info && <span className="lg-zeile-info">{info}</span>}
+          {gruende.length > 0 && <span className="lg-zeile-grund">{gruende.join(" · ")}</span>}
+        </span>
+        {satz && <ProfilMarke satz={satz} raeder={raederVon(satz.id)} praefix="" />}
+      </button>
+    );
+  }
+
+  const blattSlot = blattSlotId ? storageSlots.find((sl) => sl.id === blattSlotId) ?? null : null;
+  const blattSatz = blattSlot ? currentAssignment(blattSlot.id) : null;
+
+  return (
+    <div className="tabpanel active">
+      <div className="module-page lg-seite">
+        <div className="lg-leiste">
+          <div className="lg-kopf">
+            <div className="lg-titel">
               <h2>Lager</h2>
-              <p>{warehouses.length} Lager · {storageSlots.length} Lagerplätze insgesamt</p>
+              <span className="lg-unter">
+                {warehouses.length > 1
+                  ? `${warehouses.length} Lager · ${storageSlots.length} Plätze · ${belegtGesamt} ${belegtGesamt === 1 ? "Satz" : "Sätze"} eingelagert`
+                  : lager ? `${lager.name} · ${plaetzeImLager.length} Plätze · ${belegtImLager} eingelagert` : "noch kein Lager"}
+              </span>
             </div>
+            {hatMenue && (
+              <button type="button" className="lg-rund" onClick={() => setMenue("liste")} aria-label="Lager verwalten" title="Lager verwalten">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2" /><circle cx="12" cy="12" r="2" /><circle cx="19" cy="12" r="2" /></svg>
+              </button>
+            )}
           </div>
-
-          <div className="regal-filter">
-            <input
-              type="search"
-              placeholder="Wo liegt …? Kunde, Kennzeichen, Platz"
-              value={suche}
-              onChange={(e) => setSuche(e.target.value)}
-            />
+          <div className="lg-suche">
+            <label className="lg-suchfeld">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
+              <input type="search" placeholder="Kunde, Kennzeichen, Platz …" value={suche}
+                onChange={(e) => setSuche(e.target.value)} aria-label="Wo liegt …? Kunde, Kennzeichen, Platz" />
+            </label>
+            <button type="button" className="lg-scan" onClick={() => { setScanHinweis(null); setScannerOffen(true); }} aria-label="Aufkleber scannen" title="Regal-Aufkleber oder Satz-Etikett scannen">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><path d="M8 9h2v2H8zM14 9h2v2h-2zM8 14h2v2H8zM13 13h3v3" /></svg>
+            </button>
           </div>
+          {!suche.trim() && warehouses.length > 1 && (
+            <div className="lg-lagerwahl" role="group" aria-label="Lager wählen">
+              {warehouses.map((w) => {
+                const gesamt = storageSlots.filter((s) => s.warehouse_id === w.id).length;
+                return (
+                  <button key={w.id} type="button" className={lager?.id === w.id ? "aktiv" : ""}
+                    onClick={() => { setGewaehltesLagerId(w.id); setOffen({}); }}>
+                    {w.name} <span className="lg-lagerwahl-zahl">{occupiedCount(w.id)}/{gesamt}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
-          {suche.trim() !== "" && (
-            <>
-              <div className="regal-treffer">
-                {trefferListe.length === 0
-                  ? "Kein Lagerplatz passt dazu."
-                  : `${trefferListe.length} ${trefferListe.length === 1 ? "Lagerplatz passt" : "Lagerplätze passen"}`}
+        {scanHinweis && (
+          <div className="lg-hinweis" role="status">
+            <span>{scanHinweis}</span>
+            <button type="button" onClick={() => setScanHinweis(null)} aria-label="Hinweis schließen">✕</button>
+          </div>
+        )}
+
+        {suche.trim() ? (
+          <div className="lg-treffer">
+            <span className="lg-gruppe-titel">
+              {trefferListe.length === 0
+                ? "KEIN PLATZ PASST DAZU"
+                : `${trefferListe.length} ${trefferListe.length === 1 ? "PLATZ" : "PLÄTZE"}${warehouses.length > 1 ? " IN ALLEN LAGERN" : ""}`}
+            </span>
+            {trefferListe.slice(0, 60).map(({ slot, satz }) => platzZeile(slot, satz, warehouses.length > 1))}
+            {trefferListe.length > 60 && <span className="small">Es werden die ersten 60 gezeigt – bitte genauer suchen.</span>}
+          </div>
+        ) : !lager ? (
+          <div className="db-karte">
+            <div className="db-leer">
+              {canCreateWarehouse
+                ? "Noch kein Lager angelegt. Leg dein erstes Lager an, um Lagerplätze zu verwalten."
+                : "Noch kein Lager angelegt. Deine Rolle darf kein Lager anlegen."}
+            </div>
+            {canCreateWarehouse && <button type="button" className="lg-knopf primaer" style={{ marginTop: 10 }} onClick={() => setMenue("neu")}>Neues Lager anlegen</button>}
+          </div>
+        ) : (
+          <>
+            {(lager.address || lager.note) && (
+              <span className="lg-adresse">{[lager.address, lager.note].filter(Boolean).join(" · ")}</span>
+            )}
+
+            {plaetzeImLager.length === 0 ? (
+              <div className="db-karte">
+                <div className="db-leer">Noch keine Lagerplätze in diesem Lager.</div>
+                {canCreateSlot && <button type="button" className="lg-knopf primaer" style={{ marginTop: 10 }} onClick={() => setMenue("plaetze")}>Plätze anlegen</button>}
               </div>
-              <div className="card-grid">
-                {trefferListe.slice(0, 60).map(({ slot, satz }) => {
-                  const lager = warehouses.find((w) => w.id === slot.warehouse_id);
-                  const kunde = satz ? customers.find((c) => c.id === satz.customer_id) : null;
-                  const fahrzeug = satz?.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
+            ) : (
+              <>
+                <div className="db-kacheln">
+                  <div className="db-kachel">
+                    <span className="db-k-titel">Belegt</span>
+                    <span className="db-k-wert">{belegtImLager} <span className="db-k-von">/ {plaetzeImLager.length}</span></span>
+                    <span className="db-fortschritt"><span style={{ width: `${Math.round((belegtImLager / plaetzeImLager.length) * 100)}%` }} /></span>
+                  </div>
+                  <button type="button" className={"db-kachel" + (filter === "frei" ? " aktiv" : "")} onClick={() => setFilter(filter === "frei" ? "alle" : "frei")}>
+                    <span className="db-k-titel">Frei</span>
+                    <span className="db-k-wert">{freiImLager}</span>
+                    <span className="db-k-unter">{freiImLager === 1 ? "Platz" : "Plätze"}</span>
+                  </button>
+                  <button type="button" className={"db-kachel" + (filter === "pruefen" ? " aktiv" : "")} onClick={() => setFilter(filter === "pruefen" ? "alle" : "pruefen")}>
+                    <span className="db-k-titel">Zu prüfen</span>
+                    <span className={"db-k-wert" + (zuPruefen > 0 ? " orange" : "")}>{zuPruefen}</span>
+                    <span className="db-k-unter">Profil, Alter, liegt lange</span>
+                  </button>
+                </div>
+
+                <div className="pl-filter lg-filter" role="group" aria-label="Filter">
+                  {([
+                    ["alle", "Alle"],
+                    ["pruefen", `Zu prüfen · ${zuPruefen}`],
+                    ["frei", `Frei · ${freiImLager}`],
+                    ...SAISON_LISTE.map((s) => [s, SAISON_LABEL[s]] as const),
+                  ] as const).map(([wert, text]) => (
+                    <button key={wert} type="button" className={"pl-pille" + (filter === wert ? " aktiv" : "")}
+                      aria-pressed={filter === wert} onClick={() => setFilter(wert)}>{text}</button>
+                  ))}
+                </div>
+
+                {reihen.map(({ reihe, plaetze }, index) => {
+                  const schluessel = `${lager.id}|${reihe}`;
+                  const istOffen = schluessel in offen ? offen[schluessel] : (filter !== "alle" || index === 0);
+                  const zeilen = plaetze.map((sl) => ({ slot: sl, satz: currentAssignment(sl.id) }));
+                  const passend = zeilen.filter(({ satz }) => passtZumFilter(satz, gruendeFuer(satz), filter));
+                  const belegtHier = zeilen.filter((z) => z.satz).length;
+                  const pruefenHier = zeilen.filter((z) => gruendeFuer(z.satz).length > 0).length;
+                  // Mit Filter verschwindet eine Reihe ohne Treffer ganz – wie bisher an der Wand.
+                  if (filter !== "alle" && passend.length === 0) return null;
                   return (
-                    <button
-                      key={slot.id}
-                      type="button"
-                      className="wh-card"
-                      onClick={() => { setSelectedWarehouseId(slot.warehouse_id); setAssignSlot(slot); }}
-                    >
-                      <div className="wh-name">{slot.code}</div>
-                      <div className="wh-sub">{lager?.name || "Unbekanntes Lager"}</div>
-                      <div className="wh-stats">
-                        <span>
-                          {satz
-                            ? [kunde?.name, fahrzeug?.license_plate].filter(Boolean).join(" · ") || "belegt"
-                            : "frei"}
+                    <div key={schluessel} className="lg-reihe">
+                      <button type="button" className="lg-reihe-kopf" aria-expanded={istOffen}
+                        onClick={() => setOffen({ ...offen, [schluessel]: !istOffen })}>
+                        <span className="lg-reihe-zeile">
+                          <span className="lg-reihe-name">{reiheTitel(reihe, reihen.length)}</span>
+                          <span className="lg-reihe-unter">{belegtHier} von {plaetze.length} belegt</span>
+                          {pruefenHier > 0 && <span className="lg-reihe-pruefen">{pruefenHier} prüfen</span>}
+                          <span className={"db-pfeil" + (istOffen ? " auf" : "")} aria-hidden="true">›</span>
                         </span>
-                        {satz?.saison && <span>{SAISON_LABEL[satz.saison]}</span>}
-                      </div>
-                    </button>
+                        {/* Die Regalwand im Kleinen: ein Kästchen je Platz, in der Reihenfolge des
+                            Regals. Blau = belegt, gestrichelt = frei, orange Kante = zu prüfen. */}
+                        <span className="lg-wand" aria-hidden="true">
+                          {zeilen.map(({ slot, satz }) => (
+                            <span key={slot.id} className={[
+                              "lg-w", satz ? "belegt" : "frei",
+                              gruendeFuer(satz).length ? "pruefen" : "",
+                              passtZumFilter(satz, gruendeFuer(satz), filter) ? "" : "aus",
+                            ].filter(Boolean).join(" ")} />
+                          ))}
+                        </span>
+                      </button>
+                      {istOffen && (
+                        <div className="lg-zeilen">
+                          {passend.map(({ slot, satz }) => platzZeile(slot, satz, false))}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </div>
-              {trefferListe.length > 60 && (
-                <div className="regal-treffer">Es werden die ersten 60 gezeigt – bitte genauer suchen.</div>
-              )}
-            </>
-          )}
-
-          {tireStorages.some((t) => !t.removed_at) && (
-            <LangliegerListe
-              tireStorages={tireStorages}
-              customers={customers}
-              vehicles={vehicles}
-              storageSlots={storageSlots}
-              warehouses={warehouses}
-              monatspreisNetto={lagergebuehrJeMonat}
-              onOpenCustomer={onOpenCustomer}
-              onOpenWarehouse={(id) => setSelectedWarehouseId(id)}
-            />
-          )}
-
-          <div className="card-grid">
-            {warehouses.map((w) => {
-              const total = storageSlots.filter((s) => s.warehouse_id === w.id).length;
-              const occ = occupiedCount(w.id);
-              const pct = total > 0 ? Math.round((occ / total) * 100) : 0;
-              return (
-                <button key={w.id} type="button" className="wh-card" onClick={() => setSelectedWarehouseId(w.id)}>
-                  <div className="wh-name">{w.name}</div>
-                  {w.address && <div className="wh-sub">📍 {w.address}</div>}
-                  <div className="occ-bar"><div className="fill" style={{ width: `${pct}%` }}></div></div>
-                  <div className="wh-stats">
-                    <span>{occ} von {total} belegt</span>
-                    <span>{pct}%</span>
-                  </div>
-                </button>
-              );
-            })}
-            {canCreateWarehouse && !showAddWarehouse && (
-              <button type="button" className="add-card" onClick={() => setShowAddWarehouse(true)}>+ Neues Lager</button>
+              </>
             )}
-            {canCreateWarehouse && showAddWarehouse && (
-              <div className="wh-card" style={{ cursor: "default" }}>
-                <div className="field" style={{ marginBottom: 4 }}>
-                  <label>Name</label>
-                  <input
-                    type="text"
-                    autoFocus
-                    placeholder="z. B. Nürnberg Hauptlager"
-                    value={newWarehouseName}
-                    onChange={(e) => setNewWarehouseName(e.target.value)}
-                  />
+
+            {tireStorages.some((t) => !t.removed_at) && (
+              <LangliegerListe
+                tireStorages={tireStorages}
+                customers={customers}
+                vehicles={vehicles}
+                storageSlots={storageSlots}
+                warehouses={warehouses}
+                monatspreisNetto={lagergebuehrJeMonat}
+                onOpenPlatz={(slotId) => { const sl = storageSlots.find((s) => s.id === slotId); if (sl) platzOeffnen(sl); }}
+              />
+            )}
+          </>
+        )}
+      </div>
+
+      {blattSlot && (
+        <PlatzBlatt
+          slot={blattSlot}
+          wo={[warehouses.find((w) => w.id === blattSlot.warehouse_id)?.name,
+            (() => { const r = nachReihen(storageSlots.filter((s) => s.warehouse_id === blattSlot.warehouse_id)); const eigene = r.find((x) => x.plaetze.some((p) => p.id === blattSlot.id)); return eigene ? reiheTitel(eigene.reihe, r.length) : null; })(),
+          ].filter(Boolean).join(" · ")}
+          satz={blattSatz}
+          kunde={blattSatz ? customers.find((c) => c.id === blattSatz.customer_id) ?? null : null}
+          fahrzeug={blattSatz?.vehicle_id ? vehicles.find((v) => v.id === blattSatz.vehicle_id) ?? null : null}
+          raeder={blattSatz ? raederVon(blattSatz.id) : []}
+          gruende={gruendeFuer(blattSatz)}
+          verlauf={historyFor(blattSlot.id)}
+          customers={customers}
+          raederFuer={raederVon}
+          lagergebuehrJeMonat={lagergebuehrJeMonat}
+          canAssign={canAssignTire}
+          canDelete={canDeleteSlot}
+          onClose={() => setBlattSlotId(null)}
+          onKunde={onOpenCustomer ? (id) => { setBlattSlotId(null); onOpenCustomer(id); } : undefined}
+          // Das Blatt schließt, bevor ein anderes Fenster aufgeht: Auslagern-Dialog, Etikett und
+          // Aufkleberbogen liegen in eigenen Ebenen, und zwei offene Fenster übereinander sind eins zu viel.
+          onAuslagern={(id) => { setBlattSlotId(null); void onRemoveAssignment(id); }}
+          onBearbeiten={() => { setBlattSlotId(null); setBearbeitenSlot(blattSlot); }}
+          onEtikett={(id) => { setBlattSlotId(null); onEtikett(id); }}
+          onAufkleber={() => { setBlattSlotId(null); setAufkleberFuer([blattSlot]); }}
+          onLoeschen={() => { setBlattSlotId(null); void onDeleteSlot(blattSlot.id); }}
+        />
+      )}
+
+      {menue && (
+        <div className="modal-overlay auswahl-overlay" onClick={() => setMenue(null)}>
+          <div className="auswahl-blatt lg-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Lager verwalten">
+            <div className="ab-griff" />
+            {menue === "liste" && (
+              <>
+                <div className="ab-titel">{lager ? `${lager.name} verwalten` : "Lager"}</div>
+                {lager && canEditWarehouse && (
+                  <button type="button" className="ab-option" onClick={startEditWarehouse}>
+                    <span className="ab-text">Lager bearbeiten</span><span className="small">Name, Adresse, Notiz</span>
+                  </button>
+                )}
+                {lager && canCreateSlot && (
+                  <button type="button" className="ab-option" onClick={() => setMenue("plaetze")}>
+                    <span className="ab-text">Plätze anlegen</span><span className="small">einzeln oder nach Nummerierung</span>
+                  </button>
+                )}
+                {lager && plaetzeImLager.length > 0 && (
+                  <button type="button" className="ab-option" onClick={() => { setMenue(null); setAufkleberFuer(plaetzeImLager); }}>
+                    <span className="ab-text">Aufkleber drucken</span><span className="small">alle {plaetzeImLager.length} Plätze</span>
+                  </button>
+                )}
+                {canCreateWarehouse && (
+                  <button type="button" className="ab-option" onClick={() => setMenue("neu")}>
+                    <span className="ab-text">Neues Lager</span>
+                  </button>
+                )}
+                {lager && canDeleteWarehouse && (
+                  <button type="button" className="ab-option gefahr" onClick={lagerLoeschen}>
+                    <span className="ab-text">Lager löschen</span>
+                    {belegtImLager > 0 && <span className="small">geht erst, wenn es leer ist</span>}
+                  </button>
+                )}
+              </>
+            )}
+
+            {menue === "bearbeiten" && lager && (
+              <>
+                <div className="ab-titel">Lager bearbeiten</div>
+                <div className="field"><label>Name</label><input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
+                <div className="field"><label>Lageradresse</label><input type="text" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} /></div>
+                <div className="field"><label>Notiz</label><input type="text" value={editNote} onChange={(e) => setEditNote(e.target.value)} /></div>
+                <div className="row">
+                  <button className="btn-primary" style={{ flex: 1 }} onClick={saveEditWarehouse}>Speichern</button>
+                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMenue("liste")}>Zurück</button>
                 </div>
-                <div className="field" style={{ marginBottom: 4 }}>
+              </>
+            )}
+
+            {menue === "plaetze" && lager && (
+              <>
+                <div className="ab-titel">Plätze anlegen · {lager.name}</div>
+                <label>Ein Platz</label>
+                <div className="row">
+                  <input type="text" placeholder="z. B. A-01" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") void addOneSlot(); }} />
+                  <button className="btn-primary" style={{ flex: "0 0 auto" }} onClick={() => void addOneSlot()}>+ Platz</button>
+                </div>
+                <hr />
+                <label>Mehrere nach Nummerierung</label>
+                <SlotNumberingFields
+                  prefix={morePrefix} setPrefix={setMorePrefix}
+                  start={moreStart} setStart={setMoreStart}
+                  end={moreEnd} setEnd={setMoreEnd}
+                  digits={moreDigits} setDigits={setMoreDigits}
+                />
+                <div className="row">
+                  <button className="btn-primary" style={{ flex: 1 }} onClick={addMoreSlots}>Anlegen</button>
+                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMenue(null)}>Fertig</button>
+                </div>
+              </>
+            )}
+
+            {menue === "neu" && (
+              <>
+                <div className="ab-titel">Neues Lager</div>
+                <div className="field">
+                  <label>Name</label>
+                  <input type="text" autoFocus placeholder="z. B. Nürnberg Hauptlager" value={newWarehouseName} onChange={(e) => setNewWarehouseName(e.target.value)} />
+                </div>
+                <div className="field">
                   <label>Lageradresse (optional)</label>
                   <input type="text" placeholder="Straße, PLZ Ort" value={newWarehouseAddress} onChange={(e) => setNewWarehouseAddress(e.target.value)} />
                 </div>
-                <div className="field" style={{ marginBottom: 4 }}>
+                <div className="field">
                   <label>Notiz (optional)</label>
                   <input type="text" placeholder="z. B. Zugang nur über Hof" value={newWarehouseNote} onChange={(e) => setNewWarehouseNote(e.target.value)} />
                 </div>
@@ -375,407 +616,52 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                   end={newEnd} setEnd={setNewEnd}
                   digits={newDigits} setDigits={setNewDigits}
                 />
-                <div className="row" style={{ marginTop: 4 }}>
-                  <button className="btn-primary" style={{ flex: 1 }} onClick={createWarehouse}>Anlegen</button>
-                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setShowAddWarehouse(false)}>Abbrechen</button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {warehouses.length === 0 && !showAddWarehouse && (
-            <div className="empty">
-              {canCreateWarehouse
-                ? "Noch kein Lager angelegt. Leg dein erstes Lager an, um Lagerplätze zu verwalten."
-                : "Noch kein Lager angelegt. Deine Rolle darf kein Lager anlegen."}
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // ---------------- Ebene 2: Lagerplätze eines Lagers ----------------
-
-  // Die Regalwand. Die Anordnung steckt schon in den Platz-Codes – „BC-01" ist der erste
-  // Platz in Reihe BC –, deshalb braucht diese Ansicht keine Migration und keine
-  // Koordinatenfelder am Lagerplatz. Was im Raum nebeneinander liegt, steht nebeneinander
-  // im Code (siehe `nachReihen` in lib/helpers.ts).
-  const reihen = nachReihen(slotsInWarehouse);
-  // Eine einzelne namenlose Reihe ist keine Reihe, sondern einfach das Lager. Dann die
-  // Überschrift weglassen, statt „Ohne Reihe" über alles zu schreiben.
-  const zeigeReihenNamen = !(reihen.length === 1 && reihen[0].reihe === "");
-  const belegungen = slotsInWarehouse.map((sl) => currentAssignment(sl.id));
-  const belegtImLager = belegungen.filter(Boolean).length;
-  const mitHandlungsbedarf = belegungen.filter((a) => gruendeFuer(a).length > 0).length;
-
-  // Passt dieser Platz zu dem, was gerade gesucht und gefiltert ist?
-  function plattzPasst(slot: StorageSlot, satz: TireStorage | null): boolean {
-    if (nurHandlung && gruendeFuer(satz).length === 0) return false;
-    return suchtreffer(platzFelder(slot, satz), suche);
-  }
-  const filterAktiv = suche.trim() !== "" || nurHandlung;
-  const passendeAnzahl = slotsInWarehouse.filter((sl) => plattzPasst(sl, currentAssignment(sl.id))).length;
-  // Die Reihenliste gilt, wenn das Fenster schmal ist ODER der Nutzer sie gewählt hat.
-  // `schmal === null` heißt „noch nicht gemessen" – dann gilt die Wand, wie bisher.
-  const alsListe = ansicht === "liste" || (ansicht === "auto" && schmal === true);
-
-  return (
-    <div className="tabpanel active">
-      <div className="module-page">
-        <div className="breadcrumb" style={{ justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <button onClick={() => setSelectedWarehouseId(null)}>Lager</button>
-            <span className="sep">›</span>
-            <span className="current">{selectedWarehouse.name}</span>
-          </div>
-          {(canEditWarehouse || canDeleteWarehouse) && (
-            <div className="row" style={{ flex: "0 0 auto" }}>
-              {canEditWarehouse && (
-                <button className="btn-secondary" onClick={() => (editingWarehouse ? setEditingWarehouse(false) : startEditWarehouse())}>
-                  {editingWarehouse ? "Bearbeiten abbrechen" : "Lager bearbeiten"}
-                </button>
-              )}
-              {canDeleteWarehouse && (
-                <button className="btn-secondary" style={{ color: "#b33" }} onClick={() => {
-                  // Fahrplan D3: Bis zum 23.09.2026 ließ sich ein Lager mit vierzig
-                  // eingelagerten Kundensätzen mit einem Klick und einer nichtssagenden
-                  // Rückfrage löschen. Belegt heißt jetzt: gesperrt, auch in der Datenbank
-                  // (Migration 55). Ohne Belegung nennt die Rückfrage, was verloren geht.
-                  const belegt = occupiedCount(selectedWarehouse.id);
-                  if (belegt > 0) {
-                    alert(`Lager "${selectedWarehouse.name}" kann nicht gelöscht werden: ${belegt} ${belegt === 1 ? "Platz ist" : "Plätze sind"} belegt. Erst auslagern oder umlagern.`);
-                    return;
-                  }
-                  const plaetze = storageSlots.filter((sl) => sl.warehouse_id === selectedWarehouse.id);
-                  const verlauf = tireStorages.filter((t) => plaetze.some((sl) => sl.id === t.storage_slot_id)).length;
-                  const text = `Lager "${selectedWarehouse.name}" wirklich löschen?\n\n`
-                    + `Mitgelöscht werden ${plaetze.length} ${plaetze.length === 1 ? "Lagerplatz" : "Lagerplätze"}`
-                    + (verlauf > 0 ? ` und der Verlauf von ${verlauf} früheren ${verlauf === 1 ? "Einlagerung" : "Einlagerungen"}.` : ".");
-                  if (confirm(text)) { onDeleteWarehouse(selectedWarehouse.id); setSelectedWarehouseId(null); }
-                }}>
-                  Lager löschen
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {editingWarehouse ? (
-          <div className="wh-card" style={{ cursor: "default", maxWidth: 420 }}>
-            <div className="field" style={{ marginBottom: 4 }}><label>Name</label><input type="text" value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
-            <div className="field" style={{ marginBottom: 4 }}><label>Lageradresse</label><input type="text" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} /></div>
-            <div className="field" style={{ marginBottom: 4 }}><label>Notiz</label><input type="text" value={editNote} onChange={(e) => setEditNote(e.target.value)} /></div>
-            <div className="row">
-              <button className="btn-primary" style={{ flex: 1 }} onClick={saveEditWarehouse}>Speichern</button>
-              <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setEditingWarehouse(false)}>Abbrechen</button>
-            </div>
-          </div>
-        ) : (
-          <div className="module-header">
-            <div className="mh-icon"><IconLager /></div>
-            <div className="mh-text">
-              <h2>{selectedWarehouse.name}</h2>
-              <p>
-                {belegtImLager} von {slotsInWarehouse.length} Lagerplätzen belegt
-                {mitHandlungsbedarf > 0 ? ` · ${mitHandlungsbedarf} mit Handlungsbedarf` : ""}
-                {selectedWarehouse.address ? ` · 📍 ${selectedWarehouse.address}` : ""}
-              </p>
-              {selectedWarehouse.note && <p>{selectedWarehouse.note}</p>}
-            </div>
-          </div>
-        )}
-
-        {canCreateSlot && (
-          <>
-            <div className="row" style={{ maxWidth: 420 }}>
-              <input type="text" placeholder="Neuer Lagerplatz (z. B. A-01)" value={newSlotCode} onChange={(e) => setNewSlotCode(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && newSlotCode.trim()) { onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); } }} />
-              <button
-                className="btn-primary"
-                style={{ flex: "0 0 auto" }}
-                onClick={async () => { if (!newSlotCode.trim()) return; await onAddSlot(selectedWarehouse.id, newSlotCode.trim()); setNewSlotCode(""); }}
-              >
-                + Platz
-              </button>
-            </div>
-
-            {!showAddMoreSlots ? (
-              <button type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }} onClick={() => setShowAddMoreSlots(true)}>+ Mehrere Lagerplätze nach Nummerierung anlegen</button>
-            ) : (
-              <div className="wh-card" style={{ cursor: "default", maxWidth: 420 }}>
-                <SlotNumberingFields
-                  prefix={morePrefix} setPrefix={setMorePrefix}
-                  start={moreStart} setStart={setMoreStart}
-                  end={moreEnd} setEnd={setMoreEnd}
-                  digits={moreDigits} setDigits={setMoreDigits}
-                />
                 <div className="row">
-                  <button className="btn-primary" style={{ flex: 1 }} onClick={addMoreSlots}>Anlegen</button>
-                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setShowAddMoreSlots(false)}>Abbrechen</button>
+                  <button className="btn-primary" style={{ flex: 1 }} onClick={createWarehouse}>Anlegen</button>
+                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMenue(lager ? "liste" : null)}>Abbrechen</button>
                 </div>
-              </div>
-            )}
-          </>
-        )}
-
-        {slotsInWarehouse.length > 0 && (
-          <button
-            type="button" className="btn-secondary" style={{ alignSelf: "flex-start" }}
-            onClick={() => setAufkleberFuer(slotsInWarehouse)}
-          >
-            🏷 Aufkleber für alle {slotsInWarehouse.length} Lagerplätze drucken
-          </button>
-        )}
-
-        {slotsInWarehouse.length === 0 && <div className="empty">Noch keine Lagerplätze in diesem Lager.</div>}
-
-        {slotsInWarehouse.length > 0 && (
-          <div className="regal-filter">
-            <input
-              type="search"
-              placeholder="Suchen: Kunde, Kennzeichen, Platz"
-              value={suche}
-              onChange={(e) => setSuche(e.target.value)}
-            />
-            <label className="filter-schalter">
-              <input type="checkbox" checked={nurHandlung} onChange={(e) => setNurHandlung(e.target.checked)} />
-              nur Handlungsbedarf{mitHandlungsbedarf > 0 ? ` (${mitHandlungsbedarf})` : ""}
-            </label>
-            {/* Am schmalen Fenster ist die Wand keine ernsthafte Wahl – zwei Spalten mit
-                abgeschnittenen Namen sind genau das, wogegen die Liste gebaut wurde.
-                Deshalb erscheint der Umschalter dort gar nicht erst. */}
-            {schmal === false && (
-              <div className="ansicht-umschalter" role="group" aria-label="Darstellung">
-                <button type="button" aria-pressed={!alsListe} onClick={() => setAnsicht("wand")}>Wand</button>
-                <button type="button" aria-pressed={alsListe} onClick={() => setAnsicht("liste")}>Liste</button>
-              </div>
+              </>
             )}
           </div>
-        )}
-
-        {filterAktiv && (
-          <div className="regal-treffer">
-            {passendeAnzahl === 0
-              ? "Kein Lagerplatz passt dazu."
-              : `${passendeAnzahl} von ${slotsInWarehouse.length} Lagerplätzen passen`}
-          </div>
-        )}
-
-        {slotsInWarehouse.length > 0 && (
-          <div className="regal-legende">
-            <span><i className="leg-frei" aria-hidden="true" /> frei</span>
-            <span><i className="leg-belegt" aria-hidden="true" /> belegt</span>
-            <span><i className="leg-punkt" aria-hidden="true" /> hier ist etwas zu tun – antippen zeigt was</span>
-          </div>
-        )}
-
-        <div className={`regalwand${alsListe ? " liste" : ""}${filterAktiv ? " gefiltert" : ""}`}>
-          {reihen.map(({ reihe, plaetze }) => {
-            // Eine Reihe, in der gar nichts passt, verschwindet ganz. Einzelne Plätze bleiben
-            // dagegen stehen und werden nur zurückgeblendet: Wer „A-14" sucht, will auch
-            // sehen, dass links davon A-13 steht. Eine Wand, aus der man Plätze herausnimmt,
-            // ist keine Wand mehr.
-            const reiheAus = filterAktiv && !plaetze.some((sl) => plattzPasst(sl, currentAssignment(sl.id)));
-            return (
-            <div className={`regal-reihe${reiheAus ? " reihe-aus" : ""}`} key={reihe || "ohne-reihe"}>
-              {zeigeReihenNamen && (
-                <div className="reihe-name">{reihe ? `Reihe ${reihe}` : "Ohne Reihe"}</div>
-              )}
-              <div className="reihe-plaetze">
-                {plaetze.map((slot) => {
-                  const assignment = currentAssignment(slot.id);
-                  return (
-                    <Regalplatz
-                      key={slot.id}
-                      aus={filterAktiv && !plattzPasst(slot, assignment)}
-                      slot={slot}
-                      assignment={assignment}
-                      kunde={assignment ? customers.find((c) => c.id === assignment.customer_id) ?? null : null}
-                      fahrzeug={assignment?.vehicle_id ? vehicles.find((v) => v.id === assignment.vehicle_id) ?? null : null}
-                      raeder={assignment ? raederVon(assignment.id) : []}
-                      gruende={gruendeFuer(assignment)}
-                      canAssign={canAssignTire}
-                      canDelete={canDeleteSlot}
-                      onOeffnen={() => setAssignSlot(slot)}
-                      onAufkleber={() => setAufkleberFuer([slot])}
-                      verlauf={historyFor(slot.id).length}
-                      onLoeschen={() => onDeleteSlot(slot.id)}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-            );
-          })}
         </div>
-      </div>
+      )}
+
+      {scannerOffen && (
+        <QrScanner titel="Aufkleber scannen" onErkannt={gescannt} onClose={() => setScannerOffen(false)} />
+      )}
 
       {aufkleberFuer && (
         <LagerplatzAufkleber
           slots={aufkleberFuer}
-          lagerName={selectedWarehouse?.name || ""}
+          lagerName={warehouses.find((w) => w.id === aufkleberFuer[0]?.warehouse_id)?.name || ""}
           onClose={() => setAufkleberFuer(null)}
         />
       )}
 
-      {assignSlot && (
+      {bearbeitenSlot && (
         <TireAssignModal
-          slot={assignSlot}
+          slot={bearbeitenSlot}
           customers={customers}
-          assignment={currentAssignment(assignSlot.id)}
-          gruende={gruendeFuer(currentAssignment(assignSlot.id))}
-          history={historyFor(assignSlot.id)}
+          assignment={currentAssignment(bearbeitenSlot.id)}
+          gruende={gruendeFuer(currentAssignment(bearbeitenSlot.id))}
           raederFuer={raederVon}
-          onClose={() => setAssignSlot(null)}
+          onClose={() => setBearbeitenSlot(null)}
           vehicles={vehicles}
           onAssign={onAssignTire}
-          onRemove={onRemoveAssignment}
-          onEtikett={onEtikett}
         />
       )}
     </div>
   );
 }
 
-// Ein Platz an der Regalwand – dieselbe Komponente für beide Darstellungen.
-//
-// Breit wird daraus eine Kachel (Code, Kunde, Kennzeichen, Zustand untereinander), schmal
-// eine Zeile über die volle Breite. Der Unterschied steht vollständig im Stilblatt
-// (app/globals.css, „Regalwand"); hier gibt es dafür weder eine Verzweigung noch einen
-// Zustand. Das ist Absicht: Eine zweite Komponente für die Handyansicht wäre eine zweite
-// Stelle, an der man das Kennzeichen vergessen kann.
-//
-// Warum ein div mit role="button" und nicht ein <button>: In der Kachel stecken zwei eigene
-// Knöpfe (Aufkleber, Löschen). Ein Knopf im Knopf ist ungültiges HTML – das alte
-// Kachelgitter hatte genau das. Tastaturbedienung ist deshalb hier von Hand nachgezogen.
-function Regalplatz({ slot, assignment, kunde, fahrzeug, raeder, gruende, aus, canAssign, canDelete, verlauf, onOeffnen, onAufkleber, onLoeschen }: {
-  slot: StorageSlot;
-  assignment: TireStorage | null;
-  kunde: Customer | null;
-  fahrzeug: Vehicle | null;
-  raeder: EingelagertesRad[];
-  // Warum hier etwas zu tun ist. Leer heißt: nichts – dann erscheint auch kein Punkt.
+function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raederFuer, onClose, onAssign }: {
+  slot: StorageSlot; customers: Customer[]; vehicles: Vehicle[]; assignment: TireStorage | null;
+  // Warum an diesem Platz etwas zu tun ist. Steht auch im Blatt davor – hier noch einmal, weil
+  // man es beim Ändern der Werte vor Augen haben soll.
   gruende: string[];
-  // Passt dieser Platz NICHT zu Suche/Filter? Dann bleibt er stehen und wird nur
-  // zurückgeblendet – das Stilblatt entscheidet, ob das Ausgrauen oder Ausblenden heißt.
-  aus?: boolean;
-  canAssign: boolean;
-  canDelete: boolean;
-  // Wie viele FRÜHERE Einlagerungen auf diesem Platz lagen. Sie gehen beim Löschen mit
-  // (die Datenbank löscht sie über den Fremdschlüssel mit) – das steht in der Rückfrage.
-  verlauf: number;
-  onOeffnen: () => void;
-  onAufkleber: () => void;
-  onLoeschen: () => void;
-}) {
-  const belegt = !!assignment;
-  const kennzeichen = [fahrzeug?.license_plate, fahrzeug?.make_model].filter(Boolean).join(" · ");
-
-  function oeffnen() {
-    if (canAssign) onOeffnen();
-  }
-
-  const klassen = [
-    "regalplatz",
-    belegt ? "belegt" : "frei",
-    canAssign ? "" : "nicht-klickbar",
-    aus ? "platz-aus" : "",
-  ].filter(Boolean).join(" ");
-
-  return (
-    <div
-      className={klassen}
-      role={canAssign ? "button" : undefined}
-      // Ein zurückgeblendeter Platz ist nicht anklickbar (Stilblatt) – dann darf er auch
-      // nicht mit der Tabulatortaste erreichbar sein. Sonst landet der Fokus auf etwas,
-      // das man sieht, aber nicht bedienen kann.
-      tabIndex={canAssign && !aus ? 0 : undefined}
-      aria-label={`Lagerplatz ${slot.code}${belegt ? ` – ${kunde?.name ?? "belegt"}` : " – frei"}`}
-      onClick={oeffnen}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); oeffnen(); }
-      }}
-      // In der Kachel wird ein langer Name mit Auslassungspunkten gekürzt – die feste Höhe
-      // hält das Raster zusammen. Damit er trotzdem erreichbar bleibt, steht er hier im
-      // Tooltip, zusammen mit dem, was an diesem Platz zu tun ist.
-      title={[
-        belegt ? [kunde?.name, kennzeichen].filter(Boolean).join(" · ") : null,
-        ...gruende,
-        canAssign ? null : "Deine Rolle darf keine Reifen zuordnen.",
-      ].filter(Boolean).join(" · ") || undefined}
-    >
-      <span className="rp-code">
-        {gruende.length > 0 && <span className="rp-punkt" aria-hidden="true" />}
-        {slot.code}
-      </span>
-
-      {belegt ? (
-        <span className="rp-wer">
-          <b>{kunde ? kunde.name : "Unbekannter Kunde"}</b>
-          {kennzeichen && <span>{kennzeichen}</span>}
-        </span>
-      ) : (
-        <span className="rp-frei">frei</span>
-      )}
-
-      <span className="rp-meta">
-        {assignment && (
-          <>
-            <span>{assignment.dot_date ? `DOT ${assignment.dot_date}` : "DOT –"}</span>
-            <ProfilMarke satz={assignment} raeder={raeder} praefix="" />
-          </>
-        )}
-      </span>
-
-      <span className="rp-tools">
-        <button
-          type="button"
-          className="btn-secondary"
-          title={`Aufkleber für ${slot.code} drucken`}
-          onClick={(e) => { e.stopPropagation(); onAufkleber(); }}
-        >
-          🏷
-        </button>
-        {canDelete && (
-          <button
-            type="button"
-            className="btn-secondary"
-            title={`Lagerplatz ${slot.code} löschen`}
-            onClick={(e) => {
-              e.stopPropagation();
-              // Fahrplan D3: Ein belegter Platz wird nicht gelöscht – das erzwingt seit
-              // Migration 55 auch die Datenbank. Hier steht es vorher, damit niemand erst
-              // bestätigt und dann eine Fehlermeldung bekommt.
-              if (belegt) {
-                alert(`Lagerplatz "${slot.code}" ist belegt${kunde ? ` (${kunde.name})` : ""}. Erst den Satz auslagern oder umlagern, dann löschen.`);
-                return;
-              }
-              const zusatz = verlauf > 0
-                ? `\n\nAuf diesem Platz lagen früher ${verlauf} ${verlauf === 1 ? "Satz" : "Sätze"}. Dieser Verlauf wird mitgelöscht.`
-                : "";
-              if (confirm(`Lagerplatz "${slot.code}" wirklich löschen?${zusatz}`)) onLoeschen();
-            }}
-          >
-            <IconTrash />
-          </button>
-        )}
-      </span>
-    </div>
-  );
-}
-
-function TireAssignModal({ slot, customers, vehicles, assignment, gruende, history, raederFuer, onClose, onAssign, onRemove, onEtikett }: {
-  slot: StorageSlot; customers: Customer[]; vehicles: Vehicle[]; assignment: TireStorage | null; history: TireStorage[];
-  // Warum an der Kachel ein oranger Punkt sitzt. Der Punkt sagt „etwas", diese Liste „was" –
-  // wer den Platz öffnet, soll es nicht raten müssen.
-  gruende: string[];
-  // Die Räder eines Satzes – auch für die Historie, deren Räder beim Auslagern erhalten
-  // bleiben (entfernt wird die Einlagerung, nicht ihre Messwerte).
   raederFuer: (satzId: string) => EingelagertesRad[];
   onClose: () => void;
   onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
-  onRemove: (id: string) => Promise<void>;
-  onEtikett: (einlagerungId: string) => void;
 }) {
   const [customerId, setCustomerId] = useState(assignment?.customer_id || "");
   const [vehicleId, setVehicleId] = useState(assignment?.vehicle_id || "");
@@ -809,7 +695,7 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, histo
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-box" style={{ position: "relative" }}>
         <button className="modal-close" onClick={onClose}>✕</button>
-        <h2>Lagerplatz {slot.code}</h2>
+        <h2>{assignment ? `Lagerplatz ${slot.code} bearbeiten` : `Reifen auf ${slot.code} einlagern`}</h2>
         {gruende.length > 0 && (
           <div className="handlung-hinweis">
             <b>Hier ist etwas zu tun:</b>
@@ -893,46 +779,6 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, histo
         <button className="btn-primary btn-block" disabled={!customerId || saving} onClick={save}>
           {assignment ? "Zuordnung speichern" : "Reifen einlagern"}
         </button>
-        {assignment && (
-          <button
-            className="btn-secondary btn-block"
-            style={{ marginTop: 8 }}
-            onClick={() => onEtikett(assignment.id)}
-          >
-            Etikett nachdrucken
-          </button>
-        )}
-        {assignment && (
-          <button
-            className="btn-secondary btn-block"
-            style={{ marginTop: 8, color: "#b33" }}
-            onClick={() => { if (confirm("Zuordnung wirklich entfernen? Der Lagerplatz wird wieder frei.")) { onRemove(assignment.id); onClose(); } }}
-          >
-            Zuordnung entfernen
-          </button>
-        )}
-
-        {history.length > 0 && (
-          <>
-            <h4>Historie dieses Lagerplatzes</h4>
-            <div style={{ maxHeight: 160, overflowY: "auto" }}>
-              {history.map((h) => {
-                const cust = customers.find((c) => c.id === h.customer_id);
-                return (
-                  <div key={h.id} className="hist-entry">
-                    <span className="he-cust">{cust ? cust.name : "Unbekannter Kunde"}</span>
-                    {h.saison ? ` · ${SAISON_LABEL[h.saison]}` : ""}
-                    {h.dot_date ? ` · DOT ${h.dot_date}` : ""}
-                    {" "}
-                    <ProfilMarke satz={h} raeder={raederFuer(h.id)} praefix="" />
-                    <br />
-                    eingelagert {formatDate(h.created_at.slice(0, 10))} · entfernt {h.removed_at ? formatDate(h.removed_at.slice(0, 10)) : "–"}
-                  </div>
-                );
-              })}
-            </div>
-          </>
-        )}
       </div>
     </div>
   );

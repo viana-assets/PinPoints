@@ -10,16 +10,17 @@ import type {
   EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug, Rechnung,
 } from "@/lib/types";
 import {
-  todayStr, formatDate, formatOrderDateTime, isOrderPast, nextOrder, orderDateTime,
+  todayStr, formatDate, formatOrderDateTime, nextOrder, orderDateTime,
   effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
   getPhoneNumbers, navigationUrls, istHandy,
-  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, terminZeitraum, currentArticlePrice,
+  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen,
 } from "@/lib/helpers";
+import { LAGER_ENGPASS_AB } from "@/lib/dashboard";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
-  ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
+  RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
   ANRUF_PARAMETER, MITNEHMEN_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD,
   PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
   type Verb,
@@ -28,14 +29,17 @@ import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
 import { anrufAufsHandy } from "@/lib/push";
 import { MitnehmenFenster } from "@/components/auftraege/MitnehmenFenster";
-import { kundeZumAuftrag } from "@/lib/laufkunde";
+import { kundeZumAuftrag, kundeFuerAuftrag } from "@/lib/laufkunde";
+import { ohneTestkunden } from "@/lib/testkunde";
+import { APP_VERSION, neuigkeitenUngelesen } from "@/lib/version";
+import { NeuigkeitenBlatt } from "@/components/NeuigkeitenBlatt";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
 // Marke, Filter.
 import {
   IconKunden, IconTermine, IconMap, IconLager, IconAuftraege, IconMore,
-  IconNavPin, IconMarke, IconFilter, navPinSvgHtml,
+  IconMarke, IconFilter, navPinSvgHtml,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
@@ -48,7 +52,7 @@ import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
 import { AuswertungPanel } from "@/components/auswertung/AuswertungPanel";
-import { RechnungenPanel } from "@/components/rechnungen/RechnungenPanel";
+import { RechnungenPanel, type OffeneRechnung } from "@/components/rechnungen/RechnungenPanel";
 import { RechnungModal } from "@/components/rechnungen/RechnungModal";
 import { stelleRechnungAus, storniereRechnung } from "@/lib/api/rechnungen";
 import type { RechnungEntwurf } from "@/lib/rechnung";
@@ -61,8 +65,14 @@ import { AuslagernDialog, type AuslagernWahl } from "@/components/lager/Auslager
 import { ReifensatzEtikett } from "@/components/lager/ReifensatzEtikett";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
+import { WeiterePanel, type WeitereHinweis } from "@/components/WeiterePanel";
+import { InaktivePanel } from "@/components/kunden/InaktivePanel";
+import { TerminePanel } from "@/components/termine/TerminePanel";
+import { imZeitraum, terminPhase } from "@/lib/terminAnsicht";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { DashboardPanel } from "@/components/dashboard/DashboardPanel";
+import { KundenListePanel } from "@/components/kunden/KundenListePanel";
+import { anfangsbuchstabe, anzeigeName, rueckrufFaellig } from "@/lib/kundenAnsicht";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
 import { insertVehicle, updateVehicleById, deleteVehicleById } from "@/lib/api/vehicles";
 import {
@@ -85,7 +95,7 @@ import {
 import {
   markCustomerContacted, markCustomerOpen, setWiedervorlageBulk,
   setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
-  setzePositionVonHand, positionNeuSuchen,
+  setzePositionVonHand, positionNeuSuchen, testkundeLoeschen,
 } from "@/lib/api/customers";
 import { upsertModulePermissions, type Bereichsrechte } from "@/lib/api/permissions";
 import { fetchAuftragFahrzeuge, addAuftragFahrzeug, setKilometerstand, removeAuftragFahrzeug } from "@/lib/api/auftragFahrzeuge";
@@ -222,6 +232,9 @@ export default function HomePage() {
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
   // Zeitraum des Termine-Reiters. Steuert Liste UND Kartennadeln – siehe terminKundenIds.
   const [terminFilter, setTerminFilter] = useState<TerminFilter>("anstehend");
+  // Mitarbeiter im Termine-Reiter (26.09.2026, Entwurf L): „alle" oder eine employee-ID. Steuert
+  // wie der Zeitraum Liste UND Kartennadeln.
+  const [terminPerson, setTerminPerson] = useState<string>("alle");
 
   // Welche Zustände auf der Karte zu sehen sind, dazu der Auf-/Zu-Zustand des Schalters oben
   // rechts auf der Karte. Bewusst nur Sitzungszustand und NICHT in den Einstellungen: das ist
@@ -250,6 +263,9 @@ export default function HomePage() {
   // der Initialisierung. TypeScript kann das nicht sehen, weil der Zugriff in einem
   // find()-Callback steckt – zur Laufzeit wirft es.
   const [offenerAuftragId, setOffenerAuftragId] = useState<string | null>(null);
+  // „Was gibt es Neues": offen, und welche Fassung beim Öffnen zuletzt gelesen war (damit die
+  // Einträge im Blatt „neu" tragen, obwohl das Öffnen den Merker schon weitergesetzt hat).
+  const [neuigkeitenVon, setNeuigkeitenVon] = useState<string | null | undefined>(undefined);
   // Abendhinweis „Reifen mitnehmen" (Migration 55): Für welchen Tag ist die Mitnehmen-Liste
   // offen? Null = zu. Gesetzt über `?mitnehmen=YYYY-MM-DD` aus der angetippten Meldung.
   const [mitnehmenDatum, setMitnehmenDatum] = useState<string | null>(null);
@@ -289,6 +305,9 @@ export default function HomePage() {
   // „Nur mit schwachem Profil" – der Filter, der aus der Anrufliste eine Verkaufsliste macht
   // (docs/lager-ausbaukonzept.md, D2/D3).
   const [saisonNurSchwach, setSaisonNurSchwach] = useState(false);
+  // „Ohne Termin" (26.09.2026, Entwurf I): Wer schon einen Wechseltermin hat, muss nicht
+  // angerufen werden – deshalb ist der Filter von vornherein an.
+  const [saisonOhneTermin, setSaisonOhneTermin] = useState(true);
   // „Punkt setzen": Für welchen Kunden warten wir gerade auf einen Klick in die Karte?
   // (Migration 35). Der Leaflet-Klickhandler wird EINMAL angemeldet und liest den aktuellen
   // Wert über das Ref – ein Handler, der eine React-Zustandsvariable einfängt, sähe für immer
@@ -325,7 +344,7 @@ export default function HomePage() {
   // Öffnen des jeweiligen Moduls bzw. des Kundendetails.
   const kundeOffen = selectedId !== null;
   const brauchtMitarbeiter = tab === "auftraege" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || tab === "auswertung" || kundeOffen;
-  const brauchtArtikel = tab === "artikel" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || kundeOffen;
+  const brauchtArtikel = tab === "artikel" || tab === "more" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || kundeOffen;
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
@@ -369,7 +388,7 @@ export default function HomePage() {
     supabase,
     sitzungBereit && (brauchtMitarbeiter || offenerAuftragId !== null)
   );
-  const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && tab === "dashboard");
+  const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && (tab === "dashboard" || tab === "more"));
   const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
   // Der Briefkopf. Gebraucht, sobald eine Rechnung entstehen oder gezeigt werden soll –
   // NICHT beim Start: Er steht in keiner Liste und in keiner Karte.
@@ -1257,6 +1276,16 @@ export default function HomePage() {
     await refreshCustomers();
     await refreshOrders();
   }
+  // Testkunde restlos löschen (Migration 60). Wie oben: erst das Fenster zu, dann neu laden –
+  // und diesmal alles, woran der Kunde hing: Aufträge, Rechnungen, Lager, Fahrzeuge.
+  async function testkundeRestlosLoeschen(id: string) {
+    await testkundeLoeschen(supabase, id);
+    setSelectedId(null);
+    await refreshCustomers();
+    await refreshOrders();
+    await refreshTireStorages();
+    neuLaden(qk.rechnungen(), qk.fahrzeuge());
+  }
   async function updateCustomerFields(id: string, fields: Partial<Customer>) {
     const cust = customers.find((c) => c.id === id);
     await updateCustomerFieldsById(supabase, id, fields, cust?.address);
@@ -1280,6 +1309,7 @@ export default function HomePage() {
     auftragAnlegen: boolean;
     laufkundschaft: boolean;
     einmalkunde: boolean;
+    testkunde: boolean;
   }) {
     const { id: createdId, lat } = await insertCustomer(supabase, fields);
     await refreshCustomers();
@@ -1724,6 +1754,10 @@ export default function HomePage() {
     await updateUserSettings(supabase, liveRef.current.settings.user_id, patch);
   }
   saveSettingsRef.current = saveSettingsPatch;
+  function neuigkeitenOeffnen() {
+    setNeuigkeitenVon(settings.neuigkeiten_gesehen ?? null);
+    if (settings.neuigkeiten_gesehen !== APP_VERSION && settings.user_id) void saveSettingsPatch({ neuigkeiten_gesehen: APP_VERSION });
+  }
   async function handleLogout() {
     await supabase.auth.signOut();
     // Der offline gespeicherte Datenbestand gehört zur Anmeldung, nicht zum Gerät. Ohne
@@ -1758,7 +1792,8 @@ export default function HomePage() {
             || (c.company || "").toLowerCase().includes(s)
             || (c.email || "").toLowerCase().includes(s);
         })
-        .filter((c) => !letterFilter || c.name.trim().charAt(0).toUpperCase() === letterFilter)
+        // Nach dem angezeigten Namen (bei Firmen die Firma), wie Sortierung und Gruppen der Liste.
+        .filter((c) => !letterFilter || anfangsbuchstabe(c) === letterFilter)
         .filter((c) => {
           if (!plzFilter.trim()) return true;
           const match = c.address.match(/\b\d{5}\b/);
@@ -1782,10 +1817,12 @@ export default function HomePage() {
   // Ein Durchlauf für alle sechs Zahlen statt sechs Durchläufe. Bei 4500 Kunden ist das der
   // Unterschied zwischen einmal und sechsmal Rechnen bei jedem Tastendruck im Suchfeld.
   const filterZahlen = useMemo(() => {
-    const z = { all: vorgefiltert.length, offen: 0, ok: 0, wiedervorlage: 0, termin: 0, kein_interesse: 0, nogeo: 0 };
+    const z: Record<KundenFilter, number> = { all: vorgefiltert.length, offen: 0, ok: 0, wiedervorlage: 0, termin: 0, kein_interesse: 0, nogeo: 0, rueckruf: 0 };
+    const heute = todayStr();
     vorgefiltert.forEach((c) => {
       if (c.lat == null) z.nogeo++;
       const farbe = kundenZustand(c);
+      if (rueckrufFaellig(c, farbe, heute)) z.rueckruf++;
       if (farbe === "red") z.offen++;
       else if (farbe === "green") z.ok++;
       else if (farbe === "wiedervorlage") z.wiedervorlage++;
@@ -1822,9 +1859,11 @@ export default function HomePage() {
           if (filter === "wiedervorlage") return color === "wiedervorlage";
           if (filter === "termin") return color === "termin";
           if (filter === "kein_interesse") return color === "kein-interesse";
+          if (filter === "rueckruf") return rueckrufFaellig(c, color, todayStr());
           return true;
         })
-        .sort((a, b) => a.name.localeCompare(b.name, "de")),
+        // Nach dem angezeigten Namen – bei Firmenkunden die Firma (lib/kundenAnsicht.ts).
+        .sort((a, b) => anzeigeName(a).localeCompare(anzeigeName(b), "de")),
     [vorgefiltert, filter, kundenZustand]
   );
   // Nur ein Ausschnitt der Treffer landet im Dokument, nachladbar per Knopf am Listenende.
@@ -1832,7 +1871,7 @@ export default function HomePage() {
   const sichtbareListItems = useMemo(() => listItems.slice(0, listenGrenze), [listItems, listenGrenze]);
   const availableLetters = useMemo(
     () =>
-      Array.from(new Set(activeCustomers.map((c) => c.name.trim().charAt(0).toUpperCase()).filter(Boolean)))
+      Array.from(new Set(activeCustomers.map((c) => anfangsbuchstabe(c)).filter(Boolean)))
         .sort((a, b) => a.localeCompare(b, "de")),
     [activeCustomers]
   );
@@ -1863,47 +1902,43 @@ export default function HomePage() {
   // Alle Termine (= Aufträge mit Datum) aktiver Kunden, chronologisch. Der Zeitraumfilter
   // greift erst danach, damit an jedem Filterknopf seine eigene Trefferzahl stehen kann –
   // dasselbe Muster wie bei den Kundenfiltern.
-  const alleTermine = useMemo(
-    () =>
-      customers
-        .filter((c) => c.active !== false)
-        // `kundeZumAuftrag`: Bei der Laufkundschaft steht der eingetragene Laufkunde da, mit
-        // seiner Nummer und seinem Einsatzort (Migration 57, lib/laufkunde.ts).
-        .flatMap((c) => (auftraegeJeKunde[c.id] || KEINE_AUFTRAEGE).map((o) => ({ cust: kundeZumAuftrag(o, c) ?? c, order: o, past: isOrderPast(o) })))
-        .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime()),
-    [customers, auftraegeJeKunde]
-  );
-
-  function imZeitraum(r: { order: Order; past: boolean }, wert: TerminFilter): boolean {
-    if (wert === "alle") return true;
-    if (wert === "anstehend") return !r.past;
+  //
+  // „vorbei" seit der Neugestaltung (26.09.2026) nach lib/terminAnsicht.ts: ein Termin, der
+  // gerade läuft, steht noch unter „Anstehend" – vorher fiel er mit seiner Anfangszeit heraus.
+  const alleTermine = useMemo(() => {
     const heute = todayStr();
-    if (wert === "heute") return r.order.order_date === heute;
-    const morgen = new Date(heute + "T00:00:00");
-    morgen.setDate(morgen.getDate() + 1);
-    const morgenStr = morgen.toISOString().slice(0, 10);
-    if (wert === "morgen") return r.order.order_date === morgenStr;
-    // 7 Tage: ab heute, sieben Tage nach vorn – die Woche, die man planen kann.
-    const grenze = new Date(heute + "T00:00:00");
-    grenze.setDate(grenze.getDate() + 7);
-    return r.order.order_date >= heute && r.order.order_date <= grenze.toISOString().slice(0, 10);
-  }
+    const jetzt = new Date();
+    const jetztMin = jetzt.getHours() * 60 + jetzt.getMinutes();
+    return customers
+      .filter((c) => c.active !== false)
+      // `kundeZumAuftrag`: Bei der Laufkundschaft steht der eingetragene Laufkunde da, mit
+      // seiner Nummer und seinem Einsatzort (Migration 57, lib/laufkunde.ts).
+      .flatMap((c) => (auftraegeJeKunde[c.id] || KEINE_AUFTRAEGE).map((o) => ({
+        cust: kundeZumAuftrag(o, c) ?? c, order: o,
+        vorbei: terminPhase(o, heute, jetztMin, terminIntervall) === "vorbei",
+      })))
+      .sort((a, b) => orderDateTime(a.order).getTime() - orderDateTime(b.order).getTime());
+  }, [customers, auftraegeJeKunde, terminIntervall]);
 
-  const apptRows = useMemo(
-    () => alleTermine.filter((r) => imZeitraum(r, terminFilter)),
-    [alleTermine, terminFilter]
+  // Beim gewählten Mitarbeiter – die Zahlen an den Zeitraum-Knöpfen gelten für ihn.
+  const personTermine = useMemo(
+    () => terminPerson === "alle" ? alleTermine : alleTermine.filter((r) => (orderEmployees[r.order.id] || []).includes(terminPerson)),
+    [alleTermine, terminPerson, orderEmployees]
   );
+
+  const apptRows = useMemo(() => {
+    const heute = todayStr();
+    return personTermine.filter((r) => imZeitraum(r.order, r.vorbei, terminFilter, heute));
+  }, [personTermine, terminFilter]);
 
   const terminZahlen = useMemo(() => {
-    const z = { heute: 0, morgen: 0, woche: 0, anstehend: 0, alle: alleTermine.length };
-    alleTermine.forEach((r) => {
-      if (imZeitraum(r, "heute")) z.heute++;
-      if (imZeitraum(r, "morgen")) z.morgen++;
-      if (imZeitraum(r, "woche")) z.woche++;
-      if (!r.past) z.anstehend++;
+    const heute = todayStr();
+    const z: Record<TerminFilter, number> = { heute: 0, morgen: 0, woche: 0, anstehend: 0, alle: 0 };
+    personTermine.forEach((r) => {
+      for (const { wert } of TERMIN_FILTER) if (imZeitraum(r.order, r.vorbei, wert, heute)) z[wert]++;
     });
     return z;
-  }, [alleTermine]);
+  }, [personTermine]);
 
   // ---------------------------------------------------------------- Saisonliste
   //
@@ -1922,7 +1957,10 @@ export default function HomePage() {
     return currentArticlePrice(articlePrices.filter((p) => p.article_id === artikel.id), todayStr())?.net_price ?? null;
   }, [articles, articlePrices]);
 
-  const saisonZeilen = useMemo<SaisonZeile[]>(() => {
+  // Die Saisonliste in zwei Stufen: `saisonBasis` nur nach Saison – das ist die Antwort oben
+  // („86 Kunden haben Winterreifen bei uns") und die Grundlage der Gebietsvorschläge; darauf
+  // `saisonZeilen` mit allen Filtern – das ist die Liste, die Karte und die Anrufliste.
+  const saisonBasis = useMemo<SaisonZeile[]>(() => {
     if (tab !== "saison") return [];
     const kundeNach = new Map(customers.map((c) => [c.id, c]));
     const fahrzeugNach = new Map(alleFahrzeuge.map((v) => [v.id, v]));
@@ -1941,18 +1979,38 @@ export default function HomePage() {
       // Ohne Kunden keine Zeile: der Kunde kann gelöscht (Migration 19) oder außerhalb des
       // geladenen Bestands sein. Eine Zeile ohne Namen hilft niemandem beim Telefonieren.
       .filter((z): z is SaisonZeile => Boolean(z.cust))
-      .filter((z) => (saisonFilter === "alle" ? true : z.einlagerung.saison === saisonFilter))
+      .filter((z) => (saisonFilter === "alle" ? true : z.einlagerung.saison === saisonFilter));
+  }, [tab, tireStorages, eingelagerteRaeder, customers, alleFahrzeuge, storageSlots, saisonFilter]);
+
+  const saisonZeilen = useMemo<SaisonZeile[]>(() => {
+    return saisonBasis
       .filter((z) => (saisonPlz ? (plzAus(z.cust.address) || "").startsWith(saisonPlz) : true))
       .filter((z) => (saisonNurFaellige ? kundenZustand(z.cust) === "red" : true))
+      .filter((z) => (saisonOhneTermin ? !mitTermin.has(z.cust.id) : true))
       // Sätze ohne Messung fallen hier heraus – nicht, weil sie in Ordnung wären, sondern
       // weil über sie nichts bekannt ist. Sie als „schwach" zu führen, wäre eine Behauptung.
       .filter((z) => {
         if (!saisonNurSchwach) return true;
         const mm = satzProfilMm(z.einlagerung, z.raeder);
         return mm != null && mm < PROFIL_KRITISCH_MM;
-      })
-      .sort((a, b) => a.cust.name.localeCompare(b.cust.name, "de"));
-  }, [tab, tireStorages, eingelagerteRaeder, customers, alleFahrzeuge, storageSlots, saisonFilter, saisonPlz, saisonNurFaellige, saisonNurSchwach, kundenZustand]);
+      });
+  }, [saisonBasis, saisonPlz, saisonNurFaellige, saisonNurSchwach, saisonOhneTermin, kundenZustand, mitTermin]);
+
+  // Der nächste offene Termin je Kunde – für die Statuspille in der Saisonliste. Dieselbe Regel
+  // wie `kundenMitTermin` (offen oder in Arbeit, ab heute), nur mit dem Datum dazu.
+  const naechsterTerminJeKunde = useMemo(() => {
+    const m = new Map<string, { datum: string; zeit: string | null }>();
+    if (tab !== "saison") return m;
+    const heute = todayStr();
+    for (const o of orders) {
+      if (o.deleted_at || (o.status !== "offen" && o.status !== "in_arbeit") || o.order_date < heute) continue;
+      const bisher = m.get(o.customer_id);
+      if (!bisher || (o.order_date + (o.time ?? "99")) < (bisher.datum + (bisher.zeit ?? "99"))) {
+        m.set(o.customer_id, { datum: o.order_date, zeit: o.time });
+      }
+    }
+    return m;
+  }, [tab, orders]);
 
   async function saisonWiedervorlageSetzen(kundenIds: string[], datum: string) {
     setSaisonSchreibt(true);
@@ -2312,6 +2370,20 @@ export default function HomePage() {
 
   // Kurzform für die Anzeige in Tabellenzeilen: Bruttosumme, oder "–", wenn noch keine Leistung
   // zugeordnet ist.
+  // Für die Auftragskarten (26.09.2026): die Namen der Leistungen statt nur ihrer Zahl, dazu der
+  // Betrag – „2× Räderwechsel · Einlagerung · 180,00 €". Derselbe Betrag wie in orderArticlesLabel.
+  function leistungenText(orderId: string): string {
+    const rows = orderArticlesFor(orderId);
+    if (rows.length === 0) return "noch keine Leistungen";
+    const auftrag = orders.find((o) => o.id === orderId);
+    const totals = orderArticleTotals(rows, auftrag?.rechnung_noetig ?? false);
+    const namen = rows.map((r) => {
+      const name = articles.find((a) => a.id === r.article_id)?.short_name ?? "Leistung";
+      return r.quantity > 1 ? `${r.quantity.toLocaleString("de-DE")}× ${name}` : name;
+    });
+    return `${namen.join(" · ")} · ${formatEUR(totals.gross)}`;
+  }
+
   function orderArticlesLabel(orderId: string): string {
     const rows = orderArticlesFor(orderId);
     if (rows.length === 0) return "–";
@@ -2323,11 +2395,37 @@ export default function HomePage() {
     return `${rows.length} · ${formatEUR(totals.gross)}`;
   }
 
+  // „Noch nicht ausgestellt" für das Rechnungsbuch (Entwurf P) – dieselbe Regel wie die Karte in
+  // den Aufträgen (`rechnungOffen`) und aus demselben geladenen Zeitfenster.
+  const offeneRechnungen: OffeneRechnung[] = tab !== "rechnungen" ? [] : orders.filter(rechnungOffen)
+    .sort((a, b) => a.order_date.localeCompare(b.order_date))
+    .map((o) => {
+      const c = kundeFuerAuftrag(o, customers);
+      return { id: o.id, nummer: o.order_number, kunde: (c?.company || "").trim() || c?.name || o.title, datum: o.order_date,
+        netto: orderArticleTotals(orderArticlesFor(o.id), o.rechnung_noetig).net };
+    });
+
+  // Die Hinweise der Kachelseite „Weitere" – nur aus dem, was ohnehin geladen ist.
+  const weitereHinweise = ((): Partial<Record<TabKey, WeitereHinweis>> => {
+    const h: Partial<Record<TabKey, WeitereHinweis>> = {};
+    const heute = todayStr();
+    const heuteTermine = orders.filter((o) => o.order_date === heute && o.status !== "storniert" && !o.deleted_at).length;
+    h.termine = { text: heuteTermine ? `${heuteTermine} heute` : "heute keine Termine" };
+    const offenRe = orders.filter(rechnungOffen).length;
+    if (offenRe > 0) h.rechnungen = { text: `${offenRe} noch nicht ausgestellt`, dringend: true };
+    if (inactiveCustomers.length) h.inactive = { text: `${inactiveCustomers.length} deaktiviert` };
+    const ohnePreis = articles.filter((a) => a.active && !a.freitext && !currentArticlePrice(articlePrices.filter((x) => x.article_id === a.id), heute)).length;
+    if (ohnePreis > 0) h.artikel = { text: `${ohnePreis} ohne Preis`, dringend: true };
+    const k = lagerKennzahlenQuery.data;
+    if (k && k.gesamt > 0) h.lager = { text: `${k.belegt} von ${k.gesamt} belegt`, dringend: k.gesamt - k.belegt < LAGER_ENGPASS_AB };
+    return h;
+  })();
+
   if (loading) {
     return <div style={{ padding: 40, fontFamily: "sans-serif" }}>Lädt…</div>;
   }
 
-  const upcomingApptCount = apptRows.filter((r) => !r.past).length;
+  const upcomingApptCount = apptRows.filter((r) => !r.vorbei).length;
   // Belegte und vorhandene Lagerplätze kommen als zwei count-Abfragen aus der Datenbank, statt
   // dafür das komplette Lager in den Browser zu laden und dort gegeneinander zu rechnen
   // (Roadmap Phase 10). Seit Migration 15 belegt eine aktive Einlagerung genau einen Platz.
@@ -2411,6 +2509,8 @@ export default function HomePage() {
         {tab === "dashboard" && (
           <DashboardPanel
             supabase={supabase}
+            neuigkeit={isAdmin ? neuigkeitenUngelesen(settings.neuigkeiten_gesehen)[0] ?? null : null}
+            onNeuigkeiten={isAdmin ? neuigkeitenOeffnen : undefined}
             orders={orders}
             orderEmployees={orderEmployees}
             customers={customers}
@@ -2440,212 +2540,79 @@ export default function HomePage() {
             onZuLager={() => setTab("lager")}
             onZuSaison={(saison) => { setSaisonFilter(saison); setTab("saison"); }}
             onZuAnrufliste={() => { setFilter("offen"); setTab("list"); }}
+            onZuRueckrufe={() => { setFilter("rueckruf"); setTab("list"); }}
             onZuRechnungen={canView("rechnungen") ? () => setTab("rechnungen") : undefined}
           />
         )}
 
         {tab === "list" && canView("kunden") && (
-          <div className="tabpanel active">
-            <input id="search" type="text" placeholder="Kunde oder Adresse suchen…" value={search} onChange={(e) => setSearch(e.target.value)} />
-            {/* Die Zahl steht an JEDEM Knopf, nicht nur am aktiven. So sieht man, was ein Klick
-                bringen würde, bevor man klickt – und dass unter „Ohne Karte" noch etwas liegt,
-                ohne erst dorthin zu wechseln. */}
-            <div className="filterbar">
-              {KUNDEN_FILTER.map(({ wert, text }) => (
-                <button
-                  key={wert}
-                  type="button"
-                  className={"chip" + (filter === wert ? " active" : "")}
-                  onClick={() => setFilter(wert)}
-                >
-                  {text}<span className="chip-zahl">{filterZahlen[wert]}</span>
-                </button>
-              ))}
-            </div>
-            <input
-              className="plz-input"
-              type="text"
-              inputMode="numeric"
-              maxLength={5}
-              placeholder="Postleitzahl filtern…"
-              value={plzFilter}
-              onChange={(e) => setPlzFilter(e.target.value.replace(/[^0-9]/g, ""))}
-            />
-            <div className="letter-strip">
-              <button
-                type="button"
-                className={"letter-chip" + (letterFilter === null ? " active" : "")}
-                onClick={() => setLetterFilter(null)}
-              >
-                A-Z
-              </button>
-              {availableLetters.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  className={"letter-chip" + (letterFilter === l ? " active" : "")}
-                  onClick={() => setLetterFilter(letterFilter === l ? null : l)}
-                >
-                  {l}
-                </button>
-              ))}
-            </div>
-            <div id="customerList">
-              {listItems.length === 0 && (
-                <div className="empty">
-                  {istOffline
-                    ? "Offline und kein gespeicherter Stand vorhanden – bitte einmal mit Netz öffnen."
-                    : "Keine Kunden gefunden."}
-                </div>
-              )}
-              {sichtbareListItems.map((c) => {
-                const color = c.lat == null ? "gray" : kundenZustand(c);
-                const nextOrd = nextOrder(ordersFor(c.id));
-                return (
-                  <div
-                    key={c.id}
-                    className="cust-item"
-                    onClick={() => { nadelHervorheben(null); openDetail(c.id); }}
-                    onMouseEnter={() => nadelHervorheben(c.id)}
-                    onMouseLeave={() => nadelHervorheben(null)}
-                  >
-                    <div className={`dot ${color}`}></div>
-                    <div className="info">
-                      {/* Bei Firmenkunden ist der Firmenname die Hauptangabe, der Name der
-                          Ansprechpartner darunter (Migration 24). */}
-                      <div className="name">{c.company || c.name}</div>
-                      {c.company && <div className="meta">👤 {c.name}</div>}
-                      <div className="addr">{c.address}</div>
-                      {/* Die Einstellung "Zeilenanzeige" soll immer greifen, unabhängig davon, ob
-                          ein Termin ansteht – ein anstehender Termin wird deshalb zusätzlich
-                          angezeigt statt die Einstellung zu ersetzen. */}
-                      <CustomerRowMeta customer={c} rowDisplay={settings.row_display} />
-                      {nextOrd && (
-                        <div className="meta">📅 Termin: {formatDate(nextOrd.order_date)}</div>
-                      )}
-                    </div>
-                    {/* Hinfahren und anrufen direkt aus der Liste: das sind die beiden
-                        Handlungen, die im Außendienst auf eine Kundenzeile folgen – nicht das
-                        Öffnen des Kundenfensters. Beide Handler halten den Klick auf, die Zeile
-                        öffnet also nicht zusätzlich das Fenster. */}
-                    <div className="zeilen-aktionen">
-                      {c.address.trim() && (
-                        <button
-                          className="call-icon-btn small nav-icon-btn"
-                          title="Navigation starten (Google Maps / Apple Karten)"
-                          onClick={(e) => openNavMenu(e, c)}
-                        >
-                          <IconNavPin />
-                        </button>
-                      )}
-                      {getPhoneNumbers(c).length > 0 && (
-                        <button className="call-icon-btn small" title="Anrufen" onClick={(e) => openCallMenu(e, c)}>📞</button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-              {listItems.length > sichtbareListItems.length && (
-                <div className="listen-mehr">
-                  <span>{sichtbareListItems.length} von {listItems.length} Kunden</span>
-                  <button type="button" onClick={() => setListenGrenze((g) => g + LISTEN_SCHRITT)}>
-                    Weitere {Math.min(LISTEN_SCHRITT, listItems.length - sichtbareListItems.length)} anzeigen
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
+          // Neu gestaltet am 26.09.2026 (Entwurf J). Gefiltert und gezählt wird weiter hier oben
+          // (vorgefiltert, filterZahlen, listItems) – die Komponente zeichnet nur.
+          <KundenListePanel
+            sichtbar={sichtbareListItems}
+            gesamtTreffer={listItems.length}
+            onMehr={() => setListenGrenze((g) => g + LISTEN_SCHRITT)}
+            schritt={LISTEN_SCHRITT}
+            gesamtKunden={statTotal}
+            search={search}
+            onSearch={setSearch}
+            filter={filter}
+            onFilter={setFilter}
+            filterZahlen={filterZahlen}
+            plz={plzFilter}
+            onPlz={setPlzFilter}
+            buchstabe={letterFilter}
+            onBuchstabe={setLetterFilter}
+            buchstaben={availableLetters}
+            alleKunden={activeCustomers}
+            zustand={kundenZustand}
+            naechsterTermin={(c) => nextOrder(ordersFor(c.id))}
+            rowDisplay={settings.row_display}
+            istOffline={istOffline}
+            onOpen={(id) => { nadelHervorheben(null); openDetail(id); }}
+            onHover={nadelHervorheben}
+            onNavigate={openNavMenu}
+            onCall={openCallMenu}
+            onNeu={modulSichtbar("kunden.schreiben") ? () => setTab("add") : undefined}
+          />
         )}
 
         {/* Termine = SCHNELLSICHT auf dieselben Aufträge, die der Reiter "Aufträge" ausführlich
             zeigt: wann bin ich wo, bei wem, mit wem. Keine zweite Datenquelle, keine zweite
             Wahrheit – nur eine andere Tiefe (siehe docs/termine-kontakt-auftrag-analyse.md).
 
-            Der Klick auf eine Zeile öffnet seit 29.08.2026 das AUFTRAGSFENSTER und nicht mehr
-            das Kundenfenster. Vorher führte aus dem Reiter, der nach dem Termin benannt ist,
-            kein einziger Weg zum dazugehörigen Auftrag – das war die Hauptursache für den
-            Eindruck, Termin und Auftrag seien nicht verknüpft. Der Kunde bleibt über eine
-            eigene Schaltfläche in der Zeile erreichbar. */}
+            Der Klick auf einen Termin öffnet seit 29.08.2026 das AUFTRAGSFENSTER und nicht mehr
+            das Kundenfenster; der Kunde bleibt über „⋯" erreichbar. Seit 26.09.2026 als
+            Zeitleiste (Entwurf L, components/termine/TerminePanel.tsx). */}
         {tab === "termine" && canView("termine") && (
-          <div className="tabpanel active">
-            {/* Zeitraum statt Häkchen: „Nur anstehende" beantwortete die eigentliche Frage
-                nicht – die lautet „wo bin ich heute" bzw. „wie liegen die Termine der Woche".
-                Die Auswahl steuert zugleich die Nadeln auf der Karte. */}
-            <div className="filterbar">
-              {TERMIN_FILTER.map(({ wert, text }) => (
-                <button
-                  key={wert}
-                  type="button"
-                  className={"chip" + (terminFilter === wert ? " active" : "")}
-                  onClick={() => setTerminFilter(wert)}
-                >
-                  {text}<span className="chip-zahl">{terminZahlen[wert]}</span>
-                </button>
-              ))}
-            </div>
-            <div className="small" style={{ marginTop: -2 }}>
-              Die Karte zeigt in diesem Reiter nur die Kunden mit Terminen aus dem gewählten
-              Zeitraum.
-            </div>
-            <div style={{ overflowY: "auto", overflowX: "auto", flex: 1 }}>
-              {apptRows.length === 0 ? (
-                <div className="empty">
-                  Keine Termine in diesem Zeitraum.
-                  {terminZahlen.alle > 0 && terminFilter !== "alle" && ' Unter "Alle" stehen ältere.'}
-                </div>
-              ) : (
-                <table className="appt-table">
-                  <thead><tr><th>Termin</th><th>Kunde</th><th>Auftrag</th><th></th></tr></thead>
-                  <tbody>
-                    {apptRows.map(({ cust, order, past }) => {
-                      const empNames = employeeNamesFor(order.id);
-                      return (
-                        <tr key={order.id} className={`klickbar${past ? " past" : ""}`} onClick={() => setOffenerAuftragId(order.id)} title="Auftrag öffnen">
-                          {/* Datum, Uhrzeit und der Hinweis „vergangen" untereinander statt in
-                              einer Zeile: nebeneinander zwang die Spalte in eine Breite, die auf
-                              dem Handy die halbe Liste auffraß. */}
-                          <td className="date-cell">
-                            <div>{formatDate(order.order_date)}</div>
-                            {/* Von–bis, nicht nur von (Migration 37). Die Endzeit stand hier
-                                seit ihrer Einführung nicht – man sah, wann der Techniker
-                                kommt, aber nicht, wie lange er bleibt, und genau das
-                                entscheidet, ob der nächste Termin noch draufpasst.
-                                `terminZeitraum` ist dieselbe Regel wie in der Auftragsliste;
-                                ohne Endzeit liefert sie weiterhin nur die Anfangszeit. */}
-                            {terminZeitraum(order) && <div className="date-zeit">{terminZeitraum(order)}</div>}
-                            {past && <div className="date-vergangen">vergangen</div>}
-                          </td>
-                          <td>{cust.name}<br /><span className="small">{cust.address}</span></td>
-                          <td>
-                            <span className={`badge ${ORDER_STATUS_FARBE[order.status]}`}>{ORDER_STATUS_LABEL[order.status]}</span>{" "}
-                            {order.title}
-                            {empNames !== "–" && <><br /><span className="small">👤 {empNames}</span></>}
-                          </td>
-                          <td onClick={(e) => e.stopPropagation()} style={{ whiteSpace: "nowrap" }}>
-                            <button className="call-icon-btn small" title="Kundenfenster öffnen" onClick={() => openDetail(cust.id)}>👤</button>
-                            {cust.address.trim() && (
-                              <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => openNavMenu(e, cust)}>
-                                <IconNavPin />
-                              </button>
-                            )}
-                            {getPhoneNumbers(cust).length > 0 && (
-                              <button className="call-icon-btn small" title="Anrufen" onClick={(e) => openCallMenu(e, cust)}>📞</button>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          </div>
+          <TerminePanel
+            zeilen={apptRows}
+            personZeilen={personTermine}
+            zeitraum={terminFilter}
+            onZeitraum={setTerminFilter}
+            zahlen={terminZahlen}
+            person={terminPerson}
+            onPerson={setTerminPerson}
+            personen={sichtbareMitarbeiter}
+            employees={employees}
+            orderEmployees={orderEmployees}
+            standardDauerMin={terminIntervall}
+            leistungenText={leistungenText}
+            onOpenOrder={setOffenerAuftragId}
+            onOpenCustomer={openDetail}
+            onEditEmployees={openEmpMenu}
+            onNavigate={openNavMenu}
+            onCall={openCallMenu}
+            isTechniker={isTechniker}
+          />
         )}
 
         {tab === "auftraege" && canView("auftraege") && (
           <>
-          <FensterSchalter wert={auftragsFenster} onChange={setAuftragsFenster} laedt={auftraegeQuery.isFetching} />
+          {/* Der geladene Zeitraum sitzt seit der Neugestaltung (26.09.2026) als Auswahlknopf in
+              der Bedienleiste – wie in der Einsatzplanung. */}
           <AuftraegePanel
+            fenster={{ wert: auftragsFenster, onChange: setAuftragsFenster, laedt: auftraegeQuery.isFetching }}
             customers={customers}
             orders={orders}
             employees={sichtbareMitarbeiter}
@@ -2653,14 +2620,12 @@ export default function HomePage() {
             onNeuerAuftrag={neuenAuftragAnlegen}
             onDelete={deleteOrder}
             onEditEmployees={openEmpMenu}
-            employeeNamesFor={employeeNamesFor}
-            orderArticlesLabel={orderArticlesLabel}
+            leistungenText={leistungenText}
             onOpenCustomer={openDetail}
             onOpenOrder={setOffenerAuftragId}
             onNavigate={openNavMenu}
             onCall={openCallMenu}
             isTechniker={isTechniker}
-            onUpdateTechnikerNotiz={updateTechnikerNotiz}
           />
           </>
         )}
@@ -2668,7 +2633,7 @@ export default function HomePage() {
         {tab === "saison" && canView("saison") && (
           <SaisonPanel
             zeilen={saisonZeilen}
-            gesamtAktiv={tireStorages.filter((ts) => !ts.removed_at).length}
+            basis={saisonBasis}
             saison={saisonFilter}
             onSaisonChange={setSaisonFilter}
             plz={saisonPlz}
@@ -2677,6 +2642,10 @@ export default function HomePage() {
             onNurFaelligeChange={setSaisonNurFaellige}
             nurSchwach={saisonNurSchwach}
             onNurSchwachChange={setSaisonNurSchwach}
+            ohneTermin={saisonOhneTermin}
+            onOhneTerminChange={setSaisonOhneTermin}
+            zustand={kundenZustand}
+            terminFuer={naechsterTerminJeKunde}
             warehouses={warehouses}
             onOpenCustomer={openDetail}
             onCall={openCallMenu}
@@ -2749,59 +2718,37 @@ export default function HomePage() {
           </>
         )}
 
+        {/* „Weitere" am Handy (26.09.2026, Entwurf V): Kacheln nach Gruppen, jede mit einem
+            Hinweis, ob dort etwas wartet. Das Dashboard fehlt bewusst – es steht unten in der Leiste. */}
         {tab === "more" && (
-          <div className="tabpanel active">
-            {/* Dieselbe Liste wie die Seitenleiste (lib/module.ts), nur als Kacheln. Das
-                Dashboard fehlt bewusst: Es steht am Handy schon unten in der Leiste, und ein
-                zweiter Weg zum selben Ort auf derselben Seite ist keine Hilfe, sondern eine
-                Frage („warum zweimal?"). */}
-            <div className="module-cards">
-              {MODULE.filter((m) => !m.primaer && modulSichtbar(m.sichtbar)).map((m) => (
-                <div key={m.tab} className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab(m.tab)}>
-                  <div className="mc-icon"><m.Icon /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">{m.label}</div>
-                    <div className="mc-sub">{m.beschreibung}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <WeiterePanel
+            module={MODULE.filter((m) => !m.primaer && modulSichtbar(m.sichtbar))}
+            hinweise={weitereHinweise}
+            onOeffnen={setTab}
+          />
         )}
 
         {tab === "inactive" && canView("kunden.lesen") && (
-          <div className="tabpanel active">
-            <div className="small" style={{ marginBottom: 4 }}>Deaktivierte Kunden erscheinen nicht mehr in der normalen Liste und haben keine Flagge auf der Karte.</div>
-            <div>
-              {inactiveCustomers.length === 0 && <div className="empty">Keine deaktivierten Kunden.</div>}
-              {inactiveCustomers.map((c) => (
-                <div key={c.id} className="cust-item" style={{ cursor: "default" }}>
-                  <div className="dot gray"></div>
-                  <div className="info">
-                    <div className="name">{c.name}</div>
-                    <div className="addr">{c.address}</div>
-                    <div className="row" style={{ marginTop: 6 }}>
-                      <button className="btn-secondary" onClick={() => setActive(c.id, true)}>✔ Reaktivieren</button>
-                      <button className="btn-secondary" onClick={() => openDetail(c.id)}>Bearbeiten</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          <InaktivePanel inaktive={inactiveCustomers} alle={customers} onSetActive={setActive} onOpen={openDetail} />
         )}
 
         {tab === "add" && canView("kunden.schreiben") && (
           <AddCustomerForm
             onAdd={addCustomer}
+            darfTestkunde={isSuperAdmin}
             terminText={terminTextVon(terminFuerNeuenKunden)}
             laufkundschaftName={customers.find((c) => c.laufkundschaft)?.name ?? null}
+            kunden={customers}
+            onOpenKunde={openDetail}
+            onZurLaufkundschaft={() => { const l = customers.find((c) => c.laufkundschaft); if (l) openDetail(l.id); }}
           />
         )}
 
         {tab === "settings" && canView("einstellungen") && (
           <SettingsPanel
             settings={settings}
+            onNeuigkeiten={isAdmin ? neuigkeitenOeffnen : undefined}
+            neuigkeitenUngelesen={isAdmin ? neuigkeitenUngelesen(settings.neuigkeiten_gesehen).length : 0}
             onChange={saveSettingsPatch}
             isAdmin={isAdmin}
             isSuperAdmin={isSuperAdmin}
@@ -2834,8 +2781,14 @@ export default function HomePage() {
 
         {tab === "auswertung" && canView("auswertung") && (
           <AuswertungPanel
-            employees={employees} articles={articles}
-            customers={customers} vehicles={alleFahrzeuge}
+            employees={employees} articles={articles} articlePrices={articlePrices}
+            customers={ohneTestkunden(customers)} vehicles={alleFahrzeuge}
+            darfRechnungen={canView("rechnungen")}
+            standardDauerMin={terminIntervall}
+            onOpenOrder={setOffenerAuftragId}
+            onOpenCustomer={openDetail}
+            onZuSaison={canView("saison") ? () => setTab("saison") : undefined}
+            onZuLager={canView("lager") ? () => setTab("lager") : undefined}
           />
         )}
 
@@ -2845,7 +2798,9 @@ export default function HomePage() {
             laedt={rechnungenQuery.isLoading}
             darfSchreiben={darf("rechnungen", "schreiben")}
             onAuftragOeffnen={auftragAusRechnungOeffnen}
+            onKundeOeffnen={openDetail}
             onStornieren={rechnungStornieren}
+            offene={offeneRechnungen}
           />
         )}
 
@@ -3041,6 +2996,10 @@ export default function HomePage() {
         </>
       )}
 
+      {neuigkeitenVon !== undefined && (
+        <NeuigkeitenBlatt gesehen={neuigkeitenVon} onClose={() => setNeuigkeitenVon(undefined)} />
+      )}
+
       {/* Kontaktdialog (Migration 23) – aus dem Karten-Popup wie aus dem Kundenfenster derselbe.
           Er liegt hier auf oberster Ebene und nicht in einem der beiden, damit es ihn genau
           einmal gibt: die Kontaktmaske existierte schon einmal doppelt und ist auseinander-
@@ -3098,6 +3057,7 @@ export default function HomePage() {
           // Ein anderer Auftrag = ein neues Fenster mit frischem Entwurf (Fahrplan D6).
           key={offenerAuftrag.id}
           order={offenerAuftrag}
+          onKundeOeffnen={(kundeId) => { setOffenerAuftragId(null); setFrischerAuftragId(null); openDetail(kundeId); }}
           andereAuftraege={orders}
           auftragsZuordnungen={orderEmployees}
           kundeName={(id) => customers.find((c) => c.id === id)?.name ?? "Unbekannter Kunde"}
@@ -3239,6 +3199,8 @@ export default function HomePage() {
           onMarkOpen={() => markOpen(selectedId)}
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}
+          onTestkundeLoeschen={isSuperAdmin ? () => testkundeRestlosLoeschen(selectedId) : undefined}
+          darfTestkundeUmschalten={isSuperAdmin}
           onNeuerAuftrag={() => { void neuenAuftragAnlegen(selectedId); }}
           onUpdateOrder={updateOrder}
           onDeleteOrder={deleteOrder}
@@ -3285,38 +3247,6 @@ export default function HomePage() {
           <button type="button" onClick={() => setFehler(null)} aria-label="Meldung schließen">×</button>
         </div>
       )}
-    </div>
-  );
-}
-
-// Umschaltung des geladenen Auftrags-Zeitfensters (Roadmap Phase 10). Steht über den beiden
-// Auftragslisten, weil sie sich dieselbe Abfrage teilen: was hier gewählt wird, gilt für den
-// Aufträge-Tab und die Einsatzplanung gleichermaßen.
-//
-// "Aktuell" enthält immer alle offenen Aufträge, unabhängig vom Alter – nur ERLEDIGTE werden
-// nach 30 Tagen ausgeblendet. Was noch zu tun ist, kann also nie aus dem Blick geraten.
-function FensterSchalter({ wert, onChange, laedt }: {
-  wert: AuftragsFenster;
-  onChange: (w: AuftragsFenster) => void;
-  laedt: boolean;
-}) {
-  const fenster: AuftragsFenster[] = ["aktuell", "jahr", "alles"];
-  return (
-    <div className="fenster-schalter">
-      <span className="fs-label">Geladener Zeitraum</span>
-      {fenster.map((f) => (
-        <button
-          key={f}
-          type="button"
-          className={"fs-btn" + (wert === f ? " active" : "")}
-          onClick={() => onChange(f)}
-        >
-          {AUFTRAGSFENSTER_LABEL[f]}
-        </button>
-      ))}
-      <span className="fs-hinweis">
-        {laedt ? "lädt…" : wert === "aktuell" ? "Erledigte der letzten 30 Tage, offene immer" : ""}
-      </span>
     </div>
   );
 }

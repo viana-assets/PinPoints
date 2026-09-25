@@ -51,13 +51,15 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `MODULE` | `lib/module.ts` | `ModulEintrag[]` | Alle Module/Reiter der App: Label, Beschreibung, Icon, Sichtbarkeitsschlüssel, Reihenfolge, primär/sekundär | `app/page.tsx` (Seitenleiste Desktop + Kachelseite „Weitere" am Handy), `tests/navigation.test.ts` |
 | `SEKUNDAERE_TABS` | `lib/module.ts` | `TabKey[]` (aus `MODULE` abgeleitet) | Welche Reiter am Handy hinter „Weitere" stecken | `app/page.tsx`, `tests/navigation.test.ts` |
 | `START_TAB` / `START_TAB_ERSATZ` | `lib/module.ts` | `TabKey` ("einsatzplanung" / "dashboard") | Womit die App beim Öffnen startet, und der Rückfall, wenn die Rolle das Startmodul nicht sehen darf (23.09.2026) | `app/page.tsx` |
+| `ADMIN_REITER` | `components/admin/AdminPanel.tsx` | `{ key, label, nurSuperadmin? }[]` (Nutzer · Mitarbeiter · Transporter · Rechte · Betrieb · Wartung · Protokoll · Papierkorb) | Reiter des Admin-Bereichs; „Rechte" nur für den Superadmin (26.09.2026, Entwurf U) | **nur intern** |
+| `WEITERE_GRUPPEN` | `lib/module.ts` | `{ titel, tabs: TabKey[] }[]` (Unterwegs · Lager · Kunden · Büro · System) | Gruppen und Reihenfolge der Kacheln auf der Seite „Weitere"; was in keiner Gruppe steht, kommt unter „Sonstiges" (26.09.2026, Entwurf V) | `components/WeiterePanel.tsx` über `weitereGruppen()`, `tests/weitereGruppen.test.ts` |
 ---
 
 ## Aufträge & Status
 
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
-| `ORDER_STATUS_LABEL` | `lib/constants.ts` | `Record<OrderStatus, string>` | Anzeigename je Auftragsstatus (Offen/In Arbeit/Erledigt/Storniert) | `AuftraegePanel`, `AuftragModal`, `CustomerOrderRow`, `Stundenraster`, `EinsatzplanungPanel`, `app/page.tsx` |
+| `ORDER_STATUS_LABEL` | `lib/constants.ts` | `Record<OrderStatus, string>` | Anzeigename je Auftragsstatus (Offen/In Arbeit/Erledigt/Storniert) | `AuftraegePanel`, `TerminePanel`, `DashboardPanel`, `AuftragModal`, `CustomerOrderRow`, `Stundenraster`, `EinsatzplanungPanel` |
 | `ORDER_STATUS_FARBE` | `lib/constants.ts` | `Record<OrderStatus, string>` | Farbklasse des Status-Badges | dieselben Stellen wie `ORDER_STATUS_LABEL` |
 | `ABGESCHLOSSENE_ZUSTAENDE` | `lib/constants.ts` | `OrderStatus[]` | Zustände (`erledigt`, `storniert`), in denen die Auftragspositionen eingefroren sind | **nur intern** – wird ausschließlich von `istAbgeschlossen()` gelesen; diese Funktion wiederum nutzt `CustomerOrderRow` |
 | `AUFTRAGSFENSTER_LABEL` | `lib/api/orders.ts` | `Record<AuftragsFenster, string>` | Beschriftung des geladenen Zeitraums (Aktuell/Dieses Jahr/Alle) | `app/page.tsx` (Fensterschalter) |
@@ -68,7 +70,8 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
-| `TERMIN_FILTER` | `lib/constants.ts` | `{ wert: TerminFilter; text: string }[]` | Zeitraum-Filter im Termine-Reiter (Heute/Morgen/7 Tage/Anstehend/Alle) | `app/page.tsx` |
+| `TERMIN_FILTER` | `lib/constants.ts` | `{ wert: TerminFilter; text: string }[]` | Zeitraum-Filter im Termine-Reiter (Heute/Morgen/7 Tage/Anstehend/Alle) | `app/page.tsx`, `TerminePanel` |
+| `TERMIN_LUECKE_AB_MIN` | `lib/terminAnsicht.ts` | `number` (60) | Ab so vielen freien Minuten zwischen zwei Terminen zeigt die Terminliste „frei 13:00–15:15" (26.09.2026) | **nur intern** – Vorgabe von `terminTage()`, darüber `TerminePanel`; `tests/terminAnsicht.test.ts` |
 | `KUNDE_PARAMETER` | `lib/constants.ts` | `string` ("kunde") | Aufrufparameter, mit dem eine Benachrichtigung/ein Link direkt den Kunden öffnet | `app/page.tsx` (Aufruf-Auswertung) |
 | `AUFTRAG_PARAMETER` | `lib/constants.ts` | `string` ("auftrag") | Aufrufparameter für einen bestimmten Auftrag/Termin | `app/page.tsx`, `app/api/push/senden/route.ts` |
 | `VORLAUF_MINUTEN` | `lib/constants.ts` | `number` (5) | Vorlauf der Terminerinnerung in Minuten | `app/api/push/senden/route.ts`, `tests/terminerinnerung.test.ts` |
@@ -84,7 +87,7 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
-| `KUNDEN_FILTER` | `lib/constants.ts` | `{ wert: KundenFilter; text: string }[]` | Die sechs Filter über der Kundenliste, mit Reihenfolge und Beschriftung | `app/page.tsx` (Filterleiste, Trefferzahlen) |
+| `KUNDEN_FILTER` | `lib/constants.ts` | `{ wert: KundenFilter; text: string }[]` | Die Zustandsfilter über der Kundenliste, mit Reihenfolge und Beschriftung. Der Typ `KundenFilter` kennt zusätzlich `"rueckruf"` (26.09.2026) – bewusst ohne eigenen Knopf, erreichbar über die Karte „Rückrufe heute fällig" und aus dem Dashboard | `KundenListePanel` (Pillen), `app/page.tsx` (Trefferzahlen, Filter) |
 | `KUNDEN_ZUSTAND_LABEL` | `lib/helpers.ts` | `Record<KundenZustand, string>` | Beschriftung der fünf Kundenzustände (kontaktiert/Termin/Wiedervorlage/offen/kein Interesse) | `DetailModal`, `app/page.tsx` (Karten-Popup, Kundenliste) |
 | `KUNDEN_ZUSTAND_REIHENFOLGE` | `lib/helpers.ts` | `readonly KundenZustand[]` | Reihenfolge der Zustände in Legenden/Auswahlen, nach Dringlichkeit sortiert | `app/page.tsx` (Zustandsfilter auf der Karte) |
 
@@ -106,7 +109,6 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `PROFIL_HINWEIS_MM` | `lib/constants.ts` | `number` (4) | Schwelle „Hinweis" | `ProfilMarke`, `RadBild`, `tests/profiltiefe.test.ts` |
 | `DOT_ALT_JAHRE` | `lib/constants.ts` | `number` (6) | Reifenalter (Jahre), ab dem der Kunde angesprochen werden soll | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
 | `LAGERDAUER_HINWEIS_TAGE` | `lib/constants.ts` | `number` (365) | Tage ohne Bewegung, ab denen ein Hinweis erscheint | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
-| `REGAL_LISTE_BREITE_PX` | `lib/constants.ts` | `number` (700) | Fensterbreite, ab der die Regalwand zur Reihenliste wird | `LagerPanel` – dieselbe Zahl steht zusätzlich hart in `app/globals.css` (dort per Kommentar auf hier verwiesen, weil CSS keine TS-Konstante lesen kann) |
 | `LANGLIEGER_MONATE` | `lib/helpers.ts` | `number` (18) | Monate, ab denen ein Satz als „Langlieger" gilt | **nur intern** – über `istLanglieger()` (`AuslagernDialog`, `tests/lagerdauer.test.ts`) |
 | `LANGLIEGER_EURO` | `lib/helpers.ts` | `number` (150) | Summenschwelle, ab der ein Satz als „Langlieger" gilt | dito, über `istLanglieger()` |
 
@@ -167,7 +169,13 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `MITNEHMEN_PARAMETER` | `lib/constants.ts` | `string` ("mitnehmen") | Aufrufparameter des Abendhinweises: `/?mitnehmen=YYYY-MM-DD` öffnet die Mitnehmen-Liste (Migration 55, 23.09.2026) | `lib/abendhinweisVersand.ts`, `app/page.tsx` (`zielOeffnen`) |
 | `ABENDHINWEIS_UHRZEIT_STANDARD` | `lib/constants.ts` | `string` ("20:00") | Uhrzeit des Abendhinweises ohne eigene Einstellung. Dieselbe Vorgabe steht als Spaltenvorgabe in `user_settings.abendhinweis_uhrzeit` (Migration 55) – beide gemeinsam ändern | `lib/mitnehmen.ts` (`abendhinweisFaellig`), `SettingsPanel`, `app/page.tsx` |
 | `PUSH_ABSENDER` | `lib/pushInhalt.ts` | `string` (aus `ERSCHEINUNG.kurzname`) | Titel der Testnachricht; folgt der Tarnung (23.09.2026) | `app/api/push/test` |
-| `LAGER_ENGPASS_AB` | `lib/dashboard.ts` | `number` (10) | Ab weniger freien Lagerplätzen zeigt das Dashboard unter „Zu erledigen" die Warnung „Lager wird knapp" (25.09.2026) | **nur intern** – `zuErledigen()`, darüber `DashboardPanel`; `tests/dashboard.test.ts` |
+| `AUSWERTUNGS_ZEITRAUM_LABEL` | `lib/auswertungAnsicht.ts` | `Record<AuswertungsZeitraum, string>` | Zeiträume der Auswertung: Monat, Saison, Quartal, Jahr, 12 Monate, Frei (26.09.2026) | `AuswertungPanel` |
+| `WECHSELSAISON` | `lib/auswertungAnsicht.ts` | `{ fruehjahr, herbst }` mit Monaten (3–5, 9–11) | Wann gewechselt wird – Grundlage von „Saison" und der Wiederkehr. Bewusst enger als `naechsteSaison()` (welche Reifen dran sind) | `zeitraumFuer()`, `aktuelleOderNaechsteSaison()`, `AuswertungPanel` |
+| `EINSATZ_RASTER_VON` / `EINSATZ_RASTER_BIS` | `lib/auswertungAnsicht.ts` | `number` (7 / 19) | Stundenbereich des Rasters Wochentag × Uhrzeit | `einsatz()`, `rasterHinweis()`, `AuswertungPanel` |
+| `DATEV_SPALTEN` | `lib/datev.ts` | `string[]` (125) | Spaltenüberschriften des DATEV-Buchungsstapels, Version 700 | **nur intern** – `datevBuchungsstapel()`; `tests/datev.test.ts` |
+| `AUFTRAGS_SORTIERUNG_LABEL` | `lib/auftragsAnsicht.ts` | `Record<AuftragsSortierung, string>` | Die Sortierungen der Auftragsliste mit Beschriftung: anstehende zuerst (Vorgabe), neueste zuerst, Kunde A–Z, Auftragsnummer (26.09.2026) | `AuftraegePanel`, `auftragsGruppen()` |
+| `LAGER_ENGPASS_AB` | `lib/dashboard.ts` | `number` (10) | Ab weniger freien Lagerplätzen zeigt das Dashboard unter „Zu erledigen" die Warnung „Lager wird knapp" (25.09.2026); seit 26.09.2026 färbt dieselbe Grenze die Kachel „Lager" auf der Seite „Weitere" orange | `zuErledigen()`, darüber `DashboardPanel`; `app/page.tsx` (Hinweise für „Weitere"); `tests/dashboard.test.ts` |
+| `WOCHENTAG_KURZ` | `lib/dashboard.ts` | `readonly ["So", …, "Sa"]` (Sonntag zuerst wie `getDay()`) | Kurze Wochentage für „Fr 25.9." (26.09.2026 zusammengeführt – stand vorher als Literal in `datumKurz()`) | `datumKurz()`, darüber Dashboard, Kundenfenster, Auftragsfenster, Aufträge im Kundenfenster |
 
 ---
 
@@ -260,3 +268,11 @@ sind:
   angefordert).
 - Für jede der 72 Konstanten wurde mit `grep -rn` nach jeder Verwendung im gesamten Projekt
   gesucht (außer `node_modules`, `.next`, `docs/`).
+
+## Fassung und Testkunden (26.09.2026)
+
+| Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
+|---|---|---|---|---|
+| `APP_VERSION` | `lib/version.ts` | `string` ("v78") | Fassung des Programms; immer gleich `FASSUNG` in `public/sw.js` | `SettingsPanel`, `NeuigkeitenBlatt`, `app/page.tsx`, `tests/version.test.ts` |
+| `NEUIGKEITEN` | `lib/version.ts` | `{ version, datum, titel, punkte[] }[]`, neueste zuerst | „Was gibt es Neues" je Fassung | `NeuigkeitenBlatt`, `neuigkeitenUngelesen()`, `tests/version.test.ts` |
+| `TEST_PRAEFIX` | `lib/testkunde.ts` | `"T"` | Buchstabe vor Testauftragsnummern; dieselbe Regel in `public.auftrag_nr_text()` (Migration 60) | `auftragsNr()` und darüber alle Anzeigen einer Auftragsnummer |
