@@ -163,6 +163,22 @@ export async function updateOrderById(supabase: SupabaseClient, id: string, fiel
   );
 }
 
+// Nur Tag und Uhrzeit (25.09.2026): Ein Termin wurde im Kalender gezogen. Bewusst ein eigener
+// Aufruf statt `updateOrderById`: Der schreibt Titel, Beschreibung und Status mit – aus dem
+// Kalender kennt man die nicht frisch, und ein Zug soll nichts anderes anfassen als die Zeit.
+export async function updateOrderTermin(supabase: SupabaseClient, id: string, termin: {
+  orderDate: string; time: string | null; endTime: string | null;
+}): Promise<void> {
+  await qWrite(
+    "Der Termin konnte nicht verschoben werden",
+    supabase.from("orders").update({
+      order_date: termin.orderDate,
+      time: termin.time || null,
+      end_time: termin.endTime || null,
+    }).eq("id", id)
+  );
+}
+
 // Welcher eigene Transporter fährt diesen Auftrag (Migration 32)? Eigener Aufruf wie beim
 // Kundenfahrzeug: eine Einteilung ist eine Handlung für sich und soll nicht erst beim
 // Speichern des ganzen Auftragsfensters wirksam werden.

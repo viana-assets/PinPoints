@@ -100,6 +100,43 @@ export function terminAusKlick(
   return { von: hhmmAus(start), bis: hhmmAus(ende) };
 }
 
+// ---------------------------------------------------------------- Termin ziehen (25.09.2026)
+//
+// Ein Termin im Stundenraster wird mit der Maus (am Handy nach langem Drücken) verschoben
+// oder unten an der Kante länger und kürzer gezogen – wie im Outlook-Kalender. Vorher ging
+// jede Uhrzeitänderung über das Auftragsfenster.
+//
+// Dieselben 15 Minuten wie beim Klick ins leere Raster, aus demselben Grund: So genau kann
+// man mit dem Finger zielen, und 10:15 ist eine Uhrzeit, die man erwartet – 10:07 nicht.
+// Hier wird allerdings GERUNDET und nicht abgerundet: Beim Ziehen sieht man den Block
+// wandern, das Auge sucht die nächste Linie, nicht die darüber.
+export const ZIEH_RASTER_MIN = 15;
+// Das späteste zulässige Ende. Die Datenbank verlangt HH:MM und ein Ende nach dem Beginn
+// (Migration 37) – 24:00 ist keine gültige Uhrzeit.
+const SPAETESTES_ENDE = 23 * 60 + 59;
+
+// `zeigerMin`: die Uhrzeit unter dem Zeiger, in Minuten seit Mitternacht.
+// `griffAbstand`: beim Verschieben, wie weit unter dem Terminbeginn man den Block angefasst
+// hat. Ohne ihn spränge der Block beim ersten Ruck mit seiner Oberkante unter den Finger.
+export function gezogenerTermin(
+  modus: "verschieben" | "dauer",
+  zeigerMin: number,
+  griffAbstand: number,
+  start: number,
+  ende: number
+): { start: number; ende: number } {
+  const r = ZIEH_RASTER_MIN;
+  if (modus === "verschieben") {
+    const dauer = Math.max(r, ende - start);
+    const roh = Math.round((zeigerMin - griffAbstand) / r) * r;
+    const neu = Math.max(0, Math.min(roh, SPAETESTES_ENDE - dauer));
+    return { start: neu, ende: neu + dauer };
+  }
+  // Dauer: nur das Ende bewegt sich, mindestens 15 Minuten nach dem Beginn.
+  const roh = Math.round(zeigerMin / r) * r;
+  return { start, ende: Math.max(start + r, Math.min(roh, SPAETESTES_ENDE)) };
+}
+
 export type Zeitraum = { start: number; ende: number };
 
 // Der Zeitraum eines Auftrags in Minuten seit Mitternacht.
