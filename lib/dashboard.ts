@@ -164,7 +164,8 @@ export function wochenUmsatz(orders: Order[], heute: string, betrag: (o: Order) 
   const jeTag = tage.map(() => 0);
   let erledigt = 0, gesamt = 0;
   for (const o of orders) {
-    if (o.deleted_at || o.status === "storniert") continue;
+    // Testaufträge (Migration 60, negative Nummer) sind kein Umsatz.
+    if (o.deleted_at || o.status === "storniert" || o.order_number < 0) continue;
     const i = tage.indexOf(o.order_date);
     if (i < 0) continue;
     gesamt++;
@@ -173,8 +174,11 @@ export function wochenUmsatz(orders: Order[], heute: string, betrag: (o: Order) 
   return { summe: jeTag.reduce((a, b) => a + b, 0), jeTag, erledigt, gesamt };
 }
 
+// Die Wochentage kurz, Sonntag zuerst wie `Date.getDay()`.
+export const WOCHENTAG_KURZ = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"] as const;
+
 // „Fr 25.9."
 export function datumKurz(iso: string): string {
   const d = new Date(iso + "T12:00:00");
-  return `${["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"][d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}.`;
+  return `${WOCHENTAG_KURZ[d.getDay()]} ${d.getDate()}.${d.getMonth() + 1}.`;
 }

@@ -57,7 +57,7 @@ export const MODULE: ModulEintrag[] = [
   { tab: "inactive",       label: "Inaktive Kunden",  beschreibung: "Deaktivierte Kunden ansehen & reaktivieren",                Icon: IconInaktiv,        sichtbar: "kunden.lesen" },
   { tab: "artikel",        label: "Artikel",          beschreibung: "Artikelstamm und Preis-Historie",                           Icon: IconArtikel,        sichtbar: "artikel" },
   { tab: "rechnungen",     label: "Rechnungen",       beschreibung: "Alle ausgestellten Rechnungen, Nachdruck und Storno",       Icon: IconRechnung,       sichtbar: "rechnungen" },
-  { tab: "auswertung",     label: "Auswertungen",     beschreibung: "Umsatz, Steuer, Nachlass, Saisonalität, Mitarbeiter, Artikel", Icon: IconAuswertung,   sichtbar: "auswertung" },
+  { tab: "auswertung",     label: "Auswertungen",     beschreibung: "Umsatz, Kunden, Einsatz, Lager, Artikel, DATEV-Export", Icon: IconAuswertung,   sichtbar: "auswertung" },
 
   { tab: "admin",          label: "Admin",            beschreibung: "Nutzer einladen & verwalten, Mitarbeiter, Firmenfahrzeuge", Icon: IconAdmin,          sichtbar: "admin", trennerDavor: "abstand" },
   { tab: "settings",       label: "Einstellungen",    beschreibung: "Anzeige, Wiedervorlage-Zeitraum, App, Abmelden",            Icon: IconSettings,       sichtbar: "einstellungen" },
@@ -73,3 +73,25 @@ export const START_TAB_ERSATZ: TabKey = "dashboard";
 // Welche Reiter stecken auf dem Handy hinter „Weitere"? Ergibt sich aus der Liste, statt
 // daneben gepflegt zu werden – sonst leuchtet der Knopf irgendwann beim falschen Modul.
 export const SEKUNDAERE_TABS: TabKey[] = MODULE.filter((m) => !m.primaer).map((m) => m.tab);
+
+// Die Gruppen der Kachelseite „Weitere" (26.09.2026, Entwurf „V · Weitere"). Ein Modul, das
+// hier fehlt, landet in „Sonstiges" – es verschwindet nicht, wenn jemand ein neues Modul ergänzt
+// und diese Liste vergisst (`weitereGruppen`).
+export const WEITERE_GRUPPEN: { titel: string; tabs: TabKey[] }[] = [
+  { titel: "Unterwegs", tabs: ["termine", "saison"] },
+  { titel: "Lager", tabs: ["lager"] },
+  { titel: "Kunden", tabs: ["add", "inactive"] },
+  { titel: "Büro", tabs: ["rechnungen", "auswertung", "artikel"] },
+  { titel: "System", tabs: ["admin", "settings"] },
+];
+
+export function weitereGruppen(module: ModulEintrag[]): { titel: string; module: ModulEintrag[] }[] {
+  const vergeben = new Set(WEITERE_GRUPPEN.flatMap((g) => g.tabs));
+  const gruppen = WEITERE_GRUPPEN.map((g) => ({
+    titel: g.titel,
+    module: g.tabs.map((t) => module.find((m) => m.tab === t)).filter((m): m is ModulEintrag => !!m),
+  }));
+  const rest = module.filter((m) => !vergeben.has(m.tab));
+  if (rest.length) gruppen.push({ titel: "Sonstiges", module: rest });
+  return gruppen.filter((g) => g.module.length > 0);
+}

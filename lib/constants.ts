@@ -177,7 +177,7 @@ export const RECHTE_KATALOG: RechtBereich[] = [
     warumNicht: "Eine Rechnung wird nicht gelöscht, sondern storniert. Eine fehlende Nummer ist eine Lücke im Kreis, und die erklärt man bei der nächsten Prüfung." },
 
   { schluessel: "auswertung", label: "Auswertungen", verben: ["lesen"],
-    erklaerung: "Umsatz, Steuer, Nachlass, Saisonalität, Mitarbeiter- und Artikelauswertung.",
+    erklaerung: "Umsatz, Kunden, Einsatz, Lager und Artikel; Export für den Steuerberater (DATEV).",
     warumNicht: "Auswertungen rechnen nur – sie legen nichts an und löschen nichts." },
   { schluessel: "einstellungen", label: "Einstellungen", verben: ["lesen", "schreiben"],
     erklaerung: "Anzeige, Wiedervorlage-Zeitraum, App. Jeder ändert ausschließlich seine eigenen.",
@@ -265,7 +265,10 @@ export const EMP_COLORS = ["#FF5A1F", "#1E9B6E", "#1E3A5F", "#8a5cf6", "#e0447a"
 // (Konstanten-Regel, siehe docs/README.md). Vorher standen die sechs Knöpfe als sechs fast
 // gleiche Zeilen im JSX; wer einen Zustand ergänzt, hätte ihn an drei Stellen nachtragen
 // müssen: Knopf, Filterbedingung und Zählung.
-export type KundenFilter = "all" | "offen" | "wiedervorlage" | "termin" | "ok" | "kein_interesse" | "nogeo";
+// „rueckruf" (26.09.2026) steht bewusst NICHT in der Knopfliste unten: Er ist kein eigener
+// Zustand, sondern ein Ausschnitt von „Offen" – erreichbar über die Karte „Rückrufe heute
+// fällig" über der Kundenliste und aus dem Dashboard.
+export type KundenFilter = "all" | "offen" | "wiedervorlage" | "termin" | "ok" | "kein_interesse" | "nogeo" | "rueckruf";
 
 // Zeitraum-Filter des Termine-Reiters. Steht hier und nicht in app/page.tsx, weil Liste UND
 // Karte damit gefiltert werden – zwei Stellen, eine Werteliste (Konstanten-Regel).
@@ -402,15 +405,6 @@ export const DOT_ALT_JAHRE = 6;
 // wechselt, ist ein Jahr ohne Bewegung ein ausgelassener Termin.
 export const LAGERDAUER_HINWEIS_TAGE = 365;
 
-// Ab welcher Fensterbreite die Regalwand von selbst zur Reihenliste wird. Dieselbe Zahl steht
-// im Stilblatt (app/globals.css, „Reihenliste“) – sie muss dort stehen, weil CSS keine
-// TypeScript-Konstante lesen kann. Wer sie ändert, ändert sie an beiden Stellen; der Kommentar
-// im Stilblatt verweist hierher.
-//
-// Von Hand lässt sich die Ansicht seitdem trotzdem umschalten: Die Breite ist die Vorgabe,
-// nicht das Gesetz.
-export const REGAL_LISTE_BREITE_PX = 700;
-
 // ---------------------------------------------------------------- Protokoll (Migration 36)
 //
 // Der Trigger schreibt Tabellen- und Spaltennamen, wie sie in der Datenbank heißen. Für
@@ -519,6 +513,12 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   rechnung_praefix: "Rechnungs-Präfix",
   rechnung_naechste_nummer: "nächste Rechnungsnummer",
   kunde_naechste_nummer: "nächste Kundennummer",
+  // Migration 59: DATEV-Export
+  datev_berater: "DATEV-Beraternummer", datev_mandant: "DATEV-Mandantennummer",
+  datev_wj_beginn_monat: "DATEV: Beginn Wirtschaftsjahr (Monat)", datev_sachkontenlaenge: "DATEV: Sachkontenlänge",
+  datev_skr: "DATEV: Kontenrahmen", datev_konto_19: "DATEV: Erlöskonto 19 %", datev_konto_7: "DATEV: Erlöskonto 7 %",
+  datev_konto_0: "DATEV: Erlöskonto 0 %", datev_debitor_basis: "DATEV: Debitor = Kundennummer +",
+  datev_sammeldebitor: "DATEV: Sammeldebitor",
   // Allgemein
   note: "Notiz", deleted_at: "gelöscht am", created_at: "angelegt am",
 };

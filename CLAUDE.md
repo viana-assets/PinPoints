@@ -7,7 +7,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 23.09.2026 (Migrationen bis 56; Regeln seit der Projektdurchsicht vom 18.09.2026).
+Stand: 26.09.2026 (Migrationen bis 60; Regeln seit der Projektdurchsicht vom 18.09.2026).
 
 ---
 
@@ -211,6 +211,10 @@ Jeder Punkt hier hat einmal Zeit gekostet.
 - **Kein Postgres-Sequence für lückenlose Nummern.** Eine Sequence zählt beim Abbruch
   weiter und reißt eine Lücke. Die nächste Rechnungsnummer steht in
   `betrieb.rechnung_naechste_nummer` und wird in derselben Transaktion `for update` gesperrt.
+- **Testkunden haben negative Nummern** (Migration 60): Aufträge `order_number < 0` („T1"),
+  Rechnungen `nummer < 0` („T-RE1"). Jede neue Anzeige einer Auftragsnummer läuft über
+  `auftragsNr()` (lib/testkunde.ts), jede neue Auswertung, Summe oder jeder Export filtert
+  Testdaten heraus (`ohneTestauftraege`/`ohneTestrechnungen`/`ohneTestkunden`).
 - **Snapshot-Prinzip bei Belegen.** Eine Rechnung speichert Empfänger, Absender, Positionen
   und Texte als jsonb-**Kopie**, nicht als Verweis. Eine spätere Stammdatenänderung darf
   eine ausgestellte Rechnung nicht verändern.
@@ -227,7 +231,10 @@ Jeder Punkt hier hat einmal Zeit gekostet.
 - **`supabase-js` verliert bei dynamischem `select()` die Zeilentypisierung.** Entweder
   `select("*")` verwenden oder mit einem kommentierten expliziten Cast arbeiten.
 - **`public/sw.js`: die Konstante `FASSUNG` bei jeder Auslieferung hochzählen** – sonst
-  bleibt der alte Service Worker aktiv und die Änderung kommt am Gerät nie an.
+  bleibt der alte Service Worker aktiv und die Änderung kommt am Gerät nie an. **Seit v78
+  gehören drei Stellen zusammen:** `FASSUNG` in `public/sw.js`, `APP_VERSION` in
+  `lib/version.ts` und ein neuer Eintrag ganz oben in `NEUIGKEITEN` (dieselbe Datei) – für
+  das Büro geschrieben, nicht für Entwickler. `tests/version.test.ts` bricht, wenn eine fehlt.
 - **Fensterfunktionen brauchen die richtige Partition.** Zwei Zeilen mit demselben Wert
   sind nicht dasselbe wie eine mehrdeutige Zeile; dafür eine eigene Identitätsspalte
   mitführen.

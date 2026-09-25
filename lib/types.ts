@@ -53,11 +53,19 @@ export type Customer = {
   // Keine Nadel und kein Platz in der Anrufliste – außer solange ein Termin vor ihm liegt, dann
   // steht er als Termin-Nadel da. Abgeleitet in `effectiveColor()`; gespeichert wird nur der Haken.
   einmalkunde: boolean;
+  // Testkunde (Migration 60): keine Kundennummer, Aufträge „T1…", Rechnungen „T-RE1…", restlos
+  // löschbar. Setzen nur der Superadmin, nur solange der Kunde keinen Auftrag hat – siehe
+  // lib/testkunde.ts und `pruefe_testkunde()`.
+  testkunde: boolean;
   active: boolean;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
   // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen
   // filtern deshalb auf `deleted_at is null`.
   deleted_at: string | null;
+  // Angelegt am (Spalte seit Migration 01, bis 26.09.2026 im Typ nicht geführt). Optional, weil
+  // Testgerüste den Kunden von Hand bauen; die Abfrage liefert sie immer mit (`select("*")`).
+  // Gebraucht für „neu angelegte Kunden" in der Auswertung.
+  created_at?: string;
 };
 
 // Der frühere Typ `Appointment` ist entfallen: seit Migration 07 ist ein Termin ein Auftrag
@@ -109,6 +117,20 @@ export type Betrieb = {
   // hier steht sie nur, damit die Maske sie anzeigen und einmalig setzen kann.
   rechnung_naechste_nummer: number;
   kunde_naechste_nummer: number;
+  // Der DATEV-Buchungsstapel für den Steuerberater (Migration 59). Berater und Mandant kommen
+  // vom Steuerberater; solange einer fehlt, ist der Export gesperrt (lib/datev.ts).
+  datev_berater: number | null;
+  datev_mandant: number | null;
+  datev_wj_beginn_monat: number;
+  datev_sachkontenlaenge: number;
+  datev_skr: "03" | "04";
+  datev_konto_19: number;
+  datev_konto_7: number;
+  datev_konto_0: number;
+  // Debitorenkonto = Kundennummer + Basis. Vorgabe 0: Die Kundennummern beginnen bei 10000 und
+  // liegen damit schon im Debitorenbereich.
+  datev_debitor_basis: number;
+  datev_sammeldebitor: number;
 };
 
 // Die Felder der Betriebsdaten-Maske. `updated_at`, `updated_by` und die beiden Zähler stehen
@@ -117,7 +139,9 @@ export type Betrieb = {
 export type BetriebFelder = Pick<Betrieb,
   | "firma" | "inhaber" | "strasse" | "plz" | "ort" | "telefon" | "email" | "webseite"
   | "ust_id" | "steuernummer" | "kontoinhaber" | "bank" | "iban" | "bic" | "logo"
-  | "anschreiben" | "fuss_zahlung" | "fuss_hinweis" | "fuss_dank" | "rechnung_praefix">;
+  | "anschreiben" | "fuss_zahlung" | "fuss_hinweis" | "fuss_dank" | "rechnung_praefix"
+  | "datev_berater" | "datev_mandant" | "datev_wj_beginn_monat" | "datev_sachkontenlaenge" | "datev_skr"
+  | "datev_konto_19" | "datev_konto_7" | "datev_konto_0" | "datev_debitor_basis" | "datev_sammeldebitor">;
 
 export type UserSettings = {
   user_id: string;
@@ -127,6 +151,8 @@ export type UserSettings = {
   // Abendhinweis „Reifen mitnehmen" (Migration 55): an/aus und Uhrzeit HH:MM, je Person.
   abendhinweis_aktiv: boolean;
   abendhinweis_uhrzeit: string;
+  // Zuletzt gelesene Fassung auf „Was gibt es Neues" (Migration 60), z. B. "v78".
+  neuigkeiten_gesehen?: string | null;
 };
 
 export type Warehouse = {

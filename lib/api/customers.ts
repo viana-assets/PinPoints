@@ -160,6 +160,8 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
   // Einmalkunde (Migration 57): normale Anlage MIT Anschrift und Geokodierung – die Position
   // braucht er für die Termin-Nadel. Nur ohne Termin erscheint er nicht auf der Karte.
   einmalkunde?: boolean;
+  // Testkunde (Migration 60) – nur der Superadmin; die Datenbank lehnt es sonst ab.
+  testkunde?: boolean;
 }): Promise<{ id: string | undefined; lat: number | null; lng: number | null }> {
   let lat: number | null = fields.koordinate?.lat ?? null;
   let lng: number | null = fields.koordinate?.lng ?? null;
@@ -187,6 +189,7 @@ export async function insertCustomer(supabase: SupabaseClient, fields: {
         status: "offen", active: true, laufkundschaft: fields.laufkundschaft === true,
         // Beides zugleich lehnt die Datenbank ab (Migration 57); die Laufkundschaft gewinnt.
         einmalkunde: fields.einmalkunde === true && fields.laufkundschaft !== true,
+        testkunde: fields.testkunde === true && fields.laufkundschaft !== true,
         // Leere Felder als null, nicht als leere Zeichenkette – sonst stünde "" neben null für
         // dieselbe Aussage, und die Prüfbedingung auf `anrede` lehnt "" ohnehin ab.
         company: fields.company.trim() || null,
@@ -288,14 +291,14 @@ export async function setzePositionVonHand(
 // Adminbereich; wiederherstellen darf, wer Kunden schreiben darf, endgültig löschen nur der
 // Superadmin (erzwungen in `kunde_endgueltig_loeschen()`, Migration 56).
 
-export type PapierkorbKunde = Pick<Customer, "id" | "name" | "company" | "address" | "kundennummer" | "laufkundschaft"> & {
+export type PapierkorbKunde = Pick<Customer, "id" | "name" | "company" | "address" | "kundennummer" | "laufkundschaft" | "testkunde"> & {
   deleted_at: string;
 };
 
 export async function fetchPapierkorb(supabase: SupabaseClient): Promise<PapierkorbKunde[]> {
   return fetchPaged<PapierkorbKunde>("Der Papierkorb konnte nicht geladen werden", (von, bis) =>
     supabase.from("customers")
-      .select("id,name,company,address,kundennummer,laufkundschaft,deleted_at")
+      .select("id,name,company,address,kundennummer,laufkundschaft,testkunde,deleted_at")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
       .range(von, bis)
@@ -330,3 +333,24 @@ export async function kundeEndgueltigLoeschen(supabase: SupabaseClient, id: stri
   if (!erste) throw new ApiError("Der Kunde konnte nicht endgültig gelöscht werden", { message: "keine Rückmeldung der Datenbank." });
   return erste;
 }
+
+// Einen Testkunden restlos löschen (Migration 60): Aufträge, Rechnungen (nur T-Nummern),
+// Fahrzeuge, Reifen, Kontakte und Protokoll. Nur der Superadmin; die Datenbank prüft das und
+// bricht ab, falls wider Erwarten eine echte Rechnung am Kunden hängt.
+export type TestkundeGeloescht = {
+  auftraege: number;
+  rechnungen: number;
+  fahrzeuge: number;
+  reifensaetze: number;
+  protokolleintraege: number;
+};
+export async function testkundeLoeschen(supabase: SupabaseClient, id: string): Promise<TestkundeGeloescht> {
+  const zeilen = await q<TestkundeGeloescht[]>(
+    "Der Testkunde konnte nicht gelöscht werden",
+    supabase.rpc("testkunde_loeschen", { p_kunde: id })
+  );
+  const erste = zeilen?.[0];
+  if (!erste) throw new ApiError("Der Testkunde konnte nicht gelöscht werden", { message: "keine Rückmeldung der Datenbank." });
+  return erste;
+}
+

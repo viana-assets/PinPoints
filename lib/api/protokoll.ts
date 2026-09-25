@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostgrestError } from "@supabase/supabase-js";
 import { q } from "./client";
+import { auftragsNr } from "@/lib/testkunde";
 
 // Das Namensverzeichnis für das Protokoll.
 //
@@ -52,7 +53,7 @@ export async function fetchNamensverzeichnis(supabase: SupabaseClient): Promise<
 
   await Promise.all([
     sammle<{ id: string; order_number: number }>(supabase, "orders", "id, order_number",
-      (z) => (z.order_number != null ? `Auftrag ${z.order_number}` : null), namen),
+      (z) => (z.order_number != null ? `Auftrag ${auftragsNr(z.order_number)}` : null), namen),
     sammle<{ id: string; name: string | null; company: string | null }>(supabase, "customers", "id, name, company",
       (z) => z.company?.trim() || z.name?.trim() || null, namen),
     sammle<{ id: string; short_name: string | null }>(supabase, "articles", "id, short_name",
