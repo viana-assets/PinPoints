@@ -360,6 +360,17 @@ geraten; eine falsche Zuordnung ist schlechter als eine fehlende, weil sie niema
 
 ---
 
+### Alle Sätze eines Kunden auf einen Blick (25.09.2026)
+
+Im Kundenfenster steht über „Fahrzeuge" der Abschnitt **„Eingelagerte Reifen (n)"**: jeder
+Satz des Kunden, der noch im Lager liegt, mit **Lagerplatz** (groß vorn), Kennzeichen und
+Modell, Saison, Reifengröße (vom Fahrzeug), DOT und Notiz. Gebaut für Firmenkunden mit vielen
+Autos. Sortiert nach Lager und Platz, Platznummern natürlich verglichen („17" vor „20" vor
+„100", „A-2" vor „A-10") – `eingelagerteSaetze()` in `lib/eingelagert.ts`. Sätze **ohne
+zugeordnetes Fahrzeug** stehen mit „kein Fahrzeug zugeordnet" dabei; beim Fahrzeug selbst
+erschienen sie nie. Antippen springt ins Lager auf diesen Platz (nur, wer das Lager sehen darf).
+Der Lagername steht nur, wenn die Sätze in mehr als einem Lager liegen.
+
 ## Ein Wert für den Satz – oder vier Räder einzeln (Migration 33)
 
 Der Normalfall bleibt der Sammelwert: *ein* Profil für den ganzen Satz, in zwei Sekunden

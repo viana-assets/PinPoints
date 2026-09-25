@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **25.09.2026 – „Eingelagerte Reifen" im Kundenfenster (Service Worker v67).** Alle Sätze
+  des Kunden als Liste: Lagerplatz, Kennzeichen, Saison, Größe, DOT – auch Sätze ohne Fahrzeug.
+  Antippen öffnet den Platz im Lager. Einzelheiten in `docs/lager.md`.
+
 * **25.09.2026 – Termine im Kalender ziehen (Service Worker v66).** Woche und Tag: Termin mit
   der Maus verschieben (auch auf einen anderen Tag) oder unten länger/kürzer ziehen; am Handy
   lange drücken, dann ziehen. Sofort gespeichert, mit „Rückgängig" und Warnung bei

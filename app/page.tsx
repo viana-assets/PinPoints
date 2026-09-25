@@ -3245,6 +3245,7 @@ export default function HomePage() {
           onAddVehicle={(fields) => addVehicle(selectedId, fields)}
           onUpdateVehicle={updateVehicle}
           onDeleteVehicle={deleteVehicle}
+          onZumLagerplatz={canView("lager") ? (platzId) => { setSelectedId(null); setGescannterLagerplatzId(platzId); setTab("lager"); } : undefined}
           onNavigate={openNavMenu}
           onCall={openCallMenu}
         />

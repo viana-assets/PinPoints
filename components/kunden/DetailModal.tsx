@@ -7,6 +7,7 @@ import { todayStr, formatDate, effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_L
 import { VehicleRow, AddVehicleInline } from "./VehicleSection";
 import { AdressFeld } from "@/components/AdressFeld";
 import { IconNavPin } from "@/components/icons";
+import { EingelagerteReifen } from "./EingelagerteReifen";
 import { CustomerOrderRow } from "./CustomerOrderRow";
 
 // Das große Kunden-Detailfenster (Modal): Kundendaten, Fahrzeuge, Kontakt erfassen,
@@ -46,6 +47,9 @@ export function DetailModal(props: {
   onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; note: string }) => void;
   onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; note: string }) => void;
   onDeleteVehicle: (id: string) => void;
+  // Aus der Liste „Eingelagerte Reifen" ins Lager auf diesen Platz springen. Fehlt, wenn die
+  // Rolle das Lager nicht sehen darf.
+  onZumLagerplatz?: (platzId: string) => void;
   onCall: (e: React.MouseEvent, cust: Customer) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
 }) {
@@ -223,6 +227,14 @@ export function DetailModal(props: {
             die Position von selbst.
           </div>
         )}
+
+        <EingelagerteReifen
+          saetze={props.tireStorages}
+          plaetze={props.storageSlots}
+          lager={props.warehouses}
+          fahrzeuge={props.vehicles}
+          onZumPlatz={props.onZumLagerplatz}
+        />
 
         <h4>Fahrzeuge</h4>
         <div>
