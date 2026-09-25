@@ -241,6 +241,20 @@ Monatsübersicht, die in der vorigen Fassung dieses Dokuments beschrieben war:
   Zoom per Strg+Mausrad, Zwei-Finger-Geste oder ±-Knöpfen zwischen 14 und 120 px je Stunde;
   beim Herauszoomen öffnet sich gleichzeitig das Zeitfenster gleitend gegen 0–24 Uhr.
 
+**Termine ziehen** (seit 25.09.2026): Im Stundenraster (Woche und Tag) lässt sich ein offener
+oder laufender Termin mit der Maus verschieben – auch auf einen anderen Tag der Woche – und an
+der Unterkante länger oder kürzer ziehen. Am Handy: **lange drücken** (400 ms, kurzes Brummen),
+dann ziehen; normales Wischen scrollt weiter, kurzes Tippen öffnet den Auftrag. Raster
+15 Minuten, gerundet (`gezogenerTermin()` in `lib/calendar.ts`). Gespeichert wird sofort und
+nur Tag/Beginn/Ende (`updateOrderTermin()`); unten erscheint 8 Sekunden lang ein Hinweis mit
+**Rückgängig** und – falls der Mitarbeiter oder Transporter dann doppelt belegt ist – einer
+Warnung (`terminUeberschneidungen()`, Hinweis statt Sperre wie im Auftragsfenster). Erledigte
+und stornierte Termine bleiben fest. Wer ziehen darf, entscheidet `auftraege.auftrag · schreiben`
+(auch Techniker, Migration 41). War das Ende nur angenommen, bleibt es beim reinen Verschieben
+angenommen. Am Rand rollt die Seite (und in der Woche am Handy das Raster seitlich) mit. Die
+Listener hängen nativ und einmalig am Raster, Bewegung/Loslassen beim Finger am berührten
+Element – sonst bricht der Zug ab, sobald React den Block in einer anderen Tagesspalte neu baut.
+
 **Bedienleiste bleibt stehen** (seit 24.09.2026, `.planung-leiste`): Monatsnavigation,
 Mitarbeiter, Fahrzeuge und Monat/Woche/Tag kleben beim Scrollen oben; am Handy sind die
 Chipreihen dafür einzeilig und seitlich wischbar. In der Wochenansicht am Handy bleibt beim

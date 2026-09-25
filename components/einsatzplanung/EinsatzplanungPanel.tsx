@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Customer, Employee, Firmenfahrzeug, Order } from "@/lib/types";
 import { todayStr, formatDate, orderDateTime, terminZeitraum } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
@@ -7,12 +7,13 @@ import { RasterLegende, Stundenraster } from "./Stundenraster";
 import { OrderModal } from "@/components/auftraege/OrderModal";
 import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
+import { terminUeberschneidungen } from "@/lib/ueberschneidung";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, isTechniker }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, isTechniker }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Das Terminraster aus den Betriebseinstellungen – dieselbe Zahl wie im Auftragsfenster.
   standardDauerMin: number;
@@ -38,6 +39,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // Der Anrufer steht noch nicht in der Kartei: Das Kundenformular geht auf, der angeklickte
   // Termin wird dort gemerkt und nach dem Anlegen eingesetzt.
   onNeuerKunde: (termin: { datum: string; von: string | null; bis: string | null }) => void;
+  // Termin im Stundenraster gezogen (25.09.2026). Fehlt es, darf die Rolle Aufträge nicht
+  // ändern, und die Termine lassen sich nicht ziehen.
+  onVerschieben?: (id: string, datum: string, von: string | null, bis: string | null) => Promise<void>;
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), darf
   // in der Oberfläche zusätzlich keine Mitarbeiter-/Leistungen-Zuordnung oder Löschung anstoßen –
   // nur Status und die eigene Techniker-Notiz, siehe AuftraegePanel für dasselbe Muster.
@@ -65,6 +69,47 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   const [sortBy, setSortBy] = useState<"date" | "kunde" | "status">("date");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const statusLabel = ORDER_STATUS_LABEL;
+
+  // Gezogene Termine, deren Speichern noch läuft: Sie stehen schon an der neuen Stelle, damit
+  // der Block nach dem Loslassen nicht erst zurückspringt und dann wieder hinüber.
+  const [schwebend, setSchwebend] = useState<Record<string, { order_date: string; time: string | null; end_time: string | null }>>({});
+  // Der Hinweis nach dem Loslassen: wohin, ggf. eine Überschneidung, und „Rückgängig".
+  const [verschoben, setVerschoben] = useState<{
+    text: string; warnung: string | null;
+    rueck: { id: string; datum: string; von: string | null; bis: string | null } | null;
+  } | null>(null);
+  useEffect(() => {
+    if (!verschoben) return;
+    const t = setTimeout(() => setVerschoben(null), 8000);
+    return () => clearTimeout(t);
+  }, [verschoben]);
+
+  async function terminSetzen(id: string, datum: string, von: string | null, bis: string | null, rueckgaengig = false) {
+    if (!onVerschieben) return;
+    const vorher = orders.find((o) => o.id === id);
+    if (!vorher) return;
+    setSchwebend((s) => ({ ...s, [id]: { order_date: datum, time: von, end_time: bis } }));
+    try {
+      // Ein Fehler (keine Verbindung, Recht fehlt) fliegt weiter zur zentralen Fehleranzeige;
+      // der Block springt dann zurück, weil `schwebend` hier in jedem Fall geräumt wird.
+      await onVerschieben(id, datum, von, bis);
+    } finally {
+      setSchwebend((s) => { const n = { ...s }; delete n[id]; return n; });
+    }
+    if (rueckgaengig) { setVerschoben({ text: "Rückgängig gemacht", warnung: null, rueck: null }); return; }
+    const tag = new Date(datum + "T00:00:00").toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "numeric" });
+    const kunde = kundeFuerAuftrag(vorher, customers)?.name || vorher.title;
+    const neu = { ...vorher, order_date: datum, time: von, end_time: bis };
+    const treffer = terminUeberschneidungen(neu, orderEmployees[id] || [], vorher.firmenfahrzeug_id, orders, orderEmployees, standardDauerMin)[0];
+    const warnung = treffer
+      ? `Achtung: ${treffer.art === "mitarbeiter" ? (employees.find((e) => e.id === treffer.werId)?.name || "Mitarbeiter") : fahrzeugText(treffer.werId)} ist ${treffer.von}–${treffer.bis} schon bei ${kundeFuerAuftrag(treffer.auftrag, customers)?.name || treffer.auftrag.title}.`
+      : null;
+    setVerschoben({
+      text: `${kunde}: ${tag}, ${von}${bis ? `–${bis}` : ""}`,
+      warnung,
+      rueck: { id, datum: vorher.order_date, von: vorher.time, bis: vorher.end_time },
+    });
+  }
   const monthLabel = monthCursor.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 
   // Welche Tage das Raster zeigt: einen in der Tagesansicht, die ganze Mo–So-Woche in der
@@ -76,7 +121,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     : [rasterAnker];
   // Im Raster gelten dieselben Filter wie darunter in der Liste – eine Ansicht, die andere
   // Aufträge zeigt als der Filter darüber verspricht, ist eine Falle.
-  const rasterAuftraege = orders.filter((o) => {
+  const rasterAuftraege = orders.map((o) => (schwebend[o.id] ? { ...o, ...schwebend[o.id] } : o)).filter((o) => {
     if (empFilter !== "all" && !(orderEmployees[o.id] || []).includes(empFilter)) return false;
     if (fahrzeugFilter === "ohne" && o.firmenfahrzeug_id) return false;
     if (fahrzeugFilter !== "all" && fahrzeugFilter !== "ohne" && o.firmenfahrzeug_id !== fahrzeugFilter) return false;
@@ -263,8 +308,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
               standardDauerMin={standardDauerMin}
               onOeffnen={onOpenOrder}
               onSlot={isTechniker ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
+              onVerschieben={onVerschieben ? (id, datum, von, bis) => { void terminSetzen(id, datum, von, bis); } : undefined}
             />
-            <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} />
+            <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} ziehen={!!onVerschieben} />
           </>
         )}
 
@@ -479,6 +525,23 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           )}
         </div>
       </div>
+
+      {verschoben && (
+        <div className="verschoben-hinweis" role="status">
+          <span className="vh-text">
+            <b>Verschoben</b> · {verschoben.text}
+            {verschoben.warnung && <span className="vh-warnung">{verschoben.warnung}</span>}
+          </span>
+          {verschoben.rueck && (
+            <button type="button" onClick={() => {
+              const r = verschoben.rueck!;
+              setVerschoben(null);
+              void terminSetzen(r.id, r.datum, r.von, r.bis, true);
+            }}>Rückgängig</button>
+          )}
+          <button type="button" className="vh-zu" aria-label="Hinweis schließen" onClick={() => setVerschoben(null)}>✕</button>
+        </div>
+      )}
 
       {/* Kundenauswahl nach einem Klick ins Raster. Dasselbe Fenster wie im Aufträge-Tab –
           nur mit dem angeklickten Termin darüber. */}

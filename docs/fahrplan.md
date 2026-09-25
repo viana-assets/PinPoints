@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **25.09.2026 – Termine im Kalender ziehen (Service Worker v66).** Woche und Tag: Termin mit
+  der Maus verschieben (auch auf einen anderen Tag) oder unten länger/kürzer ziehen; am Handy
+  lange drücken, dann ziehen. Sofort gespeichert, mit „Rückgängig" und Warnung bei
+  Doppelbelegung. Nur offene und laufende Termine. Einzelheiten in `docs/auftraege.md`.
+
 * **24.09.2026 – Einsatzplanung am Handy und Auslagern-Fenster (Service Worker v65).**
   Ein Tag im Monat angetippt öffnet die Tagesansicht. Die Liste darunter zeigt nur noch offene
   und laufende Aufträge. Die Bedienleiste (Monat, Mitarbeiter, Fahrzeuge, Ansicht) bleibt beim

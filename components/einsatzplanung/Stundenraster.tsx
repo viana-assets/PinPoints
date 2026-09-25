@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Customer, Employee, Order } from "@/lib/types";
 import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { KALENDER_VON_STUNDE, KALENDER_BIS_STUNDE } from "@/lib/constants";
-import { auftragsZeitraum, employeeColorFor, hhmmAus, layoutSpalten, terminAusKlick, toDateStr, zeitfenster } from "@/lib/calendar";
+import { auftragsZeitraum, employeeColorFor, gezogenerTermin, hhmmAus, layoutSpalten, terminAusKlick, toDateStr, zeitfenster } from "@/lib/calendar";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 
 // Tages- und Wochenansicht als Stundenraster (Block B).
@@ -39,12 +39,20 @@ function statusKlasse(status: string): string {
 // Ein Termin im Raster. Absichtlich ein div mit role="button": In den Block passt bei kurzen
 // Terminen kaum Text, und ein echter Knopf brächte eigene Innenabstände mit, die die Höhe
 // verfälschen – die Höhe ist hier aber die Aussage.
-function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
+function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehbar, zieht, geradeGezogen }: {
   auftrag: RasterAuftrag & { start: number; ende: number; geschaetzt: boolean; spalte: number; spalten: number };
   employees: Employee[];
   vonMinute: number;
   stundePx: number;
   onOeffnen: (id: string) => void;
+  // Darf dieser Termin gezogen werden (offen oder in Arbeit, und wer schaut, darf Aufträge
+  // ändern)? Die Bewegung selbst steuert das Raster – der Block trägt nur die Angaben, die es
+  // dafür braucht, als data-Attribute.
+  ziehbar: boolean;
+  zieht: boolean;
+  // Ein Loslassen nach dem Ziehen löst im Browser oft noch einen Klick aus. Der darf den
+  // Auftrag nicht öffnen – man wollte verschieben, nicht nachsehen.
+  geradeGezogen: () => boolean;
 }) {
   const hoehe = ((auftrag.ende - auftrag.start) / 60) * stundePx;
   const oben = ((auftrag.start - vonMinute) / 60) * stundePx;
@@ -55,13 +63,19 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
 
   return (
     <div
-      className={`tm-block ${statusKlasse(auftrag.status)}${farbe ? "" : " tm-ohne-person"}${auftrag.geschaetzt ? " tm-geschaetzt" : ""}`}
+      className={`tm-block ${statusKlasse(auftrag.status)}${farbe ? "" : " tm-ohne-person"}${auftrag.geschaetzt ? " tm-geschaetzt" : ""}${zieht ? " tm-zieht" : ""}`}
       role="button"
       tabIndex={0}
+      data-ziehbar={ziehbar ? "1" : undefined}
+      data-id={auftrag.id}
+      data-datum={auftrag.order_date}
+      data-start={auftrag.start}
+      data-ende={auftrag.ende}
+      data-geschaetzt={auftrag.geschaetzt ? "1" : undefined}
       // `stopPropagation`: Die Tagesspalte darunter legt bei einem Klick einen neuen Auftrag
       // an. Ohne das hier würde jeder Klick auf einen bestehenden Termin zusätzlich das
       // Fenster „Neuer Auftrag" aufziehen.
-      onClick={(e) => { e.stopPropagation(); onOeffnen(auftrag.id); }}
+      onClick={(e) => { e.stopPropagation(); if (geradeGezogen()) return; onOeffnen(auftrag.id); }}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onOeffnen(auftrag.id); } }}
       title={[
         `${hhmmAus(auftrag.start)}–${hhmmAus(auftrag.ende)}${auftrag.geschaetzt ? " (Ende angenommen)" : ""}`,
@@ -94,11 +108,34 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen }: {
         {auftrag.status === "storniert" && <span aria-hidden="true"> ✕</span>}
       </span>
       <span className="tm-wer">{auftrag.kunde?.name || auftrag.title}</span>
+      {/* Die Unterkante zum Länger- und Kürzerziehen. Nur bei ziehbaren Terminen. */}
+      {ziehbar && <span className="tm-griff" data-griff="ende" aria-hidden="true" />}
     </div>
   );
 }
 
-export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen, onSlot }: {
+// Was während eines Zuges gemerkt wird. In einem Ref, nicht im Zustand: Die Listener hängen
+// genau einmal am Raster (siehe die Zoomgeste) und lesen alles von hier.
+type Zug = {
+  id: string;
+  modus: "verschieben" | "dauer";
+  datum: string;          // Ausgangstag
+  start: number;          // Ausgangslage in Minuten
+  ende: number;
+  geschaetzt: boolean;    // Ende nur angenommen – beim reinen Verschieben bleibt es das
+  griffAbstand: number;   // Minuten zwischen Terminbeginn und Anfasspunkt
+  x0: number; y0: number; // wo angefasst wurde
+  x: number; y: number;   // wo der Zeiger jetzt ist
+  aktiv: boolean;         // läuft der Zug schon (Maus: nach 4 px, Finger: nach langem Drücken)?
+  timer: ReturnType<typeof setTimeout> | null;
+  ziel: { datum: string; start: number; ende: number } | null;
+};
+// Wie lange der Finger liegen muss, bis ein Termin „anspringt". Kürzer verwechselt sich mit
+// dem Scrollen, länger fühlt sich an, als passiere nichts. 400 ms ist, was Kalender am Handy
+// üblicherweise nehmen.
+const LANG_DRUECKEN_MS = 400;
+
+export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen, onSlot, onVerschieben }: {
   // Ein Tag in der Tagesansicht, sieben in der Wochenansicht – sonst ändert sich nichts.
   tage: Date[];
   auftraege: Order[];
@@ -116,8 +153,20 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   // Tag fest und die Zeit noch nicht. Fehlt die Eigenschaft (Techniker-Ansicht), ist das
   // Raster nur zum Ansehen da.
   onSlot?: (datum: string, von: string | null, bis: string | null) => void;
+  // Ein Termin wurde gezogen (25.09.2026). `bis` ist null, wenn nur verschoben wurde und das
+  // Ende vorher schon nur angenommen war – dann bleibt es angenommen. Fehlt die Eigenschaft,
+  // darf niemand ziehen.
+  onVerschieben?: (id: string, datum: string, von: string, bis: string | null) => void;
 }) {
   const heute = toDateStr(new Date());
+
+  // Der laufende Zug fürs Zeichnen (Zustand) und für die Listener (Ref).
+  const [zug, setZug] = useState<{ id: string; datum: string; start: number; ende: number } | null>(null);
+  const zugRef = useRef<Zug | null>(null);
+  // Kurz nach einem Zug gesperrt: Der Klick, den der Browser beim Loslassen noch schickt,
+  // soll weder den Auftrag öffnen noch einen neuen anlegen.
+  const klickSperreRef = useRef(false);
+  const geradeGezogen = () => klickSperreRef.current;
 
   // Wie hoch eine Stunde gerade ist. Zwei Finger auf dem Touchgerät, Strg+Rad am Rechner,
   // und zwei Knöpfe für alle, die weder das eine noch das andere haben.
@@ -222,10 +271,217 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
     // die Geste ab – siehe der Kommentar bei `gesteRef`.
   }, []);
 
+  // ---------------------------------------------------------------- Termine ziehen
+  //
+  // Maus: anfassen und ziehen (ab 4 px Bewegung), unten an der Kante für die Dauer.
+  // Finger: LANG DRÜCKEN, dann ziehen. Ohne das langes Drücken wäre jedes Scrollen über einen
+  // Termin ein Verschieben – und der Kalender am Handy besteht fast nur aus Terminen.
+  //
+  // Wie beim Zoomen hängen die Listener nativ und genau einmal am Raster und lesen alles aus
+  // Refs. Der Grund ist derselbe: Nur ein nicht-passiver `touchmove` darf das Scrollen der
+  // Seite anhalten, und ein Effekt, der sich mitten im Zug neu aufbaut, bricht ihn ab.
+  const liveRef = useRef({ stundePx, vonMinute: 0, onVerschieben });
+  useEffect(() => {
+    const leib = leibRef.current;
+    if (!leib) return;
+    // Der Takt fürs Weiterrollen am Rand (siehe `randRollen`).
+    const rollen: { id: ReturnType<typeof setInterval> | null } = { id: null };
+
+    function spalteBei(x: number): { datum: string; top: number } | null {
+      for (const el of Array.from(leib!.querySelectorAll<HTMLElement>(".rl-tag"))) {
+        const r = el.getBoundingClientRect();
+        if (x >= r.left && x < r.right) return { datum: el.dataset.datum || "", top: r.top };
+      }
+      return null;
+    }
+    function spalteVon(datum: string): { datum: string; top: number } | null {
+      const el = leib!.querySelector<HTMLElement>(`.rl-tag[data-datum="${datum}"]`);
+      return el ? { datum, top: el.getBoundingClientRect().top } : null;
+    }
+    function minuteBei(y: number, top: number): number {
+      const { stundePx: px, vonMinute: von } = liveRef.current;
+      return von + ((y - top) / px) * 60;
+    }
+
+    function beginnen(ziel: EventTarget | null, x: number, y: number): boolean {
+      const el = (ziel as Element | null)?.closest?.<HTMLElement>('.tm-block[data-ziehbar="1"]');
+      if (!el || !liveRef.current.onVerschieben) return false;
+      const start = Number(el.dataset.start);
+      const ende = Number(el.dataset.ende);
+      const datum = el.dataset.datum || "";
+      const spalte = spalteVon(datum);
+      zugRef.current = {
+        id: el.dataset.id || "",
+        modus: (ziel as Element).closest?.("[data-griff]") ? "dauer" : "verschieben",
+        datum, start, ende, geschaetzt: el.dataset.geschaetzt === "1",
+        griffAbstand: spalte ? minuteBei(y, spalte.top) - start : 0,
+        x0: x, y0: y, x, y, aktiv: false, timer: null, ziel: null,
+      };
+      return true;
+    }
+    function aktivieren() {
+      const z = zugRef.current;
+      if (!z) return;
+      z.aktiv = true;
+      setZug({ id: z.id, datum: z.datum, start: z.start, ende: z.ende });
+      // Kurzes Brummen am Handy: Jetzt hängt der Termin am Finger.
+      try { navigator.vibrate?.(12); } catch { /* nicht jedes Gerät kann das */ }
+      rollen.id = setInterval(randRollen, 40);
+    }
+    function bewegen(x: number, y: number) {
+      const z = zugRef.current;
+      if (!z || !z.aktiv) return;
+      z.x = x; z.y = y;
+      const spalte = (z.modus === "verschieben" ? spalteBei(x) : null) ?? spalteVon(z.ziel?.datum ?? z.datum);
+      if (!spalte) return;
+      const neu = gezogenerTermin(z.modus, minuteBei(y, spalte.top), z.griffAbstand, z.start, z.ende);
+      const datum = z.modus === "verschieben" ? spalte.datum : z.datum;
+      if (z.ziel && z.ziel.datum === datum && z.ziel.start === neu.start && z.ziel.ende === neu.ende) return;
+      z.ziel = { datum, ...neu };
+      setZug({ id: z.id, datum, start: neu.start, ende: neu.ende });
+    }
+    function beenden(abbrechen: boolean) {
+      const z = zugRef.current;
+      zugRef.current = null;
+      if (!z) return;
+      if (z.timer) clearTimeout(z.timer);
+      if (rollen.id) { clearInterval(rollen.id); rollen.id = null; }
+      if (!z.aktiv) return;
+      klickSperreRef.current = true;
+      setTimeout(() => { klickSperreRef.current = false; }, 450);
+      setZug(null);
+      const ziel = z.ziel;
+      if (abbrechen || !ziel) return;
+      if (ziel.datum === z.datum && ziel.start === z.start && ziel.ende === z.ende) return;
+      // Nur verschoben und das Ende war bisher angenommen: Es bleibt angenommen (null).
+      const bis = z.modus === "verschieben" && z.geschaetzt ? null : hhmmAus(ziel.ende);
+      liveRef.current.onVerschieben?.(z.id, ziel.datum, hhmmAus(ziel.start), bis);
+    }
+
+    // Am Rand weiterrollen: Am Handy passt kaum ein halber Tag auf den Bildschirm. Liegt der
+    // Finger unten oder oben an, rollt die Seite nach; in der Woche auch zur Seite.
+    function randRollen() {
+      const z = zugRef.current;
+      if (!z || !z.aktiv) return;
+      const flaeche = leib!.closest<HTMLElement>(".tabpanel");
+      if (flaeche) {
+        const r = flaeche.getBoundingClientRect();
+        const leiste = flaeche.querySelector<HTMLElement>(".planung-leiste")?.getBoundingClientRect().bottom ?? r.top;
+        if (z.y < leiste + 36) flaeche.scrollTop -= 10;
+        else if (z.y > r.bottom - 48) flaeche.scrollTop += 10;
+      }
+      const woche = leib!.closest<HTMLElement>(".raster-woche");
+      if (woche && woche.scrollWidth > woche.clientWidth) {
+        const r = woche.getBoundingClientRect();
+        if (z.x > r.right - 28) woche.scrollLeft += 10;
+        else if (z.x < r.left + 70) woche.scrollLeft -= 10;
+      }
+      bewegen(z.x, z.y);
+    }
+
+    // --- Finger
+    //
+    // Bewegung und Loslassen hängen am BERÜHRTEN ELEMENT, nicht am Raster: Zieht man einen
+    // Termin auf einen anderen Tag, baut React ihn in der anderen Spalte neu auf und nimmt den
+    // alten Knoten aus dem Dokument. Die Touch-Ereignisse gehen aber weiter an genau diesen
+    // alten Knoten – und von einem abgehängten Knoten steigt nichts mehr zum Raster auf. Der
+    // Termin bliebe mitten im Zug am Finger kleben.
+    let beruehrt: EventTarget | null = null;
+    function fingerLos() {
+      if (!beruehrt) return;
+      beruehrt.removeEventListener("touchmove", fingerZieht as EventListener);
+      beruehrt.removeEventListener("touchend", fingerAb as EventListener);
+      beruehrt.removeEventListener("touchcancel", fingerAb as EventListener);
+      beruehrt = null;
+    }
+    function fingerAuf(e: TouchEvent) {
+      if (e.touches.length !== 1) { fingerLos(); beenden(true); return; }
+      const t = e.touches[0];
+      if (!beginnen(e.target, t.clientX, t.clientY)) return;
+      zugRef.current!.timer = setTimeout(aktivieren, LANG_DRUECKEN_MS);
+      fingerLos();
+      beruehrt = e.target;
+      beruehrt?.addEventListener("touchmove", fingerZieht as EventListener, { passive: false });
+      beruehrt?.addEventListener("touchend", fingerAb as EventListener, { passive: false });
+      beruehrt?.addEventListener("touchcancel", fingerAb as EventListener, { passive: false });
+    }
+    function fingerZieht(e: TouchEvent) {
+      const z = zugRef.current;
+      if (!z) return;
+      const t = e.touches[0];
+      if (!z.aktiv) {
+        // Bewegt sich der Finger vor Ablauf der Zeit, ist es Scrollen – dann nichts tun.
+        if (Math.hypot(t.clientX - z.x0, t.clientY - z.y0) > 8) { fingerLos(); beenden(true); }
+        return;
+      }
+      e.preventDefault();
+      bewegen(t.clientX, t.clientY);
+    }
+    function fingerAb(e: TouchEvent) {
+      const z = zugRef.current;
+      if (!z) return;
+      // Nach einem Zug kein Klick hinterher (der sonst den Auftrag öffnete).
+      if (z.aktiv && e.cancelable) e.preventDefault();
+      fingerLos();
+      beenden(e.type === "touchcancel");
+    }
+    // Das Kontextmenü beim langen Drücken (Android) würde den Zug unterbrechen.
+    function kontextmenue(e: Event) {
+      if (zugRef.current) e.preventDefault();
+    }
+
+    // --- Maus
+    function mausAuf(e: PointerEvent) {
+      if (e.pointerType === "touch" || e.button !== 0) return;
+      if (!beginnen(e.target, e.clientX, e.clientY)) return;
+      e.preventDefault(); // keine Textmarkierung beim Ziehen
+      window.addEventListener("pointermove", mausZieht);
+      window.addEventListener("pointerup", mausAb);
+      window.addEventListener("keydown", taste);
+    }
+    function mausZieht(e: PointerEvent) {
+      const z = zugRef.current;
+      if (!z) return;
+      if (!z.aktiv) {
+        if (Math.hypot(e.clientX - z.x0, e.clientY - z.y0) < 4) return;
+        aktivieren();
+      }
+      bewegen(e.clientX, e.clientY);
+    }
+    function mausLos() {
+      window.removeEventListener("pointermove", mausZieht);
+      window.removeEventListener("pointerup", mausAb);
+      window.removeEventListener("keydown", taste);
+    }
+    function mausAb() { mausLos(); beenden(false); }
+    function taste(e: KeyboardEvent) {
+      if (e.key === "Escape") { mausLos(); beenden(true); }
+    }
+
+    leib.addEventListener("touchstart", fingerAuf, { passive: true });
+    leib.addEventListener("contextmenu", kontextmenue);
+    leib.addEventListener("pointerdown", mausAuf);
+    return () => {
+      leib.removeEventListener("touchstart", fingerAuf);
+      leib.removeEventListener("contextmenu", kontextmenue);
+      fingerLos();
+      leib.removeEventListener("pointerdown", mausAuf);
+      mausLos();
+      if (rollen.id) clearInterval(rollen.id);
+    };
+  }, []);
+
   // Aufträge je Tag, getrennt nach „hat eine Uhrzeit" und „hat keine".
+  // Während eines Zuges steht der Termin schon dort, wo er landen würde – das IST die
+  // Vorschau. Kein Geisterbild daneben: Die Überlappungsspalten rechnen sich live mit.
+  const gezeigt = zug
+    ? auftraege.map((o) => (o.id === zug.id
+      ? { ...o, order_date: zug.datum, time: hhmmAus(zug.start), end_time: hhmmAus(zug.ende) }
+      : o))
+    : auftraege;
   const proTag = tage.map((tag) => {
     const datum = toDateStr(tag);
-    const desTages = auftraege.filter((o) => o.order_date === datum);
+    const desTages = gezeigt.filter((o) => o.order_date === datum);
     const mitZeit: (RasterAuftrag & { start: number; ende: number; geschaetzt: boolean })[] = [];
     const ohneZeit: RasterAuftrag[] = [];
 
@@ -267,6 +523,8 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   const stunden = Array.from({ length: bisStunde - vonStunde }, (_, i) => vonStunde + i);
   const vonMinute = vonStunde * 60;
   const gesamtHoehe = stunden.length * stundePx;
+  // Was die Zug-Listener brauchen, nach jedem Rendern frisch – sie selbst werden nie neu gebaut.
+  useEffect(() => { liveRef.current = { stundePx, vonMinute, onVerschieben }; });
 
   // Klick auf eine freie Stelle der Tagesspalte: Aus der Höhe wird die Uhrzeit.
   //
@@ -278,6 +536,9 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   function slotKlick(e: React.MouseEvent<HTMLDivElement>, datum: string) {
     if (!onSlot) return;
     if (gesteRef.current.klickSchlucken) { gesteRef.current.klickSchlucken = false; return; }
+    // Nach einem Zug kommt oft noch ein Klick auf der Spalte an – er darf kein „Neuer Auftrag"
+    // werden.
+    if (geradeGezogen()) return;
     const kasten = e.currentTarget.getBoundingClientRect();
     const { von, bis } = terminAusKlick(e.clientY - kasten.top, stundePx, vonMinute, standardDauerMin);
     onSlot(datum, von, bis);
@@ -351,6 +612,7 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
         {proTag.map(({ datum, mitZeit }) => (
           <div
             key={datum}
+            data-datum={datum}
             className={"rl-tag" + (datum === heute ? " ist-heute" : "") + (onSlot ? " rl-anlegbar" : "")}
             title={onSlot ? "Klicken: neuer Auftrag zu dieser Uhrzeit" : undefined}
             onClick={onSlot ? (e) => slotKlick(e, datum) : undefined}
@@ -362,6 +624,9 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
               <TerminBlock
                 key={a.id} auftrag={a} employees={employees}
                 vonMinute={vonMinute} stundePx={stundePx} onOeffnen={onOeffnen}
+                ziehbar={!!onVerschieben && (a.status === "offen" || a.status === "in_arbeit")}
+                zieht={zug?.id === a.id}
+                geradeGezogen={geradeGezogen}
               />
             ))}
           </div>
@@ -377,9 +642,12 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
 
 // Legende. Sie erklärt die eine Sache, die man nicht erraten kann – dass die Farbe die Person
 // meint und nicht den Zustand.
-export function RasterLegende({ employees, sichtbareIds }: {
+export function RasterLegende({ employees, sichtbareIds, ziehen = false }: {
   employees: Employee[];
   sichtbareIds: string[];
+  // Dürfen Termine gezogen werden? Dann sagt die Legende, wie – am Handy errät man das
+  // lange Drücken nicht.
+  ziehen?: boolean;
 }) {
   const gezeigt = employees.filter((e) => sichtbareIds.includes(e.id));
   return (
@@ -391,6 +659,9 @@ export function RasterLegende({ employees, sichtbareIds }: {
       ))}
       <span><i className="leg-ohne" /> niemandem zugeteilt</span>
       <span className="rl-form">Form: ▶ in Arbeit · ✓ erledigt · ✕ storniert · gestricheltes Ende = angenommen</span>
+      {ziehen && (
+        <span className="rl-form">Verschieben: Termin ziehen (am Handy lange drücken) · Dauer: an der Unterkante ziehen</span>
+      )}
     </div>
   );
 }

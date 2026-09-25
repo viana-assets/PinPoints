@@ -77,7 +77,7 @@ import {
 } from "@/lib/api/articles";
 import {
   replaceOrderEmployees,
-  insertOrder, updateOrderById, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
+  insertOrder, updateOrderById, updateOrderTermin, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
   updateOrderFirmenfahrzeug,
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
@@ -1537,6 +1537,11 @@ export default function HomePage() {
     if (vorher.join(",") !== nachher.join(",")) await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
   }
+  // Ein Termin wurde im Kalender gezogen (25.09.2026): nur Tag, Beginn und Ende.
+  async function terminVerschieben(id: string, datum: string, von: string | null, bis: string | null) {
+    await updateOrderTermin(supabase, id, { orderDate: datum, time: von, endTime: bis });
+    await refreshOrders();
+  }
   // Zustandswechsel eines Auftrags. Welche Übergänge erlaubt sind, entscheidet der Trigger aus
   // Migration 20 – lehnt er ab, kommt der Grund als Fehlermeldung zurück und wird über die
   // zentrale Anzeige sichtbar (siehe lib/api/client.ts).
@@ -2738,6 +2743,7 @@ export default function HomePage() {
             onNavigate={openNavMenu}
             onNeuerAuftrag={neuenAuftragAnlegen}
             onNeuerKunde={(termin) => { setTerminFuerNeuenKunden(termin); setTab("add"); }}
+            onVerschieben={darf("auftraege.auftrag", "schreiben") ? terminVerschieben : undefined}
             isTechniker={isTechniker}
           />
           </>

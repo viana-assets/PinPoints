@@ -1746,6 +1746,43 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
 .tm-block.tm-geschaetzt{border-bottom-style:dashed;border-bottom-color:rgba(255,255,255,.75);}
 .tm-block.tm-ohne-person.tm-geschaetzt{border-bottom-color:var(--frei-linie);}
 
+/* Termine ziehen (25.09.2026): verschieben am ganzen Block, Dauer an der Unterkante.
+   Kein Markieren von Text und kein Kontextmenü beim langen Drücken – beides würde am Handy
+   den Zug unterbrechen, bevor er beginnt. */
+.tm-block[data-ziehbar]{cursor:grab;user-select:none;-webkit-user-select:none;
+  -webkit-touch-callout:none;}
+.tm-block .tm-griff{position:absolute;left:0;right:0;bottom:0;height:8px;cursor:ns-resize;}
+.tm-block .tm-griff::after{content:"";position:absolute;left:50%;bottom:2px;width:18px;height:3px;
+  margin-left:-9px;border-radius:2px;background:rgba(255,255,255,.8);opacity:0;
+  transition:opacity .15s;}
+.tm-block.tm-ohne-person .tm-griff::after{background:var(--muted);}
+.tm-block:hover .tm-griff::after,
+.tm-block.tm-zieht .tm-griff::after{opacity:1;}
+/* Am Handy ist der Finger dicker als eine Maus – die Kante braucht mehr Fläche und ist
+   immer angedeutet, weil es dort kein Überfahren gibt. */
+@media (pointer: coarse){
+  .tm-block .tm-griff{height:14px;}
+  .tm-block .tm-griff::after{opacity:.7;}
+}
+/* Der Termin hängt am Zeiger: angehoben, darüber, und der Zeiger sagt „gefasst". */
+.tm-block.tm-zieht{z-index:6;cursor:grabbing;opacity:.92;
+  box-shadow:0 10px 24px rgba(43,38,32,.35);outline:2px solid #fff;}
+
+/* Der Hinweis nach dem Loslassen – mit „Rückgängig". Unter den Fenstern (10000), über der
+   Seite. Am Handy über der unteren Leiste. */
+.verschoben-hinweis{position:fixed;left:50%;transform:translateX(-50%);bottom:18px;z-index:9500;
+  display:flex;align-items:center;gap:12px;max-width:min(560px, calc(100vw - 32px));
+  box-sizing:border-box;background:#1f2430;color:#fff;border-radius:12px;padding:10px 12px 10px 16px;
+  box-shadow:0 8px 24px rgba(0,0,0,.25);font-size:13.5px;}
+.verschoben-hinweis .vh-text{flex:1;min-width:0;}
+.verschoben-hinweis .vh-warnung{display:block;margin-top:3px;color:#ffc896;font-weight:600;}
+.verschoben-hinweis button{background:none;border:none;color:#ff8a5c;font:inherit;font-weight:800;
+  cursor:pointer;padding:6px 4px;white-space:nowrap;}
+.verschoben-hinweis button.vh-zu{color:#b9bfcc;font-weight:400;}
+@media (max-width: 700px){
+  .verschoben-hinweis{bottom:calc(74px + env(safe-area-inset-bottom, 0px));width:calc(100vw - 24px);}
+}
+
 .kal-blaettern{padding:4px 10px;font-size:12px;border:1px solid var(--border);}
 
 .raster-legende{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;
