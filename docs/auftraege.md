@@ -218,6 +218,29 @@ ohnehin nur ihre Notiz schreiben).
 
 ## 5. Einsatzplanung: Monats-, Wochen- und Tagesansicht
 
+**Neugestaltung am 25.09.2026 (Service Worker v69)** nach Entwurf „F · Gleiche Funktionen, neu
+gestaltet" (Design-Arbeitsfläche „Einsatzplanung mobil"). Keine Funktion ist weggefallen:
+
+- **Bedienleiste** (`.planung-leiste`, bleibt stehen) in drei Zeilen: ‹ Titel › Heute – der Titel
+  sagt, wo man ist („September 2026", „KW 39", „Freitag, 25."), ‹ › blättern je nach Ansicht
+  Monat, Woche oder Tag · Monat/Woche/Tag als ein Umschalter · **Mitarbeiter, Fahrzeug und
+  geladener Zeitraum als Auswahlknöpfe**, die ein Auswahlblatt öffnen (am Handy von unten). Ein
+  aktiver Filter ist orange umrandet. Der frühere Balken „Geladener Zeitraum" über der
+  Einsatzplanung entfällt dort (im Aufträge-Tab bleibt er).
+- **Monat** ohne Rahmen je Tag; KW als kleine Zahl links (antippen = Woche); heute = Ring,
+  gewählt = gefüllt, Wochenende heller; Punkte je Mitarbeiter wie bisher.
+- **Tag**: darüber die Woche als Leiste zum Tag-Wechseln (Punkt = Aufträge an dem Tag).
+- **Aufträge am Tag** (unter dem Monat) als Karten je Mitarbeiter: Zeit, Kunde, Transporter,
+  Status, Navigation; Karte öffnet den Auftrag, der Name den Kunden.
+- **Offene Aufträge** als Karten statt Tabelle, bei Sortierung nach Termin nach Tagen gruppiert.
+  Mitarbeiter als Farbkreis (antippen = zuteilen, nicht für Techniker), Status als Pille,
+  „⋯" mit Mitarbeiter zuteilen und Löschen. Sortierung als Auswahl (Termin/Kunde/Status) mit
+  Richtungsknopf statt anklickbarer Spaltenköpfe.
+- Der Modulkopf (Symbol + „Einsatzplanung") steht nur noch am Rechner.
+
+Die Beschreibung darunter gilt weiter; wo sie Tabellen nennt, sind es jetzt Karten.
+
+
 Die Einsatzplanung hat seit Migration 37 (Block B) **drei** Ansichten, nicht nur die
 Monatsübersicht, die in der vorigen Fassung dieses Dokuments beschrieben war:
 

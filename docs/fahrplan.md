@@ -16,6 +16,16 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **25.09.2026 – Einsatzplanung neu gestaltet (Service Worker v69).** Entwurf F umgesetzt:
+  kompakte Bedienleiste mit Auswahlknöpfen für Mitarbeiter, Fahrzeug und Zeitraum, Monat ohne
+  Rahmen mit kleiner KW, Wochenleiste in der Tagesansicht, Tages- und offene Aufträge als
+  Karten. Gleiche Funktionen. Einzelheiten in `docs/auftraege.md`, Abschnitt 5.
+
+* **25.09.2026 – Einsatzplanung: beim Umschalten nach oben (Service Worker v68).** Wer unten
+  in den offenen Aufträgen auf Woche oder Tag tippte, behielt die Scrollposition – das
+  Stundenraster lag unsichtbar darüber. Jetzt springt die Seite beim Wechsel der Ansicht nach
+  oben (nicht beim Blättern).
+
 * **25.09.2026 – „Eingelagerte Reifen" im Kundenfenster (Service Worker v67).** Alle Sätze
   des Kunden als Liste: Lagerplatz, Kennzeichen, Saison, Größe, DOT – auch Sätze ohne Fahrzeug.
   Antippen öffnet den Platz im Lager. Einzelheiten in `docs/lager.md`.

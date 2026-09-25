@@ -1830,17 +1830,167 @@ button.el-zeile:hover{border-color:var(--accent);}
   .raster-woche .rl-stunden{background:var(--panel);box-shadow:1px 0 0 var(--border);}
 }
 
-/* Bedienleiste der Einsatzplanung: bleibt beim Scrollen oben stehen (24.09.2026). Der
-   Scrollbereich ist `.tabpanel` mit 12px Innenabstand – daher `top:-12px`, sonst bliebe
-   darüber ein Spalt, durch den der Kalender hindurchscrollt. */
+/* ===========================================================================
+   Einsatzplanung, neu gestaltet (25.09.2026) – Entwurf „F · Gleiche Funktionen".
+   =========================================================================== */
+
+/* Bedienleiste: bleibt beim Scrollen oben stehen (24.09.2026). Der Scrollbereich ist
+   `.tabpanel` mit 12px Innenabstand – daher `top:-12px`, sonst bliebe darüber ein Spalt,
+   durch den der Kalender hindurchscrollt. Drei schmale Zeilen statt vier breiter. */
 .planung-leiste{position:sticky;top:-12px;z-index:20;background:var(--bg);
-  display:flex;flex-direction:column;gap:6px;padding:8px 0 8px;margin-top:-8px;}
-.planung-leiste .filterbar{margin-bottom:0;}
+  display:flex;flex-direction:column;gap:9px;padding:10px 0 10px;margin-top:-8px;
+  border-bottom:1px solid var(--border);}
+.planung-neu{display:flex;flex-direction:column;gap:12px;}
+.pl-kopf{display:flex;align-items:center;gap:6px;max-width:560px;}
+.pl-rund{width:38px;height:38px;flex:0 0 auto;border-radius:50%;border:none;background:var(--panel);
+  color:var(--text);display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer;
+  box-shadow:0 1px 2px rgba(36,29,19,.08);}
+.pl-rund:hover{color:var(--accent);}
+.pl-titel{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;line-height:1.15;}
+.pl-titel-haupt{font-family:var(--font-brand);font-size:19px;font-weight:700;letter-spacing:-.01em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;}
+.pl-titel-unter{font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;}
+.pl-heute{height:38px;flex:0 0 auto;padding:0 14px;border-radius:19px;border:none;background:var(--text);
+  color:#fff;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;}
+.pl-segment{display:flex;background:#e6e0d4;border-radius:12px;padding:3px;max-width:560px;}
+.pl-segment button{flex:1;height:34px;border:none;border-radius:10px;background:transparent;
+  color:var(--muted);font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;}
+.pl-segment button.aktiv{background:var(--panel);color:var(--text);box-shadow:0 1px 3px rgba(36,29,19,.12);}
+.pl-filter{display:flex;gap:6px;flex-wrap:wrap;}
+.pl-pille{height:36px;flex:0 0 auto;padding:0 12px;border-radius:18px;border:1px solid var(--border);
+  background:var(--panel);color:var(--text);font-size:13.5px;font-weight:700;font-family:inherit;
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;}
+.pl-pille.aktiv{border:1.5px solid var(--accent);background:var(--chip-hover);color:#c2410c;}
+.pl-punkt{width:9px;height:9px;border-radius:50%;flex:0 0 auto;display:inline-block;}
 @media (max-width: 700px){
-  .planung-leiste .filterbar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;
-    -webkit-overflow-scrolling:touch;}
-  .planung-leiste .filterbar::-webkit-scrollbar{display:none;}
-  .planung-leiste .filterbar > *{flex:0 0 auto;}
+  /* Am Handy sagt die Bedienleiste schon, wo man ist – der Modulkopf wäre doppelt. */
+  .planung-modulkopf{display:none;}
+  .pl-kopf,.pl-segment{max-width:none;}
+  .pl-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .pl-filter::-webkit-scrollbar{display:none;}
+}
+
+/* Monat: keine Rahmen um jeden Tag. Heute = Ring, gewählt = gefüllt, Wochenende heller. */
+.monat-karte{background:var(--panel);border-radius:20px;padding:8px 6px 6px;max-width:720px;
+  box-shadow:0 1px 3px rgba(36,29,19,.06);}
+.monat-reihe{display:grid;grid-template-columns:28px repeat(7, minmax(0,1fr));align-items:center;}
+.monat-kopf{padding-bottom:2px;}
+.monat-kw-kopf{text-align:center;font-size:9px;font-weight:700;color:#b5ab98;}
+.monat-wt{text-align:center;font-size:11px;font-weight:700;letter-spacing:.04em;color:var(--muted);}
+.monat-wt.wochenende{color:#b5ab98;}
+.monat-kw{height:32px;border:none;background:none;padding:0;font:inherit;font-size:11px;font-weight:700;
+  color:#b5ab98;cursor:pointer;border-radius:8px;}
+.monat-kw:hover{background:var(--accent-bg);color:var(--accent);}
+.monat-tag{height:54px;border:none;background:none;padding:4px 0 0;font:inherit;color:var(--text);
+  display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;border-radius:12px;}
+.monat-tag:hover{background:var(--hover);}
+.monat-tag.aussen{opacity:.32;}
+.monat-zahl{width:32px;height:32px;border-radius:50%;box-sizing:border-box;display:flex;
+  align-items:center;justify-content:center;font-family:var(--font-brand);font-size:15px;font-weight:600;}
+.monat-tag.wochenende .monat-zahl{color:var(--muted);}
+.monat-tag.heute .monat-zahl{border:2px solid var(--accent);color:#c2410c;}
+.monat-tag.gewaehlt .monat-zahl{background:var(--accent);color:#fff;border:none;}
+.monat-punkte{display:flex;gap:3px;height:6px;}
+.monat-punkte span{width:6px;height:6px;border-radius:50%;}
+.monat-punkte span.ohne{background:var(--muted);opacity:.5;}
+
+/* Tagesansicht: die Woche als Leiste zum Wechseln. */
+.wochen-leiste{display:grid;grid-template-columns:repeat(7, minmax(0,1fr));gap:4px;max-width:720px;}
+.wl-tag{height:58px;border:none;border-radius:14px;background:var(--panel);font:inherit;color:var(--text);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:0;}
+.wl-tag.heute{box-shadow:inset 0 0 0 1.5px var(--accent);}
+.wl-tag.gewaehlt{background:var(--accent);color:#fff;}
+.wl-wt{font-size:10.5px;font-weight:700;letter-spacing:.04em;opacity:.8;}
+.wl-nr{font-family:var(--font-brand);font-size:17px;font-weight:600;}
+.wl-punkt{width:5px;height:5px;border-radius:50%;}
+.wl-punkt.voll{background:var(--accent);}
+.wl-tag.gewaehlt .wl-punkt.voll{background:#fff;}
+
+/* Aufträge am gewählten Tag (unter dem Monat), als Karten je Mitarbeiter. */
+.tag-liste{display:flex;flex-direction:column;gap:8px;max-width:720px;}
+.tag-kopf{display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 0;}
+.tag-titel{font-family:var(--font-brand);font-size:18px;font-weight:700;}
+.text-knopf{border:none;background:none;font:inherit;font-size:13px;font-weight:700;color:#c2410c;
+  cursor:pointer;padding:4px 0;}
+.tag-gruppe{display:flex;flex-direction:column;gap:6px;}
+.tag-gruppe-titel{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:700;
+  color:var(--muted);letter-spacing:.03em;padding-left:2px;}
+.tag-karte{background:var(--panel);border-radius:14px;border-left:5px solid var(--frei-linie);
+  padding:9px 10px 9px 12px;display:flex;align-items:center;gap:10px;cursor:pointer;
+  box-shadow:0 1px 2px rgba(36,29,19,.05);}
+.tag-karte:hover{box-shadow:0 2px 8px rgba(36,29,19,.1);}
+.tk-text{display:flex;flex-direction:column;flex:1;min-width:0;gap:1px;}
+.tk-zeit{font-size:12.5px;font-weight:700;color:var(--muted);}
+.tk-kunde{border:none;background:none;padding:0;font:inherit;font-weight:700;font-size:15px;color:var(--text);
+  text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tk-kunde:hover{color:var(--accent);}
+.tk-fahrzeug{flex:0 0 auto;font-size:12px;font-weight:700;border-radius:8px;padding:4px 8px;background:var(--bg);}
+.tk-fahrzeug.leer{color:var(--muted);font-weight:600;}
+.tag-karte .badge,.op-karte .badge{margin-left:0;flex:0 0 auto;}
+
+/* Offene Aufträge als Karten, nach Tagen gruppiert. */
+.op-bereich{display:flex;flex-direction:column;gap:8px;padding-top:6px;border-top:1px solid var(--border);max-width:720px;}
+.op-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 2px 0;}
+.op-kopf h4{margin:0;font-family:var(--font-brand);font-size:18px;}
+.op-status{display:flex;gap:6px;flex-wrap:wrap;}
+.op-status button{height:36px;padding:0 12px;border-radius:18px;border:1px solid var(--border);background:var(--panel);
+  color:var(--text);font:inherit;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:6px;cursor:pointer;}
+.op-status button.aktiv{background:var(--text);color:#fff;border-color:var(--text);}
+.op-zahl{font-size:11.5px;border-radius:9px;padding:1px 7px;background:var(--bg);color:var(--text);}
+.op-status button.aktiv .op-zahl{background:rgba(255,255,255,.2);color:#fff;}
+.op-suche{display:flex;gap:6px;align-items:center;}
+.op-suche input,.op-suche select{height:42px;box-sizing:border-box;border:1px solid var(--border);
+  border-radius:12px;background:var(--panel);color:var(--text);font-family:var(--font-body);
+  /* 16px: darunter zoomt Safari am iPhone beim Antippen ins Feld hinein. */
+  font-size:16px;padding:0 12px;}
+.op-suche input{flex:1;min-width:0;width:auto;}
+.op-suche select{flex:0 0 auto;width:auto;font-size:14px;}
+.op-richtung{width:40px;height:40px;flex:0 0 auto;border-radius:10px;border:1px solid var(--border);
+  background:var(--panel);font:inherit;font-weight:700;cursor:pointer;}
+.op-gruppe{display:flex;flex-direction:column;gap:6px;}
+.op-gruppe-titel{font-size:12px;font-weight:700;color:var(--muted);letter-spacing:.05em;padding:6px 2px 0;}
+.op-karte{position:relative;background:var(--panel);border-radius:14px;padding:9px 6px 9px 10px;
+  display:flex;align-items:center;gap:10px;cursor:pointer;box-shadow:0 1px 2px rgba(36,29,19,.05);}
+.op-karte:hover{box-shadow:0 2px 8px rgba(36,29,19,.1);}
+.op-avatar{position:relative;width:34px;height:34px;flex:0 0 auto;border-radius:50%;border:none;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;font:inherit;font-weight:700;font-size:14px;
+  color:#fff;cursor:pointer;}
+.op-avatar:disabled{cursor:default;opacity:1;}
+.op-avatar.leer{background:var(--panel);color:var(--muted);border:1.5px dashed var(--frei-linie);}
+.op-mehr{position:absolute;right:-4px;bottom:-4px;font-size:9.5px;font-weight:800;background:var(--text);
+  color:#fff;border-radius:8px;padding:0 4px;line-height:14px;}
+.op-text{display:flex;flex-direction:column;flex:1;min-width:0;gap:2px;}
+.op-zeile1{display:flex;align-items:center;gap:4px;min-width:0;}
+.op-kunde{border:none;background:none;padding:0;font:inherit;font-weight:700;font-size:15px;color:var(--text);
+  text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.op-kunde:hover{color:var(--accent);}
+.op-zeile2{font-size:12.5px;color:var(--muted);}
+.op-menue-anker{position:relative;flex:0 0 auto;}
+.op-mehr-knopf{width:32px;height:40px;border:none;background:none;color:var(--muted);padding:0;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;}
+.op-menue{position:absolute;right:0;top:40px;z-index:30;background:var(--panel);border:1px solid var(--border);
+  border-radius:12px;box-shadow:0 8px 24px rgba(36,29,19,.18);display:flex;flex-direction:column;
+  min-width:190px;overflow:hidden;}
+.op-menue button{border:none;background:none;text-align:left;padding:12px 14px;font:inherit;font-size:14px;
+  font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);}
+.op-menue button:hover{background:var(--hover);}
+.op-menue button.gefahr{color:#b3261e;}
+
+/* Auswahlblatt der Filter: am Handy von unten, am Rechner als kleines Fenster. */
+.auswahl-blatt{background:var(--panel);border-radius:20px;padding:10px 16px 18px;width:min(420px, calc(100vw - 32px));
+  display:flex;flex-direction:column;gap:6px;max-height:80vh;overflow-y:auto;box-sizing:border-box;}
+.ab-griff{align-self:center;width:40px;height:5px;border-radius:3px;background:var(--border);display:none;}
+.ab-titel{font-family:var(--font-brand);font-size:18px;font-weight:700;padding:4px 2px 6px;}
+.ab-option{min-height:48px;border-radius:12px;border:1px solid var(--border);background:var(--panel);
+  padding:6px 14px;display:flex;align-items:center;gap:10px;font:inherit;font-size:15px;font-weight:600;
+  color:var(--text);cursor:pointer;text-align:left;flex-wrap:wrap;}
+.ab-option.aktiv{border:2px solid var(--accent);background:var(--chip-hover);}
+.ab-text{flex:1;min-width:0;}
+.ab-haken{font-weight:800;color:var(--accent);}
+@media (max-width: 700px){
+  .auswahl-overlay{align-items:flex-end !important;}
+  .auswahl-blatt{width:100%;border-radius:22px 22px 0 0;padding-bottom:calc(18px + env(safe-area-inset-bottom, 0px));}
+  .ab-griff{display:block;}
 }
 
 @media (prefers-reduced-motion: reduce){

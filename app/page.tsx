@@ -2726,8 +2726,11 @@ export default function HomePage() {
 
         {tab === "einsatzplanung" && canView("einsatzplanung") && (
           <>
-          <FensterSchalter wert={auftragsFenster} onChange={setAuftragsFenster} laedt={auftraegeQuery.isFetching} />
+          {/* Der geladene Zeitraum sitzt seit der Neugestaltung (25.09.2026) als Auswahlknopf in
+              der Bedienleiste der Einsatzplanung – ein eigener Balken darüber kostete am Handy
+              eine ganze Zeile, die beim Scrollen stehen blieb. */}
           <EinsatzplanungPanel
+            fenster={{ wert: auftragsFenster, onChange: setAuftragsFenster, laedt: auftraegeQuery.isFetching }}
             standardDauerMin={terminIntervall}
             customers={customers}
             firmenfahrzeuge={firmenfahrzeuge}
