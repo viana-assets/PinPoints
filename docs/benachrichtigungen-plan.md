@@ -445,6 +445,13 @@ muss, bekommt nichts und wird auch nicht eingetragen: Kommt um 21 Uhr noch ein A
 morgen dazu, geht der Hinweis dann um 21:01. Ist er einmal gegangen, kommt am selben Abend kein
 zweiter – auch nicht, wenn danach noch ein Auftrag dazukommt.
 
+**Abhaken im Dashboard (25.09.2026, Migration 58).** Dieselbe Liste steht auf dem Dashboard
+unter „Reifen mitnehmen" (heute/morgen umschaltbar). Beim Einladen wird jeder Satz abgehakt; der
+Haken liegt in `mitnehmen_gepackt` (Satz + Tag, wer, wann) und ist fürs ganze Team sichtbar –
+wer morgens einlädt, sieht, was der Kollege abends schon ins Auto gelegt hat. Lesen, Abhaken und
+Entfernen hängen am Recht `lager.einlagerung` / `lesen`: wer die Sätze sehen darf, darf sie auch
+einladen. Der Abendhinweis selbst achtet (noch) nicht auf die Haken.
+
 **Zum Prüfen**, ohne bis 20 Uhr zu warten: in den Einstellungen die Uhrzeit auf eine Minute in
 der Zukunft stellen und einen offenen Auftrag für morgen bei einem Kunden mit eingelagertem Satz
 haben, sich selbst als Mitarbeiter eingeteilt. Danach:

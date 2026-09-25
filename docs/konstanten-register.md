@@ -167,6 +167,7 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `MITNEHMEN_PARAMETER` | `lib/constants.ts` | `string` ("mitnehmen") | Aufrufparameter des Abendhinweises: `/?mitnehmen=YYYY-MM-DD` öffnet die Mitnehmen-Liste (Migration 55, 23.09.2026) | `lib/abendhinweisVersand.ts`, `app/page.tsx` (`zielOeffnen`) |
 | `ABENDHINWEIS_UHRZEIT_STANDARD` | `lib/constants.ts` | `string` ("20:00") | Uhrzeit des Abendhinweises ohne eigene Einstellung. Dieselbe Vorgabe steht als Spaltenvorgabe in `user_settings.abendhinweis_uhrzeit` (Migration 55) – beide gemeinsam ändern | `lib/mitnehmen.ts` (`abendhinweisFaellig`), `SettingsPanel`, `app/page.tsx` |
 | `PUSH_ABSENDER` | `lib/pushInhalt.ts` | `string` (aus `ERSCHEINUNG.kurzname`) | Titel der Testnachricht; folgt der Tarnung (23.09.2026) | `app/api/push/test` |
+| `LAGER_ENGPASS_AB` | `lib/dashboard.ts` | `number` (10) | Ab weniger freien Lagerplätzen zeigt das Dashboard unter „Zu erledigen" die Warnung „Lager wird knapp" (25.09.2026) | **nur intern** – `zuErledigen()`, darüber `DashboardPanel`; `tests/dashboard.test.ts` |
 
 ---
 

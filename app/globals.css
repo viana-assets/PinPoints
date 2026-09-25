@@ -2549,3 +2549,132 @@ button.el-zeile:hover{border-color:var(--accent);}
 .laufkunde-felder{display:grid;grid-template-columns:1fr 1fr 2fr;gap:8px;margin-top:8px;}
 .laufkunde-felder .field{margin-bottom:0;}
 @media (max-width: 700px){ .laufkunde-felder{grid-template-columns:1fr;} }
+
+/* ---------------------------------------------------------------- Dashboard (25.09.2026, Entwurf G)
+   Im Stil der neuen Einsatzplanung (Entwurf F): weiße Karten ohne Rahmen, runde Ecken, ein
+   dunkelblauer Kasten für „Als Nächstes", Orange nur für das, was zu tun ist. Das Dashboard
+   steht am Rechner in der Seitenleiste neben der Karte – alles ist deshalb für eine schmale
+   Spalte gebaut und wächst am Handy nur in der Breite. Komponente: components/dashboard/. */
+.db-seite{display:flex;flex-direction:column;gap:12px;padding-bottom:12px;}
+.db-kopf{display:flex;flex-direction:column;gap:1px;padding:2px 2px 0;}
+.db-datum{font-size:12px;font-weight:700;letter-spacing:.05em;color:var(--muted);}
+.db-gruss{margin:0;font-family:var(--font-brand);font-size:24px;font-weight:700;letter-spacing:-.01em;}
+
+.db-kacheln{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:8px;}
+.db-kachel,.db-kachel-gross{background:var(--panel);border:none;border-radius:18px;padding:12px;
+  display:flex;flex-direction:column;gap:2px;text-align:left;font:inherit;color:var(--text);
+  box-shadow:0 1px 3px rgba(36,29,19,.06);min-width:0;}
+button.db-kachel,button.db-kachel-gross{cursor:pointer;}
+button.db-kachel:hover,button.db-kachel-gross:hover{box-shadow:0 0 0 1.5px var(--accent) inset;}
+.db-k-titel{font-size:12px;font-weight:700;color:var(--muted);}
+.db-k-wert{font-family:var(--font-brand);font-size:24px;font-weight:700;line-height:1.15;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-k-von{font-size:14px;color:var(--muted);font-weight:600;}
+.db-k-unter{font-size:11.5px;color:var(--muted);}
+.db-k-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+
+/* Als Nächstes */
+.db-naechster{background:var(--navy);color:#fff;border-radius:20px;padding:14px;
+  display:flex;flex-direction:column;gap:4px;}
+.db-n-kopf{display:flex;justify-content:space-between;align-items:center;gap:8px;}
+.db-n-wann{font-size:12px;font-weight:700;letter-spacing:.05em;opacity:.8;}
+.db-n-wer{font-size:12px;font-weight:700;background:rgba(255,255,255,.14);border-radius:9px;padding:3px 8px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:55%;}
+.db-n-titel{background:none;border:none;padding:0;margin:2px 0 0;font:inherit;color:#fff;text-align:left;cursor:pointer;
+  font-family:var(--font-brand);font-size:22px;font-weight:700;line-height:1.2;}
+.db-n-unter{font-size:13.5px;opacity:.85;}
+.db-n-knoepfe{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:6px;margin-top:8px;}
+.db-n-knoepfe button{height:42px;border-radius:12px;border:1px solid rgba(255,255,255,.3);background:transparent;
+  color:#fff;font:inherit;font-weight:700;font-size:13.5px;cursor:pointer;}
+.db-n-knoepfe button:hover{background:rgba(255,255,255,.1);}
+.db-n-knoepfe button.primaer{border:none;background:var(--accent);}
+.db-n-knoepfe button.primaer:hover{background:color-mix(in srgb, var(--accent) 88%, black);}
+
+/* Karten */
+.db-karte{background:var(--panel);border-radius:20px;padding:14px;display:flex;flex-direction:column;gap:0;
+  box-shadow:0 1px 3px rgba(36,29,19,.06);}
+.db-karte-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding-bottom:6px;}
+.db-karte-titel{font-family:var(--font-brand);font-size:17px;font-weight:700;}
+.db-link{background:none;border:none;padding:0;font:inherit;font-size:13px;font-weight:700;color:#c2410c;
+  cursor:pointer;white-space:nowrap;}
+span.db-link{cursor:inherit;}
+.db-leer{font-size:14px;color:#6f6553;background:var(--bg);border-radius:12px;padding:12px;text-align:center;margin-top:8px;}
+
+/* Reifen mitnehmen */
+.db-mit-kopf{display:flex;align-items:center;gap:8px;}
+.db-mit-symbol{width:34px;height:34px;border-radius:11px;background:#e4ebf3;color:var(--navy);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;}
+.db-mit-text{display:flex;flex-direction:column;flex:1;min-width:0;}
+.db-mit-text .db-karte-titel{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-mit-text .small{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-umschalter{display:flex;background:#e6e0d4;border-radius:12px;padding:3px;flex:0 0 auto;}
+.db-umschalter button{height:30px;padding:0 8px;border:none;border-radius:10px;background:transparent;
+  color:var(--muted);font:inherit;font-weight:700;font-size:12.5px;cursor:pointer;}
+.db-umschalter button.aktiv{background:var(--panel);color:var(--text);box-shadow:0 1px 3px rgba(36,29,19,.12);}
+.db-mit-zeile{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;
+  border-top:1px solid #efe9de;padding:10px 0;margin:0;font:inherit;color:inherit;cursor:pointer;}
+.db-mit-zeile:first-of-type{margin-top:8px;}
+.db-haken{width:26px;height:26px;border-radius:8px;border:2px solid var(--frei-linie);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px;color:#fff;}
+.db-mit-zeile.an .db-haken{background:var(--green);border-color:var(--green);}
+.db-mit-info{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+.db-mit-kunde{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-mit-info .small{font-size:12.5px;}
+.db-mit-zeile.an .db-mit-kunde{text-decoration:line-through;color:var(--muted);}
+.db-platz{font-family:var(--font-brand);font-weight:700;font-size:17px;color:var(--navy);background:#e4ebf3;
+  border-radius:10px;padding:4px 10px;flex:0 0 auto;max-width:45%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-mit-zeile.an .db-platz{opacity:.45;}
+.db-mit-fuss{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;
+  border-top:1px solid #efe9de;padding-top:10px;}
+.db-mit-fuss .fertig,.db-mit-fuss .offen{font-size:12.5px;font-weight:700;}
+.db-mit-fuss .fertig{color:var(--green);}
+.db-mit-fuss .offen{color:#c2410c;}
+
+/* Zu erledigen */
+.db-punkt{border-top:1px solid #efe9de;}
+.db-punkt:first-of-type{border-top:none;}
+.db-punkt-zeile{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:none;
+  padding:10px 0;font:inherit;color:inherit;cursor:pointer;}
+.db-punkt-zahl{width:32px;height:32px;border-radius:10px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-brand);font-weight:700;font-size:15px;}
+.db-punkt-zahl.rot{background:var(--red-bg);color:var(--red);}
+.db-punkt-zahl.orange{background:var(--accent-bg);color:#c2410c;}
+.db-punkt-zahl.blau{background:var(--blau-bg);color:var(--blau);}
+.db-punkt-zahl.grau{background:var(--bg);color:var(--muted);}
+.db-punkt-text{display:flex;flex-direction:column;flex:1;min-width:0;}
+.db-punkt-titel{font-weight:700;font-size:14px;}
+.db-punkt-text .small{font-size:12px;}
+.db-pfeil{font-family:var(--font-brand);font-size:20px;color:var(--muted);transition:transform .15s;flex:0 0 auto;}
+.db-pfeil.auf{transform:rotate(90deg);}
+.db-punkt-liste{display:flex;flex-direction:column;gap:4px;padding:0 0 10px 44px;}
+.db-punkt-liste button:not(.db-link){font:inherit;font-size:13px;text-align:left;color:var(--text);background:var(--bg);
+  border:none;border-radius:9px;padding:7px 10px;cursor:pointer;}
+.db-punkt-liste button:not(.db-link):hover{background:var(--hover);}
+.db-punkt-liste .db-link{align-self:flex-start;margin-top:2px;}
+
+/* Heute im Team / Mein Tag */
+.db-heute{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid #efe9de;cursor:pointer;}
+.db-karte-kopf + .db-heute{border-top:none;}
+.db-heute:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px;}
+.db-heute-zeit{width:44px;flex:0 0 auto;font-family:var(--font-brand);font-weight:600;font-size:14px;
+  font-variant-numeric:tabular-nums;}
+.db-heute-strich{width:4px;align-self:stretch;min-height:32px;border-radius:2px;flex:0 0 auto;}
+.db-heute-text{display:flex;flex-direction:column;flex:1;min-width:0;}
+.db-heute-kunde{font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.db-heute .badge{margin-left:0;flex:0 0 auto;}
+.db-heute.fertig .db-heute-kunde{text-decoration:line-through;color:var(--muted);}
+.db-heute.fertig .db-heute-zeit{color:var(--muted);}
+
+/* Unten: Woche, Lager, Saison, Kunden */
+.db-raster{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:8px;}
+.db-kachel-gross{gap:6px;}
+.db-kachel-gross.breit{grid-column:span 2;}
+.db-kachel-gross .db-k-wert{font-size:22px;}
+.db-balken{display:flex;align-items:flex-end;gap:4px;height:34px;}
+.db-balken span{flex:1;background:#e6e0d4;border-radius:3px;min-height:3px;}
+.db-balken span.heute{background:var(--accent);}
+.db-fortschritt{height:8px;border-radius:4px;background:var(--bg);overflow:hidden;display:block;}
+.db-fortschritt span{display:block;height:100%;background:var(--navy);border-radius:4px;}
+.db-fortschritt.gruen span{background:var(--green);}
+.db-saison{font-size:14px;line-height:1.4;}
+.db-saison b{font-family:var(--font-brand);font-size:20px;}

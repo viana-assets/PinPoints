@@ -683,3 +683,18 @@ mehrere Fahrzeuge am Auftrag, braucht das Auge eine Grenze zwischen ihnen – so
 Kennzeichen des einen wie die Fortsetzung des anderen: `.rd-fahrzeug + .rd-fahrzeug` bekommt
 deshalb in derselben `@media`-Regel eine gestrichelte Trennlinie oberhalb (`border-top:1px dashed
 var(--border)`).
+
+## Dashboard im Kartenstil (25.09.2026)
+
+Das Dashboard folgt der neuen Einsatzplanung (Entwurf F/G): weiße Karten ohne Rahmen mit
+20 px Rundung auf dem beigen Grund, ein dunkelblauer Kasten (`--navy`) nur für „Als Nächstes",
+Orange nur für das, was zu tun ist (Hauptknopf, Links, „noch offen"). Zahlen in der Markenschrift.
+
+- Es steht am Rechner **in der Seitenleiste neben der Karte**, nicht als Vollseite. Alles ist
+  deshalb für eine schmale Spalte gebaut; am Handy wird es nur breiter, nicht anders.
+- Die Farben der „Zu erledigen"-Zahlen haben eine Bedeutung: Rot = Geld oder Engpass
+  (Rechnungen, Lager), Orange = Planung (ohne Mitarbeiter, Überschneidung), Hellblau =
+  Wiedervorlage (wie auf der Karte), Grau = Kleinigkeit (Laufkunde ohne Namen).
+- Der Lagerplatz steht bei „Reifen mitnehmen" groß und blau rechts – im Lager ist er die Frage.
+  Ein abgehakter Satz wird durchgestrichen und blasser, bleibt aber in der Liste.
+- Klassen: `db-*` in `app/globals.css`, Abschnitt „Dashboard".

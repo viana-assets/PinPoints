@@ -62,6 +62,7 @@ import { ReifensatzEtikett } from "@/components/lager/ReifensatzEtikett";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
+import { DashboardPanel } from "@/components/dashboard/DashboardPanel";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
 import { insertVehicle, updateVehicleById, deleteVehicleById } from "@/lib/api/vehicles";
 import {
@@ -328,7 +329,7 @@ export default function HomePage() {
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
-  const brauchtLager = tab === "lager" || tab === "saison" || kundeOffen || offenerAuftragId !== null || mitnehmenDatum !== null;
+  const brauchtLager = tab === "lager" || tab === "saison" || tab === "dashboard" || kundeOffen || offenerAuftragId !== null || mitnehmenDatum !== null;
 
   const kundenQuery = useKunden(supabase, sitzungBereit);
   // "Kein Netz" aus DREI Quellen, weil keine für sich zuverlässig ist:
@@ -361,7 +362,7 @@ export default function HomePage() {
   // (Migration 30).
   // Auch für die Artikelauswertung: „wie viel geht auf ein Fahrzeug" braucht die Kennzeichen
   // aller Fahrzeuge, nicht nur die des geöffneten Kunden.
-  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison" || tab === "auswertung" || mitnehmenDatum !== null));
+  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison" || tab === "dashboard" || tab === "auswertung" || mitnehmenDatum !== null));
   // Die eigenen Transporter: kleine Stammdatenliste, gebraucht überall dort, wo ein Auftrag
   // gezeigt oder eingeteilt wird (Migration 32).
   const firmenfahrzeugeQuery = useFirmenfahrzeuge(
@@ -2405,46 +2406,42 @@ export default function HomePage() {
           </div>
         </header>
 
+        {/* Das Dashboard (25.09.2026, Entwurf „G"): was heute und morgen ansteht, was mit muss
+            und was noch zu tun ist. Die Rechnungen dahinter stehen in lib/dashboard.ts. */}
         {tab === "dashboard" && (
-          <div className="tabpanel active">
-            <div className="stats">
-              <div className="stat"><div className="num">{statTotal}</div><div className="lbl">Gesamt</div></div>
-              <div className="stat red"><div className="num">{statTotal - statOk}</div><div className="lbl">Offen</div></div>
-              <div className="stat green"><div className="num">{statOk}</div><div className="lbl">Kontaktiert</div></div>
-            </div>
-            <div className="module-cards">
-              {canView("termine") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("termine")}>
-                  <div className="mc-icon"><IconTermine /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Anstehende Termine</div>
-                    <div className="mc-sub">Nächste Reifenwechsel-Termine im Blick behalten</div>
-                  </div>
-                  <div className="mc-tag">{upcomingApptCount}</div>
-                </div>
-              )}
-              {canView("lager") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("lager")}>
-                  <div className="mc-icon"><IconLager /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Belegte Lagerplätze</div>
-                    <div className="mc-sub">von {slotsGesamt} Lagerplätzen insgesamt</div>
-                  </div>
-                  <div className="mc-tag">{occupiedSlots}</div>
-                </div>
-              )}
-              {canView("auftraege") && (
-                <div className="module-card" style={{ cursor: "pointer" }} onClick={() => setTab("auftraege")}>
-                  <div className="mc-icon"><IconAuftraege /></div>
-                  <div className="mc-text">
-                    <div className="mc-title">Offene Aufträge</div>
-                    <div className="mc-sub">von {orders.length} Aufträgen insgesamt</div>
-                  </div>
-                  <div className="mc-tag">{openOrders}</div>
-                </div>
-              )}
-            </div>
-          </div>
+          <DashboardPanel
+            supabase={supabase}
+            orders={orders}
+            orderEmployees={orderEmployees}
+            customers={customers}
+            employees={employees}
+            tireStorages={tireStorages}
+            storageSlots={storageSlots}
+            warehouses={warehouses}
+            vehicles={alleFahrzeuge}
+            lagerLaedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
+            isTechniker={isTechniker}
+            standardDauerMin={terminIntervall}
+            belegtePlaetze={occupiedSlots}
+            gesamtPlaetze={slotsGesamt}
+            kundenGesamt={statTotal}
+            kundenKontaktiert={statOk}
+            darfLager={canView("lager") && darf("lager.einlagerung", "lesen")}
+            darfSaison={canView("saison")}
+            darfKunden={canView("kunden")}
+            darfPlanung={canView("einsatzplanung")}
+            betragFuer={(o) => orderArticleTotals(orderArticlesFor(o.id), o.rechnung_noetig).gross}
+            istRueckruf={(c) => kundenZustand(c) === "red"}
+            onOpenOrder={setOffenerAuftragId}
+            onOpenCustomer={openDetail}
+            onNavigate={openNavMenu}
+            onCall={openCallMenu}
+            onZuPlanung={() => setTab("einsatzplanung")}
+            onZuLager={() => setTab("lager")}
+            onZuSaison={(saison) => { setSaisonFilter(saison); setTab("saison"); }}
+            onZuAnrufliste={() => { setFilter("offen"); setTab("list"); }}
+            onZuRechnungen={canView("rechnungen") ? () => setTab("rechnungen") : undefined}
+          />
         )}
 
         {tab === "list" && canView("kunden") && (

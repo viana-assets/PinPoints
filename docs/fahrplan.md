@@ -16,6 +16,15 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **25.09.2026 – Dashboard neu (Service Worker v70, Migration 58).** Entwurf G umgesetzt:
+  drei Zahlen (heute, morgen, offen), „Als Nächstes" mit Navigation und Anrufen, „Reifen
+  mitnehmen" für heute oder morgen zum Abhaken beim Einladen – der Haken ist fürs ganze Team
+  sichtbar (Tabelle `mitnehmen_gepackt`), „Zu erledigen" fürs Büro (Rechnungen offen, Termine
+  ohne Mitarbeiter, Überschneidungen, Rückrufe, Laufkunde ohne Namen, Lager-Engpass unter
+  `LAGER_ENGPASS_AB` freien Plätzen), der Tag im Überblick, unten Wochenumsatz, Lager,
+  Saison-Barometer (Kunden mit eingelagerten Reifen der kommenden Saison ohne Termin) und
+  Kundenkontakt. Techniker sehen dieselbe Seite ohne die Büro-Teile. Logik in `lib/dashboard.ts`.
+
 * **25.09.2026 – Einsatzplanung neu gestaltet (Service Worker v69).** Entwurf F umgesetzt:
   kompakte Bedienleiste mit Auswahlknöpfen für Mitarbeiter, Fahrzeug und Zeitraum, Monat ohne
   Rahmen mit kleiner KW, Wochenleiste in der Tagesansicht, Tages- und offene Aufträge als

@@ -438,6 +438,12 @@ Betriebsjahr weiter und kommen deshalb über ein Zeitfenster.
   (`fetchLagerKennzahlen`), statt dafür das komplette Lager zu laden. Die übrigen
   Dashboard-Zahlen rechnen weiterhin im Browser – ihre Datengrundlage ist ohnehin geladen und
   bleibt dadurch exakt.
+  Seit dem neuen Dashboard (25.09.2026, `components/dashboard/DashboardPanel.tsx`) lädt der
+  Start-Reiter zusätzlich Lager und Kundenfahrzeuge (`brauchtLager`, `alleFahrzeugeQuery` in
+  `app/page.tsx`): „Reifen mitnehmen", der Lager-Engpass und das Saison-Barometer brauchen die
+  Sätze. Bewusst in Kauf genommen – dieselben Daten lädt der 20-Uhr-Hinweis und das Lager
+  ohnehin, und sie landen im Offline-Speicher. Wird das Lager einmal sehr groß, gehört das
+  Barometer in eine `count`-Abfrage wie `fetchLagerKennzahlen`.
 - **Zeichnen statt laden begrenzen**: die Karte zeichnet nur Marker im sichtbaren Ausschnitt
   (Obergrenze `MAX_MARKER`, mit Hinweis), die Kundenliste 200 Zeilen auf einmal
   (`LISTEN_SCHRITT`, nachladbar). Gefiltert und gezählt wird immer über den ganzen Bestand.
