@@ -39,4 +39,8 @@ export const qk = {
   auftragRechnungen: (orderId: string) => ["auftrag", orderId, "rechnungen"] as const,
 
   modulrechte: () => ["modulrechte"] as const,
+
+  // Haken bei „Reifen mitnehmen" (Migration 58), je Liste von Einsatztagen.
+  gepackt: (daten: string[]) => ["mitnehmen-gepackt", ...daten] as const,
+  gepacktAlle: () => ["mitnehmen-gepackt"] as const,
 };

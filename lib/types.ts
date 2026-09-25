@@ -202,6 +202,15 @@ export type TireStorage = {
   order_id: string | null;
 };
 
+// Ein Satz ist für einen Einsatztag ins Auto geladen (Migration 58, Dashboard „Reifen
+// mitnehmen"). Fürs ganze Team sichtbar.
+export type MitnehmenGepackt = {
+  tire_storage_id: string;
+  fuer_datum: string;
+  gepackt_von: string | null;
+  gepackt_am: string;
+};
+
 // Zustände eines Auftrags (Migration 20, Konzept in docs/auftragsablauf.md). Sie werden NICHT
 // frei ausgewählt, sondern durch benannte Handlungen erreicht ("Arbeit beginnen",
 // "Auftrag abschließen", "Stornieren"); die erlaubten Übergänge erzwingt ein Datenbank-Trigger.

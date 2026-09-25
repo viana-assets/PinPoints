@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { qk } from "./keys";
 import { fetchCustomers, fetchContactHistory } from "@/lib/api/customers";
+import { fetchGepackt } from "@/lib/api/mitnehmen";
 import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsdaten } from "@/lib/api/orders";
 import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
@@ -182,6 +183,18 @@ export function useLagerKennzahlen(supabase: SupabaseClient, aktiv: boolean) {
     queryFn: () => fetchLagerKennzahlen(supabase),
     enabled: aktiv,
     staleTime: FRISCH_MS,
+  });
+}
+
+// Haken bei „Reifen mitnehmen" (Migration 58). Alle 30 Sekunden neu, solange das Dashboard
+// offen ist: Das Büro soll sehen, was der Techniker gerade einlädt, ohne neu zu laden.
+export function useGepackt(supabase: SupabaseClient, daten: string[], aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.gepackt(daten),
+    queryFn: () => fetchGepackt(supabase, daten),
+    enabled: aktiv && daten.length > 0,
+    staleTime: 15_000,
+    refetchInterval: aktiv ? 30_000 : false,
   });
 }
 
