@@ -88,55 +88,10 @@
     box-shadow:0 4px 14px rgba(0,0,0,.3);}
   #mapToggleBtn svg{width:22px;height:22px;}
 
-  /* ---------------- Kartenansicht-Schalter (Google-Maps-artig, direkt auf der Karte) ---------------- */
-  .map-style-control{font-family:inherit;background:var(--panel);border:1px solid var(--border);
-    border-radius:10px;box-shadow:0 6px 18px rgba(0,0,0,.2);overflow:hidden;}
-  .map-style-toggle{display:flex;align-items:center;gap:7px;padding:9px 12px;cursor:pointer;
-    font-size:12.5px;font-weight:600;color:var(--text);background:var(--panel);border:none;
-    font-family:inherit;user-select:none;}
-  .map-style-toggle:hover{background:var(--hover);}
-  .map-style-toggle svg{width:16px;height:16px;flex:0 0 auto;}
-
-  /* ---------------- Zustandsfilter auf der Karte (oben rechts) ----------------
-     Gleiche Optik wie der Kartenansicht-Schalter unten links: es ist dieselbe Art
-     Bedienelement, nur in der anderen Ecke. Fest positioniert und NICHT innerhalb von #map,
-     weil Leaflet Zieh-Gesten am Kartencontainer abgreift – ein Kind darin würde beim Wischen
-     die Karte mitziehen. Die Kartenspalte reicht bis an den oberen Fensterrand, deshalb liegt
-     "oben rechts im Fenster" genau auf der Karte. */
-  #kartenFilter{position:fixed;top:12px;right:12px;z-index:900;width:max-content;}
-  .kartenfilter-badge{background:var(--accent);color:#fff;border-radius:999px;font-size:10.5px;
-    font-weight:700;min-width:17px;height:17px;display:inline-flex;align-items:center;
-    justify-content:center;padding:0 5px;}
-  .karten-filter-liste{border-top:1px solid var(--border);}
-  .karten-filter-zeile{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;
-    background:var(--panel);border:none;border-radius:0;font-family:inherit;font-size:12.5px;
-    font-weight:600;color:var(--text);cursor:pointer;text-align:left;}
-  .karten-filter-zeile:hover{background:var(--hover);}
-  /* Ausgeblendet heißt blass, nicht weg: die Zeile bleibt lesbar, damit man sieht, was fehlt. */
-  .karten-filter-zeile.aus{opacity:.45;}
-  .karten-filter-zeile .haken{width:12px;text-align:center;color:var(--green);}
-  .karten-filter-zeile .dot{margin-top:0;}
-  .karten-filter-zeile .zahl{margin-left:auto;padding-left:10px;color:var(--muted);
-    font-size:11.5px;font-weight:600;}
-  .karten-filter-alle{display:block;width:100%;padding:7px 12px;border:none;border-radius:0;
-    border-top:1px solid var(--border);background:var(--panel);font-family:inherit;
-    font-size:11.5px;font-weight:600;color:var(--accent);cursor:pointer;text-align:left;}
-  .karten-filter-alle:hover{background:var(--hover);}
-  .karten-filter-alle:disabled{color:var(--muted);cursor:default;background:var(--panel);}
-  .map-style-icon{display:flex;color:var(--muted);}
-  .map-style-panel{display:none;border-top:1px solid var(--border);padding:6px;min-width:196px;}
-  .map-style-panel.open{display:block;}
-  .map-style-option{display:flex;align-items:center;gap:9px;padding:7px 8px;border-radius:8px;
-    cursor:pointer;font-size:12.5px;color:var(--text);}
-  .map-style-option:hover{background:var(--hover);}
-  .map-style-option.active{background:var(--accent-bg);color:var(--accent);font-weight:700;}
-  .map-style-swatch{width:22px;height:22px;border-radius:6px;flex:0 0 auto;
-    border:1px solid rgba(0,0,0,.15);position:relative;}
-  .swatch-strasse{background:linear-gradient(135deg,#eef1f4,#c9d6e3);}
-  .swatch-satellit{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
-  .swatch-satellit_labels{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
-  .swatch-satellit_labels::after{content:"";position:absolute;left:4px;right:4px;bottom:4px;height:3px;
-    background:rgba(255,255,255,.85);border-radius:2px;}
+  /* Der Kartenansicht-Schalter (unten links, Leaflet-Steuerelement) und der Zustandsfilter
+     „Nadeln" (oben rechts, #kartenFilter) sind seit v79 entfallen – Ebenen, Zoom und Standort
+     sitzen als Spalte rechts unten, die Zustände als Pillen oben. Stil: Abschnitt
+     „Karte: Bedienung" weiter unten. */
   /* Marke erscheint nur EINMAL gleichzeitig: auf Desktop/Tablet trägt .nav-brand in
      #iconNav die Bildmarke, diese Kopfzeile bleibt dort unsichtbar; auf dem Handy wird
      .nav-brand ausgeblendet (Bottom-Bar hat keinen Platz/keine Konvention dafür), dort
@@ -510,7 +465,12 @@
     #app.vollseite{grid-template-columns:1fr;}
     #iconNav{width:auto;height:100%;min-width:0;flex-direction:row;align-items:stretch;
       justify-content:space-around;padding:0;gap:0;order:3;border-top:1px solid var(--border);border-right:none;
-      padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;overflow-y:visible;}
+      padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;overflow-y:visible;
+      /* Die Zeile ausdrücklich: Ist die Karte offen, ist die Seitenleiste ausgeblendet – ohne
+         diese Angabe rückte die Leiste dann in die freie erste Zeile, lag unsichtbar HINTER der
+         Karte, und unten blieb ein leerer Streifen (gefunden am 26.09.2026 beim Messen der neuen
+         Karte bei 390 px). */
+      grid-row:2;}
     .nav-brand, .nav-divider, .nav-spacer{display:none;}
     .app-brand-header{display:block;}
     /* Mobil bewusst schlank: nur Dashboard/Einsatzplanung/Aufträge/Kunden/Weitere sind direkt sichtbar,
@@ -525,9 +485,9 @@
     #map.mobile-visible{display:block;}
     #sidebar.mobile-hidden{display:none;}
     #mapToggleBtn{display:flex;bottom:calc(74px + env(safe-area-inset-bottom, 0px));right:16px;}
-    /* Am Handy liegt die Karte über allem oder gar nicht da – der Filter folgt ihr. */
-    #kartenFilter{display:none;}
-    #kartenFilter.mobile-sichtbar{display:block;}
+    /* Ist die Karte offen, führt „Liste" oben auf der Karte zurück – der runde Knopf wäre ein
+       zweiter Weg an einer Stelle, an der das Kundenblatt aufgeht. */
+    #mapToggleBtn.karte-offen{display:none;}
     .modal-box{width:100%;max-width:100%;height:100%;max-height:100%;border-radius:0;}
     .modal-overlay{align-items:stretch;}
     .call-menu{min-width:min(220px, 90vw);}
@@ -701,26 +661,6 @@
 /* Die frühere Umschaltung des geladenen Zeitraums (`.fenster-schalter`, ein eigener Balken über
    den Auftragslisten) ist am 26.09.2026 entfallen: Der Zeitraum sitzt in Einsatzplanung und
    Aufträgen als Auswahlknopf in der Bedienleiste. */
-
-/* Hinweis auf der Karte, wenn im aktuellen Ausschnitt mehr Kunden liegen als gezeichnet werden
-   (siehe MAX_MARKER in app/page.tsx). Ohne diesen Hinweis würde es so aussehen, als fehlten
-   Kunden. */
-.map-hinweis {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 900;
-  max-width: min(420px, calc(100% - 24px));
-  padding: 7px 13px;
-  border-radius: 999px;
-  background: rgba(36, 29, 19, .82);
-  color: #fff;
-  font-family: var(--font-body);
-  font-size: 12.5px;
-  text-align: center;
-  pointer-events: none;
-}
 
 /* Fuß der Kundenliste: zeigt, dass nicht alle Treffer gezeichnet sind, und lädt weitere nach
    (siehe LISTEN_SCHRITT in app/page.tsx). Gefiltert wird immer über den ganzen Bestand. */
@@ -1128,7 +1068,10 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
 /* Der Punkt eines Kunden, dessen Position nur die Straßenmitte ist, sieht anders aus als
    einer, der stimmt: hohl statt gefüllt. Die FORM trägt die Aussage „ungefähr", die Farbe
    bleibt für den Kundenzustand reserviert – dieselbe Regel wie im Lager. */
-.karte-banner{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:20002;
+/* width:max-content ist nötig: Ein Element mit left:50% bekommt sonst nur die halbe Fensterbreite
+   als verfügbaren Platz und bricht am Handy nach jedem zweiten Wort um (gemessen 26.09.2026 bei
+   390 px – der Balken war 214 px schmal). Die Obergrenze setzt max-width. */
+.karte-banner{position:fixed;left:50%;transform:translateX(-50%);top:14px;z-index:20002;width:max-content;box-sizing:border-box;
   display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:12px;
   background:var(--panel);border:1px solid var(--accent);box-shadow:0 10px 30px rgba(0,0,0,.18);
   max-width:min(520px,calc(100vw - 24px));font-size:13.5px;}
@@ -1151,39 +1094,303 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
 #app.punkt-setzen #map .leaflet-container{cursor:crosshair;}
 /* Was jetzt nicht gebraucht wird, ist auch nicht im Weg. */
 #app.punkt-setzen #mapToggleBtn,
-#app.punkt-setzen #kartenFilter{display:none;}
+#app.punkt-setzen .kt-flaeche,
+#app.punkt-setzen .kk-huelle{display:none;}
 
-/* Zeile überfahren → zugehörige Nadel wird größer.
-   Die Frage dahinter ist alltäglich: „Welcher Punkt auf der Karte ist dieser Kunde?" Bisher
-   war sie nur durch Anklicken zu beantworten. Vergrößern statt umfärben, weil die Farben in
-   dieser Anwendung schon eine Bedeutung haben (Kundenzustand) – dieselbe Regel wie im Lager:
-   die Form trägt die neue Aussage, die Farbe bleibt reserviert.
-   Der Zeiger-Ursprung sitzt unten an der Nadelspitze, damit sie beim Wachsen nicht wegrutscht,
-   sondern an ihrem Ort größer wird. */
-/* Die Drehung der Tropfenform steht HIER und nicht im style-Attribut des Markers.
-   Am 14.09.2026 stand sie dort – und die Vergrößerung beim Überfahren tat nichts, weil ein
-   Wert am Element jede Regel im Stilblatt schlägt. Vierter Fall derselben Sorte in diesem
-   Projekt; deshalb steht sie jetzt dort, wo sie sich mit anderen Regeln verrechnen lässt. */
-.custom-pin .pin-nadel{transform:rotate(-45deg);transform-origin:50% 100%;}
+/* ===========================================================================
+   Karte: Nadeln (v79, Entwurf „W · Karte & Nadeln", 26.09.2026)
+   Gezeichnet von components/karte/nadel.ts – für die Karte UND für die Legende. Die Farben
+   stehen seit v79 hier und nicht mehr als Hex-Werte im style-Attribut (MARKER_FARBE in
+   app/page.tsx): Das divIcon landet im Dokument der App, die Tokens greifen dort wie überall.
 
+   Warum diese Farben:
+   - Rot beherrscht die Karte, denn Rot ist das, was heute zu tun ist.
+   - Die Wiedervorlage war bis zum 14.09.2026 orange und damit von Rot kaum zu trennen: zwei
+     warme Töne ähnlicher Helligkeit. Hellblau bleibt von Rot UND Grün sichtbar weg und sagt
+     nebenbei das Richtige: kühl, geplant, nicht dringend.
+   - Der Termin bekommt das dunkle Navy der Marke statt eines fünften bunten Tons. Hellblau und
+     Dunkelblau trennen sich durch HELLIGKEIT, nicht durch den Farbton – das bleibt lesbar, wenn
+     Farben schlecht unterschieden werden.
+   - „Kein Interesse" und „ungefähr" unterscheiden sich durch die FORM (Kreis mit ✕, hohl
+     gestrichelt). Die Farbe bleibt dem Zustand vorbehalten – dieselbe Regel wie im Lager.
+   =========================================================================== */
+.custom-pin{background:none;border:none;}
+.pin{position:relative;display:block;width:26px;height:32px;--pin:var(--muted);
+  transform-origin:13px 31px;transition:transform .12s ease;}
+/* Der Kopf ist ein Quadrat mit drei runden Ecken, um -45° um seine Mitte gedreht: Die spitze
+   Ecke zeigt dann genau nach unten, 18 px unter die Mitte – dort sitzt die Koordinate
+   (NADEL_MASS.spitzeY in nadel.ts). Die Drehung steht hier und nicht im style-Attribut: Ein
+   Wert am Element schlägt jede Regel, und das Vergrößern beim Überfahren täte nichts mehr
+   (so geschehen am 14.09.2026). */
+.pin-kopf{position:absolute;left:0;top:0;width:26px;height:26px;box-sizing:border-box;
+  border-radius:50% 50% 50% 4px;transform:rotate(-45deg);background:var(--pin);border:2.5px solid #fff;
+  box-shadow:0 2px 6px rgba(36,29,19,.35);display:flex;align-items:center;justify-content:center;}
+.pin-kern{width:8px;height:8px;border-radius:50%;background:#fff;}
+.pin.z-red{--pin:var(--red);}
+.pin.z-wiedervorlage{--pin:var(--blau-marker);}
+.pin.z-termin{--pin:var(--navy);}
+.pin.z-green{--pin:var(--green);}
+/* Laufkundschaft und Einmalkunde ohne Termin kommen nie auf die Karte (keine Anschrift bzw.
+   aus dem Filter). Falls doch einmal: grau statt eines fremden Zustandstons. */
+.pin.z-laufkundschaft,.pin.z-einmalkunde{--pin:#9a958c;}
+.pin.ungefaehr .pin-kopf{background:#fff;border:2.5px dashed var(--pin);}
+.pin.ungefaehr .pin-kern{background:var(--pin);}
+.pin.pin-kreis{width:22px;height:22px;box-sizing:border-box;border-radius:50%;background:#fff;
+  border:2.5px solid var(--red);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 6px rgba(36,29,19,.35);transform-origin:50% 50%;}
+.pin.pin-kreis.ungefaehr{border-style:dashed;}
+.pin-x{color:var(--red);font:800 14px/1 var(--font-body);}
+/* Das Schild über der Terminnadel: heute die Uhrzeit, sonst der Tag (nadelTerminText). */
+.pin-schild{position:absolute;left:50%;bottom:calc(100% + 9px);transform:translateX(-50%);
+  background:var(--navy);color:#fff;font:800 11px/1.35 var(--font-body);border-radius:8px;
+  padding:1px 6px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.25);pointer-events:none;}
+.pin-kreis .pin-schild{bottom:calc(100% + 4px);}
+.pin-schild:empty{display:none;}
+
+/* Überfahren einer Listenzeile (pin-hervor) und gewählt (pin-gewaehlt): größer, gewählt dazu
+   mit dem orangen Ring, der überall „gewählt" heißt. Vergrößern statt umfärben – die Farben
+   haben schon eine Bedeutung. Ursprung an der Spitze, damit die Nadel an ihrem Ort wächst. */
 .custom-pin.pin-hervor{z-index:1000 !important;}
-/* Die Tropfenform steht auf der Spitze und ist dafür um 45° gedreht – beim Vergrößern muss
-   diese Drehung mitgeschrieben werden, sonst richtet sich die Nadel auf. Ursprung unten an
-   der Spitze, damit sie an ihrem Ort wächst statt wegzurutschen. */
-.custom-pin.pin-hervor .pin-nadel{
-  transform:rotate(-45deg) scale(1.65);
-  transform-origin:50% 100%;
-  box-shadow:0 2px 10px rgba(0,0,0,.45);
-  border-width:3px;
-}
-/* „Kein Interesse" ist ein Kreis mit ✕ und nicht gedreht – hier also nur vergrößern. */
-.custom-pin.pin-hervor .pin-kreis{
-  transform:scale(1.5);
-  box-shadow:0 2px 10px rgba(0,0,0,.45);
-}
-.custom-pin .pin-nadel, .custom-pin .pin-kreis{transition:transform .12s ease, box-shadow .12s ease;}
+.custom-pin.pin-gewaehlt{z-index:1001 !important;}
+.custom-pin.pin-hervor .pin,.custom-pin.pin-gewaehlt .pin{transform:scale(1.3);}
+.custom-pin.pin-gewaehlt .pin-kopf,.custom-pin.pin-gewaehlt .pin-kreis{outline:4px solid rgba(255,90,31,.45);outline-offset:2px;}
+
+/* Bündel: weißer Kreis mit der Anzahl, außen der Ring mit den Anteilen (ringVerlauf in
+   lib/karte.ts). Größe und Ring stehen am Element, weil sie je Bündel andere sind. */
+.pin-buendel{display:flex;align-items:center;justify-content:center;border-radius:50%;padding:5px;
+  box-sizing:border-box;box-shadow:0 3px 10px rgba(36,29,19,.3);cursor:pointer;transition:transform .12s ease;}
+.pin-buendel b{width:100%;height:100%;border-radius:50%;background:#fff;display:flex;align-items:center;
+  justify-content:center;font:700 15px/1 var(--font-brand);color:var(--text);}
+.custom-pin:hover .pin-buendel,.custom-pin.pin-hervor .pin-buendel{transform:scale(1.1);}
+
+/* Station im Tagesmodus: Nummer im Kreis. Vorbei hell, läuft orange, kommt dunkelblau mit dem
+   Ring in der Mitarbeiterfarbe (--ma) – wie die Zeitleiste im Reiter „Termine". */
+.pin-station{position:relative;width:30px;height:30px;box-sizing:border-box;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;border:3px solid #fff;
+  box-shadow:0 2px 6px rgba(36,29,19,.35);transition:transform .12s ease;}
+.pin-station b{font:800 13px/1 var(--font-brand);}
+.pin-station.p-kommt{background:var(--navy);color:#fff;border-color:var(--ma,#fff);}
+.pin-station.p-laeuft{background:var(--accent);color:#fff;}
+.pin-station.p-vorbei{background:#fff;color:var(--muted);border-color:var(--frei-linie);}
+.pin-station .pin-schild{bottom:calc(100% + 3px);background:#fff;color:var(--text);}
+.pin-station.p-laeuft .pin-schild{background:var(--accent);color:#fff;}
+.custom-pin.pin-gewaehlt .pin-station{transform:scale(1.25);outline:4px solid rgba(255,90,31,.45);outline-offset:2px;}
+.kt-standort-punkt{fill:var(--blau);stroke:#fff;}
 @media (prefers-reduced-motion: reduce){
-  .custom-pin .pin-nadel, .custom-pin .pin-kreis{transition:none;}
+  .pin,.pin-buendel,.pin-station{transition:none;}
+}
+
+/* ===========================================================================
+   Karte: Bedienung (components/karte/KartenBedienung.tsx)
+   Liegt IM Kartencontainer über den Kacheln. Die Fläche selbst lässt Klicks durch
+   (pointer-events:none) – nur die Knöpfe fangen sie. So bleibt die Karte zwischen den
+   Bedienelementen bedienbar.
+   =========================================================================== */
+.kt-flaeche{position:absolute;inset:0;z-index:1000;pointer-events:none;font-family:var(--font-body);color:var(--text);}
+.kt-flaeche > *{pointer-events:auto;}
+.kt-oben{position:absolute;top:12px;left:12px;right:12px;display:flex;flex-direction:column;
+  align-items:flex-start;gap:8px;pointer-events:none !important;}
+.kt-oben > *{pointer-events:auto;}
+.kt-oben > .kt-hinweis{pointer-events:none;}
+/* Suchzeile: am Handy immer (dort fehlt die Kundenliste, solange die Karte offen ist), am
+   Rechner nur im Tagesmodus für den Titel des Tages. */
+.kt-suchzeile{display:none;width:100%;gap:8px;}
+.tag-modus .kt-suchzeile{display:flex;}
+.kt-suche{flex:1;min-width:0;height:46px;background:#fff;border-radius:23px;display:flex;align-items:center;
+  gap:8px;padding:0 14px;box-shadow:0 2px 8px rgba(36,29,19,.14);color:var(--muted);}
+.kt-suche input{border:none;outline:none;flex:1;min-width:0;font:inherit;font-size:15px;background:transparent;color:var(--text);padding:0;}
+.kt-liste{display:none;height:46px;border-radius:23px;border:none;background:#fff;padding:0 14px;font:700 14px var(--font-body);
+  color:var(--text);box-shadow:0 2px 8px rgba(36,29,19,.14);align-items:center;gap:6px;cursor:pointer;flex:0 0 auto;}
+.kt-tagtitel{flex:1;min-width:0;height:44px;display:flex;align-items:center;padding:0 16px;border-radius:22px;
+  background:var(--navy);color:#fff;font:700 15px var(--font-brand);box-shadow:0 2px 8px rgba(36,29,19,.2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kt-treffer{width:100%;max-width:420px;background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(36,29,19,.18);
+  overflow:hidden;display:flex;flex-direction:column;}
+.kt-treffer button{border:none;background:#fff;padding:10px 14px;text-align:left;display:flex;flex-direction:column;
+  gap:1px;color:var(--text);font:inherit;cursor:pointer;}
+.kt-treffer button + button{border-top:1px solid #f1ece2;}
+.kt-treffer button:hover{background:var(--hover);}
+.kt-treffer b{font-size:14px;}
+.kt-treffer span{font-size:12px;color:var(--muted);}
+.kt-pillen{display:flex;flex-wrap:wrap;gap:6px;max-width:100%;}
+.kt-pille{height:34px;flex:0 0 auto;padding:0 11px 0 9px;border-radius:17px;font:700 13px var(--font-body);
+  white-space:nowrap;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 4px rgba(36,29,19,.14);
+  border:1px solid transparent;background:#fff;color:var(--text);cursor:pointer;}
+.kt-pille:hover{background:var(--chip-hover);}
+.kt-pille small{font-size:11.5px;font-weight:700;color:var(--muted);}
+/* Ausgeblendet heißt blass und gestrichelt, nicht weg: Man sieht, was fehlt. */
+.kt-pille.aus{background:rgba(255,255,255,.72);border:1px dashed var(--frei-linie);color:#a39883;box-shadow:none;}
+.kt-pille.aus .kt-punkt{opacity:.35;}
+.kt-pille.aus small{color:var(--frei-linie);}
+.kt-pille.alle{background:var(--accent-bg);color:var(--accent);}
+.kt-pille.gewaehlt{background:var(--navy);color:#fff;}
+.kt-punkt{width:10px;height:10px;border-radius:50%;flex:0 0 auto;background:var(--muted);box-sizing:border-box;}
+.kt-punkt.z-red{background:var(--red);}
+.kt-punkt.z-wiedervorlage{background:var(--blau-marker);}
+.kt-punkt.z-termin{background:var(--navy);}
+.kt-punkt.z-green{background:var(--green);}
+.kt-punkt.z-kein-interesse{background:#fff;border:2px solid var(--red);}
+.kt-hinweis{padding:6px 12px;border-radius:12px;background:rgba(36,29,19,.8);color:#fff;font-size:12px;font-weight:700;
+  line-height:1.35;max-width:100%;}
+
+/* Rechts unten: Ebenen, Standort, Zoom. Leaflets eigene Zoomknöpfe sind abgeschaltet. */
+.kt-rechts{position:absolute;right:12px;bottom:28px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;}
+.kt-knopf{width:46px;height:46px;border-radius:14px;border:none;background:#fff;box-shadow:0 2px 8px rgba(36,29,19,.16);
+  display:flex;align-items:center;justify-content:center;color:var(--text);cursor:pointer;padding:0;}
+.kt-knopf:hover,.kt-zoom button:hover{background:var(--hover);}
+.kt-knopf.standort{color:var(--blau);}
+.kt-knopf.sucht svg{animation:kt-puls 1s ease-in-out infinite;}
+@keyframes kt-puls{50%{opacity:.3;}}
+.kt-zoom{display:flex;flex-direction:column;background:#fff;border-radius:14px;box-shadow:0 2px 8px rgba(36,29,19,.16);overflow:hidden;}
+.kt-zoom button{width:46px;height:44px;border:none;background:#fff;font:700 22px/1 var(--font-body);color:var(--text);cursor:pointer;padding:0;}
+.kt-zoom button + button{border-top:1px solid #f1ece2;}
+.kt-ebenen{background:#fff;border-radius:16px;box-shadow:0 8px 24px rgba(36,29,19,.2);padding:8px;display:flex;gap:8px;}
+.kt-ebenen button{border:1px solid var(--border);background:#fff;border-radius:12px;padding:6px;width:86px;display:flex;
+  flex-direction:column;align-items:center;gap:5px;font:700 11.5px/1.2 var(--font-body);color:var(--text);cursor:pointer;text-align:center;}
+.kt-ebenen button.an{border:2px solid var(--accent);padding:5px;}
+.kt-ebene{width:72px;height:44px;border-radius:8px;display:block;position:relative;}
+.kt-ebene.e-strasse{background:linear-gradient(135deg,#eef1f4,#c9d6e3);}
+.kt-ebene.e-satellit,.kt-ebene.e-satellit_labels{background:linear-gradient(135deg,#4a6b3f,#7a9455);}
+.kt-ebene.e-satellit_labels::after{content:"";position:absolute;left:8px;right:8px;bottom:8px;height:3px;
+  background:rgba(255,255,255,.85);border-radius:2px;}
+
+/* Links unten: Legende. */
+.kt-links{position:absolute;left:12px;bottom:28px;display:flex;flex-direction:column;align-items:flex-start;gap:8px;
+  max-width:calc(100% - 96px);}
+.kt-legende-knopf{height:40px;border-radius:20px;border:none;background:#fff;box-shadow:0 2px 8px rgba(36,29,19,.16);
+  padding:0 14px;display:flex;align-items:center;gap:8px;font:700 13px var(--font-body);color:var(--text);cursor:pointer;
+  white-space:nowrap;}
+.kt-legende-knopf:hover{background:var(--hover);}
+.kt-legende-punkte{display:flex;gap:3px;}
+.kt-legende-punkte i{width:9px;height:9px;border-radius:50%;}
+.kt-legende-punkte .z-red{background:var(--red);}
+.kt-legende-punkte .z-wiedervorlage{background:var(--blau-marker);}
+.kt-legende-punkte .z-termin{background:var(--navy);}
+.kt-legende-punkte .z-green{background:var(--green);}
+.kt-legende{width:290px;max-width:100%;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgba(36,29,19,.2);
+  padding:12px 14px;display:flex;flex-direction:column;gap:9px;max-height:min(60vh,520px);overflow:auto;box-sizing:border-box;}
+.kt-legende > b{font:700 15px var(--font-brand);}
+.kt-legende-zeile{display:flex;align-items:center;gap:10px;}
+.kt-legende-zeile > span:last-child{display:flex;flex-direction:column;min-width:0;}
+.kt-legende-zeile > span:last-child b{font-size:13px;}
+.kt-legende-zeile > span:last-child small{font-size:11.5px;color:var(--muted);line-height:1.35;}
+.kt-legende-form{width:36px;flex:0 0 auto;display:flex;justify-content:center;align-items:flex-end;min-height:34px;}
+.kt-legende-form:has(.pin-schild:not(:empty)){padding-top:20px;}
+.kt-legende-form .pin-buendel b{font-size:11px;}
+.kt-legende-linie{display:block;width:30px;border-top:3px dashed var(--accent);margin-bottom:14px;}
+
+/* Unten im Tagesmodus: die Stationen zum Wischen. Knöpfe links und rechts rücken darüber. */
+.tag-modus .kt-rechts,.tag-modus .kt-links{bottom:178px;}
+.kt-streifen{position:absolute;left:0;right:0;bottom:24px;display:flex;gap:10px;overflow-x:auto;padding:4px 12px 8px;
+  scroll-snap-type:x mandatory;scrollbar-width:none;}
+.kt-streifen::-webkit-scrollbar{display:none;}
+.kt-streifen.leer{justify-content:center;}
+.kt-station{flex:0 0 auto;width:260px;scroll-snap-align:center;background:#fff;border-radius:18px;
+  box-shadow:0 4px 14px rgba(36,29,19,.18);padding:10px 12px;display:flex;flex-direction:column;gap:8px;
+  border:2px solid transparent;box-sizing:border-box;}
+.kt-station.gewaehlt{border-color:var(--accent);}
+.kt-station.ohne{justify-content:center;color:var(--muted);font-size:12.5px;font-weight:700;width:200px;}
+.kt-station-kopf{display:flex;gap:10px;align-items:flex-start;border:none;background:none;padding:0;text-align:left;
+  font:inherit;color:var(--text);cursor:pointer;min-width:0;}
+.kt-station-kopf > span:last-child{display:flex;flex-direction:column;min-width:0;}
+.kt-station-kopf small{font-size:11.5px;font-weight:700;color:var(--muted);}
+.kt-station-kopf b{font:700 14.5px/1.25 var(--font-brand);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kt-station-kopf b + span{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.kt-station-nr{flex:0 0 auto;}
+.kt-station-knoepfe{display:flex;gap:6px;}
+.kt-station-knoepfe button{flex:1;height:36px;border-radius:10px;border:1px solid var(--border);background:#fff;
+  font:700 13px var(--font-body);color:var(--text);cursor:pointer;}
+.kt-station-knoepfe button.haupt{background:var(--accent);border-color:var(--accent);color:#fff;}
+.kt-station-knoepfe button:disabled{opacity:.45;cursor:default;}
+
+/* ===========================================================================
+   Karte: Kundenkarte (components/karte/KartenKundeKarte.tsx) – ersetzt seit v79 das
+   Leaflet-Popup. Am Rechner hängt sie an der Nadel (--x/--y aus app/page.tsx), am Handy ist
+   sie ein Blatt von unten.
+   =========================================================================== */
+.kk-huelle{position:absolute;inset:0;z-index:1100;pointer-events:none;}
+.kk-karte{position:absolute;left:var(--x,50%);top:var(--y,50%);transform:translate(-50%,calc(-100% - 44px));
+  width:330px;max-width:calc(100% - 24px);box-sizing:border-box;background:#fff;border-radius:20px;
+  box-shadow:0 12px 32px rgba(36,29,19,.28);padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px;
+  pointer-events:auto;color:var(--text);font-family:var(--font-body);}
+/* Kein Platz über der Nadel: dann darunter. */
+.kk-karte.unten{transform:translate(-50%,16px);}
+.kk-griff{display:none;}
+.kk-kopf{display:flex;align-items:center;gap:12px;}
+.kk-kreis{width:44px;height:44px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font:700 16px var(--font-brand);color:#fff;background:var(--muted);box-sizing:border-box;}
+.kk-kreis.z-red{background:var(--red);}
+.kk-kreis.z-wiedervorlage{background:var(--blau-marker);}
+.kk-kreis.z-termin{background:var(--navy);}
+.kk-kreis.z-green{background:var(--green);}
+.kk-kreis.z-kein-interesse{background:#fff;color:var(--red);border:2px solid var(--red);}
+.kk-name{display:flex;flex-direction:column;flex:1;min-width:0;}
+.kk-name b{font:700 17px/1.2 var(--font-brand);overflow-wrap:anywhere;}
+.kk-name span{font-size:12.5px;color:var(--muted);}
+.kk-zu{width:34px;height:34px;border-radius:50%;border:none;background:var(--bg);font-size:19px;line-height:1;color:var(--text);
+  cursor:pointer;flex:0 0 auto;align-self:flex-start;padding:0;}
+.kk-zeile{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.kk-pille{font-size:12px;font-weight:700;border-radius:9px;padding:3px 9px;background:var(--hover);color:var(--muted);}
+.kk-pille.z-red,.kk-pille.z-kein-interesse{background:var(--red-bg);color:#b3261e;}
+.kk-pille.z-wiedervorlage{background:var(--blau-bg);color:#1f6f9f;}
+.kk-pille.z-termin{background:#e4ebf3;color:var(--navy);}
+.kk-pille.z-green{background:var(--green-bg);color:#146b4c;}
+.kk-info{font-size:12.5px;color:#6f6553;}
+.kk-termin{background:var(--navy);color:#fff;border-radius:14px;padding:10px 12px;display:flex;align-items:center;gap:10px;}
+.kk-termin > span:first-child{display:flex;flex-direction:column;flex:1;min-width:0;}
+.kk-termin small{font-size:10.5px;font-weight:700;letter-spacing:.06em;opacity:.75;}
+.kk-termin b{font-size:14.5px;}
+.kk-termin em{font-style:normal;font-size:12px;opacity:.85;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.kk-leute{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;}
+.kk-leute i{font-style:normal;font-size:12px;font-weight:700;border-radius:9px;padding:3px 8px;color:#fff;}
+.kk-ungefaehr{font-size:12.5px;font-weight:700;color:#c2410c;background:#fff6f0;border-radius:10px;padding:8px 10px;
+  display:flex;flex-direction:column;gap:6px;}
+.kk-ungefaehr button{align-self:flex-start;border:none;background:none;padding:0;color:var(--accent);font:inherit;
+  text-decoration:underline;cursor:pointer;}
+.kk-notiz{font-size:12.5px;background:var(--bg);border-radius:10px;padding:7px 10px;display:-webkit-box;
+  -webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.kk-aktionen{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.kk-aktionen button{border:none;background:var(--bg);border-radius:14px;padding:8px 2px;display:flex;flex-direction:column;
+  align-items:center;gap:4px;font:700 12px var(--font-body);color:var(--text);cursor:pointer;min-height:66px;}
+.kk-aktionen button:hover{background:var(--hover);}
+.kk-aktionen button:disabled{opacity:.4;cursor:default;background:var(--bg);}
+.kk-sym{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;}
+.kk-sym.a-anruf{background:var(--green);color:#fff;}
+.kk-sym.a-nav{background:#e4ebf3;color:var(--navy);}
+.kk-sym.a-kontakt{background:var(--blau-bg);color:var(--blau);}
+.kk-sym.a-auftrag{background:var(--accent);color:#fff;}
+.kk-fuss{display:flex;gap:8px;}
+.kk-oeffnen{flex:1;height:44px;border-radius:12px;border:1px solid var(--border);background:#fff;font:700 14px var(--font-body);
+  color:var(--text);cursor:pointer;}
+.kk-oeffnen:hover,.kk-mehr:hover{background:var(--hover);}
+.kk-mehr-huelle{position:relative;}
+.kk-mehr{width:44px;height:44px;border-radius:12px;border:1px solid var(--border);background:#fff;font:700 18px var(--font-body);
+  color:var(--text);cursor:pointer;padding:0;}
+.kk-menue{position:absolute;right:0;bottom:calc(100% + 6px);background:#fff;border:1px solid var(--border);border-radius:12px;
+  box-shadow:0 8px 24px rgba(36,29,19,.2);display:flex;flex-direction:column;padding:4px;min-width:230px;z-index:2;}
+.kk-menue button{border:none;background:none;text-align:left;padding:9px 10px;border-radius:8px;font:600 13.5px var(--font-body);
+  color:var(--text);cursor:pointer;}
+.kk-menue button:hover{background:var(--hover);}
+.kk-menue button.rot{color:var(--red);}
+
+@media (max-width: 700px){
+  .kt-oben{top:10px;left:10px;right:10px;}
+  .kt-suchzeile{display:flex;}
+  .kt-liste{display:flex;}
+  .kt-treffer{max-width:none;}
+  /* Am Handy eine Zeile zum Wischen statt Umbruch: Zwei Reihen Pillen nähmen der Karte ein
+     Viertel ihrer Höhe. */
+  .kt-pillen{flex-wrap:nowrap;overflow-x:auto;width:calc(100% + 20px);margin:0 -10px;padding:0 10px 4px;
+    box-sizing:border-box;scrollbar-width:none;}
+  .kt-pillen::-webkit-scrollbar{display:none;}
+  .kt-rechts,.kt-links{bottom:30px;}
+  .tag-modus .kt-rechts,.tag-modus .kt-links{bottom:182px;}
+  .kk-offen .kt-rechts,.kk-offen .kt-links{display:none;}
+  .kt-station{width:250px;}
+  .kk-karte,.kk-karte.unten{left:0;right:0;top:auto;bottom:0;width:auto;max-width:none;transform:none;
+    border-radius:24px 24px 0 0;padding:8px 16px 18px;box-shadow:0 -8px 28px rgba(36,29,19,.22);max-height:88%;overflow:auto;}
+  .kk-griff{display:block;align-self:center;width:40px;height:5px;border-radius:3px;background:var(--border);flex:0 0 auto;}
+  .kk-name b{font-size:19px;}
 }
 
 /* ---------------------------------------------------------------------------

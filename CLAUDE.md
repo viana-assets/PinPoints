@@ -251,6 +251,13 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   Trigger schreiben beim DELETE die ganze Zeile mit – also genau das, was verschwinden soll.
   `kunde_endgueltig_loeschen()` (Migration 56) räumt deshalb NACH dem Löschen auch diese frischen
   Einträge ab und hinterlässt einen einzigen ohne Personenbezug.
+- **Die Permissions-Policy in `next.config.mjs` sperrt Browser-Funktionen, bevor der Nutzer
+  gefragt wird.** Mit `camera=()` scheiterte der QR-Scanner an „Kein Zugriff auf die Kamera",
+  mit `geolocation=()` der Standortknopf der Karte (gefunden 26.09.2026). Wer eine
+  Gerätefunktion einbaut, prüft zuerst diese Zeile – `(self)` erlaubt sie der eigenen Seite.
+- **Bedienelemente im Kartencontainer brauchen `kartenFlaecheSperren`** (app/page.tsx), sonst
+  zieht ein Wischen darüber die Karte mit und ein Tipp zählt als Kartenklick. Darin nur
+  `onClick` – `mousedown`/`pointerdown` erreichen React dort nicht.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 

@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
@@ -16,8 +16,16 @@ import {
   getPhoneNumbers, navigationUrls, istHandy,
   formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen,
 } from "@/lib/helpers";
-import { LAGER_ENGPASS_AB } from "@/lib/dashboard";
-import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
+import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
+import { MAP_STYLES, MAP_STIL_REIHENFOLGE, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
+import {
+  buendeln, ausschnittText, nadelTerminText, tagesStationen, tagesWege,
+  BUENDEL_BIS_ZOOM, type KartenPunkt, type TagesStation,
+} from "@/lib/karte";
+import { nadelHtml, stationHtml, buendelHtml, NADEL_MASS, KREIS_MASS, STATION_MASS } from "@/components/karte/nadel";
+import { KartenBedienung, type StreifenStation } from "@/components/karte/KartenBedienung";
+import { KartenKundeKarte } from "@/components/karte/KartenKundeKarte";
+import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
   RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
@@ -36,10 +44,10 @@ import { NeuigkeitenBlatt } from "@/components/NeuigkeitenBlatt";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
-// Marke, Filter.
+// Marke.
 import {
   IconKunden, IconTermine, IconMap, IconLager, IconAuftraege, IconMore,
-  IconMarke, IconFilter, navPinSvgHtml,
+  IconMarke,
 } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
@@ -133,35 +141,14 @@ const KEINE_ZUORDNUNGEN: Record<string, Bereichsrechte> = {};
 
 // Höchstzahl gleichzeitig gezeichneter Kartenmarker. Leaflet legt je Marker ein DOM-Element an;
 // bei mehreren tausend Kunden im Bild wird das Zoomen und Verschieben spürbar zäh. Es werden
-// ohnehin nur Marker im sichtbaren Ausschnitt gezeichnet – diese Grenze fängt den Fall ab, dass
-// jemand ganz herauszoomt.
+// ohnehin nur Marker im sichtbaren Ausschnitt gezeichnet, und weit weg fasst die Karte seit v79
+// zu Bündeln zusammen (BUENDEL_BIS_ZOOM, lib/karte.ts) – diese Grenze fängt nur noch den Fall
+// ab, dass auf einer nahen Zoomstufe sehr viele Kunden dicht beieinander liegen.
 const MAX_MARKER = 600;
 
-// Farben der Kartenmarker je Kundenzustand. Sie stehen hier und nicht als CSS-Variable, weil
-// der Marker als HTML-Zeichenkette in einem Leaflet-divIcon entsteht – dort greift kein
-// Stylesheet der App. Die Werte entsprechen den Tokens --green / --blau / --red aus
-// globals.css; wer sie dort ändert, ändert sie hier mit (siehe docs/konstanten-register.md).
-//
-// Die Wiedervorlage war bis zum 14.09.2026 orange (--accent, #FF5A1F). Auf einer vollen Karte
-// war sie damit von Rot kaum zu unterscheiden: Beides sind warme Töne ähnlicher Helligkeit,
-// und bei zwanzig Nadeln nebeneinander zählt nicht der Farbwert, sondern ob sich zwei Gruppen
-// noch trennen lassen. Hellblau ist der einzige Ton, der von Rot UND Grün sichtbar wegbleibt –
-// und er sagt nebenbei das Richtige: kühl, geplant, nicht dringend. Rot soll die Karte
-// beherrschen, denn Rot ist das, was heute zu tun ist.
-//
-// Der Termin (17.09.2026) bekommt das dunkle Navy der Marke statt eines fünften bunten Tons.
-// Hellblau und Dunkelblau sagen zusammen dasselbe – kühl, geplant, nicht dringend – und
-// trennen sich durch HELLIGKEIT, nicht durch Farbton: Das bleibt auch dann lesbar, wenn Farben
-// schlecht unterschieden werden, und es nimmt Rot nichts weg. Ein fünfter warmer Ton hätte
-// genau das getan.
-// „kein Interesse" und „Laufkundschaft" fehlen hier mit Absicht: Der erste bekommt eine eigene,
-// hohle Nadel (siehe unten), die zweite hat keine Anschrift und damit nie eine Position.
-const MARKER_FARBE: Record<Exclude<KundenZustand, "kein-interesse" | "laufkundschaft" | "einmalkunde">, string> = {
-  green: "#2f9e5c",
-  termin: "#1E3A5F",
-  wiedervorlage: "#4FA8DC",
-  red: "#e0483f",
-};
+// Die Farben der Nadeln (bis v78 als MARKER_FARBE hier) stehen seit v79 in app/globals.css,
+// Abschnitt „Karte: Nadeln" – mitsamt der Begründung, warum Wiedervorlage hellblau und Termin
+// dunkelblau ist. Das divIcon landet im Dokument der App, die Klassen greifen dort wie überall.
 
 // Wie viele Kundenzeilen auf einmal gezeichnet werden. Die Suche filtert weiterhin über den
 // gesamten Bestand – begrenzt ist nur, wie viele Treffer gleichzeitig im Dokument stehen.
@@ -244,7 +231,16 @@ export default function HomePage() {
   const [sichtbareZustaende, setSichtbareZustaende] = useState<KundenZustand[]>(
     () => [...KUNDEN_ZUSTAND_REIHENFOLGE]
   );
-  const [kartenFilterOffen, setKartenFilterOffen] = useState(false);
+  // Der Kunde, dessen Karte gerade auf der Karte offen ist (seit v79 statt des Leaflet-Popups).
+  // Gemerkt MIT dem Reiter, in dem sie aufging: Ein Reiterwechsel schließt sie so von selbst –
+  // sie gehört zu dem, was man gerade vor sich hatte, und stünde im Tagesmodus der Termine
+  // sonst an einer Nadel, die es dort nicht gibt.
+  const [kartenWahl, setKartenWahl] = useState<{ id: string; tab: TabKey } | null>(null);
+  const kartenKundeId = kartenWahl && kartenWahl.tab === tab ? kartenWahl.id : null;
+  const setKartenKundeId = (id: string | null) => setKartenWahl(id ? { id, tab } : null);
+  // Im Tagesmodus (Termine → Heute/Morgen): die angetippte Station.
+  const [tagStationId, setTagStationId] = useState<string | null>(null);
+  const [standortSucht, setStandortSucht] = useState(false);
   // Das Terminraster gilt für den ganzen Betrieb (Migration 38). Bis es geladen ist, steht
   // die Voreinstellung aus den Konstanten – sie ist dieselbe wie in der Datenbank, damit
   // niemand in der ersten Sekunde eine andere Dauer vorgeschlagen bekommt.
@@ -499,7 +495,8 @@ export default function HomePage() {
   const [mobileMapVisible, setMobileMapVisible] = useState(false);
   // Wie viele Kunden im aktuellen Ausschnitt nicht gezeichnet wurden, weil die Marker-Grenze
   // erreicht war – daraus wird der Hinweis auf der Karte gespeist.
-  const [ausgelasseneMarker, setAusgelasseneMarker] = useState(0);
+  // Was die Karte gerade zeigt – für die Zeile unter den Pillen (ausschnittText).
+  const [kartenAusschnitt, setKartenAusschnitt] = useState({ nadeln: 0, gebuendelt: 0, buendel: 0, ausgelassen: 0 });
   // Wie viele Kundenzeilen gerade gezeichnet werden dürfen (siehe LISTEN_SCHRITT).
   const [listenGrenze, setListenGrenze] = useState(LISTEN_SCHRITT);
   const [callMenuFor, setCallMenuFor] = useState<Customer | null>(null);
@@ -527,6 +524,15 @@ export default function HomePage() {
   const mapRef = useRef<any>(null);
   const markerLayerRef = useRef<any>(null);
   const markerIndexRef = useRef<Record<string, any>>({});
+  // Bündel (seit v79): die Bündelmarker und zu jedem gebündelten Kunden sein Bündel – damit das
+  // Überfahren einer Listenzeile auch dann etwas zeigt, wenn der Kunde keine eigene Nadel hat.
+  const buendelMarkerRef = useRef<any[]>([]);
+  const buendelVonKundeRef = useRef<Record<string, any>>({});
+  // Tagesmodus: eigene Schicht für Stationen und Linien, je Auftrag ein Marker.
+  const tagLayerRef = useRef<any>(null);
+  const tagIndexRef = useRef<Record<string, any>>({});
+  const tagGezeichnetRef = useRef<unknown>(null);
+  const standortRef = useRef<any>(null);
   const baseLayerRef = useRef<any>(null);
   const overlayLayerRef = useRef<any>(null);
   // Leaflet wird seit Roadmap-Phase 8 als npm-Paket dynamisch geladen (vorher ein <script>
@@ -537,12 +543,24 @@ export default function HomePage() {
 
   // Aktuelle Daten/Handler als Ref, damit Leaflet-Popup-Callbacks (die außerhalb
   // des React-Renderzyklus leben) nie mit veralteten Closures arbeiten.
-  const liveRef = useRef({ customers, orders, settings, sichtbareZustaende });
-  liveRef.current = { customers, orders, settings, sichtbareZustaende };
+  const liveRef = useRef({ customers, orders, settings, sichtbareZustaende, kartenKundeId, tagStationId });
+  liveRef.current = { customers, orders, settings, sichtbareZustaende, kartenKundeId, tagStationId };
   // Getrennt von liveRef, weil die Menge erst weiter unten entsteht (sie hängt an den
   // gefilterten Terminen) – und syncMarkers läuft außerhalb des React-Renderzyklus.
   const terminKundenRef = useRef<Set<string> | null>(null);
+  // Der Tag auf der Karte (Termine → Heute/Morgen), aus demselben Grund als Ref.
+  const tagRef = useRef<{
+    stationen: TagesStation[];
+    wege: { punkte: [number, number][]; farbe: string }[];
+    farbeVon: (s: TagesStation) => string | null;
+  } | null>(null);
   const saveSettingsRef = useRef<(patch: Partial<UserSettings>) => Promise<void>>(async () => {});
+  // Auswahl auf der Karte: Nadel antippen → Kundenkarte, Station antippen → Station im Streifen.
+  // Als Ref, weil die Marker ihre Klick-Handler einmal bekommen und danach außerhalb des
+  // React-Renderzyklus leben (gleiche Technik wie liveRef). Gesetzt wird der Inhalt weiter unten
+  // bei den Nadeln, wo platzFuerKarte steht.
+  const kartenWahlRef = useRef<(kundenId: string) => void>(() => {});
+  const tagWahlRef = useRef<(orderId: string) => void>(() => {});
 
   // Jede Funktion in lib/api wirft bei einem Supabase-Fehler eine ApiError (siehe
   // lib/api/client.ts). Bricht ein Klick-Handler dadurch ab, landet das als unbehandelte
@@ -882,11 +900,13 @@ export default function HomePage() {
         return;
       }
       if (mapRef.current) return;
-      const map = L.map(mapDivRef.current, { zoomControl: true }).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+      // Ohne Leaflets eigene Zoomknöpfe: Zoom, Ebenen und Standort sitzen seit v79 als eine
+      // Spalte rechts unten (components/karte/KartenBedienung.tsx), im Stil der übrigen Seiten.
+      const map = L.map(mapDivRef.current, { zoomControl: false }).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
       mapRef.current = map;
       markerLayerRef.current = L.layerGroup().addTo(map);
+      tagLayerRef.current = L.layerGroup().addTo(map);
       applyMapStyle(settings.map_style as MapStyleKey);
-      addMapStyleControl(L, map);
       // Beim Verschieben und Zoomen die sichtbaren Marker neu bestimmen (Roadmap Phase 10).
       map.on("moveend", syncMarkers);
       map.on("zoomend", syncMarkers);
@@ -900,8 +920,15 @@ export default function HomePage() {
       // Auch nach einer Größenänderung neu bestimmen: kommt die Karte aus einem
       // Vollseiten-Modul zurück, ist der sichtbare Ausschnitt ein anderer als vorher.
       map.on("resize", syncMarkers);
-      // Wer auf die Karte tippt, will die Karte – nicht das offene Filterfeld darüber.
-      map.on("click", () => setKartenFilterOffen(false));
+      map.on("resize", () => tagAusrichten());
+      // Ein Tipp auf eine freie Stelle der Karte schließt die Kundenkarte – wie ein Tipp neben
+      // ein Auswahlblatt. Nadeln und Bedienflächen lösen diesen Klick nicht aus (siehe
+      // kartenFlaecheSperren).
+      map.on("click", () => {
+        if (positionSetzenRef.current) return;
+        setKartenKundeId(null);
+        setTagStationId(null);
+      });
       syncMarkers();
     }
     void tryInit();
@@ -927,91 +954,42 @@ export default function HomePage() {
     if (mapRef.current) applyMapStyle(settings.map_style as MapStyleKey);
   }, [settings.map_style]);
 
-  // Google-Maps-artiger Ebenen-Schalter direkt auf der Karte (unten links),
-  // statt nur über die Einstellungen erreichbar zu sein.
-  const STYLE_ORDER: MapStyleKey[] = ["strasse", "satellit", "satellit_labels"];
-  function addMapStyleControl(L: any, map: any) {
-    const StyleControl = L.Control.extend({
-      options: { position: "bottomleft" },
-      onAdd: function () {
-        const container = L.DomUtil.create("div", "map-style-control");
-        const toggle = L.DomUtil.create("button", "map-style-toggle", container);
-        toggle.type = "button";
-        toggle.innerHTML =
-          '<span class="map-style-icon">' +
-          '<svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M12 3 2 8l10 5 10-5-10-5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M2 12l10 5 10-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M2 16l10 5 10-5" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>' +
-          "</span><span>Kartenansicht</span>";
-        const panel = L.DomUtil.create("div", "map-style-panel");
-        container.appendChild(panel);
-
-        function render() {
-          panel.innerHTML = "";
-          STYLE_ORDER.forEach((key) => {
-            const def = MAP_STYLES[key];
-            const isActive = liveRef.current.settings.map_style === key;
-            const opt = L.DomUtil.create("div", "map-style-option" + (isActive ? " active" : ""));
-            opt.innerHTML =
-              '<span class="map-style-swatch swatch-' + key + '"></span><span>' + def.label + "</span>";
-            opt.onclick = () => {
-              applyMapStyle(key);
-              saveSettingsRef.current({ map_style: key });
-              panel.classList.remove("open");
-              render();
-            };
-            panel.appendChild(opt);
-          });
-        }
-        render();
-
-        toggle.onclick = () => {
-          panel.classList.toggle("open");
-        };
-
-        L.DomEvent.disableClickPropagation(container);
-        L.DomEvent.disableScrollPropagation(container);
-        return container;
-      },
-    });
-    new StyleControl().addTo(map);
-  }
-
-  // ---------------------------------------------------------------- Marker synchronisieren
-  // Vier Zustände, vier Marker (Migration 23, siehe docs/kunden-und-karte.md).
+  // Bedienflächen auf der Karte (Pillen, Knöpfe, Kundenkarte, Streifen) liegen IM
+  // Kartencontainer – nur so sitzen sie am Rechner genau über der Kartenspalte. Leaflet greift
+  // Zieh- und Zoomgesten aber am Container ab: Ohne diese Sperre verschöbe ein Wischen über
+  // den Streifen die Karte, und ein Tipp auf einen Knopf zählte zusätzlich als Kartenklick und
+  // schlösse die Kundenkarte gleich wieder.
   //
-  // „Kein Interesse" ist bewusst KEIN weiterer farbiger Tropfen, sondern ein weißer Punkt mit
-  // rotem Kreuz: er soll sich auf einen Blick von allem unterscheiden, was noch anzurufen ist.
-  // Farbe allein trägt das nicht – Rot und Orange nebeneinander sind für einen Teil der
-  // Bevölkerung kaum unterscheidbar, und auf einer bunten Karte gehen Farbnuancen unter. Die
-  // Form ist der Unterschied, die Farbe die Bestätigung.
-  // `ungefaehr` (Migration 35) verändert die FORM, nicht die Farbe: Die Nadel wird hohl. Die
-  // Farbe bleibt dem Kundenzustand vorbehalten – dieselbe Regel wie im Lager. Ein Punkt, der
-  // nur die Straßenmitte ist, soll nicht aussehen wie einer, der stimmt.
-  function makeIcon(zustand: KundenZustand, ungefaehr = false) {
+  // Bewusst von Hand statt über L.DomEvent: Die Flächen entstehen mit dem ersten Rendern, das
+  // Leaflet-Modul wird erst danach nachgeladen. `_leaflet_disable_click` ist das Merkmal, an
+  // dem Leaflet selbst seine Bedienelemente erkennt. `click` wird NICHT angehalten – daran
+  // hängen die onClick-Handler von React.
+  const kartenFlaecheSperren = useCallback((el: HTMLElement | null) => {
+    const f = el as (HTMLElement & { _kartenGesperrt?: boolean; _leaflet_disable_click?: boolean }) | null;
+    if (!f || f._kartenGesperrt) return;
+    f._kartenGesperrt = true;
+    f._leaflet_disable_click = true;
+    const halt = (e: Event) => e.stopPropagation();
+    for (const art of ["mousedown", "touchstart", "pointerdown", "dblclick", "contextmenu", "wheel"]) {
+      f.addEventListener(art, halt, { passive: true });
+    }
+  }, []);
+
+  // ---------------------------------------------------------------- Nadeln
+  //
+  // Seit v79 (Entwurf W) zeichnet eine Funktion alle Formen: components/karte/nadel.ts. Dieselbe
+  // Funktion zeichnet die Legende – sie kann also nichts erklären, was es auf der Karte nicht gibt.
+  function makeIcon(zustand: KundenZustand, ungefaehr: boolean, schild: string | null) {
     const L = leafletRef.current;
     if (zustand === "kein-interesse") {
       return L.divIcon({
-        className: "custom-pin",
-        html: `<div class="pin-kreis" style="width:22px;height:22px;border-radius:50%;background:#fff;
-                border:2px solid ${MARKER_FARBE.red};box-shadow:0 1px 4px rgba(0,0,0,.4);
-                display:flex;align-items:center;justify-content:center;
-                color:${MARKER_FARBE.red};font:700 14px/1 sans-serif;">✕</div>`,
-        iconSize: [22, 22], iconAnchor: [11, 11], popupAnchor: [0, -11],
+        className: "custom-pin", html: nadelHtml(zustand, ungefaehr, schild),
+        iconSize: [KREIS_MASS, KREIS_MASS], iconAnchor: [KREIS_MASS / 2, KREIS_MASS / 2],
       });
     }
-    // Die Laufkundschaft hat keine Anschrift und kommt deshalb nie bis hierher. Trotzdem eine
-    // Farbe statt eines Absturzes, falls doch einmal eine Position gesetzt wird: Grau sagt
-    // „gehört nicht in diese Reihe" und nimmt keinem Zustand seinen Ton weg.
-    // Dasselbe für den Einmalkunden ohne Termin (Migration 57): Er fällt schon im Kartenfilter
-    // heraus, weil sein Zustand nicht in KUNDEN_ZUSTAND_REIHENFOLGE steht.
-    const bg = zustand === "laufkundschaft" || zustand === "einmalkunde" ? "#9a958c" : MARKER_FARBE[zustand];
     return L.divIcon({
-      className: "custom-pin",
-      html: ungefaehr
-        ? `<div class="pin-nadel" style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:#fff;
-              border:2px dashed ${bg};box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>`
-        : `<div class="pin-nadel" style="width:22px;height:22px;border-radius:50% 50% 50% 0;background:${bg};
-              border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4);"></div>`,
-      iconSize: [22, 22], iconAnchor: [11, 22], popupAnchor: [0, -22],
+      className: "custom-pin", html: nadelHtml(zustand, ungefaehr, schild),
+      iconSize: [NADEL_MASS.breite, NADEL_MASS.hoehe], iconAnchor: [NADEL_MASS.breite / 2, NADEL_MASS.spitzeY],
     });
   }
 
@@ -1022,217 +1000,326 @@ export default function HomePage() {
   // Hier stand bis zum 14.09.2026 eine Abfrage auf `(hover: hover)` – gedacht als Schutz davor,
   // dass am Handy nach einem Tipp eine Nadel hervorgehoben stehen bleibt. Sie hat die Funktion
   // auf einem Windows-Notebook MIT Touchscreen komplett abgeschaltet: Solche Geräte melden
-  // `(hover: none)`, obwohl eine Maus daran hängt. Die Vorsichtsmaßnahme war schädlicher als
-  // das, wovor sie schützen sollte – und sie war unsichtbar, weil nichts passierte.
+  // `(hover: none)`, obwohl eine Maus daran hängt. Der Touch-Fall ist anders gelöst: Beim
+  // Antippen einer Zeile wird die Hervorhebung ausdrücklich zurückgenommen.
   //
-  // Der Touch-Fall ist jetzt anders gelöst: Beim Antippen einer Zeile wird die Hervorhebung
-  // ausdrücklich zurückgenommen, bevor das Kundenfenster aufgeht. Kein Raten über Geräte.
+  // Seit v79: Steckt der Kunde in einem Bündel, wird das Bündel hervorgehoben.
   function nadelHervorheben(kundenId: string | null) {
     const vorher = hervorgehobeneNadelRef.current;
     if (vorher === kundenId) return;
-    if (vorher) {
-      markerIndexRef.current[vorher]?.getElement()?.classList.remove("pin-hervor");
-    }
+    const element = (id: string) =>
+      (markerIndexRef.current[id] ?? buendelVonKundeRef.current[id])?.getElement() as HTMLElement | undefined;
+    if (vorher) element(vorher)?.classList.remove("pin-hervor");
     hervorgehobeneNadelRef.current = kundenId;
-    if (kundenId) {
-      markerIndexRef.current[kundenId]?.getElement()?.classList.add("pin-hervor");
-    }
+    if (kundenId) element(kundenId)?.classList.add("pin-hervor");
+  }
+
+  // Die Klassen einer Nadel neu setzen – nach setIcon() ist ihr Element ein neues.
+  function nadelKlassen(kundenId: string, marker: any) {
+    const el = marker.getElement() as HTMLElement | undefined;
+    if (!el) return;
+    el.classList.toggle("pin-hervor", hervorgehobeneNadelRef.current === kundenId);
+    el.classList.toggle("pin-gewaehlt", liveRef.current.kartenKundeId === kundenId);
+  }
+
+  function kundenNadelnLeeren() {
+    const schicht = markerLayerRef.current;
+    Object.values(markerIndexRef.current).forEach((m) => schicht.removeLayer(m));
+    markerIndexRef.current = {};
+    buendelMarkerRef.current.forEach((m) => schicht.removeLayer(m));
+    buendelMarkerRef.current = [];
+    buendelVonKundeRef.current = {};
   }
 
   function syncMarkers() {
     const L = leafletRef.current;
-    if (!L || !markerLayerRef.current) return;
+    const karte = mapRef.current;
+    if (!L || !karte || !markerLayerRef.current || !tagLayerRef.current) return;
+
+    // Tagesmodus: statt des Kundenbestands die Stationen des Tages. Neu gezeichnet wird nur,
+    // wenn sich der Tag geändert hat – beim Verschieben der Karte bleibt alles, wie es ist.
+    const tag = tagRef.current;
+    if (tag) {
+      if (Object.keys(markerIndexRef.current).length || buendelMarkerRef.current.length) kundenNadelnLeeren();
+      if (tagGezeichnetRef.current !== tag) tagZeichnen(L, tag);
+      return;
+    }
+    if (tagGezeichnetRef.current) {
+      tagLayerRef.current.clearLayers();
+      tagIndexRef.current = {};
+      tagGezeichnetRef.current = null;
+    }
+
     const { customers: custs, orders: ords, settings: s, sichtbareZustaende: sichtbar } = liveRef.current;
     // Aus `ords` und nicht aus dem Render-Wert: Diese Funktion wird auch von Leaflet-Ereignissen
     // aufgerufen, die einmal registriert wurden. Ein dort eingefangener Wert von damals wäre
     // beim Verschieben der Karte längst veraltet – deshalb liest hier alles aus `liveRef`.
     const mitTerminLive = kundenMitTermin(ords);
-    // Nur zeichnen, was im Bild ist (Roadmap Phase 10). Bei ~4500 Kunden legte Leaflet vorher
-    // 4500 DOM-Elemente an, von denen fast alle außerhalb des Ausschnitts lagen – Zoomen und
-    // Verschieben wurden dadurch spürbar zäh. `pad` nimmt einen Rand mit, damit beim Schieben
-    // nichts nachträglich aufpoppt.
-    const karte = mapRef.current;
-    const grenzen = karte ? karte.getBounds().pad(0.25) : null;
-    let gezeichnet = 0;
-    let ausgelassen = 0;
-    const seen = new Set<string>();
+    const heute = todayStr();
+    // Nur zeichnen, was im Bild ist (Roadmap Phase 10). `pad` nimmt einen Rand mit, damit beim
+    // Schieben nichts nachträglich aufpoppt.
+    const grenzen = karte.getBounds().pad(0.25);
+    const zoom = karte.getZoom();
+    const nurTermine = terminKundenRef.current;
+
+    const kandidaten: { cust: Customer; zustand: KundenZustand }[] = [];
     custs.forEach((cust) => {
       if (cust.active === false || cust.lat == null || cust.lng == null) return;
-      if (grenzen && !grenzen.contains([cust.lat, cust.lng])) return;
+      if (!grenzen.contains([cust.lat, cust.lng])) return;
       // Ausgeblendete Zustände fallen VOR der Obergrenze raus: sonst würden unsichtbare Nadeln
-      // das Kontingent aufbrauchen und der Hinweis "weitere Kunden in diesem Ausschnitt"
-      // zählte Kunden mit, die man gar nicht sehen will.
-      const color = effectiveColor(cust, s.period_months, todayStr(), mitTerminLive.has(cust.id));
-      if (!sichtbar.includes(color)) return;
+      // das Kontingent aufbrauchen und der Hinweis zählte Kunden mit, die man nicht sehen will.
+      const zustand = effectiveColor(cust, s.period_months, heute, mitTerminLive.has(cust.id));
+      if (!sichtbar.includes(zustand)) return;
       // Im Reiter „Termine" bleiben alle Kunden ohne Termin im gewählten Zeitraum außen vor.
-      const nurTermine = terminKundenRef.current;
       if (nurTermine && !nurTermine.has(cust.id)) return;
-      if (gezeichnet >= MAX_MARKER) { ausgelassen++; return; }
-      gezeichnet++;
+      kandidaten.push({ cust, zustand });
+    });
+
+    // Weit weg: nahe Nadeln zu Bündeln zusammenfassen (lib/karte.ts, BUENDEL_BIS_ZOOM).
+    let einzeln: Set<string> | null = null;
+    let buendelListe: ReturnType<typeof buendeln>["buendel"] = [];
+    if (zoom <= BUENDEL_BIS_ZOOM) {
+      const punkte: KartenPunkt[] = kandidaten.map(({ cust, zustand }) => {
+        const pt = karte.project([cust.lat, cust.lng], zoom);
+        return { id: cust.id, x: pt.x, y: pt.y, zustand };
+      });
+      const r = buendeln(punkte);
+      einzeln = new Set(r.einzeln);
+      buendelListe = r.buendel;
+    }
+
+    let nadeln = 0;
+    let ausgelassen = 0;
+    const seen = new Set<string>();
+    for (const { cust, zustand } of kandidaten) {
+      if (einzeln && !einzeln.has(cust.id)) continue;
+      if (nadeln >= MAX_MARKER) { ausgelassen++; continue; }
+      nadeln++;
       seen.add(cust.id);
       const ungefaehr = cust.geo_genauigkeit === "ungefaehr";
-      const nextOrd = nextOrder(ordersForLive(cust.id, ords));
-      let tooltip = `<b>${escapeHtml(cust.name)}</b><br>${escapeHtml(cust.address)}<br>` +
-        // „Noch nicht kontaktiert" unmittelbar über einer Terminzeile las sich wie ein
-        // Widerspruch. Es stimmt zwar – ein Auftrag ist kein vermerkter Kontakt –, aber die
-        // schroffe Fassung gehört zu einem Kunden, bei dem gar nichts ansteht.
-        (cust.status === "kontaktiert" && cust.last_contact
-          ? `Letzter Kontakt: ${formatDate(cust.last_contact)}`
-          : mitTerminLive.has(cust.id) ? "Noch kein Kontakt vermerkt" : "Noch nicht kontaktiert") +
+      // Terminnadeln tragen ihr Schild: heute die Uhrzeit, sonst Tag (nadelTerminText).
+      const naechster = zustand === "termin" ? nextOrder(ordersForLive(cust.id, ords)) : null;
+      const schild = naechster ? nadelTerminText(naechster, heute) : null;
+      const schluessel = `${zustand}|${ungefaehr}|${schild ?? ""}`;
+      const tooltip = `<b>${escapeHtml(cust.company || cust.name)}</b><br>${escapeHtml(cust.address)}` +
         (ungefaehr ? "<br><i>Ungefähre Position – nur die Straße war auffindbar</i>" : "");
-      if (nextOrd) tooltip += `<br>📅 Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}`;
+      // Rot und Termin liegen oben: Rot ist, was heute zu tun ist, der Termin, wo man hinfährt.
+      const ebene = zustand === "termin" ? 400 : zustand === "red" ? 200 : 0;
 
       let marker = markerIndexRef.current[cust.id];
       if (marker) {
-        marker.setIcon(makeIcon(color, ungefaehr));
+        // Nur bei geänderter Form neu setzen: setIcon baut das Element neu, und syncMarkers
+        // läuft bei jedem Verschieben für jede Nadel im Bild.
+        if (marker._pinSchluessel !== schluessel) {
+          marker.setIcon(makeIcon(zustand, ungefaehr, schild));
+          marker._pinSchluessel = schluessel;
+        }
         marker.setLatLng([cust.lat, cust.lng]);
+        marker.setZIndexOffset(ebene);
         marker.setTooltipContent(tooltip);
-        // Bewusst KEIN setPopupContent hier: bindPopup() bekommt unten eine Funktion, die
-        // Leaflet bei jedem Öffnen neu auswertet – der Inhalt ist also ohnehin frisch. Der
-        // Aufruf an dieser Stelle hat den Inhalt eines GEÖFFNETEN Popups mitten im Betrieb
-        // neu aufgebaut (syncMarkers läuft bei jedem moveend, und Leaflet schiebt die Karte
-        // beim Öffnen selbst zurecht) und damit die sichtbaren Schaltflächen ausgetauscht.
       } else {
-        marker = L.marker([cust.lat, cust.lng], { icon: makeIcon(color, ungefaehr) });
-        marker.bindTooltip(tooltip, { className: "cust-tip" });
-        marker.bindPopup(() => buildPopupEl(cust.id), { minWidth: 240 });
+        marker = L.marker([cust.lat, cust.lng], { icon: makeIcon(zustand, ungefaehr, schild), zIndexOffset: ebene, riseOnHover: true });
+        marker._pinSchluessel = schluessel;
+        marker.bindTooltip(tooltip, { className: "cust-tip", direction: "top", offset: [0, -30] });
+        const id = cust.id;
+        marker.on("click", () => { marker.closeTooltip(); kartenWahlRef.current(id); });
         marker.addTo(markerLayerRef.current);
         markerIndexRef.current[cust.id] = marker;
-        // Wird beim Verschieben der Karte eine Nadel neu angelegt, während die Maus noch auf
-        // ihrer Zeile steht, muss die Hervorhebung mitkommen.
-        if (hervorgehobeneNadelRef.current === cust.id) marker.getElement()?.classList.add("pin-hervor");
       }
-    });
+      nadelKlassen(cust.id, marker);
+    }
     Object.keys(markerIndexRef.current).forEach((id) => {
       if (!seen.has(id)) {
         markerLayerRef.current.removeLayer(markerIndexRef.current[id]);
         delete markerIndexRef.current[id];
       }
     });
-    setAusgelasseneMarker((vorher) => (vorher === ausgelassen ? vorher : ausgelassen));
+
+    // Bündel werden jedes Mal neu gebaut – es sind wenige, und ihr Inhalt ändert sich mit
+    // jedem Zoomschritt.
+    buendelMarkerRef.current.forEach((m) => markerLayerRef.current.removeLayer(m));
+    buendelMarkerRef.current = [];
+    buendelVonKundeRef.current = {};
+    let gebuendelt = 0;
+    const koordinate = new Map(kandidaten.map(({ cust }) => [cust.id, [cust.lat as number, cust.lng as number] as [number, number]]));
+    for (const b of buendelListe) {
+      gebuendelt += b.ids.length;
+      const { html, groesse } = buendelHtml(b.ids.length, b.anteile);
+      const m = L.marker(karte.unproject([b.x, b.y], zoom), {
+        icon: L.divIcon({ className: "custom-pin", html, iconSize: [groesse, groesse], iconAnchor: [groesse / 2, groesse / 2] }),
+        zIndexOffset: 1000,
+        title: `${b.ids.length} Kunden – antippen zum Heranzoomen`,
+      });
+      // Heranzoomen, bis das Bündel aufgeht – mindestens eine Stufe, sonst stünde man bei
+      // Kunden in derselben Straße vor demselben Bündel.
+      m.on("click", () => {
+        const grenze = L.latLngBounds(b.ids.map((id) => koordinate.get(id)));
+        const z = Math.max(Math.min(karte.getBoundsZoom(grenze, false, L.point(60, 60)), BUENDEL_BIS_ZOOM + 3), zoom + 1);
+        karte.setView(grenze.getCenter(), z);
+      });
+      m.addTo(markerLayerRef.current);
+      buendelMarkerRef.current.push(m);
+      for (const id of b.ids) buendelVonKundeRef.current[id] = m;
+      if (hervorgehobeneNadelRef.current && b.ids.includes(hervorgehobeneNadelRef.current)) m.getElement()?.classList.add("pin-hervor");
+    }
+
+    const neu = { nadeln, gebuendelt, buendel: buendelListe.length, ausgelassen };
+    setKartenAusschnitt((vorher) =>
+      vorher.nadeln === neu.nadeln && vorher.gebuendelt === neu.gebuendelt && vorher.buendel === neu.buendel && vorher.ausgelassen === neu.ausgelassen ? vorher : neu
+    );
   }
   function ordersForLive(customerId: string, ords: Order[]) {
     return ords.filter((o) => o.customer_id === customerId);
   }
   useEffect(() => { syncMarkers(); }, [customers, orders, settings.period_months, sichtbareZustaende]);
 
-  // ---------------------------------------------------------------- Popup-Inhalt (imperativ, wie im Original)
-  function buildPopupEl(customerId: string): HTMLElement {
-    const { customers: custs, orders: ords, settings: s } = liveRef.current;
-    const cust = custs.find((c) => c.id === customerId);
-    const div = document.createElement("div");
-    if (!cust) { div.textContent = "Kunde nicht gefunden"; return div; }
-    const color = effectiveColor(cust, s.period_months, todayStr(), kundenMitTermin(ords).has(cust.id));
-    const nextOrd = nextOrder(ordersForLive(cust.id, ords));
-    const phoneLines = getPhoneNumbers(cust).map(n => `<div class="pline">📞 ${escapeHtml(n.label)}: ${escapeHtml(n.number)}</div>`).join("");
-    div.innerHTML = `
-      <div class="header-row">
-        <h3>${escapeHtml(cust.company || cust.name)} <span class="badge ${color}">${KUNDEN_ZUSTAND_LABEL[color]}</span></h3>
-        ${buildNavIconHtml(cust)}
-        ${buildCallIconHtml(cust)}
-      </div>
-      ${cust.company ? `<div class="pline">👤 ${escapeHtml(cust.name)}</div>` : ""}
-      <div class="pline">📍 ${escapeHtml(cust.address)}</div>
-      ${cust.email ? `<div class="pline">✉️ ${escapeHtml(cust.email)}</div>` : ""}
-      ${phoneLines}
-      ${cust.note ? `<div class="pline">📝 ${escapeHtml(cust.note)}</div>` : ""}
-      <div class="pline small">Letzter Kontakt: ${cust.last_contact ? formatDate(cust.last_contact) : "–"}</div>
-      ${nextOrd ? `<div class="pline small">📅 Nächster Termin: ${formatOrderDateTime(nextOrd)} – ${escapeHtml(nextOrd.title)}${nextOrd.description ? " (" + escapeHtml(nextOrd.description) + ")" : ""}</div>` : ""}
-      ${cust.wiedervorlage_am && color === "wiedervorlage" ? `<div class="pline small">🔁 Wiedervorlage am ${formatDate(cust.wiedervorlage_am)}</div>` : ""}
-      <hr>
-      <button type="button" data-popup-aktion="neuer-auftrag" data-kunde="${cust.id}" class="btn-primary btn-block" style="margin-bottom:10px;">+ Auftrag anlegen</button>
-      <div style="display:flex;gap:6px;margin-bottom:6px;">
-        <button type="button" data-popup-aktion="kontakt" data-kunde="${cust.id}" style="flex:1" class="btn-green">✔ Kontakt bestätigen</button>
-        <button type="button" data-popup-aktion="offen" data-kunde="${cust.id}" style="flex:1" class="btn-secondary">Auf offen setzen</button>
-      </div>
-      ${color === "kein-interesse" ? `<button type="button" data-popup-aktion="deaktivieren" data-kunde="${cust.id}" class="btn-secondary btn-block" style="margin-bottom:6px;color:#b33;">Kunde deaktivieren</button>` : ""}
-      <button type="button" data-popup-aktion="bearbeiten" data-kunde="${cust.id}" class="btn-secondary btn-block">✏️ Kundendaten &amp; Aufträge bearbeiten</button>
-    `;
-    return div;
+  // Der Tag auf der Karte: nummerierte Stationen und je Mitarbeiter eine gestrichelte Luftlinie
+  // (warum Luftlinie: lib/karte.ts, tagesWege).
+  function tagZeichnen(L: any, tag: NonNullable<typeof tagRef.current>) {
+    const schicht = tagLayerRef.current;
+    schicht.clearLayers();
+    tagIndexRef.current = {};
+    for (const w of tag.wege) {
+      L.polyline(w.punkte, { color: w.farbe, weight: 3, opacity: 0.85, dashArray: "6 8", lineCap: "round", interactive: false, className: "kt-weg" }).addTo(schicht);
+    }
+    for (const st of tag.stationen) {
+      const m = L.marker([st.lat, st.lng], {
+        icon: L.divIcon({
+          className: "custom-pin", html: stationHtml(st.nr, st.phase, tag.farbeVon(st), st.zeit),
+          iconSize: [STATION_MASS, STATION_MASS], iconAnchor: [STATION_MASS / 2, STATION_MASS / 2],
+        }),
+        zIndexOffset: st.phase === "laeuft" ? 800 : st.phase === "kommt" ? 400 : 0,
+        title: `${st.nr}. ${st.zeit}`,
+      });
+      m.on("click", () => tagWahlRef.current(st.orderId));
+      m.addTo(schicht);
+      tagIndexRef.current[st.orderId] = m;
+      if (liveRef.current.tagStationId === st.orderId) m.getElement()?.classList.add("pin-gewaehlt");
+    }
+    tagGezeichnetRef.current = tag;
   }
 
-  // Popup-Schaltflächen: EIN Zuhörer am Dokument statt je Schaltfläche einer.
-  //
-  // Vorher hingen die Handler direkt an den Elementen (Ereignis „popupopen" → getElementById
-  // → .onclick). Am Handy war im Popup deshalb nichts anklickbar: Leaflet schiebt die Karte
-  // beim Öffnen zurecht, damit das Popup ins Bild passt. Das löst „moveend" aus, „moveend"
-  // ruft syncMarkers, und syncMarkers baute den Popup-Inhalt neu auf – die sichtbaren
-  // Schaltflächen waren danach andere DOM-Elemente als die, an denen die Handler hingen. Am
-  // Desktop ist genug Platz, das Popup passt ohne Verschieben, dort fiel es nie auf.
-  //
-  // Ein Zuhörer am Dokument kann das nicht passieren: er sucht die Schaltfläche erst im
-  // Moment des Klicks. Leaflet hält Klicks aus dem Popup-Inhalt nicht auf – sein
-  // disableClickPropagation stoppt mousedown/touchstart/dblclick/contextmenu, nicht „click".
-  //
-  // Die eigentliche Handlung steht in einer Ref, die bei jedem Rendern neu gesetzt wird
-  // (gleiche Technik wie liveRef weiter oben): der Zuhörer wird nur einmal angemeldet, greift
-  // aber trotzdem nie auf veraltete Zustände zu.
-  const popupAktionRef = useRef<(aktion: string, kundenId: string, ziel: HTMLElement) => void>(() => {});
-  popupAktionRef.current = (aktion, kundenId, ziel) => {
-    const popupSchliessen = () => mapRef.current?.closePopup();
-    switch (aktion) {
-      // Auftrag anlegen und Kontakt bestätigen sind seit 29.08.2026 zwei getrennte
-      // Handlungen. Der Auftrag öffnet das gewohnte Anlegeformular als Overlay über der
-      // Karte – kein Reiterwechsel, nach dem Speichern steht man wieder hier.
-      case "neuer-auftrag":
-        popupSchliessen(); void neuenAuftragAnlegen(kundenId); return;
-      // „Kontakt bestätigen" öffnet den Kontaktdialog, statt direkt zu speichern: erst dort
-      // wird festgehalten, WAS herausgekommen ist (Migration 23). Das Kontaktdatum steht
-      // ebenfalls dort – ein zweites Datumsfeld im Popup wäre eine zweite Stelle für
-      // dieselbe Angabe.
-      case "kontakt":
-        popupSchliessen(); setKontaktKundeId(kundenId); return;
-      case "offen":
-        popupSchliessen(); void markOpen(kundenId); return;
-      // Erscheint nur bei „kein Interesse": das Deaktivieren bleibt ein eigener, bewusster
-      // Schritt und passiert nicht als Nebenwirkung des Anrufergebnisses (Migration 23).
-      case "deaktivieren":
-        popupSchliessen(); void setActive(kundenId, false); return;
-      case "bearbeiten":
-        popupSchliessen(); setSelectedId(kundenId); void loadHistory(kundenId); return;
-      // Navigation: dasselbe Menü (Google Maps / Apple Karten) wie in den Auftrags- und
-      // Kundenlisten. Das Popup bleibt offen – wer das Menü wegtippt, steht wieder beim Kunden.
-      case "navigieren": {
-        const cust = liveRef.current.customers.find((c) => c.id === kundenId);
-        if (!cust) return;
-        const rect = ziel.getBoundingClientRect();
-        setNavMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
-        setNavMenuFor(cust);
-        return;
-      }
-      case "anrufen": {
-        const cust = liveRef.current.customers.find((c) => c.id === kundenId);
-        if (!cust) return;
-        anrufAusloesen(cust, ziel.getBoundingClientRect());
-        return;
-      }
-    }
+
+  // Die Karte auf die Stationen des Tages ausrichten. Am Handy ist die Karte beim Wählen von
+  // „Heute" meist gar nicht zu sehen (die Liste liegt vorn) – ein Container ohne Größe kann
+  // nichts einpassen. Dann bleibt der Auftrag liegen und wird beim nächsten „resize" erledigt,
+  // also sobald die Karte aufgeht.
+  const tagAusrichtenOffenRef = useRef(false);
+  function tagAusrichten() {
+    const karte = mapRef.current;
+    const L = leafletRef.current;
+    const tag = tagRef.current;
+    if (!tagAusrichtenOffenRef.current || !karte || !L) return;
+    if (!tag || tag.stationen.length === 0) { tagAusrichtenOffenRef.current = false; return; }
+    const g = karte.getSize();
+    if (g.x < 50 || g.y < 50) return;
+    tagAusrichtenOffenRef.current = false;
+    const grenze = L.latLngBounds(tag.stationen.map((st) => [st.lat, st.lng]));
+    karte.fitBounds(grenze, { paddingTopLeft: [40, 150], paddingBottomRight: [80, 210], maxZoom: 15 });
+  }
+
+  kartenWahlRef.current = (kundenId) => {
+    setTagStationId(null);
+    setKartenKundeId(kundenId);
+    platzFuerKarte(kundenId, false);
+  };
+  tagWahlRef.current = (orderId) => {
+    setKartenKundeId(null);
+    setTagStationId(orderId);
   };
 
+  // Die gewählte Nadel trägt einen orangen Ring – dieselbe Markierung wie „gewählt" überall.
   useEffect(() => {
-    function beiKlick(e: MouseEvent) {
-      const ausloeser = e.target instanceof Element ? e.target.closest<HTMLElement>("[data-popup-aktion]") : null;
-      const kundenId = ausloeser?.dataset.kunde;
-      if (!ausloeser || !kundenId) return;
-      e.stopPropagation();
-      popupAktionRef.current(ausloeser.dataset.popupAktion || "", kundenId, ausloeser);
-    }
-    document.addEventListener("click", beiKlick);
-    return () => document.removeEventListener("click", beiKlick);
-  }, []);
+    Object.entries(markerIndexRef.current).forEach(([id, m]) => nadelKlassen(id, m));
+  }, [kartenKundeId]);
+  useEffect(() => {
+    Object.entries(tagIndexRef.current).forEach(([id, m]) =>
+      (m.getElement() as HTMLElement | undefined)?.classList.toggle("pin-gewaehlt", id === tagStationId));
+    // Nur verschieben, wenn die Station nicht ohnehin frei im Bild steht – oben liegen die
+    // Pillen, unten der Streifen.
+    const karte = mapRef.current;
+    const st = tagStationId ? tagIndexRef.current[tagStationId] : null;
+    if (!karte || !st) return;
+    const pt = karte.latLngToContainerPoint(st.getLatLng());
+    const g = karte.getSize();
+    if (pt.x < 40 || pt.x > g.x - 80 || pt.y < 140 || pt.y > g.y - 210) karte.panTo(st.getLatLng());
+  }, [tagStationId]);
 
-  // Navigations-Pin im Karten-Popup. Gleiche Schaltfläche wie in den Listen, nur als
-  // HTML-Zeichenkette, weil Leaflet-Popups nicht von React gebaut werden. Die Pin-Form kommt
-  // aus components/icons.tsx – eine Quelle für beide Fassungen.
-  function buildNavIconHtml(cust: Customer): string {
-    if (!cust.address.trim()) return "";
-    return `<button type="button" class="call-icon-btn small nav-icon-btn" data-popup-aktion="navigieren" data-kunde="${cust.id}" title="Navigation starten (Google Maps / Apple Karten)">${navPinSvgHtml(20)}</button>`;
+  // Die Kundenkarte braucht Platz: am Handy liegt das Blatt über der unteren Hälfte, am Rechner
+  // hängt die Karte über der Nadel. Liegt die Nadel dort, wo gleich die Karte steht, rückt die
+  // Karte ein Stück – nicht jedes Mal, sonst springt sie bei jedem Tipp.
+  function platzFuerKarte(kundenId: string, heranzoomen: boolean) {
+    const karte = mapRef.current;
+    const k = liveRef.current.customers.find((c) => c.id === kundenId);
+    if (!karte || k?.lat == null || k.lng == null) return;
+    const ll: [number, number] = [k.lat, k.lng];
+    if (heranzoomen) karte.setView(ll, Math.max(karte.getZoom(), 16), { animate: false });
+    const pt = karte.latLngToContainerPoint(ll);
+    const g = karte.getSize();
+    // Eine Frage des Platzes, nicht des Geräts: unter 700 px Breite ist die Karte ein Blatt.
+    const blatt = window.matchMedia("(max-width: 700px)").matches;
+    let dx = 0;
+    let dy = 0;
+    if (blatt) {
+      if (pt.y > g.y - 400 || pt.y < 150) dy = pt.y - g.y * 0.3;
+    } else {
+      if (pt.y < 330) dy = pt.y - 360;
+      else if (pt.y > g.y - 30) dy = pt.y - (g.y - 80);
+      if (pt.x < 190) dx = pt.x - 210;
+      else if (pt.x > g.x - 190) dx = pt.x - (g.x - 210);
+    }
+    if (dx || dy) karte.panBy([dx, dy]);
   }
 
-  function buildCallIconHtml(cust: Customer, small = false): string {
-    const nums = getPhoneNumbers(cust);
-    if (!nums.length) return "";
-    return `<button type="button" class="call-icon-btn${small ? " small" : ""}" data-popup-aktion="anrufen" data-kunde="${cust.id}" title="Anrufen">📞</button>`;
+  // Die Kundenkarte am Rechner an ihre Nadel hängen und beim Verschieben mitnehmen. Über
+  // CSS-Variablen statt über React-Zustand: Das Verschieben feuert je Bild, ein Neuzeichnen der
+  // ganzen Seite dafür wäre verschwendet. Am Handy (Blatt) ignoriert das CSS die Werte.
+  const kartenKarteRef = useRef<HTMLDivElement | null>(null);
+  const kartenKundeLage = useMemo(() => {
+    const k = kartenKundeId ? customers.find((c) => c.id === kartenKundeId) : null;
+    return k?.lat != null && k.lng != null ? [k.lat, k.lng] as [number, number] : null;
+  }, [kartenKundeId, customers]);
+  useLayoutEffect(() => {
+    const karte = mapRef.current;
+    if (!karte || !kartenKundeLage) return;
+    const setzen = () => {
+      const el = kartenKarteRef.current;
+      if (!el) return;
+      const pt = karte.latLngToContainerPoint(kartenKundeLage);
+      const g = karte.getSize();
+      const halb = el.offsetWidth / 2 + 12;
+      el.style.setProperty("--x", Math.min(Math.max(pt.x, halb), g.x - halb) + "px");
+      el.style.setProperty("--y", pt.y + "px");
+      // Kein Platz über der Nadel: dann darunter.
+      el.classList.toggle("unten", pt.y - el.offsetHeight - 44 < 12);
+    };
+    setzen();
+    karte.on("move zoomend viewreset resize", setzen);
+    return () => { karte.off("move zoomend viewreset resize", setzen); };
+  }, [kartenKundeLage]);
+
+  // Mein Standort: einmal abfragen und als blauen Punkt zeigen. Der Standort bleibt im Gerät –
+  // er wird nirgends gespeichert und nirgends hingeschickt.
+  function standortZeigen() {
+    const karte = mapRef.current;
+    const L = leafletRef.current;
+    if (!karte || !L) return;
+    if (!navigator.geolocation) { setFehler("Dieses Gerät gibt keinen Standort heraus."); return; }
+    setStandortSucht(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setStandortSucht(false);
+        const ll: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+        if (standortRef.current) standortRef.current.setLatLng(ll);
+        else standortRef.current = L.circleMarker(ll, { radius: 8, weight: 3, fillOpacity: 1, interactive: false, className: "kt-standort-punkt" }).addTo(karte);
+        karte.setView(ll, Math.max(karte.getZoom(), 15));
+      },
+      () => {
+        setStandortSucht(false);
+        setFehler("Der Standort ist nicht verfügbar – bitte im Browser die Standortfreigabe für PinPoints erlauben.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   }
 
   // ---------------------------------------------------------------- CRUD
@@ -1847,6 +1934,16 @@ export default function HomePage() {
     return z;
   }, [activeCustomers, kundenZustand]);
 
+  // Die Kundenkarte auf der Karte: der Kunde und sein nächster Termin.
+  const kartenKunde = useMemo(
+    () => (kartenKundeId ? activeCustomers.find((c) => c.id === kartenKundeId) ?? null : null),
+    [kartenKundeId, activeCustomers]
+  );
+  const kartenKundeTermin = kartenKunde ? nextOrder(ordersFor(kartenKunde.id)) : null;
+  // Die Suche auf der Karte (Handy) findet nur, was eine Position hat – ein Treffer ohne Nadel
+  // führte ins Leere.
+  const kartenSuchKunden = useMemo(() => activeCustomers.filter((c) => c.lat != null && c.lng != null), [activeCustomers]);
+
   const listItems = useMemo(
     () =>
       vorgefiltert
@@ -2036,7 +2133,46 @@ export default function HomePage() {
   // hier, der Karteneffekt steht viel weiter oben bei den übrigen Karten-Sachen. Ein Hook, der
   // eine noch nicht deklarierte Variable liest, ist zur Laufzeit ein Fehler – und einer, den
   // TypeScript nur sieht, weil die Abhängigkeitsliste ihn direkt nennt.
-  useEffect(() => { syncMarkers(); }, [terminKundenIds]);
+  // Dazu der Tagesmodus (tagDaten, gleich darunter) – derselbe Effekt, weil beide dieselbe Frage
+  // stellen: Was soll die Karte gerade zeigen?
+
+  // Der Tag auf der Karte (Entwurf W2): Im Reiter „Termine" bei „Heute" oder „Morgen" zeigt die
+  // Karte die Stationen des Tages statt des Kundenbestands – nummeriert in der Reihenfolge der
+  // Liste, je Mitarbeiter mit einer Luftlinie verbunden. Bei „7 Tage" oder „Alle" wäre eine
+  // Reihenfolge über mehrere Tage keine Aussage mehr; dort bleiben es Kundennadeln.
+  const tagDaten = useMemo(() => {
+    if (tab !== "termine" || (terminFilter !== "heute" && terminFilter !== "morgen")) return null;
+    const heute = todayStr();
+    const jetzt = new Date();
+    const jetztMin = jetzt.getHours() * 60 + jetzt.getMinutes();
+    const zeilen = apptRows.map((r) => ({ ...r, phase: terminPhase(r.order, heute, jetztMin, terminIntervall) }));
+    const { stationen, ohnePosition } = tagesStationen(zeilen, orderEmployees);
+    const farbeVon = (st: TagesStation) => (st.mitarbeiter.length ? employeeColorFor(employees, st.mitarbeiter[0]) : null);
+    const wege = tagesWege(stationen).map((w) => ({ punkte: w.punkte, farbe: employeeColorFor(employees, w.mitarbeiterId) }));
+    const zuAuftrag = new Map(apptRows.map((r) => [r.order.id, r]));
+    const streifen: StreifenStation[] = stationen.map((st) => {
+      const r = zuAuftrag.get(st.orderId);
+      return { ...st, kunde: r ? r.cust : customers.find((c) => c.id === st.kundeId)!, titel: r?.order.title ?? "" };
+    });
+    const datum = terminFilter === "heute" ? heute : toDateStr(addDays(new Date(heute + "T12:00:00"), 1));
+    const anzahl = stationen.length + ohnePosition;
+    return {
+      stationen, streifen, wege, ohnePosition, farbeVon,
+      titel: `${terminFilter === "heute" ? "Heute" : "Morgen"} · ${datumKurz(datum)} · ${anzahl} ${anzahl === 1 ? "Termin" : "Termine"}`,
+      schluessel: `${datum}|${terminPerson}`,
+    };
+  }, [tab, terminFilter, terminPerson, apptRows, orderEmployees, employees, terminIntervall, customers]);
+  tagRef.current = tagDaten;
+  useEffect(() => { syncMarkers(); }, [terminKundenIds, tagDaten]);
+  // Beim Wechsel in einen Tag (oder zu einem anderen Mitarbeiter) die Karte auf die Stationen
+  // ausrichten – unten mit Platz für den Streifen. Nur dann, nicht bei jeder Datenänderung: Wer
+  // gerade hineingezoomt hat, soll nicht bei jedem Neuladen zurückgeworfen werden.
+  const tagSchluessel = tagDaten?.schluessel ?? null;
+  const tagHatPunkte = (tagDaten?.stationen.length ?? 0) > 0;
+  useEffect(() => {
+    tagAusrichtenOffenRef.current = true;
+    tagAusrichten();
+  }, [tagSchluessel, tagHatPunkte]);
 
   // Ein gemerkter Kalender-Termin gilt nur so lange, wie das Kundenformular offen ist. Wer
   // abbricht und Wochen später einen Kunden anlegt, soll nicht die Uhrzeit von damals erben –
@@ -2819,82 +2955,95 @@ export default function HomePage() {
       </div>
 
       <div id="map" ref={mapDivRef} className={mobileMapVisible ? "mobile-visible" : ""}>
-        {/* Die Nadeln kommen aus dem gespeicherten Bestand und sind auch offline da – die
-            Kartenkacheln nicht: die liegen bei OpenStreetMap und dürfen nicht auf Vorrat
-            heruntergeladen werden (siehe docs/pwa-plan.md). */}
-        {istOffline && (
-          <div className="map-hinweis">Offline – der Kartenhintergrund fehlt. Die Nadeln stammen aus dem gespeicherten Stand.</div>
+        {/* Alles, was auf der Karte liegt und keine Nadel ist (Entwurf W, seit v79): Suche und
+            Zustands-Pillen oben, Ebenen/Standort/Zoom rechts, Legende links, im Tagesmodus der
+            Streifen unten. Liegt IM Kartencontainer und ist für Leaflets Gesten gesperrt
+            (kartenFlaecheSperren). Bis v78 stand hier der Schalter „Nadeln" als Aufklappliste
+            oben rechts – vier Zustände hinter einem Tipp versteckt, am Handy ohne Zahlen. */}
+        {!fullPageTabs && (
+          <KartenBedienung
+            flaeche={kartenFlaecheSperren}
+            sucheKunden={kartenSuchKunden}
+            onSucheWaehlen={(id) => {
+              setTagStationId(null);
+              setKartenKundeId(id);
+              platzFuerKarte(id, true);
+            }}
+            onListe={toggleMobileMap}
+            zustaende={KUNDEN_ZUSTAND_REIHENFOLGE}
+            sichtbar={sichtbareZustaende}
+            zahlen={kartenZahlen}
+            onZustand={(zustand) =>
+              setSichtbareZustaende((bisher) =>
+                bisher.includes(zustand) ? bisher.filter((z) => z !== zustand) : [...bisher, zustand]
+              )
+            }
+            onAlle={() => setSichtbareZustaende([...KUNDEN_ZUSTAND_REIHENFOLGE])}
+            hinweise={[
+              // Die Nadeln kommen aus dem gespeicherten Bestand und sind auch offline da – die
+              // Kartenkacheln nicht: die liegen bei OpenStreetMap und dürfen nicht auf Vorrat
+              // heruntergeladen werden (siehe docs/pwa-plan.md).
+              ...(istOffline ? ["Offline – der Kartenhintergrund fehlt. Die Nadeln stammen aus dem gespeicherten Stand."] : []),
+              ...(tab === "termine" && !tagDaten && terminKundenIds?.size === 0 && !istOffline ? ["Keine Termine im gewählten Zeitraum."] : []),
+              ...(!tagDaten ? [ausschnittText(kartenAusschnitt)] : []),
+            ]}
+            stil={settings.map_style as MapStyleKey}
+            stile={MAP_STIL_REIHENFOLGE}
+            onStil={(stil) => { applyMapStyle(stil); void saveSettingsRef.current({ map_style: stil }); }}
+            onStandort={standortZeigen}
+            standortSucht={standortSucht}
+            onRein={() => mapRef.current?.zoomIn()}
+            onRaus={() => mapRef.current?.zoomOut()}
+            kundeOffen={!!kartenKunde}
+            tag={tagDaten && {
+              titel: tagDaten.titel,
+              personen: isTechniker ? [] : sichtbareMitarbeiter.map((m) => ({ id: m.id, name: m.name, farbe: employeeColorFor(employees, m.id) })),
+              person: terminPerson,
+              onPerson: setTerminPerson,
+              stationen: tagDaten.streifen,
+              ohnePosition: tagDaten.ohnePosition,
+              farbeVon: tagDaten.farbeVon,
+              gewaehlt: tagStationId,
+              onWaehlen: setTagStationId,
+              onNavigation: openNavMenu,
+              onAuftrag: setOffenerAuftragId,
+            }}
+          />
         )}
-        {tab === "termine" && terminKundenIds?.size === 0 && !istOffline && (
-          <div className="map-hinweis">Keine Termine im gewählten Zeitraum.</div>
-        )}
-        {ausgelasseneMarker > 0 && !fullPageTabs && (
-          <div className="map-hinweis">
-            {ausgelasseneMarker} weitere Kunden in diesem Ausschnitt – zum Anzeigen näher heranzoomen.
+        {/* Die Kundenkarte (ersetzt seit v79 das Leaflet-Popup). */}
+        {!fullPageTabs && kartenKunde && (
+          <div className="kk-huelle" ref={kartenFlaecheSperren}>
+            <KartenKundeKarte
+              key={kartenKunde.id}
+              kunde={kartenKunde}
+              zustand={kundenZustand(kartenKunde)}
+              naechster={kartenKundeTermin}
+              naechsterMitarbeiter={kartenKundeTermin
+                ? (orderEmployees[kartenKundeTermin.id] || []).map((id) => ({
+                  id, name: employees.find((e) => e.id === id)?.name ?? "", farbe: employeeColorFor(employees, id),
+                })).filter((m) => m.name)
+                : []}
+              anker={kartenKarteRef}
+              onSchliessen={() => setKartenKundeId(null)}
+              onAnrufen={(e) => openCallMenu(e, kartenKunde)}
+              onNavigation={(e) => openNavMenu(e, kartenKunde)}
+              // „Kontakt" öffnet den Kontaktdialog, statt direkt zu speichern: erst dort wird
+              // festgehalten, WAS herausgekommen ist (Migration 23).
+              onKontakt={() => { setKartenKundeId(null); setKontaktKundeId(kartenKunde.id); }}
+              // Auftrag anlegen und Kontakt bestätigen sind seit 29.08.2026 zwei getrennte
+              // Handlungen. Der Auftrag öffnet das Auftragsfenster als Overlay über der Karte.
+              onAuftrag={() => { setKartenKundeId(null); void neuenAuftragAnlegen(kartenKunde.id); }}
+              onKundenfenster={() => { setKartenKundeId(null); setSelectedId(kartenKunde.id); void loadHistory(kartenKunde.id); }}
+              onOffen={() => { void markOpen(kartenKunde.id); }}
+              onDeaktivieren={() => { setKartenKundeId(null); void setActive(kartenKunde.id, false); }}
+              onPositionSetzen={() => { setKartenKundeId(null); void positionSetzenStarten(kartenKunde.id); }}
+            />
           </div>
         )}
       </div>
 
-      {/* Zustandsfilter der Karte, oben rechts. Steht als Geschwister von #map und nicht darin:
-          ein Kind des Leaflet-Containers würde beim Wischen die Karte mitziehen, weil Leaflet
-          seine Zieh-Geste am Container abgreift. Am Handy ist er der einzige Weg zu dieser
-          Auswahl – dort sieht man die Kundenliste nicht, während die Karte offen ist. Am
-          Desktop steht er trotzdem: sonst gäbe es eine Auswahl, die man am Handy trifft und am
-          Rechner nicht mehr findet. */}
       {!fullPageTabs && (
-        <div id="kartenFilter" className={"map-style-control" + (mobileMapVisible ? " mobile-sichtbar" : "")}>
-          <button
-            type="button"
-            className="map-style-toggle"
-            onClick={() => setKartenFilterOffen((o) => !o)}
-            aria-expanded={kartenFilterOffen}
-            title="Nadeln nach Zustand ein- und ausblenden"
-          >
-            <IconFilter />
-            <span>Nadeln</span>
-            {sichtbareZustaende.length < KUNDEN_ZUSTAND_REIHENFOLGE.length && (
-              <span className="kartenfilter-badge">{KUNDEN_ZUSTAND_REIHENFOLGE.length - sichtbareZustaende.length}</span>
-            )}
-          </button>
-          {kartenFilterOffen && (
-            <div className="karten-filter-liste">
-              {KUNDEN_ZUSTAND_REIHENFOLGE.map((zustand) => {
-                const an = sichtbareZustaende.includes(zustand);
-                return (
-                  <button
-                    key={zustand}
-                    type="button"
-                    className={"karten-filter-zeile" + (an ? "" : " aus")}
-                    onClick={() =>
-                      setSichtbareZustaende((bisher) =>
-                        bisher.includes(zustand) ? bisher.filter((z) => z !== zustand) : [...bisher, zustand]
-                      )
-                    }
-                  >
-                    <span className="haken">{an ? "✓" : ""}</span>
-                    <span className={`dot ${zustand}`}></span>
-                    <span>{KUNDEN_ZUSTAND_LABEL[zustand]}</span>
-                    <span className="zahl">{kartenZahlen[zustand]}</span>
-                  </button>
-                );
-              })}
-              {/* Ein Weg zurück, ohne vier Mal zu tippen – und zugleich die Antwort auf
-                  "warum fehlt hier eine Nadel?". */}
-              <button
-                type="button"
-                className="karten-filter-alle"
-                onClick={() => setSichtbareZustaende([...KUNDEN_ZUSTAND_REIHENFOLGE])}
-                disabled={sichtbareZustaende.length === KUNDEN_ZUSTAND_REIHENFOLGE.length}
-              >
-                Alle einblenden
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!fullPageTabs && (
-        <button id="mapToggleBtn" type="button" onClick={toggleMobileMap} title={mobileMapVisible ? "Liste anzeigen" : "Karte anzeigen"}>
+        <button id="mapToggleBtn" type="button" className={mobileMapVisible ? "karte-offen" : ""} onClick={toggleMobileMap} title={mobileMapVisible ? "Liste anzeigen" : "Karte anzeigen"}>
           {mobileMapVisible ? <IconKunden /> : <IconMap />}
         </button>
       )}

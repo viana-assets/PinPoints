@@ -42,7 +42,14 @@ const securityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+  // Kamera und Standort seit v79 für die eigene Seite erlaubt (`self`), fremde Rahmen bleiben
+  // ausgeschlossen, und die Freigabe selbst erteilt weiterhin der Nutzer im Browser.
+  //  - Standort: der Knopf „Mein Standort" auf der Karte. Der Standort wird nirgends gespeichert.
+  //  - Kamera: der QR-Scanner in Lager und Einlagerung (components/QrScanner.tsx). Mit
+  //    `camera=()` lehnte der Browser getUserMedia ab, BEVOR er den Nutzer fragen konnte – der
+  //    Scanner meldete „Kein Zugriff auf die Kamera", und eine Erlaubnis im Browser half nicht.
+  //    Gefunden am 26.09.2026 beim Standortknopf, der an derselben Zeile scheiterte.
+  { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self), payment=()" },
   { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
