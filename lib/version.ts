@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v80";
+export const APP_VERSION = "v83";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,26 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v83", datum: "2026-09-26", titel: "Große Bildschirme",
+    punkte: [
+      "Auf 22- bis 27-Zoll-Monitoren wird die App jetzt insgesamt größer dargestellt – Schrift, Knöpfe, Listen und Fenster wachsen gleichmäßig mit, statt klein in viel leerem Raum zu stehen. Am Notebook und am Handy bleibt alles, wie es ist.",
+      "Behoben: In Admin → Nutzer lief die Rollenwahl über den Kartenrand hinaus.",
+    ],
+  },
+  {
+    version: "v82", datum: "2026-09-26", titel: "Wochenplan: ganze Woche und feste Tageszeile",
+    punkte: [
+      "Am Handy zeigt die Woche jetzt alle sieben Tage auf einen Blick, ohne seitliches Wischen. Ein Tipp auf einen Tag oben öffnet ihn als Tagesplan.",
+      "Die Zeile mit den Tagen bleibt beim Herunterscrollen oben stehen, bis der Wochenplan zu Ende ist – auch am Rechner.",
+    ],
+  },
+  {
+    version: "v81", datum: "2026-09-26", titel: "Einstellungen: Uhrzeit des Abendhinweises",
+    punkte: [
+      "Behoben: Das Uhrzeitfeld des Abendhinweises nahm die ganze Zeile ein, der Text daneben stand ein Wort je Zeile.",
+    ],
+  },
   {
     version: "v80", datum: "2026-09-26", titel: "Handy: zurück aus der Karte",
     punkte: [
