@@ -68,6 +68,21 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     const el = flaecheRef.current;
     if (el && el.scrollTop > 0) el.scrollTop = 0;
   }, [ansicht]);
+  // Die Höhe der stehenbleibenden Bedienleiste als CSS-Variable `--pl-hoehe` (26.09.2026). Die
+  // Tageszeile des Stundenrasters bleibt direkt darunter stehen und muss wissen, wo das ist –
+  // am Handy sind es drei Zeilen, am Rechner zwei, und mit der Wochenleiste der Tagesansicht
+  // eine mehr. Gemessen statt geschätzt, und ohne React-Zustand: Es ändert nur eine Zahl im Stil.
+  const leisteRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const leiste = leisteRef.current;
+    const flaeche = flaecheRef.current;
+    if (!leiste || !flaeche || typeof ResizeObserver === "undefined") return;
+    const setzen = () => flaeche.style.setProperty("--pl-hoehe", `${leiste.offsetHeight}px`);
+    setzen();
+    const beobachter = new ResizeObserver(setzen);
+    beobachter.observe(leiste);
+    return () => beobachter.disconnect();
+  }, []);
   const [selectedDay, setSelectedDay] = useState<string | null>(todayStr());
   const [empFilter, setEmpFilter] = useState<"all" | string>("all");
   // Zweiter Filter neben dem Mitarbeiter, mit derselben Bedienung. „Nicht eingeteilt" ist
@@ -305,7 +320,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
 
         {/* Die Bedienleiste bleibt beim Scrollen stehen (24.09.2026) – seit der Neugestaltung
             drei schmale Zeilen statt vier breiter Knopfreihen. */}
-        <div className="planung-leiste">
+        <div className="planung-leiste" ref={leisteRef}>
           <div className="pl-kopf">
             <button type="button" className="pl-rund" aria-label="Zurück" onClick={() => blaettern(-1)}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 6l-6 6 6 6" /></svg>
@@ -382,6 +397,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
               orderEmployees={orderEmployees}
               standardDauerMin={standardDauerMin}
               onOeffnen={onOpenOrder}
+              onTagOeffnen={ansicht === "woche" ? tagOeffnen : undefined}
               onSlot={isTechniker ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
               onVerschieben={onVerschieben ? (id, datum, von, bis) => { void terminSetzen(id, datum, von, bis); } : undefined}
             />

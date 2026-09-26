@@ -1,3 +1,30 @@
+/* ===========================================================================
+   Desktop-Skalierung (26.09.2026, v83): 13-Zoll-Notebook bis 27-Zoll-Monitor.
+   Alle Maße dieser Datei stehen in px, gebaut für Bildschirme um 1280–1536 px Breite – so
+   zeigt ein 13-Zoll-Notebook (1920 px bei 150 % = 1280 px) die App. Auf einem 24-Zoll-Monitor
+   (1920 px bei 100 %) oder 27 Zoll (2560 px) stand dieselbe Schrift winzig in viel leerem Raum.
+   Statt hunderte Einzelwerte anzufassen, wird die GANZE Seite ab diesen Breiten gleichmäßig
+   vergrößert (`zoom`): Schrift, Abstände, Knöpfe und Spalten wachsen zusammen, das Verhältnis
+   bleibt das, das am Notebook stimmt.
+
+   Drei Dinge, die dafür mitgedacht werden müssen (jeweils an ihrer Stelle kommentiert):
+   - `vh` wird mitvergrößert: 100vh wären auf 27 Zoll 135 % der Fensterhöhe. Jede Höhe in vh
+     steht deshalb als `calc(… / var(--z))`.
+   - Feste Menüs, die an einem angeklickten Knopf aufgehen, rechnen ihre Lage aus
+     Bildschirmpunkten und müssen durch den Zoom teilen (`menuLage` in lib/helpers.ts).
+   - Das Stundenraster rechnet aus der Mausposition eine Uhrzeit und teilt ebenfalls
+     (`massstab` in Stundenraster.tsx). Leaflet kann das seit 1.9 von selbst.
+   Die Breiten sind CSS-Breiten des Browserfensters; die Mindesthöhe verhindert, dass ein
+   breites, aber flaches Fenster so groß gezoomt wird, dass nichts mehr hineinpasst. Am Handy
+   und beim Drucken gilt immer 1.
+   =========================================================================== */
+:root{--z:1;}
+@media screen and (min-width:1680px) and (min-height:760px){ :root{--z:1.1;} }
+@media screen and (min-width:1900px) and (min-height:900px){ :root{--z:1.2;} }
+@media screen and (min-width:2300px) and (min-height:1100px){ :root{--z:1.35;} }
+@media screen and (min-width:3000px) and (min-height:1500px){ :root{--z:1.6;} }
+@media screen{ html{zoom:var(--z);} }
+
 
   :root{
     /* Werkstatt Warm: warmes Papier-Beige, Sicherheits-Orange als Akzent, Navy für Marke/Icons */
@@ -30,8 +57,8 @@
      Zustand mehr geben, in dem Seitenleiste und Karte unterschiedlicher Meinung über ihre
      Breite sind – genau daran hing das alte Fehlerbild "Navigationsleiste abgeschnitten,
      Karte liegt darüber" (siehe docs/design-system.md). */
-  #app{display:grid;grid-template-columns:232px 380px 1fr;grid-template-rows:100vh;
-    height:100vh;width:100%;overflow:hidden;}
+  #app{display:grid;grid-template-columns:232px 380px 1fr;grid-template-rows:calc(100vh / var(--z));
+    height:calc(100vh / var(--z));width:100%;overflow:hidden;}
   /* "Vollseiten"-Module (Lager, Aufträge, Einsatzplanung, Admin, Artikel): kein Kartenkontext
      nötig, der Inhalt bekommt die Kartenbreite dazu.
 
@@ -348,7 +375,7 @@
   .modal-overlay{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;
     justify-content:center;z-index:10000;}
   .modal-box{background:var(--panel);color:var(--text);border-radius:18px;padding:20px 22px;width:440px;max-width:92vw;
-    max-height:88vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.3);}
+    max-height:calc(88vh / var(--z));overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.3);}
   .modal-box h2{margin:0 0 14px;font-size:16px;font-family:var(--font-brand);}
   .modal-box h4{margin:14px 0 6px;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
   .modal-close{position:absolute;top:14px;right:18px;background:none;border:none;font-size:18px;color:var(--muted);padding:0;}
@@ -408,7 +435,7 @@
   .zeilen-aktionen .nav-icon-btn{margin-right:0;}
   .call-menu{position:fixed;z-index:20000;background:var(--panel);border:1px solid var(--border);border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.22);padding:6px;min-width:170px;
-    max-height:min(360px, calc(100vh - 24px));overflow-y:auto;}
+    max-height:min(360px, calc(100vh / var(--z) - 24px));overflow-y:auto;}
   .call-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:8px 10px;
     font-size:13px;border-radius:6px;color:var(--text);cursor:pointer;}
   .call-menu button:hover{background:var(--chip-hover);}
@@ -509,7 +536,7 @@
 
 /* ---------------- Login-Seite ---------------- */
 .login-page{
-  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;position:relative;
+  min-height:calc(100vh / var(--z));display:flex;align-items:center;justify-content:center;padding:24px;position:relative;
   overflow:hidden;
   background:
     radial-gradient(1100px 560px at 12% -8%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 60%),
@@ -732,7 +759,7 @@ tr.klickbar:hover { background: var(--hover); }
 /* Jeder Lagerplatz bekommt einen Aufkleber, der genau auf ihn zeigt (Migration 22,
    siehe docs/lager.md). Der Bogen wird über die Druckfunktion des Browsers ausgegeben. */
 .druck-modal{max-width:760px;}
-.druckbogen{display:flex;flex-wrap:wrap;gap:10px;max-height:52vh;overflow-y:auto;padding:4px;
+.druckbogen{display:flex;flex-wrap:wrap;gap:10px;max-height:calc(52vh / var(--z));overflow-y:auto;padding:4px;
   background:#ffffff;border:1px solid var(--border);border-radius:12px;}
 /* `break-inside:avoid`: Ein Aufkleber, den der Seitenumbruch halbiert, ist kein Aufkleber
    mehr – oben der QR-Code, unten der Platzcode, und beides auf verschiedenen Blättern. */
@@ -1268,7 +1295,7 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
 .kt-legende-punkte .z-termin{background:var(--navy);}
 .kt-legende-punkte .z-green{background:var(--green);}
 .kt-legende{width:290px;max-width:100%;background:#fff;border-radius:18px;box-shadow:0 8px 24px rgba(36,29,19,.2);
-  padding:12px 14px;display:flex;flex-direction:column;gap:9px;max-height:min(60vh,520px);overflow:auto;box-sizing:border-box;}
+  padding:12px 14px;display:flex;flex-direction:column;gap:9px;max-height:min(calc(60vh / var(--z)),520px);overflow:auto;box-sizing:border-box;}
 .kt-legende > b{font:700 15px var(--font-brand);}
 .kt-legende-zeile{display:flex;align-items:center;gap:10px;}
 .kt-legende-zeile > span:last-child{display:flex;flex-direction:column;min-width:0;}
@@ -1486,8 +1513,12 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
    14.09.2026.
 
    Ein Kalender ist kein Element, das man kürzen darf: Seine Höhe IST die Aussage. */
+/* `overflow:clip` statt `hidden` (26.09.2026): Beides schneidet an den runden Ecken ab, aber
+   nur `hidden` macht das Raster zu einem eigenen Scrollbereich – und daran scheitert
+   `position:sticky` der Tageszeile: Sie klebte dann am Raster, das selbst nie scrollt, statt
+   an der Seite. `clip` schneidet ab, ohne einen Scrollbereich zu bilden. */
 .raster{border:1px solid var(--border);border-radius:12px;background:var(--panel);
-  overflow:hidden;flex:0 0 auto;}
+  overflow:hidden;overflow:clip;flex:0 0 auto;}
 /* ---- Sortierbare Spaltenköpfe ----
    Der Pfeil bekommt festen Platz, auch wenn er leer ist: Sonst rückt die Überschrift beim
    Sortieren um ein Zeichen zur Seite, und die ganze Kopfzeile zuckt. */
@@ -1530,7 +1561,16 @@ input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box
 .raster-tag{--tage:1;}
 .raster-woche{--tage:7;}
 
-.raster-kopf{border-bottom:1px solid var(--border);background:var(--bg);}
+/* Die Tageszeile bleibt beim Scrollen direkt unter der Bedienleiste stehen (26.09.2026) – bis
+   das Raster zu Ende ist, danach geht sie mit ihm (sticky gilt nur innerhalb seines Elternteils,
+   des Rasters). `--pl-hoehe` misst EinsatzplanungPanel an der Bedienleiste; die −12 px sind
+   dieselben wie bei `.planung-leiste` (Innenabstand des Scrollbereichs). */
+.raster-kopf{border-bottom:1px solid var(--border);background:var(--bg);
+  position:sticky;top:calc(var(--pl-hoehe, 0px) - 12px);z-index:12;}
+.rk-oeffnen{border:none;border-left:1px solid var(--border);background:none;font:inherit;color:var(--text);
+  cursor:pointer;border-radius:0;}
+.rk-oeffnen:hover{background:var(--hover);}
+.rk-oeffnen.ist-heute{background:var(--accent-bg);}
 .rk-tag{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;
   border-left:1px solid var(--border);font-size:11.5px;}
 .rk-tag.ist-heute{background:var(--accent-bg);}
@@ -1676,25 +1716,30 @@ button.el-zeile:hover{border-color:var(--accent);}
 .raster-legende i.leg-ohne{background:var(--panel);border:1.5px dashed var(--frei-linie);}
 .raster-legende .rl-form{color:var(--muted);}
 
-/* Am Handy sind sieben Spalten nicht bedienbar – in Vitalis eigenem Screenshot vom
-   Google-Kalender sind bei sieben Spalten alle Namen abgeschnitten. Die Woche bleibt
-   erreichbar, bekommt aber einen waagerechten Rollbalken statt gequetschter Spalten; die
-   Tagesansicht ist am Handy die brauchbare. */
+/* Am Handy stehen seit 26.09.2026 alle sieben Tage nebeneinander, ohne seitliches Wischen.
+   Vorher (ab 24.09.) hatte die Woche einen waagerechten Rollbalken mit vier sichtbaren Tagen –
+   damals gewählt, weil bei sieben Spalten die Namen abgeschnitten sind. Gewünscht ist aber der
+   Überblick über die ganze Woche; die Namen stehen deshalb verkürzt und zweizeilig, und ein Tipp
+   auf den Tag im Kopf öffnet ihn in voller Breite (onTagOeffnen). Nebenbei die Voraussetzung
+   dafür, dass die Tageszeile oben stehen bleibt: Ein seitlich scrollendes Raster wäre ein
+   eigener Scrollbereich, und daran scheitert `position:sticky`. */
 @media (max-width: 700px){
-  .raster-woche{overflow-x:auto;}
   .raster-woche .raster-kopf,
   .raster-woche .raster-ohnezeit,
-  .raster-woche .raster-leib{min-width:640px;}
+  .raster-woche .raster-leib{grid-template-columns:34px repeat(7, minmax(0,1fr));}
+  .raster-woche .raster-zoom{flex-direction:column;gap:3px;padding:2px 0;}
+  .raster-woche .rk-tag{padding:5px 0;}
+  .raster-woche .rk-wochentag{font-size:9.5px;letter-spacing:.02em;}
+  .raster-woche .rk-datum{font-size:11px;}
+  .raster-woche .rk-spalte-zeit{font-size:8.5px;padding:1px;}
+  .raster-woche .rl-stunde span{right:2px;font-size:9px;padding:0 1px;}
+  .raster-woche .roz-tag{padding:3px 2px;}
+  .raster-woche .roz-chip{padding:2px 3px;font-size:10px;}
+  .raster-woche .tm-block{padding:2px 3px;border-radius:5px;}
+  .raster-woche .tm-block .tm-zeit{font-size:9.5px;}
+  .raster-woche .tm-block .tm-wer{font-size:10px;white-space:normal;overflow-wrap:anywhere;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.15;}
   .tm-block .tm-wer{font-size:11px;}
-  /* Die Uhrzeiten bleiben links stehen, wenn man die Woche seitlich wischt (24.09.2026).
-     Vorher rollten sie mit hinaus, und ab Donnerstag stand das Raster ohne Uhrzeit da. Jede
-     der drei Zeilen (Kopf, „ohne Uhrzeit", Stunden) hat ihre eigene erste Spalte – alle drei
-     kleben, sonst verrutschen sie gegeneinander. Deckend hinterlegt, damit die Termine
-     darunter hindurchgleiten statt durchzuscheinen. */
-  .raster-woche .rk-spalte-zeit{position:sticky;left:0;z-index:3;}
-  .raster-woche .raster-kopf .rk-spalte-zeit{background:var(--bg);}
-  .raster-woche .raster-ohnezeit .rk-spalte-zeit{background:var(--hover);}
-  .raster-woche .rl-stunden{background:var(--panel);box-shadow:1px 0 0 var(--border);}
 }
 
 /* ===========================================================================
@@ -1845,7 +1890,7 @@ button.el-zeile:hover{border-color:var(--accent);}
 
 /* Auswahlblatt der Filter: am Handy von unten, am Rechner als kleines Fenster. */
 .auswahl-blatt{background:var(--panel);border-radius:20px;padding:10px 16px 18px;width:min(420px, calc(100vw - 32px));
-  display:flex;flex-direction:column;gap:6px;max-height:80vh;overflow-y:auto;box-sizing:border-box;}
+  display:flex;flex-direction:column;gap:6px;max-height:calc(80vh / var(--z));overflow-y:auto;box-sizing:border-box;}
 /* Kein Kind des Blattes darf schrumpfen: Das Blatt scrollt, und ein Umschalter, der auf null
    Höhe gedrückt wird, ist unsichtbar statt erreichbar (gemessen am 26.09.2026 im Artikelblatt). */
 .auswahl-blatt > *{flex-shrink:0;}
@@ -2085,7 +2130,7 @@ button.el-zeile:hover{border-color:var(--accent);}
 /* ---------------- Rechnungsfenster (18.09.2026) ---------------- */
 /* Breiter als jeder andere Dialog, weil darin ein A4-Blatt steht. 210 mm mal der
    Vorschaufaktor sind etwa 500 Pixel – dazu Rand und Rollbalken. */
-.modal-box.rechnung-modal{width:760px;max-width:96vw;max-height:94vh;
+.modal-box.rechnung-modal{width:760px;max-width:96vw;max-height:calc(94vh / var(--z));
   display:flex;flex-direction:column;gap:10px;padding:18px 20px;}
 .re-kopfleiste{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
 .re-kopfleiste h3{margin:0;font-family:var(--font-brand);font-size:17px;
@@ -3017,7 +3062,12 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .es-block{display:flex;flex-direction:column;gap:8px;padding-bottom:6px;border-bottom:1px solid #f1ece2;}
 .es-segment{max-width:none;}
 .es-segment button{padding:0 6px;font-size:13px;}
-.es-zeit{width:110px;height:40px;border-radius:10px;border:1px solid var(--border);padding:0 8px;font:inherit;font-size:15px;font-weight:700;}
+/* Zwei Klassen im Selektor, nicht eine: Die allgemeine Feldregel `input[type=time]{width:100%}`
+   (Anfang der Datei) wiegt mehr als eine einzelne Klasse. Mit `.es-zeit` allein nahm das
+   Zeitfeld die ganze Zeile, und „jeden Abend, nur wenn es etwas mitzunehmen gibt" stand ein
+   Wort je Zeile daneben (gemeldet 26.09.2026). */
+.es-zeile .es-zeit{flex:0 0 auto;width:120px;max-width:120px;height:40px;border-radius:10px;border:1px solid var(--border);
+  padding:0 8px;font:inherit;font-size:15px;font-weight:700;}
 .es-stepper{display:flex;align-items:center;background:var(--bg);border-radius:12px;flex:0 0 auto;}
 .es-stepper button{width:38px;height:38px;border:none;background:none;font:inherit;font-size:19px;font-weight:700;color:var(--text);cursor:pointer;}
 .es-stepper button:disabled{opacity:.35;cursor:default;}
@@ -3169,7 +3219,9 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ad-kreis.orange{background:#E8622C;}
 .ad-kreis.gruen{background:var(--green);}
 .ad-kreis.grau{background:#d9d1c2;color:#6f6553;}
-.ad-rolle{flex:0 0 auto;height:30px;border-radius:9px;border:none;font:inherit;font-size:12px;font-weight:700;padding:0 6px;cursor:pointer;}
+/* width:auto: Die allgemeine Feldregel gibt jedem select width:100% – in der Nutzerzeile schob
+   das die Rollenwahl über den Kartenrand hinaus (gemessen 26.09.2026 bei 1280 px). */
+.ad-rolle{flex:0 0 auto;width:auto;max-width:60%;height:30px;border-radius:9px;border:none;font:inherit;font-size:12px;font-weight:700;padding:0 6px;cursor:pointer;}
 .ad-rolle.navy{background:#e4ebf3;color:var(--navy);}
 .ad-rolle.blau{background:#e4f2fb;color:#1f6f9f;}
 .ad-rolle.orange{background:#ffe9dd;color:#9a3412;}
@@ -3239,7 +3291,7 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
    components/kunden/DetailModal.tsx: Kopf mit Kreis in der Zustandsfarbe, vier Handgriffe,
    Reiter; darunter Karten. Am Handy füllt das Fenster den Bildschirm. */
 .dm-overlay{align-items:center;}
-.dm-fenster{background:var(--bg);color:var(--text);border-radius:22px;width:min(640px, 96vw);height:min(900px, 92vh);
+.dm-fenster{background:var(--bg);color:var(--text);border-radius:22px;width:min(640px, 96vw);height:min(900px, calc(92vh / var(--z)));
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.3);}
 .dm-kopf{background:var(--panel);padding:12px 14px 0;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--border);flex:0 0 auto;}
 .dm-kopf-zeile{display:flex;align-items:center;gap:10px;}
@@ -3357,7 +3409,7 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
    frühere 440-px-Popover gescheitert. Die Einlagerungsblöcke (`.auftrag-block`) behalten ihr
    Innenleben und bekommen hier nur den Kartenrahmen. */
 .ao-overlay{align-items:center;}
-.ao-fenster{background:var(--bg);color:var(--text);border-radius:22px;width:min(680px, 96vw);height:min(940px, 94vh);
+.ao-fenster{background:var(--bg);color:var(--text);border-radius:22px;width:min(680px, 96vw);height:min(940px, calc(94vh / var(--z)));
   display:flex;flex-direction:column;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.3);}
 .ao-kopf{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--panel);border-bottom:1px solid var(--border);flex:0 0 auto;}
 .ao-kopf-text{display:flex;flex-direction:column;flex:1;min-width:0;}

@@ -258,6 +258,10 @@ Jeder Punkt hier hat einmal Zeit gekostet.
 - **Bedienelemente im Kartencontainer brauchen `kartenFlaecheSperren`** (app/page.tsx), sonst
   zieht ein Wischen darüber die Karte mit und ein Tipp zählt als Kartenklick. Darin nur
   `onClick` – `mousedown`/`pointerdown` erreichen React dort nicht.
+- **Auf großen Monitoren ist die ganze Seite gezoomt** (`html{zoom:var(--z)}`, v83, siehe
+  `docs/design-system.md` „Desktop-Skalierung"). Jede neue Höhe in `vh` als
+  `calc(… / var(--z))`, jede Lage aus `getBoundingClientRect` für ein festes Element durch den
+  Zoom teilen (`menuLage`), jede Umrechnung Mausposition → Größe über `massstab()`.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 

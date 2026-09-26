@@ -13,7 +13,7 @@ import {
   todayStr, formatDate, formatOrderDateTime, nextOrder, orderDateTime,
   effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
-  getPhoneNumbers, navigationUrls, istHandy,
+  getPhoneNumbers, navigationUrls, istHandy, menuLage, seitenZoom,
   formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen,
 } from "@/lib/helpers";
 import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
@@ -2429,11 +2429,10 @@ export default function HomePage() {
   // sichtbaren Fenster herauslaufen, sonst sind die unteren Einträge weder sichtbar noch
   // anklickbar (genau das wurde beim Mitarbeiter-Menü nahe am unteren Bildschirmrand gemeldet).
   // `estHeight` ist eine grobe Schätzung der Menühöhe – reicht sie nicht, öffnet sich das Menü
-  // stattdessen nach oben statt nach unten.
-  function clampMenuTop(buttonRect: DOMRect, estHeight: number): number {
-    const margin = 8;
-    if (buttonRect.bottom + 4 + estHeight <= window.innerHeight - margin) return buttonRect.bottom + 4;
-    return Math.max(margin, buttonRect.top - 4 - estHeight);
+  // stattdessen nach oben statt nach unten. Seit v83 rechnet `menuLage` (lib/helpers.ts) auch
+  // den Seitenzoom der großen Monitore heraus.
+  function menuAm(knopf: DOMRect, estHeight: number, breite: number): { top: number; left: number } {
+    return menuLage(knopf, { hoehe: estHeight, breite }, { breite: window.innerWidth, hoehe: window.innerHeight }, seitenZoom());
   }
 
   // Anrufen – die einzige Stelle, an der das entschieden wird. Eine Nummer: sofort wählen,
@@ -2455,7 +2454,7 @@ export default function HomePage() {
     }
     if (nums.length === 0) return;
     setHandyMeldung(null);
-    setCallMenuPos({ top: clampMenuTop(rect, 60 + nums.length * 38), left: Math.min(rect.left, window.innerWidth - 220) });
+    setCallMenuPos(menuAm(rect, 60 + nums.length * 38, 220));
     setCallMenuFor(cust);
   }
   // Sitzt hier ein Handy oder ein Rechner? Die Begründung für diesen Weg steht bei `istHandy`
@@ -2485,7 +2484,7 @@ export default function HomePage() {
   function openNavMenu(e: React.MouseEvent, cust: Customer) {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setNavMenuPos({ top: clampMenuTop(rect, 90), left: Math.min(rect.left, window.innerWidth - 190) });
+    setNavMenuPos(menuAm(rect, 90, 190));
     setNavMenuFor(cust);
   }
 
@@ -2494,7 +2493,7 @@ export default function HomePage() {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const estHeight = 40 + Math.max(1, employees.length) * 34;
-    setEmpMenuPos({ top: clampMenuTop(rect, estHeight), left: Math.min(rect.left, window.innerWidth - 210) });
+    setEmpMenuPos(menuAm(rect, estHeight, 210));
     setEmpMenuFor({ orderId, ids: orderEmployees[orderId] || [] });
   }
   async function toggleEmpMenuEmployee(employeeId: string) {

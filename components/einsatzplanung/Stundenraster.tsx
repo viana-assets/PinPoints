@@ -32,6 +32,18 @@ const RASTER_STUNDE_MAX = 120;
 
 export type RasterAuftrag = Order & { kunde: Customer | null; mitarbeiterIds: string[] };
 
+// Wie viele Bildschirmpunkte ein CSS-Punkt gerade ist. Auf großen Monitoren ist die Seite seit
+// v83 vergrößert (`zoom`, globals.css ganz oben): Die Maus meldet ihre Lage in
+// Bildschirmpunkten, die Stundenhöhe steht in CSS-Punkten. Ohne das Teilen landete ein Klick
+// auf 10:00 bei 27 Zoll um 11:20. Gemessen statt aus der Variable gelesen – so stimmt es auch,
+// falls einmal ein anderer Vergrößerungsweg dazukommt.
+function massstab(el: HTMLElement): number {
+  const h = el.offsetHeight;
+  if (!h) return 1;
+  const s = el.getBoundingClientRect().height / h;
+  return Number.isFinite(s) && s > 0 ? s : 1;
+}
+
 function statusKlasse(status: string): string {
   return `tm-${status}`;
 }
@@ -135,7 +147,7 @@ type Zug = {
 // üblicherweise nehmen.
 const LANG_DRUECKEN_MS = 400;
 
-export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen, onSlot, onVerschieben }: {
+export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen, onTagOeffnen, onSlot, onVerschieben }: {
   // Ein Tag in der Tagesansicht, sieben in der Wochenansicht – sonst ändert sich nichts.
   tage: Date[];
   auftraege: Order[];
@@ -148,6 +160,10 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   // vorschlägt.
   standardDauerMin: number;
   onOeffnen: (id: string) => void;
+  // Wochenansicht: Tipp auf einen Tag im Kopf öffnet diesen Tag in der Tagesansicht
+  // (26.09.2026). Am Handy stehen seitdem alle sieben Tage nebeneinander, die Namen passen dort
+  // nur verkürzt hinein – ein Tipp, und man sieht den Tag in voller Breite.
+  onTagOeffnen?: (datum: string) => void;
   // Klick in eine freie Stelle des Rasters: Datum und Uhrzeit des angeklickten Punktes.
   // `von`/`bis` sind null, wenn in die Leiste „ohne Uhrzeit" geklickt wurde – dann steht der
   // Tag fest und die Zeit noch nicht. Fehlt die Eigenschaft (Techniker-Ansicht), ist das
@@ -300,7 +316,7 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
     }
     function minuteBei(y: number, top: number): number {
       const { stundePx: px, vonMinute: von } = liveRef.current;
-      return von + ((y - top) / px) * 60;
+      return von + ((y - top) / massstab(leib!) / px) * 60;
     }
 
     function beginnen(ziel: EventTarget | null, x: number, y: number): boolean {
@@ -540,7 +556,7 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
     // werden.
     if (geradeGezogen()) return;
     const kasten = e.currentTarget.getBoundingClientRect();
-    const { von, bis } = terminAusKlick(e.clientY - kasten.top, stundePx, vonMinute, standardDauerMin);
+    const { von, bis } = terminAusKlick((e.clientY - kasten.top) / massstab(e.currentTarget), stundePx, vonMinute, standardDauerMin);
     onSlot(datum, von, bis);
   }
 
@@ -565,7 +581,13 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
           <button type="button" title="Stunden höher"
             disabled={stundePx >= RASTER_STUNDE_MAX - 0.01} onClick={() => zoomen(1.25)}>+</button>
         </div>
-        {proTag.map(({ tag, datum }) => (
+        {proTag.map(({ tag, datum }) => onTagOeffnen ? (
+          <button key={datum} type="button" className={"rk-tag rk-oeffnen" + (datum === heute ? " ist-heute" : "")}
+            onClick={() => onTagOeffnen(datum)} title="Diesen Tag in der Tagesansicht öffnen">
+            <span className="rk-wochentag">{tag.toLocaleDateString("de-DE", { weekday: "short" })}</span>
+            <span className="rk-datum">{tag.getDate()}.{tag.getMonth() + 1}.</span>
+          </button>
+        ) : (
           <div key={datum} className={"rk-tag" + (datum === heute ? " ist-heute" : "")}>
             <span className="rk-wochentag">{tag.toLocaleDateString("de-DE", { weekday: "short" })}</span>
             <span className="rk-datum">{tag.getDate()}.{tag.getMonth() + 1}.</span>
