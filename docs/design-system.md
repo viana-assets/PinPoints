@@ -220,10 +220,11 @@ feste Wahl wäre für die Hälfte der Nutzer die falsche.
 Der Pin erscheint nur, wenn `cust.address` gefüllt ist. Eine Schaltfläche, die eine leere
 Adresse an eine Karten-App übergibt, führt dort zu einer sinnlosen Suche.
 
-**Eine Quelle für die Pin-Form.** Das Karten-Popup baut Leaflet aus einer HTML-Zeichenkette,
-nicht React – den Pin gibt es dort also als Text und in den Listen als React-Element. Damit
-daraus nicht mit der Zeit zwei verschiedene Pins werden, stehen Pfad und Farbe einmal in
-`components/icons.tsx` und speisen beide Fassungen (`IconNavPin` und `navPinSvgHtml()`).
+**Eine Quelle für die Pin-Form.** Pfad und Farbe stehen einmal in `components/icons.tsx`
+(`IconNavPin`). Bis v78 gab es zusätzlich eine Textfassung für das Leaflet-Popup
+(`navPinSvgHtml()`); die Kundenkarte auf der Karte ist seit v79 ein React-Bauteil und braucht sie
+nicht mehr. Dasselbe Prinzip gilt für die Kartennadeln: `components/karte/nadel.ts` zeichnet sie
+für die Karte UND die Legende.
 
 ## Vollseiten-Module scrollen am Handy als Ganzes (09.09.2026)
 
@@ -309,7 +310,9 @@ Handler hängen jetzt an **einem** Zuhörer am Dokument, der über `data-popup-a
 `dblclick`/`contextmenu`, nicht `click` – Delegation funktioniert also.
 
 *Für künftige Änderungen*: keine Klick-Handler direkt an Elemente hängen, die Leaflet
-verwaltet. Der Inhalt eines Popups kann jederzeit neu gebaut werden.
+verwaltet. Der Inhalt eines Popups kann jederzeit neu gebaut werden. (Seit v79 gibt es kein
+Popup mehr; die Kundenkarte ist ein React-Bauteil über der Karte – siehe
+`docs/kunden-und-karte.md`, „Karte und Nadeln".)
 
 **3. Die Seite blieb reingezoomt.** iOS Safari vergrößert automatisch, sobald ein Eingabefeld
 mit einer Schrift unter 16px den Fokus bekommt – und zoomt nie von selbst zurück. Unsere

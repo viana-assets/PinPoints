@@ -9,6 +9,9 @@ export type MapStyleKey = "strasse" | "satellit" | "satellit_labels";
 export const DEFAULT_MAP_CENTER: [number, number] = [49.4521, 11.0767];
 export const DEFAULT_MAP_ZOOM = 12;
 
+// Reihenfolge im Ebenen-Wähler auf der Karte (stand bis v78 als STYLE_ORDER in app/page.tsx).
+export const MAP_STIL_REIHENFOLGE: MapStyleKey[] = ["strasse", "satellit", "satellit_labels"];
+
 export const MAP_STYLES: Record<
   MapStyleKey,
   { label: string; baseUrl: string; baseAttr: string; overlayUrl?: string; overlayAttr?: string }

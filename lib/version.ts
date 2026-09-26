@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v78";
+export const APP_VERSION = "v79";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,18 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v79", datum: "2026-09-26", titel: "Karte und Nadeln neu",
+    punkte: [
+      "Neue Nadeln in den Farben der Kundenliste; Termine tragen ihre Uhrzeit direkt an der Nadel.",
+      "Oben auf der Karte stehen die Zustände als Knöpfe mit Anzahl – antippen blendet aus und wieder ein.",
+      "Weit weg werden nahe Nadeln zu Bündeln mit Anzahl; der Ring zeigt, wie viel davon offen ist. Antippen zoomt hinein.",
+      "Eine Nadel antippen öffnet die Kundenkarte: Anrufen, Navigation, Kontakt, Auftrag – am Handy als Blatt von unten.",
+      "Termine → Heute oder Morgen zeigt den Tag auf der Karte: nummerierte Stationen, je Mitarbeiter als Linie verbunden, unten zum Wischen.",
+      "Neu: Suche auf der Karte (Handy), „Mein Standort“, Legende „Was bedeuten die Nadeln?“. Am Handy bleibt die untere Leiste jetzt auch bei offener Karte sichtbar.",
+      "Behoben: Der QR-Scanner in Lager und Einlagerung bekam vom Browser keine Kamera – jetzt fragt er wie vorgesehen nach der Erlaubnis.",
+    ],
+  },
   {
     version: "v78", datum: "2026-09-26", titel: "Versionsanzeige und Testkunden",
     punkte: [

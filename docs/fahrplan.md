@@ -16,6 +16,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.09.2026 – Karte und Nadeln neu (Entwurf W, Service Worker v79, keine Migration).**
+  Nadeln aus einer Quelle (`components/karte/nadel.ts`, Farben als Tokens in `globals.css`),
+  Terminnadeln mit Uhrzeit; Zustände als Pillen mit Anzahl statt des Schalters „Nadeln";
+  Bündel bis Zoomstufe 13 mit Anteilsring (`lib/karte.ts`); Kundenkarte statt Leaflet-Popup
+  (am Rechner an der Nadel, am Handy als Blatt); Termine → Heute/Morgen als Tag auf der Karte
+  mit nummerierten Stationen, Luftlinie je Mitarbeiter und Streifen zum Wischen; Suche auf der
+  Karte am Handy, „Mein Standort", Legende. Nebenbei behoben: Die Permissions-Policy sperrte Kamera und Standort
+  ganz (`camera=()`, `geolocation=()`) – der QR-Scanner in Lager und Einlagerung konnte deshalb
+  nie auf die Kamera zugreifen; jetzt `(self)`. Am Handy lag die untere Leiste bei offener Karte
+  unsichtbar hinter ihr, und der Balken „Position setzen" war am Handy nur halb so breit.
+
 * **26.09.2026 – Versionsanzeige, „Was gibt es Neues" und Testkunden (Service Worker v78,
   Migration 60).** Die Fassung steht in den Einstellungen (`APP_VERSION` in `lib/version.ts`,
   gleichlaufend mit `public/sw.js`); Admin und Superadmin sehen „Was gibt es Neues" (Blatt mit

@@ -15,11 +15,14 @@ Dokumentationspflege.
 Erfasst sind **alle exportierten Konstanten aus `lib/`** (jede Fundstelle von `^export const`
 in `lib/**/*.ts`, plus die vollständige Durchsicht von `lib/constants.ts`). Nicht erfasst sind
 Konstanten, die lokal in `app/page.tsx` oder in einzelnen Komponenten stehen und nicht
-exportiert werden (z. B. `MAX_MARKER`, `LISTEN_SCHRITT`, `MARKER_FARBE` in `app/page.tsx`;
+exportiert werden (z. B. `MAX_MARKER`, `LISTEN_SCHRITT` in `app/page.tsx`;
 `AUSGANG_TEXT`, `TIPPPAUSE_MS`, `QR_PIXEL`, `TAKT_MS` u. a. in einzelnen Komponenten) – das sind
 bewusst modul-lokale Werte ohne zweite Verwendungsstelle, siehe Kommentar am Kopf von
 `lib/constants.ts`. Wer eine davon ein zweites Mal braucht, zentralisiert sie in `lib/` und
 trägt sie dann hier ein.
+
+Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
+die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
 Insgesamt **73 exportierte Konstanten** in 13 Dateien unter `lib/` (Stand dieser Ergänzung:
 21.09.2026, nur die neue Datei `lib/etikettBild.ts` nachgetragen – siehe „Korrekturen" unten für
@@ -152,7 +155,12 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 |---|---|---|---|---|
 | `DEFAULT_MAP_CENTER` | `lib/mapStyles.ts` | `[number, number]` | Kartenmittelpunkt beim ersten Laden (Nürnberg-Region) | `app/page.tsx` (Karten-Init), `app/api/adresse-suchen/route.ts` |
 | `DEFAULT_MAP_ZOOM` | `lib/mapStyles.ts` | `number` (12) | Zoomstufe beim ersten Laden | `app/page.tsx` |
-| `MAP_STYLES` | `lib/mapStyles.ts` | `Record<MapStyleKey, {...}>` | Die drei verfügbaren Kartenstile (Straße/Satellit/Satellit+Beschriftung) | `app/page.tsx` (Kartenstil-Schalter, zusammen mit lokalem `STYLE_ORDER` dort) |
+| `MAP_STYLES` | `lib/mapStyles.ts` | `Record<MapStyleKey, {...}>` | Die drei verfügbaren Kartenstile (Straße/Satellit/Satellit+Beschriftung) | `app/page.tsx` (`applyMapStyle`), `components/karte/KartenBedienung.tsx` (Ebenen-Wähler) |
+| `MAP_STIL_REIHENFOLGE` | `lib/mapStyles.ts` | `MapStyleKey[]` | Reihenfolge im Ebenen-Wähler (bis v78 lokal als `STYLE_ORDER` in `app/page.tsx`) | `app/page.tsx` → `KartenBedienung` |
+| `BUENDEL_BIS_ZOOM` | `lib/karte.ts` | `number` (13) | Bis zu dieser Zoomstufe werden nahe Nadeln gebündelt (entschieden 26.09.2026) | `app/page.tsx` (`syncMarkers`, Bündel-Klick) |
+| `BUENDEL_ZELLE_PX` | `lib/karte.ts` | `number` (80) | Kantenlänge der Rasterzelle eines Bündels in Bildschirmpunkten | `buendeln()` |
+| `BUENDEL_RING_FARBE` | `lib/karte.ts` | `Record<KundenZustand, string>` (CSS-Variablen) | Farbe je Zustand im Anteilsring des Bündels | `ringVerlauf()` |
+| `NADEL_MASS`, `KREIS_MASS`, `STATION_MASS` | `components/karte/nadel.ts` | Maße in px | Größe und Ankerpunkt der Nadelformen für Leaflet – müssen zu `globals.css` („Karte: Nadeln") passen | `app/page.tsx` (`makeIcon`, `tagZeichnen`) |
 | `EMP_COLORS` | `lib/constants.ts` | `string[]` | Farbpalette für Mitarbeiter-Punkte im Kalender | `lib/calendar.ts` (`employeeColorFor()`), darüber `Stundenraster`, `EinsatzplanungPanel` |
 
 ---

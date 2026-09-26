@@ -24,13 +24,14 @@
   200 Zeilen (`LISTEN_SCHRITT` in `app/page.tsx`), weitere per Knopf am Listenende; gefiltert
   und gezählt wird immer über den gesamten Bestand. Bei ~4500 Kunden alle Zeilen gleichzeitig
   ins Dokument zu stellen, hätte Scrollen und Tippen spürbar verzögert.
-- **Karte**: Leaflet, Marker rot/grün je nach `effectiveColor()` (offen/kontaktiert +
+- **Karte**: Leaflet, Nadelfarbe je nach `effectiveColor()` (offen/kontaktiert +
   Wiedervorlage-Zeitraum aus den Settings). Gezeichnet werden nur Marker im sichtbaren
-  Ausschnitt (plus Rand), höchstens `MAX_MARKER` gleichzeitig – liegen mehr Kunden im
-  Ausschnitt, erscheint ein Hinweis auf der Karte statt stillschweigend etwas wegzulassen. Kartenstil-Schalter direkt auf der Karte
-  (Google-Maps-artig, `MAP_STYLES` in `lib/mapStyles.ts`), Settings enthalten die
-  Kartenstil-Auswahl bewusst nicht mehr doppelt.
-- **Karten-Popup** (Marker anklicken): Kundendaten, Telefonnummern, nächster Termin – und
+  Ausschnitt (plus Rand); weit weg werden sie zu Bündeln, nah höchstens `MAX_MARKER`
+  gleichzeitig – liegen mehr Kunden im Ausschnitt, sagt es die Hinweiszeile, statt
+  stillschweigend etwas wegzulassen. Kartenstil über den Ebenen-Knopf auf der Karte
+  (`MAP_STYLES` in `lib/mapStyles.ts`), Settings enthalten die Auswahl bewusst nicht doppelt.
+  Seit v79 neu gestaltet – siehe Abschnitt „Karte und Nadeln (Entwurf W)" unten.
+- **Kundenkarte** (Nadel antippen; bis v78 das Karten-Popup): Kundendaten, nächster Termin – und
   darunter **zwei getrennte Handlungen**: „+ Auftrag anlegen" und „✔ Kontakt bestätigen". Bis
   zum 29.08.2026 war das eine einzige Schaltfläche mit einem Ankreuzfeld „Termin dabei
   vereinbart"; das legte im Hintergrund einen Auftrag ohne Fahrzeug, Mitarbeiter und Leistungen
@@ -111,8 +112,8 @@ nächsten Saison anrufen will. Und Deaktivieren hat Folgen – der Kunde verschw
 Liste; das als Nebenwirkung eines Anrufergebnisses passieren zu lassen, wäre eine irreversible
 Aktion ohne bewusste Entscheidung.
 
-Deshalb: der Kunde bleibt aktiv und bekommt ein Kreuz auf der Karte. Im Popup erscheint dann
-zusätzlich ein Knopf **„Kunde deaktivieren"** – ein Klick, aber ein eigener.
+Deshalb: der Kunde bleibt aktiv und bekommt ein Kreuz auf der Karte. In der Kundenkarte (Menü
+„⋯") erscheint dann zusätzlich **„Kunde deaktivieren"** – ein Klick, aber ein eigener.
 
 ### Warum das Kreuz keine vierte Farbe ist
 
@@ -121,10 +122,11 @@ einer bunten Karte gehen Farbnuancen ohnehin unter. „Kein Interesse" ist desha
 **Form**: ein weißer Punkt mit rotem Rand und Kreuz statt eines Tropfens. Die Form trägt die
 Aussage, die Farbe bestätigt sie nur.
 
-Die Markerfarben stehen als `MARKER_FARBE` in `app/page.tsx` und nicht als CSS-Variable: der
-Marker entsteht als HTML-Zeichenkette in einem Leaflet-`divIcon`, dort greift kein Stylesheet
-der App. Die Werte entsprechen den Tokens aus `globals.css` – wer sie dort ändert, ändert sie
-hier mit.
+Die Nadelfarben standen bis v78 als `MARKER_FARBE` in `app/page.tsx`, mit der Begründung, im
+Leaflet-`divIcon` greife kein Stylesheet. Das stimmte nicht: Das divIcon landet im Dokument der
+App, Klassen und Tokens greifen dort wie überall – und die Hex-Werte waren den Tokens längst
+davongelaufen (Grün `#2f9e5c` statt `--green`). Seit v79 stehen Form und Farbe in `globals.css`,
+Abschnitt „Karte: Nadeln".
 
 Die Kundenliste hat passend dazu zwei neue Filter: **Wiedervorlage** und **Kein Interesse**.
 
@@ -270,6 +272,10 @@ nachtragen müssen – Knopf, Filterbedingung und Zählung.
 
 ## Karten-Popup: ein Zuhörer statt Handler je Schaltfläche (05.09.2026)
 
+*Seit v79 Geschichte: Das Popup ist durch die Kundenkarte ersetzt, ein React-Bauteil mit
+gewöhnlichen onClick-Handlern (siehe „Karte und Nadeln"). Der Abschnitt bleibt stehen, weil er
+erklärt, warum auf der Karte nichts an Elementen hängen darf, die Leaflet selbst neu baut.*
+
 Die Schaltflächen im Karten-Popup (`+ Auftrag anlegen`, `Kontakt bestätigen`, `Auf offen
 setzen`, `Kunde deaktivieren`, `Kundendaten & Aufträge bearbeiten`, Telefon-Symbol) tragen
 `data-popup-aktion` und `data-kunde`. Ein einziger, einmal angemeldeter Klick-Zuhörer am
@@ -283,6 +289,11 @@ Wer eine Schaltfläche ergänzt, gibt ihr die beiden `data`-Attribute und einen 
 `popupAktionRef.current` – kein `getElementById`, kein `onclick` am Element.
 
 ## Zustandsfilter auf der Karte (05.09.2026)
+
+*Seit v79 als Pillen oben auf der Karte statt als Aufklappliste „Nadeln"; die Entscheidungen
+unten gelten weiter („Alle einblenden" heißt jetzt „Alle zeigen" und erscheint als eigene Pille,
+sobald etwas ausgeblendet ist). Dass die Bedienung jetzt IM Kartencontainer liegt, ist durch
+`kartenFlaecheSperren` gelöst – siehe „Karte und Nadeln".*
 
 Oben rechts auf der Karte sitzt ein Schalter „Nadeln", der die fünf Zustände einzeln ein- und
 ausblendet, jeweils mit der Zahl der betroffenen Kunden. Anlass war das Handy: dort ist die
@@ -472,3 +483,61 @@ Kunde, Aufträge, Testrechnungen, Fahrzeuge, Reifen im Regal, Kontakte und alle
 Protokolleinträge dazu – ohne Papierkorb. Landet ein Testkunde doch im Papierkorb (etwa weil ein
 Admin ihn gelöscht hat), bietet der Papierkorb dem Superadmin dasselbe „Restlos löschen" an;
 `kunde_endgueltig_loeschen()` verweist Testkunden dorthin.
+
+## Karte und Nadeln (Entwurf W, v79, 26.09.2026)
+
+Entworfen auf dem Design-Canvas (Seite „Karte & Nadeln (W)", W1–W3), freigegeben am 26.09.2026
+mit zwei Entscheidungen: **Bündel ja**, **Weg als Luftlinie**.
+
+**Nadeln** – `components/karte/nadel.ts` zeichnet alle Formen als HTML für Leaflets `divIcon`,
+und dieselbe Funktion zeichnet die Legende. Tropfen mit weißem Kern in der Zustandsfarbe; „kein
+Interesse" als weißer Kreis mit rotem ✕; „ungefähr" hohl und gestrichelt; Terminnadeln tragen
+ein Schild mit der Uhrzeit (heute), „morgen …" oder dem Tag (`nadelTerminText`). Überfahren einer
+Listenzeile vergrößert die Nadel, gewählt bekommt sie zusätzlich den orangen Ring. `setIcon` wird
+nur noch aufgerufen, wenn sich die Form wirklich ändert (`_pinSchluessel`), statt bei jedem
+Verschieben für jede Nadel.
+
+**Pillen** – oben auf der Karte, je Zustand mit Anzahl (`kartenZahlen`). Antippen blendet aus,
+ausgeblendet ist blass und gestrichelt; „Alle zeigen" erscheint, sobald etwas fehlt. Am Handy
+eine Zeile zum Wischen, darüber Suche (nur Kunden mit Position) und „Liste".
+
+**Bündel** – bis `BUENDEL_BIS_ZOOM` (13) werden Nadeln derselben Rasterzelle
+(`BUENDEL_ZELLE_PX`, am Pixelraster der Zoomstufe, damit beim Verschieben nichts springt)
+zusammengefasst: Kreis mit Anzahl, Ring mit den Anteilen der Zustände (`ringVerlauf`). Antippen
+zoomt, bis das Bündel aufgeht – mindestens eine Stufe. Überfährt man eine Listenzeile, deren
+Kunde gebündelt ist, wird das Bündel hervorgehoben. Die Hinweiszeile (`ausschnittText`) sagt, was
+man vor sich hat.
+
+**Kundenkarte** – `components/karte/KartenKundeKarte.tsx` ersetzt das Popup. Kopf mit Initialen
+in der Zustandsfarbe, eine Zeile, warum die Nadel diese Farbe hat (`kundenInfoZeile`), der
+nächste Termin mit Mitarbeitern, Hinweis bei ungefährer Position mit „Position setzen", Notiz,
+vier Handgriffe (Anrufen, Navigation, Kontakt, Auftrag), „Kundenfenster öffnen", Menü „⋯" (Auf
+offen setzen, Position setzen, bei kein Interesse: Kunde deaktivieren). Am Rechner hängt sie an
+der Nadel: `app/page.tsx` setzt `--x`/`--y` bei jedem Verschieben direkt am Element, ohne React
+neu zu zeichnen; ist über der Nadel kein Platz, klappt sie darunter. Unter 700 px ist sie ein
+Blatt von unten. Liegt die Nadel dort, wo gleich die Karte steht, rückt die Karte ein Stück
+(`platzFuerKarte`). Ein Reiterwechsel schließt sie (gemerkt mit dem Reiter, `kartenWahl`).
+
+**Tag auf der Karte** – Termine bei „Heute" oder „Morgen": statt der Kundennadeln die Stationen
+des Tages, nummeriert wie die Liste (`tagesStationen`), vorbei hell, läuft orange, kommt dunkel
+mit dem Ring in der Mitarbeiterfarbe; je Mitarbeiter eine gestrichelte Linie (`tagesWege`).
+**Luftlinie, keine Strecke:** Für eine gefahrene Strecke müssten die Adressen an einen
+Routendienst – und Adressen gehen außer an die eigene Geocode-Route an niemanden (CLAUDE.md,
+Abschnitt 5). Unten ein Streifen mit einer Karte je Station (Navigation, Auftrag); Nadel und
+Karte wählen sich gegenseitig. Beim Wechsel des Tages oder Mitarbeiters richtet sich die Karte
+auf die Stationen aus – am Handy erst, wenn die Karte aufgeht (ein Container ohne Größe kann
+nichts einpassen). Mitarbeiter-Pillen auf der Karte, weil am Handy die Liste verdeckt ist.
+
+**Rechts unten** Ebenen (drei Kartenstile, `MAP_STIL_REIHENFOLGE`), „Mein Standort" (einmal
+abfragen, blauer Punkt, nirgends gespeichert – dafür steht die Permissions-Policy in
+`next.config.mjs` seit v79 auf `geolocation=(self)`), Zoom. Leaflets eigene Zoomknöpfe und der
+Kartenstil-Schalter unten links sind entfallen. **Links unten** die Legende.
+
+**Bedienung im Kartencontainer.** Alles liegt IN `#map`, damit es am Rechner genau über der
+Kartenspalte sitzt, ohne deren Breite nachzurechnen. Damit Leaflet ein Wischen darüber nicht als
+Kartenziehen und einen Tipp nicht als Kartenklick nimmt, sperrt `kartenFlaecheSperren` die
+Flächen: `mousedown`/`touchstart`/`pointerdown`/`dblclick`/`contextmenu`/`wheel` werden
+angehalten, `click` nicht (daran hängen die React-Handler), und `_leaflet_disable_click` ist das
+Merkmal, an dem Leaflet seine eigenen Bedienelemente erkennt. In diesen Bauteilen deshalb nur
+`onClick`, keine `onPointerDown`/`onTouchStart`. Die Fläche selbst lässt Klicks durch
+(`pointer-events:none`), nur die Knöpfe fangen sie.
