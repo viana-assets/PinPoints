@@ -16,6 +16,15 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.09.2026 – Desktop 13 bis 27 Zoll (Service Worker v83).** Ab 1680 CSS-Punkten Breite wird
+  die ganze Seite gleichmäßig vergrößert (1,1 / 1,2 / 1,35 / 1,6); Höhen in `vh`, Knopfmenüs und
+  Stundenraster rechnen den Zoom heraus. Einzelheiten: `docs/design-system.md`,
+  „Desktop-Skalierung". Dazu: Rollenwahl in Admin → Nutzer lief über den Rand.
+
+* **26.09.2026 – Wochenplan: ganze Woche am Handy, feste Tageszeile (Service Worker v82).**
+  Sieben Tage nebeneinander statt vier zum Wischen, Tag im Kopf antippen öffnet ihn; die
+  Tageszeile bleibt unter der Bedienleiste stehen (Einzelheiten in `docs/auftraege.md`, Abschnitt 5).
+
 * **26.09.2026 – Handy: zurück aus der Karte (Service Worker v80).** Seit v79 ist die untere
   Leiste bei offener Karte sichtbar; die Karte blieb aber beim Tippen darauf stehen und
   überdeckte jede Seite. Der Zustand „Karte offen" wird jetzt mit dem Reiter gemerkt

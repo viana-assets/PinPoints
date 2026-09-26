@@ -63,6 +63,42 @@ Alle Komponenten ziehen ihre Farben ausschließlich über CSS-Custom-Properties
 einzelne Komponenten hart verdrahten.
 
 
+## Desktop-Skalierung: 13 bis 27 Zoll (26.09.2026, v83)
+
+Alle Maße in `app/globals.css` stehen in px und sind für 1280–1536 CSS-Punkte Breite gemacht –
+so zeigt ein 13-Zoll-Notebook die App (1920 px bei 150 % Windows-Skalierung = 1280). Auf 24 Zoll
+(1920 px bei 100 %) und 27 Zoll (2560 px) stand dieselbe Schrift winzig in viel Leere.
+
+Lösung: Ab bestimmten Fensterbreiten wird die **ganze Seite** gleichmäßig vergrößert
+(`html{zoom:var(--z)}`), statt hunderte Einzelwerte zu staffeln. Stufen (Breite **und**
+Mindesthöhe, sonst wird ein breites, flaches Fenster unbrauchbar):
+
+| Fenster (CSS-Punkte) | `--z` | typisch |
+|---|---|---|
+| bis 1679 | 1 | 13–15 Zoll Notebook |
+| ab 1680 × 760 | 1,1 | 22 Zoll, Notebook mit 100 % |
+| ab 1900 × 900 | 1,2 | 24 Zoll Full HD |
+| ab 2300 × 1100 | 1,35 | 27 Zoll 1440p |
+| ab 3000 × 1500 | 1,6 | 4K mit 100 % |
+
+Am Handy und beim Drucken gilt immer 1 (`@media screen`, Breitenschwellen weit über Handy).
+
+Was dabei mitgedacht werden muss – **wer hier etwas ändert, prüft diese drei Stellen**:
+
+- **`vh` wird mitvergrößert.** `100vh` wäre auf 27 Zoll 135 % der Fensterhöhe; jede Höhe in
+  `vh` steht deshalb als `calc(… / var(--z))` (Grundraster, Fenster, Blätter, Menüs). Eine neue
+  Höhe in `vh` ohne das läuft auf großen Monitoren unten aus dem Bild.
+- **Feste Menüs an Knöpfen** (Anrufen, Navigation, Mitarbeiter) bekommen ihre Lage aus
+  `getBoundingClientRect` in Bildschirmpunkten, gesetzt wird in CSS-Punkten: `menuLage()` in
+  `lib/helpers.ts` teilt durch den Zoom.
+- **Das Stundenraster** rechnet aus der Mausposition eine Uhrzeit: `massstab()` in
+  `Stundenraster.tsx` misst das Verhältnis Bildschirm/CSS am Element selbst.
+
+Leaflet braucht nichts: Es misst seit 1.9 selbst, ob ein Vorfahre skaliert ist, und rechnet
+Klicks und Ziehen um (geprüft: 200 Bildschirmpunkte Ziehen = 148 CSS-Punkte bei 1,35).
+Gemessen am 26.09.2026 bei 1280×720, 1680×1050, 1920×1080 und 2560×1440: Kundenkarte sitzt an
+der Nadel, Menü am Knopf, Klick auf 10:00 ergibt 10:00, Fenster passen in die Höhe.
+
 ## Status-Kennzeichen und anklickbare Zeilen
 
 `.badge` in vier Farben, zentral zugeordnet über `ORDER_STATUS_FARBE` (`lib/constants.ts`):

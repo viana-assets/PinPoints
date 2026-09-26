@@ -230,6 +230,11 @@ gestaltet" (Design-Arbeitsfläche „Einsatzplanung mobil"). Keine Funktion ist 
 - **Monat** ohne Rahmen je Tag; KW als kleine Zahl links (antippen = Woche); heute = Ring,
   gewählt = gefüllt, Wochenende heller; Punkte je Mitarbeiter wie bisher.
 - **Tag**: darüber die Woche als Leiste zum Tag-Wechseln (Punkt = Aufträge an dem Tag).
+- **Woche** (seit 26.09.2026, v82): am Handy alle sieben Tage nebeneinander statt vier zum
+  Wischen – Namen verkürzt und zweizeilig; ein Tipp auf den Tag im Kopf öffnet ihn als Tag. Die
+  Tageszeile bleibt beim Scrollen unter der Bedienleiste stehen, bis das Raster zu Ende ist
+  (`position:sticky`, Höhe der Leiste als `--pl-hoehe` gemessen; `.raster` dafür mit
+  `overflow:clip` statt `hidden`, sonst wäre es ein eigener Scrollbereich und sticky wirkungslos).
 - **Aufträge am Tag** (unter dem Monat) als Karten je Mitarbeiter: Zeit, Kunde, Transporter,
   Status, Navigation; Karte öffnet den Auftrag, der Name den Kunden.
 - **Offene Aufträge** als Karten statt Tabelle, bei Sortierung nach Termin nach Tagen gruppiert.
