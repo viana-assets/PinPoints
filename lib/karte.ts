@@ -22,6 +22,11 @@ export const BUENDEL_BIS_ZOOM = 13;
 // springen die Bündel deshalb nicht.
 export const BUENDEL_ZELLE_PX = 80;
 
+// Zeigt die Karte nur eine Auswahl (Termine, Saisonliste), wird erst ab so vielen Nadeln
+// gebündelt. Zwanzig Termine in drei Bündeln versteckten genau das, was man sehen will – wann
+// und wo –, und ein Bündel trägt kein Uhrzeit-Schild (26.09.2026).
+export const BUENDEL_AUSWAHL_AB = 150;
+
 // Die Reihenfolge der Farben im Ring: dieselbe wie bei den Filterknöpfen, nach Dringlichkeit.
 // Zustände, die nie auf der Karte stehen (Laufkundschaft, Einmalkunde ohne Termin), bekommen
 // trotzdem eine Farbe – lieber grau als ein Loch im Ring.

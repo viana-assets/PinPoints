@@ -528,6 +528,12 @@ Karte wählen sich gegenseitig. Beim Wechsel des Tages oder Mitarbeiters richtet
 auf die Stationen aus – am Handy erst, wenn die Karte aufgeht (ein Container ohne Größe kann
 nichts einpassen). Mitarbeiter-Pillen auf der Karte, weil am Handy die Liste verdeckt ist.
 
+**Auswahl ausrichten** (v84) – auch ohne Tagesmodus richtet sich die Karte in „Termine" und in
+der Saisonliste auf die Kunden der Auswahl aus (`tagAusrichten`, Schlüssel aus Reiter, Zeitraum,
+Person und Anzahl). Eine Auswahl wird erst ab `BUENDEL_AUSWAHL_AB` (150) Nadeln gebündelt. Die Zustands-Pillen
+gelten bei einer Auswahl nicht und stehen dort nicht (v85): Ein in „Kunden" ausgeblendetes
+„Termin" hatte sonst in „Termine" alle Nadeln versteckt.
+
 **Rechts unten** Ebenen (drei Kartenstile, `MAP_STIL_REIHENFOLGE`), „Mein Standort" (einmal
 abfragen, blauer Punkt, nirgends gespeichert – dafür steht die Permissions-Policy in
 `next.config.mjs` seit v79 auf `geolocation=(self)`), Zoom. Leaflets eigene Zoomknöpfe und der

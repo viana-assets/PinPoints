@@ -158,6 +158,7 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `MAP_STYLES` | `lib/mapStyles.ts` | `Record<MapStyleKey, {...}>` | Die drei verfügbaren Kartenstile (Straße/Satellit/Satellit+Beschriftung) | `app/page.tsx` (`applyMapStyle`), `components/karte/KartenBedienung.tsx` (Ebenen-Wähler) |
 | `MAP_STIL_REIHENFOLGE` | `lib/mapStyles.ts` | `MapStyleKey[]` | Reihenfolge im Ebenen-Wähler (bis v78 lokal als `STYLE_ORDER` in `app/page.tsx`) | `app/page.tsx` → `KartenBedienung` |
 | `BUENDEL_BIS_ZOOM` | `lib/karte.ts` | `number` (13) | Bis zu dieser Zoomstufe werden nahe Nadeln gebündelt (entschieden 26.09.2026) | `app/page.tsx` (`syncMarkers`, Bündel-Klick) |
+| `BUENDEL_AUSWAHL_AB` | `lib/karte.ts` | `number` (150) | Bei einer Auswahl (Termine, Saisonliste) wird erst ab so vielen Nadeln gebündelt | `app/page.tsx` (`syncMarkers`) |
 | `BUENDEL_ZELLE_PX` | `lib/karte.ts` | `number` (80) | Kantenlänge der Rasterzelle eines Bündels in Bildschirmpunkten | `buendeln()` |
 | `BUENDEL_RING_FARBE` | `lib/karte.ts` | `Record<KundenZustand, string>` (CSS-Variablen) | Farbe je Zustand im Anteilsring des Bündels | `ringVerlauf()` |
 | `NADEL_MASS`, `KREIS_MASS`, `STATION_MASS` | `components/karte/nadel.ts` | Maße in px | Größe und Ankerpunkt der Nadelformen für Leaflet – müssen zu `globals.css` („Karte: Nadeln") passen | `app/page.tsx` (`makeIcon`, `tagZeichnen`) |

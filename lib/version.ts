@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v83";
+export const APP_VERSION = "v85";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,19 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v85", datum: "2026-09-26", titel: "Termine immer auf der Karte",
+    punkte: [
+      "In „Termine“ und in der Saisonliste zeigt die Karte jetzt immer alle Kunden der Auswahl – auch wenn in „Kunden“ ein Zustand wie „Termin“ ausgeblendet ist. Die Zustands-Knöpfe stehen dort nicht mehr.",
+    ],
+  },
+  {
+    version: "v84", datum: "2026-09-26", titel: "Termine auf der Karte",
+    punkte: [
+      "Behoben: Bei „7 Tage“, „Anstehend“ und „Alle“ blieb die Karte, wo sie war – lagen die Termine woanders, stand dort „Keine Kunden in diesem Ausschnitt“. Jetzt rückt die Karte auf die Termine, auch in der Saisonliste.",
+      "Termine werden auf der Karte nicht mehr zu Bündeln zusammengefasst, damit jede Nadel mit ihrer Uhrzeit sichtbar bleibt.",
+    ],
+  },
   {
     version: "v83", datum: "2026-09-26", titel: "Große Bildschirme",
     punkte: [

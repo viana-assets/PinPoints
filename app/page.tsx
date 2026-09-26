@@ -20,7 +20,7 @@ import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
 import { MAP_STYLES, MAP_STIL_REIHENFOLGE, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
   buendeln, ausschnittText, nadelTerminText, tagesStationen, tagesWege,
-  BUENDEL_BIS_ZOOM, type KartenPunkt, type TagesStation,
+  BUENDEL_BIS_ZOOM, BUENDEL_AUSWAHL_AB, type KartenPunkt, type TagesStation,
 } from "@/lib/karte";
 import { nadelHtml, stationHtml, buendelHtml, NADEL_MASS, KREIS_MASS, STATION_MASS } from "@/components/karte/nadel";
 import { KartenBedienung, type StreifenStation } from "@/components/karte/KartenBedienung";
@@ -138,6 +138,7 @@ const KEINE_RAEDER: EingelagertesRad[] = [];
 const KEINE_HISTORIE: ContactHistoryEntry[] = [];
 const KEINE_RECHNUNGEN: Rechnung[] = [];
 const KEINE_ZUORDNUNGEN: Record<string, Bereichsrechte> = {};
+const KEINE_ZUSTAENDE: KundenZustand[] = [];
 
 // Höchstzahl gleichzeitig gezeichneter Kartenmarker. Leaflet legt je Marker ein DOM-Element an;
 // bei mehreren tausend Kunden im Bild wird das Zoomen und Verschieben spürbar zäh. Es werden
@@ -1075,7 +1076,11 @@ export default function HomePage() {
       // Ausgeblendete Zustände fallen VOR der Obergrenze raus: sonst würden unsichtbare Nadeln
       // das Kontingent aufbrauchen und der Hinweis zählte Kunden mit, die man nicht sehen will.
       const zustand = effectiveColor(cust, s.period_months, heute, mitTerminLive.has(cust.id));
-      if (!sichtbar.includes(zustand)) return;
+      // Bei einer Auswahl (Termine, Saisonliste) gelten die Zustands-Pillen nicht: Die Auswahl
+      // ist dort die Frage, und ein in „Kunden" ausgeblendetes „Termin" versteckte sonst genau
+      // die Termine, die man sehen will (gemeldet 26.09.2026). Die Pillen stehen dort deshalb
+      // auch gar nicht erst.
+      if (!nurTermine && !sichtbar.includes(zustand)) return;
       // Im Reiter „Termine" bleiben alle Kunden ohne Termin im gewählten Zeitraum außen vor.
       if (nurTermine && !nurTermine.has(cust.id)) return;
       kandidaten.push({ cust, zustand });
@@ -1084,7 +1089,7 @@ export default function HomePage() {
     // Weit weg: nahe Nadeln zu Bündeln zusammenfassen (lib/karte.ts, BUENDEL_BIS_ZOOM).
     let einzeln: Set<string> | null = null;
     let buendelListe: ReturnType<typeof buendeln>["buendel"] = [];
-    if (zoom <= BUENDEL_BIS_ZOOM) {
+    if (zoom <= BUENDEL_BIS_ZOOM && (!nurTermine || kandidaten.length >= BUENDEL_AUSWAHL_AB)) {
       const punkte: KartenPunkt[] = kandidaten.map(({ cust, zustand }) => {
         const pt = karte.project([cust.lat, cust.lng], zoom);
         return { id: cust.id, x: pt.x, y: pt.y, zustand };
@@ -1206,22 +1211,36 @@ export default function HomePage() {
   }
 
 
-  // Die Karte auf die Stationen des Tages ausrichten. Am Handy ist die Karte beim Wählen von
-  // „Heute" meist gar nicht zu sehen (die Liste liegt vorn) – ein Container ohne Größe kann
-  // nichts einpassen. Dann bleibt der Auftrag liegen und wird beim nächsten „resize" erledigt,
-  // also sobald die Karte aufgeht.
+  // Die Karte auf das ausrichten, was sie gerade zeigen soll: im Tagesmodus die Stationen, in
+  // „Termine" (7 Tage, Anstehend, Alle) und in der Saisonliste die Kunden der Auswahl. Bis v83
+  // tat sie das nur im Tagesmodus – bei den übrigen Zeiträumen blieb der Ausschnitt, wo er
+  // war, und lagen die Termine woanders, stand dort „Keine Kunden in diesem Ausschnitt"
+  // (gemeldet 26.09.2026).
+  //
+  // Am Handy ist die Karte beim Wählen meist gar nicht zu sehen (die Liste liegt vorn) – ein
+  // Container ohne Größe kann nichts einpassen. Dann bleibt der Auftrag liegen und wird beim
+  // nächsten „resize" erledigt, also sobald die Karte aufgeht.
   const tagAusrichtenOffenRef = useRef(false);
   function tagAusrichten() {
     const karte = mapRef.current;
     const L = leafletRef.current;
     const tag = tagRef.current;
     if (!tagAusrichtenOffenRef.current || !karte || !L) return;
-    if (!tag || tag.stationen.length === 0) { tagAusrichtenOffenRef.current = false; return; }
+    const auswahl = terminKundenRef.current;
+    const punkte: [number, number][] = tag
+      ? tag.stationen.map((st) => [st.lat, st.lng])
+      : auswahl
+        ? liveRef.current.customers
+          .filter((c) => auswahl.has(c.id) && c.lat != null && c.lng != null)
+          .map((c) => [c.lat as number, c.lng as number])
+        : [];
+    if (punkte.length === 0) { tagAusrichtenOffenRef.current = false; return; }
     const g = karte.getSize();
     if (g.x < 50 || g.y < 50) return;
     tagAusrichtenOffenRef.current = false;
-    const grenze = L.latLngBounds(tag.stationen.map((st) => [st.lat, st.lng]));
-    karte.fitBounds(grenze, { paddingTopLeft: [40, 150], paddingBottomRight: [80, 210], maxZoom: 15 });
+    karte.fitBounds(L.latLngBounds(punkte), tag
+      ? { paddingTopLeft: [40, 150], paddingBottomRight: [80, 210], maxZoom: 15 }
+      : { paddingTopLeft: [40, 150], paddingBottomRight: [80, 70], maxZoom: 15 });
   }
 
   kartenWahlRef.current = (kundenId) => {
@@ -2175,10 +2194,15 @@ export default function HomePage() {
   // gerade hineingezoomt hat, soll nicht bei jedem Neuladen zurückgeworfen werden.
   const tagSchluessel = tagDaten?.schluessel ?? null;
   const tagHatPunkte = (tagDaten?.stationen.length ?? 0) > 0;
+  // Ohne Tagesmodus: dieselbe Frage für die Auswahl in „Termine" und in der Saisonliste. Die
+  // Anzahl gehört in den Schlüssel, weil die Termine erst nach und nach geladen sein können.
+  const auswahlSchluessel = !tagDaten && terminKundenIds
+    ? `${tab}|${terminFilter}|${terminPerson}|${terminKundenIds.size}`
+    : null;
   useEffect(() => {
     tagAusrichtenOffenRef.current = true;
     tagAusrichten();
-  }, [tagSchluessel, tagHatPunkte]);
+  }, [tagSchluessel, tagHatPunkte, auswahlSchluessel]);
 
   // Ein gemerkter Kalender-Termin gilt nur so lange, wie das Kundenformular offen ist. Wer
   // abbricht und Wochen später einen Kunden anlegt, soll nicht die Uhrzeit von damals erben –
@@ -2977,7 +3001,7 @@ export default function HomePage() {
               platzFuerKarte(id, true);
             }}
             onListe={toggleMobileMap}
-            zustaende={KUNDEN_ZUSTAND_REIHENFOLGE}
+            zustaende={terminKundenIds ? KEINE_ZUSTAENDE : KUNDEN_ZUSTAND_REIHENFOLGE}
             sichtbar={sichtbareZustaende}
             zahlen={kartenZahlen}
             onZustand={(zustand) =>

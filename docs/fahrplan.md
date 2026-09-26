@@ -16,6 +16,14 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.09.2026 – Termine immer auf der Karte (Service Worker v85).** Bei einer Auswahl (Termine,
+  Saisonliste) gelten die Zustands-Pillen nicht mehr und werden nicht gezeigt – ein in „Kunden"
+  ausgeblendetes „Termin" hatte dort alle Termine versteckt.
+
+* **26.09.2026 – Termine auf der Karte (Service Worker v84).** Die Karte richtet sich jetzt auch
+  bei „7 Tage/Anstehend/Alle" und in der Saisonliste auf die Auswahl aus (vorher nur im
+  Tagesmodus); eine Auswahl wird erst ab `BUENDEL_AUSWAHL_AB` Nadeln gebündelt.
+
 * **26.09.2026 – Desktop 13 bis 27 Zoll (Service Worker v83).** Ab 1680 CSS-Punkten Breite wird
   die ganze Seite gleichmäßig vergrößert (1,1 / 1,2 / 1,35 / 1,6); Höhen in `vh`, Knopfmenüs und
   Stundenraster rechnen den Zoom heraus. Einzelheiten: `docs/design-system.md`,
