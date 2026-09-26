@@ -3569,3 +3569,64 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .nw-datum{flex:0 0 auto;}
 .nw-eintrag ul{margin:6px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:13.5px;line-height:1.4;}
 .nw-hinweis .db-link{flex:0 0 auto;}
+
+/* ================================================================ Reifenverkauf (Migration 61, 26.09.2026)
+   Lager-Reiter „Verkauf" (components/lager/VerkaufPanel.tsx), das Erfassen-Blatt
+   (VerkaufsreifenBlatt.tsx) und die Reifensuche im Auftrag (components/auftraege/ReifenSuche.tsx).
+   Grün heißt im Lager: Hier liegen Verkaufsreifen – belegt, aber nicht von einem Kunden. */
+.lg-ansicht{flex:0 0 auto;}
+.lg-w.verkauf{background:var(--green);}
+.lg-code.verkauf{background:var(--green-bg);color:#146b4c;}
+.vk-liste{display:flex;flex-direction:column;gap:8px;}
+.vk-karte{display:flex;align-items:center;gap:12px;width:100%;text-align:left;border:none;background:var(--panel);
+  border-radius:16px;padding:10px 12px;font:inherit;color:var(--text);cursor:pointer;box-shadow:0 1px 2px rgba(36,29,19,.05);box-sizing:border-box;}
+.vk-karte:hover{box-shadow:0 0 0 1.5px var(--accent) inset;}
+.vk-karte.leer{opacity:.65;}
+.vk-karte.flach{background:transparent;box-shadow:none;padding:8px 10px;}
+.vk-karte:disabled{cursor:default;opacity:.55;}
+.vk-karte:disabled:hover{box-shadow:none;}
+.vk-groesse-marke{flex:0 0 auto;min-width:92px;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:1px;
+  border-radius:12px;padding:6px 8px;background:var(--navy);color:#fff;}
+.vk-groesse-marke b{font-family:var(--font-brand);font-size:15px;white-space:nowrap;}
+.vk-groesse-marke span{font-size:11px;font-weight:700;opacity:.85;}
+.vk-groesse-marke.gebraucht{background:#e6e0d4;color:var(--text);}
+.vk-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0;}
+.vk-text b{font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vk-text .small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.vk-zahlen{display:flex;flex-direction:column;align-items:flex-end;gap:1px;flex:0 0 auto;text-align:right;}
+.vk-zahlen b{font-size:14.5px;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.vk-frei{font-size:12px;font-weight:700;color:#146b4c;white-space:nowrap;}
+.vk-frei.null{color:#b3261e;}
+.vk-wert{font-size:20px;}
+.vk-treffer{border-radius:14px;background:var(--bg);}
+.vk-treffer.offen{box-shadow:0 0 0 1.5px var(--accent) inset;}
+.vk-nehmen{display:flex;align-items:center;gap:8px;padding:0 10px 10px;}
+.vk-nehmen .ls-stepper{background:var(--panel);}
+.vk-nehmen-knopf{flex:1;min-width:0;height:40px;}
+.vk-ohne{margin-top:4px;}
+.vk-fehler{color:#b3261e;font-weight:600;}
+.vk-hinweis{color:#9a3412;font-weight:700;}
+.vk-hinweis.sperrt{color:#b3261e;}
+.vk-bestand{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.vk-bestand-text{display:flex;flex-direction:column;min-width:0;}
+.vk-bestand-text b{font-size:14.5px;}
+.vk-bestand .ls-stepper{background:var(--panel);}
+.nk-zeile > .vk-groesse{flex:3;}
+.nk-zeile > .vk-kennung{flex:2;}
+.vk-speichern{background:var(--accent);color:#fff;border:none;}
+.vk-speichern:hover{background:color-mix(in srgb, var(--accent) 88%, black);}
+.ar-segment-zwei{flex-wrap:wrap;overflow:visible;}
+.ar-segment-zwei button{flex:1 0 calc(50% - 3px);}
+.ls-plus{display:flex;gap:8px;}
+.ls-plus > .dm-plus{flex:1;min-width:0;}
+.vk-pillen{flex-wrap:wrap;overflow:visible;}
+.vk-neu{height:46px;flex:0 0 auto;border-radius:14px;border:none;background:var(--accent);color:#fff;padding:0 16px;
+  font:inherit;font-weight:700;font-size:14px;cursor:pointer;white-space:nowrap;}
+.vk-neu:hover{background:color-mix(in srgb, var(--accent) 88%, black);}
+@media (max-width: 520px){
+  .ls-plus{flex-direction:column;}
+}
+@media (max-width: 420px){
+  .vk-groesse-marke{min-width:80px;padding:6px;}
+  .vk-groesse-marke b{font-size:13.5px;}
+}

@@ -600,3 +600,106 @@ Datum (Vorschlag: in sechs Wochen). Zwei Entscheidungen dabei:
 Geschrieben wird in Blöcken von 200 Kennungen (`setWiedervorlageBulk`): eine `in`-Liste mit
 mehreren hundert Einträgen landet in der Adresszeile und wird dort irgendwann abgeschnitten –
 ohne Fehlermeldung, nur mit weniger getroffenen Zeilen.
+
+## Reifenverkauf (Migration 61, 26.09.2026)
+
+Neue und gebrauchte Reifen – auch Kompletträder – liegen im Lager oder im zweiten Lager
+„Zuhause", werden im Auftrag nach Größe gesucht, als Position eingetragen und sind danach nicht
+mehr im Bestand. Entschieden am 26.09.2026: abgebucht wird beim Abschließen, zwei Artikel
+(neu/gebraucht), Einkaufspreis wird erfasst, Kompletträder gehen auch.
+
+### Eigener Bestand, nicht die Einlagerung
+
+Verkaufsreifen gehören dem Betrieb, eingelagerte Sätze dem Kunden. Deshalb eine eigene Tabelle
+`verkaufsreifen` in denselben Lagern und auf denselben Plätzen. Ein **Posten** sind gleiche
+Reifen mit Stückzahl: vier gleiche Neureifen sind ein Eintrag mit Bestand 4, zwei davon lassen
+sich verkaufen, zwei bleiben.
+
+Felder: Zustand (neu/gebraucht), Größe (Breite/Querschnitt/Zoll, eingegeben als EIN Feld –
+`groesseAusText` versteht „235/55 R17", „235 55 17", „2355517", „195 R14 C"), Index („103V"),
+Hersteller, Modell, Saison, DOT, Profiltiefe, Felge (leer = nur Reifen), XL, Runflat,
+EPREL-Nummer (EU-Reifenlabel, VO (EU) 2020/740), Verkaufs- und Einkaufspreis je Stück netto,
+Lager, Platz (freiwillig), Notiz.
+
+### Die drei Zahlen
+
+| Spalte | Bedeutung | Wer schreibt |
+|---|---|---|
+| `bestand` | liegt noch da, reservierte eingeschlossen | von Hand; sinkt beim Abschließen |
+| `reserviert` | steht auf offenen Aufträgen | nur die Datenbank |
+| `verkauft` | über abgeschlossene Aufträge hinausgegangen | nur die Datenbank |
+
+Frei = Bestand − reserviert (`reifenFrei`). Die Zählung steht an EINER Stelle,
+`verkaufsreifen_zaehlen()`; nur die Trigger dürfen sie aufrufen. Schickt die Anwendung
+`reserviert`/`verkauft` mit, verwirft `verkaufsreifen_pruefen()` die Werte (Trigger-Tiefe 1 wie
+in Migration 55). Der Bestand lässt sich nicht unter die Reservierung drücken – mit Begründung.
+
+**Warum `bestand` gespeichert und nicht aus den Aufträgen errechnet wird:** Ein Kunde lässt sich
+endgültig löschen (Migration 56), seine Aufträge samt Positionen gehen mit. Ein errechneter
+Bestand bekäme die verkauften Reifen in diesem Moment zurück ins Regal. Nur ein **Testkunde**
+(Migration 60) gibt beim restlosen Löschen zurück, was er „gekauft" hat
+(`testauftrag_reifen_zurueck`).
+
+### Der Weg im Auftrag
+
+- „+ Reifen aus dem Lager" unter den Leistungen – oder im Leistungsblatt einen Artikel mit
+  Abrechnungsart Reifenverkauf wählen: Es öffnet sich die Reifensuche (`ReifenSuche.tsx`),
+  vorbelegt mit der Reifengröße des Fahrzeugs am Auftrag (`groessenVorschlag`).
+- Die Suche findet beim Tippen: „235", „235 55", „235 55 17", „R17", „Michelin", „103v"
+  (`passtZurSuche`). Filter neu/gebraucht und Saison. Freie zuerst, die gesuchte Größe vorn.
+- Treffer aufklappen, Stückzahl (Vorschlag: vier, sonst alle freien), „Hinzufügen". Die Position
+  bekommt Artikel „Reifen neu"/„Reifen gebraucht", den Preis des Reifens als Einzelpreis und den
+  Text „Michelin Pilot Sport 4 · 235/55 R17 103V XL · Sommer · DOT 1224" als Zusatz auf der
+  Rechnung (`positionsText`) – ein Schnappschuss wie jeder Preis.
+- An der Position steht „aus dem Lager (Lager · Platz)", damit der Techniker weiß, wo er sie
+  holt. Plus ist gesperrt, wenn keiner mehr frei ist.
+- „Nicht im Lager (bestellt)?" trägt den Artikel ohne Bestand ein, wie jede Leistung.
+
+**Reservieren und Abbuchen** (`position_verkaufsreifen_zaehlen`, `auftrag_reifenverkauf_buchen`):
+
+| Was passiert | Wirkung |
+|---|---|
+| Position eingetragen / Menge geändert | reserviert; zu viele → Meldung „nur noch N Stück frei" |
+| Position entfernt | Reservierung frei |
+| Auftrag abgeschlossen | Bestand − Menge, verkauft + Menge |
+| Abgeschlossener Auftrag wiedereröffnet | zurück in den Bestand, wieder reserviert |
+| Auftrag storniert oder in den Papierkorb | Reservierung frei |
+| Storno wiedereröffnet / aus dem Papierkorb geholt | reserviert wieder – ist der Reifen inzwischen weg, lehnt die Datenbank ab |
+
+Zwei Geräte, die gleichzeitig den letzten Reifen eintragen, werden hintereinander abgearbeitet
+(Zeilensperre auf dem Posten); das zweite bekommt die Meldung. Ein neuer Reifen darf nur auf
+einen Artikel „Reifenverkauf neu", ein gebrauchter nur auf „gebraucht" (Prüfung in
+`position_verkaufsreifen_pruefen`). Der Reifen einer Position lässt sich nicht tauschen –
+entfernen und neu eintragen.
+
+### Im Lager
+
+- Oben der Umschalter **Einlagerung | Verkauf**, nur mit Leserecht `lager.verkauf`.
+- **Verkauf** (`VerkaufPanel.tsx`): Kacheln Frei, Reserviert, Lagerwert (netto, VK; EK nur über
+  Posten mit gepflegtem Einkaufspreis, `lagerwert`), Suche wie im Auftrag, Filter
+  Neu/Gebraucht/Saison/Ausverkauft, je Posten eine Karte mit Hinweisen. „+ Erfassen" öffnet
+  `VerkaufsreifenBlatt.tsx`.
+- **Regalwand:** Ein Platz hält ENTWEDER einen Kundensatz ODER Verkaufsreifen (mehrere Posten
+  dürfen sich einen Platz teilen). Plätze mit Verkaufsreifen sind grün, zählen als belegt,
+  stehen beim Einlagern nicht zur Wahl und öffnen den Posten. Die Datenbank sperrt beide
+  Richtungen (`verkaufsreifen_pruefen`, `platz_ohne_verkaufsreifen`) und das Löschen von Platz
+  und Lager mit Bestand (`lager_belegt_nicht_loeschen`, neu gefasst).
+- **Lager „Zuhause"** ist ein gewöhnliches Lager ohne Plätze. Reifen ohne festen Platz stehen
+  dort als Hinweis „N Verkaufsreifen liegen hier ohne festen Platz ›".
+- Löschen eines Postens geht nur, solange er auf keinem Auftrag stand – sonst ist er Beleg; dann
+  den Bestand auf 0 setzen, er steht unter „Ausverkauft".
+
+### Hinweise vor dem Verkauf (`reifenHinweise`)
+
+- Neureifen mit DOT älter als `NEUREIFEN_ALT_JAHRE` (3), gebrauchte älter als `DOT_ALT_JAHRE` (6).
+- Gebrauchte: Profil unter 3 mm (Sommer) bzw. 4 mm (Winter/Ganzjahr) „knapp"; unter 1,6 mm
+  **nicht verkaufen** – in der Suche nicht wählbar.
+
+### Offen (nicht gebaut, siehe `fahrplan.md`)
+
+- Steuer: Gebrauchte von Privat angekauft können unter die Differenzbesteuerung (§ 25a UStG)
+  fallen – andere Rechnungsangaben und DATEV-Konten. Mit dem Steuerberater klären; die zwei
+  Artikel sind die Vorbereitung dafür. Heute gilt der Steuersatz des Artikels (sonst 19 %).
+- Gewährleistungshinweis für gebrauchte Reifen an Privatkunden auf der Rechnung.
+- Übernahme aus einer Einlagerung (Kunde lässt alte Reifen da), Etikett mit QR-Code je Posten,
+  Reifenverkauf in den Auswertungen (Umsatz neu/gebraucht, Marge, Ladenhüter).

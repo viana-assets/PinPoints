@@ -388,7 +388,11 @@ export type Article = {
   // einem Haken – „hier wird eingelagert" und „das kostet" – und war deshalb beim Auslagern
   // immer falsch herum. Die Spalte steht noch in der Datenbank, wird aber nicht mehr gelesen
   // und fällt in einer späteren Migration.
-  abrechnungsart: "normal" | "lagergebuehr";
+  //   "reifenverkauf_neu" / "reifenverkauf_gebraucht" – Verkauf aus dem Lager (Migration 61).
+  //                    Wird der Artikel gewählt, öffnet sich die Reifensuche; Preis und Text
+  //                    kommen vom Reifen. Zwei Arten statt einer, weil gebrauchte Reifen
+  //                    steuerlich anders zu behandeln sein können (mit dem Steuerberater klären).
+  abrechnungsart: "normal" | "lagergebuehr" | "reifenverkauf_neu" | "reifenverkauf_gebraucht";
   // Fallen bei dieser Leistung Altreifen an (Migration 46)? Dann fragt das Auftragsfenster
   // beim Abschließen nach, wenn nichts eingelagert wurde – „nimmt der Kunde die alten mit?".
   //
@@ -458,7 +462,55 @@ export type OrderArticle = {
   // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen
   // filtern deshalb auf `deleted_at is null`.
   deleted_at: string | null;
+  // Diese Position verkauft Reifen aus dem Lager (Migration 61). Solange der Auftrag offen ist,
+  // sind sie reserviert; beim Abschließen bucht die Datenbank sie ab. Optional, weil
+  // Testgerüste die Zeile von Hand bauen und sie vor Migration 61 nicht kannten.
+  verkaufsreifen_id?: string | null;
 };
+
+// Reifen und Kompletträder, die der Betrieb verkauft (Migration 61). Ein Posten = gleiche Reifen
+// mit Stückzahl: vier gleiche Neureifen sind EIN Eintrag mit Bestand 4.
+//
+// Die drei Zahlen:
+//   bestand    – liegt noch da (reservierte eingeschlossen). Von Hand änderbar.
+//   reserviert – steht auf offenen Aufträgen. Zählt allein die Datenbank.
+//   verkauft   – ist über abgeschlossene Aufträge hinausgegangen. Zählt allein die Datenbank.
+// Frei ist, was die Suche im Auftrag anbietet: bestand − reserviert (`reifenFrei`).
+export type ReifenZustand = "neu" | "gebraucht";
+
+export type Verkaufsreifen = {
+  id: string;
+  zustand: ReifenZustand;
+  breite: number;
+  querschnitt: number | null;
+  zoll: number;
+  // Last- und Geschwindigkeitsindex, wie er auf der Flanke steht: „103V", „109/107T".
+  kennung: string | null;
+  hersteller: string;
+  modell: string | null;
+  saison: Saison;
+  dot: string | null;
+  profiltiefe_mm: number | null;
+  // Null = nur der Reifen, sonst ein Komplettrad.
+  felge: "stahl" | "alu" | null;
+  runflat: boolean;
+  xl: boolean;
+  // Nummer in der EU-Produktdatenbank EPREL – dort steht das Reifenlabel.
+  eprel: string | null;
+  preis_netto: number;
+  ek_netto: number | null;
+  bestand: number;
+  reserviert: number;
+  verkauft: number;
+  warehouse_id: string | null;
+  storage_slot_id: string | null;
+  notiz: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+// Was am Posten von Hand geändert werden kann – ohne die Zählfelder, die die Datenbank führt.
+export type VerkaufsreifenFelder = Omit<Verkaufsreifen, "id" | "reserviert" | "verkauft" | "created_at" | "updated_at">;
 
 export type Role = "superadmin" | "admin" | "techniker" | "user";
 

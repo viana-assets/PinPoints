@@ -8,6 +8,7 @@ import type {
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
   Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
   EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug, Rechnung,
+  Verkaufsreifen, VerkaufsreifenFelder,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, nextOrder, orderDateTime,
@@ -118,8 +119,9 @@ import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
   useMitarbeiter, useArtikel, useArtikelpreise, useBetrieb, useRechnungen, useAuftragRechnungen,
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
-  useFirmenfahrzeuge, useEingelagerteRaeder,
+  useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen,
 } from "@/lib/queries/hooks";
+import { insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag } from "@/lib/api/verkaufsreifen";
 
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
 // Effekte auslösen, die eigentlich nur auf echte Datenänderungen reagieren sollen.
@@ -135,6 +137,7 @@ const KEINE_EINLAGERUNGEN: TireStorage[] = [];
 const KEINE_FAHRZEUGE: Vehicle[] = [];
 const KEINE_FIRMENFAHRZEUGE: Firmenfahrzeug[] = [];
 const KEINE_RAEDER: EingelagertesRad[] = [];
+const KEINE_VERKAUFSREIFEN: Verkaufsreifen[] = [];
 const KEINE_HISTORIE: ContactHistoryEntry[] = [];
 const KEINE_RECHNUNGEN: Rechnung[] = [];
 const KEINE_ZUORDNUNGEN: Record<string, Bereichsrechte> = {};
@@ -373,6 +376,9 @@ export default function HomePage() {
   // Die einzeln gemessenen Räder (Migration 33). Gleiche Bedingung wie die Einlagerungen –
   // sie gehören zusammen und werden nie getrennt gebraucht.
   const raederQuery = useEingelagerteRaeder(supabase, sitzungBereit && brauchtLager);
+  // Reifenverkauf (Migration 61): im Lager und im Auftragsfenster, also unter derselben
+  // Bedingung. Ohne Leserecht liefert die Datenbank eine leere Liste – kein Fehler.
+  const verkaufsreifenQuery = useVerkaufsreifen(supabase, sitzungBereit && brauchtLager);
   // Alle Kundenfahrzeuge – nur fürs Lager-Modul. Dort steht kein einzelner Kunde im
   // Mittelpunkt, sondern viele Sätze nebeneinander, und jeder gehört zu einem Auto
   // (Migration 30).
@@ -433,6 +439,7 @@ export default function HomePage() {
   const warehouses = lagerQuery.data ?? KEINE_LAGER;
   const storageSlots = lagerplaetzeQuery.data ?? KEINE_LAGERPLAETZE;
   const tireStorages = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
+  const verkaufsreifen = verkaufsreifenQuery.data ?? KEINE_VERKAUFSREIFEN;
   const eingelagerteRaeder = raederQuery.data ?? KEINE_RAEDER;
   const vehicles = kundeFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
   const alleFahrzeuge = alleFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
@@ -469,7 +476,7 @@ export default function HomePage() {
     mitarbeiterQuery.error || artikelQuery.error || artikelpreiseQuery.error ||
     lagerQuery.error || lagerplaetzeQuery.error || einlagerungenQuery.error ||
     lagerKennzahlenQuery.error || kundeFahrzeugeQuery.error || kundeAuftraegeQuery.error ||
-    historieQuery.error;
+    historieQuery.error || verkaufsreifenQuery.error;
   useEffect(() => {
     if (abfrageFehler) setFehler(abfrageFehler.message || "Daten konnten nicht geladen werden.");
   }, [abfrageFehler]);
@@ -695,7 +702,9 @@ export default function HomePage() {
     neuLaden(qk.einlagerungen(), qk.lagerKennzahlen());
   }
   async function refreshOrders() {
-    await auftraegeNeuLaden();
+    // Abschließen, Stornieren, Wiedereröffnen und Löschen ändern auch den Reifenbestand
+    // (Migration 61) – die Datenbank bucht mit, die Liste muss es erfahren.
+    await Promise.all([auftraegeNeuLaden(), neuLaden(qk.verkaufsreifen())]);
   }
   async function refreshOrderEmployees() {
     // Zuordnungen kommen mit den Aufträgen verschachtelt – derselbe Bestand.
@@ -714,8 +723,24 @@ export default function HomePage() {
     neuLaden(qk.artikelpreise());
   }
   async function refreshOrderArticles() {
-    // Auftragspositionen kommen mit den Aufträgen verschachtelt – derselbe Bestand.
+    // Auftragspositionen kommen mit den Aufträgen verschachtelt – derselbe Bestand. Eine
+    // Reifen-Position reserviert im Lager (Migration 61), deshalb auch die Verkaufsreifen.
     auftraegeNeuLaden();
+    void neuLaden(qk.verkaufsreifen());
+  }
+  // ---------------------------------------------------------------- Reifenverkauf (Migration 61)
+  async function verkaufsreifenSpeichern(felder: VerkaufsreifenFelder, id: string | null) {
+    if (id) await updateVerkaufsreifen(supabase, id, felder);
+    else await insertVerkaufsreifen(supabase, felder);
+    await neuLaden(qk.verkaufsreifen());
+  }
+  async function verkaufsreifenLoeschen(id: string) {
+    await deleteVerkaufsreifen(supabase, id);
+    await neuLaden(qk.verkaufsreifen());
+  }
+  async function reifenZumAuftrag(orderId: string, posten: Verkaufsreifen, artikelId: string, menge: number) {
+    await reifenAufAuftrag(supabase, articlePrices, orderId, artikelId, posten, menge);
+    await Promise.all([auftraegeNeuLaden(), neuLaden(qk.verkaufsreifen())]);
   }
   async function addArticle(shortName: string, longName: string) {
     await insertArticle(supabase, shortName, longName);
@@ -2016,9 +2041,14 @@ export default function HomePage() {
   // vorzeitigen Rücksprung wird beim nächsten Durchlauf nicht mehr aufgerufen, und React
   // verliert die Zuordnung seiner Hooks. Die ESLint-Regel react-hooks/rules-of-hooks hat genau
   // das hier abgefangen.
+  // Seit Migration 61 zählen auch Plätze mit Verkaufsreifen als belegt: Dorthin darf kein
+  // Kundensatz (die Datenbank lehnt es ab – hier wird es gar nicht erst angeboten).
   const belegteSlotIds = useMemo(
-    () => new Set(tireStorages.filter((t) => !t.removed_at).map((t) => t.storage_slot_id)),
-    [tireStorages]
+    () => new Set([
+      ...tireStorages.filter((t) => !t.removed_at).map((t) => t.storage_slot_id),
+      ...verkaufsreifen.filter((v) => v.bestand > 0 && v.storage_slot_id).map((v) => v.storage_slot_id as string),
+    ]),
+    [tireStorages, verkaufsreifen]
   );
 
   // Alle Termine (= Aufträge mit Datum) aktiver Kunden, chronologisch. Der Zeitraumfilter
@@ -2854,6 +2884,13 @@ export default function HomePage() {
             canAssignTire={darf("lager.einlagerung", "schreiben")}
             springeZuLagerplatzId={gescannterLagerplatzId}
             onLagerplatzGeoeffnet={() => setGescannterLagerplatzId(null)}
+            verkauf={darf("lager.verkauf", "lesen") ? {
+              verkaufsreifen,
+              darfSchreiben: darf("lager.verkauf", "schreiben"),
+              darfLoeschen: darf("lager.verkauf", "loeschen"),
+              onSpeichern: verkaufsreifenSpeichern,
+              onLoeschen: verkaufsreifenLoeschen,
+            } : null}
           />
         )}
 
@@ -3320,6 +3357,10 @@ export default function HomePage() {
           onUpdateArticleEndpreis={updateOrderArticleEndpreis}
           onUpdateArticleText={updateOrderArticleText}
           onRemoveArticle={removeOrderArticle}
+          reifen={darf("lager.verkauf", "lesen") ? {
+            verkaufsreifen, warehouses, storageSlots,
+            onHinzufuegen: (posten, artikelId, menge) => reifenZumAuftrag(offenerAuftrag.id, posten, artikelId, menge),
+          } : null}
           onNavigate={openNavMenu}
           onCall={openCallMenu}
         />

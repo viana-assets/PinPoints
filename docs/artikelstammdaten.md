@@ -93,7 +93,15 @@ vorher, seit Phase 11. Datenmodell, Nummernkreis, Lebenszyklus und Druck stehen 
 Vier Felder am Artikel, zusätzlich zu Kurz-/Langbezeichnung, die steuern, WIE und WOMIT eine
 Leistung auf der Rechnung erscheint:
 
-- **`abrechnungsart`** (`'normal'` oder `'lagergebuehr'`, Migration 46): „normal" wird
+- **`abrechnungsart`** (`'normal'`, `'lagergebuehr'`, seit Migration 61 auch
+  `'reifenverkauf_neu'` / `'reifenverkauf_gebraucht'`): Die beiden Reifenverkäufe öffnen im
+  Auftrag die Reifensuche im Lager; Preis und Text der Position kommen vom Reifen, ein Preis am
+  Artikel wird nicht gebraucht (die Artikelliste zeigt „vom Reifen" und zählt ihn nicht unter
+  „ohne Preis"). Migration 61 legt „Reifen neu" und „Reifen gebraucht" an, falls es noch
+  keinen Artikel dieser Art gibt. Zwei Artikel statt einem, weil gebrauchte Reifen steuerlich
+  anders zu behandeln sein können (Differenzbesteuerung, mit dem Steuerberater klären) – dann
+  lassen sie sich getrennt buchen. Details in `lager.md`, „Reifenverkauf".
+  Zur Lagergebühr (Migration 46): „normal" wird
   eingetragen, sobald die Leistung erbracht ist – der Regelfall. „lagergebuehr" wird nie beim
   Einlagern verlangt, sondern beim Auslagern eines Reifensatzes vorgeschlagen, mit der Zahl der
   Lagermonate als Menge. Ersetzt `articles.braucht_lagerplatz` aus Migration 22: Jener Haken

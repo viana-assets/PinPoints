@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
 import { formatEUR, currentArticlePrice } from "@/lib/helpers";
+import { ABRECHNUNGSART_LABEL } from "@/lib/constants";
 import { ArticleDetailEditor } from "./ArticleDetailEditor";
 
 // Artikel-Übersicht (Migration 12 + 14), seit 26.09.2026 im Stil der übrigen Listen
@@ -62,7 +63,8 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
   const aktuell = (a: Article) => currentArticlePrice(preiseJe.get(a.id) ?? []);
   // „Ohne Preis" zählt nur Artikel, die einen brauchen: Eine freie Position bekommt ihren
   // Preis am Auftrag, ein inaktiver Artikel wird nicht mehr verwendet.
-  const ohnePreis = (a: Article) => a.active && !a.freitext && !aktuell(a);
+  // Reifenverkauf (Migration 61) braucht keinen Preis am Artikel – er kommt vom Reifen.
+  const ohnePreis = (a: Article) => a.active && !a.freitext && !a.abrechnungsart.startsWith("reifenverkauf") && !aktuell(a);
   const passt = (a: Article, f: Filter) =>
     f === "alle" ? true : f === "aktiv" ? a.active : f === "inaktiv" ? !a.active : ohnePreis(a);
 
@@ -137,9 +139,10 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
                   <span className="ar-text">
                     <b>{a.short_name}</b>
                     <span className="small">{a.long_name}</span>
-                    {(a.abrechnungsart === "lagergebuehr" || a.fragt_einlagerung || a.freitext || !a.active) && (
+                    {(a.abrechnungsart !== "normal" || a.fragt_einlagerung || a.freitext || !a.active) && (
                       <span className="ar-marken">
                         {a.abrechnungsart === "lagergebuehr" && <span className="ar-marke blau">Lagergebühr · beim Auslagern</span>}
+                        {a.abrechnungsart.startsWith("reifenverkauf") && <span className="ar-marke blau">{ABRECHNUNGSART_LABEL[a.abrechnungsart]} · aus dem Lager</span>}
                         {a.fragt_einlagerung && <span className="ar-marke orange">fragt nach Altreifen</span>}
                         {a.freitext && <span className="ar-marke grau">Text am Auftrag</span>}
                         {!a.active && <span className="ar-marke grau">inaktiv</span>}
@@ -147,7 +150,9 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
                     )}
                   </span>
                   <span className="ar-preis">
-                    <b className={p || a.freitext ? "" : "fehlt"}>{p ? formatEUR(p.net_price) : a.freitext ? "am Auftrag" : "kein Preis"}</b>
+                    <b className={p || a.freitext || a.abrechnungsart.startsWith("reifenverkauf") ? "" : "fehlt"}>
+                      {p ? formatEUR(p.net_price) : a.freitext ? "am Auftrag" : a.abrechnungsart.startsWith("reifenverkauf") ? "vom Reifen" : "kein Preis"}
+                    </b>
                     <span className="small">{a.einheit}</span>
                   </span>
                 </button>

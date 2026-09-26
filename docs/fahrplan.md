@@ -16,6 +16,14 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.09.2026 – Reifenverkauf aus dem Lager (Migration 61, Service Worker v86).** Neue und
+  gebrauchte Reifen und Kompletträder als eigener Bestand (`verkaufsreifen`), Lager-Reiter
+  „Verkauf", im Auftrag „+ Reifen aus dem Lager" mit Suche beim Tippen und Vorbelegung aus der
+  Reifengröße des Fahrzeugs. Reservieren beim Eintragen, Abbuchen beim Abschließen, beides von
+  der Datenbank gezählt; ein Platz hält Kundensatz ODER Verkaufsreifen. Artikel „Reifen neu" /
+  „Reifen gebraucht", Rechte-Bereich `lager.verkauf`. Einzelheiten: `docs/lager.md`,
+  „Reifenverkauf". Offen daraus: E16–E18.
+
 * **26.09.2026 – Termine immer auf der Karte (Service Worker v85).** Bei einer Auswahl (Termine,
   Saisonliste) gelten die Zustands-Pillen nicht mehr und werden nicht gezeigt – ein in „Kunden"
   ausgeblendetes „Termin" hatte dort alle Termine versteckt.
@@ -425,6 +433,25 @@ Hinweis, wenn ein Lager über 90 % belegt ist. Die Kennzahlen dafür werden bere
 „Normal" und „groß/SUV", damit die Auswahl freier Plätze keine 20-Zöller in zu kleine
 Fächer schickt.
 *Aufwand: mittel.*
+
+### E16. Reifenverkauf: Steuer und Gewährleistung klären
+Gebrauchte Reifen, die von Privatleuten ohne Umsatzsteuer angekauft wurden, können unter die
+Differenzbesteuerung (§ 25a UStG) fallen – dann andere Rechnungsangaben und DATEV-Konten. Mit
+dem Steuerberater klären; die zwei Artikel „Reifen neu"/„Reifen gebraucht" (Migration 61) sind
+die Vorbereitung. Dazu ein Gewährleistungshinweis für gebrauchte Reifen an Privatkunden auf der
+Rechnung (Verkürzung auf ein Jahr nur, wenn vereinbart).
+*Aufwand: klein, sobald die Antwort da ist.*
+
+### E17. Reifenverkauf: Übernahme aus der Einlagerung und Etikett
+Ein Kunde lässt seine alten Reifen da oder verkauft sie an uns: aus dem eingelagerten Satz einen
+Verkaufsposten machen, Größe/DOT/Profil kommen aus den Raddaten mit. Dazu ein Etikett mit
+QR-Code je Posten (vorhandener Etikettendruck), Scan öffnet den Posten.
+*Aufwand: mittel.*
+
+### E18. Reifenverkauf in den Auswertungen
+Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Verlauf,
+„liegt seit über sechs Monaten".
+*Aufwand: klein bis mittel.*
 
 ---
 

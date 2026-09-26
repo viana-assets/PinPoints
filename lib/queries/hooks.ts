@@ -14,6 +14,7 @@ import {
   fetchEingelagerteRaeder,
 } from "@/lib/api/lager";
 import { fetchModulePermissions } from "@/lib/api/permissions";
+import { fetchVerkaufsreifen } from "@/lib/api/verkaufsreifen";
 import { fetchBetrieb } from "@/lib/api/betrieb";
 import { fetchRechnungen, fetchRechnungenZuAuftrag } from "@/lib/api/rechnungen";
 
@@ -172,6 +173,16 @@ export function useEingelagerteRaeder(supabase: SupabaseClient, aktiv: boolean) 
   return useQuery({
     queryKey: qk.eingelagerteRaeder(),
     queryFn: () => fetchEingelagerteRaeder(supabase),
+    enabled: aktiv,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Reifenverkauf (Migration 61): eine schmale Tabelle, als Vollabzug wie die Einlagerungen.
+export function useVerkaufsreifen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.verkaufsreifen(),
+    queryFn: () => fetchVerkaufsreifen(supabase),
     enabled: aktiv,
     staleTime: FRISCH_MS,
   });

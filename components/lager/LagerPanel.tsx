@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, VerkaufsreifenFelder, Warehouse } from "@/lib/types";
 import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM,
   SAISON_LABEL, SAISON_LISTE,
@@ -13,6 +13,8 @@ import { LangliegerListe } from "./LangliegerListe";
 import { PlatzBlatt } from "./PlatzBlatt";
 import { ProfilMarke } from "./ProfilMarke";
 import { RadBild } from "./RadBild";
+import { VerkaufPanel } from "./VerkaufPanel";
+import { groesseText, reifenFrei, reifenName } from "@/lib/reifenverkauf";
 
 // Lager-Modul, neu gestaltet am 26.09.2026 (Entwurf „H · Lager", docs/lager.md).
 //
@@ -69,7 +71,16 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, verkauf }: {
+  // Reifenverkauf (Migration 61). Null = kein Leserecht auf „Lager · Reifenverkauf" – dann gibt
+  // es den Reiter nicht. Plätze mit Verkaufsreifen sperrt die Datenbank trotzdem für Kundensätze.
+  verkauf: {
+    verkaufsreifen: Verkaufsreifen[];
+    darfSchreiben: boolean;
+    darfLoeschen: boolean;
+    onSpeichern: (felder: VerkaufsreifenFelder, id: string | null) => Promise<void>;
+    onLoeschen: (id: string) => Promise<void>;
+  } | null;
   customers: Customer[];
   // Alle Kundenfahrzeuge. Das Lager-Modul arbeitet nicht mit einem geöffneten Kunden, sondern
   // mit vielen Sätzen nebeneinander – deshalb hier der Vollabzug statt der Ausschnitt je Kunde.
@@ -133,6 +144,9 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   // Das Blatt hinter „⋯": erst die Liste, dann das jeweilige Formular.
   const [menue, setMenue] = useState<null | "liste" | "bearbeiten" | "plaetze" | "neu">(null);
   const [scannerOffen, setScannerOffen] = useState(false);
+  // Einlagerung (Kundensätze, Regalwand) oder Verkauf (Migration 61).
+  const [ansicht, setAnsicht] = useState<"einlagerung" | "verkauf">("einlagerung");
+  const [verkaufOeffneId, setVerkaufOeffneId] = useState<string | null>(null);
   const [scanHinweis, setScanHinweis] = useState<string | null>(null);
 
   const [newWarehouseName, setNewWarehouseName] = useState("");
@@ -172,6 +186,19 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     if (matches.length === 0) return null;
     return matches.slice().sort((a, b) => b.updated_at.localeCompare(a.updated_at))[0];
   }
+  // Verkaufsreifen, die auf diesem Platz liegen (Migration 61). Ein Platz mit Verkaufsreifen ist
+  // belegt – für Kundensätze gesperrt, das entscheidet auch die Datenbank.
+  const verkaufsreifen = verkauf?.verkaufsreifen ?? [];
+  const verkaufJePlatz = new Map<string, Verkaufsreifen[]>();
+  for (const v of verkaufsreifen) {
+    if (v.bestand <= 0 || !v.storage_slot_id) continue;
+    verkaufJePlatz.set(v.storage_slot_id, [...(verkaufJePlatz.get(v.storage_slot_id) ?? []), v]);
+  }
+  const verkaufAuf = (slotId: string): Verkaufsreifen[] => verkaufJePlatz.get(slotId) ?? [];
+  function verkaufOeffnen(postenId: string | null) {
+    setAnsicht("verkauf");
+    setVerkaufOeffneId(postenId);
+  }
   function historyFor(slotId: string): TireStorage[] {
     return tireStorages
       .filter((t) => t.storage_slot_id === slotId && !!t.removed_at)
@@ -186,7 +213,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   // Die Felder, über die ein Lagerplatz gefunden wird. Der Platz-Code steht auch bei einem
   // FREIEN Platz drin: „Wo ist A-14" ist eine legitime Frage, und „A-14 ist leer" eine Antwort.
   function platzFelder(slot: StorageSlot, satz: TireStorage | null): (string | null | undefined)[] {
-    if (!satz) return [slot.code];
+    if (!satz) return [slot.code, ...verkaufAuf(slot.id).flatMap((v) => [reifenName(v), groesseText(v), "Verkauf"])];
     const kunde = customers.find((c) => c.id === satz.customer_id);
     const fahrzeug = satz.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
     return [
@@ -198,7 +225,9 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
 
   function occupiedCount(warehouseId: string): number {
     const slotIds = new Set(storageSlots.filter((s) => s.warehouse_id === warehouseId).map((s) => s.id));
-    return tireStorages.filter((t) => slotIds.has(t.storage_slot_id) && !t.removed_at).length;
+    const saetze = tireStorages.filter((t) => slotIds.has(t.storage_slot_id) && !t.removed_at).length;
+    const nurVerkauf = [...slotIds].filter((id) => verkaufJePlatz.has(id) && !currentAssignment(id)).length;
+    return saetze + nurVerkauf;
   }
 
   function platzOeffnen(slot: StorageSlot) {
@@ -270,6 +299,11 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     // Fahrplan D3: Belegt heißt gesperrt, auch in der Datenbank (Migration 55). Ohne Belegung
     // nennt die Rückfrage, was verloren geht.
     const belegt = occupiedCount(lager.id);
+    const verkaufHier = verkaufsreifen.filter((v) => v.warehouse_id === lager.id && v.bestand > 0).length;
+    if (verkaufHier > 0) {
+      alert(`Lager "${lager.name}" kann nicht gelöscht werden: Dort liegen noch ${verkaufHier} Posten Verkaufsreifen. Erst umlagern oder den Bestand auf 0 setzen.`);
+      return;
+    }
     if (belegt > 0) {
       alert(`Lager "${lager.name}" kann nicht gelöscht werden: ${belegt} ${belegt === 1 ? "Platz ist" : "Plätze sind"} belegt. Erst auslagern oder umlagern.`);
       return;
@@ -284,7 +318,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   // ---------------------------------------------------------------- Zahlen
   const belegtGesamt = tireStorages.filter((t) => !t.removed_at && storageSlots.some((s) => s.id === t.storage_slot_id)).length;
   const belegungen = plaetzeImLager.map((sl) => ({ slot: sl, satz: currentAssignment(sl.id) }));
-  const belegtImLager = belegungen.filter((b) => b.satz).length;
+  const belegtImLager = belegungen.filter((b) => b.satz || verkaufJePlatz.has(b.slot.id)).length;
   const freiImLager = plaetzeImLager.length - belegtImLager;
   const zuPruefen = belegungen.filter((b) => gruendeFuer(b.satz).length > 0).length;
   const reihen = nachReihen(plaetzeImLager);
@@ -298,6 +332,25 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
 
   // Eine Zeile für einen Platz – in der Suche und in der aufgeklappten Reihe dieselbe.
   function platzZeile(slot: StorageSlot, satz: TireStorage | null, mitLager: boolean) {
+    const verkaufHier = satz ? [] : verkaufAuf(slot.id);
+    if (verkaufHier.length > 0) {
+      const lagerName = mitLager ? warehouses.find((w) => w.id === slot.warehouse_id)?.name : null;
+      const erster = verkaufHier[0];
+      const frei = verkaufHier.reduce((n, v) => n + reifenFrei(v), 0);
+      return (
+        <button key={slot.id} type="button" className="lg-zeile" onClick={() => verkaufOeffnen(erster.id)}>
+          <span className="lg-code verkauf">{slot.code}</span>
+          <span className="lg-zeile-text">
+            <span className="lg-zeile-kunde">
+              {verkaufHier.length === 1 ? `Verkauf: ${erster.bestand}× ${reifenName(erster)}` : `Verkauf: ${verkaufHier.length} Posten`}
+            </span>
+            <span className="lg-zeile-info">
+              {[lagerName, verkaufHier.map((v) => groesseText(v)).filter((t, i, a) => a.indexOf(t) === i).join(", "), `${frei} frei`].filter(Boolean).join(" · ")}
+            </span>
+          </span>
+        </button>
+      );
+    }
     const kunde = satz ? customers.find((c) => c.id === satz.customer_id) : null;
     const fahrzeug = satz?.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
     const gruende = gruendeFuer(satz);
@@ -340,6 +393,17 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
               </button>
             )}
           </div>
+          {verkauf && (
+            <div className="lg-lagerwahl lg-ansicht" role="group" aria-label="Ansicht">
+              <button type="button" className={ansicht === "einlagerung" ? "aktiv" : ""} aria-pressed={ansicht === "einlagerung"} onClick={() => setAnsicht("einlagerung")}>
+                Einlagerung
+              </button>
+              <button type="button" className={ansicht === "verkauf" ? "aktiv" : ""} aria-pressed={ansicht === "verkauf"} onClick={() => setAnsicht("verkauf")}>
+                Verkauf <span className="lg-lagerwahl-zahl">{verkaufsreifen.reduce((n, v) => n + reifenFrei(v), 0)}</span>
+              </button>
+            </div>
+          )}
+          {ansicht === "einlagerung" && <>
           <div className="lg-suche">
             <label className="lg-suchfeld">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
@@ -363,8 +427,23 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
               })}
             </div>
           )}
+          </>}
         </div>
 
+        {ansicht === "verkauf" && verkauf ? (
+          <VerkaufPanel
+            verkaufsreifen={verkauf.verkaufsreifen}
+            warehouses={warehouses}
+            storageSlots={storageSlots}
+            platzBelegt={new Set(tireStorages.filter((t) => !t.removed_at).map((t) => t.storage_slot_id))}
+            darfSchreiben={verkauf.darfSchreiben}
+            darfLoeschen={verkauf.darfLoeschen}
+            oeffneId={verkaufOeffneId}
+            onGeoeffnet={() => setVerkaufOeffneId(null)}
+            onSpeichern={verkauf.onSpeichern}
+            onLoeschen={verkauf.onLoeschen}
+          />
+        ) : <>
         {scanHinweis && (
           <div className="lg-hinweis" role="status">
             <span>{scanHinweis}</span>
@@ -396,6 +475,18 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             {(lager.address || lager.note) && (
               <span className="lg-adresse">{[lager.address, lager.note].filter(Boolean).join(" · ")}</span>
             )}
+            {(() => {
+              // Im Lager „Zuhause" gibt es oft gar keine Plätze – die Reifen dort stünden sonst
+              // nirgends auf dieser Seite.
+              const ohnePlatz = verkaufsreifen.filter((v) => v.warehouse_id === lager.id && v.bestand > 0 && !v.storage_slot_id);
+              if (ohnePlatz.length === 0) return null;
+              const stueck = ohnePlatz.reduce((n, v) => n + v.bestand, 0);
+              return (
+                <button type="button" className="lg-link" onClick={() => verkaufOeffnen(null)}>
+                  {stueck} {stueck === 1 ? "Verkaufsreifen liegt" : "Verkaufsreifen liegen"} hier ohne festen Platz ›
+                </button>
+              );
+            })()}
 
             {plaetzeImLager.length === 0 ? (
               <div className="db-karte">
@@ -438,8 +529,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                   const schluessel = `${lager.id}|${reihe}`;
                   const istOffen = schluessel in offen ? offen[schluessel] : (filter !== "alle" || index === 0);
                   const zeilen = plaetze.map((sl) => ({ slot: sl, satz: currentAssignment(sl.id) }));
-                  const passend = zeilen.filter(({ satz }) => passtZumFilter(satz, gruendeFuer(satz), filter));
-                  const belegtHier = zeilen.filter((z) => z.satz).length;
+                  const passend = zeilen.filter(({ slot, satz }) => passtZumFilter(satz, gruendeFuer(satz), filter, verkaufJePlatz.has(slot.id)));
+                  const belegtHier = zeilen.filter((z) => z.satz || verkaufJePlatz.has(z.slot.id)).length;
                   const pruefenHier = zeilen.filter((z) => gruendeFuer(z.satz).length > 0).length;
                   // Mit Filter verschwindet eine Reihe ohne Treffer ganz – wie bisher an der Wand.
                   if (filter !== "alle" && passend.length === 0) return null;
@@ -454,13 +545,14 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                           <span className={"db-pfeil" + (istOffen ? " auf" : "")} aria-hidden="true">›</span>
                         </span>
                         {/* Die Regalwand im Kleinen: ein Kästchen je Platz, in der Reihenfolge des
-                            Regals. Blau = belegt, gestrichelt = frei, orange Kante = zu prüfen. */}
+                            Regals. Blau = belegt, grün = Verkaufsreifen, gestrichelt = frei, orange
+                            Kante = zu prüfen. */}
                         <span className="lg-wand" aria-hidden="true">
                           {zeilen.map(({ slot, satz }) => (
                             <span key={slot.id} className={[
-                              "lg-w", satz ? "belegt" : "frei",
+                              "lg-w", satz ? "belegt" : verkaufJePlatz.has(slot.id) ? "verkauf" : "frei",
                               gruendeFuer(satz).length ? "pruefen" : "",
-                              passtZumFilter(satz, gruendeFuer(satz), filter) ? "" : "aus",
+                              passtZumFilter(satz, gruendeFuer(satz), filter, verkaufJePlatz.has(slot.id)) ? "" : "aus",
                             ].filter(Boolean).join(" ")} />
                           ))}
                         </span>
@@ -489,6 +581,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             )}
           </>
         )}
+        </>}
       </div>
 
       {blattSlot && (

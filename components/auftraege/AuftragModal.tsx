@@ -10,7 +10,8 @@ import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, ORDER_STATUS_FARBE, ORDER_STATUS_LABEL,
   PROFIL_KRITISCH_MM, SAISON_LABEL, STANDARD_DAUER_MIN, istAbgeschlossen,
 } from "@/lib/constants";
-import { ArticleAssignPanel } from "./ArticleAssignPanel";
+import { ArticleAssignPanel, type ReifenImAuftrag } from "./ArticleAssignPanel";
+import { groessenVorschlag } from "@/lib/reifenverkauf";
 import { IconNavPin } from "@/components/icons";
 import { EinlagerungBlock } from "./EinlagerungBlock";
 import { RechnungsdatenBlock } from "./RechnungsdatenBlock";
@@ -46,8 +47,11 @@ export function AuftragModal({
   onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
-  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen,
+  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen,
 }: {
+  // Reifenverkauf aus dem Lager (Migration 61). Null = kein Zugriff; dann fehlt der Knopf.
+  // Die Größe für die Suche rechnet das Fenster selbst aus den Fahrzeugen am Auftrag.
+  reifen?: Omit<ReifenImAuftrag, "vorschlag"> | null;
   // Springt vom Auftrag in das Kundenfenster. Optional: Wer das Fenster ohne diese Zusage
   // einbindet, bekommt den Knopf „Kunde" nicht zu sehen.
   onKundeOeffnen?: (kundeId: string) => void;
@@ -771,6 +775,7 @@ export function AuftragModal({
               articlePrices={articlePrices}
               rows={orderArticles}
               gesperrt={gesperrt}
+              reifen={reifen ? { ...reifen, vorschlag: groessenVorschlag(auftragsFahrzeuge.map((af) => af.fahrzeug?.tire_size)) } : null}
               onAdd={onAddArticle}
               onUpdateQty={onUpdateArticleQty}
               onUpdateEndpreis={onUpdateArticleEndpreis}

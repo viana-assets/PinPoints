@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v85";
+export const APP_VERSION = "v86";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v86", datum: "2026-09-26", titel: "Reifenverkauf aus dem Lager",
+    punkte: [
+      "Im Lager gibt es oben den neuen Reiter „Verkauf“: Neue und gebrauchte Reifen – auch Kompletträder – mit Größe, Hersteller, Saison, DOT, Profil, Preis und Einkaufspreis erfassen. Vier gleiche Reifen sind ein Eintrag mit Bestand 4. Das Lager „Zuhause“ geht auch ohne Plätze.",
+      "Im Auftrag unter „Leistungen“: „Reifen aus dem Lager“ sucht beim Tippen – „235“, „235 55 17“ oder „Michelin“ – und steht schon auf der Reifengröße des Fahrzeugs. Stückzahl wählen, hinzufügen: Preis und Beschreibung kommen vom Reifen.",
+      "Solange der Auftrag offen ist, sind die Reifen reserviert und für andere Aufträge gesperrt. Beim Abschließen werden sie aus dem Bestand gebucht; Position entfernen oder Auftrag stornieren gibt sie wieder frei.",
+      "Neu im Artikelstamm: „Reifen neu“ und „Reifen gebraucht“. Plätze mit Verkaufsreifen sind in der Regalwand grün und nehmen keinen Kundensatz auf.",
+    ],
+  },
   {
     version: "v85", datum: "2026-09-26", titel: "Termine immer auf der Karte",
     punkte: [

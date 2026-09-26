@@ -115,6 +115,22 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `LANGLIEGER_MONATE` | `lib/helpers.ts` | `number` (18) | Monate, ab denen ein Satz als „Langlieger" gilt | **nur intern** – über `istLanglieger()` (`AuslagernDialog`, `tests/lagerdauer.test.ts`) |
 | `LANGLIEGER_EURO` | `lib/helpers.ts` | `number` (150) | Summenschwelle, ab der ein Satz als „Langlieger" gilt | dito, über `istLanglieger()` |
 
+## Lager: Reifenverkauf (Migration 61)
+
+| Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
+|---|---|---|---|---|
+| `REIFEN_ZUSTAENDE` | `lib/constants.ts` | `ReifenZustand[]` (neu, gebraucht) | Die zwei Zustände eines Verkaufsreifens; dieselben Werte als Prüfregel `verkaufsreifen_zustand_bekannt` | `VerkaufPanel`, `VerkaufsreifenBlatt`, `ReifenSuche` |
+| `REIFEN_ZUSTAND_LABEL` | `lib/constants.ts` | `Record<ReifenZustand, string>` | Beschriftung Neu/Gebraucht | dieselben Stellen, `lib/reifenverkauf.ts` |
+| `REIFENVERKAUF_ART` | `lib/constants.ts` | `Record<ReifenZustand, Article["abrechnungsart"]>` | Welche Abrechnungsart zu welchem Zustand gehört – die Datenbank prüft dasselbe (`position_verkaufsreifen_pruefen`) | `artikelFuer()` in `lib/reifenverkauf.ts` |
+| `ABRECHNUNGSARTEN` | `lib/constants.ts` | `Article["abrechnungsart"][]` | Die vier Abrechnungsarten in der Reihenfolge der Auswahlknöpfe | `ArticleDetailEditor` |
+| `ABRECHNUNGSART_LABEL` | `lib/constants.ts` | `Record<Article["abrechnungsart"], string>` | Beschriftung der Abrechnungsarten | `ArticleDetailEditor`, `ArticleAdminPanel` |
+| `NEUREIFEN_ALT_JAHRE` | `lib/constants.ts` | `number` (3) | Ab diesem Alter (DOT) gilt ein Neureifen als alt – Hinweis in Liste und Suche; gebrauchte nutzen `DOT_ALT_JAHRE` | `reifenHinweise()` in `lib/reifenverkauf.ts`, `tests/reifenverkauf.test.ts` |
+
+Die Größengrenzen (Breite 100–400, Querschnitt 20–95, Zoll 10–24) stehen in `fertig()` in
+`lib/reifenverkauf.ts` und als Prüfregel `verkaufsreifen_groesse_moeglich` in Migration 61 – wer
+eine Stelle ändert, ändert beide. Profilgrenzen im Reifenverkauf: `PROFIL_GESETZLICH_MM` (nicht
+verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Ganzjahr knapp).
+
 ---
 
 ## Rechnung & Preise

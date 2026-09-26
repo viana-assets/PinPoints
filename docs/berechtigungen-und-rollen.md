@@ -145,7 +145,7 @@ mit allen drei Listen bei zwei gleichzeitig offenen Fenstern die Änderung des a
 Vorgabe heißt: Was gilt, solange in `public.module_permissions` für diesen Bereich noch keine
 Zeile steht. Quelle ist `RECHTE_VORGABE` in `lib/constants.ts`; dieselben Werte hat
 Migration 42 beim ersten Lauf in die Tabelle geschrieben (bzw. Migration 48 für
-`rechnungen`). **L** = lesen, **S** = schreiben, **X** = löschen, **–** = nichts. Was in der
+`rechnungen`, Migration 61 für `lager.verkauf`). **L** = lesen, **S** = schreiben, **X** = löschen, **–** = nichts. Was in der
 Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 
 | Schlüssel | Zeile in der Maske | Admin | Techniker | Nutzer |
@@ -162,6 +162,7 @@ Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 | `lager.regale` | – Regale und Plätze verwalten | L S X | L | L |
 | `lager.einlagerung` | – Reifen ein- und auslagern | L S | L S | L S |
 | `lager.raeder` | – Räder einzeln messen | L S X | L S X | L S X |
+| `lager.verkauf` | – Reifenverkauf (Migration 61) | L S X | L | L S |
 | `saison` | Saisonliste | L | – | L |
 | `artikel` | Artikel und Preise | L S X | – | L |
 | `mitarbeiter` | Mitarbeiter | L S X | L | L |

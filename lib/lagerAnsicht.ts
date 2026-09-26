@@ -14,9 +14,11 @@ import { lagerplatzIdAusCode, satzIdAusCode } from "./aufkleberCode";
 // kürzer benannt. Die Saisons zeigen nur belegte Plätze: Ein freier Platz hat keine Saison.
 export type LagerFilter = "alle" | "pruefen" | "frei" | Saison;
 
-export function passtZumFilter(satz: TireStorage | null, gruende: string[], filter: LagerFilter): boolean {
+// `verkauf`: Auf dem Platz liegen Verkaufsreifen (Migration 61). Dann ist er nicht frei, auch
+// wenn kein Kundensatz darauf liegt – Prüfen und Saison betreffen nur Kundensätze.
+export function passtZumFilter(satz: TireStorage | null, gruende: string[], filter: LagerFilter, verkauf = false): boolean {
   if (filter === "alle") return true;
-  if (filter === "frei") return !satz;
+  if (filter === "frei") return !satz && !verkauf;
   if (filter === "pruefen") return !!satz && gruende.length > 0;
   return !!satz && satz.saison === filter;
 }

@@ -31,6 +31,9 @@ export const qk = {
   einlagerungen: () => ["einlagerungen"] as const,
   eingelagerteRaeder: () => ["eingelagerte-raeder"] as const,
   lagerKennzahlen: () => ["lager", "kennzahlen"] as const,
+  // Reifenverkauf (Migration 61). Ändert sich auch, wenn im Auftrag eine Reifen-Position
+  // eingetragen, entfernt oder der Auftrag abgeschlossen wird – die Datenbank zählt dann mit.
+  verkaufsreifen: () => ["verkaufsreifen"] as const,
 
   // Der Briefkopf (Migration 48). Eine einzige Zeile, die auf jeder Rechnung landet – und
   // deshalb genau EINEN Schlüssel hat, nicht einen je Fenster, das sie braucht.

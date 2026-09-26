@@ -7,7 +7,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 26.09.2026 (Migrationen bis 60; Regeln seit der Projektdurchsicht vom 18.09.2026).
+Stand: 26.09.2026 (Migrationen bis 61; Regeln seit der Projektdurchsicht vom 18.09.2026).
 
 ---
 
@@ -59,9 +59,18 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
    app/page.tsx
    lib/constants.ts
    ```
-5. Muss eine Datei **gelöscht** werden, das explizit dazuschreiben („außerdem auf GitHub
+5. **Zusätzlich ein Upload-Ordner je Runde (seit 26.09.2026).** Dieselben Dateien kommen außerdem
+   nach `PinPoints\Claude outputs\Hochladen\viana-pinpoints\…` – mit genau der Unterordner-
+   Struktur des Repos, aber **nur** mit den Dateien dieser Runde. Vitali zieht den Ordner
+   `viana-pinpoints` von dort in einem Zug in die GitHub-Weboberfläche (Stamm des Repos,
+   „Add file → Upload files"); GitHub nimmt höchstens 100 Dateien auf einmal, der ganze Ordner
+   ginge also nicht. Danach leert er „Hochladen" selbst – Claude darf dort nicht löschen. Liegt
+   noch eine Datei aus einer früheren Runde darin, ist sie der letzte Stand dieser Datei und ein
+   zweites Hochladen unschädlich. Die Pfadliste im Chat bleibt trotzdem (für Löschungen und zum
+   Gegenprüfen).
+6. Muss eine Datei **gelöscht** werden, das explizit dazuschreiben („außerdem auf GitHub
    löschen: …") – Löschungen funktionieren nicht per Drag & Drop.
-6. **Echte Kundendaten gehören nicht ins Repository.** Skripte, die reale Bestandsdaten
+7. **Echte Kundendaten gehören nicht ins Repository.** Skripte, die reale Bestandsdaten
    enthalten oder erzeugen (Kundennummern-Übernahme, Betriebsdaten-Erstbefüllung), werden
    nach `PinPoints\lokal\` geschrieben – außerhalb von `viana-pinpoints/`, also außerhalb
    des Repos. Im Chat wird der Inhalt solcher Skripte ebenfalls nicht wiedergegeben.
@@ -276,7 +285,7 @@ sind in der laufenden Anwendung zulässig. Was bleibt:
 - Keine Adressen an Dritte außerhalb der eigenen, gedrosselten Geocode-Route
   (siehe `docs/kunden-und-karte.md`).
 - Irreversible Massenänderungen nur mit vorheriger Sicherung.
-- Keine echten Kundendaten im Repository und keine im Chat (siehe Regel 1.6).
+- Keine echten Kundendaten im Repository und keine im Chat (siehe Regel 1.7).
 - Schlüssel und Geheimnisse (VAPID, `PUSH_GEHEIMNIS`, Service-Role-Key) kommen **nie**
   in eine Datei des Repos, nie in die Doku und nie in den Chat – auch nicht als
   „Beispielwert".

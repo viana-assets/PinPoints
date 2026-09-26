@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
-import { EINHEITEN } from "@/lib/constants";
+import { ABRECHNUNGSARTEN, ABRECHNUNGSART_LABEL, EINHEITEN } from "@/lib/constants";
 import { formatDate, formatEUR, todayStr, DEFAULT_VAT_RATE } from "@/lib/helpers";
 
 // Ein Artikel als Blatt (Entwurf Q, 26.09.2026): Stammdaten, Abrechnung, die zwei Kennzeichen
@@ -130,14 +130,21 @@ export function ArticleDetailEditor({ article, prices, onClose, onUpdateArticle,
             nicht an einem Namen im Code – ein Vergleich auf „Reifeneinlagerung" wäre beim
             ersten Umbenennen still kaputt. */}
         <span className="op-gruppe-titel">WIE WIRD ABGERECHNET?</span>
-        <div className="lg-lagerwahl ar-segment" role="group" aria-label="Abrechnung">
-          <button type="button" className={abrechnungsart === "normal" ? "aktiv" : ""} aria-pressed={abrechnungsart === "normal"} onClick={() => setAbrechnungsart("normal")}>Wenn erbracht</button>
-          <button type="button" className={abrechnungsart === "lagergebuehr" ? "aktiv" : ""} aria-pressed={abrechnungsart === "lagergebuehr"} onClick={() => setAbrechnungsart("lagergebuehr")}>Lagergebühr (Monate)</button>
+        {/* Vier Arten, zwei Zeilen: Die Reifenverkäufe (Migration 61) passen am Handy nicht
+            mehr neben die beiden anderen in eine Zeile. */}
+        <div className="lg-lagerwahl ar-segment ar-segment-zwei" role="group" aria-label="Abrechnung">
+          {ABRECHNUNGSARTEN.map((art) => (
+            <button key={art} type="button" className={abrechnungsart === art ? "aktiv" : ""} aria-pressed={abrechnungsart === art} onClick={() => setAbrechnungsart(art)}>
+              {ABRECHNUNGSART_LABEL[art]}
+            </button>
+          ))}
         </div>
         <span className="small">
           {abrechnungsart === "lagergebuehr"
             ? "Beim Einlagern wird dieser Artikel nie verlangt. Beim Auslagern schlägt die App ihn vor, mit der Zahl der Lagermonate als Menge – angefangene Monate zählen voll."
-            : "Der Normalfall: Der Artikel wird eingetragen, sobald die Leistung erbracht ist."}
+            : abrechnungsart === "normal"
+              ? "Der Normalfall: Der Artikel wird eingetragen, sobald die Leistung erbracht ist."
+              : `Verkauf von ${abrechnungsart === "reifenverkauf_neu" ? "neuen" : "gebrauchten"} Reifen aus dem Lager. Wird der Artikel im Auftrag gewählt, öffnet sich die Reifensuche; Preis und Text kommen vom Reifen, ein Preis hier wird nicht gebraucht. Der Steuersatz kommt vom Preis hier, sonst gelten ${DEFAULT_VAT_RATE} %.`}
         </span>
 
         {/* Die Erinnerung an die Altreifen gehört an den Wechsel, wo sie anfallen – nicht an die

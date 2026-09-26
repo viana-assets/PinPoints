@@ -67,7 +67,7 @@ ausgeführt, die Datenbank ist auf dem Stand dieses Ordners.
 ## Noch auszuführen
 
 **In dieser Reihenfolge im Supabase-SQL-Editor ausführen – sie bauen aufeinander auf.**
-Alle fünf gehören zur Sanierung aus `docs/architektur-review-2026-08.md` (Roadmap Phasen 6–11).
+Die ersten fünf gehören zur Sanierung vom August 2026 (siehe `docs/architektur.md`).
 
 - `15_rls_haertung.sql` – schließt die kritischen Lücken: die Rollen-Spalte in `profiles` ist
   nicht mehr vom Nutzer selbst änderbar (bis hierher konnte sich jeder eingeloggte Account zum
@@ -533,6 +533,13 @@ Tabelle `orders` haben kann, aber kaum zusätzlich ein `tire_storage`.
   verbraucht), und der Haken „Rechnung erstellt" lässt sich nicht mehr von Hand lösen, solange
   ein gültiger Beleg am Auftrag hängt. Die Rücknahme setzt die drei Funktionen auf den Stand
   von `40`/`48` zurück; ausgestellte Rechnungen bleiben unberührt.
+- `52` braucht `18` (`audit_log`, Trigger an `orders`) und `44` (`auftrag_fahrzeuge`). Läuft
+  nach `51`. Reines Nachholen von Daten, kein Schema-Eingriff.
+- `51` braucht `44` (`auftrag_fahrzeuge`) und `20` (`orders.vehicle_id`, `idx_orders_vehicle`).
+  **Reihenfolge umgekehrt wie sonst: erst den Code hochladen, dann das SQL.** Die Migration
+  entfernt eine Spalte, die die alte Fassung des Auftragsfensters noch schreibt; läuft sie
+  vorher, scheitert dort jedes Speichern. Umgekehrt ist es harmlos – der neue Code fasst die
+  Spalte ohnehin nicht mehr an.
 - `50` braucht `14` (`articles`) und `48` (`articles.einheit`). Sie gibt dem Artikel den Haken
   `freitext`: Die Bezeichnung dieser Leistung wird am AUFTRAG eingegeben und ersetzt auf der
   Rechnung den Artikelnamen – für Sammelpositionen wie „Sonstiges". Das Feld für den Text gibt
@@ -545,3 +552,141 @@ Tabelle `orders` haben kann, aber kaum zusätzlich ein `tire_storage`.
   der Anwendung. Dieselbe Entscheidung wie bei `fragt_einlagerung` in `46`.
   Die Rücknahme entfernt nur den Haken; die Texte bleiben und erscheinen dann wieder als
   Zusatzzeile unter der Bezeichnung.
+- `51_fahrzeug_nur_noch_einmal.sql` – **CODE ZUERST, dann dieses SQL.** Entfernt
+  `orders.vehicle_id` samt Index. Welche Fahrzeuge an einem Auftrag hängen, steht seit
+  Migration `44` in `auftrag_fahrzeuge`; die alte Spalte sollte laut `44` nur noch gelesen
+  werden, wurde vom Auftragsfenster aber weiter beschrieben. Damit gab es zwei Antworten auf
+  dieselbe Frage: Die Rechnung las `auftrag_fahrzeuge`, der Vorgeschichte-Hinweis
+  `orders.vehicle_id`. Bei einem Kunden mit zwei Autos konnten beide verschiedene Wagen
+  meinen. Die Migration holt vorher alles nach, was nur in der alten Spalte steht, und gibt
+  am Ende eine Tabelle aus, wie viele Einträge das waren. Zweiter Lauf ist folgenlos.
+  Die Rücknahme legt die Spalte wieder an und füllt sie mit dem ZUERST eingetragenen Fahrzeug
+  je Auftrag – mehrere Autos passen dort nicht hinein, verloren geht in `auftrag_fahrzeuge`
+  aber nichts.
+  **NACHTRAG 21.09.2026:** Die zuerst ausgelieferte Fassung sammelte die nachzuholenden
+  Fahrzeuge in einer temporären Tabelle. Im SQL-Editor hält `begin; … commit;` nicht über die
+  ganze Datei – jede Anweisung wird für sich abgeschlossen, die temporäre Tabelle war sofort
+  wieder fort, der Nachhol-Schritt scheiterte, und das `drop column` danach lief trotzdem. Die
+  Datei im Repo ist inzwischen korrigiert (ohne temporäre Tabelle) und für eine frische
+  Datenbank vollständig; auf der Produktivdatenbank holt **`52`** das Fehlende nach.
+- `52_fahrzeug_aus_dem_protokoll.sql` – **nach `51` ausführen.** Holt die Fahrzeug-Zuordnungen
+  nach, die beim misslungenen Lauf von `51` verloren gingen. Quelle ist `audit_log`: Der
+  Protokoll-Trigger aus `18` schreibt bei jedem Einfügen und jeder Änderung die ganze
+  `orders`-Zeile als jsonb mit, also auch `vehicle_id`, solange es die Spalte gab. Genommen
+  wird je Auftrag der jüngste Abzug, der den Schlüssel überhaupt noch enthält.
+  Erfindet nichts: Aufträge, deren Fahrzeug zuletzt auf „keines" stand, und Fahrzeuge, die es
+  nicht mehr gibt, bleiben außen vor und werden am Ende gezählt. Zweiter Lauf fügt nichts
+  hinzu. Die Rücknahme entfernt genau die nachgeholten Zeilen wieder.
+
+## Runde 35 (23.09.2026) – noch auszuführen
+
+**In dieser Reihenfolge, jeweils SQL zuerst, dann die Dateien.** Beide fügen nur hinzu; der alte
+Code stört sich an nichts davon.
+
+- `55_schutz_und_abendhinweis.sql` – drei Dinge, jedes für sich wirksam:
+  1. Ein belegter Lagerplatz bzw. ein Lager mit belegten Plätzen lässt sich nicht löschen
+     (Trigger `lager_belegt_nicht_loeschen()`, Fahrplan D3). Frühere Einlagerungen sperren nicht.
+  2. Die nächste Rechnungsnummer ist fest, sobald eine Rechnung existiert: nur „höchste plus
+     eins" (Trigger `pruefe_rechnungsnummernkreis()`, Fahrplan D7). Das Hochzählen beim
+     Ausstellen ist ausgenommen (`pg_trigger_depth() > 1`).
+  3. Abendhinweis: `user_settings.abendhinweis_aktiv` / `abendhinweis_uhrzeit` (Vorgabe an,
+     20:00) und die Sperre gegen Doppelversand `push_abendhinweis`.
+  Am Ende eine Ergebnistabelle, die letzte Zeile sagt, ob der Rechnungszähler zum Bestand passt.
+  Zweiter Lauf folgenlos. Rücknahme: `rollback/55_rollback.sql` (erst Code zurück).
+- `56_datenschutz_protokoll_und_papierkorb.sql` – Fahrplan B1/B2. Spalte
+  `audit_log.geschwaerzt_am`, Funktion `protokoll_schwaerzen()` (Frist 36 Monate) mit nächtlichem
+  pg_cron-Auftrag `pinpoints-protokoll-schwaerzen` (03:15 UTC), Funktion
+  `kunde_endgueltig_loeschen()` für den Papierkorb (nur Superadmin, Rechnungen bleiben). Braucht
+  `18`/`36` (audit_log), `28` (pg_cron), `48` (rechnungen), `53` (laufkundschaft). Die
+  Ergebnistabelle nennt, wie viele Einträge heute Nacht geschwärzt werden. Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/56_rollback.sql` – Geschwärztes und endgültig Gelöschtes
+  kommt dadurch nicht zurück.
+
+Geprüft gegen ein frisches Postgres 16 (Migrationen 01–56 am Stück), je zweimal ausgeführt,
+zurückgenommen und wieder ausgeführt; Verhalten nachgestellt: belegter Platz / Lager gesperrt,
+Platz mit Verlauf löschbar, Zähler nach Rechnung fest, Ausstellen zählt weiter, endgültiges
+Löschen samt Protokoll (Rechnung bleibt mit Namen im Snapshot), Schwärzen nach Frist, zweiter
+Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
+
+## 24.09.2026 – noch auszuführen
+
+- `57_laufkunde_am_auftrag_und_einmalkunde.sql` – **nach `55` und `56`, SQL zuerst.**
+  `orders.laufkunde_name/_telefon/_ort`, Trigger `pruefe_laufkunde()` (Name Pflicht beim
+  Abschließen eines Laufkunden-Auftrags), `customers.einmalkunde` mit Prüfbedingung
+  `customers_lauf_oder_einmal`, und `protokoll_schwaerzen()` kennt die drei neuen Felder. Braucht
+  `53` und `56` – bricht sonst mit Klartext ab. Die Ergebnistabelle nennt, wie viele offene
+  Laufkunden-Aufträge noch keinen Namen haben. Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/57_rollback.sql` (erst Code zurück; die eingetragenen Namen gehen dabei verloren).
+  Geprüft gegen ein frisches Postgres 16 (01–57): Abschließen ohne Namen abgewiesen, mit Namen
+  durch, normaler Kunde unberührt, Laufkundschaft + Einmalkunde abgewiesen, Schwärzen erfasst
+  `laufkunde_name`, Rücknahme und Neulauf sauber.
+
+## 25.09.2026 – noch auszuführen
+
+- `58_mitnehmen_abhaken.sql` – **SQL zuerst, dann die Dateien.** Neue Tabelle
+  `mitnehmen_gepackt` (Satz × Einsatztag, wer und wann) für das Abhaken der Liste „Reifen
+  mitnehmen" im neuen Dashboard, fürs ganze Team sichtbar. RLS: lesen, abhaken und Haken
+  entfernen für alle mit `lager.einlagerung · lesen`. Braucht `42` (`darf()`). Die
+  Ergebnistabelle prüft Tabelle, RLS und die drei Richtlinien. Zweiter Lauf folgenlos.
+  Rücknahme: `rollback/58_rollback.sql` (erst Code zurück; nur die Haken gehen verloren).
+
+## 26.09.2026 – noch auszuführen
+
+- `59_datev_export.sql` – **SQL zuerst, dann die Dateien** (die Betriebsdaten-Maske speichert die
+  neuen Spalten mit; ohne sie schlüge schon das Speichern des Briefkopfs fehl).
+  Zehn Spalten `betrieb.datev_*` für den DATEV-Buchungsstapel der neuen Auswertungsseite:
+  Berater- und Mandantennummer (leer = Export gesperrt), Beginn des Wirtschaftsjahres,
+  Sachkontenlänge, Kontenrahmen (Vorgabe SKR03), Erlöskonten 19 %/7 %/0 % (Vorgabe
+  8400/8300/8200), Debitor = Kundennummer + Basis (Vorgabe 0) und Sammeldebitor (69999) für
+  Rechnungen ohne Kundennummer. Sechs Prüfbedingungen mit den Grenzen des DATEV-Formats. Rechte
+  wie beim Briefkopf. Die Ergebnistabelle prüft Spalten, Bedingungen und Vorgaben. Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/59_rollback.sql` (erst Code zurück; nur die DATEV-Angaben gehen
+  verloren). Geprüft gegen Postgres 16 (Stand 58): zweimal ausgeführt, ungültige Beraternummer
+  und Kontenrahmen abgewiesen, gültige Werte gespeichert, zurückgenommen, erneut ausgeführt.
+
+- `60_testkunde_und_neuigkeiten.sql` – **SQL zuerst, dann die Dateien** (die neue Oberfläche liest
+  `customers.testkunde` und `user_settings.neuigkeiten_gesehen`). Testkunden: nur der Superadmin
+  legt sie an (Trigger `pruefe_testkunde`), keine Kundennummer, Aufträge mit negativer Nummer aus
+  eigener Folge (Anzeige „T1"), Rechnungen mit negativer Nummer und Text „T-RE1" – der echte
+  Rechnungs- und Auftragskreis zählt dabei nicht weiter. Die Auftragsnummer vergibt dafür ab jetzt
+  der Trigger `vergib_auftragsnummer` statt des Spalten-Vorgabewerts. Testrechnungen (nur sie)
+  lassen sich löschen; `testkunde_loeschen(uuid)` entfernt einen Testkunden restlos samt
+  Aufträgen, Rechnungen, Fahrzeugen, Reifen und Protokoll. Umschalten nur ohne Aufträge; ein
+  Auftrag zieht nicht zwischen Test- und echtem Kunden um. Neu gefasst: `vergib_kundennummer`,
+  `vergib_rechnungsnummer`, `rechnung_unveraenderlich`, `kontakt_aus_abschluss`,
+  `kunde_endgueltig_loeschen` (verweist Testkunden an die neue Funktion). Die Ergebnistabelle
+  prüft Spalten, Trigger und Funktion. Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/60_rollback.sql` – ein einziger Block, bricht ab, solange es Testkunden gibt.
+  Geprüft gegen Postgres 16 (Stand 59): zweimal ausgeführt; Admin darf keinen Testkunden anlegen;
+  T1/T2/T3 neben echten 2/3 (auch eine mitgeschickte Nummer wird ersetzt); RE1 echt, T-RE1/T-RE2
+  mit Storno, Zähler bleibt bei 2; Umschalten mit Aufträgen und Umzug abgewiesen; Kontakteintrag
+  „Auftrag T2 abgeschlossen"; Papierkorb-Weg verweist um; restloses Löschen (auch erledigter
+  Auftrag, Reifen im Regal, Fahrzeug am Auftrag) ohne Rest in allen Tabellen und im Protokoll;
+  echte Rechnung bleibt unlöschbar; Rücknahme mit Testkunde abgewiesen, ohne durchgelaufen,
+  zweimal; danach Auftragsnummern wieder über den Vorgabewert; erneut ausgeführt.
+
+
+- `61_reifenverkauf.sql` – **nach `60`, SQL zuerst, dann die Dateien** (die neue Oberfläche liest
+  `verkaufsreifen` und `order_articles.verkaufsreifen_id`). Reifenverkauf aus dem Lager: neue
+  Tabelle `verkaufsreifen` (Zustand neu/gebraucht, Größe, Hersteller/Modell, Saison, Index, DOT,
+  Profil, Felge für Kompletträder, Runflat/XL, EPREL-Nummer, VK- und EK-Preis netto, Lager und
+  optional Platz). `bestand` pflegt man von Hand, `reserviert` und `verkauft` zählt allein die
+  Datenbank (`verkaufsreifen_zaehlen`, nur für die Trigger ausführbar). Eine Position mit
+  `verkaufsreifen_id` reserviert, Abschließen bucht ab, Wiedereröffnen bucht zurück, Stornieren,
+  Löschen und Entfernen der Position geben frei; Zeilensperre gegen Doppelverkauf. Ein Platz hält
+  entweder einen Kundensatz oder Verkaufsreifen (Trigger in beide Richtungen); Lager und Plätze
+  mit Verkaufsreifen lassen sich nicht löschen (`lager_belegt_nicht_loeschen` neu gefasst). Zwei
+  neue Abrechnungsarten `reifenverkauf_neu`/`_gebraucht` und die Artikel „Reifen neu" / „Reifen
+  gebraucht" (ein gleichnamiger vorhandener Artikel wird übernommen). Neuer Rechte-Bereich
+  `lager.verkauf`. Ein Testkunde gibt beim restlosen Löschen seine „verkauften" Reifen zurück;
+  ein echter Kunde nicht. Die Ergebnistabelle prüft Tabelle, Spalte, Artikel, Rechte und
+  Richtlinien. Zweiter Lauf folgenlos. Rücknahme: `rollback/61_rollback.sql` (erst Code zurück;
+  Positionen bleiben, verlieren nur den Verweis). Geprüft gegen Postgres 16 (Stand 60): zweimal
+  ausgeführt; Zählfelder aus der Anwendung nicht setzbar; ohne Lager und auf belegtem Platz
+  abgewiesen (beide Richtungen); Techniker liest, legt nicht an; falscher Artikel, zu viele Stück,
+  halbe Stück abgewiesen; Abschließen 4→1 (3 verkauft), Wiedereröffnen zurück, Storno gibt frei,
+  Wiedereröffnen eines Stornos ohne freien Reifen abgewiesen; Papierkorb und Wiederherstellen;
+  Löschen von Posten, Platz und Lager mit Bestand abgewiesen; Testkunde gibt zurück, endgültig
+  gelöschter echter Kunde nicht; zwei gleichzeitige Buchungen auf den letzten Reifen – die zweite
+  wartet und wird abgewiesen; direkter Aufruf der Zählfunktion verweigert; zurückgenommen und
+  erneut ausgeführt (kein zweiter Artikel).

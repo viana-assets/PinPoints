@@ -7,7 +7,7 @@
 // stehen nur Konstanten, die von mehreren, fachlich unterschiedlichen Stellen in
 // app/page.tsx verwendet werden (Rollen, Berechtigungen, Auftragsstatus, Kalenderfarben).
 
-import type { Felge, GeoGenauigkeit, OrderStatus, RadPosition, Role, Saison } from "./types";
+import type { Article, Felge, GeoGenauigkeit, OrderStatus, RadPosition, ReifenZustand, Role, Saison } from "./types";
 
 // ---------------------------------------------------------------- Rollen
 export const ROLE_LABEL: Record<Role, string> = {
@@ -160,6 +160,10 @@ export const RECHTE_KATALOG: RechtBereich[] = [
     verben: ["lesen", "schreiben", "loeschen"],
     erklaerung: "Profiltiefe, DOT, Felge und Sensor je Rad. „Löschen“ heißt: eine falsch erfasste Messung wieder entfernen." },
 
+  { schluessel: "lager.verkauf", label: "– Reifenverkauf", unter: true,
+    verben: ["lesen", "schreiben", "loeschen"],
+    erklaerung: "Reifen zum Verkauf erfassen, Preise und Bestand pflegen (Migration 61). „Lesen“ reicht, um im Auftrag einen Reifen aus dem Lager einzutragen – das schreibt eine Leistung, nicht den Bestand. „Löschen“ geht nur, solange der Reifen auf keinem Auftrag stand." },
+
   { schluessel: "saison", label: "Saisonliste", verben: ["lesen"],
     erklaerung: "Wer hat welche Reifen bei uns liegen – die halbjährliche Anrufliste.",
     warumNicht: "Die Saisonliste ist eine Auswertung der Einlagerungen – geändert wird bei „Lager“." },
@@ -212,6 +216,7 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
   "lager.regale":         { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },
   "lager.einlagerung":    { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
   "lager.raeder":         { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"], loeschen: ["admin", "techniker", "user"] },
+  "lager.verkauf":        { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "user"], loeschen: ["admin"] },
 
   saison:                 { lesen: ["admin", "user"] },
   artikel:                { lesen: ["admin", "user"], schreiben: ["admin"], loeschen: ["admin"] },
@@ -363,6 +368,39 @@ export const FELGE_LABEL: Record<Felge, string> = {
 
 export const FELGEN: Felge[] = ["stahl", "alu", "keine"];
 
+// ---------------------------------------------------------------- Lager: Reifenverkauf (Migration 61)
+//
+// Neu oder gebraucht – dieselben zwei Werte als Prüfregel in der Datenbank
+// (`verkaufsreifen_zustand_bekannt`). Jeder Zustand hat seinen Artikel: Ein neuer Reifen darf
+// nur auf „Reifen neu" stehen, ein gebrauchter nur auf „Reifen gebraucht" – das prüft die
+// Datenbank (`position_verkaufsreifen_pruefen`), hier steht nur die Zuordnung zum Nachschlagen.
+export const REIFEN_ZUSTAENDE: ReifenZustand[] = ["neu", "gebraucht"];
+
+export const REIFEN_ZUSTAND_LABEL: Record<ReifenZustand, string> = {
+  neu: "Neu",
+  gebraucht: "Gebraucht",
+};
+
+export const REIFENVERKAUF_ART: Record<ReifenZustand, Article["abrechnungsart"]> = {
+  neu: "reifenverkauf_neu",
+  gebraucht: "reifenverkauf_gebraucht",
+};
+
+// Die Abrechnungsarten im Artikelstamm, in der Reihenfolge der Auswahlknöpfe.
+export const ABRECHNUNGSARTEN: Article["abrechnungsart"][] = ["normal", "lagergebuehr", "reifenverkauf_neu", "reifenverkauf_gebraucht"];
+
+export const ABRECHNUNGSART_LABEL: Record<Article["abrechnungsart"], string> = {
+  normal: "Wenn erbracht",
+  lagergebuehr: "Lagergebühr (Monate)",
+  reifenverkauf_neu: "Reifenverkauf neu",
+  reifenverkauf_gebraucht: "Reifenverkauf gebraucht",
+};
+
+// Ab wann ein NEUREIFEN als alt gilt. Drei Jahre ist die übliche Grenze, bis zu der ein Reifen
+// im Handel als „neu" durchgeht; danach gehört es dem Kunden gesagt. Für gebrauchte gilt die
+// Grenze der Einlagerung (`DOT_ALT_JAHRE`).
+export const NEUREIFEN_ALT_JAHRE = 3;
+
 // Grenzwerte für die Profiltiefe in Millimetern.
 //
 // 1,6 mm ist das gesetzliche Minimum für Sommerreifen – darunter darf ein Reifen nicht mehr
@@ -425,6 +463,7 @@ export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
   contact_history: "Kontakteintrag",
   tire_storage: "Einlagerung",
   eingelagerte_raeder: "Einzelnes Rad",
+  verkaufsreifen: "Verkaufsreifen",
   storage_slots: "Lagerplatz",
   warehouses: "Lager",
   articles: "Artikel",
@@ -500,6 +539,12 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   // Migration 56: der eine Eintrag, der nach dem endgültigen Löschen eines Kunden übrig bleibt.
   endgueltig_geloescht: "endgültig gelöscht (DSGVO)",
   tire_storage_id: "Einlagerung", braucht_lagerplatz: "braucht Lagerplatz (bis Migration 46)",
+  // Reifenverkauf (Migration 61)
+  zustand: "Zustand", breite: "Breite", querschnitt: "Querschnitt", zoll: "Zoll",
+  kennung: "Last-/Geschwindigkeitsindex", hersteller: "Hersteller", modell: "Modell", dot: "DOT",
+  runflat: "Runflat", xl: "XL (verstärkt)", eprel: "EPREL-Nummer", preis_netto: "Verkaufspreis netto",
+  ek_netto: "Einkaufspreis netto", bestand: "Bestand", reserviert: "reserviert", verkauft: "verkauft",
+  verkaufsreifen_id: "Reifen aus dem Lager",
   // Betrieb: der Briefkopf (Migration 38/48). Er steht im Protokoll, weil er auf jeder
   // Rechnung landet – „warum steht auf den Rechnungen seit gestern eine andere IBAN" ist
   // genau die Frage, für die es das Protokoll gibt.

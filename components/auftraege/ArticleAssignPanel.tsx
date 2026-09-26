@@ -1,6 +1,20 @@
 import { useState } from "react";
-import type { Article, ArticlePrice, OrderArticle } from "@/lib/types";
+import type { Article, ArticlePrice, OrderArticle, ReifenZustand, StorageSlot, Verkaufsreifen, Warehouse } from "@/lib/types";
 import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
+import { reifenFrei, reifenZustandVonArtikel } from "@/lib/reifenverkauf";
+import { ReifenSuche } from "./ReifenSuche";
+
+// Was der Reifenverkauf (Migration 61) im Auftrag braucht. Fehlt es (kein Leserecht auf
+// „Lager · Reifenverkauf", Bestand noch nicht geladen), gibt es den Knopf nicht – ein Artikel
+// „Reifen neu" lässt sich dann wie jede Leistung eintragen, ohne Lagerbezug.
+export type ReifenImAuftrag = {
+  verkaufsreifen: Verkaufsreifen[];
+  warehouses: Warehouse[];
+  storageSlots: StorageSlot[];
+  // Die Reifengröße des Fahrzeugs am Auftrag, für die Suche vorbelegt.
+  vorschlag: string;
+  onHinzufuegen: (posten: Verkaufsreifen, artikelId: string, menge: number) => Promise<void>;
+};
 
 // Leistungen/Artikel-Zuordnung zu einem Auftrag: Liste bereits zugeordneter Positionen (Menge,
 // Endpreis je Position, Listenpreis als Schnappschuss vom Zuordnungszeitpunkt) plus eine
@@ -17,8 +31,13 @@ import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert 
 // Blatt mit Suche – ein Tipp legt sie mit Menge 1 an. Bei einer freien Position (Migration 50)
 // klappt die Zeile von selbst auf, solange ihr Text fehlt: Auf der Rechnung stünde sonst
 // „Sonstiges".
-export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove }: {
+//
+// Seit Migration 61: „Reifen aus dem Lager" öffnet die Reifensuche (ReifenSuche.tsx). Dieselbe
+// Suche öffnet sich, wenn im Leistungsblatt ein Artikel mit der Abrechnungsart Reifenverkauf
+// gewählt wird – der Artikel allein wüsste weder Preis noch Reifen.
+export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove }: {
   orderId: string;
+  reifen?: ReifenImAuftrag | null;
   articles: Article[];
   // Die Preishistorie, um zum gewählten Artikel den heute gültigen Listenpreis ZU ZEIGEN.
   // Gerechnet wird damit hier nicht – den Schnappschuss macht `insertOrderArticle` beim
@@ -47,6 +66,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   const [suche, setSuche] = useState("");
   const [fuegtHinzu, setFuegtHinzu] = useState<string | null>(null);
   const [offeneZeile, setOffeneZeile] = useState<string | null>(null);
+  // undefined = zu; null = alle Zustände; sonst nur neue bzw. gebrauchte
+  const [reifenSuche, setReifenSuche] = useState<ReifenZustand | null | undefined>(undefined);
   const totals = orderArticleTotals(rows, rechnungNoetig);
   const preisVon = (id: string) => currentArticlePrice(articlePrices.filter((p) => p.article_id === id));
 
@@ -65,6 +86,13 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
 
   async function hinzufuegen(a: Article) {
     if (fuegtHinzu) return;
+    const zustand = reifenZustandVonArtikel(a);
+    if (zustand && reifen) {
+      setBlattOffen(false);
+      setSuche("");
+      setReifenSuche(zustand);
+      return;
+    }
     setFuegtHinzu(a.id);
     try {
       await onAdd(orderId, a.id, 1, null, null);
@@ -90,9 +118,18 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
         // aber es ist nicht gemeint – gefragt wird, gesperrt nicht.
         const textFehlt = !!art?.freitext && !r.note?.trim();
         const offen = !gesperrt && (offeneZeile === r.id || textFehlt);
+        // Reifen aus dem Lager (Migration 61): wo sie liegen – der Techniker holt sie dort ab –
+        // und ob noch einer mehr frei wäre. Entscheiden tut das beim Ändern die Datenbank.
+        const posten = r.verkaufsreifen_id ? reifen?.verkaufsreifen.find((v) => v.id === r.verkaufsreifen_id) ?? null : null;
+        const ort = posten
+          ? [reifen?.warehouses.find((w) => w.id === posten.warehouse_id)?.name,
+             reifen?.storageSlots.find((sl) => sl.id === posten.storage_slot_id)?.code].filter(Boolean).join(" · ")
+          : "";
+        const keinerMehrFrei = !!posten && reifenFrei(posten) === 0;
         const info = [
           `${formatEUR(r.net_price)} / ${art?.einheit?.trim() || "Stk."}`,
           r.endpreis_netto != null ? "Sonderpreis" : null,
+          r.verkaufsreifen_id ? (gesperrt ? "aus dem Lager, abgebucht" : `aus dem Lager${ort ? ` (${ort})` : ""}`) : null,
         ].filter(Boolean).join(" · ");
         return (
           <div key={r.id} className={"ls-zeile" + (offen ? " offen" : "")}>
@@ -109,7 +146,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                 <span className="ls-stepper">
                   <button type="button" aria-label="Eins weniger" disabled={r.quantity <= 1} onClick={() => void onUpdateQty(r.id, r.quantity - 1)}>−</button>
                   <b>{r.quantity}</b>
-                  <button type="button" aria-label="Eins mehr" onClick={() => void onUpdateQty(r.id, r.quantity + 1)}>+</button>
+                  <button type="button" aria-label="Eins mehr" disabled={keinerMehrFrei} title={keinerMehrFrei ? "Von diesem Reifen ist keiner mehr frei." : undefined}
+                    onClick={() => void onUpdateQty(r.id, r.quantity + 1)}>+</button>
                 </span>
               )}
               <span className="ls-summe">
@@ -171,7 +209,10 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
       ) : activeArticles.length === 0 ? (
         <div className="small ls-hinweis">Noch keine Artikel im Artikelstamm angelegt (Artikel → + Artikel).</div>
       ) : (
-        <button type="button" className="dm-plus" onClick={() => setBlattOffen(true)}>+ Leistung hinzufügen</button>
+        <div className="ls-plus">
+          <button type="button" className="dm-plus" onClick={() => setBlattOffen(true)}>+ Leistung hinzufügen</button>
+          {reifen && <button type="button" className="dm-plus" onClick={() => setReifenSuche(null)}>+ Reifen aus dem Lager</button>}
+        </div>
       )}
 
       {rows.length > 0 && (
@@ -210,15 +251,28 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                 <button key={a.id} type="button" className="ab-option ls-artikel" disabled={!!fuegtHinzu} onClick={() => void hinzufuegen(a)}>
                   <span className="ab-text ls-artikel-text">
                     <b>{a.short_name}</b>
-                    <span className="small">{a.freitext ? "Bezeichnung wird am Auftrag eingegeben" : a.long_name}</span>
+                    <span className="small">{a.freitext ? "Bezeichnung wird am Auftrag eingegeben" : reifenZustandVonArtikel(a) && reifen ? "öffnet die Reifensuche im Lager" : a.long_name}</span>
                   </span>
-                  <span className="ls-artikel-preis">{preis ? formatEUR(preis.net_price) : a.freitext ? "frei" : "–"}</span>
+                  <span className="ls-artikel-preis">{preis ? formatEUR(preis.net_price) : a.freitext ? "frei" : reifenZustandVonArtikel(a) ? "vom Reifen" : "–"}</span>
                   <span className="ls-artikel-plus" aria-hidden="true">{fuegtHinzu === a.id ? "…" : "+"}</span>
                 </button>
               );
             })}
           </div>
         </div>
+      )}
+      {reifen && reifenSuche !== undefined && (
+        <ReifenSuche
+          verkaufsreifen={reifen.verkaufsreifen}
+          articles={articles}
+          warehouses={reifen.warehouses}
+          storageSlots={reifen.storageSlots}
+          vorschlag={reifen.vorschlag}
+          nurZustand={reifenSuche}
+          onHinzufuegen={reifen.onHinzufuegen}
+          onOhneLager={(artikelId) => onAdd(orderId, artikelId, 1, null, null)}
+          onClose={() => setReifenSuche(undefined)}
+        />
       )}
     </div>
   );

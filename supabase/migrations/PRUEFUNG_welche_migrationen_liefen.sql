@@ -74,8 +74,11 @@ with pruefungen(nr, was, vorhanden) as (
     ('41', 'Techniker darf bearbeiten',         exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
                                                         where n.nspname = 'public' and p.proname = 'restrict_techniker_order_update'
                                                           and p.prosrc like '%gesperrt%')
+                                              -- Migration 42 ersetzt diese Richtlinie durch die Bereichsrechte;
+                                              -- danach zählt deren Richtlinie (sonst stand hier fälschlich NEIN).
                                               and exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'order_articles'
-                                                           and policyname = 'Techniker verwaltet Artikel eigener Auftraege')),
+                                                           and policyname in ('Techniker verwaltet Artikel eigener Auftraege',
+                                                                              'Bereich auftraege leistungen lesen'))),
     ('42', 'Rechte lesen/schreiben/loeschen',    exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'module_permissions' and column_name = 'delete_roles')
                                               and to_regprocedure('public.darf(text,text)') is not null
                                               and to_regprocedure('public.pruefe_loeschrecht()') is not null
@@ -96,7 +99,21 @@ with pruefungen(nr, was, vorhanden) as (
                                               and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'kundennummer')),
     ('49', 'Rechnung haengt am Auftrag',        to_regprocedure('public.rechnung_am_auftrag()') is not null
                                               and exists (select 1 from pg_trigger where tgname = 'trg_rechnung_am_auftrag')),
-    ('50', 'Freie Position (Freitext)',        exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'articles' and column_name = 'freitext'))
+    ('50', 'Freie Position (Freitext)',        exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'articles' and column_name = 'freitext')),
+    ('53', 'Laufkundschaft',                   exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'laufkundschaft')),
+    ('54', 'Stornogrund an der Rechnung',      exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'rechnungen' and column_name = 'storno_grund')),
+    ('55', 'Lager-Sperre, Nummernkreis, Abendhinweis', to_regclass('public.push_abendhinweis') is not null
+                                                  and to_regprocedure('public.pruefe_rechnungsnummernkreis()') is not null),
+    ('56', 'Protokoll schwaerzen, Papierkorb', to_regprocedure('public.kunde_endgueltig_loeschen(uuid)') is not null
+                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'audit_log' and column_name = 'geschwaerzt_am')),
+    ('57', 'Laufkunde am Auftrag, Einmalkunde', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'einmalkunde')
+                                                  and to_regprocedure('public.pruefe_laufkunde()') is not null),
+    ('58', 'Reifen mitnehmen abhaken',         to_regclass('public.mitnehmen_gepackt') is not null),
+    ('59', 'DATEV-Export (Einstellungen)',     exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'betrieb' and column_name = 'datev_berater')),
+    ('60', 'Testkunden, Neuigkeiten',          exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'testkunde')
+                                                  and to_regprocedure('public.testkunde_loeschen(uuid)') is not null),
+    ('61', 'Reifenverkauf aus dem Lager',      to_regclass('public.verkaufsreifen') is not null
+                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'verkaufsreifen_id'))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

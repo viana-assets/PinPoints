@@ -56,6 +56,9 @@ ausgerechnet), `note` (Rechnungstext – bei einem Freitext-Artikel, `articles.f
 Migration 50, die Bezeichnung selbst; sonst eine Zusatzzeile darunter), `deleted_at`
 (Soft-Delete). Eingefroren wird die ganze Tabelle je Auftrag durch einen Datenbank-Trigger
 (Migration 20), sobald `orders.status` `erledigt` oder `storniert` ist – siehe Abschnitt 8b.
+Seit Migration 61 kann eine Position `verkaufsreifen_id` tragen: Reifen aus dem Lager, die mit
+der Position reserviert und beim Abschließen abgebucht werden („+ Reifen aus dem Lager" im
+Auftragsfenster, Einzelheiten in `lager.md`, „Reifenverkauf").
 
 **`auftrag_fahrzeuge`** (Migration 44, `id`, `order_id`, `vehicle_id`, `kilometerstand`,
 `created/updated_at/by`, `unique(order_id, vehicle_id)`): welche Fahrzeuge ein Auftrag betrifft,
