@@ -492,7 +492,13 @@ export default function HomePage() {
     return neuLaden(...(selectedId ? [qk.auftraegeAlle(), qk.kundeAuftraege(selectedId)] : [qk.auftraegeAlle()]));
   }
 
-  const [mobileMapVisible, setMobileMapVisible] = useState(false);
+  // Handy: Karte statt Liste. Gemerkt MIT dem Reiter, in dem sie aufging – ein Wechsel über die
+  // untere Leiste zeigt damit wieder die Seite und nicht weiter die Karte. Vorher ein bloßes
+  // Ja/Nein: Solange die Leiste hinter der offenen Karte lag (bis v79), fiel das nie auf; seit
+  // sie sichtbar ist, blieb nach jedem Tipp darauf die Karte stehen, und auf Seiten ohne Karte
+  // (Aufträge, Einsatzplanung …) gab es keinen Knopf mehr zurück (gemeldet 26.09.2026).
+  const [karteOffenIn, setKarteOffenIn] = useState<TabKey | null>(null);
+  const mobileMapVisible = karteOffenIn === tab;
   // Wie viele Kunden im aktuellen Ausschnitt nicht gezeichnet wurden, weil die Marker-Grenze
   // erreicht war – daraus wird der Hinweis auf der Karte gespeist.
   // Was die Karte gerade zeigt – für die Zeile unter den Pillen (ausschnittText).
@@ -2416,7 +2422,7 @@ export default function HomePage() {
     // Kein invalidateSize() auf Verdacht mehr: die Karte wechselt hier von display:none auf
     // sichtbar, das ist eine echte Größenänderung, und der ResizeObserver weiter oben meldet
     // sie zuverlässiger als ein geschätzter Timer.
-    setMobileMapVisible((v) => !v);
+    setKarteOffenIn((v) => (v === tab ? null : tab));
   }
 
   // Popover-Menüs (Anrufen, Navigation, Mitarbeiter-Zuordnung) dürfen nie unten aus dem
@@ -2602,7 +2608,9 @@ export default function HomePage() {
               <NavItem
                 className={m.primaer ? undefined : "nav-secondary"}
                 active={tab === m.tab}
-                onClick={() => setTab(m.tab)}
+                // Auch ein Tipp auf den Reiter, in dem man schon ist, schließt die Karte am Handy:
+                // „Kunden" antippen heißt dort „zur Liste".
+                onClick={() => { setKarteOffenIn(null); setTab(m.tab); }}
                 icon={<m.Icon />}
                 label={m.label}
               />
@@ -2610,7 +2618,7 @@ export default function HomePage() {
           );
         })}
 
-        <NavItem className="nav-more-btn" active={isMoreActive} onClick={() => setTab("more")} icon={<IconMore />} label="Weitere" />
+        <NavItem className="nav-more-btn" active={isMoreActive} onClick={() => { setKarteOffenIn(null); setTab("more"); }} icon={<IconMore />} label="Weitere" />
       </nav>
 
       <div

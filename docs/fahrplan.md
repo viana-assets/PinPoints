@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.09.2026 – Handy: zurück aus der Karte (Service Worker v80).** Seit v79 ist die untere
+  Leiste bei offener Karte sichtbar; die Karte blieb aber beim Tippen darauf stehen und
+  überdeckte jede Seite. Der Zustand „Karte offen" wird jetzt mit dem Reiter gemerkt
+  (`karteOffenIn`), und ein Tipp auf die Leiste schließt die Karte.
+
 * **26.09.2026 – Karte und Nadeln neu (Entwurf W, Service Worker v79, keine Migration).**
   Nadeln aus einer Quelle (`components/karte/nadel.ts`, Farben als Tokens in `globals.css`),
   Terminnadeln mit Uhrzeit; Zustände als Pillen mit Anzahl statt des Schalters „Nadeln";
