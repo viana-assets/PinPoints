@@ -129,8 +129,8 @@ viana-pinpoints/
                                        Abrechnungsart/Einheit/Freitext-Schalter
     auftraege/
       AuftraegePanel.tsx             Tab "Aufträge & Termine" (Übersicht, Klick öffnet das Fenster)
-      AuftragModal.tsx               Das Auftragsfenster in Karten, Blätter für Termin & Team,
-                                     Menü „⋯", Fuß mit der Handlung, die dran ist (Entwurf N;
+      AuftragModal.tsx               Das Auftragsfenster in Karten (Termin & Team offen in der
+                                     Karte seit v87), Menü „⋯", Fuß mit der Handlung, die dran ist (Entwurf N;
                                      siehe docs/auftraege.md)
       OrderModal.tsx                 Neuen Auftrag anlegen (aus dem Aufträge-Tab)
       ArticleAssignPanel.tsx         Leistungen am Auftrag: −/+ je Zeile, Endpreis/Text

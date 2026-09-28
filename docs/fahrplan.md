@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **28.09.2026 – Auftrag: Termin & Team offen (Service Worker v87).** Datum, von–bis,
+  Mitarbeiter und Transporter stehen direkt in der Karte statt im Blatt hinter „Ändern" – dort
+  wurden sie beim Anlegen vergessen. Speichern im Kopf oder unter der Karte.
+
 * **26.09.2026 – Reifenverkauf aus dem Lager (Migration 61, Service Worker v86).** Neue und
   gebrauchte Reifen und Kompletträder als eigener Bestand (`verkaufsreifen`), Lager-Reiter
   „Verkauf", im Auftrag „+ Reifen aus dem Lager" mit Suche beim Tippen und Vorbelegung aus der

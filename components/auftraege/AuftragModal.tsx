@@ -32,8 +32,9 @@ import { auftragsNr } from "@/lib/testkunde";
 // nur an, was gerade möglich ist.
 //
 // Seit 26.09.2026 (Entwurf N) in Karten: oben wer, wann, wo (mit Navigation und Anruf), darunter
-// was für den Abschluss fehlt, Team & Transporter, Fahrzeug, Leistungen, Rechnung, Reifen,
-// Notiz. Termin und Team werden in einem Blatt geändert („Übernehmen" speichert), der Fuß trägt
+// was für den Abschluss fehlt, Termin & Team, Fahrzeug, Leistungen, Rechnung, Reifen,
+// Notiz. Termin und Team stehen seit v87 (28.09.2026) direkt in ihrer Karte statt in einem
+// eigenen Blatt – hinter „Ändern" wurden sie vergessen. Gespeichert wird oben, der Fuß trägt
 // genau die eine Handlung, die im jeweiligen Zustand dran ist. Seltenes – Stornieren, Löschen,
 // Wiedereröffnen, Historie – steht im Menü „⋯".
 export function AuftragModal({
@@ -431,32 +432,21 @@ export function AuftragModal({
     onClose();
   }
 
-  // ---------------------------------------------------------------- Blätter
-  // „Termin & Team" ändert den Entwurf. Beim Öffnen wird der Stand gemerkt: Wer das Blatt
-  // ohne „Übernehmen" schließt, bekommt ihn zurück – sonst trüge das Fenster Änderungen, die
-  // man eben verworfen zu haben glaubt.
-  const [terminOffen, setTerminOffen] = useState(false);
-  const terminStand = useRef<{ datum: string; zeit: string; zeitBis: string; ende: boolean; ma: string[]; ff: string } | null>(null);
+  // ---------------------------------------------------------------- Termin & Team
+  // Bis v86 lagen Datum, Uhrzeit, Mitarbeiter und Transporter in einem eigenen Blatt hinter
+  // „Ändern" – mit dem Ergebnis, dass sie beim Anlegen vergessen wurden (gemeldet 28.09.2026).
+  // Jetzt stehen sie offen in ihrer Karte und gehören zum Entwurf wie Titel und Notiz: ein
+  // Fenster, ein Speicherpunkt. Wer oben auf den Termin tippt oder im Menü „Termin & Team"
+  // wählt, landet in der Karte, mit dem Cursor in der Uhrzeit.
   const [menueOffen, setMenueOffen] = useState(false);
   const protokollRef = useRef<HTMLDivElement>(null);
+  const terminRef = useRef<HTMLDivElement>(null);
+  const zeitRef = useRef<HTMLInputElement>(null);
 
-  function terminOeffnen() {
+  function zumTermin() {
     if (gesperrt) return;
-    terminStand.current = { datum, zeit, zeitBis, ende: endeVorgeschlagen, ma: mitarbeiterIds, ff: firmenfahrzeugId };
-    setTerminOffen(true);
-  }
-  function terminVerwerfen() {
-    const st = terminStand.current;
-    if (st) {
-      setDatum(st.datum); setZeit(st.zeit); setZeitBis(st.zeitBis); setEndeVorgeschlagen(st.ende);
-      setMitarbeiterIds(st.ma); setFirmenfahrzeugId(st.ff);
-    }
-    setTerminOffen(false);
-  }
-  async function terminUebernehmen() {
-    await speichern();
-    terminStand.current = null;
-    setTerminOffen(false);
+    terminRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    zeitRef.current?.focus({ preventScroll: true });
   }
 
   // Ein Zustandswechsel mit ungespeichertem Entwurf speichert ihn vorher. Bis zum 26.09.2026
@@ -464,7 +454,7 @@ export function AuftragModal({
   // Speichern-Knopf verschwand, und die Änderung war still verloren.
   async function erstSpeichern(): Promise<boolean> {
     if (!geaendert || gesperrt) return true;
-    if (zeitFehlt || endeVorAnfang) { terminOeffnen(); return false; }
+    if (zeitFehlt || endeVorAnfang) { zumTermin(); return false; }
     await speichern();
     return true;
   }
@@ -516,7 +506,7 @@ export function AuftragModal({
 
   type MenuePunkt = "termin" | "wieder" | "rechnung" | "historie" | "storno" | "loeschen";
   const menue: { key: MenuePunkt; text: string; info?: string; gefahr?: boolean; aus?: boolean }[] = [];
-  if (!gesperrt && feldeAendern) menue.push({ key: "termin", text: "Termin & Team ändern", info: "Datum, von–bis, Mitarbeiter, Transporter" });
+  if (!gesperrt && feldeAendern) menue.push({ key: "termin", text: "Termin & Team", info: "Datum, von–bis, Mitarbeiter, Transporter" });
   if (gesperrt) {
     menue.push(darfWiedereroeffnen
       ? { key: "wieder", text: "Wiedereröffnen", info: "mit Grund" }
@@ -540,7 +530,7 @@ export function AuftragModal({
       return;
     }
     setMenueOffen(false);
-    if (k === "termin") terminOeffnen();
+    if (k === "termin") zumTermin();
     else if (k === "wieder") setWiederOffen(true);
     else if (k === "rechnung") onRechnungOeffnen?.(order.id);
     else if (k === "historie") protokollRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -599,9 +589,9 @@ export function AuftragModal({
         <div className="ao-inhalt">
           {frischAngelegt && (
             <div className="auftrag-hinweis ao-hinweis">
-              Angelegt mit heutigem Datum und dem Titel &bdquo;{order.title}&ldquo;. Termin & Team,
-              Fahrzeug und Leistungen jetzt eintragen – Termin & Team mit &bdquo;Übernehmen&ldquo;,
-              alles andere oben mit &bdquo;Speichern&ldquo;.
+              Angelegt mit heutigem Datum und dem Titel &bdquo;{order.title}&ldquo;. Uhrzeit, Team,
+              Fahrzeug und Leistungen jetzt eintragen und oben &bdquo;Speichern&ldquo; – Leistungen und
+              Fahrzeuge stehen sofort.
             </div>
           )}
 
@@ -609,7 +599,7 @@ export function AuftragModal({
           <div className="ao-wer">
             <div className="ao-wer-kopf">
               <span className={"ao-status " + statusKlasse}>{ORDER_STATUS_LABEL[order.status]}</span>
-              <button type="button" className="ao-termin" disabled={gesperrt || !feldeAendern} onClick={terminOeffnen}>
+              <button type="button" className="ao-termin" disabled={gesperrt || !feldeAendern} onClick={zumTermin}>
                 {terminText}{!gesperrt && feldeAendern ? " ›" : ""}
               </button>
             </div>
@@ -702,36 +692,131 @@ export function AuftragModal({
             )}
           </div>
 
-          {/* ---------------------------------------------------------------- Team */}
-          {/* Zwei Dinge in einer Karte, weil sie zusammen entschieden werden: wer fährt, und
-              womit. Das Auto des Kunden steht darunter getrennt – beides heißt „Fahrzeug", ist
-              aber etwas anderes, und genau deshalb gibt es zwei Tabellen. */}
-          <div className="db-karte ao-karte">
+          {/* ---------------------------------------------------------------- Termin & Team */}
+          {/* Wann, wer und womit – in einer Karte, weil sie zusammen entschieden werden. Das Auto
+              des Kunden steht darunter getrennt: Beides heißt „Fahrzeug", ist aber etwas anderes,
+              und genau deshalb gibt es zwei Tabellen. Seit v87 offen statt in einem Blatt. */}
+          <div ref={terminRef} className="db-karte ao-karte ao-team">
             <div className="db-karte-kopf">
-              <span className="db-karte-titel">Team &amp; Transporter</span>
-              {!gesperrt && feldeAendern && <button type="button" className="db-link" onClick={terminOeffnen}>Ändern</button>}
+              <span className="db-karte-titel">Termin &amp; Team</span>
             </div>
-            <div className="ao-chips">
-              {zugeteilt.length === 0 && <span className="ao-chip leer">niemand zugeteilt</span>}
-              {zugeteilt.map((m) => (
-                <span key={m.id} className="ao-chip ma" style={{ background: employeeColorFor(employees, m.id) }}>{m.name}</span>
-              ))}
-              <span className="ao-chip-trenner" aria-hidden="true" />
-              <span className="ao-chip">🚐 {firmenfahrzeugText(firmenfahrzeugId || null) || "kein Transporter"}</span>
-            </div>
-            {doppelt.length > 0 && (
-              <div className="doppelbuchung" role="status">
-                <b>Überschneidung – kein Hindernis:</b>
-                <ul>
-                  {doppeltMitarbeiter.map((u) => <li key={`${u.auftrag.id}-${u.werId}`}>{doppeltText(u)}</li>)}
-                  {doppeltFahrzeug.map((u) => <li key={`f-${u.auftrag.id}`}>{doppeltText(u)}</li>)}
-                </ul>
-              </div>
+            {gesperrt || !feldeAendern ? (
+              <>
+                <span className="small">{terminText}</span>
+                <div className="ao-chips">
+                  {zugeteilt.length === 0 && <span className="ao-chip leer">niemand zugeteilt</span>}
+                  {zugeteilt.map((m) => (
+                    <span key={m.id} className="ao-chip ma" style={{ background: employeeColorFor(employees, m.id) }}>{m.name}</span>
+                  ))}
+                  <span className="ao-chip-trenner" aria-hidden="true" />
+                  <span className="ao-chip">🚐 {firmenfahrzeugText(firmenfahrzeugId || null) || "kein Transporter"}</span>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Von–bis statt einer einzelnen Uhrzeit (Migration 37): Ein Mensch sagt „von acht
+                    bis halb zehn" und nicht „um acht für neunzig Minuten". */}
+                <div className="ao-termin-felder">
+                  <label className="nk-feld"><span>Datum</span>
+                    <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
+                  </label>
+                  <label className="nk-feld"><span>Von</span>
+                    <input ref={zeitRef} type="time" value={zeit} onChange={(e) => anfangAendern(e.target.value)} aria-invalid={zeitFehlt} className={zeitFehlt ? "feld-fehlt" : undefined} />
+                  </label>
+                  <label className="nk-feld"><span>Bis (optional)</span>
+                    <input type="time" value={zeitBis} onChange={(e) => endeAendern(e.target.value)} aria-invalid={endeVorAnfang} className={endeVorAnfang ? "feld-fehlt" : undefined} />
+                  </label>
+                </div>
+                {endeVorAnfang && (
+                  <div className="hinweis-pflicht">
+                    Das Ende liegt vor dem Anfang. Termine über Mitternacht kennt der Kalender nicht –
+                    so ein Auftrag gehört auf zwei Tage aufgeteilt.
+                  </div>
+                )}
+                {!zeitBis.trim() && !!zeit.trim() && (
+                  <span className="small">Ohne „bis“ rechnet der Kalender mit {terminIntervallMin || STANDARD_DAUER_MIN} Minuten und zeichnet die Unterkante gestrichelt.</span>
+                )}
+                {zeitFehlt && (
+                  <div className="hinweis-pflicht">
+                    Ohne Uhrzeit lässt sich der Auftrag nicht speichern. Wird sie jetzt nicht
+                    festgehalten, muss der Kunde später noch einmal angerufen werden.
+                  </div>
+                )}
+
+                <span className="op-gruppe-titel">MITARBEITER</span>
+                {/* Die Einteilung bleibt beim Büro – `order_employees` lässt einen Techniker per RLS
+                    nur lesen (Migration 15). Wer sich selbst Aufträge zuteilen kann, teilt sich
+                    auch fremde zu. */}
+                {isTechniker ? (
+                  <span className="small">{zugeteilt.map((e) => e.name).join(", ") || "– niemand zugeordnet –"} · die Einteilung macht das Büro</span>
+                ) : employees.length === 0 ? (
+                  <span className="small">Noch keine Mitarbeiter angelegt (Admin → Mitarbeiter).</span>
+                ) : (
+                  <div className="ao-wahl">
+                    {employees.map((m) => {
+                      const an = mitarbeiterIds.includes(m.id);
+                      return (
+                        <button key={m.id} type="button" className={"ao-wahl-chip" + (an ? " an" : "")} aria-pressed={an}
+                          onClick={() => setMitarbeiterIds(an ? mitarbeiterIds.filter((x) => x !== m.id) : [...mitarbeiterIds, m.id])}>
+                          <span className="ao-wahl-punkt" style={{ background: employeeColorFor(employees, m.id) }} />
+                          {m.name}{an ? " ✓" : ""}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {doppeltMitarbeiter.length > 0 && (
+                  <div className="doppelbuchung" role="status">
+                    <b>Überschneidung – kein Hindernis:</b>
+                    <ul>{doppeltMitarbeiter.map((u) => <li key={`${u.auftrag.id}-${u.werId}`}>{doppeltText(u)}</li>)}</ul>
+                  </div>
+                )}
+
+                <span className="op-gruppe-titel">TRANSPORTER</span>
+                {/* Techniker sehen die Einteilung, ändern dürfen sie sie nicht – das macht das Büro,
+                    und die Datenbank erzwingt es (Migration 32). */}
+                {isTechniker ? (
+                  <span className="small">{firmenfahrzeugText(firmenfahrzeugId || null) || "– nicht eingeteilt –"}</span>
+                ) : aktiveFirmenfahrzeuge.length === 0 && !firmenfahrzeugId ? (
+                  <span className="small">Es sind noch keine Transporter angelegt (Admin → Transporter).</span>
+                ) : (
+                  <div className="ao-wahl">
+                    <button type="button" className={"ao-wahl-chip" + (!firmenfahrzeugId ? " an" : "")} aria-pressed={!firmenfahrzeugId} onClick={() => setFirmenfahrzeugId("")}>keiner</button>
+                    {aktiveFirmenfahrzeuge.map((f) => (
+                      <button key={f.id} type="button" className={"ao-wahl-chip" + (firmenfahrzeugId === f.id ? " an" : "")} aria-pressed={firmenfahrzeugId === f.id} onClick={() => setFirmenfahrzeugId(f.id)}>
+                        🚐 {firmenfahrzeugLabel(f)}
+                      </button>
+                    ))}
+                    {/* Ein inzwischen ausgemustertes Fahrzeug bleibt sichtbar, solange es an diesem
+                        Auftrag hängt – sonst verschwände die Angabe beim nächsten Speichern still. */}
+                    {firmenfahrzeugId && !aktiveFirmenfahrzeuge.some((f) => f.id === firmenfahrzeugId) && (
+                      <button type="button" className="ao-wahl-chip an" aria-pressed>{firmenfahrzeugText(firmenfahrzeugId)} (ausgemustert)</button>
+                    )}
+                  </div>
+                )}
+                {doppeltFahrzeug.length > 0 && (
+                  <div className="doppelbuchung" role="status">
+                    <b>Überschneidung – kein Hindernis:</b>
+                    <ul>{doppeltFahrzeug.map((u) => <li key={u.auftrag.id}>{doppeltText(u)}</li>)}</ul>
+                  </div>
+                )}
+              </>
             )}
             {/* Hinweis zur Terminerinnerung (docs/benachrichtigungen-plan.md): Sie geht an die
                 zugeordneten Mitarbeiter – und nur an die, deren Name mit einem Benutzerkonto
                 verknüpft ist. Die Lücke steht hier, im Moment des Einteilens. */}
             {zeit.trim() && erinnerungsHinweis && <span className="small">{erinnerungsHinweis}</span>}
+            {/* Derselbe Speicherpunkt wie oben im Kopf – hier, damit man nach dem Eintragen nicht
+                erst nach oben muss. */}
+            {geaendert && !gesperrt && (
+              <div className="ao-team-speichern">
+                <span className="small ao-ungespeichert">Noch nicht gespeichert</span>
+                <button type="button" className="am-mini" onClick={() => void speichern()} disabled={speichert || zeitFehlt || endeVorAnfang}
+                  title={zeitFehlt ? "Bitte zuerst eine Uhrzeit eintragen." : endeVorAnfang ? "Das Ende muss nach dem Anfang liegen." : undefined}>
+                  {speichert ? "Speichert …" : "Speichern"}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ---------------------------------------------------------------- Fahrzeug */}
@@ -976,108 +1061,6 @@ export function AuftragModal({
           </div>
         </div>
       </div>
-
-      {/* ---------------------------------------------------------------- Blatt: Termin & Team */}
-      {terminOffen && (
-        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); terminVerwerfen(); }}>
-          <div className="auswahl-blatt am-breit ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Termin und Team">
-            <div className="ab-griff" />
-            <div className="ar-blatt-kopf">
-              <div className="ab-titel">Termin &amp; Team</div>
-              <button type="button" className="modal-close" onClick={terminVerwerfen} aria-label="Schließen">×</button>
-            </div>
-            {/* Von–bis statt einer einzelnen Uhrzeit (Migration 37): Ein Mensch sagt „von acht
-                bis halb zehn" und nicht „um acht für neunzig Minuten". */}
-            <div className="ao-termin-felder">
-              <label className="nk-feld"><span>Datum</span>
-                <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
-              </label>
-              <label className="nk-feld"><span>Von</span>
-                <input type="time" value={zeit} onChange={(e) => anfangAendern(e.target.value)} aria-invalid={zeitFehlt} className={zeitFehlt ? "feld-fehlt" : undefined} />
-              </label>
-              <label className="nk-feld"><span>Bis (optional)</span>
-                <input type="time" value={zeitBis} onChange={(e) => endeAendern(e.target.value)} aria-invalid={endeVorAnfang} className={endeVorAnfang ? "feld-fehlt" : undefined} />
-              </label>
-            </div>
-            {endeVorAnfang && (
-              <div className="hinweis-pflicht">
-                Das Ende liegt vor dem Anfang. Termine über Mitternacht kennt der Kalender nicht –
-                so ein Auftrag gehört auf zwei Tage aufgeteilt.
-              </div>
-            )}
-            {!zeitBis.trim() && !!zeit.trim() && (
-              <span className="small">Ohne „bis“ rechnet der Kalender mit {terminIntervallMin || STANDARD_DAUER_MIN} Minuten und zeichnet die Unterkante gestrichelt.</span>
-            )}
-            {zeitFehlt && (
-              <div className="hinweis-pflicht">
-                Ohne Uhrzeit lässt sich der Auftrag nicht speichern. Wird sie jetzt nicht
-                festgehalten, muss der Kunde später noch einmal angerufen werden.
-              </div>
-            )}
-
-            <span className="op-gruppe-titel">MITARBEITER</span>
-            {/* Die Einteilung bleibt beim Büro – `order_employees` lässt einen Techniker per RLS
-                nur lesen (Migration 15). Wer sich selbst Aufträge zuteilen kann, teilt sich
-                auch fremde zu. */}
-            {isTechniker ? (
-              <span className="small">{zugeteilt.map((e) => e.name).join(", ") || "– niemand zugeordnet –"} · die Einteilung macht das Büro</span>
-            ) : employees.length === 0 ? (
-              <span className="small">Noch keine Mitarbeiter angelegt (Admin → Mitarbeiter).</span>
-            ) : (
-              <div className="ao-wahl">
-                {employees.map((m) => {
-                  const an = mitarbeiterIds.includes(m.id);
-                  return (
-                    <button key={m.id} type="button" className={"ao-wahl-chip" + (an ? " an" : "")} aria-pressed={an}
-                      onClick={() => setMitarbeiterIds(an ? mitarbeiterIds.filter((x) => x !== m.id) : [...mitarbeiterIds, m.id])}>
-                      <span className="ao-wahl-punkt" style={{ background: employeeColorFor(employees, m.id) }} />
-                      {m.name}{an ? " ✓" : ""}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {doppeltMitarbeiter.length > 0 && (
-              <div className="doppelbuchung" role="status">
-                <b>Überschneidung:</b>
-                <ul>{doppeltMitarbeiter.map((u) => <li key={`${u.auftrag.id}-${u.werId}`}>{doppeltText(u)}</li>)}</ul>
-              </div>
-            )}
-
-            <span className="op-gruppe-titel">TRANSPORTER</span>
-            {/* Techniker sehen die Einteilung, ändern dürfen sie sie nicht – das macht das Büro,
-                und die Datenbank erzwingt es (Migration 32). */}
-            {isTechniker ? (
-              <span className="small">{firmenfahrzeugText(firmenfahrzeugId || null) || "– nicht eingeteilt –"}</span>
-            ) : aktiveFirmenfahrzeuge.length === 0 && !firmenfahrzeugId ? (
-              <span className="small">Es sind noch keine Transporter angelegt (Admin → Transporter).</span>
-            ) : (
-              <div className="ao-wahl">
-                <button type="button" className={"ao-wahl-chip" + (!firmenfahrzeugId ? " an" : "")} aria-pressed={!firmenfahrzeugId} onClick={() => setFirmenfahrzeugId("")}>keiner</button>
-                {aktiveFirmenfahrzeuge.map((f) => (
-                  <button key={f.id} type="button" className={"ao-wahl-chip" + (firmenfahrzeugId === f.id ? " an" : "")} aria-pressed={firmenfahrzeugId === f.id} onClick={() => setFirmenfahrzeugId(f.id)}>
-                    🚐 {firmenfahrzeugLabel(f)}
-                  </button>
-                ))}
-                {/* Ein inzwischen ausgemustertes Fahrzeug bleibt sichtbar, solange es an diesem
-                    Auftrag hängt – sonst verschwände die Angabe beim nächsten Speichern still. */}
-                {firmenfahrzeugId && !aktiveFirmenfahrzeuge.some((f) => f.id === firmenfahrzeugId) && (
-                  <button type="button" className="ao-wahl-chip an" aria-pressed>{firmenfahrzeugText(firmenfahrzeugId)} (ausgemustert)</button>
-                )}
-              </div>
-            )}
-            {doppeltFahrzeug.length > 0 && (
-              <div className="doppelbuchung" role="status">
-                <b>Überschneidung:</b>
-                <ul>{doppeltFahrzeug.map((u) => <li key={u.auftrag.id}>{doppeltText(u)}</li>)}</ul>
-              </div>
-            )}
-            <button type="button" className="am-knopf" disabled={speichert || zeitFehlt || endeVorAnfang} onClick={() => void terminUebernehmen()}>
-              {speichert ? "Speichert …" : "Übernehmen"}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* ---------------------------------------------------------------- Blatt: Menü */}
       {menueOffen && (

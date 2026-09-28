@@ -3630,3 +3630,8 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
   .vk-groesse-marke{min-width:80px;padding:6px;}
   .vk-groesse-marke b{font-size:13.5px;}
 }
+
+/* Termin & Team offen in der Karte statt im Blatt (v87, 28.09.2026). */
+.ao-team{scroll-margin-top:8px;}
+.ao-team .op-gruppe-titel{padding:4px 2px 0;}
+.ao-team-speichern{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #f1ece2;padding-top:8px;}

@@ -122,9 +122,9 @@ scrollender Inhalt in Karten, fester Fuß `.ao-fuss` mit genau der Handlung, die
 grün „Bereit zum Abschließen".
 
 Der dunkle Kasten `.ao-wer` oben beantwortet wer, wann, wo – mit Navigation, Anrufen und
-„Kunde ›". Die Uhrzeit darin ist ein Knopf und öffnet das Blatt „Termin & Team" (Datum,
-von–bis, Mitarbeiter als farbige Wahlchips, Transporter). „Übernehmen" speichert; wer das Blatt
-ohne schließt, bekommt den vorherigen Stand zurück.
+„Kunde ›". Die Uhrzeit darin ist ein Knopf und springt in die Karte „Termin & Team" (Datum,
+von–bis, Mitarbeiter als farbige Wahlchips, Transporter) – seit v87 offen in der Karte statt in
+einem Blatt; gespeichert wird mit dem übrigen Entwurf.
 
 Stornieren, Wiedereröffnen, die Altreifen-Rückfrage und „Leistung hinzufügen" sind Blätter
 (`.auswahl-blatt`) statt aufklappender Fußzeilen oder `prompt()` – der Auftrag bleibt dahinter

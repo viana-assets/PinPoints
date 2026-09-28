@@ -342,9 +342,12 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
   wird: Uhrzeit, Fahrzeug und Saison am eingelagerten Satz, Name des Laufkunden und – bei
   „Rechnung nötig" – die Rechnungsangaben aus `rechnungsdatenMaengel()` (dieselbe Liste wie im
   Rechnungsblock). Eine Vorschau, kein Riegel: Der Knopf bleibt anklickbar.
-- **Termin & Team** ist ein Blatt: Datum, von–bis, Mitarbeiter, Transporter. „Übernehmen"
-  speichert den ganzen Entwurf; wer das Blatt ohne schließt, bekommt Datum, Zeiten, Mitarbeiter
-  und Transporter wie beim Öffnen zurück. Ein Techniker sieht Mitarbeiter und Transporter nur.
+- **Termin & Team** steht seit v87 (28.09.2026) offen in seiner Karte: Datum, von–bis,
+  Mitarbeiter und Transporter als Wahlchips, Überschneidungen und Erinnerungshinweis darunter.
+  Vorher lag es in einem Blatt hinter „Ändern" und wurde beim Anlegen vergessen. Die Angaben
+  gehören zum Entwurf und werden mit „Speichern" geschrieben – oben im Kopf oder am Fuß der Karte,
+  sobald etwas geändert ist. Der Termin oben im dunklen Kasten und „Termin & Team" im Menü
+  springen in die Karte. Ein Techniker sieht Mitarbeiter und Transporter nur.
 - **Leistungen** mit −/+ je Zeile; Endpreis und Rechnungstext klappen darunter auf. Neue
   Leistungen kommen aus einem Blatt mit Suche und werden mit Menge 1 angelegt.
 - **Der Fuß** trägt die eine Handlung, die dran ist. Stornieren, Löschen/Verwerfen,
@@ -352,8 +355,8 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
   Altreifen-Rückfrage sind Blätter.
 - **Neu: Ein Zustandswechsel speichert vorher den Entwurf.** Bis zum 26.09.2026 blieb eine
   ungespeicherte Änderung beim Abschließen einfach liegen – danach war der Auftrag gesperrt,
-  der Speichern-Knopf weg und die Änderung still verloren. Fehlt dabei die Uhrzeit, öffnet sich
-  statt des Wechsels das Blatt „Termin & Team".
+  der Speichern-Knopf weg und die Änderung still verloren. Fehlt dabei die Uhrzeit, springt das
+  Fenster statt des Wechsels in die Karte „Termin & Team".
 
 ## 5a. Die Auftragsliste (neu gestaltet am 26.09.2026, Entwurf „K · Aufträge")
 
