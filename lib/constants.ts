@@ -428,6 +428,10 @@ export const PROFIL_HINWEIS_MM = 4;
 // `RadBild.tsx`; seit dort auch von Hand getippt werden kann, gilt sie an zwei Stellen und
 // gehört deshalb hierher.
 export const PROFIL_MAX_MM = 25;
+// Die Schnellwerte unter der Profiltiefe (RadBild/ProfilEingabe): ein Tipp für den großen
+// Sprung, −/+ für die Feinkorrektur. 1 bis 8 mm (Wunsch vom 29.09.2026) – im Entwurf standen
+// 3 bis 8; auch die abgefahrenen Reifen sollen mit einem Tipp erfasst sein.
+export const PROFIL_SCHNELLWERTE_MM = [1, 2, 3, 4, 5, 6, 7, 8];
 
 // Ab wann ist an einem eingelagerten Satz etwas zu tun? Diese beiden Grenzen ergänzen die
 // Profiltiefe oben – zusammen bilden sie die Regel hinter dem orangen Punkt an der Regalwand

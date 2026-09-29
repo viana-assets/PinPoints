@@ -13,7 +13,7 @@ import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
 import { LangliegerListe } from "./LangliegerListe";
 import { PlatzBlatt } from "./PlatzBlatt";
 import { ProfilMarke } from "./ProfilMarke";
-import { RadBild } from "./RadBild";
+import { ErfassungsWahl, RadBild, SatzProfil } from "./RadBild";
 import { VerkaufPanel } from "./VerkaufPanel";
 import { groesseText, reifenFrei, reifenName } from "@/lib/reifenverkauf";
 
@@ -894,17 +894,15 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
             4 mm" oder vier einzelne Werte. Dieselbe Wahl wie im Auftragsfenster. */}
         <div className="field">
           <label>Profiltiefe</label>
-          <div className="filterbar" style={{ marginTop: 2 }}>
-            <button type="button" className={"chip" + (!einzeln ? " active" : "")} disabled={saving} onClick={() => void artWaehlen("sammel")}>
-              Ein Wert für den Satz
-            </button>
-            <button type="button" className={"chip" + (einzeln ? " active" : "")} disabled={saving} onClick={() => void artWaehlen("einzeln")}>
-              Räder einzeln
-            </button>
-          </div>
+          <ErfassungsWahl einzeln={einzeln} gesperrt={saving} onWahl={(neu) => void artWaehlen(neu)} />
           {!einzeln && (
-            <input type="number" step="0.5" min="0" max="25" placeholder="z. B. 6,5" style={{ marginTop: 6, maxWidth: 200 }}
-              value={profiltiefe} onChange={(e) => setProfiltiefe(e.target.value)} />
+            <div style={{ marginTop: 8 }}>
+              {/* Ohne `onSpeichern`: Hier speichert erst der Knopf unten das ganze Formular. */}
+              <SatzProfil
+                wert={profiltiefe === "" ? null : Number(profiltiefe)}
+                onWert={(mm) => setProfiltiefe(mm == null ? "" : String(mm))}
+              />
+            </div>
           )}
         </div>
 

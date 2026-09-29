@@ -996,71 +996,106 @@ tr.klickbar:hover { background: var(--hover); }
      Tastatur öffnen. Der Selektor ist zugleich spezifischer als .plz-input, .feld-kompakt
      und .login-box input und gewinnt deshalb gegen deren kleinere Schriftgrößen.
 
-     `.rad-wert-feld` ist ebenfalls ausgenommen, und zwar aus dem umgekehrten Grund: Das große
-     Messfeld steht bei 30px, also weit über der Grenze, ab der Safari hineinzoomt. Die Regel
+     `.rm-feld` ist ebenfalls ausgenommen, und zwar aus dem umgekehrten Grund: Das große
+     Messfeld im Radbild steht bei 36px, also weit über der Grenze, ab der Safari hineinzoomt. Die Regel
      würde es also nicht schützen, sondern auf die Hälfte verkleinern – aus der Zahl, die man
      mit Handschuhen ablesen soll, würde eine gewöhnliche Formulareingabe. Die Ausnahme steht
      in der Liste und nicht als `!important` daneben: Sie gehört sichtbar dorthin, wo die
      Regel formuliert ist. */
-  input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=color]):not(.rad-wert-feld),
+  input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=range]):not([type=color]):not(.rm-feld),
   textarea, select{font-size:16px;}
 }
 
 /* ---------------- Radbild: die vier Räder eines eingelagerten Satzes ---------------- */
-/* Konzept: docs/lager-ausbaukonzept.md, A1. Ein angedeutetes Auto von oben mit vier
-   antippbaren Rädern. Die Andeutung genügt: Sie beantwortet „wo ist vorne?" und lenkt sonst
-   nicht ab – ein gezeichnetes Auto sähe bei jedem zweiten Fahrzeug falsch aus.
+/* components/lager/RadBild.tsx, seit v89 im Stil von Entwurf „X1 · Radbild". Ein angedeutetes
+   Auto von oben auf warmem Grund, vier große Kacheln an den Ecken, darunter die Eingabe für das
+   angetippte Rad. Die Andeutung genügt: Sie beantwortet „wo ist vorne?" und lenkt sonst nicht
+   ab – ein gezeichnetes Auto sähe bei jedem zweiten Fahrzeug falsch aus.
 
    Die Farben meinen den ZUSTAND (Profiltiefe), nicht die Belegung – dieselbe Bedeutung wie
-   beim Kundenzustand, also kein zweites Vokabular für dieselben Farben. */
-.radbild{position:relative;width:min(260px, 100%);height:190px;margin:6px auto 0;}
-.radbild-karosserie{position:absolute;left:28%;right:28%;top:6%;bottom:6%;
-  border:2px dashed var(--border);border-radius:26px;background:var(--hover);}
-.radbild-vorne{position:absolute;top:6px;left:0;right:0;text-align:center;font-size:10.5px;
-  color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
-.rad{position:absolute;width:60px;height:66px;border-radius:14px;border:2px solid var(--border);
-  background:var(--panel);display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:2px;padding:0;cursor:pointer;}
-.rad-vl{left:0;top:8px;}
-.rad-vr{right:0;top:8px;}
-.rad-hl{left:0;bottom:8px;}
-.rad-hr{right:0;bottom:8px;}
-.rad-pos{font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.04em;}
-.rad-wert{font-size:17px;font-weight:800;font-family:var(--font-brand);}
+   beim Kundenzustand, also kein zweites Vokabular für dieselben Farben.
+
+   Die Kacheln sind 66 × 82 px – mit Handschuh sicher zu treffen – und stehen deshalb nicht in
+   Prozent, sondern fest um die Mitte: 35 px Abstand zum Auto, auf jeder Breite gleich. Die
+   Regeln `.radbild`/`.rad-*` der Fassung bis v88 sind entfernt. */
+.rm{display:flex;flex-direction:column;gap:12px;min-width:0;}
+.rm-auto{position:relative;height:236px;width:100%;max-width:420px;margin:0 auto;background:var(--bg);border-radius:18px;}
+.rm-karosserie{position:absolute;left:50%;top:22px;width:96px;height:192px;transform:translateX(-50%);box-sizing:border-box;
+  border-radius:40px 40px 28px 28px;background:#e6e0d4;border:2px solid #d6cdbb;display:flex;justify-content:center;}
+.rm-karosserie span{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em;margin-top:12px;}
+.rm-rad{position:absolute;width:66px;height:82px;border-radius:16px;border:none;padding:0;cursor:pointer;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;font:inherit;
+  box-shadow:0 1px 2px rgba(36,29,19,.08);}
+/* Die Kacheln rücken mit der Fläche: auf dem Handy dicht ans Auto, am Rechner nicht an den
+   äußersten Rand einer breiten Karte. */
+.rm-vl,.rm-hl{left:calc(50% - 149px);}
+.rm-vr,.rm-hr{left:calc(50% + 83px);}
+.rm-vl,.rm-vr{top:22px;}
+.rm-hl,.rm-hr{top:132px;}
+.rm-pos{font-size:12px;font-weight:700;opacity:.8;}
+.rm-rad b{font-family:var(--font-brand);font-size:20px;font-weight:700;line-height:1.2;}
+.rm-einheit{font-size:11px;font-weight:600;}
 /* „ohne" bleibt bewusst farblos: nicht gemessen ist keine Bewertung. */
-.rad-ohne{border-style:dashed;}
-.rad-gut{border-color:var(--green);background:var(--green-bg);}
-.rad-hinweis{border-color:var(--accent);background:var(--accent-bg);}
-.rad-kritisch{border-color:var(--red);background:var(--red-bg);}
-.rad-offen{box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);}
+.rm-ohne{background:var(--panel);color:var(--muted);border:1.5px dashed var(--frei-linie);}
+.rm-gut{background:var(--green-bg);color:#146b4c;}
+.rm-hinweis{background:var(--accent-bg);color:#9a3412;}
+.rm-kritisch{background:var(--red-bg);color:#b3261e;}
+/* Unter dem gesetzlichen Minimum: voll rot – das ist kein „knapp" mehr. */
+.rm-rad.rm-unter{background:#b3261e;color:#fff;}
+.rm-rad.aktiv{box-shadow:0 0 0 3px var(--accent);}
+.rm-rad:disabled{cursor:default;opacity:.7;}
 
-.rad-eingabe{margin-top:10px;border:1px solid var(--border);border-radius:12px;padding:10px;
-  background:var(--panel);}
-.rad-eingabe-kopf{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
-/* Große Flächen in 0,1-Schritten für die Feinkorrektur – gemessen wird im Stehen, mit
-   Handschuhen, das Handy in einer Hand. Seit dem 21.09.2026 ist die Zahl dazwischen aber
-   auch ein Eingabefeld: Von 6,0 auf 1,0 wären es sonst fünfzig Tipper. Die beiden Wege
-   gehören zu zwei verschiedenen Bewegungen und schließen sich nicht aus. */
-.rad-stufen{display:flex;align-items:center;justify-content:center;gap:12px;}
-.rad-stufe{width:56px;height:56px;font-size:24px;font-weight:800;border-radius:14px;}
-/* Der Rahmen um Zahl UND Einheit ist jetzt ein `label`; das Feld darin hat keinen eigenen.
-   So bleibt die Farbe der Lage (rot/orange/grün) am äußeren Element, wo sie bisher war, und
-   der Antippbereich ist die ganze Fläche statt nur der Ziffern. */
-.rad-wert-gross{display:inline-flex;align-items:baseline;justify-content:center;
-  min-width:110px;text-align:center;font-size:30px;font-weight:800;
-  font-family:var(--font-brand);border-radius:14px;padding:6px 10px;border:2px solid var(--border);}
-/* `input.rad-wert-feld` und nicht `.rad-wert-feld` allein: Die Grundregel für Textfelder
-   weiter oben trifft über `input[type=text]` und wiegt damit schwerer als eine Klasse für
-   sich. Nachgemessen, nicht angenommen – mit der Klasse allein blieb das Feld bei 13px und
-   voller Breite, also genau so, wie es NICHT aussehen soll.
+.rm-panel{background:var(--panel);border:1.5px solid var(--accent);border-radius:16px;padding:12px;
+  display:flex;flex-direction:column;gap:10px;min-width:0;}
+.rm-panel-kopf{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.rm-panel-kopf b{font-family:var(--font-brand);font-size:16px;}
 
-   `width:4ch`: Vier Zeichen sind „12,5" – mehr braucht eine Profiltiefe nicht. Über die ganze
-   Breite sähe das Feld aus wie ein gewöhnliches Formularfeld und nicht wie die große Zahl,
-   die man mit Handschuhen ablesen können soll. */
-input.rad-wert-feld{width:4ch;min-width:0;padding:0;border:none;background:none;box-shadow:none;
-  font:inherit;color:inherit;text-align:right;border-radius:0;}
-input.rad-wert-feld:focus{outline:2px solid var(--accent);outline-offset:3px;box-shadow:none;border:none;}
-.rad-einheit{font-size:13px;font-weight:600;color:var(--muted);margin-left:4px;}
+/* Die Eingabe einer Profiltiefe – im Radbild und für den ganzen Satz (`ProfilEingabe`). */
+.rm-eingabe{display:flex;flex-direction:column;gap:10px;min-width:0;}
+.rm-stufen{display:flex;align-items:center;gap:10px;}
+.rm-stufe{flex:0 0 56px;width:56px;height:56px;border-radius:16px;border:none;background:var(--bg);
+  font-size:26px;font-weight:700;color:var(--text);cursor:pointer;padding:0;}
+.rm-stufe:disabled{opacity:.5;cursor:default;}
+/* Das ganze Mittelfeld ist ein `label`: Die Fläche ist der Antippbereich, nicht nur die Ziffern. */
+.rm-wert{flex:1;min-width:0;display:flex;align-items:baseline;justify-content:center;gap:6px;
+  height:56px;border-radius:14px;box-sizing:border-box;padding:0 8px;font-family:var(--font-brand);cursor:text;}
+.rm-wert span{font-family:var(--font-body);font-size:16px;font-weight:600;color:var(--muted);}
+.rm-wert.rm-gut{color:#146b4c;}
+.rm-wert.rm-hinweis{color:#9a3412;}
+.rm-wert.rm-kritisch{color:#b3261e;}
+.rm-wert.rm-ohne{border:none;background:none;}
+/* `input.rm-feld`, nicht `.rm-feld` allein: Die Grundregel für Textfelder trifft über
+   `input[type=text]` und wiegt schwerer als eine Klasse (nachgemessen am 21.09.2026, damals noch `.rad-wert-feld`). */
+input.rm-feld{width:4ch;min-width:0;padding:0;border:none;background:none;box-shadow:none;border-radius:0;
+  font:inherit;font-size:36px;font-weight:700;line-height:56px;height:56px;color:inherit;text-align:right;}
+input.rm-feld::placeholder{color:var(--muted);}
+input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
+.rm-wert:focus-within{box-shadow:0 0 0 2px var(--accent);}
+/* Acht Schnellwerte 1–8 mm in einer Reihe. Auf 390 px bleiben je Knopf gut 34 px – schmal,
+   aber so hoch wie ein Finger; wird es noch enger, brechen sie in zwei Reihen zu vier. */
+.rm-schnell{display:grid;grid-template-columns:repeat(8, minmax(0, 1fr));gap:6px;}
+.rm-schnell button{height:40px;min-width:0;padding:0;border-radius:10px;border:1px solid var(--border);background:var(--panel);
+  font:inherit;font-size:14px;font-weight:700;color:var(--text);cursor:pointer;}
+.rm-schnell button.an{border-color:var(--accent);background:var(--accent-bg);}
+.rm-schnell button:disabled{opacity:.5;cursor:default;}
+@media (max-width:340px){ .rm-schnell{grid-template-columns:repeat(4, minmax(0, 1fr));} }
+
+.rm-knoepfe{display:flex;gap:8px;}
+.rm-knopf{flex:1;min-width:0;height:44px;border-radius:12px;border:1px solid var(--border);background:var(--panel);
+  font:inherit;font-size:14px;font-weight:700;color:var(--text);cursor:pointer;padding:0 8px;}
+.rm-knopf.navy{border:none;background:var(--navy);color:#fff;}
+.rm-knopf:disabled{opacity:.5;cursor:default;}
+.rm-details{display:flex;flex-direction:column;gap:10px;padding-top:2px;}
+.rm-details .sl-chance{background:var(--bg);}
+.rm-entfernen{color:var(--red);}
+.rm-zusammen{font-size:13px;font-weight:700;padding:0 2px;color:#6f6553;}
+.rm-zusammen.rot{color:#b3261e;}
+.rm-warnung{color:var(--red);}
+/* Ein Wert für den ganzen Satz: dieselbe Eingabe auf warmem Grund, ohne Rahmen. */
+.rm-satz{background:var(--bg);border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px;}
+.rm-satz .rm-stufe,.rm-satz .rm-schnell button{background:var(--panel);}
+.rm-satz .rm-schnell button.an{background:var(--accent-bg);}
+.rm-satz-hinweis{font-size:12.5px;color:#6f6553;}
 
 /* Die Profiltiefe als Marke – in der Saisonliste, am Lagerplatz und in der Platz-Historie
    (components/lager/ProfilMarke.tsx). Bewusst eine schmale Marke und keine zweite Ampel:

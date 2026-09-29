@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v88";
+export const APP_VERSION = "v89";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v89", datum: "2026-09-29", titel: "Profiltiefe je Rad: neues Radbild",
+    punkte: [
+      "Beim Einlagern (im Lager und im Auftrag) sind die vier Räder jetzt große Kacheln am Auto. Rad antippen, darunter den Wert eingeben – mit den Schnellwerten 1 bis 8 mm oder fein mit − und +.",
+      "Es gibt keinen „Übernehmen“-Knopf mehr: Der Wert wird von selbst gespeichert. „Weiter zu VR ›“ springt zum nächsten Rad, „Für alle vier“ übernimmt einen Wert für alle.",
+      "Felge, RDKS-Sensor, Größe, DOT und Bemerkung zu einem Rad stehen unter „Mehr zu diesem Rad“. Auch der Wert für den ganzen Satz hat jetzt die Schnellwerte.",
+    ],
+  },
   {
     version: "v88", datum: "2026-09-29", titel: "Neuer Name: MR Assistent",
     punkte: [

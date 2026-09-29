@@ -435,6 +435,25 @@ Gemessen wird im Stehen, mit Handschuhen, das Handy in einer Hand. Deshalb ±0,1
 Schaltflächen. Die Zahl dazwischen ist seit dem 21.09.2026 **zusätzlich ein Eingabefeld**:
 Antippen, Wert tippen, fertig.
 
+**Seit v89 (29.09.2026, Entwurf „X1 · Radbild")** sieht es so aus:
+
+* Das Auto steht auf warmem Grund, die vier Räder sind große Kacheln (66 × 82 px) mit Wert und
+  Farbe; das angetippte Rad trägt einen orangen Ring. Unter dem gesetzlichen Minimum ist die
+  Kachel ganz rot.
+* Die Eingabe für das angetippte Rad steht **darunter und bleibt offen**. Es gibt keinen
+  „Übernehmen"-Knopf mehr: Gespeichert wird 0,7 s nach der letzten Änderung, spätestens beim
+  Wechsel zum nächsten Rad oder beim Schließen des Fensters. Fünf Tipper auf „+" sind so ein
+  Speichervorgang und ein Protokolleintrag, nicht fünf.
+* Unter −/+ stehen **Schnellwerte 1 bis 8 mm** (`PROFIL_SCHNELLWERTE_MM`; im Entwurf 3–8, auf
+  Wunsch vom 29.09.2026 ab 1, damit auch der abgefahrene Reifen ein Tipp ist). Der Schnellwert
+  ist der große Sprung, −/+ die Feinkorrektur, das Feld für den, der lieber tippt.
+* „Weiter zu VR ›" führt Rad für Rad durch, „Für alle vier" übernimmt den Wert für alle Räder.
+* Felge, RDKS-Sensor, Reifengröße, DOT und Bemerkung klappen unter „Mehr zu diesem Rad" auf.
+* Der Wert für den ganzen Satz hat dieselbe Eingabe (`SatzProfil`), die Wahl zwischen beiden
+  ist ein Segment „Ein Wert für den Satz | Je Rad messen" (`ErfassungsWahl`) – gleich im Lager
+  und im Auftragsfenster. Im Auftragsfenster speichert der Satzwert wie das Radbild von selbst,
+  im Lagerfenster mit dem Knopf „Zuordnung speichern".
+
 Zuerst gab es nur die Tasten, mit genau der Begründung oben. Für die Feinkorrektur stimmt sie
 – wer 6,0 abliest und auf 5,8 geht, will keine Tastatur. Für den Sprung stimmte sie nicht: Von
 6,0 auf 1,0 sind es fünfzig Tipper, und genau das kam aus dem Betrieb zurück. Beide Wege
@@ -477,10 +496,9 @@ Die Marke fragt immer `satzProfilMm()`; ob der Satz sammel oder einzeln erfasst 
 keine der drei Stellen wissen. Ein Pfeil (↓) markiert, dass es der schwächste von mehreren
 Werten ist, ein ⚠ den Wert unter dem gesetzlichen Minimum.
 
-**Im Zuordnungsfenster des Lagers gibt es bei Einzelerfassung kein Eingabefeld** für die
-Profiltiefe, sondern das Radbild in Ansicht. Ein Feld anzubieten, dessen Inhalt die Datenbank
-beim Speichern zurückweist, wäre eine Falle; geändert wird dort, wo der Satz in der Hand
-liegt – im Auftragsfenster.
+**Im Zuordnungsfenster des Lagers gibt es bei Einzelerfassung kein Sammelfeld** für die
+Profiltiefe, sondern das Radbild – seit v88 auch dort zum Messen, nicht nur zur Ansicht. Ein
+Sammelfeld anzubieten, dessen Inhalt die Datenbank beim Speichern zurückweist, wäre eine Falle.
 
 ### Der Zustand gehört zum Satz, nicht zum Auto (Migration 34)
 

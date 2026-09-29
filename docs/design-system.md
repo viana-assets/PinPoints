@@ -648,21 +648,22 @@ nicht der Inhalt (der kommt in beiden Fällen aus derselben Liste `etiketten` in
 
 ## Große Zahl UND Tastatur: das Profiltiefe-Feld
 
-Das Messfeld im Radbild (`.rad-wert-gross` mit `input.rad-wert-feld`) ist ein Fall, an dem
+Das Messfeld im Radbild (seit v89 `.rm-wert` mit `input.rm-feld`, bis v88 `.rad-wert-gross`
+mit `input.rad-wert-feld`) ist ein Fall, an dem
 zwei Regeln dieses Stilblatts aufeinandertreffen – beide richtig, beide hier zu beachten:
 
 1. **Die mobile 16-px-Regel am Dateiende** vergrößert jedes Eingabefeld auf mindestens 16 px,
    damit Safari beim Antippen nicht hineinzoomt. Beim Messfeld wirkt sie umgekehrt: Es steht
-   bei 30 px, die Regel würde es also auf die Hälfte **verkleinern**. Deshalb ist
-   `.rad-wert-feld` in der Ausschlussliste dieser Regel eingetragen – sichtbar dort, wo die
+   bei 36 px, die Regel würde es also auf die Hälfte **verkleinern**. Deshalb ist
+   `.rm-feld` in der Ausschlussliste dieser Regel eingetragen – sichtbar dort, wo die
    Regel formuliert ist, und nicht als `!important` an anderer Stelle.
 2. **Eine Klasse allein reicht gegen `input[type=text]` nicht.** Die Grundregel für Textfelder
    trifft über einen Typ-Selektor und wiegt damit schwerer als eine Klasse. Der Selektor heißt
-   deshalb `input.rad-wert-feld`, nicht `.rad-wert-feld`. Nachgemessen, nicht angenommen: mit
+   deshalb `input.rm-feld`, nicht `.rm-feld`. Nachgemessen, nicht angenommen: mit
    der Klasse allein blieb das Feld bei 13 px und voller Breite.
 
-Der farbige Rahmen (rot/orange/grün nach `profilLage()`) sitzt am umschließenden `label`, nicht
-am Feld. So bleibt die Farbe dort, wo sie vorher war, und die ganze Fläche – Zahl samt Einheit
+Die Farbe (rot/orange/grün nach `profilLage()`, seit v89 als Fläche statt Rahmen) sitzt am
+umschließenden `label`, nicht am Feld. So bleibt die Farbe dort, wo sie vorher war, und die ganze Fläche – Zahl samt Einheit
 – ist antippbar statt nur die Ziffern.
 
 ## Betriebsdaten-Maske (18.09.2026, seit 26.09.2026 als Zeilenliste)

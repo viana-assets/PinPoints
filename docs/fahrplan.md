@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **29.09.2026 – Reifen je Rad: neues Radbild (Service Worker v89).** Entwurf „X1" umgesetzt:
+  große Radkacheln, Eingabe offen unter dem Bild, Schnellwerte 1–8 mm, automatisches
+  Speichern, „Weiter zu …" und „Für alle vier"; gleiche Eingabe für den Satzwert, im Lager und
+  im Auftragsfenster.
+
 * **29.09.2026 – Neuer Name „MR Assistent" (Service Worker v88).** Marke „Mobiler Reifenservice"
   mit Signet in App, Anmeldung, Mails und Symbolen; Tarnung „Settings" aufgehoben. Dazu im Lager
   beim Einlagern/Bearbeiten wieder die Wahl „ein Wert für den Satz / Räder einzeln".

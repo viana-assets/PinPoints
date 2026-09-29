@@ -110,6 +110,7 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `PROFIL_GESETZLICH_MM` | `lib/constants.ts` | `number` (1,6) | Gesetzliches Minimum der Profiltiefe | `ProfilMarke`, `RadBild` |
 | `PROFIL_KRITISCH_MM` | `lib/constants.ts` | `number` (3) | Schwelle „kritisch" | `SaisonPanel`, `ProfilMarke`, `LagerPanel`, `RadBild`, `AuftragModal`, `app/page.tsx`, `tests/regalwand.test.ts`, `tests/profiltiefe.test.ts` |
 | `PROFIL_HINWEIS_MM` | `lib/constants.ts` | `number` (4) | Schwelle „Hinweis" | `ProfilMarke`, `RadBild`, `tests/profiltiefe.test.ts` |
+| `PROFIL_SCHNELLWERTE_MM` | `lib/constants.ts` | `number[]` (1–8) | Schnellwert-Knöpfe unter der Profiltiefe (seit v89) | `ProfilEingabe` in `RadBild.tsx` (Lager-Einlagern, Auftragsfenster) |
 | `DOT_ALT_JAHRE` | `lib/constants.ts` | `number` (6) | Reifenalter (Jahre), ab dem der Kunde angesprochen werden soll | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
 | `LAGERDAUER_HINWEIS_TAGE` | `lib/constants.ts` | `number` (365) | Tage ohne Bewegung, ab denen ein Hinweis erscheint | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
 | `LANGLIEGER_MONATE` | `lib/helpers.ts` | `number` (18) | Monate, ab denen ein Satz als „Langlieger" gilt | **nur intern** – über `istLanglieger()` (`AuslagernDialog`, `tests/lagerdauer.test.ts`) |

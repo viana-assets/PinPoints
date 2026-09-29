@@ -4,7 +4,7 @@ import type {
 } from "@/lib/types";
 import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { profilText, satzProfilMm } from "@/lib/helpers";
-import { RadBild } from "@/components/lager/RadBild";
+import { ErfassungsWahl, RadBild, SatzProfil } from "@/components/lager/RadBild";
 import type { RadFelder } from "@/lib/api/lager";
 import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
 import { QrScanner } from "@/components/QrScanner";
@@ -285,47 +285,32 @@ export function EinlagerungBlock({
                   Grundlage für ein Verkaufsgespräch („HL 3,1 mm"). */}
               <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
                 <label>Profiltiefe</label>
-                <div className="filterbar" style={{ marginTop: 2 }}>
-                  <button
-                    type="button"
-                    className={"chip" + (einlagerung.erfassungsart !== "einzeln" ? " active" : "")}
-                    disabled={laeuft}
-                    onClick={() => void erfassungsartSetzen("sammel")}
-                  >
-                    Ein Wert für den Satz
-                  </button>
-                  <button
-                    type="button"
-                    className={"chip" + (einlagerung.erfassungsart === "einzeln" ? " active" : "")}
-                    disabled={laeuft}
-                    onClick={() => void erfassungsartSetzen("einzeln")}
-                  >
-                    Räder einzeln
-                  </button>
-                </div>
+                <ErfassungsWahl
+                  einzeln={einlagerung.erfassungsart === "einzeln"}
+                  gesperrt={laeuft}
+                  onWahl={(art) => void erfassungsartSetzen(art)}
+                />
               </div>
 
-              {einlagerung.erfassungsart === "einzeln" ? (
-                <RadBild
-                  raeder={raeder}
-                  anzahlRaeder={einlagerung.anzahl_raeder}
-                  gesperrt={laeuft}
-                  onSpeichern={(position, felder) => onRadSpeichern(einlagerung.id, position, felder)}
-                  onEntfernen={onRadEntfernen}
-                />
-              ) : (
-                <div className="field" style={{ marginTop: 6, marginBottom: 0, maxWidth: 200 }}>
-                  <input
-                    type="number" step="0.5" min="0" max="25" placeholder="z. B. 4,5"
-                    defaultValue={einlagerung.profiltiefe_mm ?? ""}
-                    disabled={laeuft}
-                    // Beim Verlassen speichern, nicht bei jedem Tastendruck: Sonst entsteht
-                    // für „4,5" unterwegs der Wert 4 – und der stünde eine Sekunde lang als
-                    // Wahrheit in der Datenbank.
-                    onBlur={(e) => void angabenAendern({ profiltiefeMm: e.target.value })}
+              <div style={{ marginTop: 8 }}>
+                {einlagerung.erfassungsart === "einzeln" ? (
+                  <RadBild
+                    raeder={raeder}
+                    anzahlRaeder={einlagerung.anzahl_raeder}
+                    gesperrt={laeuft}
+                    onSpeichern={(position, felder) => onRadSpeichern(einlagerung.id, position, felder)}
+                    onEntfernen={onRadEntfernen}
                   />
-                </div>
-              )}
+                ) : (
+                  // Gespeichert wird kurz nach der letzten Änderung (SatzProfil) – nicht bei
+                  // jedem Tipper, sonst stünde für „4,5" unterwegs der Wert 4 in der Datenbank.
+                  <SatzProfil
+                    key={einlagerung.id}
+                    wert={einlagerung.profiltiefe_mm}
+                    onSpeichern={(mm) => angabenAendern({ profiltiefeMm: mm == null ? "" : String(mm) })}
+                  />
+                )}
+              </div>
 
               {einlagerung.erfassungsart === "einzeln" && (
                 <div className="field" style={{ marginTop: 8, marginBottom: 0, maxWidth: 220 }}>
