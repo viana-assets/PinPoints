@@ -13,8 +13,8 @@ import type { Viewport } from "next";
 import { ERSCHEINUNG } from "@/lib/erscheinung";
 
 export const metadata = {
-  title: "Viana PinPoints",
-  description: "Kunden, Termine und Aufträge im mobilen Reifenservice",
+  title: `${ERSCHEINUNG.name} · Mobiler Reifenservice`,
+  description: ERSCHEINUNG.beschreibung,
   // Macht die Anwendung installierbar (docs/pwa-plan.md, Stufe 1).
   manifest: "/manifest.webmanifest",
   // iOS liest weder Name noch Symbol aus dem Manifest – dafür sind diese Angaben da.
@@ -23,9 +23,8 @@ export const metadata = {
   // werden. Das ist eine ganze Klasse von Fehlern, die wir uns hier sparen.
   //
   // Name und Symbol auf dem Homescreen kommen aus `lib/erscheinung.ts` – dort steht auch, warum
-  // sie derzeit „Settings" lauten und wie man es zurückstellt. `metadata.title` bleibt bewusst
-  // „Viana PinPoints": Das ist der Titel IN der Anwendung (Browser-Reiter), und innen soll sich
-  // nichts ändern.
+  // sie bis v87 „Settings" lauteten. Der Browser-Reiter trägt seit v88 „MR Assistent · Mobiler
+  // Reifenservice".
   appleWebApp: { capable: true, title: ERSCHEINUNG.appleTitel, statusBarStyle: "default" as const },
   icons: { apple: ERSCHEINUNG.appleSymbol },
 };
@@ -45,11 +44,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="de">
       <head>
-        {/* Bildmarke statt der früheren Flagge: nur der grüne Zielpunkt mit Haken, weil zwei
-            Pins nebeneinander bei 16 px unleserlich wären. Der data:-URI wird aus denselben
-            Konstanten gebaut wie die Marke selbst (components/icons.tsx), damit es keine
-            zweite, still veraltende Kopie des Logos gibt. */}
-        <link rel="icon" type="image/svg+xml" href={MARKE_FAVICON} />
+        {/* Das Signet des Mobilen Reifenservice (v88), als kleines Bild – die Vektorfassung ist
+            mit 64 kB zu schwer für ein Favicon. */}
+        <link rel="icon" type="image/png" href={MARKE_FAVICON} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

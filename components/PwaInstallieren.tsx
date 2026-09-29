@@ -30,7 +30,7 @@ export function PwaInstallieren() {
       <div className="pwa-block">
         <h4>App</h4>
         <div className="small">
-          PinPoints läuft bereits als installierte App. Vom Startbildschirm aus öffnet sie sich
+          Der MR Assistent läuft bereits als installierte App. Vom Startbildschirm aus öffnet sie sich
           ohne Adressleiste und startet schneller.
         </div>
       </div>
@@ -42,7 +42,7 @@ export function PwaInstallieren() {
       <div className="pwa-block">
         <h4>App installieren</h4>
         <div className="small" style={{ marginBottom: 8 }}>
-          PinPoints als App einrichten: eigenes Symbol, Start ohne Adressleiste, schnellerer
+          Den MR Assistent als App einrichten: eigenes Symbol, Start ohne Adressleiste, schnellerer
           Start.
         </div>
         <button
@@ -92,7 +92,7 @@ export function PwaInstallieren() {
           <li>Unten auf das Teilen-Symbol tippen – das Quadrat mit dem Pfeil nach oben.</li>
           <li>In der Liste nach unten wischen bis <b>&bdquo;Zum Home-Bildschirm&ldquo;</b>.</li>
           <li>Oben rechts auf <b>Hinzufügen</b> tippen.</li>
-          <li>PinPoints künftig über das neue Symbol starten, nicht mehr über Safari.</li>
+          <li>Den MR Assistent künftig über das neue Symbol starten, nicht mehr über Safari.</li>
         </ol>
         <div className="small">Danach meldest du dich in der App einmal neu an – das ist normal.</div>
       </div>
@@ -108,10 +108,10 @@ export function PwaInstallieren() {
       </div>
       <ol className="pwa-schritte">
         <li>Menü öffnen (die drei Punkte oben rechts).</li>
-        <li><b>&bdquo;PinPoints installieren&ldquo;</b> oder <b>&bdquo;Zum Startbildschirm hinzufügen&ldquo;</b> wählen.</li>
+        <li><b>&bdquo;MR Assistent installieren&ldquo;</b> oder <b>&bdquo;Zum Startbildschirm hinzufügen&ldquo;</b> wählen.</li>
       </ol>
       <div className="small">
-        Fehlt der Eintrag, läuft PinPoints als normale Seite weiter – funktional fehlt dir
+        Fehlt der Eintrag, läuft der MR Assistent als normale Seite weiter – funktional fehlt dir
         nichts.
       </div>
     </div>

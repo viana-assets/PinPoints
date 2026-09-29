@@ -121,7 +121,7 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userE
         <div className="db-karte es-karte">
           <div className="es-zeile statisch">
             <span className="db-punkt-text">
-              <b>PinPoints {APP_VERSION}</b>
+              <b>MR Assistent {APP_VERSION}</b>
               <span className="small">Fassung dieses Programms</span>
             </span>
           </div>

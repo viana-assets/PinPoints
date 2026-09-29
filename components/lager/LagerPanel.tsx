@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import type { Customer, EingelagertesRad, Saison, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, VerkaufsreifenFelder, Warehouse } from "@/lib/types";
+import type { Customer, EingelagertesRad, Erfassungsart, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, VerkaufsreifenFelder, Warehouse } from "@/lib/types";
+import type { RadFelder } from "@/lib/api/lager";
 import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM,
   SAISON_LABEL, SAISON_LISTE,
@@ -71,7 +72,7 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, verkauf }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, verkauf }: {
   // Reifenverkauf (Migration 61). Null = kein Leserecht auf „Lager · Reifenverkauf" – dann gibt
   // es den Reiter nicht. Plätze mit Verkaufsreifen sperrt die Datenbank trotzdem für Kundensätze.
   verkauf: {
@@ -98,7 +99,14 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   onAddSlot: (warehouseId: string, code: string) => Promise<void>;
   onAddSlotsBulk: (warehouseId: string, codes: string[]) => Promise<void>;
   onDeleteSlot: (id: string) => Promise<void>;
-  onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
+  // Gibt die Kennung des Satzes zurück (beim Einlagern die neue).
+  onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<string>;
+  // Profiltiefe als ein Wert für den Satz oder je Rad (Migration 33) – seit v88 auch hier und
+  // nicht nur im Auftragsfenster. Dieselben Handlungen wie dort.
+  onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
+  onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
+  onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
+  onRadEntfernen: (radId: string) => Promise<void>;
   // Auslagern. Führt in app/page.tsx über den Auslagern-Dialog (Gebühr, Migration 46) – die
   // Entscheidung „mit oder ohne Dialog" steht dort, nicht hier.
   onRemoveAssignment: (id: string) => Promise<void>;
@@ -251,7 +259,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     }
     setScanHinweis(ziel.art === "unbekannt"
       ? "Diesen Platz oder Satz gibt es in der App nicht (mehr)."
-      : "Das war kein PinPoints-Aufkleber.");
+      : "Das war kein Aufkleber aus dem MR Assistent.");
   }
 
   async function createWarehouse() {
@@ -741,20 +749,28 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           onClose={() => setBearbeitenSlot(null)}
           vehicles={vehicles}
           onAssign={onAssignTire}
+          onErfassungsart={onErfassungsart}
+          onAnzahlRaeder={onAnzahlRaeder}
+          onRadSpeichern={onRadSpeichern}
+          onRadEntfernen={onRadEntfernen}
         />
       )}
     </div>
   );
 }
 
-function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raederFuer, onClose, onAssign }: {
+function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raederFuer, onClose, onAssign, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen }: {
   slot: StorageSlot; customers: Customer[]; vehicles: Vehicle[]; assignment: TireStorage | null;
   // Warum an diesem Platz etwas zu tun ist. Steht auch im Blatt davor – hier noch einmal, weil
   // man es beim Ändern der Werte vor Augen haben soll.
   gruende: string[];
   raederFuer: (satzId: string) => EingelagertesRad[];
   onClose: () => void;
-  onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<void>;
+  onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<string>;
+  onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
+  onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
+  onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
+  onRadEntfernen: (radId: string) => Promise<void>;
 }) {
   const [customerId, setCustomerId] = useState(assignment?.customer_id || "");
   const [vehicleId, setVehicleId] = useState(assignment?.vehicle_id || "");
@@ -763,25 +779,58 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
   const [profiltiefe, setProfiltiefe] = useState(assignment?.profiltiefe_mm != null ? String(assignment.profiltiefe_mm) : "");
   const [note, setNote] = useState(assignment?.note || "");
   const [saving, setSaving] = useState(false);
+  // Ein Wert für den Satz oder je Rad (Migration 33). Bis v87 ließ sich das nur im
+  // Auftragsfenster umstellen; hier stand bei einem neuen Satz immer nur das Sammelfeld
+  // (gemeldet 29.09.2026). Bei einem neuen Satz gilt die Wahl erst beim Einlagern – die Räder
+  // brauchen einen Satz, an dem sie hängen. Danach bleibt das Fenster offen zum Messen.
+  const [artNeu, setArtNeu] = useState<Erfassungsart>("sammel");
+  const [eben, setEben] = useState(false);
+  const art: Erfassungsart = assignment ? (assignment.erfassungsart ?? "sammel") : artNeu;
+  const einzeln = art === "einzeln";
 
   // Nur die Fahrzeuge des gewählten Kunden. Ein Satz kann nur zu einem Auto DIESES Kunden
   // gehören – die Datenbank lehnt alles andere ab (Migration 30), und eine Auswahl, die
   // Ungültiges anbietet, ist eine Einladung zum Fehler.
   const kundenFahrzeuge = customerId ? vehicles.filter((v) => v.customer_id === customerId) : [];
-  const einzeln = (assignment?.erfassungsart ?? "sammel") === "einzeln";
+
+  async function artWaehlen(neu: Erfassungsart) {
+    if (neu === art) return;
+    if (!assignment) { setArtNeu(neu); return; }
+    // Zurück auf einen Wert wirft die gemessenen Räder weg – echte Messarbeit, also einmal
+    // nachfragen. Dieselbe Frage wie im Auftragsfenster (EinlagerungBlock).
+    const raeder = raederFuer(assignment.id);
+    if (neu === "sammel" && raeder.length > 0
+      && !window.confirm(`Zurück auf einen Wert für den ganzen Satz? Die ${raeder.length} gemessenen Räder werden dabei gelöscht.`)) return;
+    setSaving(true);
+    try {
+      await onErfassungsart(assignment.id, neu);
+      if (neu === "einzeln") setProfiltiefe("");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   async function save() {
     if (!customerId) return;
     setSaving(true);
-    await onAssign({
-      id: assignment?.id, storageSlotId: slot.id, customerId,
-      dotDate, profiltiefeMm: profiltiefe, note,
-      // Beim Kundenwechsel darf kein Fahrzeug des Vorgängers hängenbleiben.
-      vehicleId: kundenFahrzeuge.some((v) => v.id === vehicleId) ? vehicleId : null,
-      saison: saison || null,
-    });
-    setSaving(false);
-    onClose();
+    try {
+      const id = await onAssign({
+        id: assignment?.id, storageSlotId: slot.id, customerId,
+        dotDate, profiltiefeMm: einzeln ? "" : profiltiefe, note,
+        // Beim Kundenwechsel darf kein Fahrzeug des Vorgängers hängenbleiben.
+        vehicleId: kundenFahrzeuge.some((v) => v.id === vehicleId) ? vehicleId : null,
+        saison: saison || null,
+      });
+      // Neuer Satz, je Rad gewählt: umstellen und offen bleiben – jetzt werden die Räder gemessen.
+      if (!assignment && einzeln && id) {
+        await onErfassungsart(id, "einzeln");
+        setEben(true);
+        return;
+      }
+      onClose();
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -836,41 +885,61 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
           </div>
         </div>
 
-        <div className="row">
-          <div className="field">
-            <label>DOT-Datum</label>
-            <input type="text" placeholder="z. B. 2523 (KW 25 / 2023)" value={dotDate} onChange={(e) => setDotDate(e.target.value)} />
+        <div className="field">
+          <label>DOT-Datum</label>
+          <input type="text" placeholder="z. B. 2523 (KW 25 / 2023)" value={dotDate} onChange={(e) => setDotDate(e.target.value)} />
+        </div>
+
+        {/* Zwei verschiedene Aussagen, nie gleichzeitig (Migration 33): „der Satz hat etwa
+            4 mm" oder vier einzelne Werte. Dieselbe Wahl wie im Auftragsfenster. */}
+        <div className="field">
+          <label>Profiltiefe</label>
+          <div className="filterbar" style={{ marginTop: 2 }}>
+            <button type="button" className={"chip" + (!einzeln ? " active" : "")} disabled={saving} onClick={() => void artWaehlen("sammel")}>
+              Ein Wert für den Satz
+            </button>
+            <button type="button" className={"chip" + (einzeln ? " active" : "")} disabled={saving} onClick={() => void artWaehlen("einzeln")}>
+              Räder einzeln
+            </button>
           </div>
-          {/* Bei Einzelerfassung gibt es hier bewusst kein Eingabefeld: Die Profiltiefe steht
-              dann an den Rädern, und ein zweiter Wert am Satz ist in der Datenbank verboten
-              (Migration 33). Ein Feld anzubieten, dessen Inhalt beim Speichern abgelehnt wird,
-              wäre eine Falle. */}
           {!einzeln && (
-            <div className="field">
-              <label>Profiltiefe (mm)</label>
-              <input type="number" step="0.5" min="0" placeholder="z. B. 6.5" value={profiltiefe} onChange={(e) => setProfiltiefe(e.target.value)} />
-            </div>
+            <input type="number" step="0.5" min="0" max="25" placeholder="z. B. 6,5" style={{ marginTop: 6, maxWidth: 200 }}
+              value={profiltiefe} onChange={(e) => setProfiltiefe(e.target.value)} />
           )}
         </div>
 
+        {einzeln && !assignment && (
+          <div className="small" style={{ marginTop: -4, marginBottom: 8 }}>
+            Nach &bdquo;Reifen einlagern&ldquo; erscheinen hier die vier Räder zum Antippen und Messen.
+          </div>
+        )}
         {einzeln && assignment && (
           <div className="field">
-            <label>Profiltiefe – dieser Satz ist einzeln erfasst</label>
+            {eben && <div className="small" style={{ marginBottom: 6 }}>Eingelagert. Jetzt jedes Rad antippen und die Profiltiefe eintragen.</div>}
             <RadBild
               raeder={raederFuer(assignment.id)}
               anzahlRaeder={assignment.anzahl_raeder ?? 4}
-              gesperrt
-              onSpeichern={async () => {}}
-              onEntfernen={async () => {}}
+              gesperrt={saving}
+              onSpeichern={(position, felder) => onRadSpeichern(assignment.id, position, felder)}
+              onEntfernen={onRadEntfernen}
             />
-            <div className="small" style={{ marginTop: 4, color: "var(--muted)" }}>
-              Geändert wird das im Auftragsfenster – dort, wo der Satz in der Hand liegt.
-            </div>
+            <label style={{ marginTop: 8 }}>Räder in diesem Satz</label>
+            {/* Nicht immer vier: „zwei weggeworfen, zwei eingelagert" ist ein realer Fall. */}
+            <input
+              type="number" min={1} max={8} step={1} style={{ maxWidth: 120 }}
+              defaultValue={assignment.anzahl_raeder ?? 4}
+              disabled={saving}
+              onBlur={(e) => {
+                const zahl = Math.round(parseFloat(e.target.value));
+                if (!isNaN(zahl) && zahl >= 1 && zahl <= 8 && zahl !== assignment.anzahl_raeder) void onAnzahlRaeder(assignment.id, zahl);
+                else e.target.value = String(assignment.anzahl_raeder ?? 4);
+              }}
+            />
           </div>
         )}
         <div className="field"><label>Notiz (optional)</label><textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>
-        <button className="btn-primary btn-block" disabled={!customerId || saving} onClick={save}>
-          {assignment ? "Zuordnung speichern" : "Reifen einlagern"}
+        <button className="btn-primary btn-block" disabled={!customerId || saving} onClick={() => void save()}>
+          {!assignment ? (einzeln ? "Reifen einlagern und Räder messen" : "Reifen einlagern") : eben ? "Fertig" : "Zuordnung speichern"}
         </button>
       </div>
     </div>

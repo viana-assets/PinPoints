@@ -31,6 +31,8 @@
     --bg:#F2EFE9; --panel:#ffffff; --border:#e2dbcd; --text:#241d13; --muted:#8a7f6b;
     --red:#E24C3D; --red-bg:#fbe6e2; --green:#1E9B6E; --green-bg:#e2f4ec;
     --accent:#FF5A1F; --accent-bg:#ffe9dd;
+    /* Petrol aus dem Logo des Mobilen Reifenservice (v88) – nur für die Marke. */
+    --marke:#092633;
     /* Hellblau: der Zustand „Wiedervorlage" (seit 14.09.2026). Vorher teilte er sich das
        Orange mit dem Akzent – auf einer Karte mit 400 Nadeln war er damit von Rot kaum zu
        trennen. Ein eigener Ton, kühl und ruhig: eingeplant, aber nicht dringend. */
@@ -3635,3 +3637,19 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ao-team{scroll-margin-top:8px;}
 .ao-team .op-gruppe-titel{padding:4px 2px 0;}
 .ao-team-speichern{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #f1ece2;padding-top:8px;}
+
+/* Marke „Mobiler Reifenservice" (v88, 29.09.2026): das Signet (components/icons.tsx, IconMarke)
+   als Bild, daneben der Name als echter Text in zwei Stufen – oben die Marke, darunter der
+   Name der App. Breite in der 232-px-Seitenleiste nachgemessen, siehe docs/design-system.md. */
+.nav-brand img.marke{width:36px;height:36px;flex:0 0 auto;}
+.app-brand img.marke{width:34px;height:34px;flex:0 0 auto;}
+.login-box .login-brand img.marke{width:72px;height:72px;flex:0 0 auto;}
+.marke-text{display:flex;flex-direction:column;gap:1px;min-width:0;}
+.marke-text b{font-family:var(--font-brand);font-weight:700;letter-spacing:-.01em;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;color:var(--marke);}
+.marke-text small{font-family:var(--font-body);font-size:11.5px;font-weight:700;color:var(--muted);
+  letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.nav-brand h1.marke-text{font-size:14.5px;}
+.app-brand h1.marke-text{font-size:16px;}
+.login-box h1.marke-text{align-items:center;font-size:22px;}
+.login-box h1.marke-text small{font-size:12.5px;}

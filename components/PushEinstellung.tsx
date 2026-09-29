@@ -53,7 +53,7 @@ export function PushEinstellung() {
         <h4>Benachrichtigungen</h4>
         <div className="pwa-warnung">
           Auf iPhone und iPad gibt es Benachrichtigungen <b>nur in der installierten App</b> –
-          nicht in Safari. Lege PinPoints erst über den Block darüber auf den Startbildschirm
+          nicht in Safari. Lege den MR Assistent erst über den Block darüber auf den Startbildschirm
           und öffne diese Einstellung dann dort noch einmal.
         </div>
       </div>
@@ -197,7 +197,7 @@ export function PushEinstellung() {
       {lage === "an" && (
         <div className="small" style={{ marginTop: 8, color: "var(--muted)" }}>
           Kommt nichts an, obwohl der Versand gemeldet wurde: iOS unterdrückt Mitteilungen im
-          Fokus &bdquo;Fahren&ldquo;. PinPoints muss dort einmal als erlaubte App eingetragen werden.
+          Fokus &bdquo;Fahren&ldquo;. Der MR Assistent muss dort einmal als erlaubte App eingetragen werden.
         </div>
       )}
     </div>

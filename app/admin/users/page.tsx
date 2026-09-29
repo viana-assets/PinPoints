@@ -103,7 +103,7 @@ export default function UsersAdminPage() {
 
         <hr />
         <a href="/admin/invite" className="small" style={{ display: "block", marginBottom: 8 }}>+ Neuen Nutzer einladen →</a>
-        <a href="/" className="small">← Zurück zu Viana PinPoints</a>
+        <a href="/" className="small">← Zurück zum MR Assistent</a>
       </div>
     </div>
   );

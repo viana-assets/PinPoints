@@ -208,94 +208,20 @@ export function IconTrash() {
 }
 
 /* ---------------- Firmenlogo (Bildmarke) ----------------
-   Die echte Bildmarke aus der Logodatei des Unternehmens: das stilisierte blaue „V" mit rotem
-   Startpunkt, weißer Route und grünem Zielpunkt mit Haken. Pfade, Verläufe und Filter sind
-   unverändert aus `Logos/viana-pinpoints-logo-editable.svg` übernommen – nur die Bezeichner
-   haben ein `vp`-Präfix bekommen (siehe unten) und der Ausschnitt zeigt allein das Zeichen,
-   ohne Wortmarke.
+   Seit v88 (29.09.2026) das Signet des Mobilen Reifenservice: der petrolfarbene Kreis mit dem
+   Auto aus `Logos/Rechnungslogo/2_petrol_signet.png`. Nur der Kreis, ohne die Reifenspuren
+   daneben – als Zeichen in 32 px Höhe muss es rund sein, und die Spuren wären dort Rauschen.
+   Die Vorlage ist ein 320-px-Bild; `public/icons/mr-marke.svg` ist daraus nachgezeichnet
+   (potrace), damit es auf jedem Bildschirm scharf bleibt. Ein Vektor-Original vom Gestalter
+   würde es noch sauberer machen.
 
-   Warum ohne Wortmarke: „VIANA PINPOINTS" mit der Zeile „PLAN • TRACK • COMPLETE" ist für
-   1400 px Breite gezeichnet. In der 232 px schmalen Navigationsspalte wäre die Zeile keine
-   4 px hoch und damit unlesbarer Schmutz. Der Schriftzug steht an den Stellen, wo Platz ist,
-   ohnehin als echter Text daneben (`<h1>`), in der Hausschrift und suchbar. Das vollständige
-   Logo bleibt für Druck, Signaturen und Ähnliches in `Logos/`.
+   Als Datei und nicht inline: 64 kB Pfaddaten gehören nicht in jede Seite, die Datei kommt
+   einmal und liegt danach im Zwischenspeicher. Der Schriftzug steht daneben als echter Text.
 
-   Warum inline und nicht als Datei unter `public/`: das Projekt hat kein `public/`-Verzeichnis,
-   Dateien werden einzeln über die GitHub-Oberfläche hochgeladen, und aus derselben Quelle
-   lassen sich hier beliebige Ausschnitte zeigen, was mit einem `<img>` nicht ginge.
-
-   ZU DEN BEZEICHNERN: `docs/design-system.md` verlangt bei Icons feste Farben ohne `<defs>`,
-   IDs und `url(#…)`. Hier ist bewusst eine Ausnahme, und der Unterschied ist wichtig: der
-   damalige Fehlschlag lag an IDs aus `useId()`, die Doppelpunkte enthielten (`url(#:r5:)` löst
-   kein Browser auf). Feste, selbst geschriebene Bezeichner funktionieren. Sie stehen hier auch
-   nicht zur Wahl – die Verläufe SIND das Logo, eine einfarbige Nachbildung wäre ein anderes
-   Zeichen. Kommt die Marke zweimal gleichzeitig ins Dokument (Seitenleiste und Kopfzeile), sind
-   die Bezeichner doppelt vergeben; Browser nehmen dann den ersten, und da beide identisch sind,
-   ändert das am Bild nichts.
-
-   Keine width/height am Element: die Größe kommt aus dem CSS der jeweiligen Stelle – dort
-   ausdrücklich in Breite UND Höhe, mit `flex:0 0 auto`, sonst quetscht der Flex-Container das
-   SVG auf Breite 0 (siehe design-system.md). Seitenverhältnis des Ausschnitts: 314 : 396. */
+   Bis v87 stand hier die Viana-Bildmarke (blaues „V" mit zwei Pins) als Inline-SVG. */
 export function IconMarke() {
-  return (
-    <svg viewBox="40 14 314 396" fill="none" role="img" aria-label="Viana PinPoints">
-      <defs>
-        <linearGradient id="vpVLinks" x1="0" y1="0" x2="0.85" y2="1">
-          <stop offset="0" stopColor="#1DC8FF" /><stop offset="1" stopColor="#0055FF" />
-        </linearGradient>
-        <linearGradient id="vpVRechts" x1="0" y1="0" x2="0.75" y2="1">
-          <stop offset="0" stopColor="#FFFFFF" /><stop offset="0.50" stopColor="#7CC6EE" /><stop offset="1" stopColor="#0A2545" />
-        </linearGradient>
-        <linearGradient id="vpPinRot" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#FF3344" /><stop offset="1" stopColor="#B00020" />
-        </linearGradient>
-        <linearGradient id="vpPinGruen" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#34D058" /><stop offset="1" stopColor="#16A34A" />
-        </linearGradient>
-        <filter id="vpRouteGlow" x="-35%" y="-35%" width="170%" height="170%">
-          <feGaussianBlur stdDeviation="7" result="b" />
-          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-        <filter id="vpPinGlow" x="-60%" y="-60%" width="220%" height="220%">
-          <feGaussianBlur stdDeviation="12" result="b" />
-          <feFlood floodColor="#FF3344" floodOpacity=".28" />
-          <feComposite in2="b" operator="in" />
-          <feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge>
-        </filter>
-      </defs>
-      <g transform="translate(24 26)">
-        <path d="M46 120 Q38 103 57 95 L101 95 Q114 95 121 110 L191 279 L162 338 Q153 356 140 338 Z" fill="url(#vpVLinks)" />
-        <path d="M140 338 Q132 349 123 333 L101 279 L206 109 Q215 95 230 95 L274 95 Q293 102 284 120 L174 338 Q157 365 140 338 Z" fill="url(#vpVRechts)" />
-        <g filter="url(#vpPinGlow)">
-          <path d="M159 8 C112 8 84 43 84 84 C84 137 159 213 159 213 C159 213 234 137 234 84 C234 43 206 8 159 8 Z" fill="url(#vpPinRot)" />
-          <circle cx="159" cy="81" r="25" fill="#FFFFFF" />
-        </g>
-        <path
-          d="M158 181 C151 226 104 227 91 269 C78 310 112 328 151 321 C193 313 198 272 231 258"
-          fill="none" stroke="#FFFFFF" strokeWidth="12" strokeLinecap="round" strokeLinejoin="round"
-          filter="url(#vpRouteGlow)" opacity=".95"
-        />
-        <circle cx="112" cy="320" r="6" fill="#7DD3FC" />
-        <circle cx="129" cy="323" r="5" fill="#38BDF8" />
-        <circle cx="145" cy="321" r="4" fill="#0EA5E9" />
-        <g transform="translate(191 153)">
-          <path d="M58 0 C23 0 0 26 0 59 C0 98 58 152 58 152 C58 152 116 98 116 59 C116 26 93 0 58 0 Z" fill="url(#vpPinGruen)" />
-          <path d="M31 58 L48 75 L84 37" fill="none" stroke="#FFFFFF" strokeWidth="13" strokeLinecap="round" strokeLinejoin="round" />
-        </g>
-      </g>
-    </svg>
-  );
+  return <img className="marke" src="/icons/mr-marke.svg" alt="Mobiler Reifenservice" width={36} height={36} />;
 }
 
-// Favicon: die vollständige Marke wäre bei 16 px Breite nicht mehr zu erkennen – das „V" mit
-// zwei Pins darauf ergibt dort Matsch. Im Browser-Tab steht deshalb nur der grüne Zielpunkt mit
-// Haken, das unterscheidbarste Element. Bewusst als eigene, einfache Form: ein `data:`-URI kann
-// keine Verläufe aus einem React-Baum beziehen, und bei 16 px sieht man ohnehin keinen.
-const MARKE_PIN_PFAD = "M9 0C4.03 0 0 4.03 0 9c0 6.6 9 17 9 17s9-10.4 9-17c0-4.97-4.03-9-9-9Z";
-const MARKE_HAKEN_PFAD = "M4.9 9.1 7.7 11.9 13.1 6.3";
-export const MARKE_FAVICON =
-  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E" +
-  "%3Cg transform='translate(4 0)'%3E" +
-  `%3Cpath d='${MARKE_PIN_PFAD}' fill='%231E9B6E'/%3E` +
-  `%3Cpath d='${MARKE_HAKEN_PFAD}' fill='none' stroke='%23ffffff' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E` +
-  "%3C/g%3E%3C/svg%3E";
+// Das Favicon im Browser-Reiter: dasselbe Signet als kleines Bild.
+export const MARKE_FAVICON = "/icons/mr-64.png";

@@ -62,7 +62,7 @@ describe("scanZiel", () => {
   it("ein ausgelagerter Satz führt zum Kunden, nicht auf den alten Platz", () => {
     expect(scanZiel(`https://app.example/?satz=${SATZ_RAUS}`, plaetze, saetze)).toEqual({ art: "kunde", kundeId: "k2" });
   });
-  it("unterscheidet unbekannte PinPoints-Codes von fremden Aufklebern", () => {
+  it("unterscheidet unbekannte eigene Codes von fremden Aufklebern", () => {
     expect(scanZiel("https://app.example/?lagerplatz=55555555-5555-4555-8555-555555555555", plaetze, saetze)).toEqual({ art: "unbekannt" });
     expect(scanZiel("https://app.example/?satz=55555555-5555-4555-8555-555555555555", plaetze, saetze)).toEqual({ art: "unbekannt" });
     expect(scanZiel("DHL 00340434161234567890", plaetze, saetze)).toEqual({ art: "fremd" });

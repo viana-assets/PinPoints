@@ -28,7 +28,7 @@ import { DEFAULT_MAP_CENTER } from "@/lib/mapStyles";
 //   * keine Weitergabe von Cookies oder Kundendaten – nur die Sucheingabe selbst.
 
 const PHOTON = "https://photon.komoot.io/api/";
-const USER_AGENT = "VianaPinPoints/1.0 (Kontakt: vhermann@samhammer.de)";
+const USER_AGENT = "MRAssistent/1.0 (Kontakt: vhermann@samhammer.de)";
 
 // Kürzer als die 1100 ms bei Nominatim: Photon ist für Tippabfragen gedacht und verlangt keine
 // Sekundenpause. Ganz ohne Bremse bliebe die Route aber ein offenes Scheunentor, sobald jemand

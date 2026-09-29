@@ -1,6 +1,10 @@
 // Wie die Anwendung von AUSSEN heißt und aussieht: auf dem Homescreen des Handys, im
-// Installationsdialog und in der App-Übersicht. INNEN ändert sich davon nichts – Kopfzeile,
-// Marke, Favicon und jeder Text in der Anwendung bleiben „Viana PinPoints".
+// Installationsdialog und in der App-Übersicht.
+//
+// Seit v88 (29.09.2026): Die App heißt „MR Assistent" und trägt das Signet des Mobilen
+// Reifenservice (petrolfarbener Kreis mit Auto, `public/icons/mr-*`). Innen steht die Marke
+// „Mobiler Reifenservice". Die Tarnung als „Settings" ist aufgehoben (Wunsch vom 29.09.2026) –
+// die Beschreibung unten bleibt als Begründung, falls sie je wieder gebraucht wird.
 //
 // Warum (18.09.2026): Die App liegt auf einem auch privat genutzten Telefon. Wer darüberschaut
 // oder es kurz in die Hand nimmt, soll nicht sehen, dass dort ein Betrieb mitläuft – und erst
@@ -14,7 +18,7 @@
 // Beide Erscheinungen stehen vollständig nebeneinander, die ursprünglichen Symbole liegen
 // unverändert in `public/icons/`. „Ich weiß schon noch, wie es vorher war" ist keine Zusage,
 // die ein halbes Jahr hält; eine Zeile im Code schon.
-export const GETARNT = true;
+export const GETARNT = false;
 
 export type Erscheinung = {
   // Vollständiger Name im Installationsdialog und in der App-Liste (Android).
@@ -31,15 +35,18 @@ export type Erscheinung = {
   appleSymbol: string;
 };
 
+// Neue Dateinamen statt die alten zu überschreiben: Handys halten ein Symbol unter derselben
+// Adresse hartnäckig fest. Die alten Viana-Symbole (`icon-*`, `apple-touch-icon.png`) bleiben
+// liegen und werden nicht mehr verwendet.
 const ECHT: Erscheinung = {
-  name: "Viana PinPoints",
-  kurzname: "PinPoints",
-  appleTitel: "PinPoints",
-  beschreibung: "Kunden, Termine und Aufträge im mobilen Reifenservice",
-  symbol192: "/icons/icon-192.png",
-  symbol512: "/icons/icon-512.png",
-  symbolMaskable512: "/icons/icon-maskable-512.png",
-  appleSymbol: "/apple-touch-icon.png",
+  name: "MR Assistent",
+  kurzname: "MR Assistent",
+  appleTitel: "MR Assistent",
+  beschreibung: "Mobiler Reifenservice – Kunden, Termine, Aufträge und Lager",
+  symbol192: "/icons/mr-192.png",
+  symbol512: "/icons/mr-512.png",
+  symbolMaskable512: "/icons/mr-maskable-512.png",
+  appleSymbol: "/icons/mr-apple-180.png",
 };
 
 // „Settings" und ein Zahnrad: das Unauffälligste, was auf einem Telefon liegen kann. Bewusst

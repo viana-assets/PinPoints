@@ -28,5 +28,5 @@ export function pushNutzlast(inhalt: PushInhalt): string {
 }
 
 // Titel für Meldungen, die sonst den Namen der App tragen würden (Testnachricht). Folgt der
-// Erscheinung: getarnt „Settings", sonst „PinPoints".
+// Erscheinung: seit v88 „MR Assistent" (bis v87 getarnt „Settings").
 export const PUSH_ABSENDER = ERSCHEINUNG.kurzname;

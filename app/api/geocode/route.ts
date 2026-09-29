@@ -20,7 +20,7 @@ import { createClient } from "@/lib/supabaseServer";
 // zentraler Warteschlangen-Lauf gebaut (siehe docs/roadmap.md Phase 10).
 
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
-const USER_AGENT = "VianaPinPoints/1.0 (Kontakt: vhermann@samhammer.de)";
+const USER_AGENT = "MRAssistent/1.0 (Kontakt: vhermann@samhammer.de)";
 const MIN_ABSTAND_MS = 1100;
 
 let letzterAufruf = 0;

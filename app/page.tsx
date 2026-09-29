@@ -1366,7 +1366,7 @@ export default function HomePage() {
       },
       () => {
         setStandortSucht(false);
-        setFehler("Der Standort ist nicht verfügbar – bitte im Browser die Standortfreigabe für PinPoints erlauben.");
+        setFehler("Der Standort ist nicht verfügbar – bitte im Browser die Standortfreigabe für den MR Assistent erlauben.");
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
     );
@@ -1497,8 +1497,9 @@ export default function HomePage() {
     await refreshTireStorages();
   }
   async function assignTire(fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) {
-    await upsertTireAssignment(supabase, fields);
+    const id = await upsertTireAssignment(supabase, fields);
     await refreshTireStorages();
+    return id;
   }
   // Das Herausgeben eines Satzes geht seit Migration 46 durch EINEN Dialog – egal, ob es an
   // der Regalwand oder im Auftragsfenster angestoßen wurde. Vorher war es ein stiller
@@ -2647,7 +2648,7 @@ export default function HomePage() {
             docs/design-system.md). */}
         <div className="nav-brand">
           <IconMarke />
-          <h1>Vi<span className="brand-accent">ana</span> PinPoints</h1>
+          <h1 className="marke-text"><b>Mobiler Reifenservice</b><small>MR Assistent</small></h1>
         </div>
         {/* Aus der Modulliste erzeugt (lib/module.ts). Vorher stand dieselbe Aufzählung hier
             UND weiter unten auf der Kachelseite „Weitere" – zweimal von Hand gepflegt, und
@@ -2695,9 +2696,7 @@ export default function HomePage() {
         <header className="app-brand-header">
           <div className="app-brand">
             <IconMarke />
-            <h1>
-              Vi<span className="brand-accent">ana</span> PinPoints
-            </h1>
+            <h1 className="marke-text"><b>Mobiler Reifenservice</b><small>MR Assistent</small></h1>
           </div>
         </header>
 
@@ -2874,6 +2873,10 @@ export default function HomePage() {
             onAddSlotsBulk={addStorageSlotsBulk}
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
+            onErfassungsart={erfassungsartSetzen}
+            onAnzahlRaeder={anzahlRaederSetzen}
+            onRadSpeichern={radSpeichern}
+            onRadEntfernen={radEntfernen}
             onRemoveAssignment={removeTireAssignment}
             onEtikett={(satzId) => setEtikettSatzIds([satzId])}
             canCreateWarehouse={darf("lager.regale", "schreiben")}

@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light only">
+<title>E-Mail-Adresse bestätigen – MR Assistent</title>
+</head>
+<body style="margin:0;padding:0;background:#F2EFE9;">
+<!-- MR Assistent (Mobiler Reifenservice) – Supabase-Vorlage „Confirm signup". Einfügen unter Authentication → Emails → Confirm signup.
+     Die Platzhalter in doppelten geschweiften Klammern (ConfirmationURL, Email) setzt Supabase
+     beim Versand ein – nicht ändern. -->
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#F2EFE9;">Bitte bestätige deine E-Mail-Adresse für den MR Assistent.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#F2EFE9;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px;">
+        <tr>
+          <td style="padding:0 4px 18px 4px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td style="vertical-align:middle;padding-right:10px;">
+                  <img src="https://pin-points.vercel.app/icons/mr-192.png" width="40" height="40" alt="" style="display:block;border:0;width:40px;height:40px;border-radius:10px;">
+                </td>
+                <td style="vertical-align:middle;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:19px;font-weight:700;color:#241d13;">
+                  <span style="color:#092633;">Mobiler Reifenservice</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#ffffff;border-radius:20px;padding:32px 28px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;color:#241d13;">
+            <p style="margin:0 0 6px 0;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#FF5A1F;">Bestätigung</p>
+            <h1 style="margin:0 0 16px 0;font-size:24px;line-height:1.25;font-weight:700;color:#241d13;">Bitte bestätige deine E-Mail-Adresse</h1>
+            <p style="margin:0 0 12px 0;font-size:15px;line-height:1.55;color:#3d3426;">Hallo,</p>
+            <p style="margin:0 0 12px 0;font-size:15px;line-height:1.55;color:#3d3426;">damit dein Zugang zum <b>MR Assistent</b> aktiv wird, bestätige bitte, dass diese E-Mail-Adresse dir gehört.</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:26px 0 22px 0;">
+              <tr>
+                <td style="border-radius:14px;background:#FF5A1F;">
+                  <a href="{{ .ConfirmationURL }}" style="display:inline-block;padding:14px 26px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">E-Mail-Adresse bestätigen</a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:0;padding:12px 14px;background:#fff6f0;border-radius:12px;font-size:13.5px;line-height:1.5;color:#7c2d12;">Du hast dich nicht beim MR Assistent angemeldet? Dann ignoriere diese E-Mail – ohne Bestätigung wird kein Zugang aktiv.</p>
+            <p style="margin:22px 0 0 0;padding-top:16px;border-top:1px solid #efe9df;font-size:12.5px;line-height:1.5;color:#8a7f6b;">
+              Funktioniert der Knopf nicht? Diesen Link in den Browser kopieren:<br>
+              <a href="{{ .ConfirmationURL }}" style="color:#c2410c;word-break:break-all;">{{ .ConfirmationURL }}</a>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:18px 8px 0 8px;font-family:'Segoe UI',Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#8a7f6b;text-align:center;">
+            Der Link gilt nur für kurze Zeit und nur einmal.<br>
+            Diese E-Mail ging an {{ .Email }}. Bitte nicht darauf antworten – das Postfach wird nicht gelesen.
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

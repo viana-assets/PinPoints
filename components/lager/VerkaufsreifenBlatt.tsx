@@ -211,7 +211,7 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
               netto · {formatEUR(preisZahl * (1 + DEFAULT_VAT_RATE / 100))} brutto je Stück
               {ekZahl != null && ekZahl > 0 ? ` · Marge ${formatEUR(preisZahl - ekZahl)} je Stück` : ""}
             </span>
-          ) : <span className="small">Preise netto, wie jeder Preis in PinPoints. Der Einkauf ist freiwillig – mit ihm zeigt das Lager die Marge.</span>}
+          ) : <span className="small">Preise netto, wie jeder Preis im MR Assistent. Der Einkauf ist freiwillig – mit ihm zeigt das Lager die Marge.</span>}
         </div>
 
         <span className="op-gruppe-titel">ZUSTAND DES REIFENS</span>

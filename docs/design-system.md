@@ -374,6 +374,26 @@ Zwei Fallstricke, die dabei aufgefallen sind und beim nächsten Mal wieder auftr
 *Bewusst nicht gemacht*: `maximum-scale=1` / `user-scalable=no` im Viewport-Tag. Das nimmt das
 Vergrößern auch dort weg, wo es jemand zum Lesen braucht – eine Barriere, keine Reparatur.
 
+## Marke seit v88: Mobiler Reifenservice · MR Assistent (29.09.2026)
+
+- **Name der App:** „MR Assistent" – auf dem Startbildschirm, im Installationsdialog, im
+  Browser-Reiter („MR Assistent · Mobiler Reifenservice"), in den Push-Mitteilungen
+  (`lib/erscheinung.ts`, `GETARNT = false`; die Tarnung „Settings" ist aufgehoben).
+- **Marke in der App:** „Mobiler Reifenservice" als Schriftzug, darunter klein „MR Assistent"
+  (`.marke-text`), Farbe `--marke` (Petrol `#092633` aus dem Logo).
+- **Zeichen:** das Signet (Kreis mit Auto) aus `Logos/Rechnungslogo/2_petrol_signet.png`, ohne die
+  Reifenspuren. Die Vorlage hat nur 320 px; `public/icons/mr-marke.svg` ist mit potrace daraus
+  nachgezeichnet, die Symbole `mr-192/512/maskable-512/apple-180/64.png` sind daraus gerendert
+  (Petrol-Fläche, Kreis 90 % bzw. 76 % bei der maskierbaren Fassung). Mit einem Vektor-Original
+  des Logos würden sie schärfer – dann nur diese Dateien ersetzen.
+- `IconMarke` ist seit v88 ein `<img>` auf `mr-marke.svg` (64 kB, einmal geladen) statt eines
+  Inline-SVG. Größen: Seitenleiste 36 px, Handy-Kopf 34 px, Anmeldung 72 px.
+- Innen bleiben technische Namen, wie sie sind: Repository und Ordner `viana-pinpoints`, der
+  Speicher des Service Workers (`pinpoints-programm-…`), Schlüssel im Browser. Sie umzubenennen
+  hieße, jedem Gerät den Zwischenspeicher und die Einstellungen wegzunehmen.
+
+Die beiden folgenden Abschnitte beschreiben die Viana-Marke bis v87 und bleiben als Verlauf stehen.
+
 ## Branding: eine Markenquelle, viewport-abhängig (behoben)
 
 Früher existierten **zwei** "Viana PinPoints"-Markenelemente gleichzeitig sichtbar

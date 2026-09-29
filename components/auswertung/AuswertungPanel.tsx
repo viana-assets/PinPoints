@@ -564,7 +564,7 @@ export function AuswertungPanel(p: {
             <div className="db-karte">
               <div className="db-karte-kopf"><span className="db-karte-titel">Belegung im Verlauf</span><span className="small">am Monatsende</span></div>
               <Saeulen werte={verlauf} vorjahr={vergleich ? verlaufVJ : null} monate={monate} z={z} deckel={a.lagerplaetze || undefined} farbe="navy" />
-              <span className="small am-fuss">Ab der ersten Erfassung in PinPoints – was bei der Übernahme schon im Regal lag, steht ab dem Tag der Übernahme drin.</span>
+              <span className="small am-fuss">Ab der ersten Erfassung im MR Assistent – was bei der Übernahme schon im Regal lag, steht ab dem Tag der Übernahme drin.</span>
             </div>
 
             <div className="am-kacheln">

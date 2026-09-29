@@ -94,7 +94,7 @@ export default function InvitePage() {
         </form>
         <hr />
         {isSuperAdmin && <a href="/admin/users" className="small" style={{ display: "block", marginBottom: 8 }}>Nutzerverwaltung öffnen →</a>}
-        <a href="/" className="small">← Zurück zu Viana PinPoints</a>
+        <a href="/" className="small">← Zurück zum MR Assistent</a>
       </div>
     </div>
   );

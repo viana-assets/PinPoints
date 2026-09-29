@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v87";
+export const APP_VERSION = "v88";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v88", datum: "2026-09-29", titel: "Neuer Name: MR Assistent",
+    punkte: [
+      "Die App heißt jetzt „MR Assistent“ und trägt das Zeichen des Mobilen Reifenservice – auf dem Startbildschirm, im Browser, bei der Anmeldung und in den Mitteilungen. Statt „Settings“ mit Zahnrad steht jetzt der Name und das Logo da.",
+      "Auf dem Handy erscheint das neue Symbol oft erst, wenn die App einmal vom Startbildschirm entfernt und neu hinzugefügt wird. Die Anmeldung bleibt dabei erhalten; danach die Mitteilungen in den Einstellungen einmal neu einschalten.",
+      "Im Lager lässt sich beim Einlagern und Bearbeiten eines Satzes jetzt wieder wählen: ein Wert für den ganzen Satz oder die Profiltiefe für jedes Rad einzeln – wie im Auftragsfenster.",
+    ],
+  },
   {
     version: "v87", datum: "2026-09-28", titel: "Auftrag: Termin und Team direkt im Fenster",
     punkte: [

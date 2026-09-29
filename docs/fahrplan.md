@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **29.09.2026 – Neuer Name „MR Assistent" (Service Worker v88).** Marke „Mobiler Reifenservice"
+  mit Signet in App, Anmeldung, Mails und Symbolen; Tarnung „Settings" aufgehoben. Dazu im Lager
+  beim Einlagern/Bearbeiten wieder die Wahl „ein Wert für den Satz / Räder einzeln".
+
 * **28.09.2026 – Auftrag: Termin & Team offen (Service Worker v87).** Datum, von–bis,
   Mitarbeiter und Transporter stehen direkt in der Karte statt im Blatt hinter „Ändern" – dort
   wurden sie beim Anlegen vergessen. Speichern im Kopf oder unter der Karte.

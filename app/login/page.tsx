@@ -34,9 +34,7 @@ export default function LoginPage() {
       <div className="login-box">
         <div className="login-brand">
           <IconMarke />
-          <h1>
-            Vi<span className="brand-accent">ana</span> PinPoints
-          </h1>
+          <h1 className="marke-text"><b>Mobiler Reifenservice</b><small>MR Assistent · Wo auch immer Sie sind</small></h1>
         </div>
 
         {error && <div className="login-error">{error}</div>}

@@ -1,4 +1,7 @@
-# Viana PinPoints – Projektanweisung für Claude
+# MR Assistent (Mobiler Reifenservice) – Projektanweisung für Claude
+
+Die App hieß bis v87 „Viana PinPoints"; Repository, Ordner und technische Schlüssel tragen den
+alten Namen weiter (siehe `docs/design-system.md`, „Marke seit v88").
 
 Diese Datei ist die Standard-Instruktion für jede Claude-Session, die an diesem
 Repo arbeitet. Vor Beginn der Arbeit lesen und befolgen.

@@ -75,7 +75,9 @@ export async function deleteStorageSlotById(supabase: SupabaseClient, id: string
 // EINE aktive Belegung hat (removed_at is null). Versucht jemand parallel eine zweite
 // Einlagerung auf denselben Platz, lehnt die Datenbank das jetzt ab, statt zwei aktive Zeilen
 // entstehen zu lassen, von denen die Oberfläche willkürlich eine anzeigt.
-export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; orderId?: string | null; vehicleId?: string | null; saison?: Saison | null }): Promise<void> {
+// Gibt die Kennung des Satzes zurück – beim Anlegen die neue. Das Lager-Modul braucht sie, um
+// gleich danach auf Einzelerfassung umzustellen und die Räder zu messen (v88).
+export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; orderId?: string | null; vehicleId?: string | null; saison?: Saison | null }): Promise<string> {
   const patch = {
     storage_slot_id: fields.storageSlotId,
     customer_id: fields.customerId,
@@ -99,12 +101,13 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
       "Die Einlagerung konnte nicht gespeichert werden",
       supabase.from("tire_storage").update(patch).eq("id", fields.id)
     );
-  } else {
-    await qWrite(
-      "Die Einlagerung konnte nicht angelegt werden – ist der Lagerplatz schon belegt?",
-      supabase.from("tire_storage").insert(patch)
-    );
+    return fields.id;
   }
+  const neu = await qOne<{ id: string }>(
+    "Die Einlagerung konnte nicht angelegt werden – ist der Lagerplatz schon belegt?",
+    supabase.from("tire_storage").insert(patch).select("id").single()
+  );
+  return neu.id;
 }
 
 // Nur die beschreibenden Angaben eines bestehenden Satzes ändern – ohne den Lagerplatz
