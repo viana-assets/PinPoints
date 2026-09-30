@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v91";
+export const APP_VERSION = "v92";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v92", datum: "2026-09-30", titel: "Etiketten für den Brother-Drucker",
+    punkte: [
+      "Beim Etikett gibt es zwei neue Formate für den Brother QL-820NWBc mit der 62-mm-Rolle: 62 × 100 mm hoch (großer QR-Code, voreingestellt) und 62 × 40 mm quer. Der Drucker schneidet jedes Etikett einzeln ab.",
+      "Am Handy: Wireless Direct am Drucker einschalten, das iPhone mit dem WLAN des Druckers verbinden und „Drucken“ – oder über Bluetooth „Als Bild teilen“ und in der App „Brother iPrint&Label“ drucken.",
+      "Behoben: Beim Drucken kam vorher zuerst ein leeres Etikett heraus.",
+    ],
+  },
   {
     version: "v91", datum: "2026-09-30", titel: "Termin verschoben? Rückgängig bleibt da",
     punkte: [

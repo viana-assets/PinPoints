@@ -210,6 +210,7 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
 | `PX_PRO_MM` | `lib/etikettBild.ts` | `number` (8) | Bildpunkte je Millimeter (203 dpi, die Auflösung der Etikettendrucker) für das per „Als Bild teilen" erzeugte Etikett-PNG | `mmZuPx()` – `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
+| `PX_PRO_MM_300` | `lib/etikettBild.ts` | `number` (300 / 25,4) | Bildpunkte je Millimeter bei 300 dpi – Brother QL-820NWBc (seit 30.09.2026) | `ETIKETT_FORMATE` (62-mm-Formate) in `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
 
 **Nicht aufgenommen, bewusst:** `ETIKETT_FORMATE` (die Liste der Rollenformate inkl. des neuen
 Eintrags 50 × 80 mm) liegt nicht in `lib/`, sondern als `export const` direkt in

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dateiName, mmZuPx, textKuerzen, umbrechen, PX_PRO_MM } from "@/lib/etikettBild";
+import { dateiName, mmZuPx, textKuerzen, umbrechen, PX_PRO_MM, PX_PRO_MM_300 } from "@/lib/etikettBild";
 
 // Das Etikett als Bild (21.09.2026) – der Weg für Drucker ohne AirPrint.
 //
@@ -20,6 +20,12 @@ describe("mmZuPx", () => {
     expect(mmZuPx(50)).toBe(400);
     expect(mmZuPx(30)).toBe(240);
     expect(mmZuPx(80)).toBe(640);
+  });
+
+  it("rechnet für den Brother QL-820NWBc mit 300 dpi (30.09.2026)", () => {
+    expect(mmZuPx(62, PX_PRO_MM_300)).toBe(732);
+    expect(mmZuPx(100, PX_PRO_MM_300)).toBe(1181);
+    expect(mmZuPx(40, PX_PRO_MM_300)).toBe(472);
   });
 
   it("rundet auf ganze Bildpunkte", () => {

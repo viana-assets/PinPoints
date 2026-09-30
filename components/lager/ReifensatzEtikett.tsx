@@ -6,7 +6,7 @@ import type { Customer, EingelagertesRad, RadPosition, StorageSlot, TireStorage,
 import { RAD_POSITIONEN, RAD_POSITION_LABEL, SAISON_LABEL } from "@/lib/constants";
 import { formatDate, profilText, satzProfilMm } from "@/lib/helpers";
 import { satzUrl } from "@/lib/aufkleberCode";
-import { dateiName, etikettDatei, mmZuPx, type EtikettInhalt } from "@/lib/etikettBild";
+import { dateiName, etikettDatei, mmZuPx, PX_PRO_MM_300, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
 //
@@ -41,14 +41,33 @@ export type EtikettFormat = {
   // Auf einem 40 mm hohen Etikett bliebe sonst ein Drittel leer, und gescannt wird der Code aus
   // der Hüfte heraus über einem Regal – da zählt jeder Millimeter.
   qrMm: number;
+  // Seit 30.09.2026, für die Formate des Brother QL-820NWBc: Auflösung (300 statt 203 dpi),
+  // Rand (der Drucker bedruckt die äußersten Millimeter der Rolle nicht) und ein Faktor für
+  // die Schriften – auf 62 × 100 mm stünde die Schrift der 30-mm-Rolle verloren in der Fläche.
+  pxProMm?: number;
+  randMm?: number;
+  schrift?: number;
+  brother?: boolean;
 };
 
 export const ETIKETT_FORMATE: EtikettFormat[] = [
-  // 50 × 80 mm steht oben, weil genau diese Rolle im Betrieb liegt (21.09.2026). Sie ist
-  // HOCH, nicht breit: Der QR-Code wandert nach oben und wird mit 44 mm mehr als doppelt so
-  // groß wie auf dem 30-mm-Etikett – gescannt wird im Regal aus einem Meter Abstand, und
-  // dort zählt die Kantenlänge des Codes mehr als jede Beschriftung.
-  { schluessel: "50x80", text: "Rolle 50 × 80 mm, hoch (vorhanden)", breiteMm: 50, hoeheMm: 80, qrMm: 44 },
+  // Die beiden Formate der 62-mm-Endlosrolle (DK-22205 Papier, DK-22212 Folie) des Brother
+  // QL-820NWBc stehen oben, weil dieser Drucker seit dem 30.09.2026 im Betrieb ist. Endlos
+  // heißt: Die Länge bestimmt die Seite, der Drucker schneidet nach jedem Etikett ab – vier
+  // Rad-Etiketten kommen einzeln heraus.
+  //
+  // 62 × 100 mm HOCH: der größte QR-Code (50 mm), gescannt wird im Regal aus einem Meter
+  // Abstand. 62 × 100 ist zugleich ein Standardmaß von Brother (DK-11202), das der Druckdialog
+  // kennt. 62 × 40 mm QUER: kompakt, etwa 125 Etiketten je 5-m-Rolle.
+  //
+  // Rand 3 mm: Brother bedruckt von 62 mm Rollenbreite etwa 58 mm; mit 1,5 mm wie bei den
+  // kleinen Rollen läge der QR-Code am Rand des bedruckbaren Streifens.
+  { schluessel: "62x100", text: "Brother 62 mm · 100 mm lang, hoch", breiteMm: 62, hoeheMm: 100, qrMm: 50, pxProMm: PX_PRO_MM_300, randMm: 3, schrift: 1.6, brother: true },
+  { schluessel: "62x40", text: "Brother 62 mm · 40 mm lang, quer", breiteMm: 62, hoeheMm: 40, qrMm: 32, pxProMm: PX_PRO_MM_300, randMm: 3, schrift: 1.1, brother: true },
+  // Die Formate der kleinen 203-dpi-Rollen bleiben vorerst wählbar (Entscheidung 30.09.2026).
+  // 50 × 80 mm ist HOCH: Der QR-Code wandert nach oben und wird mit 44 mm mehr als doppelt so
+  // groß wie auf dem 30-mm-Etikett.
+  { schluessel: "50x80", text: "Rolle 50 × 80 mm, hoch", breiteMm: 50, hoeheMm: 80, qrMm: 44 },
   { schluessel: "50x30", text: "Rolle 50 × 30 mm", breiteMm: 50, hoeheMm: 30, qrMm: 21 },
   { schluessel: "40x30", text: "Rolle 40 × 30 mm (eng – lange Namen brechen ab)", breiteMm: 40, hoeheMm: 30, qrMm: 21 },
   { schluessel: "57x40", text: "Rolle 57 × 40 mm", breiteMm: 57, hoeheMm: 40, qrMm: 30 },
@@ -220,8 +239,8 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
 
   // ------------------------------------------------------------------ Als Bild teilen
   //
-  // Der Ausweg für Drucker ohne AirPrint. Das Bild entsteht in der Auflösung des Druckers
-  // (203 dpi) und in exakt der Größe des gewählten Formats – der Drucker muss dann nichts mehr
+  // Der Ausweg für Drucker ohne AirPrint – und beim Brother der Weg über Bluetooth. Das Bild
+  // entsteht in der Auflösung des Druckers (203 dpi, beim Brother 300 dpi) und in exakt der Größe des gewählten Formats – der Drucker muss dann nichts mehr
   // umrechnen, und genau das Umrechnen macht QR-Codes unlesbar.
   async function alsBildTeilen() {
     setTeilenHinweis(null);
@@ -229,7 +248,8 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
     try {
       const dateien: File[] = [];
       for (const [i, e] of etiketten.entries()) {
-        const masse = {
+        const masse: EtikettMasse = {
+          pxProMm: gewaehlt.pxProMm, randMm: gewaehlt.randMm, schrift: gewaehlt.schrift,
           breiteMm: gewaehlt.breiteMm,
           // Beim A4-Bogen gibt es keine Etikettenhöhe; fürs Bild gilt dann das Maß, das die
           // Vorschau ohnehin zeichnet.
@@ -241,7 +261,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
           qrMm: e.rad && !hochformat ? gewaehlt.qrMm - 3 : gewaehlt.qrMm,
         };
         const qr = await QRCode.toDataURL(satzUrl(e.satzId, basis), {
-          width: mmZuPx(masse.qrMm), margin: 1, errorCorrectionLevel: "M",
+          width: mmZuPx(masse.qrMm, masse.pxProMm), margin: 1, errorCorrectionLevel: "M",
         });
         dateien.push(await etikettDatei(
           { ...e.inhalt, qr }, masse, dateiName(e.bezeichnung, i + 1, etiketten.length)
@@ -321,8 +341,18 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
               ? "Im Druckdialog die Ränder auf null und die Skalierung auf 100 % stellen – sonst schrumpft der QR-Code und wird unlesbar."
               : "Mehrere Etiketten nebeneinander auf einem Blatt Klebeetiketten, zum Ausschneiden."}
           </span>
-          {rolle && (
-            <span className="small" style={{ marginTop: 4 }}>
+          {gewaehlt.brother && (
+            <span className="small" style={{ display: "block", marginTop: 4 }}>
+              <b>Brother QL-820NWBc am Handy:</b> Wireless Direct am Drucker einschalten, das
+              iPhone mit dem WLAN des Druckers verbinden, dann &bdquo;Drucken&ldquo; und im
+              Druckdialog die 62-mm-Rolle in der passenden Länge wählen. Oder über Bluetooth:
+              &bdquo;Als Bild teilen&ldquo; und in der App &bdquo;Brother iPrint&amp;Label&ldquo;
+              drucken. Für Etiketten direkt auf dem Reifen die Folienrolle DK-22212 statt Papier
+              einlegen – Thermopapier verträgt Wärme und Gummi auf Dauer schlecht.
+            </span>
+          )}
+          {rolle && !gewaehlt.brother && (
+            <span className="small" style={{ display: "block", marginTop: 4 }}>
               Am Handy: mit dem <b>eigenen WLAN des Druckers</b> verbinden (Wireless Direct),
               nicht über den Handy-Hotspot – und nicht über Bluetooth. Der Browser druckt über
               das Drucksystem des Geräts, und das findet nur Drucker im selben Netz. Für das
@@ -339,6 +369,8 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
             "--etikett-b": `${gewaehlt.breiteMm}mm`,
             "--etikett-h": `${gewaehlt.hoeheMm}mm`,
             "--etikett-qr": `${gewaehlt.qrMm}mm`,
+            "--etikett-rand": `${gewaehlt.randMm ?? 1.5}mm`,
+            "--etikett-s": String(gewaehlt.schrift ?? 1),
           } as React.CSSProperties}
         >
           {basis && etiketten.map((e) => (

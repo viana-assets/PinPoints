@@ -32,9 +32,12 @@
 // arbeiten. Ein Bild in genau dieser Dichte muss vom Drucker nicht umgerechnet werden, und
 // genau das Umrechnen ist es, was einen QR-Code unscharf und damit unlesbar macht.
 export const PX_PRO_MM = 8;
+// 300 dpi – die Auflösung des Brother QL-820NWBc (seit 30.09.2026 im Betrieb). Für seine
+// 62-mm-Formate entsteht das Bild in dieser Dichte, aus demselben Grund wie oben.
+export const PX_PRO_MM_300 = 300 / 25.4;
 
-export function mmZuPx(mm: number): number {
-  return Math.round(mm * PX_PRO_MM);
+export function mmZuPx(mm: number, pxProMm: number = PX_PRO_MM): number {
+  return Math.round(mm * pxProMm);
 }
 
 // Die Maße. Dieselben Zahlen wie in den `.etikett`-Regeln in globals.css.
@@ -61,7 +64,14 @@ export type EtikettInhalt = {
   zeilen: string[];
 };
 
-export type EtikettMasse = { breiteMm: number; hoeheMm: number; qrMm: number };
+export type EtikettMasse = {
+  breiteMm: number; hoeheMm: number; qrMm: number;
+  // Seit 30.09.2026 je Format (siehe `ETIKETT_FORMATE`): Auflösung des Druckers, Rand und ein
+  // Faktor für alle Schriftgrößen. Ohne Angabe gelten die Werte der kleinen 203-dpi-Rollen.
+  pxProMm?: number;
+  randMm?: number;
+  schrift?: number;
+};
 
 // Text auf eine Breite kürzen. Passt er nicht, wird abgeschnitten und mit einem Auslassungs-
 // zeichen versehen – NICHT stillschweigend beschnitten: Eine abgeschnittene Angabe, die wie
@@ -141,8 +151,12 @@ export function etikettZeichnen(
   masse: EtikettMasse,
   qrBild: CanvasImageSource
 ): void {
-  const b = mmZuPx(masse.breiteMm);
-  const h = mmZuPx(masse.hoeheMm);
+  // Alle Maße in der Dichte DIESES Druckers, alle Schriften mit dem Faktor DIESES Formats.
+  const dichte = masse.pxProMm ?? PX_PRO_MM;
+  const f = masse.schrift ?? 1;
+  const px = (mm: number) => mmZuPx(mm, dichte);
+  const b = px(masse.breiteMm);
+  const h = px(masse.hoeheMm);
   leinwand.width = b;
   leinwand.height = h;
   const ctx = leinwand.getContext("2d");
@@ -155,8 +169,8 @@ export function etikettZeichnen(
   ctx.fillStyle = "#000000";
   ctx.textBaseline = "top";
 
-  const rand = mmZuPx(RAND_MM);
-  const qrSeite = mmZuPx(masse.qrMm);
+  const rand = px(masse.randMm ?? RAND_MM);
+  const qrSeite = px(masse.qrMm);
   // Hochformat: Ist das Etikett höher als breit, steht der QR-Code OBEN und der Text
   // darunter, beide über die volle Breite. Die Anordnung nebeneinander würde auf einem
   // 50 × 80 mm langen Etikett zwei Drittel der Fläche leer lassen – und der QR-Code bliebe
@@ -174,30 +188,30 @@ export function etikettZeichnen(
   }
   ctx.imageSmoothingEnabled = true;
 
-  const textLinks = hoch ? rand : rand + qrSeite + mmZuPx(SPALT_MM);
+  const textLinks = hoch ? rand : rand + qrSeite + px(SPALT_MM * f);
   const textBreite = b - textLinks - rand;
   if (textBreite <= 0) return;
 
   const messenMit = (schriftMm: number, fett: boolean) => (t: string) => {
-    ctx.font = `${fett ? "700 " : ""}${mmZuPx(schriftMm)}px ${SCHRIFT}`;
+    ctx.font = `${fett ? "700 " : ""}${px(schriftMm * f)}px ${SCHRIFT}`;
     return ctx.measureText(t).width;
   };
   const schreiben = (t: string, y: number, schriftMm: number, fett: boolean) => {
-    ctx.font = `${fett ? "700 " : ""}${mmZuPx(schriftMm)}px ${SCHRIFT}`;
+    ctx.font = `${fett ? "700 " : ""}${px(schriftMm * f)}px ${SCHRIFT}`;
     ctx.fillText(t, textLinks, y);
-    return y + mmZuPx(schriftMm) * ZEILENHOEHE;
+    return y + px(schriftMm * f) * ZEILENHOEHE;
   };
 
   // Der Textblock sitzt senkrecht mittig, genau wie in der Bildschirmfassung
   // (`.etikett{align-items:center}`). Dafür muss seine Höhe vorher feststehen – bei oben
   // bündigem Text klebt eine dreizeilige Angabe am oberen Rand und lässt unten ein Drittel
   // leer, und das sieht nach Fehler aus, nicht nach Gestaltung.
-  const zeilenHoehe = (mm: number) => mmZuPx(mm) * ZEILENHOEHE;
+  const zeilenHoehe = (mm: number) => px(mm * f) * ZEILENHOEHE;
   let blockHoehe = 0;
   const kopfZeilen = inhalt.kopf
     ? umbrechen(inhalt.kopf, textBreite, 2, messenMit(SCHRIFT_KOPF_MM, true))
     : [];
-  if (inhalt.gross) blockHoehe += mmZuPx(SCHRIFT_GROSS_MM) * 1.05;
+  if (inhalt.gross) blockHoehe += px(SCHRIFT_GROSS_MM * f) * 1.05;
   blockHoehe += kopfZeilen.length * zeilenHoehe(SCHRIFT_KOPF_MM);
   const sichtbareZeilen = inhalt.zeilen.filter(Boolean);
   blockHoehe += sichtbareZeilen.length * zeilenHoehe(SCHRIFT_ZEILE_MM);
@@ -206,22 +220,22 @@ export function etikettZeichnen(
   // unter ihm. Ihn dort ebenfalls zu zentrieren hieße, ihn vom Code wegzuschieben – und
   // zusammen gelesen werden sie allemal.
   let y = hoch
-    ? rand + qrSeite + mmZuPx(SPALT_MM * 1.4)
+    ? rand + qrSeite + px(SPALT_MM * 1.4 * f)
     : Math.max(rand, Math.round((h - blockHoehe) / 2));
 
   if (inhalt.gross) {
     // Position groß links, Profiltiefe kleiner rechts daneben – dieselbe Aufteilung wie im
     // Stilblatt (`.etikett-rad-kopf`).
-    const grossPx = mmZuPx(SCHRIFT_GROSS_MM);
+    const grossPx = px(SCHRIFT_GROSS_MM * f);
     ctx.font = `700 ${grossPx}px ${SCHRIFT}`;
     const linksBreite = ctx.measureText(inhalt.gross.links).width;
     ctx.fillText(inhalt.gross.links, textLinks, y);
-    const restBreite = textBreite - linksBreite - mmZuPx(1.2);
+    const restBreite = textBreite - linksBreite - px(1.2 * f);
     const rechts = textKuerzen(inhalt.gross.rechts, restBreite, messenMit(SCHRIFT_KOPF_MM, true));
-    ctx.font = `700 ${mmZuPx(SCHRIFT_KOPF_MM)}px ${SCHRIFT}`;
+    ctx.font = `700 ${px(SCHRIFT_KOPF_MM * f)}px ${SCHRIFT}`;
     // Auf die Grundlinie der großen Schrift ausgerichtet, nicht oben bündig – sonst schwebt
     // die kleinere Zahl über der Position.
-    ctx.fillText(rechts, textLinks + linksBreite + mmZuPx(1.2), y + grossPx - mmZuPx(SCHRIFT_KOPF_MM));
+    ctx.fillText(rechts, textLinks + linksBreite + px(1.2 * f), y + grossPx - px(SCHRIFT_KOPF_MM * f));
     y += grossPx * 1.05;
   }
 
@@ -231,7 +245,7 @@ export function etikettZeichnen(
 
   for (const zeile of sichtbareZeilen) {
     // Was nicht mehr aufs Etikett passt, wird weggelassen statt über den Rand geschrieben.
-    if (y + mmZuPx(SCHRIFT_ZEILE_MM) > h - rand) break;
+    if (y + px(SCHRIFT_ZEILE_MM * f) > h - rand) break;
     y = schreiben(textKuerzen(zeile, textBreite, messenMit(SCHRIFT_ZEILE_MM, false)), y, SCHRIFT_ZEILE_MM, false);
   }
 }

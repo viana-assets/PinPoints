@@ -143,6 +143,23 @@ zwischen beiden Anordnungen ergibt sich allein aus den Maßen des gewählten For
 (`hochformat` in `ReifensatzEtikett.tsx`, `masse.hoeheMm > masse.breiteMm` in
 `lib/etikettBild.ts`) – kein eigenes Feld, das getrennt gepflegt würde.
 
+**Seit 30.09.2026 (v92): Brother QL-820NWBc mit 62-mm-Endlosrolle.** Der Betrieb hat diesen
+Drucker gekauft (DK-22205, 62 mm × 5 m Papier; für Etiketten direkt am Reifen besser die Folie
+DK-22212). Er kann AirPrint, baut mit „Wireless Direct" sein eigenes WLAN auf (im Lager gibt es
+keines), hat Bluetooth für die App „Brother iPrint&Label" und schneidet nach jedem Etikett ab.
+Zwei Formate stehen oben in der Liste: **62 × 100 mm hoch** (QR 50 mm, Standard) und **62 × 40 mm
+quer** (QR 32 mm). Die alten Rollenformate bleiben vorerst wählbar. Je Format neu:
+`pxProMm` (300 dpi = `PX_PRO_MM_300` statt 203 dpi), `randMm` (3 mm – Brother bedruckt von
+62 mm nur rund 58 mm) und `schrift` (Faktor für alle Schriftgrößen: 1,6 bzw. 1,1). Dieselben
+Werte gehen als `--etikett-rand`/`--etikett-s` ins Stilblatt und als `masse` in
+`etikettZeichnen()`. Geprüft: PDF mit genau einer Seite je Etikett in 62 × 100 bzw. 62 × 40 mm,
+QR-Code aus der 300-dpi-Rasterung und aus den PNGs (732 × 1181 bzw. 732 × 472 px) zurückgelesen.
+
+Dabei gefunden: Jeder Druck begann bisher mit einem **leeren ersten Blatt**. Die Seitenleiste
+`#iconNav` blieb im Druck im Seitenaufbau (eine ID-Regel wiegt mehr als die Ausblende-Regel
+„Drucken aus einem Fenster"), unsichtbar, aber 28 px hoch – und ein 80- oder 100-mm-Etikett
+passte nicht mehr auf Seite 1. Die Ausblende-Regel trägt jetzt `!important`.
+
 ### Zwei Wege aufs Papier (21.09.2026)
 
 Gedruckt wird über den Druckdialog des Geräts. Am Rechner findet der jeden eingerichteten
@@ -164,7 +181,7 @@ Vielfaches. Im Fenster „Etikett für den Reifensatz" stehen deshalb zwei Knöp
   bewusst keine Fehlermeldung aus.
 
 Im Alltag am Regal: „Etikett drucken" im Einlagerungsblock oder am Reifensatz öffnen, Format
-wählen (die 50 × 80-Rolle steht als Erstes zur Auswahl), dann entweder **Drucken** tippen und
+wählen (seit v92 steht Brother 62 × 100 mm als Erstes zur Auswahl), dann entweder **Drucken** tippen und
 im Systemdialog Ränder auf null und Skalierung auf 100 % stellen, oder – wenn nur der
 Bluetooth-Drucker zur Hand ist – **Als Bild teilen** tippen und im Teilen-Menü die App des
 Druckers antippen.

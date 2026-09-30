@@ -16,6 +16,9 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.09.2026 – Etiketten für den Brother QL-820NWBc (Service Worker v92).** Formate 62 × 100 mm
+  hoch und 62 × 40 mm quer mit 300 dpi; leeres erstes Druckblatt behoben.
+
 * **30.09.2026 – Termin verschieben: Rückgängig bleibt, Historie zeigt von wann auf wann (Service
   Worker v91).** Hinweis „vorher → jetzt" mit leuchtendem Rückgängig-Knopf bleibt bis zum
   Schließen, mehrere Schritte zurück; Historie/Protokoll mit Terminzeile und „Termin von vorher

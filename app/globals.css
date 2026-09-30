@@ -801,7 +801,7 @@ tr.klickbar:hover { background: var(--hover); }
    und beim Drucken umrechnet, entwirft zweimal und sieht den Unterschied erst auf der Rolle.
    50 × 30 mm ist der Entwurfsfall; die anderen Formate skalieren über die Variablen. */
 .etikett{width:var(--etikett-b,50mm);height:var(--etikett-h,30mm);
-  display:flex;align-items:center;gap:1.5mm;padding:1.5mm;overflow:hidden;
+  display:flex;align-items:center;gap:calc(1.5mm * var(--etikett-s,1));padding:var(--etikett-rand,1.5mm);overflow:hidden;
   background:#ffffff;color:#000000;box-sizing:border-box;
   break-inside:avoid;page-break-inside:avoid;}
 .etikett-qr{width:var(--etikett-qr,21mm);height:var(--etikett-qr,21mm);flex:0 0 auto;
@@ -809,23 +809,25 @@ tr.klickbar:hover { background: var(--hover); }
 .etikett-text{flex:1;min-width:0;line-height:1.25;}
 /* Der Name darf umbrechen, aber nicht ausufern: zwei Zeilen, dann Schluss. Ein Etikett, dessen
    Text den QR-Code wegdrückt, ist beides nicht mehr – weder lesbar noch scanbar. */
-.etikett-kunde{font-weight:800;font-size:2.6mm;overflow:hidden;
+/* Schriftgrößen mal `--etikett-s` (seit 30.09.2026, Brother-Formate). Derselbe Faktor wie
+   `masse.schrift` in lib/etikettBild.ts. */
+.etikett-kunde{font-weight:800;font-size:calc(2.6mm * var(--etikett-s,1));overflow:hidden;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
-.etikett-zeile{font-size:2.1mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.etikett-zeile{font-size:calc(2.1mm * var(--etikett-s,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 
 /* Das Rad-Etikett (17.09.2026). Andere Gewichtung als beim Satz-Etikett: Dort trägt der
    Kundenname die Aussage, hier die POSITION und die Profiltiefe. Wer vier gleich aussehende
    Räder vor sich hat, liest genau diese beiden Angaben – alles andere ist Beleg und darf klein
    sein. Deshalb steht die Position groß und nicht der Name. */
-.etikett-rad-kopf{display:flex;align-items:baseline;gap:1.2mm;margin-bottom:.4mm;
+.etikett-rad-kopf{display:flex;align-items:baseline;gap:calc(1.2mm * var(--etikett-s,1));margin-bottom:.4mm;
   flex-wrap:nowrap;min-width:0;}
-.etikett-pos{font-family:var(--font-brand);font-weight:800;font-size:4.5mm;line-height:1;
+.etikett-pos{font-family:var(--font-brand);font-weight:800;font-size:calc(4.5mm * var(--etikett-s,1));line-height:1;
   letter-spacing:.02em;flex:0 0 auto;}
 /* `min-width:0` und die Ellipse sind hier nicht Kosmetik: Ohne sie schob „6,0 mm" die Zeile
    über den Etikettenrand, wo `overflow:hidden` sie kommentarlos abschnitt – aus 6,0 mm wurde
    „6,0 m". Eine abgeschnittene Zahl ist schlimmer als eine fehlende, weil sie aussieht wie
    eine Angabe. */
-.etikett-profil{font-weight:700;font-size:2.6mm;white-space:nowrap;
+.etikett-profil{font-weight:700;font-size:calc(2.6mm * var(--etikett-s,1));white-space:nowrap;
   min-width:0;overflow:hidden;text-overflow:ellipsis;}
 /* Das Rad-Etikett bekommt einen kleineren QR als das Satz-Etikett: Links steht hier eine
    Angabe, die gelesen werden MUSS (Position und Profil), und die braucht die Breite. Bei
@@ -841,7 +843,7 @@ tr.klickbar:hover { background: var(--hover); }
 
    Dieselbe Anordnung zeichnet `lib/etikettBild.ts` für das geteilte Bild. Wer hier etwas
    ändert, ändert es dort mit – die beiden sind zwei Darstellungen desselben Etiketts. */
-.etikett.hoch{flex-direction:column;align-items:center;justify-content:flex-start;gap:2.1mm;}
+.etikett.hoch{flex-direction:column;align-items:center;justify-content:flex-start;gap:calc(2.1mm * var(--etikett-s,1));}
 .etikett.hoch .etikett-qr{width:var(--etikett-qr,44mm);height:var(--etikett-qr,44mm);}
 .etikett.hoch .etikett-text{width:100%;flex:0 0 auto;}
 /* Der kleinere Code des Rad-Etiketts gilt im Hochformat NICHT: Dort nimmt ihm nichts die
@@ -2349,7 +2351,13 @@ button.el-zeile:hover{border-color:var(--accent);}
      ein leeres Blatt. Genau das ist am 21.09.2026 zweimal passiert: Das Stilblatt war
      ausgeliefert, die drei Komponenten mit der Klasse nicht. Eine Regel, die im Fehlerfall
      nichts druckt, ist schlechter als eine, die zu viel druckt. */
-  body:has(.druck-fenster) *:not(:has(.druck-fenster)):not(.druck-fenster):not(.druck-fenster *){display:none;}
+  /* `!important` seit 30.09.2026: Ohne schlug `#iconNav{display:flex}` (eine ID-Regel wiegt
+     mehr als diese vier Klassen) die Regel – die Seitenleiste blieb im Seitenaufbau, unsichtbar,
+     aber 28 px hoch. Ein 80- oder 100-mm-Etikett passte dann nicht mehr auf Seite 1 und rutschte
+     auf Seite 2: Jeder Druck begann mit einem leeren Etikett. Gefunden beim Seitenzählen im
+     PDF für die Brother-Formate, vorher schon bei 50 × 80 mm vorhanden. Die Vorfahren-Regel
+     darunter trifft andere Elemente (`:has`), beide kommen sich nicht in die Quere. */
+  body:has(.druck-fenster) *:not(:has(.druck-fenster)):not(.druck-fenster):not(.druck-fenster *){display:none !important;}
 
   /* Jeder Vorfahre des Fensters wird zum gewöhnlichen Block – ohne feste Höhe, ohne
      Beschnitt, ohne Bezugsrahmen. `!important`, weil darunter unter anderem `#app` liegt
