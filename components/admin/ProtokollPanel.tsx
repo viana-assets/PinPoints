@@ -3,6 +3,7 @@ import type { AuditEintrag, ProtokollPerson } from "@/lib/types";
 import type { Namensverzeichnis } from "@/lib/api/protokoll";
 import { PROTOKOLL_FELD_LABEL, PROTOKOLL_TABELLE_LABEL, PROTOKOLL_TAGE_STANDARD } from "@/lib/constants";
 import { PROTOKOLL_AKTION_LABEL, protokollFelder, protokollWer } from "@/lib/helpers";
+import { terminAenderung, terminAenderungText, terminText, type TerminStand } from "@/lib/terminAenderung";
 
 // Das Protokoll im Adminbereich (Migration 36): wer hat wann was geändert.
 //
@@ -111,7 +112,7 @@ export function ProtokollPanel({ eintraege, personen, namen, laedt, vonDatum, on
 // Eine Zeile ist zugeklappt eine Aussage („Max hat gestern 14:03 eine Leistung gelöscht") und
 // aufgeklappt der Beleg dazu. Beides gleichzeitig zu zeigen macht die Liste unlesbar; nur die
 // Aussage zu zeigen macht sie wertlos.
-export function ProtokollZeile({ eintrag, personen = [], namen, offen, onUmschalten, ohneBereich = false, ohneKontext = false }: {
+export function ProtokollZeile({ eintrag, personen = [], namen, offen, onUmschalten, ohneBereich = false, ohneKontext = false, onTerminUebernehmen }: {
   eintrag: AuditEintrag;
   personen?: ProtokollPerson[];
   namen?: Namensverzeichnis;
@@ -122,6 +123,10 @@ export function ProtokollZeile({ eintrag, personen = [], namen, offen, onUmschal
   // Dort ist auch der Auftrag selbstverständlich – die Kontextzeile wäre an jeder Zeile
   // dieselbe.
   ohneKontext?: boolean;
+  // Nur im Auftragsfenster, solange der Auftrag änderbar ist: den Termin von VOR dieser
+  // Änderung (bzw. den beim Anlegen) zurück in die Karte „Termin & Team" holen. Gespeichert
+  // wird dort mit „Speichern" – nicht still aus der Historie heraus.
+  onTerminUebernehmen?: (termin: TerminStand) => void;
 }) {
   const zeit = new Date(eintrag.geaendert_am);
   const wer = protokollWer(eintrag.geaendert_von, personen);
@@ -139,6 +144,10 @@ export function ProtokollZeile({ eintrag, personen = [], namen, offen, onUmschal
   if (kunde) schonOben.add("customer_id");
 
   const felder = protokollFelder(eintrag.alt, eintrag.neu, PROTOKOLL_FELD_LABEL, namen, schonOben);
+  // Beim Auftrag selbst: „von wann auf wann" gleich in der Zeile, ohne Aufklappen (30.09.2026).
+  const termin = eintrag.tabelle === "orders" ? terminAenderung(eintrag.alt, eintrag.neu) : null;
+  // Welcher Stand sich zurückholen lässt: bei einer Änderung der von vorher, beim Anlegen der erste.
+  const zurueck = termin ? (eintrag.aktion === "INSERT" ? termin.nachher : termin.vorher) : null;
 
   return (
     <div className={"protokoll-zeile" + (offen ? " offen" : "")}>
@@ -161,6 +170,7 @@ export function ProtokollZeile({ eintrag, personen = [], namen, offen, onUmschal
           {/* Eigene Zeile und nicht angehängt: Am Handy bricht ein langer Kundenname sonst
               mitten in den Satz hinein, und die Aussage „wer hat was getan" verliert ihren
               Anfang. */}
+          {termin && <span className="pz-termin">{terminAenderungText(termin)}</span>}
           {kontext.length > 0 && <span className="pz-kontext">{kontext.join(" · ")}</span>}
         </span>
         <span className="pz-pfeil" aria-hidden="true">{offen ? "▾" : "▸"}</span>
@@ -185,6 +195,11 @@ export function ProtokollZeile({ eintrag, personen = [], namen, offen, onUmschal
                 ))}
               </tbody>
             </table>
+          )}
+          {zurueck && onTerminUebernehmen && (
+            <button type="button" className="pz-termin-knopf" onClick={() => onTerminUebernehmen(zurueck)}>
+              {eintrag.aktion === "INSERT" ? "Ursprünglichen Termin" : "Termin von vorher"} übernehmen: {terminText(zurueck, true)}
+            </button>
           )}
           <div className="small pz-kennung" title={eintrag.datensatz_id ?? undefined}>
             {eintrag.datensatz_id ? `Datensatz ${eintrag.datensatz_id.slice(0, 8)}… · ` : ""}

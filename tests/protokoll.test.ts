@@ -57,6 +57,16 @@ describe("protokollFelder", () => {
     expect(zeilen[0]).toMatchObject({ label: "Status", alt: "offen", neu: "in_arbeit" });
   });
 
+  it("zeigt Uhrzeiten ohne Sekunden (30.09.2026)", () => {
+    const zeilen = protokollFelder(
+      { time: "10:00:00", end_time: null },
+      { time: "14:30:00", end_time: "15:30:00" },
+      PROTOKOLL_FELD_LABEL
+    );
+    expect(zeilen.find((z) => z.feld === "time")).toMatchObject({ alt: "10:00", neu: "14:30", rohAlt: "10:00:00" });
+    expect(zeilen.find((z) => z.feld === "end_time")).toMatchObject({ neu: "15:30" });
+  });
+
   it("übersetzt die Feldnamen und sortiert nach Beschriftung", () => {
     const zeilen = protokollFelder(
       { status: "offen", net_price: 10 },

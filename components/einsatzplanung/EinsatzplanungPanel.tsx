@@ -10,6 +10,7 @@ import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { terminUeberschneidungen } from "@/lib/ueberschneidung";
 import { auftragsNr } from "@/lib/testkunde";
+import { terminAusZeile, terminText, type TerminStand } from "@/lib/terminAenderung";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
@@ -103,16 +104,17 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // Gezogene Termine, deren Speichern noch läuft: Sie stehen schon an der neuen Stelle, damit
   // der Block nach dem Loslassen nicht erst zurückspringt und dann wieder hinüber.
   const [schwebend, setSchwebend] = useState<Record<string, { order_date: string; time: string | null; end_time: string | null }>>({});
-  // Der Hinweis nach dem Loslassen: wohin, ggf. eine Überschneidung, und „Rückgängig".
-  const [verschoben, setVerschoben] = useState<{
-    text: string; warnung: string | null;
-    rueck: { id: string; datum: string; von: string | null; bis: string | null } | null;
-  } | null>(null);
-  useEffect(() => {
-    if (!verschoben) return;
-    const t = setTimeout(() => setVerschoben(null), 8000);
-    return () => clearTimeout(t);
-  }, [verschoben]);
+  // Der Hinweis nach dem Loslassen: vorher → jetzt, ggf. eine Überschneidung, und „Rückgängig".
+  //
+  // Bis v90 verschwand er nach acht Sekunden und „Rückgängig" war ein unscheinbarer Link. Am
+  // 30.09.2026 war ein Termin versehentlich verschoben, der Hinweis schon fort – und niemand
+  // wusste mehr, wo der Termin vorher stand. Seitdem bleibt er stehen, bis man ihn schließt
+  // oder den nächsten Termin zieht, nennt den alten Termin ausdrücklich, und „Rückgängig" ist
+  // ein richtiger Knopf. Mehrere Verschiebungen hintereinander lassen sich Schritt für Schritt
+  // zurücknehmen (`stapel`, neueste zuletzt), solange diese Ansicht offen ist.
+  type Verschiebung = { id: string; kunde: string; vorher: TerminStand; nachher: TerminStand };
+  const [stapel, setStapel] = useState<Verschiebung[]>([]);
+  const [hinweis, setHinweis] = useState<{ titel: string; kunde: string; vorher: string | null; jetzt: string; warnung: string | null } | null>(null);
 
   async function terminSetzen(id: string, datum: string, von: string | null, bis: string | null, rueckgaengig = false) {
     if (!onVerschieben) return;
@@ -126,19 +128,34 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     } finally {
       setSchwebend((s) => { const n = { ...s }; delete n[id]; return n; });
     }
-    if (rueckgaengig) { setVerschoben({ text: "Rückgängig gemacht", warnung: null, rueck: null }); return; }
-    const tag = new Date(datum + "T00:00:00").toLocaleDateString("de-DE", { weekday: "short", day: "numeric", month: "numeric" });
     const kunde = kundeFuerAuftrag(vorher, customers)?.name || vorher.title;
+    const nachher: TerminStand = { datum, von, bis };
+    if (rueckgaengig) {
+      setHinweis({ titel: "Zurückgesetzt", kunde, vorher: null, jetzt: terminText(nachher), warnung: null });
+      return;
+    }
+    const alt = terminAusZeile(vorher as unknown as Record<string, unknown>) ?? { datum: vorher.order_date, von: null, bis: null };
     const neu = { ...vorher, order_date: datum, time: von, end_time: bis };
     const treffer = terminUeberschneidungen(neu, orderEmployees[id] || [], vorher.firmenfahrzeug_id, orders, orderEmployees, standardDauerMin)[0];
     const warnung = treffer
       ? `Achtung: ${treffer.art === "mitarbeiter" ? (employees.find((e) => e.id === treffer.werId)?.name || "Mitarbeiter") : fahrzeugText(treffer.werId)} ist ${treffer.von}–${treffer.bis} schon bei ${kundeFuerAuftrag(treffer.auftrag, customers)?.name || treffer.auftrag.title}.`
       : null;
-    setVerschoben({
-      text: `${kunde}: ${tag}, ${von}${bis ? `–${bis}` : ""}`,
-      warnung,
-      rueck: { id, datum: vorher.order_date, von: vorher.time, bis: vorher.end_time },
-    });
+    // Höchstens zehn Schritte zurück – mehr merkt sich niemand, und der Stapel lebt nur, solange
+    // diese Ansicht offen ist.
+    setStapel((st) => [...st, { id, kunde, vorher: alt, nachher }].slice(-10));
+    setHinweis({ titel: "Verschoben", kunde, vorher: terminText(alt), jetzt: terminText(nachher), warnung });
+  }
+
+  function zuruecknehmen() {
+    const letzte = stapel[stapel.length - 1];
+    if (!letzte) return;
+    setStapel(stapel.slice(0, -1));
+    void terminSetzen(letzte.id, letzte.vorher.datum, letzte.vorher.von, letzte.vorher.bis, true);
+  }
+  function hinweisSchliessen() {
+    // Wer den Hinweis wegklickt, sagt: stimmt so. Danach gibt es nichts mehr zurückzunehmen.
+    setHinweis(null);
+    setStapel([]);
   }
 
   // Welche Tage das Raster zeigt: einen in der Tagesansicht, die ganze Mo–So-Woche in der
@@ -613,20 +630,22 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
         </div>
       )}
 
-      {verschoben && (
-        <div className="verschoben-hinweis" role="status">
+      {hinweis && (
+        // `key`: Jeder neue Hinweis leuchtet einmal auf – auch wenn schon einer dastand.
+        <div key={stapel.length + hinweis.jetzt + hinweis.titel} className="verschoben-hinweis" role="status">
           <span className="vh-text">
-            <b>Verschoben</b> · {verschoben.text}
-            {verschoben.warnung && <span className="vh-warnung">{verschoben.warnung}</span>}
+            <b>{hinweis.titel}</b> · {hinweis.kunde}
+            {hinweis.vorher
+              ? <span className="vh-termine"><span className="vh-vorher">vorher {hinweis.vorher}</span> → <b>jetzt {hinweis.jetzt}</b></span>
+              : <span className="vh-termine">wieder <b>{hinweis.jetzt}</b></span>}
+            {hinweis.warnung && <span className="vh-warnung">{hinweis.warnung}</span>}
           </span>
-          {verschoben.rueck && (
-            <button type="button" onClick={() => {
-              const r = verschoben.rueck!;
-              setVerschoben(null);
-              void terminSetzen(r.id, r.datum, r.von, r.bis, true);
-            }}>Rückgängig</button>
+          {stapel.length > 0 && (
+            <button type="button" className="vh-zurueck" onClick={zuruecknehmen}>
+              {hinweis.vorher ? "Rückgängig" : "Noch einen zurück"}
+            </button>
           )}
-          <button type="button" className="vh-zu" aria-label="Hinweis schließen" onClick={() => setVerschoben(null)}>✕</button>
+          <button type="button" className="vh-zu" aria-label="Hinweis schließen" onClick={hinweisSchliessen}>✕</button>
         </div>
       )}
 

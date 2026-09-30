@@ -1492,6 +1492,10 @@ input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
 .pz-anzahl{color:var(--muted);}
 /* Woran gearbeitet wurde: Auftrag und Kunde, aufgelöst aus den Kennungen. Eigene Zeile,
    damit ein langer Kundenname am Handy nicht mitten in den Satz „X hat Y angelegt" bricht. */
+/* „Termin Di 29.9.2026 10:00–11:00 → Mi 30.9.2026 14:00" – ohne Aufklappen lesbar (v90). */
+.pz-termin{display:block;margin-top:2px;font-size:12.5px;font-weight:700;color:var(--text);}
+.pz-termin-knopf{display:block;margin:0 0 8px;border:1px solid var(--accent);background:var(--accent-bg);color:#9a3412;
+  border-radius:10px;padding:8px 12px;font:inherit;font-size:13px;font-weight:700;cursor:pointer;text-align:left;}
 .pz-kontext{display:block;margin-top:2px;font-size:12px;color:var(--muted);
   overflow:hidden;text-overflow:ellipsis;}
 /* Die Handlung trägt die Farbe – gelöscht rot, angelegt grün, geändert neutral. Das ist
@@ -1723,6 +1727,18 @@ input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
 .verschoben-hinweis button{background:none;border:none;color:#ff8a5c;font:inherit;font-weight:800;
   cursor:pointer;padding:6px 4px;white-space:nowrap;}
 .verschoben-hinweis button.vh-zu{color:#b9bfcc;font-weight:400;}
+/* Seit v90: vorher → jetzt ausgeschrieben, „Rückgängig" als echter Knopf, der beim Erscheinen
+   einmal aufleuchtet. Der Hinweis bleibt, bis man ihn schließt (EinsatzplanungPanel). */
+.verschoben-hinweis .vh-termine{display:block;margin-top:3px;}
+.verschoben-hinweis .vh-vorher{color:#c9cedb;}
+.verschoben-hinweis button.vh-zurueck{background:var(--accent);color:#fff;border-radius:10px;padding:0 14px;
+  min-height:40px;font-weight:800;animation:vh-leuchten 1.4s ease-out 1;}
+@keyframes vh-leuchten{
+  0%{box-shadow:0 0 0 0 rgba(255,90,31,.85);}
+  70%{box-shadow:0 0 0 12px rgba(255,90,31,0);}
+  100%{box-shadow:0 0 0 0 rgba(255,90,31,0);}
+}
+@media (prefers-reduced-motion: reduce){ .verschoben-hinweis button.vh-zurueck{animation:none;} }
 @media (max-width: 700px){
   .verschoben-hinweis{bottom:calc(74px + env(safe-area-inset-bottom, 0px));width:calc(100vw - 24px);}
 }

@@ -760,7 +760,11 @@ const PROTOKOLL_GELD_FELDER = new Set([
 ]);
 const PROTOKOLL_PROZENT_FELDER = new Set(["vat_rate", "discount_percent"]);
 
+// Uhrzeitspalten liefert Postgres als „10:00:00" – gemeint und überall sonst gezeigt ist „10:00".
+const PROTOKOLL_UHRZEIT_FELDER = new Set(["time", "end_time"]);
+
 function protokollFeldwert(feld: string, wert: unknown, namen?: Map<string, string>): string {
+  if (typeof wert === "string" && PROTOKOLL_UHRZEIT_FELDER.has(feld) && /^\d\d:\d\d:\d\d/.test(wert)) return wert.slice(0, 5);
   if (typeof wert === "number") {
     if (PROTOKOLL_GELD_FELDER.has(feld)) return formatEUR(wert);
     if (PROTOKOLL_PROZENT_FELDER.has(feld)) return `${wert.toLocaleString("de-DE")} %`;

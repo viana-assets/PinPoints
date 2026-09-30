@@ -1033,7 +1033,18 @@ export function AuftragModal({
           {/* Die Historie steht ganz unten und zugeklappt: Sie beantwortet eine Frage, die man
               selten stellt („wer hat das geändert?"). Das Menü „⋯" springt hierher. */}
           <div ref={protokollRef} className="db-karte ao-karte ao-historie">
-            <AuftragProtokoll auftragId={order.id} />
+            <AuftragProtokoll
+              auftragId={order.id}
+              stand={order.updated_at}
+              // Den Termin von vorher in die Karte holen; gespeichert wird dort mit „Speichern".
+              onTerminUebernehmen={gesperrt ? undefined : (t) => {
+                setDatum(t.datum);
+                setZeit(t.von || "");
+                setZeitBis(t.bis || "");
+                setEndeVorgeschlagen(false);
+                zumTermin();
+              }}
+            />
           </div>
         </div>
 

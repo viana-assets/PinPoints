@@ -277,9 +277,14 @@ oder laufender Termin mit der Maus verschieben – auch auf einen anderen Tag de
 der Unterkante länger oder kürzer ziehen. Am Handy: **lange drücken** (400 ms, kurzes Brummen),
 dann ziehen; normales Wischen scrollt weiter, kurzes Tippen öffnet den Auftrag. Raster
 15 Minuten, gerundet (`gezogenerTermin()` in `lib/calendar.ts`). Gespeichert wird sofort und
-nur Tag/Beginn/Ende (`updateOrderTermin()`); unten erscheint 8 Sekunden lang ein Hinweis mit
-**Rückgängig** und – falls der Mitarbeiter oder Transporter dann doppelt belegt ist – einer
-Warnung (`terminUeberschneidungen()`, Hinweis statt Sperre wie im Auftragsfenster). Erledigte
+nur Tag/Beginn/Ende (`updateOrderTermin()`); unten erscheint ein Hinweis „vorher … → jetzt …"
+mit dem Knopf **Rückgängig** und – falls der Mitarbeiter oder Transporter dann doppelt belegt ist
+– einer Warnung. Seit v91 (30.09.2026) bleibt der Hinweis stehen, bis man ihn schließt (✕ heißt
+„stimmt so") – bis dahin verschwand er nach 8 Sekunden, und ein versehentlich verschobener
+Termin ließ sich nicht mehr zurückholen, weil niemand wusste, wo er gestanden hatte. Mehrere
+Verschiebungen hintereinander nimmt „Noch einen zurück" Schritt für Schritt zurück (bis zu zehn,
+solange die Einsatzplanung offen ist). Schreibweise des Termins: `terminText()` in
+`lib/terminAenderung.ts`, dieselbe wie in der Historie (`terminUeberschneidungen()`, Hinweis statt Sperre wie im Auftragsfenster). Erledigte
 und stornierte Termine bleiben fest. Wer ziehen darf, entscheidet `auftraege.auftrag · schreiben`
 (auch Techniker, Migration 41). War das Ende nur angenommen, bleibt es beim reinen Verschieben
 angenommen. Am Rand rollt die Seite (und in der Woche am Handy das Raster seitlich) mit. Die
@@ -353,6 +358,15 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
 - **Der Fuß** trägt die eine Handlung, die dran ist. Stornieren, Löschen/Verwerfen,
   Wiedereröffnen und „Historie" stehen im Menü „⋯"; Storno- und Wiedereröffnungsgrund sowie die
   Altreifen-Rückfrage sind Blätter.
+- **Historie: Termin von wann auf wann** (seit v91, 30.09.2026). Jeder Eintrag, der den Termin
+  berührt, sagt es in der Zeile selbst – „Termin Do 1.10.2026 10:00–11:00 → Mi 30.9.2026
+  14:00–15:00", beim Anlegen der erste Termin –, ohne Aufklappen (`terminAenderung()` in
+  `lib/terminAenderung.ts`, dieselbe Zeile im Admin-Protokoll). Aufgeklappt holt „Termin von
+  vorher übernehmen" bzw. „Ursprünglichen Termin übernehmen" diesen Stand in die Karte „Termin &
+  Team"; gespeichert wird dort mit „Speichern", nicht still aus der Historie. Die Historie lädt
+  bei jedem Aufklappen und nach jeder Änderung am Auftrag neu – bis v90 blieb die beim ersten
+  Aufklappen geladene Liste stehen, und ein Verschieben danach fehlte scheinbar. Uhrzeiten stehen
+  ohne Sekunden. Gelesen werden kann das Protokoll von Admin und Superadmin (Migration 36).
 - **Neu: Ein Zustandswechsel speichert vorher den Entwurf.** Bis zum 26.09.2026 blieb eine
   ungespeicherte Änderung beim Abschließen einfach liegen – danach war der Auftrag gesperrt,
   der Speichern-Knopf weg und die Änderung still verloren. Fehlt dabei die Uhrzeit, springt das

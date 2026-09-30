@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v90";
+export const APP_VERSION = "v91";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v91", datum: "2026-09-30", titel: "Termin verschoben? Rückgängig bleibt da",
+    punkte: [
+      "Nach dem Verschieben eines Termins in der Einsatzplanung steht unten, wo er vorher war und wo er jetzt ist – mit einem leuchtenden Knopf „Rückgängig“. Der Hinweis bleibt, bis man ihn mit ✕ schließt. Mehrere Verschiebungen lassen sich nacheinander zurücknehmen.",
+      "In der Historie des Auftrags (Menü „⋯“ → Historie) steht bei jeder Terminänderung direkt „von wann auf wann“, beim Anlegen der ursprüngliche Termin. Aufgeklappt holt „Termin von vorher übernehmen“ den alten Termin zurück ins Fenster – dann nur noch „Speichern“.",
+    ],
+  },
   {
     version: "v90", datum: "2026-09-30", titel: "Neues App-Symbol",
     punkte: [

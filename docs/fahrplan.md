@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.09.2026 – Termin verschieben: Rückgängig bleibt, Historie zeigt von wann auf wann (Service
+  Worker v91).** Hinweis „vorher → jetzt" mit leuchtendem Rückgängig-Knopf bleibt bis zum
+  Schließen, mehrere Schritte zurück; Historie/Protokoll mit Terminzeile und „Termin von vorher
+  übernehmen".
+
 * **30.09.2026 – Neues App-Symbol (Service Worker v90).** Das ganze Logo „Mobiler Reifenservice"
   auf Schwarz als Symbol für Startbildschirm, iOS und Mitteilungen (`public/icons/mr-logo-*.png`).
 
