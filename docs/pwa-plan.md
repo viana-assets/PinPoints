@@ -143,6 +143,7 @@ Bildschirm und im Fokus „Fahren") und die Einrichtung stehen in `benachrichtig
 | `app/manifest.ts` | Name, Symbole, Startadresse, `display: standalone`, Farben – lag zunächst als `public/manifest.webmanifest`, wird seit dem 18.09.2026 stattdessen erzeugt (siehe Dateikopf) |
 | `public/icons/icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App-Symbole; die maskierbare Fassung sitzt kleiner im Feld, weil Android bis zu 20 % am Rand wegschneidet |
 | `public/apple-touch-icon.png` | 180 px. iOS liest die Symbole NICHT aus dem Manifest – ohne diese Datei nimmt es einen Bildschirmausschnitt der Seite als Symbol |
+| `public/icons/mr-logo-192.png`, `mr-logo-512.png`, `mr-logo-maskable-512.png`, `mr-logo-apple-180.png` | Seit v90 die App-Symbole (Manifest, iOS, Push): das ganze Logo auf Schwarz. Wieder neue Dateinamen, damit die Handys das neue Symbol auch holen |
 | `public/icons/mr-192.png`, `mr-512.png`, `mr-maskable-512.png`, `mr-apple-180.png`, `mr-64.png`, `mr-marke.svg` | Seit v88 die Symbole des „MR Assistent" (Signet des Mobilen Reifenservice); die Viana-Symbole darüber und die `settings-*`-Tarnung liegen noch, werden aber nicht mehr verwendet. Neue Dateinamen, weil Handys ein Symbol unter derselben Adresse festhalten |
 | `public/sw.js` | Service Worker |
 | `public/offline.html` | Letzter Ausweg ohne Netz; enthält bewusst keine externen Schriften, Bilder oder Skripte |

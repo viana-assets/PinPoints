@@ -18,7 +18,7 @@
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
 // Immer gleich `APP_VERSION` in lib/version.ts (geprüft in tests/version.test.ts).
-const FASSUNG = "v89";
+const FASSUNG = "v90";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 // Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
 // stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg
@@ -88,12 +88,12 @@ self.addEventListener("push", (ereignis) => {
     daten = {};
   }
   // Titel und Symbol kommen vom Server (lib/pushInhalt.ts), weil nur er die Erscheinung der
-  // App kennt – seit v88 „MR Assistent" mit dem MR-Signet (lib/erscheinung.ts). Diese
+  // App kennt – seit v88 „MR Assistent", seit v90 mit dem ganzen Logo (lib/erscheinung.ts). Diese
   // Datei kann die Konstante nicht lesen. Der Ersatz greift nur, wenn eine Meldung gar nicht
   // lesbar war, und ist bewusst neutral: Bis zum 23.09.2026 stand hier „Viana PinPoints" mit
   // dem PinPoints-Symbol – auf dem Sperrbildschirm, trotz Tarnung.
   const titel = daten.titel || "Hinweis";
-  const symbol = daten.symbol || "/icons/mr-192.png";
+  const symbol = daten.symbol || "/icons/mr-logo-192.png";
   ereignis.waitUntil(
     self.registration.showNotification(titel, {
       body: daten.text || "",

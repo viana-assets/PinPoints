@@ -386,6 +386,12 @@ Vergrößern auch dort weg, wo es jemand zum Lesen braucht – eine Barriere, ke
   nachgezeichnet, die Symbole `mr-192/512/maskable-512/apple-180/64.png` sind daraus gerendert
   (Petrol-Fläche, Kreis 90 % bzw. 76 % bei der maskierbaren Fassung). Mit einem Vektor-Original
   des Logos würden sie schärfer – dann nur diese Dateien ersetzen.
+- **App-Symbol seit v90 (30.09.2026):** das ganze Logo „Mobiler Reifenservice – Wo auch immer Sie
+  sind" auf Schwarz (Vorlage 2000 × 2000 px von Vitali), als `mr-logo-192/512/apple-180.png` und
+  `mr-logo-maskable-512.png` (Logo in der Sicherheitszone von 80 %, schwarz aufgefüllt). Gilt für
+  Startbildschirm, Manifest und Push-Mitteilungen. Die Signet-Symbole `mr-192` … bleiben für die
+  Mail-Vorlagen, `mr-64.png` bleibt Favicon, `mr-marke.svg` Zeichen in der App – das ganze Logo
+  mit Schrift wäre in 16–36 px nicht lesbar.
 - `IconMarke` ist seit v88 ein `<img>` auf `mr-marke.svg` (64 kB, einmal geladen) statt eines
   Inline-SVG. Größen: Seitenleiste 36 px, Handy-Kopf 34 px, Anmeldung 72 px.
 - Innen bleiben technische Namen, wie sie sind: Repository und Ordner `viana-pinpoints`, der

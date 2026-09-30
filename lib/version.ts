@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v89";
+export const APP_VERSION = "v90";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v90", datum: "2026-09-30", titel: "Neues App-Symbol",
+    punkte: [
+      "Das Symbol auf dem Startbildschirm und in den Mitteilungen ist jetzt das ganze Logo „Mobiler Reifenservice – Wo auch immer Sie sind“ auf Schwarz.",
+      "Auf dem Handy erscheint es meist erst, wenn die App einmal vom Startbildschirm entfernt und neu hinzugefügt wird. Die Anmeldung bleibt dabei erhalten; danach die Mitteilungen in den Einstellungen einmal neu einschalten.",
+    ],
+  },
   {
     version: "v89", datum: "2026-09-29", titel: "Profiltiefe je Rad: neues Radbild",
     punkte: [

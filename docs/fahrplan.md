@@ -16,6 +16,9 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.09.2026 – Neues App-Symbol (Service Worker v90).** Das ganze Logo „Mobiler Reifenservice"
+  auf Schwarz als Symbol für Startbildschirm, iOS und Mitteilungen (`public/icons/mr-logo-*.png`).
+
 * **29.09.2026 – Reifen je Rad: neues Radbild (Service Worker v89).** Entwurf „X1" umgesetzt:
   große Radkacheln, Eingabe offen unter dem Bild, Schnellwerte 1–8 mm, automatisches
   Speichern, „Weiter zu …" und „Für alle vier"; gleiche Eingabe für den Satzwert, im Lager und

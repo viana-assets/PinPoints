@@ -43,10 +43,13 @@ const ECHT: Erscheinung = {
   kurzname: "MR Assistent",
   appleTitel: "MR Assistent",
   beschreibung: "Mobiler Reifenservice – Kunden, Termine, Aufträge und Lager",
-  symbol192: "/icons/mr-192.png",
-  symbol512: "/icons/mr-512.png",
-  symbolMaskable512: "/icons/mr-maskable-512.png",
-  appleSymbol: "/icons/mr-apple-180.png",
+  // Seit v90 (30.09.2026) das ganze Logo „Mobiler Reifenservice" auf Schwarz als App-Symbol –
+  // Wunsch von Vitali, Vorlage 2000 × 2000 px. Die v88-Symbole `mr-192` … (nur das Signet)
+  // bleiben für die Mail-Vorlagen, `mr-64.png` als Favicon und `mr-marke.svg` in der App.
+  symbol192: "/icons/mr-logo-192.png",
+  symbol512: "/icons/mr-logo-512.png",
+  symbolMaskable512: "/icons/mr-logo-maskable-512.png",
+  appleSymbol: "/icons/mr-logo-apple-180.png",
 };
 
 // „Settings" und ein Zahnrad: das Unauffälligste, was auf einem Telefon liegen kann. Bewusst
