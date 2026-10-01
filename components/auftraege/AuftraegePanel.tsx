@@ -196,7 +196,9 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
             <input type="search" placeholder="Kunde oder Auftragsnummer …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Auftrag suchen" />
           </label>
           <div className="pl-filter au-filter" role="group" aria-label="Status">
-            {STATUS_WAHL.map((s) => (
+            {/* „In Arbeit" nur, solange es ältere Aufträge in diesem Zustand gibt (seit v94 kein
+                eigener Schritt mehr). */}
+            {STATUS_WAHL.filter((s) => s !== "in_arbeit" || zahl(s) > 0 || statusFilter === s).map((s) => (
               <button key={s} type="button" className={"pl-pille" + (statusFilter === s ? " aktiv" : "")} aria-pressed={statusFilter === s} onClick={() => setStatusFilter(s)}>
                 {s === "all" ? "Alle" : ORDER_STATUS_LABEL[s]}<span className="op-zahl">{zahl(s)}</span>
               </button>

@@ -511,7 +511,13 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
             <span className="small">Erledigte und stornierte unter „Aufträge“</span>
           </div>
           <div className="op-status">
-            {([["all", "Alle offenen"], ["offen", "Offen"], ["in_arbeit", "In Arbeit"]] as const).map(([k, t]) => (
+            {/* „In Arbeit" gibt es seit v94 nicht mehr als Schritt (Auftragsfenster). Die Unterteilung
+                erscheint nur noch, solange ein älterer Auftrag in diesem Zustand steht – sonst
+                wären „Alle offenen" und „Offen" dieselbe Zahl zweimal. */}
+            {(offenZahl("in_arbeit") > 0 || statusFilter !== "all"
+              ? ([["all", "Alle offenen"], ["offen", "Offen"], ["in_arbeit", "In Arbeit"]] as const)
+              : ([["all", "Alle offenen"]] as const)
+            ).map(([k, t]) => (
               <button key={k} type="button" className={statusFilter === k ? "aktiv" : ""} onClick={() => setStatusFilter(k)}>
                 {t} <span className="op-zahl">{offenZahl(k)}</span>
               </button>

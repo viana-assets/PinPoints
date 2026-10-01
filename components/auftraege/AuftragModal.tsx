@@ -427,8 +427,17 @@ export function AuftragModal({
   // Schließen mit ungespeicherten Änderungen fragt einmal nach, statt sie stillschweigend zu
   // verwerfen. Bewusst als Zeile im Fenster und nicht als Browser-Dialog: der blockiert die
   // Seite und sieht auf jedem Gerät anders aus.
+  // Ein neuer Auftrag gilt erst mit „Auftrag anlegen" als angelegt (Wunsch 01.10.2026). Technisch
+  // steht er schon beim Öffnen in der Datenbank – sonst hätten Leistungen und Fahrzeuge nichts,
+  // woran sie hängen. Wer ihn mit ✕ schließt, wird deshalb IMMER gefragt: anlegen oder verwerfen.
+  // So bleibt kein halb angelegter Auftrag liegen, von dem niemand weiß, dass es ihn gibt.
   function schliessenVersuchen() {
+    if (frischAngelegt && !gesperrt) { setSchliessenNachfrage(true); return; }
     if (geaendert && !gesperrt) { setSchliessenNachfrage(true); return; }
+    onClose();
+  }
+  function verwerfen() {
+    if (frischAngelegt) void onDelete(order.id);
     onClose();
   }
 
@@ -462,6 +471,12 @@ export function AuftragModal({
     if (!(await erstSpeichern())) return;
     await onSetStatus(order.id, status, grund);
   }
+  // „Auftrag anlegen" (seit v93): Der frisch angelegte Auftrag wird gespeichert und das Fenster
+  // geht zu. Status bleibt „offen" – begonnen wird vor Ort.
+  async function anlegen() {
+    if (!(await erstSpeichern())) return;
+    onClose();
+  }
   function abschliessen() {
     // Die Frage schiebt sich EINMAL dazwischen und sperrt nichts: Wer sie beantwortet, ist im
     // selben Klick fertig.
@@ -493,10 +508,15 @@ export function AuftragModal({
   // Die eine Handlung, die in diesem Zustand dran ist.
   let fussHinweis: string;
   let fussHinweisArt: "grau" | "warn" | "ok" = "grau";
-  if (order.status === "offen") {
-    fussHinweis = "„Arbeit beginnen“ stellt den Auftrag auf „In Arbeit“ – das Büro sieht, dass jemand dran ist.";
-  } else if (order.status === "in_arbeit") {
-    fussHinweis = fehltListe.length ? `Fehlt noch: ${fehltListe.join(" · ")}` : "Bereit zum Abschließen – geprüft wird beim Klick.";
+  // EIN Knopf unten, nie zwei nebeneinander. Seit v94 (Entscheidung 01.10.2026) nur noch zwei
+  // Schritte: „Auftrag anlegen" beim neuen Auftrag, danach „Auftrag erledigt". „Arbeit beginnen"
+  // (Status „In Arbeit") ist entfallen – es zeigte nur dem Büro, dass jemand dran ist, und
+  // stand als zweiter Knopf im Weg. Aufträge, die schon „In Arbeit" stehen, bekommen denselben
+  // Knopf „Auftrag erledigt"; die Datenbank kennt den Zustand weiter (Migration 20).
+  if (order.status === "offen" && frischAngelegt) {
+    fussHinweis = "„Auftrag anlegen“ speichert den Auftrag. Wenn die Arbeit getan ist: „Auftrag erledigt“.";
+  } else if (order.status === "offen" || order.status === "in_arbeit") {
+    fussHinweis = fehltListe.length ? `Fehlt noch: ${fehltListe.join(" · ")}` : "Bereit – geprüft wird beim Klick auf „Auftrag erledigt“.";
     fussHinweisArt = fehltListe.length ? "warn" : "ok";
   } else if (order.status === "erledigt") {
     fussHinweis = `Abgeschlossen${order.completed_at ? ` am ${formatDate(order.completed_at.slice(0, 10))}` : ""} · die Leistungen stehen fest`;
@@ -551,14 +571,15 @@ export function AuftragModal({
           <span className="ao-kopf-text">
             <b>{frischAngelegt ? "Neuer Auftrag" : "Auftrag"} #{auftragsNr(order.order_number)}{order.order_number < 0 && <span className="test-marke">TEST</span>}</b>
             <span className={"small" + (geaendert && !gesperrt ? " ao-ungespeichert" : "")}>
-              {speichert ? "speichert …" : geaendert && !gesperrt ? "Änderungen noch nicht gespeichert" : gespeichert ? "✓ gespeichert" : ORDER_STATUS_LABEL[order.status]}
+              {speichert ? "speichert …" : frischAngelegt ? "noch nicht angelegt" : geaendert && !gesperrt ? "Änderungen noch nicht gespeichert" : gespeichert ? "✓ gespeichert" : ORDER_STATUS_LABEL[order.status]}
             </span>
           </span>
           {/* Speichern steht oben und nicht unten im Fuß: der Fuß trägt die Zustandswechsel,
               und ein Speichern-Knopf daneben lädt dazu ein, versehentlich den Auftrag
               abzuschließen, wenn man nur die Uhrzeit ändern wollte. Er erscheint erst, wenn es
               etwas zu speichern gibt. */}
-          {geaendert && !gesperrt && (
+          {/* Beim neuen Auftrag nicht: Dort ist „Auftrag anlegen" unten der eine Speicherpunkt. */}
+          {geaendert && !gesperrt && !frischAngelegt && (
             <button
               type="button" className="am-mini ao-speichern"
               onClick={speichern}
@@ -575,12 +596,12 @@ export function AuftragModal({
 
         {schliessenNachfrage && (
           <div className="auftrag-nachfrage ao-nachfrage">
-            <span>Es gibt ungespeicherte Änderungen.</span>
+            <span>{frischAngelegt ? "Der Auftrag ist noch nicht angelegt." : "Es gibt ungespeicherte Änderungen."}</span>
             <div className="auftrag-nachfrage-knoepfe">
               <button type="button" className="es-knopf" onClick={() => setSchliessenNachfrage(false)}>Zurück</button>
-              <button type="button" className="es-knopf ad-gefahr" onClick={onClose}>Verwerfen</button>
-              <button type="button" className="am-mini" disabled={speichert || zeitFehlt || endeVorAnfang} onClick={async () => { await speichern(); onClose(); }}>
-                Speichern und schließen
+              <button type="button" className="es-knopf ad-gefahr" onClick={verwerfen}>{frischAngelegt ? "Auftrag verwerfen" : "Verwerfen"}</button>
+              <button type="button" className="am-mini" disabled={speichert || zeitFehlt || endeVorAnfang} onClick={() => void (frischAngelegt ? anlegen() : speichern().then(onClose))}>
+                {frischAngelegt ? "Auftrag anlegen" : "Speichern und schließen"}
               </button>
             </div>
           </div>
@@ -590,8 +611,8 @@ export function AuftragModal({
           {frischAngelegt && (
             <div className="auftrag-hinweis ao-hinweis">
               Angelegt mit heutigem Datum und dem Titel &bdquo;{order.title}&ldquo;. Uhrzeit, Team,
-              Fahrzeug und Leistungen jetzt eintragen und oben &bdquo;Speichern&ldquo; – Leistungen und
-              Fahrzeuge stehen sofort.
+              Fahrzeug und Leistungen jetzt eintragen und unten &bdquo;Auftrag anlegen&ldquo;. Wenn die
+              Arbeit getan ist, später &bdquo;Auftrag erledigt&ldquo;.
             </div>
           )}
 
@@ -808,7 +829,7 @@ export function AuftragModal({
             {zeit.trim() && erinnerungsHinweis && <span className="small">{erinnerungsHinweis}</span>}
             {/* Derselbe Speicherpunkt wie oben im Kopf – hier, damit man nach dem Eintragen nicht
                 erst nach oben muss. */}
-            {geaendert && !gesperrt && (
+            {geaendert && !gesperrt && !frischAngelegt && (
               <div className="ao-team-speichern">
                 <span className="small ao-ungespeichert">Noch nicht gespeichert</span>
                 <button type="button" className="am-mini" onClick={() => void speichern()} disabled={speichert || zeitFehlt || endeVorAnfang}
@@ -1052,14 +1073,11 @@ export function AuftragModal({
         <div className="ao-fuss">
           <span className={"ao-fuss-hinweis " + fussHinweisArt}>{fussHinweis}</span>
           <div className="ao-fuss-knoepfe">
-            {order.status === "offen" && (
-              <>
-                <button type="button" className="ao-zweit" onClick={abschliessen}>Abschließen</button>
-                <button type="button" className="ao-haupt orange" onClick={() => void statusSetzen("in_arbeit")}>Arbeit beginnen</button>
-              </>
+            {order.status === "offen" && frischAngelegt && (
+              <button type="button" className="ao-haupt orange" onClick={() => void anlegen()}>Auftrag anlegen</button>
             )}
-            {order.status === "in_arbeit" && (
-              <button type="button" className="ao-haupt gruen" onClick={abschliessen}>Auftrag abschließen</button>
+            {((order.status === "offen" && !frischAngelegt) || order.status === "in_arbeit") && (
+              <button type="button" className="ao-haupt gruen" onClick={abschliessen}>Auftrag erledigt</button>
             )}
             {order.status === "erledigt" && rechnungNoetig && onRechnungOeffnen && (
               rechnungDa
@@ -1147,7 +1165,7 @@ export function AuftragModal({
             <button
               type="button" className="am-knopf"
               disabled={!wiederGrund.trim()}
-              onClick={async () => { await onSetStatus(order.id, "in_arbeit", { wiedereroeffnungsGrund: wiederGrund.trim() }); setWiederOffen(false); }}
+              onClick={async () => { await onSetStatus(order.id, "offen", { wiedereroeffnungsGrund: wiederGrund.trim() }); setWiederOffen(false); }}
             >
               Wiedereröffnen
             </button>

@@ -357,7 +357,24 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
   Leistungen kommen aus einem Blatt mit Suche und werden mit Menge 1 angelegt.
 - **Der Fuß** trägt die eine Handlung, die dran ist. Stornieren, Löschen/Verwerfen,
   Wiedereröffnen und „Historie" stehen im Menü „⋯"; Storno- und Wiedereröffnungsgrund sowie die
-  Altreifen-Rückfrage sind Blätter.
+  Altreifen-Rückfrage sind Blätter. **Seit v93/v94 (Wunsch 29.09., Entscheidung 01.10.2026)
+  immer nur EIN Knopf und nur zwei Schritte:** neuer Auftrag „Auftrag anlegen" (speichert,
+  Fenster zu), danach „Auftrag erledigt". „Arbeit beginnen" (Status „In Arbeit") ist entfallen –
+  es zeigte nur dem Büro, dass jemand dran ist, und stand als zweiter Knopf neben
+  „Abschließen", den man am Handy leicht falsch traf. Ältere Aufträge in „In Arbeit" bekommen
+  denselben Knopf; die Filter „Offen / In Arbeit" erscheinen nur noch, solange es solche gibt.
+  Wiedereröffnen stellt auf „Offen" (bis v93 „In Arbeit"). Beim neuen Auftrag gibt es oben kein
+  „Speichern" – der eine Speicherpunkt ist „Auftrag anlegen". Wer ihn mit ✕ schließt, wird
+  gefragt: „Auftrag anlegen" oder „Auftrag verwerfen" (technisch steht er schon beim Öffnen in
+  der Datenbank, damit Leistungen und Fahrzeuge daran hängen können).
+- **Fahrzeuge am Auftrag** (seit v93): „+ anlegen" nimmt ein vorhandenes Fahrzeug des Kunden mit
+  demselben Kennzeichen (Vergleich ohne Leerzeichen/Bindestriche, `lib/kennzeichen.ts`), statt
+  eine Dublette zu erzeugen – vorher stand dasselbe Kennzeichen beim Kunden mehrfach. Bestehende
+  Dubletten sind in der Auswahl als „(doppelt angelegt)" markiert, mit Modell und Reifengröße.
+  Und: Nach dem Anlegen eines Fahrzeugs werden jetzt ALLE Fahrzeuglisten neu geladen
+  (`refreshVehicles` in `app/page.tsx`). Bis v92 nur die des im Kundentab geöffneten Kunden –
+  ein im Einlagerungsblock angelegtes Auto fehlte deshalb in „+ weiteres Fahrzeug" desselben
+  Auftrags, obwohl das Lager es zeigte.
 - **Historie: Termin von wann auf wann** (seit v91, 30.09.2026). Jeder Eintrag, der den Termin
   berührt, sagt es in der Zeile selbst – „Termin Do 1.10.2026 10:00–11:00 → Mi 30.9.2026
   14:00–15:00", beim Anlegen der erste Termin –, ohne Aufklappen (`terminAenderung()` in

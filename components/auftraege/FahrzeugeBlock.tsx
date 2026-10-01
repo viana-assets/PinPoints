@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AuftragFahrzeug, Vehicle } from "@/lib/types";
+import { doppelteKennzeichen, fahrzeugAuswahlText } from "@/lib/kennzeichen";
 
 // Die Fahrzeuge an einem Auftrag – welches Auto (oder welche Autos) wird bearbeitet, und mit
 // welchem Kilometerstand.
@@ -37,6 +38,9 @@ export function FahrzeugeBlock({
   // ohnehin ab (Migration 44).
   const schonDran = new Set(fahrzeuge.map((f) => f.vehicle_id));
   const waehlbar = alleFahrzeuge.filter((v) => !schonDran.has(v.id));
+  // Steht ein Kennzeichen mehrfach beim Kunden (aus der Zeit vor v93, als „+ anlegen" jedes
+  // Mal ein neues Fahrzeug erzeugte), sagt die Liste das – statt dreimal dieselbe Zeile.
+  const doppelt = doppelteKennzeichen(alleFahrzeuge);
 
   return (
     <div className="ao-fahrzeuge">
@@ -90,7 +94,7 @@ export function FahrzeugeBlock({
               </option>
               {waehlbar.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {[v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen"}
+                  {fahrzeugAuswahlText(v, doppelt)}
                 </option>
               ))}
             </select>
@@ -109,7 +113,11 @@ export function FahrzeugeBlock({
               + anlegen
             </button>
           </span>
-          <span className="small">Neue Fahrzeuge werden beim Kunden hinterlegt.</span>
+          <span className="small">
+            Neue Fahrzeuge werden beim Kunden hinterlegt. Hat der Kunde das Kennzeichen schon, wird
+            dieses Fahrzeug genommen.
+            {doppelt.size > 0 && " Doppelt angelegte Fahrzeuge lassen sich im Kundenfenster unter „Fahrzeuge“ löschen."}
+          </span>
         </div>
       )}
     </div>

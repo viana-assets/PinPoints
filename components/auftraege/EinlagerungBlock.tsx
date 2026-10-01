@@ -5,6 +5,7 @@ import type {
 import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { profilText, satzProfilMm } from "@/lib/helpers";
 import { ErfassungsWahl, RadBild, SatzProfil } from "@/components/lager/RadBild";
+import { doppelteKennzeichen, fahrzeugAuswahlText } from "@/lib/kennzeichen";
 import type { RadFelder } from "@/lib/api/lager";
 import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
 import { QrScanner } from "@/components/QrScanner";
@@ -192,7 +193,7 @@ export function EinlagerungBlock({
                   >
                     <option value="">– Fahrzeug wählen –</option>
                     {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>{fahrzeugName(v)}</option>
+                      <option key={v.id} value={v.id}>{fahrzeugAuswahlText(v, doppelteKennzeichen(vehicles))}</option>
                     ))}
                   </select>
                 )}

@@ -238,8 +238,10 @@ export type MitnehmenGepackt = {
 };
 
 // Zustände eines Auftrags (Migration 20, Konzept in docs/auftragsablauf.md). Sie werden NICHT
-// frei ausgewählt, sondern durch benannte Handlungen erreicht ("Arbeit beginnen",
-// "Auftrag abschließen", "Stornieren"); die erlaubten Übergänge erzwingt ein Datenbank-Trigger.
+// frei ausgewählt, sondern durch benannte Handlungen erreicht („Auftrag erledigt", „Stornieren",
+// „Wiedereröffnen"); die erlaubten Übergänge erzwingt ein Datenbank-Trigger. „In Arbeit" wird
+// seit v94 von der Oberfläche nicht mehr gesetzt („Arbeit beginnen" entfiel), bleibt aber als
+// Zustand älterer Aufträge gültig.
 export type OrderStatus = "offen" | "in_arbeit" | "erledigt" | "storniert";
 
 // Ein Auftrag ist seit dem ERP-Umbau zugleich der "Termin": order_date/time sind das

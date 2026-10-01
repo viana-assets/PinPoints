@@ -83,7 +83,8 @@ import { DashboardPanel } from "@/components/dashboard/DashboardPanel";
 import { KundenListePanel } from "@/components/kunden/KundenListePanel";
 import { anfangsbuchstabe, anzeigeName, rueckrufFaellig } from "@/lib/kundenAnsicht";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
-import { insertVehicle, updateVehicleById, deleteVehicleById } from "@/lib/api/vehicles";
+import { insertVehicle, updateVehicleById, deleteVehicleById, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
+import { fahrzeugMitKennzeichen } from "@/lib/kennzeichen";
 import {
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
   insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById,
@@ -796,9 +797,25 @@ export default function HomePage() {
   function orderArticlesFor(orderId: string): OrderArticle[] {
     return orderArticles.filter((oa) => oa.order_id === orderId);
   }
+  // Fahrzeuge stehen in ZWEI Zwischenspeichern: je Kunde (Kundenfenster, Auftragsfenster) und
+  // alle zusammen (Lager, Saisonliste). Bis v92 lud diese Funktion nur den des gerade
+  // geöffneten KUNDEN neu – ein im Auftrag angelegtes Fahrzeug fehlte dann in der Auswahl
+  // „+ weiteres Fahrzeug" desselben Auftrags, während das Lager es längst zeigte (gemeldet
+  // 29.09.2026). Jetzt werden alle Kunden-Listen und die Gesamtliste verworfen; geladen wird
+  // ohnehin nur, was gerade angezeigt wird.
   async function refreshVehicles() {
-    // Fahrzeuge werden nur noch für den geöffneten Kunden geladen.
-    if (selectedId) neuLaden(qk.kundeFahrzeuge(selectedId));
+    await Promise.all([
+      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "kunde" && q.queryKey[2] === "fahrzeuge" }),
+      neuLaden(qk.fahrzeuge()),
+    ]);
+  }
+  // Ein Fahrzeug zu diesem Kennzeichen: das vorhandene des Kunden, sonst ein neues. Gelesen
+  // wird frisch aus der Datenbank, nicht aus dem Zwischenspeicher – sonst entstünde die
+  // Dublette genau in dem Fall, für den es diese Prüfung gibt (Liste noch nicht nachgeladen).
+  async function fahrzeugFuerKennzeichen(kundeId: string, kennzeichen: string, modell = ""): Promise<string> {
+    const vorhanden = fahrzeugMitKennzeichen(await fetchVehiclesFuerKunde(supabase, kundeId), kennzeichen);
+    if (vorhanden) return vorhanden.id;
+    return insertVehicle(supabase, kundeId, { licensePlate: kennzeichen, makeModel: modell, tireSize: "", note: "" });
   }
   async function refreshModulePermissions() {
     neuLaden(qk.modulrechte());
@@ -1777,12 +1794,15 @@ export default function HomePage() {
   // Ein Auto, das der Kunde noch nicht in der Kartei hat: erst anlegen, dann zuordnen. Es
   // bleibt beim Kunden stehen – beim nächsten Auftrag muss niemand das Kennzeichen noch
   // einmal tippen, genau wie bei der E-Mail-Adresse.
+  // Seit v93: Hat der Kunde das Kennzeichen schon, wird DIESES Fahrzeug genommen statt eines
+  // neuen (siehe `fahrzeugFuerKennzeichen`). Steht es schon am Auftrag, passiert nichts.
   async function rechnungsFahrzeugAnlegen(orderId: string, kundeId: string, kennzeichen: string) {
-    const neueId = await insertVehicle(supabase, kundeId, { licensePlate: kennzeichen, makeModel: "", tireSize: "", note: "" });
-    await addAuftragFahrzeug(supabase, orderId, neueId, null);
+    const fahrzeugId = await fahrzeugFuerKennzeichen(kundeId, kennzeichen);
+    if (!auftragFahrzeuge.some((af) => af.order_id === orderId && af.vehicle_id === fahrzeugId)) {
+      await addAuftragFahrzeug(supabase, orderId, fahrzeugId, null);
+    }
     await auftragFahrzeugeNeu(orderId);
-    if (selectedId === kundeId) neuLaden(qk.kundeFahrzeuge(kundeId));
-    neuLaden(qk.fahrzeuge());
+    await refreshVehicles();
   }
   async function kilometerstandSetzen(id: string, km: number | null) {
     await setKilometerstand(supabase, id, km);
@@ -1854,6 +1874,11 @@ export default function HomePage() {
   async function addVehicle(customerId: string, fields: {
     licensePlate: string; makeModel: string; tireSize: string; note: string;
   }) {
+    // Im Kundenfenster wird bewusst angelegt – eine Dublette ist dort ein Versehen. Die Meldung
+    // nennt das Kennzeichen nicht (keine Kundendaten in Fehlermeldungen, CLAUDE.md 5).
+    if (fahrzeugMitKennzeichen(await fetchVehiclesFuerKunde(supabase, customerId), fields.licensePlate)) {
+      throw new Error("Dieses Kennzeichen ist bei diesem Kunden schon angelegt.");
+    }
     await insertVehicle(supabase, customerId, fields);
     await refreshVehicles();
   }
@@ -1864,9 +1889,7 @@ export default function HomePage() {
   async function fahrzeugAusAuftragAnlegen(orderId: string, kennzeichen: string, modell: string, einlagerungId?: string) {
     const auftrag = orders.find((o) => o.id === orderId);
     if (!auftrag) return;
-    const fahrzeugId = await insertVehicle(supabase, auftrag.customer_id, {
-      licensePlate: kennzeichen, makeModel: modell, tireSize: "", note: "",
-    });
+    const fahrzeugId = await fahrzeugFuerKennzeichen(auftrag.customer_id, kennzeichen, modell);
     await refreshVehicles();
     // Dem Satz zuordnen, aus dessen Block heraus das Fahrzeug angelegt wurde. Ohne diese Id
     // landete es bei zwei Sätzen im falschen – vorher gab es nur einen, da war die Frage

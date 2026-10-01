@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v92";
+export const APP_VERSION = "v94";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,22 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v94", datum: "2026-10-01", titel: "Auftrag: anlegen und erledigt",
+    punkte: [
+      "Ein Auftrag hat jetzt nur noch zwei Schritte: Bei einem neuen Auftrag unten „Auftrag anlegen“, wenn die Arbeit getan ist „Auftrag erledigt“. „Arbeit beginnen“ gibt es nicht mehr.",
+      "Wer einen neuen Auftrag schließt, ohne ihn anzulegen, wird gefragt: anlegen oder verwerfen. So bleibt kein halb angelegter Auftrag liegen.",
+      "Beim neuen Auftrag steht oben kein „Speichern“ – das übernimmt „Auftrag anlegen“. Später, beim Ändern, erscheint „Speichern“ oben wie gewohnt.",
+    ],
+  },
+  {
+    version: "v93", datum: "2026-10-01", titel: "Auftrag anlegen – ein Knopf statt zwei",
+    punkte: [
+      "Unten im Auftragsfenster steht jetzt immer nur ein Knopf: bei einem neuen Auftrag „Auftrag anlegen“, danach „Arbeit beginnen“, in Arbeit „Auftrag abschließen“. „Direkt abschließen“ (zum Nachtragen) steht im Menü „⋯“.",
+      "Ein Fahrzeug, das der Kunde schon hat, wird beim Eintippen des Kennzeichens nicht mehr ein zweites Mal angelegt. Schon doppelt angelegte stehen in der Auswahl als „(doppelt angelegt)“ und lassen sich im Kundenfenster löschen.",
+      "Ein neu angelegtes Fahrzeug erscheint sofort in „+ weiteres Fahrzeug des Kunden“ – vorher fehlte es dort, obwohl das Lager es schon zeigte.",
+    ],
+  },
   {
     version: "v92", datum: "2026-09-30", titel: "Etiketten für den Brother-Drucker",
     punkte: [

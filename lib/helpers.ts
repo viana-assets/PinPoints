@@ -973,7 +973,7 @@ export function terminZeitraum(o: { time: string | null; end_time: string | null
 // Was fehlt noch, damit aus diesem Auftrag eine Rechnung werden kann?
 //
 // Die Regel steht hier, weil sie an drei Stellen gebraucht wird: in der Abhakliste im
-// Auftragsfenster, an der Schaltfläche „Auftrag abschließen" und – als eigenständige
+// Auftragsfenster, an der Schaltfläche „Auftrag erledigt" (bis v93 „Auftrag abschließen") und – als eigenständige
 // Umsetzung – im Trigger `pruefe_rechnungsdaten()` (Migration 44). Die Datenbank ist die
 // Instanz, die es durchsetzt; diese Fassung hier sagt dem Nutzer nur vorher, was ihn erwartet.
 //
