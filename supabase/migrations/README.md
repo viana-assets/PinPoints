@@ -10,6 +10,12 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
+**Stand 01.10.2026: Migrationen 01–61 liegen vor, die App läuft mit 61** (ohne 60 und 61 lädt
+sie nicht). Die Liste „Bereits ausgeführt" unten wurde seit dem 28.08.2026 nicht nachgeführt –
+die Abschnitte „Noch auszuführen" sind deshalb Beschreibungen, keine offene Arbeit. Verbindlich
+beantwortet die Frage `PRUEFUNG_welche_migrationen_liefen.sql` (siehe unten); mit dessen
+Ergebnis wird die Liste bereinigt.
+
 ## Bereits ausgeführt
 
 Stand 28.08.2026: alle Migrationen `01`–`14` sind im Supabase-SQL-Editor

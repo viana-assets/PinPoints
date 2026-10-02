@@ -117,9 +117,10 @@ Seit dem 26.09.2026 (Entwurf N) `.ao-fenster`: am Rechner 680 px breit und bis 9
 Handy (≤ 700 px) bildschirmfüllend. Aufbau: feste Kopfleiste (Schließen, „Auftrag #…", Stand
 „Änderungen noch nicht gespeichert" / „✓ gespeichert", „Speichern" nur bei Änderungen, „⋯"),
 scrollender Inhalt in Karten, fester Fuß `.ao-fuss` mit genau der Handlung, die dran ist
-(offen: „Arbeit beginnen" + „Abschließen"; in Arbeit: „Auftrag abschließen"; erledigt mit
-„Rechnung nötig": „Rechnung erstellen"/„ansehen"). Darüber steht, was fehlt – orange, sonst
-grün „Bereit zum Abschließen".
+(seit v94: neuer Auftrag „Auftrag anlegen", danach „Auftrag erledigt"; erledigt mit „Rechnung
+nötig": „Rechnung erstellen"/„ansehen" – immer EIN Knopf, nie zwei nebeneinander). Darüber steht,
+was fehlt – orange, sonst grün „Bereit". Beim neuen Auftrag steht oben kein „Speichern"; ✕ fragt
+„Auftrag anlegen" oder „Auftrag verwerfen".
 
 Der dunkle Kasten `.ao-wer` oben beantwortet wer, wann, wo – mit Navigation, Anrufen und
 „Kunde ›". Die Uhrzeit darin ist ein Knopf und springt in die Karte „Termin & Team" (Datum,

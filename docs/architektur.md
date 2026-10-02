@@ -64,7 +64,7 @@ viana-pinpoints/
   app/
     layout.tsx              Root-Layout, lädt Google Fonts + Leaflet CSS/JS
     globals.css              Design-Tokens + alle Styles (ein einziges CSS-File)
-    page.tsx                 Hauptanwendung, ~3.150 Zeilen – siehe "app/page.tsx heute" unten
+    page.tsx                 Hauptanwendung, ~3.550 Zeilen – siehe "app/page.tsx heute" unten
     manifest.ts               Erzeugt das PWA-Manifest aus lib/erscheinung.ts (kein statisches
                               manifest.webmanifest mehr, damit der App-Name nicht an zwei
                               Stellen gepflegt werden muss)
@@ -97,6 +97,15 @@ viana-pinpoints/
                                     Installations-/Update-Mechanik der PWA
     PushEinstellung.tsx             An-/Abmelden für Push-Benachrichtigungen (Einstellungen)
     NeuigkeitenBlatt.tsx            „Was gibt es Neues" (Admin/Superadmin), aus `NEUIGKEITEN`
+    dashboard/
+      DashboardPanel.tsx            Startseite (Entwurf G): heute, morgen mitnehmen, Hinweise
+    karte/
+      KartenBedienung.tsx            Alles auf der Karte außer den Nadeln: Suche, Zustands-Pillen,
+                                     Ebenen, Standort, Zoom, Legende, Tagesstreifen (Entwurf W)
+      KartenKundeKarte.tsx           Die Kundenkarte an der Nadel (ersetzt das Leaflet-Popup)
+      nadel.ts                       Nadeln als HTML – eine Quelle für Karte und Legende
+    termine/
+      TerminePanel.tsx               Reiter „Termine" als Zeitleiste je Tag (Entwurf L)
     WeiterePanel.tsx                Handy-Seite „Weitere": Kacheln nach `WEITERE_GRUPPEN`, je
                                     Kachel ein Hinweis, ob dort etwas wartet (Entwurf V)
     kunden/
@@ -108,6 +117,9 @@ viana-pinpoints/
       CustomerOrderRow.tsx           Ein Auftrag im Kundenfenster (Karte, öffnet das Auftragsfenster)
       KontaktModal.tsx                Kontakt erfassen/Wiedervorlage setzen (Blatt)
       VehicleSection.tsx             Fahrzeuge je Kunde (VehicleRow, AddVehicleInline)
+      KundenListePanel.tsx           Die Kundenliste mit Suche, Filtern, Buchstabenleiste (Entwurf J)
+      EingelagerteReifen.tsx         Alle eingelagerten Sätze eines Kunden im Kundenfenster
+      AnrufFenster.tsx               „Auf dem Handy anrufen": Fenster nach Antippen der Meldung
     admin/
       SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Anzeige, App)
       AdminPanel.tsx                 Tab "Admin" – Reiter Nutzer, Mitarbeiter, Transporter,
@@ -140,16 +152,25 @@ viana-pinpoints/
                                       (Migration 44/51)
       RechnungsdatenBlock.tsx         Rechnungs-Checkliste am Auftrag, prüft die Fahrzeuge nur
                                       noch (Migration 44/51)
-      AuftragProtokoll.tsx            Änderungshistorie dieses einen Auftrags
+      AuftragProtokoll.tsx            Änderungshistorie dieses einen Auftrags, mit Terminzeile
+                                      „von wann auf wann" und „Termin von vorher übernehmen" (v91)
+      ReifenSuche.tsx                 „+ Reifen aus dem Lager": Verkaufsreifen zum Auftrag (Migration 61)
+      MitnehmenFenster.tsx            „Morgen … Sätze mitnehmen" zum Abhaken (Migration 55/58)
     einsatzplanung/
       EinsatzplanungPanel.tsx        Tab "Einsatzplanung" (Kalender + Listenansicht)
       Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster
                                       (Migration 37)
     lager/
-      LagerPanel.tsx                 Tab "Lager" (Lager, Lagerplätze, Einlagerung), ~890 Zeilen
+      LagerPanel.tsx                 Tab "Lager" (Lager, Lagerplätze, Einlagerung, Einlagern-Fenster
+                                     mit Satz/je Rad), ~950 Zeilen
+      PlatzBlatt.tsx                   Blatt zu einem Lagerplatz (Entwurf H)
+      LangliegerListe.tsx              Langlieger-Übersicht (Fahrplan E4)
+      VerkaufPanel.tsx / VerkaufsreifenBlatt.tsx
+                                       Reiter „Verkauf": Reifen zum Verkauf erfassen (Migration 61)
       SaisonPanel.tsx                  Eigener Reiter „Saisonliste" (Migration 30/31)
       AuslagernDialog.tsx              Auslagern inkl. Lagergebühr-Vorschlag (Migration 46)
-      RadBild.tsx / ProfilMarke.tsx     Vier Radpositionen einzeln messen (Migration 33/34)
+      RadBild.tsx / ProfilMarke.tsx     Profiltiefe: Radbild je Rad, Satzwert, Schnellwerte 1–8 mm
+                                        (Migration 33/34, Entwurf X1 seit v89) bzw. die Marke
       ReifensatzEtikett.tsx / LagerplatzAufkleber.tsx
                                         QR-Aufkleber für Satz bzw. Regalplatz
     auswertung/
@@ -175,7 +196,22 @@ viana-pinpoints/
     testkunde.ts                  Testkunden lesen: `auftragsNr()` („T3"), `istTestauftrag`,
                                   `ohneTest…`-Filter für Auswertungen und Exporte (Migration 60)
     calendar.ts                   Reine Kalender-Hilfsfunktionen (Wochenstart, ISO-KW, Mitarbeiterfarbe)
-    helpers.ts                  Datum/Distanz/Telefon/Preis-Hilfsfunktionen, ~970 Zeilen
+    helpers.ts                  Datum/Distanz/Telefon/Preis/Protokoll-Hilfsfunktionen, ~1.110 Zeilen
+    auftragsAnsicht.ts / kundenAnsicht.ts / lagerAnsicht.ts / saisonAnsicht.ts / terminAnsicht.ts
+                                  Die Regeln hinter den neu gestalteten Listen (Entwürfe H–L,
+                                  reine Funktionen, je eine Testdatei)
+    dashboard.ts                  Rechnungen hinter dem Dashboard (Entwurf G)
+    karte.ts                      Regeln hinter der Karte (Entwurf W); gezeichnet in app/page.tsx
+    eingelagert.ts                Die eingelagerten Sätze eines Kunden als Liste
+    langlieger.ts                 Langlieger-Übersicht (Fahrplan E4)
+    laufkunde.ts                  Laufkunde am Auftrag (Migration 57)
+    mitnehmen.ts                  „Reifen mitnehmen" – eine Rechnung für Abendhinweis und Fenster
+    abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
+    pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
+    ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
+    reifenverkauf.ts              Reifenverkauf: Größe lesen, Hinweise, Lagerwert (Migration 61)
+    terminAenderung.ts            Termin vorher → nachher für Rückgängig und Historie (v91)
+    kennzeichen.ts                Kennzeichen vergleichen, Dubletten erkennen (v93)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)
@@ -185,10 +221,11 @@ viana-pinpoints/
                                    Windows-1252 (reine Funktionen)
     aufkleberCode.ts                Codieren/Decodieren der QR-Aufkleber (Regal- vs. Satz-Code)
     etikettBild.ts                  Reifensatz-/Rad-Etikett als PNG in Druckerauflösung
-                                    (203 dpi), für „Als Bild teilen" bei Druckern ohne AirPrint
-                                    (21.09.2026); zeichnet dieselbe Anordnung wie `.etikett` in
-                                    globals.css ein zweites Mal auf eine Leinwand
-    module.ts / erscheinung.ts       App-Name/-Icon nach außen vs. innen (Sichtschutz, 18.09.2026)
+                                    (203 dpi, für den Brother QL-820NWBc 300 dpi), für „Als Bild
+                                    teilen" (21.09.2026); zeichnet dieselbe Anordnung wie
+                                    `.etikett` in globals.css ein zweites Mal auf eine Leinwand
+    erscheinung.ts                  App-Name und Symbole nach außen; seit v88 „MR Assistent", die
+                                    Tarnung „Settings" (18.09.2026) liegt als `TARNUNG` bereit
     push.ts                        Client-seitige Push-Anmeldung (Versand liegt in app/api/push/*)
     pwaAktualisierung.ts / pwaInstallation.ts
                                    Update-Erkennung bzw. `beforeinstallprompt`-Handling
@@ -200,7 +237,7 @@ viana-pinpoints/
     queries/
       keys.ts                      Zentrale Query-Schlüssel (`qk.kunden()`, `qk.rechnungen()`, …)
       hooks.ts                     Ein Hook je Datenbestand, mit "wird gerade gebraucht?"-Schalter
-                                   (19 Hooks, siehe „Datenladen" unten)
+                                   (21 Hooks, siehe „Datenladen" unten)
     api/
       client.ts                    Fundament der Schicht: ApiError, q()/qOne()/qWrite(),
                                    fetchPaged() (seitenweises Laden gegen die 1000-Zeilen-Kappung)
@@ -220,14 +257,16 @@ viana-pinpoints/
       adressen.ts                    Wrapper um api/adresse-suchen
       auswertung.ts                   Datenbeschaffung für das Auswertungs-Modul
       session.ts                    Rolle + Anzeige-Einstellungen beim Initial-Load
+      verkaufsreifen.ts              Reifenverkauf (Migration 61)
+      mitnehmen.ts                   „Reifen mitnehmen" abhaken (Migration 58)
+      pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
   supabase/migrations/
-    <nr>_<name>.sql, <nr>_rollback.sql   Durchnummerierte SQL-Migrationen 36–51, jeweils mit
-                                        Rücknahme-Skript daneben. Migrationen 34 und 35 liegen
-                                        (Stand 18.09.2026) noch lose im Projektwurzel
-                                        (`mig34.sql`, `mig35.sql`); ein `supabase/migrations/`-
-                                        Ordner mit README, wie in CLAUDE.md beschrieben, existiert
-                                        in diesem Arbeitsstand nicht – siehe „Migrationsstand"
-                                        unten.
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–61
+    rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
+    README.md                            Was wofür, Reihenfolge, Abhängigkeiten
+    PRUEFUNG_welche_migrationen_liefen.sql
+                                        Fragt die Datenbank, welche Migrationen gelaufen sind
+  supabase/email-vorlagen/              Mail-Vorlagen für Supabase Auth (Einladung, Passwort)
   docs/                          Diese Dokumentation, siehe docs/README.md
   proxy.ts                       Auth-Gate für geschützte Routen (bis Next.js 16: middleware.ts)
 ```
@@ -438,7 +477,7 @@ Betriebsjahr weiter und kommen deshalb über ein Zeitfenster.
   `PAGE_SIZE` durch. Nötig, weil PostgREST je Anfrage höchstens 1000 Zeilen liefert – ohne
   `range()` hätte die App bei ~4500 Kunden stillschweigend ein Viertel geladen und trotzdem
   plausible Zahlen gezeigt.
-- **19 Hooks** in `lib/queries/hooks.ts`, jeder mit einem `aktiv`-Schalter: Lager, Artikel,
+- **21 Hooks** in `lib/queries/hooks.ts`, jeder mit einem `aktiv`-Schalter: Lager, Artikel,
   Mitarbeiter, Betrieb und Rechnungen laden erst beim Öffnen des jeweiligen Moduls, Fahrzeuge
   und die vollständige Auftragshistorie nur für den geöffneten Kunden. Immer geladen sind nur
   Kunden und das Auftrags-Zeitfenster – beide stecken in Karte, Dashboard und fast jeder Liste.
@@ -493,10 +532,11 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   `manifest.webmanifest`). `lib/pwaInstallation.ts` fängt das einmalige
   `beforeinstallprompt`-Ereignis schon beim ersten Rendern ab (`components/PwaBereit.tsx`) und
   hält es vor, weil der Einstellungen-Reiter, in dem der Installations-Knopf später sitzt, zu
-  dem Zeitpunkt oft noch gar nicht gezeichnet ist. `lib/erscheinung.ts` sorgt dafür, dass App
-  auf dem Homescreen und im Installationsdialog absichtlich unauffällig heißt/aussieht
-  (Sichtschutz, kein Sicherheitsmechanismus – RLS bleibt die eigentliche Schranke).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v54`**, Konstante
+  dem Zeitpunkt oft noch gar nicht gezeichnet ist. `lib/erscheinung.ts` legt fest, wie die App
+  auf dem Homescreen und im Installationsdialog heißt und aussieht: seit v88 „MR Assistent",
+  seit v90 mit dem ganzen Logo als Symbol (`public/icons/mr-logo-*.png`). Die frühere Tarnung
+  „Settings" liegt als `TARNUNG` bereit (`GETARNT = false`).
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v94`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus
@@ -534,7 +574,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 52** (21.09.2026). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 61** (26.09.2026). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -573,6 +613,15 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   temporären Tabelle, scheiterte deshalb – und das `drop column` danach lief trotzdem. Dass
   sich das reparieren ließ, verdankt sich dem Protokoll aus Migration 18: Es hält die ganze
   Zeile als jsonb fest und überlebt damit die Spalte, die es beschreibt.
+- **53** – Laufkundschaft: ein Sammelkunde für Barverkäufe ohne Kundenanlage.
+- **54** – Stornogrund auch an der Rechnung Pflicht.
+- **55** – Lager-Sperre, Schutz des Nummernkreises, Abendhinweis „Reifen mitnehmen".
+- **56** – Datenschutz: Protokoll schwärzen, Kunden endgültig löschen (`kunde_endgueltig_loeschen`).
+- **57** – Laufkunde am Auftrag (wer war es), Einmalkunde.
+- **58** – „Reifen mitnehmen" abhaken, fürs ganze Team sichtbar.
+- **59** – Einstellungen für den DATEV-Export.
+- **60** – Testkunden mit negativen Nummern, „Was gibt es Neues".
+- **61** – Reifenverkauf aus dem Lager: `verkaufsreifen`, Reservieren/Abbuchen in der Datenbank.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

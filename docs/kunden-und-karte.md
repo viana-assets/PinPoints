@@ -451,7 +451,9 @@ Kontaktdialog, jetzt als Blatt), Auftrag (legt einen an und öffnet ihn). Reiter
 - **Übersicht**: nächster Termin (mit Mitarbeiter und „Auftrag öffnen"), Kontakt-Karte mit
   letztem Kontakt und Wiedervorlage, eingelagerte Reifen, Kontaktdaten mit Kartenposition.
 - **Fahrzeuge**: je Fahrzeug eine Karte mit Kennzeichen-Schild und Lagerplatz; Bearbeiten und
-  Löschen in der Karte.
+  Löschen in der Karte. Seit v93 lehnt „Fahrzeug speichern" ein Kennzeichen ab, das der Kunde schon
+  hat (Vergleich ohne Leerzeichen/Bindestriche, `lib/kennzeichen.ts`); im Auftragsfenster wird
+  in dem Fall das vorhandene Fahrzeug genommen. Ältere Dubletten hier von Hand löschen.
 - **Aufträge**: „+ Neuer Auftrag", die Aufträge neueste zuerst, darunter der Umsatz netto aus
   den erledigten Aufträgen. Gelöscht wird ein Auftrag nicht mehr von hier, sondern im Menü des
   Auftragsfensters – dort, wo auch die Rechte dazu gelten.

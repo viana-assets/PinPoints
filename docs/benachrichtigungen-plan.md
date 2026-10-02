@@ -1,6 +1,6 @@
 # Terminerinnerung als Push-Benachrichtigung – Plan
 
-Stand 18.09.2026. **Alle fünf Teile sind gebaut UND scharfgeschaltet** – Geräteanmeldung,
+Stand 18.09.2026, ergänzt bis 01.10.2026. **Alle fünf Teile sind gebaut UND scharfgeschaltet** – Geräteanmeldung,
 Empfängerauswahl, Zeitgeber, Versand und der Sprung ins Auftragsfenster laufen im Betrieb
 (`app/api/push/*`, `components/PushEinstellung.tsx`, `public/sw.js`;
 `tests/terminerinnerung.test.ts` deckt die Fensterlogik ab). Die drei Handgriffe unter
@@ -463,20 +463,26 @@ select content from net._http_response order by created desc limit 3;  -- Feld "
 
 Zum erneuten Testen am selben Abend die eigene Zeile für morgen in `push_abendhinweis` löschen.
 
-## Die Tarnung gilt auch für die Meldungen (23.09.2026)
+## Name und Symbol der Meldungen (23.09.2026, seit v88/v90 ohne Tarnung)
 
-Die App heißt auf dem Homescreen „Settings" (`lib/erscheinung.ts`). Die Meldungen trugen bis
+**Heute:** Die Tarnung ist aufgehoben (`GETARNT = false`, v88). Die Meldungen tragen den Namen
+„MR Assistent" und seit v90 das ganze Logo als Symbol (`mr-logo-192.png`, auch als Ersatz in
+`public/sw.js`). Der Weg dahin ist derselbe wie unten beschrieben – nur die Erscheinung ist eine
+andere. Der folgende Absatz beschreibt die Lage am 23.09.2026.
+
+Die App hieß auf dem Homescreen „Settings" (`lib/erscheinung.ts`). Die Meldungen trugen bis
 hierher trotzdem das PinPoints-Symbol, und die Testnachricht den Titel „PinPoints" – auf dem
 Sperrbildschirm, der viel sichtbarer ist als ein App-Symbol.
 
 `public/sw.js` ist eine statische Datei und kann die Konstante nicht lesen. Deshalb reist das
 Symbol jetzt MIT der Meldung: Alle Versandwege setzen den Inhalt über `pushNutzlast()` in
 `lib/pushInhalt.ts` zusammen, und die hängt `ERSCHEINUNG.symbol192` an. Der Service Worker zeigt
-nur an, was ankommt; sein Ersatz für unlesbare Meldungen ist neutral („Hinweis", Zahnrad).
+nur an, was ankommt; sein Ersatz für unlesbare Meldungen ist neutral („Hinweis", damals das
+Zahnrad, heute das Logo).
 Zurückstellen bleibt damit eine Zeile: `GETARNT = false`.
 
 Den App-Namen über dem Titel setzt iOS selbst aus dem Namen der installierten App – der lautet
-ohnehin „Settings". Titel und Text der Terminerinnerung (Uhrzeit, Kunde, Anschrift) sind
+damals „Settings", heute „MR Assistent". Titel und Text der Terminerinnerung (Uhrzeit, Kunde, Anschrift) sind
 unverändert; das ist die Entscheidung aus „Die Datenschutzfrage" weiter oben.
 
 ## Nachtrag: Terminerinnerung bei der Laufkundschaft (24.09.2026, Migration 57)

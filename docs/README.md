@@ -5,7 +5,7 @@ Dieser Ordner ist die Detail-Dokumentation des Projekts, ein Baustein pro Datei.
 Fallstricke und ein Index hierher. Wer wissen will, **wie ein bestimmter Baustein
 funktioniert, wo er im Code liegt und womit er verknüpft ist**, findet das hier.
 
-Stand: 18.09.2026, Migrationen bis 50.
+Stand: 01.10.2026, Migrationen bis 61, Service Worker v94.
 
 ## Die eine Regel, die den Ordner zusammenhält
 
@@ -40,7 +40,7 @@ je Abschnitt, was gebaut ist und was nicht.
 | `rechnungen.md` | Rechnungsstellung: Betriebsdaten, Nummernkreis, Snapshot, A4-Druck, Girocode, Storno |
 | `pwa-plan.md` | Ausbau zur PWA: welche Stufe gebaut ist, was offen ist, Service-Worker-Regeln |
 | `benachrichtigungen-plan.md` | Terminerinnerung als Push: Architektur, Zeitgeber, iOS-Grenzen, offener Gerätetest |
-| `prompt-etikettendrucker.md` | Ansteuerung des Etikettendruckers |
+| `prompt-etikettendrucker.md` | Etikettendrucker: gekauft ist der Brother QL-820NWBc (Stand 30.09.2026), darunter der Recherche-Prompt für eine Neuanschaffung |
 | `fahrplan.md` | **Alles Offene**: Fehler, Aufräumarbeiten, Verbesserungen, neue Funktionen – mit Priorität |
 
 Jede Datei nennt die betroffenen Tabellen und Migrationen, die zentralen Funktionen und
@@ -70,3 +70,8 @@ Einträge zurückgefallen, weil genau das unterblieben ist.
    liegen gelassen.
 3. Ein Dokument beschreibt einen Zustand, den es nicht mehr gibt → es wird korrigiert oder
    gelöscht – der alte Wortlaut bleibt im Git-Verlauf erhalten. Nichts danebenstellen.
+4. **Die Übersichtsdateien laufen mit** (Regel seit 01.10.2026): Die „Stand"-Zeile in
+   `README.md`, hier und in `CLAUDE.md`, die Repo-Struktur und der Migrationsstand in
+   `architektur.md` und die Gesamtzahl in `konstanten-register.md` werden bei jeder Runde
+   geprüft, in der eine neue Datei, Migration oder Fassung dazukommt. Bis dahin waren sie
+   zwei Wochen und 45 Fassungen zurück, weil jede Runde nur die Fachdatei pflegte.

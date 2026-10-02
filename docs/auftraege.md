@@ -1,4 +1,4 @@
-# Aufträge, Termine, Einsatzplanung (Stand 21.09.2026)
+# Aufträge, Termine, Einsatzplanung (Stand 01.10.2026)
 
 Ersetzt `auftragsablauf.md` (Stand 04.09.2026) und `auftraege-termine-einsatzplanung.md`
 (Stand 10.09.2026), die beide gelöscht werden. Dieses Blatt beschreibt nur den **Ist-Zustand**

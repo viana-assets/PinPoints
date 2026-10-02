@@ -1,6 +1,6 @@
 # PWA-Ausbau: Plan und offene Fragen
 
-Stand 18.09.2026. **Stufe 1, 2 und 3 sind umgesetzt (Ist-Zustand)** und wurden seit dem
+Stand 18.09.2026, ergänzt bis 01.10.2026 (Symbole v88/v90). **Stufe 1, 2 und 3 sind umgesetzt (Ist-Zustand)** und wurden seit dem
 10.09.2026 an zwei Stellen nachgehärtet, siehe Abschnitt „Was seit dem 10.09.2026 dazukam".
 **Stufe 4 (offline schreiben) ist weiterhin nicht gebaut** – bleibt also **Plan**, ist inzwischen
 aber als Konzept ausgearbeitet, siehe „Stufe 4" weiter unten. Die einst als „optional" geführten

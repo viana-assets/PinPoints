@@ -1,13 +1,16 @@
-# Viana PinPoints
+# MR Assistent (Mobiler Reifenservice)
 
-Web-Anwendung für den mobilen Reifenservice: Kunden und Karte, Aufträge und
+Bis v87 hieß die App „Viana PinPoints"; Repository, Ordner und technische Schlüssel tragen den
+alten Namen weiter (`docs/design-system.md`, „Marke seit v88").
+
+Web-Anwendung (PWA) für den mobilen Reifenservice: Kunden und Karte, Aufträge und
 Einsatzplanung, Reifeneinlagerung, Artikelstammdaten und Rechnungsstellung – bedienbar
 am Rechner im Büro und am Handy beim Kunden.
 
 Next.js 16 (App Router) · React 19 · TypeScript (strict) · Supabase (Postgres, Auth, RLS)
 · Vercel · Leaflet · TanStack Query · Vitest
 
-Stand: 18.09.2026, Migrationen bis 50, Service Worker `v49`.
+Stand: 01.10.2026, Migrationen bis 61, Service Worker `v94`.
 
 ---
 
@@ -63,14 +66,17 @@ app/                    Next.js App Router
   providers.tsx         TanStack Query inkl. Offline-Lesespeicher (idb-keyval)
   globals.css           gesamtes Designsystem
 components/             fachlich geschnittene Bausteine
-  auftraege/ einsatzplanung/ kunden/ lager/ rechnungen/ admin/ auswertung/
+  auftraege/ einsatzplanung/ termine/ kunden/ karte/ lager/ rechnungen/ admin/ auswertung/ dashboard/
 lib/
   api/                  alle Datenbankzugriffe, ein Modul je Datei
   queries/              Abfrageschlüssel und Hooks
   types.ts              Datentypen
   constants.ts          zentrale Wertelisten (siehe Konstanten-Regel)
   helpers.ts            reine Hilfsfunktionen
+  *Ansicht.ts           Regeln hinter den Listen (Aufträge, Kunden, Lager, Saison, Termine)
   rechnung.ts           Rechnungslogik (Positionen, Summen, Girocode)
+  erscheinung.ts        App-Name und Symbole („MR Assistent")
+  version.ts            APP_VERSION und NEUIGKEITEN (gleichlaufend mit public/sw.js)
 public/sw.js            Service Worker – Konstante FASSUNG bei jeder Auslieferung hochzählen
 supabase/migrations/    durchnummerierte Migrationen + rollback/
 tests/                  Vitest, reine Rechenfunktionen

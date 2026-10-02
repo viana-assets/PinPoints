@@ -1,7 +1,8 @@
 # Konstanten-Register
 
-**Stand: 18.09.2026.** Vollständig neu erstellt aus dem Code (nicht aus der Vorfassung
-übernommen) – siehe „Was geprüft wurde" unten.
+**Stand: 01.10.2026** (gegen den Code abgeglichen: jede `export const` unter `lib/` ist
+eingetragen). Erstfassung 18.09.2026, vollständig aus dem Code erstellt – siehe „Was geprüft
+wurde" unten.
 
 **Regel:** Bei jeder neuen exportierten Konstante in `lib/` wird hier eine Zeile ergänzt –
 Name, Datei, Typ/Form, Bedeutung, Verwendung. Beim Löschen oder Umbenennen einer Konstante wird
@@ -24,9 +25,10 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **73 exportierte Konstanten** in 13 Dateien unter `lib/` (Stand dieser Ergänzung:
-21.09.2026, nur die neue Datei `lib/etikettBild.ts` nachgetragen – siehe „Korrekturen" unten für
-eine weitere, unabhängig davon im Code gefundene Abweichung).
+Insgesamt **108 exportierte Konstanten** (`export const`) in 23 Dateien unter `lib/` – gezählt am
+01.10.2026 mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
+eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMETER`,
+`PROFIL_MAX_MM`). Die Zahl gehört bei jeder neuen Konstante mit nachgezogen.
 
 ---
 
@@ -83,6 +85,9 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `TERMIN_INTERVALLE` | `lib/constants.ts` | `number[]` | Auswahlliste der Terminraster-Schritte im Adminbereich | `AdminPanel` |
 | `KALENDER_VON_STUNDE` | `lib/constants.ts` | `number` (7) | Start des Grundfensters der Tages-/Wochenansicht | `Stundenraster` |
 | `KALENDER_BIS_STUNDE` | `lib/constants.ts` | `number` (19) | Ende des Grundfensters der Tages-/Wochenansicht | `Stundenraster` |
+| `KLICK_RASTER_MIN` | `lib/calendar.ts` | `number` (15) | Raster beim Klick ins Stundenraster (abgerundet: Tipp auf „10:00" ergibt 10:00) | **nur intern** – `terminAusKlick()` |
+| `ZIEH_RASTER_MIN` | `lib/calendar.ts` | `number` (15) | Raster beim Ziehen eines Termins (gerundet) | **nur intern** – `gezogenerTermin()` |
+| `ANRUF_PARAMETER` | `lib/constants.ts` | `string` ("anruf") | Aufrufparameter von „Auf dem Handy anrufen": nur die Kunden-Kennung in der Adresse, keine Rufnummer | `app/api/push/anruf/route.ts`, `app/page.tsx` |
 
 ---
 
@@ -110,6 +115,7 @@ eine weitere, unabhängig davon im Code gefundene Abweichung).
 | `PROFIL_GESETZLICH_MM` | `lib/constants.ts` | `number` (1,6) | Gesetzliches Minimum der Profiltiefe | `ProfilMarke`, `RadBild` |
 | `PROFIL_KRITISCH_MM` | `lib/constants.ts` | `number` (3) | Schwelle „kritisch" | `SaisonPanel`, `ProfilMarke`, `LagerPanel`, `RadBild`, `AuftragModal`, `app/page.tsx`, `tests/regalwand.test.ts`, `tests/profiltiefe.test.ts` |
 | `PROFIL_HINWEIS_MM` | `lib/constants.ts` | `number` (4) | Schwelle „Hinweis" | `ProfilMarke`, `RadBild`, `tests/profiltiefe.test.ts` |
+| `PROFIL_MAX_MM` | `lib/constants.ts` | `number` (25) | Obere Schranke der Profiltiefen-Eingabe (fängt „66" statt „6" ab) | `RadBild` (`ProfilEingabe`), `VerkaufsreifenBlatt` |
 | `PROFIL_SCHNELLWERTE_MM` | `lib/constants.ts` | `number[]` (1–8) | Schnellwert-Knöpfe unter der Profiltiefe (seit v89) | `ProfilEingabe` in `RadBild.tsx` (Lager-Einlagern, Auftragsfenster) |
 | `DOT_ALT_JAHRE` | `lib/constants.ts` | `number` (6) | Reifenalter (Jahre), ab dem der Kunde angesprochen werden soll | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
 | `LAGERDAUER_HINWEIS_TAGE` | `lib/constants.ts` | `number` (365) | Tage ohne Bewegung, ab denen ein Hinweis erscheint | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
@@ -194,7 +200,7 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `PROTOKOLL_SCHLUESSEL` | `lib/benachrichtigungZiel.ts` | `string` | Schlüssel für „zuletzt angetippt" (Diagnose auf iPhones ohne Konsole) | **nur intern**, über `letztesAntippen()` (`PushEinstellung`); dito wortgleich in `public/sw.js` |
 | `MITNEHMEN_PARAMETER` | `lib/constants.ts` | `string` ("mitnehmen") | Aufrufparameter des Abendhinweises: `/?mitnehmen=YYYY-MM-DD` öffnet die Mitnehmen-Liste (Migration 55, 23.09.2026) | `lib/abendhinweisVersand.ts`, `app/page.tsx` (`zielOeffnen`) |
 | `ABENDHINWEIS_UHRZEIT_STANDARD` | `lib/constants.ts` | `string` ("20:00") | Uhrzeit des Abendhinweises ohne eigene Einstellung. Dieselbe Vorgabe steht als Spaltenvorgabe in `user_settings.abendhinweis_uhrzeit` (Migration 55) – beide gemeinsam ändern | `lib/mitnehmen.ts` (`abendhinweisFaellig`), `SettingsPanel`, `app/page.tsx` |
-| `PUSH_ABSENDER` | `lib/pushInhalt.ts` | `string` (aus `ERSCHEINUNG.kurzname`) | Titel der Testnachricht; folgt der Tarnung (23.09.2026) | `app/api/push/test` |
+| `PUSH_ABSENDER` | `lib/pushInhalt.ts` | `string` (aus `ERSCHEINUNG.kurzname`) | Titel der Testnachricht; folgt `ERSCHEINUNG` (heute „MR Assistent") | `app/api/push/test` |
 | `AUSWERTUNGS_ZEITRAUM_LABEL` | `lib/auswertungAnsicht.ts` | `Record<AuswertungsZeitraum, string>` | Zeiträume der Auswertung: Monat, Saison, Quartal, Jahr, 12 Monate, Frei (26.09.2026) | `AuswertungPanel` |
 | `WECHSELSAISON` | `lib/auswertungAnsicht.ts` | `{ fruehjahr, herbst }` mit Monaten (3–5, 9–11) | Wann gewechselt wird – Grundlage von „Saison" und der Wiederkehr. Bewusst enger als `naechsteSaison()` (welche Reifen dran sind) | `zeitraumFuer()`, `aktuelleOderNaechsteSaison()`, `AuswertungPanel` |
 | `EINSATZ_RASTER_VON` / `EINSATZ_RASTER_BIS` | `lib/auswertungAnsicht.ts` | `number` (7 / 19) | Stundenbereich des Rasters Wochentag × Uhrzeit | `einsatz()`, `rasterHinweis()`, `AuswertungPanel` |
@@ -224,12 +230,12 @@ weil sie im Code **nicht exportiert** sind (`const`, kein `export const`) – ge
 
 ---
 
-## App-Erscheinung (Sichtschutz)
+## App-Erscheinung
 
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
-| `GETARNT` | `lib/erscheinung.ts` | `boolean` (aktuell `true`) | Schalter: Tarn-Icon „Settings" statt echtem PinPoints-Symbol auf dem Homescreen (seit 18.09.2026) | **nur intern**, steuert `ERSCHEINUNG`; wird von Hand umgestellt, nicht programmatisch importiert |
-| `ERSCHEINUNG` | `lib/erscheinung.ts` | `Erscheinung` (Objekt: Name, Icons, Beschreibung) | Der aktive Name-/Icon-Satz, abhängig von `GETARNT` | `app/manifest.ts`, `app/layout.tsx` |
+| `GETARNT` | `lib/erscheinung.ts` | `boolean` (seit v88 `false`) | Schalter: Tarnung „Settings" statt „MR Assistent" (Tarnung 18.09.–29.09.2026) | **nur intern**, steuert `ERSCHEINUNG`; wird von Hand umgestellt |
+| `ERSCHEINUNG` | `lib/erscheinung.ts` | `Erscheinung` (Objekt: Name, Symbole, Beschreibung) | Der aktive Name-/Symbol-Satz: „MR Assistent", seit v90 Symbole `mr-logo-*.png` | `app/manifest.ts`, `app/layout.tsx`, `lib/pushInhalt.ts` |
 
 ---
 

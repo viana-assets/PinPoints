@@ -1,6 +1,6 @@
 # Berechtigungen und Rollen
 
-**Stand: 19.09.2026.** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
+**Stand: 19.09.2026, ergänzt bis 01.10.2026 (`lager.verkauf`, Migration 61).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
 Entscheidung tatsächlich fällt, und welche Irrtümer das Projekt dabei schon gemacht hat –
 damit sie kein zweites Mal gemacht werden.
 

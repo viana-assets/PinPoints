@@ -10,7 +10,8 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 26.09.2026 (Migrationen bis 61; Regeln seit der Projektdurchsicht vom 18.09.2026).
+Stand: 01.10.2026 (Migrationen bis 61, Service Worker v94; Regeln seit der Projektdurchsicht vom
+18.09.2026).
 
 ---
 
@@ -73,7 +74,12 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
    Gegenprüfen).
 6. Muss eine Datei **gelöscht** werden, das explizit dazuschreiben („außerdem auf GitHub
    löschen: …") – Löschungen funktionieren nicht per Drag & Drop.
-7. **Echte Kundendaten gehören nicht ins Repository.** Skripte, die reale Bestandsdaten
+7. **Die Doku läuft in jeder Runde mit** – nicht nur die Fachdatei (`docs/lager.md` usw.),
+   sondern auch die Übersichten: „Stand"-Zeilen in `README.md`, `docs/README.md` und hier,
+   Repo-Struktur und Migrationsstand in `docs/architektur.md`, Gesamtzahl im
+   Konstanten-Register (`docs/README.md`, „Wie diese Doku gepflegt wird", Punkt 4). Am
+   01.10.2026 waren sie zwei Wochen zurück, weil das unterblieben war.
+8. **Echte Kundendaten gehören nicht ins Repository.** Skripte, die reale Bestandsdaten
    enthalten oder erzeugen (Kundennummern-Übernahme, Betriebsdaten-Erstbefüllung), werden
    nach `PinPoints\lokal\` geschrieben – außerhalb von `viana-pinpoints/`, also außerhalb
    des Repos. Im Chat wird der Inhalt solcher Skripte ebenfalls nicht wiedergegeben.
@@ -274,6 +280,15 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   `docs/design-system.md` „Desktop-Skalierung"). Jede neue Höhe in `vh` als
   `calc(… / var(--z))`, jede Lage aus `getBoundingClientRect` für ein festes Element durch den
   Zoom teilen (`menuLage`), jede Umrechnung Mausposition → Größe über `massstab()`.
+- **Eine Druck-Ausblenderegel aus Klassen verliert gegen eine ID-Regel.** `#iconNav{display:flex}`
+  schlug `body:has(.druck-fenster) *:not(…){display:none}` – die Seitenleiste blieb im Druck
+  unsichtbar, aber 28 px hoch im Seitenaufbau, und jedes 80- oder 100-mm-Etikett rutschte auf
+  Seite 2: Jeder Druck begann mit einem leeren Etikett. Gefunden erst beim Seitenzählen im PDF
+  (30.09.2026). Die Regel trägt jetzt `!important`.
+- **Ein Zwischenspeicher ist nur so frisch wie die Stelle, die ihn verwirft.** Fahrzeuge liegen
+  je Kunde UND gesamt im Speicher; nach dem Anlegen wurde nur der des im Kundentab gewählten
+  Kunden neu geladen – im Auftragsfenster fehlte das neue Auto (29.09.2026). Wer etwas anlegt,
+  verwirft alle Speicher, die es zeigen (`refreshVehicles` in `app/page.tsx`).
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 
@@ -288,7 +303,7 @@ sind in der laufenden Anwendung zulässig. Was bleibt:
 - Keine Adressen an Dritte außerhalb der eigenen, gedrosselten Geocode-Route
   (siehe `docs/kunden-und-karte.md`).
 - Irreversible Massenänderungen nur mit vorheriger Sicherung.
-- Keine echten Kundendaten im Repository und keine im Chat (siehe Regel 1.7).
+- Keine echten Kundendaten im Repository und keine im Chat (siehe Regel 1.8).
 - Schlüssel und Geheimnisse (VAPID, `PUSH_GEHEIMNIS`, Service-Role-Key) kommen **nie**
   in eine Datei des Repos, nie in die Doku und nie in den Chat – auch nicht als
   „Beispielwert".
@@ -336,4 +351,4 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
 | Was ist offen, was ist als Nächstes dran? | `docs/fahrplan.md` |
 | Wie ist die PWA aufgebaut, was fehlt offline? | `docs/pwa-plan.md` |
 | Wie funktioniert die Terminerinnerung per Push? | `docs/benachrichtigungen-plan.md` |
-| Wie wird der Etikettendrucker angesteuert? | `docs/prompt-etikettendrucker.md` |
+| Welcher Etikettendrucker, wie wird gedruckt? | `docs/lager.md` („Brother QL-820NWBc", „Zwei Wege aufs Papier"), `docs/prompt-etikettendrucker.md` |
