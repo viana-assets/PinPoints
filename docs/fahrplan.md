@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **02.10.2026 – Brother-Druck im Betrieb getestet, Formate angepasst (Service Worker v95).** 60 × 86 und
+  58 × 58 mm (QR oben), „Drucken" als PDF in exakter Größe (ohne Safari-Fußzeile/Verkleinerung),
+  „eingelagert seit" in eigener Zeile. 62 × 100 und 62 × 40 entfallen.
+
 * **01.10.2026 – Auftrag: „Anlegen" und „Erledigt" statt drei Schritten (Service Worker v94).**
   „Arbeit beginnen" entfällt; neuer Auftrag fragt beim Schließen „anlegen oder verwerfen".
 
@@ -96,7 +100,7 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
   „⋯" solange kein Auftrag besteht; Aufträge T1…, Rechnungen T-RE1…, keine Kundennummer – die
   echten Kreise zählen nicht weiter; überall TEST markiert, aus Auswertungen, DATEV und
   Wochenumsatz ausgenommen; „Testkunde restlos löschen" (`testkunde_loeschen()`) entfernt alles
-  samt Rechnungen und Protokoll. Lexware: offen, welches Produkt im Einsatz ist (siehe unten).
+  samt Rechnungen und Protokoll. Lexware: entfällt (02.10.2026, siehe unten).
 
 * **26.09.2026 – Die übrigen Module im Kartenstil (Service Worker v77, keine Migration).**
   Entwürfe N–V in einem Zug: Auftragsfenster (Karten, „Termin & Team" als Blatt, Fuß mit der
@@ -333,7 +337,7 @@ sind. Sie stehen hier, damit sie niemand in guter Absicht kaputtmacht:
   verwenden (dann auch in `canView()` und in `PermissionMatrix`, die den Schlüssel je
   einzeln zusammenbauen) oder entfernen.
 - `GEO_GENAUIGKEIT_LABEL` in `lib/constants.ts` wird nirgends verwendet – entweder in der
-  Oberfläche einsetzen (siehe E7) oder entfernen.
+  Oberfläche einsetzen oder entfernen.
 - Das Prop `pflicht` in `components/auftraege/EinlagerungBlock.tsx` wird an beiden
   Einbindungsstellen fest auf `false` gesetzt; der zugehörige Zweig ist tot.
 - `QrBild` existiert fast wortgleich zweimal (`LagerplatzAufkleber.tsx`,
@@ -348,9 +352,9 @@ sind. Sie stehen hier, damit sie niemand in guter Absicht kaputtmacht:
 
 ### C5. Große Dateien
 
-`app/page.tsx` ist wieder auf rund 3.100 Zeilen gewachsen (nach der Sanierung waren es
-1.290). `components/auftraege/AuftragModal.tsx` liegt bei gut 1.000, `components/lager/
-LagerPanel.tsx` bei knapp 900, `lib/helpers.ts` bei rund 970 Zeilen.
+`app/page.tsx` ist wieder auf rund 3.550 Zeilen gewachsen (nach der Sanierung waren es
+1.290). `components/auftraege/AuftragModal.tsx` liegt bei knapp 1.200, `components/lager/
+LagerPanel.tsx` bei rund 950, `lib/helpers.ts` bei rund 1.110 Zeilen (Stand 02.10.2026).
 
 Das ist kein akutes Problem, aber jedes neue Modul hat bisher Zustand und Ladefunktionen in
 `HomePage` dazugelegt, ohne dass Älteres kleiner wurde. Sinnvoller nächster Schnitt:
@@ -386,7 +390,6 @@ Nach Nutzen sortiert.
 | D12 | **Wiedereröffnen eines stornierten Auftrags** vom normalen Wiedereröffnen unterscheiden und den Stornogrund dabei zeigen | Fachlich sind „Arbeit war fertig" und „kam gar nicht zustande" zwei verschiedene Situationen. | klein |
 | D13 | **Rückfrage beim Abschließen ohne Leistungen** („keine Leistung zugeordnet – trotzdem abschließen?") | klein |
 | D14 | **Freie Plätze nach Lager gruppieren** in der Lagerplatz-Auswahl (`optgroup`) | Am Handy muss man sonst je Zeile den angehängten Lagernamen mitlesen. | klein |
-| D15 | **Größere Schritte bei der Profiltiefe-Messung** (zusätzlich ±1 mm neben ±0,1 mm) | 6,0 → 2,0 mm sind heute vierzig Tipper, mit Handschuhen im Lager. | klein |
 | D16 | **`canView()` robuster machen** – es teilt den Schlüssel am ersten Punkt, ein zweistufiger Bereich wie `lager.regale` würde still falsch ausgewertet. Heute wird es nirgends so aufgerufen, die Falle steht aber offen. | klein |
 | D17 | **IBAN in den Betriebsdaten prüfen** (Länge und Prüfsumme) | Ein Tippfehler fällt sonst erst beim Kunden auf – oder der Girocode fehlt kommentarlos. | klein |
 | D18 | **Aufkleberdruck für sehr große Lager stückeln** | Mehrere hundert QR-Bilder auf einmal lassen Safari am iPhone hängen. | mittel |
@@ -398,7 +401,11 @@ Nach Nutzen sortiert.
 Nach Nutzen sortiert, nicht nach Aufwand.
 
 ### E1. Dublettenprüfung bei der Kundenanlage
-Beim Anlegen wird heute nichts geprüft. Bei 424 Bestandskunden und telefonischer Neuanlage
+**Teilweise vorhanden:** Seit 26.09.2026 zeigt „Neuer Kunde" ab vier Zeichen Kunden mit gleichem
+Namensanfang („Gibt es schon?"), seit v93 verhindert die App doppelte Kennzeichen beim Kunden.
+Offen ist der Abgleich über die Telefonnummer und das Zusammenführen.
+
+Vorher wurde beim Anlegen nichts geprüft. Bei 424 Bestandskunden und telefonischer Neuanlage
 entstehen Karteileichen zwangsläufig; die Dokumentation nennt „Dublette" bereits als Grund
 für eine Deaktivierung, ohne dass es ein Werkzeug dagegen gäbe. Ein nicht blockierender
 Hinweis („ähnlicher Kunde vorhanden: … – trotzdem anlegen?") auf Basis von Name + PLZ und
@@ -493,7 +500,7 @@ Lesen funktioniert offline (Stufen 1–3 sind gebaut). Schreiben nicht: es fehlt
 Warteschlange und eine Konfliktbehandlung.
 
 **Entschieden am 23.09.2026: der GROSSE Zuschnitt, als eigene Runde** – alles am Auftrag außer
-Abschließen (Status „in Arbeit", Notiz, Uhrzeit, Titel/Beschreibung, Leistungen, Endpreis,
+Abschließen (Notiz, Uhrzeit, Titel/Beschreibung, Leistungen, Endpreis,
 Fahrzeug und Kilometerstand, Radmessung), mit Konfliktabfrage bei gleichem Feld. Nicht offline:
 Abschließen, Ein- und Auslagern, Auftrag anlegen/stornieren, Kunden, Stammdaten. Die Bauvorgabe
 je Handlung steht im Projektkonzept „Offline schreiben" (Tabellen „Was offline gehen SOLL");
@@ -534,10 +541,17 @@ B1 und B2 erledigt. Ab hier:
 4. **E2** – Kommissionierliste, auf der Mitnehmen-Liste aufbauend.
 5. **D17, D4, B3** – Kleinkram, der in einem Zug mitgeht.
 
-## Offen: Lexware (Stand 26.09.2026)
+## Offen aus den Runden seit dem 29.09.2026
 
-Entschieden: PinPoints schreibt weiter die Rechnungen. Offen ist, ob und wie Lexware die Belege
-bekommt – das hängt am Produkt: **Lexware Office** (Cloud, früher lexoffice) hat eine Public API
-(ab Tarif XL, ohne Aufpreis) für Kontakte, Rechnungen und das Hochladen von Belegen; einen
-Datei-Import für Rechnungen oder Buchungen hat es nicht. **Lexware Desktop** (faktura+auftrag)
-importiert per CSV nur Kunden und Artikel. Nächster Schritt: Vitali klärt das Produkt.
+Kleine Punkte, die bei Vitali oder im Betrieb liegen oder auf eine Rückmeldung warten:
+
+- **Doppelte Fahrzeuge** beim Kunden (vor v93 entstanden) im Kundenfenster löschen.
+- **Brother QL-820NWBc:** Druck über PDF und Druckdialog ist seit v95 gebaut – im Betrieb einmal mit
+  der neuen Fassung bestätigen (60 × 86 und 58 × 58, auch „je Rad"). Danach die Folienrolle
+  DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf
+  Reifensack/Anhänger.
+- **Etikettenformate im Admin einstellbar** (Wunsch 30.09.2026, „vorerst oder im Admin"):
+  heute stehen alle Rollenformate in der Auswahl. Braucht eine Spalte in `betrieb` (Migration).
+
+*Lexware entfällt (Entscheidung 02.10.2026): PinPoints schreibt die Rechnungen, eine Übergabe an
+Lexware ist nicht geplant. Bitte nicht erneut vorschlagen.*

@@ -147,13 +147,27 @@ zwischen beiden Anordnungen ergibt sich allein aus den Maßen des gewählten For
 Drucker gekauft (DK-22205, 62 mm × 5 m Papier; für Etiketten direkt am Reifen besser die Folie
 DK-22212). Er kann AirPrint, baut mit „Wireless Direct" sein eigenes WLAN auf (im Lager gibt es
 keines), hat Bluetooth für die App „Brother iPrint&Label" und schneidet nach jedem Etikett ab.
-Zwei Formate stehen oben in der Liste: **62 × 100 mm hoch** (QR 50 mm, Standard) und **62 × 40 mm
-quer** (QR 32 mm). Die alten Rollenformate bleiben vorerst wählbar. Je Format neu:
-`pxProMm` (300 dpi = `PX_PRO_MM_300` statt 203 dpi), `randMm` (3 mm – Brother bedruckt von
-62 mm nur rund 58 mm) und `schrift` (Faktor für alle Schriftgrößen: 1,6 bzw. 1,1). Dieselben
-Werte gehen als `--etikett-rand`/`--etikett-s` ins Stilblatt und als `masse` in
-`etikettZeichnen()`. Geprüft: PDF mit genau einer Seite je Etikett in 62 × 100 bzw. 62 × 40 mm,
-QR-Code aus der 300-dpi-Rasterung und aus den PNGs (732 × 1181 bzw. 732 × 472 px) zurückgelesen.
+**Seit v95 (02.10.2026, nach dem Drucktest im Betrieb):** zwei Formate oben in der Liste, beide
+mit QR-Code oben und Daten darunter – **60 × 86 mm** (groß, QR 46 mm, Standard) und **58 × 58 mm**
+(sparsam, QR 30 mm). Es sind genau die Größen, die der Druckdialog des iPhones beim QL-820NWB als
+Papierformat anbietet. Die v92-Formate 62 × 100 (zu viel Rolle) und 62 × 40 quer (kennt der
+Druckdialog nicht, Anordnung unpraktisch) sind entfallen. Die alten Rollenformate bleiben vorerst
+wählbar. Je Format: `pxProMm` (300 dpi = `PX_PRO_MM_300`), `randMm` (3 bzw. 2,5 mm), `schrift`
+(1,75 bzw. 1,25), `qrOben` (QR oben auch beim Quadrat) und `papier` (der Eintrag im Druckdialog).
+Dieselben Werte gehen als `--etikett-rand`/`--etikett-s` ins Stilblatt und als `masse` in
+`etikettZeichnen()`. Die Zeile „Lager · Platz · seit …" ist seit v95 zweigeteilt – das Datum
+(„eingelagert seit …") wurde hinter dem Platz abgeschnitten.
+
+**Gedruckt wird beim Brother als PDF** (`lib/etikettPdf.ts`, `etikettenPdfDatei()` in
+`lib/etikettBild.ts`): eine Seite je Etikett in genau seiner Größe, darin das Etikett als
+1-Bit-Bild in 300 dpi. „Drucken" gibt das PDF ins Teilen-Menü; dort „Drucken", Drucker QL-820NWB,
+Papierformat wie im Fenster angegeben. Der Drucktest vom 02.10.2026 hat gezeigt, warum: Safari
+druckte die HTML-Seite in Bildschirmbreite verkleinert (QR knapp 3 statt 5 cm) und mit Fußzeile
+(Adresse, Datum, „Seite 1 von 1"); ein PDF kam in richtiger Größe und ohne Fußzeile heraus. Die
+App „Brother iPrint&Label" nimmt geteilte Dateien gar nicht an („Die Dateien können nicht
+freigegeben werden" – bei Bild wie PDF); über Bluetooth geht nur der Umweg „Bild sichern" →
+iPrint&Label „Erstellen". Geprüft: je Format und Art ein PDF erzeugt, Seitenzahl und Seitengröße
+mit `pdfinfo`, QR-Code aus der 300-dpi-Rasterung zurückgelesen (10 von 10).
 
 Dabei gefunden: Jeder Druck begann bisher mit einem **leeren ersten Blatt**. Die Seitenleiste
 `#iconNav` blieb im Druck im Seitenaufbau (eine ID-Regel wiegt mehr als die Ausblende-Regel
@@ -181,7 +195,8 @@ Vielfaches. Im Fenster „Etikett für den Reifensatz" stehen deshalb zwei Knöp
   bewusst keine Fehlermeldung aus.
 
 Im Alltag am Regal: „Etikett drucken" im Einlagerungsblock oder am Reifensatz öffnen, Format
-wählen (seit v92 steht Brother 62 × 100 mm als Erstes zur Auswahl), dann entweder **Drucken** tippen und
+wählen (seit v95 steht Brother 60 × 86 mm als Erstes zur Auswahl; beim Brother siehe oben „Gedruckt
+wird beim Brother als PDF"), dann entweder **Drucken** tippen und
 im Systemdialog Ränder auf null und Skalierung auf 100 % stellen, oder – wenn nur der
 Bluetooth-Drucker zur Hand ist – **Als Bild teilen** tippen und im Teilen-Menü die App des
 Druckers antippen.

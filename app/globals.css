@@ -795,6 +795,9 @@ tr.klickbar:hover { background: var(--hover); }
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
 }
 
+/* Die Druckschritte für den Brother im Etikett-Fenster (02.10.2026). */
+.ek-schritte{display:block;margin-top:6px;padding:8px 10px;border-radius:10px;background:var(--accent-bg);color:#6b2a0c;line-height:1.45;}
+
 /* ---------------- Etikett für den Reifensatz (17.09.2026) ---------------- */
 /* Maße in MILLIMETERN, auf dem Bildschirm wie auf dem Papier. Ein Etikett ist eines der
    wenigen Dinge in einer Anwendung, das eine physische Größe HAT – wer es in Pixeln entwirft

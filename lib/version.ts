@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v94";
+export const APP_VERSION = "v95";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v95", datum: "2026-10-02", titel: "Etiketten für den Brother: richtige Größe",
+    punkte: [
+      "Zwei neue Formate für den Brother QL-820NWBc, beide mit QR-Code oben: 60 × 86 mm (groß) und 58 × 58 mm (sparsam). 62 × 100 und 62 × 40 gibt es nicht mehr.",
+      "„Drucken“ erzeugt jetzt ein PDF in genau der Etikettengröße – ohne Datum und „Seite 1 von 1“ unten und ohne Verkleinern. Im Teilen-Menü „Drucken“ wählen, Drucker QL-820NWB und das Papierformat, das im Fenster steht.",
+      "Auf dem Satz-Etikett steht „eingelagert seit …“ jetzt in einer eigenen Zeile, nichts wird mehr abgeschnitten.",
+    ],
+  },
   {
     version: "v94", datum: "2026-10-01", titel: "Auftrag: anlegen und erledigt",
     punkte: [

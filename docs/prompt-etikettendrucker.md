@@ -5,7 +5,7 @@ Alles unterhalb der Linie ist der Prompt. Kopieren, in eine KI mit Websuche einf
 ## Stand 30.09.2026: gekauft ist der Brother QL-820NWBc
 
 Mit 62-mm-Endlosrolle (DK-22205 Papier). AirPrint, Wireless Direct, Bluetooth, 300 dpi,
-Abschneider. Die App hat dafür zwei eigene Formate (62 × 100 mm hoch, 62 × 40 mm quer), siehe
+Abschneider. Die App hat dafür zwei eigene Formate (60 × 86 und 58 × 58 mm, gedruckt als PDF), siehe
 `docs/lager.md`. Der Prompt unten bleibt als Grundlage für eine spätere Neuanschaffung stehen.
 
 ## Stand 21.09.2026: ein zweiter Weg aufs Papier – die harten Kriterien unten gelten seitdem nur

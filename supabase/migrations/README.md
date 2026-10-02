@@ -10,16 +10,15 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Stand 01.10.2026: Migrationen 01–61 liegen vor, die App läuft mit 61** (ohne 60 und 61 lädt
-sie nicht). Die Liste „Bereits ausgeführt" unten wurde seit dem 28.08.2026 nicht nachgeführt –
-die Abschnitte „Noch auszuführen" sind deshalb Beschreibungen, keine offene Arbeit. Verbindlich
-beantwortet die Frage `PRUEFUNG_welche_migrationen_liefen.sql` (siehe unten); mit dessen
-Ergebnis wird die Liste bereinigt.
+**Stand 02.10.2026: Alle Migrationen 01–61 sind in der Produktivdatenbank ausgeführt** –
+geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
+die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
+bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
+„noch auszuführen", bis Vitali sie gemeldet hat.
 
 ## Bereits ausgeführt
 
-Stand 28.08.2026: alle Migrationen `01`–`14` sind im Supabase-SQL-Editor
-ausgeführt, die Datenbank ist auf dem Stand dieses Ordners.
+`01`–`14` (Grundschema, ausgeführt bis 28.08.2026):
 
 - `01_schema.sql` – Basis-Schema (Profiles, Kunden, Termine, Kontakt-Historie, Einstellungen)
 - `02_lager.sql` – Lager-Modul (Lager, Lagerplätze, Reifen-Einlagerung)
@@ -70,9 +69,9 @@ ausgeführt, die Datenbank ist auf dem Stand dieses Ordners.
   (`articles.article_number`, neue Sequenz `article_number_seq`) für die Artikel-Übersicht
   (vorher "Artikelstamm" im Admin-Bereich, jetzt eigene Kachel "Artikel").
 
-## Noch auszuführen
+## Ausgeführt ab 15
 
-**In dieser Reihenfolge im Supabase-SQL-Editor ausführen – sie bauen aufeinander auf.**
+**Ausgeführt in dieser Reihenfolge – sie bauen aufeinander auf** (bestätigt 02.10.2026).
 Die ersten fünf gehören zur Sanierung vom August 2026 (siehe `docs/architektur.md`).
 
 - `15_rls_haertung.sql` – schließt die kritischen Lücken: die Rollen-Spalte in `profiles` ist
@@ -344,6 +343,24 @@ Die ersten fünf gehören zur Sanierung vom August 2026 (siehe `docs/architektur
 
 Nach dem Ausführen bitte hier nach oben unter "Bereits ausgeführt" verschieben.
 
+## Ohne eigenen Eintrag oben (Kurzfassung, nachgetragen 02.10.2026)
+
+Für diese Migrationen fehlte bisher ein Absatz in dieser Datei; alle sind ausgeführt. Die
+ausführliche Begründung steht im Kopfkommentar der jeweiligen Datei und in `docs/architektur.md`
+(„Migrationsstand").
+
+- `35` – `customers.geo_genauigkeit` (exakt / ungefähr / von Hand).
+- `36` – Änderungsprotokoll für Admin und Superadmin lesbar, Auftrags-/Kundenbezug als Spalten.
+- `37` – `orders.end_time`: Termine mit Von–bis.
+- `38` – `orders.rechnung_noetig`, `order_articles.endpreis_netto`, Tabelle `betrieb`.
+- `46` – Abrechnungsart am Artikel (Lagergebühr), Altreifen-Rückfrage.
+- `47` – Abschluss eines Auftrags schreibt den Kontaktstand des Kunden.
+- `48` – Rechnungen in PinPoints: Tabelle `rechnungen`, Briefkopf, Kundennummer.
+- `49` – Rechnung und Auftrag transaktional verknüpft.
+- `50` – `articles.freitext` für Sammelpositionen wie „Sonstiges".
+- `53` – Laufkundschaft (Sammelkunde für Barverkäufe).
+- `54` – Stornogrund an der Rechnung Pflicht.
+
 ## Welche Migrationen sind wirklich gelaufen?
 
 `PRUEFUNG_welche_migrationen_liefen.sql` beantwortet das, indem es die Datenbank selbst
@@ -584,9 +601,9 @@ Tabelle `orders` haben kann, aber kaum zusätzlich ein `tire_storage`.
   nicht mehr gibt, bleiben außen vor und werden am Ende gezählt. Zweiter Lauf fügt nichts
   hinzu. Die Rücknahme entfernt genau die nachgeholten Zeilen wieder.
 
-## Runde 35 (23.09.2026) – noch auszuführen
+## Runde 35 (23.09.2026) – ausgeführt
 
-**In dieser Reihenfolge, jeweils SQL zuerst, dann die Dateien.** Beide fügen nur hinzu; der alte
+**Ausgeführt in dieser Reihenfolge, jeweils SQL zuerst, dann die Dateien.** Beide fügen nur hinzu; der alte
 Code stört sich an nichts davon.
 
 - `55_schutz_und_abendhinweis.sql` – drei Dinge, jedes für sich wirksam:
@@ -614,7 +631,7 @@ Platz mit Verlauf löschbar, Zähler nach Rechnung fest, Ausstellen zählt weite
 Löschen samt Protokoll (Rechnung bleibt mit Namen im Snapshot), Schwärzen nach Frist, zweiter
 Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 
-## 24.09.2026 – noch auszuführen
+## 24.09.2026 – ausgeführt
 
 - `57_laufkunde_am_auftrag_und_einmalkunde.sql` – **nach `55` und `56`, SQL zuerst.**
   `orders.laufkunde_name/_telefon/_ort`, Trigger `pruefe_laufkunde()` (Name Pflicht beim
@@ -627,7 +644,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   durch, normaler Kunde unberührt, Laufkundschaft + Einmalkunde abgewiesen, Schwärzen erfasst
   `laufkunde_name`, Rücknahme und Neulauf sauber.
 
-## 25.09.2026 – noch auszuführen
+## 25.09.2026 – ausgeführt
 
 - `58_mitnehmen_abhaken.sql` – **SQL zuerst, dann die Dateien.** Neue Tabelle
   `mitnehmen_gepackt` (Satz × Einsatztag, wer und wann) für das Abhaken der Liste „Reifen
@@ -636,7 +653,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Ergebnistabelle prüft Tabelle, RLS und die drei Richtlinien. Zweiter Lauf folgenlos.
   Rücknahme: `rollback/58_rollback.sql` (erst Code zurück; nur die Haken gehen verloren).
 
-## 26.09.2026 – noch auszuführen
+## 26.09.2026 – ausgeführt
 
 - `59_datev_export.sql` – **SQL zuerst, dann die Dateien** (die Betriebsdaten-Maske speichert die
   neuen Spalten mit; ohne sie schlüge schon das Speichern des Briefkopfs fehl).

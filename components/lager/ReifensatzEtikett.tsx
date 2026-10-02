@@ -6,7 +6,7 @@ import type { Customer, EingelagertesRad, RadPosition, StorageSlot, TireStorage,
 import { RAD_POSITIONEN, RAD_POSITION_LABEL, SAISON_LABEL } from "@/lib/constants";
 import { formatDate, profilText, satzProfilMm } from "@/lib/helpers";
 import { satzUrl } from "@/lib/aufkleberCode";
-import { dateiName, etikettDatei, mmZuPx, PX_PRO_MM_300, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
+import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
 //
@@ -47,23 +47,23 @@ export type EtikettFormat = {
   pxProMm?: number;
   randMm?: number;
   schrift?: number;
+  // QR-Code oben, Text darunter, auch wenn das Etikett nicht höher als breit ist (58 × 58).
+  qrOben?: boolean;
+  // Brother QL-820NWBc: „Drucken" erzeugt ein PDF in genau dieser Größe (lib/etikettPdf.ts).
+  // `papier` ist der Eintrag, der im Druckdialog des iPhones dazu gewählt werden muss.
   brother?: boolean;
+  papier?: string;
 };
 
 export const ETIKETT_FORMATE: EtikettFormat[] = [
-  // Die beiden Formate der 62-mm-Endlosrolle (DK-22205 Papier, DK-22212 Folie) des Brother
-  // QL-820NWBc stehen oben, weil dieser Drucker seit dem 30.09.2026 im Betrieb ist. Endlos
-  // heißt: Die Länge bestimmt die Seite, der Drucker schneidet nach jedem Etikett ab – vier
-  // Rad-Etiketten kommen einzeln heraus.
-  //
-  // 62 × 100 mm HOCH: der größte QR-Code (50 mm), gescannt wird im Regal aus einem Meter
-  // Abstand. 62 × 100 ist zugleich ein Standardmaß von Brother (DK-11202), das der Druckdialog
-  // kennt. 62 × 40 mm QUER: kompakt, etwa 125 Etiketten je 5-m-Rolle.
-  //
-  // Rand 3 mm: Brother bedruckt von 62 mm Rollenbreite etwa 58 mm; mit 1,5 mm wie bei den
-  // kleinen Rollen läge der QR-Code am Rand des bedruckbaren Streifens.
-  { schluessel: "62x100", text: "Brother 62 mm · 100 mm lang, hoch", breiteMm: 62, hoeheMm: 100, qrMm: 50, pxProMm: PX_PRO_MM_300, randMm: 3, schrift: 1.6, brother: true },
-  { schluessel: "62x40", text: "Brother 62 mm · 40 mm lang, quer", breiteMm: 62, hoeheMm: 40, qrMm: 32, pxProMm: PX_PRO_MM_300, randMm: 3, schrift: 1.1, brother: true },
+  // Die Formate des Brother QL-820NWBc (62-mm-Endlosrolle DK-22205 Papier, DK-22212 Folie)
+  // stehen oben. Seit 02.10.2026 sind es genau zwei Größen, die der Druckdialog des iPhones als
+  // Papierformat anbietet – getestet: 60 x 86 mm (groß, gut lesbar) und 58 x 58 mm (sparsam).
+  // Ein eigenes Maß wie 62 × 40 kennt der Druckdialog nicht; 62 × 100 verbrauchte zu viel Rolle.
+  // Gedruckt wird als PDF in genau dieser Größe – Safari druckte die Webseite verkleinert und
+  // mit Fußzeile (siehe lib/etikettPdf.ts). Rand 3 bzw. 2,5 mm, Auflösung 300 dpi.
+  { schluessel: "60x86", text: "Brother 60 × 86 mm (groß)", breiteMm: 60, hoeheMm: 86, qrMm: 46, pxProMm: PX_PRO_MM_300, randMm: 3, schrift: 1.75, qrOben: true, brother: true, papier: "60 x 86 mm" },
+  { schluessel: "58x58", text: "Brother 58 × 58 mm (sparsam)", breiteMm: 58, hoeheMm: 58, qrMm: 30, pxProMm: PX_PRO_MM_300, randMm: 2.5, schrift: 1.25, qrOben: true, brother: true, papier: "58 x 58 mm" },
   // Die Formate der kleinen 203-dpi-Rollen bleiben vorerst wählbar (Entscheidung 30.09.2026).
   // 50 × 80 mm ist HOCH: Der QR-Code wandert nach oben und wird mit 44 mm mehr als doppelt so
   // groß wie auf dem 30-mm-Etikett.
@@ -135,9 +135,9 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
 
   const gewaehlt = ETIKETT_FORMATE.find((f) => f.schluessel === format) ?? ETIKETT_FORMATE[0];
   const rolle = gewaehlt.hoeheMm !== null;
-  // Höher als breit? Dann steht der QR-Code oben und der Text darunter. Abgeleitet und nicht
-  // als eigenes Feld gepflegt: Zwei Angaben, die dasselbe sagen, laufen auseinander.
-  const hochformat = (gewaehlt.hoeheMm ?? 0) > gewaehlt.breiteMm;
+  // Höher als breit? Dann steht der QR-Code oben und der Text darunter. Abgeleitet, außer das
+  // Format sagt es ausdrücklich (`qrOben`, das quadratische 58 × 58).
+  const hochformat = gewaehlt.qrOben ?? (gewaehlt.hoeheMm ?? 0) > gewaehlt.breiteMm;
 
   function platzText(satz: TireStorage): string {
     const platz = slots.find((s) => s.id === satz.storage_slot_id);
@@ -209,7 +209,9 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
             // sonst in der App. Ein Satz ist so gut wie sein schlechtester Reifen; der
             // Durchschnitt wäre eine beruhigende Zahl ohne Aussage.
             `${satz.saison ? SAISON_LABEL[satz.saison] : "Saison offen"} · ${profilText(satzProfilMm(satz, raederZu(satz)))}`,
-            `${platzText(satz)} · seit ${formatDate(satz.created_at.slice(0, 10))}`,
+            // Eigene Zeile seit 02.10.2026: hinter Lager und Platz wurde das Datum abgeschnitten.
+            platzText(satz),
+            `eingelagert seit ${formatDate(satz.created_at.slice(0, 10))}`,
           ],
         },
       }];
@@ -242,31 +244,62 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   // Der Ausweg für Drucker ohne AirPrint – und beim Brother der Weg über Bluetooth. Das Bild
   // entsteht in der Auflösung des Druckers (203 dpi, beim Brother 300 dpi) und in exakt der Größe des gewählten Formats – der Drucker muss dann nichts mehr
   // umrechnen, und genau das Umrechnen macht QR-Codes unlesbar.
+  // Jedes Etikett mit seinem QR-Code und den Maßen des gewählten Formats – für das Bild und
+  // für das PDF dieselbe Liste.
+  async function etikettenMitMassen(): Promise<{ inhalt: EtikettInhalt; masse: EtikettMasse; name: string }[]> {
+    const liste: { inhalt: EtikettInhalt; masse: EtikettMasse; name: string }[] = [];
+    for (const [i, e] of etiketten.entries()) {
+      const masse: EtikettMasse = {
+        pxProMm: gewaehlt.pxProMm, randMm: gewaehlt.randMm, schrift: gewaehlt.schrift, qrOben: gewaehlt.qrOben,
+        breiteMm: gewaehlt.breiteMm,
+        // Beim A4-Bogen gibt es keine Etikettenhöhe; fürs Bild gilt dann das Maß, das die
+        // Vorschau ohnehin zeichnet.
+        hoeheMm: gewaehlt.hoeheMm ?? 30,
+        // Das Rad-Etikett hat im Querformat einen kleineren QR-Code als das Satz-Etikett –
+        // links steht dort eine Angabe, die gelesen werden MUSS, und die braucht die
+        // Breite. Im Hochformat gilt das nicht: Dort steht die Angabe unter dem Code, nicht
+        // daneben. Derselbe Abzug und dieselbe Ausnahme wie im Stilblatt.
+        qrMm: e.rad && !hochformat ? gewaehlt.qrMm - 3 : gewaehlt.qrMm,
+      };
+      const qr = await QRCode.toDataURL(satzUrl(e.satzId, basis), {
+        width: mmZuPx(masse.qrMm, masse.pxProMm), margin: 1, errorCorrectionLevel: "M",
+      });
+      liste.push({ inhalt: { ...e.inhalt, qr }, masse, name: dateiName(e.bezeichnung, i + 1, etiketten.length) });
+    }
+    return liste;
+  }
+
+  // ------------------------------------------------------------------ Drucken als PDF (Brother)
+  //
+  // Das PDF geht ins Teilen-Menü; dort „Drucken" wählen, den QL-820NWB und das Papierformat
+  // `gewaehlt.papier`. Getestet am 02.10.2026: richtige Größe, keine Fußzeile.
+  async function alsPdfDrucken() {
+    setTeilenHinweis(null);
+    setTeilenLaeuft(true);
+    try {
+      const liste = await etikettenMitMassen();
+      const name = dateiName(liste.length === 1 ? etiketten[0].bezeichnung : `etiketten-${liste.length}`, 1, 1).replace(/\.png$/, ".pdf");
+      const pdf = await etikettenPdfDatei(liste, name);
+      if (navigator.canShare && navigator.canShare({ files: [pdf] })) {
+        await navigator.share({ files: [pdf] });
+        return;
+      }
+      herunterladen(pdf);
+      setTeilenHinweis("Dieses Gerät kennt kein Teilen-Menü – das PDF wurde gespeichert. Öffnen und drucken.");
+    } catch (fehler) {
+      if (fehler instanceof DOMException && fehler.name === "AbortError") return;
+      setTeilenHinweis(fehler instanceof Error ? fehler.message : "Das PDF konnte nicht erzeugt werden.");
+    } finally {
+      setTeilenLaeuft(false);
+    }
+  }
+
   async function alsBildTeilen() {
     setTeilenHinweis(null);
     setTeilenLaeuft(true);
     try {
       const dateien: File[] = [];
-      for (const [i, e] of etiketten.entries()) {
-        const masse: EtikettMasse = {
-          pxProMm: gewaehlt.pxProMm, randMm: gewaehlt.randMm, schrift: gewaehlt.schrift,
-          breiteMm: gewaehlt.breiteMm,
-          // Beim A4-Bogen gibt es keine Etikettenhöhe; fürs Bild gilt dann das Maß, das die
-          // Vorschau ohnehin zeichnet.
-          hoeheMm: gewaehlt.hoeheMm ?? 30,
-          // Das Rad-Etikett hat im Querformat einen kleineren QR-Code als das Satz-Etikett –
-          // links steht dort eine Angabe, die gelesen werden MUSS, und die braucht die
-          // Breite. Im Hochformat gilt das nicht: Dort steht die Angabe unter dem Code, nicht
-          // daneben. Derselbe Abzug und dieselbe Ausnahme wie im Stilblatt.
-          qrMm: e.rad && !hochformat ? gewaehlt.qrMm - 3 : gewaehlt.qrMm,
-        };
-        const qr = await QRCode.toDataURL(satzUrl(e.satzId, basis), {
-          width: mmZuPx(masse.qrMm, masse.pxProMm), margin: 1, errorCorrectionLevel: "M",
-        });
-        dateien.push(await etikettDatei(
-          { ...e.inhalt, qr }, masse, dateiName(e.bezeichnung, i + 1, etiketten.length)
-        ));
-      }
+      for (const e of await etikettenMitMassen()) dateien.push(await etikettDatei(e.inhalt, e.masse, e.name));
 
       const teilen = navigator.canShare && navigator.canShare({ files: dateien });
       if (teilen) {
@@ -336,19 +369,21 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
           {/* Der Hinweis steht hier und nicht in einer Anleitung: Gelesen wird er in der
               Sekunde, in der jemand vor dem Druckdialog steht – und genau dort entscheidet
               sich, ob das Etikett brauchbar aus dem Drucker kommt. */}
-          <span className="small">
-            {rolle
-              ? "Im Druckdialog die Ränder auf null und die Skalierung auf 100 % stellen – sonst schrumpft der QR-Code und wird unlesbar."
-              : "Mehrere Etiketten nebeneinander auf einem Blatt Klebeetiketten, zum Ausschneiden."}
-          </span>
+          {!gewaehlt.brother && (
+            <span className="small">
+              {rolle
+                ? "Im Druckdialog die Ränder auf null und die Skalierung auf 100 % stellen – sonst schrumpft der QR-Code und wird unlesbar."
+                : "Mehrere Etiketten nebeneinander auf einem Blatt Klebeetiketten, zum Ausschneiden."}
+            </span>
+          )}
           {gewaehlt.brother && (
-            <span className="small" style={{ display: "block", marginTop: 4 }}>
-              <b>Brother QL-820NWBc am Handy:</b> Wireless Direct am Drucker einschalten, das
-              iPhone mit dem WLAN des Druckers verbinden, dann &bdquo;Drucken&ldquo; und im
-              Druckdialog die 62-mm-Rolle in der passenden Länge wählen. Oder über Bluetooth:
-              &bdquo;Als Bild teilen&ldquo; und in der App &bdquo;Brother iPrint&amp;Label&ldquo;
-              drucken. Für Etiketten direkt auf dem Reifen die Folienrolle DK-22212 statt Papier
-              einlegen – Thermopapier verträgt Wärme und Gummi auf Dauer schlecht.
+            // Die Schritte, wie sie am 02.10.2026 funktioniert haben. Steht hier, weil sie in der
+            // Sekunde gebraucht werden, in der jemand vor dem Druckdialog steht.
+            <span className="small ek-schritte">
+              <b>So druckst du:</b> iPhone mit dem WLAN des Druckers verbinden (Wireless Direct) ·
+              &bdquo;Drucken&ldquo; tippen · im Teilen-Menü <b>&bdquo;Drucken&ldquo;</b> · Drucker
+              QL-820NWB · Papierformat <b>{gewaehlt.papier}</b>. Für Etiketten direkt auf dem
+              Reifen die Folienrolle DK-22212 statt Papier einlegen.
             </span>
           )}
           {rolle && !gewaehlt.brother && (
@@ -399,15 +434,30 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
 
         {/* Der Hinweis steht über den Knöpfen und nicht in einer Anleitung: Gelesen wird er in
             der Sekunde, in der jemand vor dem Drucker steht. */}
-        <div className="small druck-weg" style={{ marginTop: 12 }}>
-          <b>Drucken</b> geht an jeden Drucker, den das Gerät kennt – am Rechner jeden
-          Systemdrucker, am Handy nur AirPrint-Drucker. <b>Als Bild teilen</b> ist der Weg für
-          Etikettendrucker, die nur über Bluetooth und ihre eigene App erreichbar sind: Das
-          Etikett geht als Bild ins Teilen-Menü, von dort in die App des Druckers.
-        </div>
+        {gewaehlt.brother ? (
+          <div className="small druck-weg" style={{ marginTop: 12 }}>
+            <b>Drucken</b> erzeugt ein PDF in genau dieser Größe – ohne Fußzeile, ohne Verkleinern.
+            <b> Als Bild teilen</b> ist der Umweg über Bluetooth: im Teilen-Menü &bdquo;Bild
+            sichern&ldquo;, dann in iPrint&amp;Label unter &bdquo;Erstellen&ldquo; das Bild wählen.
+          </div>
+        ) : (
+          <div className="small druck-weg" style={{ marginTop: 12 }}>
+            <b>Drucken</b> geht an jeden Drucker, den das Gerät kennt – am Rechner jeden
+            Systemdrucker, am Handy nur AirPrint-Drucker. <b>Als Bild teilen</b> ist der Weg für
+            Etikettendrucker, die nur über Bluetooth und ihre eigene App erreichbar sind: Das
+            Etikett geht als Bild ins Teilen-Menü, von dort in die App des Druckers.
+          </div>
+        )}
 
         <div className="row druck-weg" style={{ marginTop: 8 }}>
-          <button className="btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>Drucken</button>
+          {gewaehlt.brother ? (
+            <button className="btn-primary" style={{ flex: 1 }} disabled={teilenLaeuft || !basis || etiketten.length === 0}
+              onClick={() => void alsPdfDrucken()}>
+              {teilenLaeuft ? "einen Moment …" : "Drucken"}
+            </button>
+          ) : (
+            <button className="btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>Drucken</button>
+          )}
           <button
             className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }}
             disabled={teilenLaeuft || !basis || etiketten.length === 0}

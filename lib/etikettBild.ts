@@ -28,12 +28,14 @@
 // muss beide Stellen anfassen; die Maße unten tragen deshalb dieselben Millimeterwerte wie die
 // CSS-Regeln, damit der Abgleich durch Hinsehen möglich ist.
 
+import { einBitBild, etikettPdf, type PdfSeite } from "./etikettPdf";
+
 // 8 Punkte je Millimeter sind 203 dpi – die Auflösung, mit der diese Etikettendrucker
 // arbeiten. Ein Bild in genau dieser Dichte muss vom Drucker nicht umgerechnet werden, und
 // genau das Umrechnen ist es, was einen QR-Code unscharf und damit unlesbar macht.
 export const PX_PRO_MM = 8;
 // 300 dpi – die Auflösung des Brother QL-820NWBc (seit 30.09.2026 im Betrieb). Für seine
-// 62-mm-Formate entsteht das Bild in dieser Dichte, aus demselben Grund wie oben.
+// Formate (60 × 86, 58 × 58) entsteht das Bild in dieser Dichte, aus demselben Grund wie oben.
 export const PX_PRO_MM_300 = 300 / 25.4;
 
 export function mmZuPx(mm: number, pxProMm: number = PX_PRO_MM): number {
@@ -71,6 +73,9 @@ export type EtikettMasse = {
   pxProMm?: number;
   randMm?: number;
   schrift?: number;
+  // QR-Code oben, Text darunter – auch bei einem quadratischen Etikett (58 × 58 mm). Ohne Angabe
+  // entscheiden die Maße: höher als breit heißt oben.
+  qrOben?: boolean;
 };
 
 // Text auf eine Breite kürzen. Passt er nicht, wird abgeschnitten und mit einem Auslassungs-
@@ -176,7 +181,7 @@ export function etikettZeichnen(
   // 50 × 80 mm langen Etikett zwei Drittel der Fläche leer lassen – und der QR-Code bliebe
   // klein, obwohl gerade er von der Länge profitiert: Je größer er ist, desto weiter weg
   // kann man ihn scannen, und im Regal steht man selten davor.
-  const hoch = masse.hoeheMm > masse.breiteMm;
+  const hoch = masse.qrOben ?? masse.hoeheMm > masse.breiteMm;
 
   // Der QR-Code wird ohne Glättung gezeichnet: Interpolierte Kanten verwischen die Module,
   // und ab einer gewissen Unschärfe findet kein Lesegerät den Code mehr.
@@ -261,14 +266,40 @@ export function bildLaden(datenUri: string): Promise<HTMLImageElement> {
   });
 }
 
+async function etikettLeinwand(inhalt: EtikettInhalt, masse: EtikettMasse): Promise<HTMLCanvasElement> {
+  const qrBild = await bildLaden(inhalt.qr);
+  const leinwand = document.createElement("canvas");
+  etikettZeichnen(leinwand, inhalt, masse, qrBild);
+  return leinwand;
+}
+
+// Alle Etiketten als EIN PDF, eine Seite je Etikett in genau seiner Größe (lib/etikettPdf.ts).
+export async function etikettenPdfDatei(
+  etiketten: { inhalt: EtikettInhalt; masse: EtikettMasse }[],
+  name: string
+): Promise<File> {
+  const seiten: PdfSeite[] = [];
+  for (const e of etiketten) {
+    const leinwand = await etikettLeinwand(e.inhalt, e.masse);
+    const ctx = leinwand.getContext("2d");
+    if (!ctx) throw new Error("Das Etikett konnte nicht gezeichnet werden.");
+    const daten = ctx.getImageData(0, 0, leinwand.width, leinwand.height).data;
+    seiten.push({
+      breiteMm: e.masse.breiteMm, hoeheMm: e.masse.hoeheMm,
+      pxBreite: leinwand.width, pxHoehe: leinwand.height,
+      bild: einBitBild(daten, leinwand.width, leinwand.height),
+    });
+  }
+  // `slice()` gibt einen eigenen ArrayBuffer – `File` will keinen geteilten.
+  return new File([etikettPdf(seiten).slice()], name, { type: "application/pdf" });
+}
+
 export async function etikettDatei(
   inhalt: EtikettInhalt,
   masse: EtikettMasse,
   name: string
 ): Promise<File> {
-  const qrBild = await bildLaden(inhalt.qr);
-  const leinwand = document.createElement("canvas");
-  etikettZeichnen(leinwand, inhalt, masse, qrBild);
+  const leinwand = await etikettLeinwand(inhalt, masse);
   const blob = await new Promise<Blob | null>((fertig) => leinwand.toBlob(fertig, "image/png"));
   if (!blob) throw new Error("Das Etikett konnte nicht in ein Bild umgewandelt werden.");
   return new File([blob], name, { type: "image/png" });

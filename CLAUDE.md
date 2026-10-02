@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 01.10.2026 (Migrationen bis 61, Service Worker v94; Regeln seit der Projektdurchsicht vom
+Stand: 02.10.2026 (Migrationen bis 61, Service Worker v95; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -223,6 +223,11 @@ Jeder Punkt hier hat einmal Zeit gekostet.
 - **iOS Safari druckt den Inhalt von `position:fixed`-Elementen nicht.** Am Rechner kam die
   Rechnung sauber heraus, am iPhone ein leeres Blatt; eine Druckausgabe, die nur am Rechner
   geprüft wurde, ist nicht geprüft – beim Drucken ist das Handy das Zielgerät.
+- **Für Etiketten druckt das iPhone eine Webseite nicht in Etikettengröße.** Safari legt die
+  Seite in Bildschirmbreite an, verkleinert sie aufs Papier und setzt Adresse, Datum und
+  „Seite 1 von 1“ darunter – `@page` hilft dagegen nicht. Ein PDF in genau der Etikettengröße
+  druckt es dagegen 1:1 und ohne Fußzeile (Brother-Test 02.10.2026, `lib/etikettPdf.ts`).
+  AirPrint findet den Drucker dabei nur über WLAN (Wireless Direct), nicht über Bluetooth.
 - **Der Flex-Spalten-Trick** („Kopf bleibt stehen, Tabelle scrollt für sich",
   `flex:1; min-height:0`) trägt nur, solange über der Tabelle nichts wachsen kann. Sobald
   dort etwas mitwächst (Monatskalender), scrollt die Seite gar nicht mehr.

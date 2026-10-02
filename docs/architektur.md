@@ -220,6 +220,8 @@ viana-pinpoints/
     datev.ts                       DATEV-Buchungsstapel, Debitoren-/Rechnungsliste, CSV,
                                    Windows-1252 (reine Funktionen)
     aufkleberCode.ts                Codieren/Decodieren der QR-Aufkleber (Regal- vs. Satz-Code)
+    etikettPdf.ts                   Etiketten als PDF in exakt ihrer Größe (1-Bit-Bild je Seite),
+                                    der Druckweg für den Brother (v95)
     etikettBild.ts                  Reifensatz-/Rad-Etikett als PNG in Druckerauflösung
                                     (203 dpi, für den Brother QL-820NWBc 300 dpi), für „Als Bild
                                     teilen" (21.09.2026); zeichnet dieselbe Anordnung wie
@@ -536,7 +538,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   auf dem Homescreen und im Installationsdialog heißt und aussieht: seit v88 „MR Assistent",
   seit v90 mit dem ganzen Logo als Symbol (`public/icons/mr-logo-*.png`). Die frühere Tarnung
   „Settings" liegt als `TARNUNG` bereit (`GETARNT = false`).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v94`**, Konstante
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v95`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus
