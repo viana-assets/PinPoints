@@ -9,6 +9,7 @@ import { doppelteKennzeichen, fahrzeugAuswahlText } from "@/lib/kennzeichen";
 import type { RadFelder } from "@/lib/api/lager";
 import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
 import { groessenAbweichung } from "@/lib/reifenverkauf";
+import { brauchtGrossesFach, platzGroesse, platzZuKlein, plaetzeFuerReifen } from "@/lib/lagerAnsicht";
 import { QrScanner } from "@/components/QrScanner";
 
 // Einlagerung im Auftragsfenster (Migration 22, siehe docs/lager.md).
@@ -26,8 +27,12 @@ export function EinlagerungBlock({
   titel = "Einlagerung",
   einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
   onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
-  onFahrzeugAnlegen, onEtikett,
+  onFahrzeugAnlegen, onEtikett, reifengroesse = null,
 }: {
+  // Die Reifengröße des Autos am Auftrag (E12). Braucht sie ein großes Fach, stehen die großen
+  // Fächer in der Auswahl oben; ein normales gibt einen Hinweis. Hat der Satz schon ein Fahrzeug,
+  // gilt dessen Größe.
+  reifengroesse?: string | null;
   // `pflicht` („braucht Lagerplatz", Migration 22) stand hier bis v101 und war an beiden
   // Einbindungsstellen fest `false` – seit Migration 46 gibt es den Zwang nicht mehr (C2).
   // Die Überschrift des Blocks. Standard „Einlagerung"; trägt ein Auftrag mehrere Sätze, steht
@@ -79,13 +84,14 @@ export function EinlagerungBlock({
 
   // Ein belegter Platz taucht nicht in der Auswahl auf – der eigene bleibt sichtbar, sonst
   // verschwände die aktuelle Zuordnung aus ihrer eigenen Liste.
-  const freieSlots = slots.filter((s) => !belegteSlotIds.has(s.id) || s.id === einlagerung?.storage_slot_id);
+  const satzFahrzeug = einlagerung?.vehicle_id ? vehicles.find((v) => v.id === einlagerung.vehicle_id) : null;
+  const groesse = satzFahrzeug?.tire_size || reifengroesse;
+  const gross = brauchtGrossesFach(groesse);
+  const freieSlots = plaetzeFuerReifen(slots.filter((s) => !belegteSlotIds.has(s.id) || s.id === einlagerung?.storage_slot_id), gross);
+  const optionText = (s: StorageSlot) => s.code + (platzGroesse(s) === "gross" ? " · groß" : "");
 
   function lagerName(warehouseId: string): string {
     return warehouses.find((w) => w.id === warehouseId)?.name || "Unbekanntes Lager";
-  }
-  function platzText(slot: StorageSlot): string {
-    return `${slot.code} · ${lagerName(slot.warehouse_id)}`;
   }
 
   const belegterPlatz = einlagerung ? slots.find((s) => s.id === einlagerung.storage_slot_id) : null;
@@ -185,7 +191,8 @@ export function EinlagerungBlock({
 
       {einlagerung && belegterPlatz ? (
         <>
-          <div><b>{belegterPlatz.code}</b> <span className="small">· {lagerName(belegterPlatz.warehouse_id)}</span></div>
+          <div><b>{belegterPlatz.code}</b> <span className="small">· {lagerName(belegterPlatz.warehouse_id)}{platzGroesse(belegterPlatz) === "gross" ? " · großes Fach" : ""}</span></div>
+          {platzZuKlein(belegterPlatz, groesse) && <div className="small einlagerung-pflicht">{platzZuKlein(belegterPlatz, groesse)}</div>}
 
           {/* Fahrzeug und Saison stehen HIER und nicht in einem eigenen Fenster: Der Techniker
               hat den Satz gerade in der Hand, das Auto steht vor ihm. Fünf Minuten später weiß
@@ -417,10 +424,10 @@ export function EinlagerungBlock({
                     .filter((g) => g.plaetze.length > 0)
                     .map((g) => (
                       <optgroup key={g.w.id} label={`${g.w.name} (${g.plaetze.length} frei)`}>
-                        {g.plaetze.map((s) => <option key={s.id} value={s.id}>{s.code}</option>)}
+                        {g.plaetze.map((s) => <option key={s.id} value={s.id}>{optionText(s)}</option>)}
                       </optgroup>
                     ))
-                : freieSlots.map((s) => <option key={s.id} value={s.id}>{platzText(s)}</option>)}
+                : freieSlots.map((s) => <option key={s.id} value={s.id}>{optionText(s)} · {lagerName(s.warehouse_id)}</option>)}
             </select>
             <button type="button" className="btn-secondary btn-rand" disabled={!wahl || laeuft} onClick={() => zuordnen(wahl)}>
               Zuordnen
@@ -432,6 +439,16 @@ export function EinlagerungBlock({
           {freieSlots.length === 0 && (
             <div className="small" style={{ marginTop: 6 }}>Alle Lagerplätze sind belegt.</div>
           )}
+          {/* E12: Hinweis, keine Sperre – wer vor dem Regal steht, sieht, ob es passt. */}
+          {(() => {
+            const gewaehlt = slots.find((s) => s.id === wahl);
+            const zuKlein = gewaehlt ? platzZuKlein(gewaehlt, groesse) : null;
+            return zuKlein
+              ? <div className="small einlagerung-pflicht" style={{ marginTop: 6 }}>{zuKlein}</div>
+              : gross && freieSlots.length > 0 && !wahl
+              ? <div className="small" style={{ marginTop: 6 }}>Große Reifen ({groesse}) – die großen Fächer stehen oben.</div>
+              : null;
+          })()}
         </>
       )}
 

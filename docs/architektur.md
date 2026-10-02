@@ -111,7 +111,9 @@ viana-pinpoints/
                                     Kachel ein Hinweis, ob dort etwas wartet (Entwurf V)
     kunden/
       CustomerRowMeta.tsx           Meta-Zeile in der Kundenliste
-      AddCustomerForm.tsx           Formular "Neuer Kunde" (Art, Privat/Firma, „Gibt es schon?")
+      AddCustomerForm.tsx           Formular "Neuer Kunde" (Art, Privat/Firma, „Gibt es schon?" mit
+                                    Nummer, E-Mail, Name + PLZ – E1, v103)
+      AuskunftFenster.tsx           Auskunftsauszug je Kunde zum Drucken/als Datei (E10, v103)
       InaktivePanel.tsx             Tab "Inaktive Kunden": Suche, Reaktivieren/Rückgängig
       DetailModal.tsx                Das Kundenfenster: Kopf, vier Handgriffe, Reiter Übersicht/
                                      Fahrzeuge/Aufträge/Verlauf/Daten, Menü „⋯" (Entwurf O)
@@ -124,12 +126,14 @@ viana-pinpoints/
     admin/
       SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Anzeige, App)
       AdminPanel.tsx                 Tab "Admin" – Reiter Nutzer, Mitarbeiter, Transporter,
-                                     Rechte (Superadmin), Betrieb, Wartung, Protokoll, Papierkorb
+                                     Rechte (Superadmin), Betrieb, Wartung, Protokoll, Dubletten,
+                                     Papierkorb
       PermissionMatrix.tsx           Reiter „Rechte": je Rolle Bereich × lesen/schreiben/löschen
       BetriebsdatenPanel.tsx          Betrieb als Zeilenliste, je Abschnitt ein Blatt mit eigenem
                                       „Speichern" (Briefkopf, Bank, Logo, Texte, Nummernkreis,
                                       DATEV, Terminraster; Migration 38/48/59)
       PapierkorbPanel.tsx             Gelöschte Kunden wiederherstellen / endgültig löschen
+      DublettenPanel.tsx              Vermutete Dubletten: zusammenführen oder „keine Dublette" (E1, v103)
       ProtokollPanel.tsx              Änderungsprotokoll lesen (Migration 18/36)
       FirmenfahrzeugPanel.tsx         Eigene Transporter (Migration 32)
       AdressenPruefen.tsx             Korrekturliste für ungenau geokodierte Kundenadressen
@@ -170,6 +174,8 @@ viana-pinpoints/
       LangliegerListe.tsx              Langlieger-Übersicht (Fahrplan E4)
       VerkaufPanel.tsx / VerkaufsreifenBlatt.tsx
                                        Reiter „Verkauf": Reifen zum Verkauf erfassen (Migration 61)
+      VerkaufsreifenEtikett.tsx        Etikett mit QR-Code je Verkaufsreifen (E17, v103)
+      SatzZumVerkaufBlatt.tsx          Eingelagerten Satz in den Reifenverkauf übernehmen (E17, v103)
       SaisonPanel.tsx                  Eigener Reiter „Saisonliste" (Migration 30/31)
       AuslagernDialog.tsx              Auslagern inkl. Lagergebühr-Vorschlag (Migration 46)
       RadBild.tsx / ProfilMarke.tsx     Profiltiefe: Radbild je Rad, Satzwert, Schnellwerte 1–8 mm
@@ -179,7 +185,8 @@ viana-pinpoints/
       QrBild.tsx                        QR-Code als Vorschaubild, für beide (C2, v102)
     auswertung/
       AuswertungPanel.tsx             Tab "Auswertungen" (Entwurf M, 26.09.2026): Reiter Umsatz,
-                                      Kunden, Einsatz, Lager, Artikel; Export DATEV/CSV
+                                      Kunden, Einsatz, Lager, Artikel, Reifen (E18, v103);
+                                      Export DATEV/CSV
     rechnungen/
       RechnungenPanel.tsx             Tab "Rechnungen": Monatsgruppen, Suche, Jahr, „Noch nicht
                                       ausgestellt", Beleg, Storno (Entwurf P)
@@ -217,12 +224,15 @@ viana-pinpoints/
       senden.ts                   Übertragen der Reihe nach, Konflikt entscheiden
     packliste.ts                  Packliste des Tages: Leistungen und Reifengrößen (E2, v100)
     telefon.ts                    Telefonnummern in Vergleichsform, Suche (D10, v102)
+    dubletten.ts                  Dubletten finden: Gründe, Paare, Vorschlag fürs Zusammenführen (E1, v103)
+    auskunft.ts                   Auskunftsauszug als Zeilen (E10, v103)
     auftragLoeschen.ts            Darf ein Auftrag gelöscht werden, mit welcher Frage (D2, v100)
     fremdabfrage.ts               Abfragebremse der Adressdienste über die Datenbank (B3, v100)
     abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
     pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
-    reifenverkauf.ts              Reifenverkauf: Größe lesen, Hinweise, Lagerwert (Migration 61)
+    reifenverkauf.ts              Reifenverkauf: Größe lesen, Hinweise, Lagerwert (Migration 61);
+                                  seit v103 Übernahme aus der Einlagerung, Etikett, Auswertung (E17/E18)
     terminAenderung.ts            Termin vorher → nachher für Rückgängig und Historie (v91)
     kennzeichen.ts                Kennzeichen vergleichen, Dubletten erkennen (v93)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
@@ -275,9 +285,10 @@ viana-pinpoints/
       verkaufsreifen.ts              Reifenverkauf (Migration 61)
       mitnehmen.ts                   „Reifen mitnehmen" abhaken (Migration 58)
       vorlagen.ts                    Auftragsvorlagen (Migration 63, E6)
+      dubletten.ts                   „Keine Dublette"-Vermerke, Zusammenführen (Migration 64, E1)
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–63
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–64
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -296,7 +307,8 @@ Migration 29 dazugekommen ist.
 
 - **Kunden**: `customers` (+ seit Migration 35 `geo_genauigkeit`: `exakt`/`ungefaehr`/`hand` –
   wie sicher die Kartenposition ist; + seit Migration 48 `kundennummer`, fortlaufend vom
-  Server vergeben, `betrieb.kunde_naechste_nummer`), `contact_history`, `vehicles`
+  Server vergeben, `betrieb.kunde_naechste_nummer`), `kunden_keine_dublette` (seit Migration 64:
+  Paare, die die Dublettenprüfung findet, die aber verschiedene Personen sind), `contact_history`, `vehicles`
   (Kundenfahrzeuge; `tire_dot_date`/`tire_profile_mm` seit Migration 34 **entfernt** – die
   Angabe gehört an den Reifensatz, nicht ans Auto, `tire_size` bleibt).
 - **Aufträge**: `orders` (+ seit Migration 37 `end_time`, damit ein Termin „von–bis" statt nur
@@ -317,7 +329,7 @@ Migration 29 dazugekommen ist.
   (`id boolean primary key check (id)`), zunächst nur `termin_intervall_min`, seit Migration 48
   zusätzlich der komplette Briefkopf (Firma, Anschrift, USt-IdNr., Bankverbindung, Logo als
   data:-URI, Fuß-/Anschreibetexte) plus die beiden Nummernkreise für Rechnungen und Kunden.
-- **Lager**: `warehouses`, `storage_slots`, `tire_storage` (+ seit Migration 46
+- **Lager**: `warehouses`, `storage_slots` (+ seit Migration 64 `groesse`: normales oder großes Fach), `tire_storage` (+ seit Migration 46
   `entnahme_order_id` – in welchem Auftrag wurde ein Satz wieder herausgegeben),
   `eingelagerte_raeder` (einzeln gemessene Räder je Satz, mit Position VL/VR/HL/HR, DOT-Datum
   und Profiltiefe seit Migration 33/34 – ersetzt die früheren Angaben am Fahrzeug).
@@ -590,7 +602,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 63** (02.10.2026; 62 und 63 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 64** (02.10.2026; 62, 63 und 64 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -638,11 +650,14 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **59** – Einstellungen für den DATEV-Export.
 - **60** – Testkunden mit negativen Nummern, „Was gibt es Neues".
 - **61** – Reifenverkauf aus dem Lager: `verkaufsreifen`, Reservieren/Abbuchen in der Datenbank.
+- **62** – Abgerechnete Aufträge nicht löschbar (`pruefe_auftrag_loeschen()`), Abfragebremse der
+  Adressdienste je Nutzer und Minute (`fremdabfrage_zaehler`, `fremdabfrage_erlaubt()`).
 - **63** – `mit_steuer` an alten Rechnungen festgeschrieben, Telefonnummern in Vergleichsform
   (`telefon_vergleich()`, `customers.mobil_vergleich`/`festnetz_vergleich`), tote Spalte
   `articles.braucht_lagerplatz` entfernt, Tabelle `auftragsvorlagen`.
-- **62** – Abgerechnete Aufträge nicht löschbar (`pruefe_auftrag_loeschen()`), Abfragebremse der
-  Adressdienste je Nutzer und Minute (`fremdabfrage_zaehler`, `fremdabfrage_erlaubt()`).
+- **64** – Dubletten (`kunden_keine_dublette`, `kunden_zusammenfuehren()`), Auskunftsauszug
+  (`kunde_auskunft()`), Fachgröße am Lagerplatz (`storage_slots.groesse`), Satz zum
+  Verkaufsposten (`satz_zum_verkauf()`, `verkaufsreifen.herkunft_satz_id`).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

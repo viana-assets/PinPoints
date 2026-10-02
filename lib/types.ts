@@ -163,12 +163,19 @@ export type Warehouse = {
   created_at: string;
 };
 
+// Fachgröße eines Lagerplatzes (Migration 64, E12): ein normales Fach oder ein großes für SUV-
+// und 20-Zoll-Räder. Welcher Reifen ein großes braucht, steht in lib/lagerAnsicht.ts.
+export type PlatzGroesse = "normal" | "gross";
+
 export type StorageSlot = {
   id: string;
   warehouse_id: string;
   code: string;
   note: string | null;
   created_at: string;
+  // Optional, weil die Spalte erst mit Migration 64 kommt und Testgerüste Plätze von Hand bauen.
+  // Fehlt sie, ist es ein normales Fach.
+  groesse?: PlatzGroesse;
 };
 
 // Saison eines eingelagerten Satzes (Migration 30). Aus diesem einen Feld entsteht die
@@ -507,12 +514,16 @@ export type Verkaufsreifen = {
   warehouse_id: string | null;
   storage_slot_id: string | null;
   notiz: string | null;
+  // Aus welchem eingelagerten Satz der Posten stammt (Migration 64, E17) – der Kunde hat seine
+  // Reifen dagelassen. Optional: Die Spalte gibt es erst mit Migration 64.
+  herkunft_satz_id?: string | null;
   created_at: string;
   updated_at: string;
 };
 
-// Was am Posten von Hand geändert werden kann – ohne die Zählfelder, die die Datenbank führt.
-export type VerkaufsreifenFelder = Omit<Verkaufsreifen, "id" | "reserviert" | "verkauft" | "created_at" | "updated_at">;
+// Was am Posten von Hand geändert werden kann – ohne die Zählfelder, die die Datenbank führt, und
+// ohne die Herkunft (setzt nur `satz_zum_verkauf()`).
+export type VerkaufsreifenFelder = Omit<Verkaufsreifen, "id" | "reserviert" | "verkauft" | "created_at" | "updated_at" | "herkunft_satz_id">;
 
 export type Role = "superadmin" | "admin" | "techniker" | "user";
 

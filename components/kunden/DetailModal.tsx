@@ -56,6 +56,8 @@ export function DetailModal(props: {
   onTestkundeLoeschen?: () => Promise<void>;
   // Der Schalter „Testkunde" im Menü – nur Superadmin, nur solange der Kunde keinen Auftrag hat.
   darfTestkundeUmschalten?: boolean;
+  // Auskunftsauszug (E10, Migration 64) – nur Admin und Superadmin.
+  onAuskunft?: () => void;
   // Legt einen Auftrag für diesen Kunden an und öffnet das vollständige Auftragsfenster.
   // Kein eigenes Formular mehr an dieser Stelle: es war die dritte von vier Masken für
   // dieselbe Sache und konnte als einzige keine Leistungen erfassen (docs/auftragsablauf.md).
@@ -495,6 +497,11 @@ export function DetailModal(props: {
             <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onMarkOpen(); }}>
               <span className="ab-text">Auf „offen“ setzen</span>
             </button>
+            {props.onAuskunft && !cust.laufkundschaft && (
+              <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onAuskunft?.(); }}>
+                <span className="ab-text">Auskunft (DSGVO) <span className="small">· alles Gespeicherte als PDF</span></span>
+              </button>
+            )}
             <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onToggleActive(); }}>
               <span className="ab-text">{cust.active === false ? "Kunde reaktivieren" : "Kunde deaktivieren"}</span>
             </button>

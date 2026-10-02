@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v102";
+export const APP_VERSION = "v103";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,16 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v103", datum: "2026-10-02", titel: "Dubletten, Auskunft, große Fächer und Reifenverkauf",
+    punkte: [
+      "Doppelt angelegte Kunden: „Neuer Kunde“ warnt jetzt auch bei gleicher Telefonnummer, E-Mail oder Name mit PLZ. Unter Admin → „Dubletten“ lassen sich zwei Kunden zu einem zusammenführen.",
+      "Auskunft nach DSGVO: Im Kundenfenster unter „⋯“ stellt „Auskunft“ alles Gespeicherte zu einem Kunden zusammen – zum Drucken, als PDF oder als Datei (nur Admin).",
+      "Lagerplätze können als „großes Fach“ markiert werden. Für SUV- und 20-Zoll-Reifen stehen die großen Fächer in der Auswahl oben; ein normales Fach gibt einen Hinweis.",
+      "Lässt ein Kunde seine Reifen da, macht „Kunde lässt sie da · zum Verkauf“ im Lagerplatz daraus Verkaufsposten – Größe, DOT und Profil kommen mit. Verkaufsreifen bekommen ein Etikett mit QR-Code.",
+      "Auswertungen: Der neue Reiter „Reifen“ zeigt Umsatz neu und gebraucht, Marge, Lagerwert im Verlauf und was seit über sechs Monaten liegt.",
+    ],
+  },
   {
     version: "v102", datum: "2026-10-02", titel: "Vorlagen, Telefonsuche und viele kleine Verbesserungen",
     punkte: [

@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 02.10.2026 (Migrationen bis 63, Service Worker v102; Regeln seit der Projektdurchsicht vom
+Stand: 02.10.2026 (Migrationen bis 64, Service Worker v103; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -304,6 +304,10 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   Handlung, die ohne Netz still scheitert – genau das, was der Ausgangskorb abstellt. Gehört die
   Handlung bewusst NICHT offline (abschließen, ein-/auslagern …), bleibt sie direkt; die zentrale
   Meldung sagt dann „geht nur mit Netz".
+- **Im Playwright-Prüfaufbau übernimmt beim ersten Aufruf der Service Worker und lädt neu**
+  (`PwaBereit`, `controllerchange`). Ein Aufruf mit `?lagerplatz=`/`?reifen=` ist danach schon
+  bereinigt und scheint „nicht zu wirken" (02.10.2026, v103). Zum Prüfen solcher Sprünge den
+  Kontext mit `serviceWorkers: "block"` öffnen; im Betrieb ist es Fahrplan D19.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 

@@ -3,6 +3,7 @@
 // Es gibt zwei Sorten Aufkleber, und sie dürfen nicht verwechselt werden:
 //   * am REGAL   – „welcher Platz ist das?"  (`?lagerplatz=…`)
 //   * am REIFEN  – „wem gehört der Satz?"    (`?satz=…`, seit 17.09.2026)
+//   * am VERKAUFSREIFEN – „welcher Posten ist das?" (`?reifen=…`, seit 02.10.2026, E17)
 //
 // Deshalb steht die Sorte im Parameternamen und wird beim Zurücklesen geprüft. Ein Satz-Etikett,
 // das versehentlich als Lagerplatz durchginge, würde einen fremden Satz umlagern.
@@ -22,6 +23,7 @@
 
 export const LAGERPLATZ_PARAMETER = "lagerplatz";
 export const SATZ_PARAMETER = "satz";
+export const VERKAUFSREIFEN_PARAMETER = "reifen";
 
 const UUID_MUSTER = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
@@ -80,6 +82,31 @@ export function satzIdAusCode(text: string): string | null {
   } catch {
     // Keine Adresse – eine nackte Kennung ist hier bewusst NICHT zulässig: Sie ließe sich von
     // einer Lagerplatz-Kennung nicht unterscheiden, und beide sind UUIDs.
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------- Verkaufsreifen (02.10.2026, E17)
+//
+// Das Etikett an einem Reifen, der zum Verkauf liegt: Scan öffnet den Posten im Reiter „Verkauf"
+// des Lagers – Größe, DOT, Profil und Preis auf einen Blick, auch wenn der Reifen gerade nicht
+// auf seinem Platz liegt. Eine eigene Sorte, aus demselben Grund wie oben: Ein Verkaufsreifen,
+// der als Kundensatz durchginge, öffnete den falschen Kunden.
+export function verkaufsreifenUrl(postenId: string, basis: string): string {
+  const ursprung = basis.replace(/\/+$/, "");
+  return `${ursprung}/?${VERKAUFSREIFEN_PARAMETER}=${postenId}`;
+}
+
+export function verkaufsreifenIdAusCode(text: string): string | null {
+  const roh = (text || "").trim();
+  if (!roh) return null;
+  try {
+    const url = new URL(roh);
+    const wert = url.searchParams.get(VERKAUFSREIFEN_PARAMETER);
+    if (wert && UUID_MUSTER.test(wert)) return wert.toLowerCase();
+    return null;
+  } catch {
+    // Wie beim Satz: keine nackte Kennung – sie wäre von den anderen beiden nicht zu unterscheiden.
     return null;
   }
 }

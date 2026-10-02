@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import type { Customer, EingelagertesRad, Erfassungsart, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, VerkaufsreifenFelder, Warehouse } from "@/lib/types";
+import type { Customer, EingelagertesRad, Erfassungsart, PlatzGroesse, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, VerkaufsreifenFelder, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM,
   SAISON_LABEL, SAISON_LISTE,
 } from "@/lib/constants";
 import { handlungsgruende, nachReihen, profilAufteilung, profilText, raederNachSatz, suchtreffer } from "@/lib/helpers";
-import { auslastungText, lagerAuslastung, passtZumFilter, reiheTitel, scanZiel, type LagerFilter } from "@/lib/lagerAnsicht";
+import { auslastungText, lagerAuslastung, passtZumFilter, platzGroesse, platzZuKlein, reiheTitel, scanZiel, type LagerFilter } from "@/lib/lagerAnsicht";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { QrScanner } from "@/components/QrScanner";
 import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
@@ -15,6 +15,7 @@ import { PlatzBlatt } from "./PlatzBlatt";
 import { ProfilMarke } from "./ProfilMarke";
 import { ErfassungsWahl, RadBild, SatzProfil } from "./RadBild";
 import { VerkaufPanel } from "./VerkaufPanel";
+import { SatzZumVerkaufBlatt } from "./SatzZumVerkaufBlatt";
 import { groessenAbweichung, groesseText, reifenFrei, reifenName } from "@/lib/reifenverkauf";
 
 // Lager-Modul, neu gestaltet am 26.09.2026 (Entwurf „H · Lager", docs/lager.md).
@@ -72,7 +73,7 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, verkauf }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf }: {
   // Reifenverkauf (Migration 61). Null = kein Leserecht auf „Lager · Reifenverkauf" – dann gibt
   // es den Reiter nicht. Plätze mit Verkaufsreifen sperrt die Datenbank trotzdem für Kundensätze.
   verkauf: {
@@ -81,6 +82,9 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     darfLoeschen: boolean;
     onSpeichern: (felder: VerkaufsreifenFelder, id: string | null) => Promise<void>;
     onLoeschen: (id: string) => Promise<void>;
+    // E17 (Migration 64): Der Kunde lässt den Satz da – auslagern und als Posten auf denselben
+    // Platz. Fehlt ohne Schreibrecht auf den Reifenverkauf oder die Einlagerung.
+    onSatzZumVerkauf?: (satzId: string, posten: Record<string, string | number | boolean | null>[]) => Promise<void>;
   } | null;
   customers: Customer[];
   // Alle Kundenfahrzeuge. Das Lager-Modul arbeitet nicht mit einem geöffneten Kunden, sondern
@@ -97,7 +101,9 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   onUpdateWarehouse: (id: string, fields: { name: string; address: string; note: string }) => Promise<void>;
   onDeleteWarehouse: (id: string) => Promise<void>;
   onAddSlot: (warehouseId: string, code: string) => Promise<void>;
-  onAddSlotsBulk: (warehouseId: string, codes: string[]) => Promise<void>;
+  onAddSlotsBulk: (warehouseId: string, codes: string[], groesse?: PlatzGroesse) => Promise<void>;
+  // Fachgröße eines Platzes umstellen (E12, Migration 64).
+  onSlotGroesse: (id: string, groesse: PlatzGroesse) => Promise<void>;
   onDeleteSlot: (id: string) => Promise<void>;
   // Gibt die Kennung des Satzes zurück (beim Einlagern die neue).
   onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<string>;
@@ -128,6 +134,9 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   // dazu wird mit ausgewählt. `onLagerplatzGeoeffnet` meldet zurück, dass der Sprung erledigt ist.
   springeZuLagerplatzId?: string | null;
   onLagerplatzGeoeffnet?: () => void;
+  // Dasselbe für das Etikett an einem Verkaufsreifen (?reifen=…, E17): Reiter „Verkauf", Posten offen.
+  springeZuVerkaufsreifenId?: string | null;
+  onVerkaufsreifenGeoeffnet?: () => void;
 }) {
   // Welches Lager gezeigt wird. `null` = das erste – so steht beim Öffnen sofort ein Lager da,
   // statt einer Übersicht, die man erst wegklicken muss.
@@ -169,6 +178,10 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   const [moreStart, setMoreStart] = useState("1");
   const [moreEnd, setMoreEnd] = useState("10");
   const [moreDigits, setMoreDigits] = useState("2");
+  // Neue Plätze gleich als große Fächer anlegen (E12).
+  const [moreGross, setMoreGross] = useState(false);
+  // Der Satz, der gerade in den Reifenverkauf übernommen wird (E17).
+  const [zumVerkaufSatzId, setZumVerkaufSatzId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editAddress, setEditAddress] = useState("");
   const [editNote, setEditNote] = useState("");
@@ -184,6 +197,16 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     setBlattSlotId(platz.id);
     onLagerplatzGeoeffnet?.();
   }, [springeZuLagerplatzId, storageSlots, onLagerplatzGeoeffnet]);
+
+  // Gescanntes Verkaufsreifen-Etikett (E17): abgeleitet statt per Effekt in den eigenen Zustand
+  // kopiert. Solange der Sprung steht und der Posten geladen ist, zeigt die Seite „Verkauf" mit
+  // offenem Posten; jede eigene Wahl der Ansicht beendet den Sprung.
+  const sprungVerkauf = !!springeZuVerkaufsreifenId && !!verkauf?.verkaufsreifen.some((v) => v.id === springeZuVerkaufsreifenId);
+  const ansichtJetzt = sprungVerkauf ? "verkauf" : ansicht;
+  function ansichtSetzen(a: "einlagerung" | "verkauf") {
+    setAnsicht(a);
+    if (springeZuVerkaufsreifenId) onVerkaufsreifenGeoeffnet?.();
+  }
 
   // Einmal gruppieren statt je Platz den ganzen Radbestand zu durchsuchen.
   const raederJeSatz = raederNachSatz(eingelagerteRaeder);
@@ -219,7 +242,10 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     // E8: gemessene Räder gegen die Größe am Fahrzeug.
     const fz = satz.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
     const abweichung = groessenAbweichung(fz?.tire_size, raederVon(satz.id));
-    return abweichung ? [...gruende, abweichung] : gruende;
+    // E12: großer Reifen im normalen Fach.
+    const platz = storageSlots.find((sl) => sl.id === satz.storage_slot_id);
+    const zuKlein = platz ? platzZuKlein(platz, fz?.tire_size || raederVon(satz.id).find((r) => r.reifengroesse)?.reifengroesse) : null;
+    return [...gruende, ...(abweichung ? [abweichung] : []), ...(zuKlein ? [zuKlein] : [])];
   }
 
   // Die Felder, über die ein Lagerplatz gefunden wird. Der Platz-Code steht auch bei einem
@@ -256,7 +282,11 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   // Der Scan-Knopf nimmt Regal-Aufkleber UND Satz-Etikett (lib/lagerAnsicht.ts, `scanZiel`).
   function gescannt(text: string) {
     setScannerOffen(false);
-    const ziel = scanZiel(text, storageSlots, tireStorages);
+    const ziel = scanZiel(text, storageSlots, tireStorages, verkaufsreifen);
+    if (ziel.art === "verkauf") {
+      setSuche(""); setScanHinweis(null); verkaufOeffnen(ziel.postenId);
+      return;
+    }
     if (ziel.art === "platz") {
       const platz = storageSlots.find((sl) => sl.id === ziel.slotId);
       if (platz) { setSuche(""); setScanHinweis(null); platzOeffnen(platz); }
@@ -301,8 +331,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     if (!lager) return;
     const codes = buildSlotCodes(morePrefix, parseInt(moreStart, 10), parseInt(moreEnd, 10), parseInt(moreDigits, 10) || 2);
     if (codes.length === 0) return;
-    await onAddSlotsBulk(lager.id, codes);
-    setMorePrefix(""); setMoreStart("1"); setMoreEnd("10"); setMoreDigits("2");
+    await onAddSlotsBulk(lager.id, codes, moreGross ? "gross" : "normal");
+    setMorePrefix(""); setMoreStart("1"); setMoreEnd("10"); setMoreDigits("2"); setMoreGross(false);
     setMenue(null);
   }
 
@@ -382,7 +412,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
       : [lagerName, canAssignTire ? "antippen zum Einlagern" : null].filter(Boolean).join(" · ");
     return (
       <button key={slot.id} type="button" className={"lg-zeile" + (satz ? "" : " frei")} onClick={() => platzOeffnen(slot)}>
-        <span className={"lg-code" + (satz ? "" : " frei") + (gruende.length ? " pruefen" : "")}>{slot.code}</span>
+        <span className={"lg-code" + (satz ? "" : " frei") + (gruende.length ? " pruefen" : "") + (platzGroesse(slot) === "gross" ? " fach-gross" : "")}
+          title={platzGroesse(slot) === "gross" ? "großes Fach" : undefined}>{slot.code}</span>
         <span className="lg-zeile-text">
           <span className="lg-zeile-kunde">{satz ? (kunde?.name ?? "Unbekannter Kunde") : "frei"}</span>
           {info && <span className="lg-zeile-info">{info}</span>}
@@ -419,15 +450,15 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           </div>
           {verkauf && (
             <div className="lg-lagerwahl lg-ansicht" role="group" aria-label="Ansicht">
-              <button type="button" className={ansicht === "einlagerung" ? "aktiv" : ""} aria-pressed={ansicht === "einlagerung"} onClick={() => setAnsicht("einlagerung")}>
+              <button type="button" className={ansichtJetzt === "einlagerung" ? "aktiv" : ""} aria-pressed={ansichtJetzt === "einlagerung"} onClick={() => ansichtSetzen("einlagerung")}>
                 Einlagerung
               </button>
-              <button type="button" className={ansicht === "verkauf" ? "aktiv" : ""} aria-pressed={ansicht === "verkauf"} onClick={() => setAnsicht("verkauf")}>
+              <button type="button" className={ansichtJetzt === "verkauf" ? "aktiv" : ""} aria-pressed={ansichtJetzt === "verkauf"} onClick={() => ansichtSetzen("verkauf")}>
                 Verkauf <span className="lg-lagerwahl-zahl">{verkaufsreifen.reduce((n, v) => n + reifenFrei(v), 0)}</span>
               </button>
             </div>
           )}
-          {ansicht === "einlagerung" && <>
+          {ansichtJetzt === "einlagerung" && <>
           <div className="lg-suche">
             <label className="lg-suchfeld">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
@@ -460,7 +491,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           </>}
         </div>
 
-        {ansicht === "verkauf" && verkauf ? (
+        {ansichtJetzt === "verkauf" && verkauf ? (
           <VerkaufPanel
             verkaufsreifen={verkauf.verkaufsreifen}
             warehouses={warehouses}
@@ -468,8 +499,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             platzBelegt={new Set(tireStorages.filter((t) => !t.removed_at).map((t) => t.storage_slot_id))}
             darfSchreiben={verkauf.darfSchreiben}
             darfLoeschen={verkauf.darfLoeschen}
-            oeffneId={verkaufOeffneId}
-            onGeoeffnet={() => setVerkaufOeffneId(null)}
+            oeffneId={verkaufOeffneId ?? (sprungVerkauf ? springeZuVerkaufsreifenId ?? null : null)}
+            onGeoeffnet={() => { setVerkaufOeffneId(null); if (sprungVerkauf) ansichtSetzen("verkauf"); }}
             onSpeichern={verkauf.onSpeichern}
             onLoeschen={verkauf.onLoeschen}
           />
@@ -582,6 +613,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                             <span key={slot.id} className={[
                               "lg-w", satz ? "belegt" : verkaufJePlatz.has(slot.id) ? "verkauf" : "frei",
                               gruendeFuer(satz).length ? "pruefen" : "",
+                              platzGroesse(slot) === "gross" ? "fach-gross" : "",
                               passtZumFilter(satz, gruendeFuer(satz), filter, verkaufJePlatz.has(slot.id)) ? "" : "aus",
                             ].filter(Boolean).join(" ")} />
                           ))}
@@ -640,8 +672,32 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           onEtikett={(id) => { setBlattSlotId(null); onEtikett(id); }}
           onAufkleber={() => { setBlattSlotId(null); setAufkleberFuer([blattSlot]); }}
           onLoeschen={() => { setBlattSlotId(null); void onDeleteSlot(blattSlot.id); }}
+          onGroesse={canCreateSlot ? (g) => onSlotGroesse(blattSlot.id, g) : undefined}
+          onZumVerkauf={blattSatz && verkauf?.onSatzZumVerkauf && canAssignTire ? () => { setBlattSlotId(null); setZumVerkaufSatzId(blattSatz.id); } : undefined}
         />
       )}
+
+      {zumVerkaufSatzId && verkauf?.onSatzZumVerkauf && (() => {
+        const satz = tireStorages.find((t) => t.id === zumVerkaufSatzId);
+        if (!satz) return null;
+        const fz = satz.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) ?? null : null;
+        const platz = storageSlots.find((sl) => sl.id === satz.storage_slot_id) ?? null;
+        return (
+          <SatzZumVerkaufBlatt
+            satz={satz}
+            raeder={raederVon(satz.id)}
+            fahrzeug={fz}
+            kunde={customers.find((c) => c.id === satz.customer_id) ?? null}
+            platzText={[warehouses.find((w) => w.id === platz?.warehouse_id)?.name, platz ? `Platz ${platz.code}` : null].filter(Boolean).join(" · ")}
+            onClose={() => setZumVerkaufSatzId(null)}
+            onUebernehmen={async (posten) => {
+              await verkauf.onSatzZumVerkauf!(satz.id, posten);
+              setZumVerkaufSatzId(null);
+              setAnsicht("verkauf");
+            }}
+          />
+        );
+      })()}
 
       {menue && (
         <div className="modal-overlay auswahl-overlay" onClick={() => setMenue(null)}>
@@ -709,6 +765,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                   end={moreEnd} setEnd={setMoreEnd}
                   digits={moreDigits} setDigits={setMoreDigits}
                 />
+                {/* E12: Große Fächer (SUV, 20 Zoll) gleich als solche anlegen. Einzeln umstellen geht im Blatt des Platzes. */}
+                <label className="vl-aktiv"><input type="checkbox" checked={moreGross} onChange={(e) => setMoreGross(e.target.checked)} /> als große Fächer (SUV, 20 Zoll)</label>
                 <div className="row">
                   <button className="btn-primary" style={{ flex: 1 }} onClick={addMoreSlots}>Anlegen</button>
                   <button className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={() => setMenue(null)}>Fertig</button>
@@ -901,6 +959,11 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
               ))}
             </select>
           )}
+          {/* E12: großer Reifen, normales Fach – ein Hinweis, keine Sperre. */}
+          {(() => {
+            const zuKlein = platzZuKlein(slot, kundenFahrzeuge.find((v) => v.id === vehicleId)?.tire_size);
+            return zuKlein ? <div className="small einlagerung-pflicht" style={{ marginTop: 4 }}>{zuKlein}</div> : null;
+          })()}
         </div>
 
         <div className="field">

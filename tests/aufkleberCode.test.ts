@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { lagerplatzIdAusCode, lagerplatzUrl, satzIdAusCode, satzUrl } from "@/lib/aufkleberCode";
+import { lagerplatzIdAusCode, lagerplatzUrl, satzIdAusCode, satzUrl, verkaufsreifenIdAusCode, verkaufsreifenUrl } from "@/lib/aufkleberCode";
 
 const ID = "3f2a1b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b";
 
@@ -71,5 +71,19 @@ describe("satzUrl / satzIdAusCode", () => {
 
   it("nimmt eine nackte Kennung nicht an - sie waere nicht unterscheidbar", () => {
     expect(satzIdAusCode(ID)).toBeNull();
+  });
+});
+
+describe("verkaufsreifenUrl / verkaufsreifenIdAusCode (E17)", () => {
+  const ID = "77777777-7777-4777-8777-777777777777";
+  it("hin und zurück", () => {
+    expect(verkaufsreifenIdAusCode(verkaufsreifenUrl(ID, "https://app.example/"))).toBe(ID);
+  });
+  it("verwechselt nichts", () => {
+    expect(verkaufsreifenIdAusCode(satzUrl(ID, "https://app.example"))).toBeNull();
+    expect(verkaufsreifenIdAusCode(lagerplatzUrl(ID, "https://app.example"))).toBeNull();
+    expect(satzIdAusCode(verkaufsreifenUrl(ID, "https://app.example"))).toBeNull();
+    expect(lagerplatzIdAusCode(verkaufsreifenUrl(ID, "https://app.example"))).toBeNull();
+    expect(verkaufsreifenIdAusCode(ID)).toBeNull();
   });
 });

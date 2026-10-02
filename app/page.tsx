@@ -8,7 +8,7 @@ import type {
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
   Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
   EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug, Rechnung,
-  Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
+  Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage, PlatzGroesse,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, nextOrder, orderDateTime,
@@ -34,7 +34,7 @@ import {
   PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
   type Verb,
 } from "@/lib/constants";
-import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, lagerplatzIdAusCode } from "@/lib/aufkleberCode";
+import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, VERKAUFSREIFEN_PARAMETER, lagerplatzIdAusCode } from "@/lib/aufkleberCode";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
 import { anrufAufsHandy } from "@/lib/push";
 import { MitnehmenFenster } from "@/components/auftraege/MitnehmenFenster";
@@ -66,6 +66,7 @@ import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
 import { OfflineHinweis, useIstOffline } from "@/components/OfflineHinweis";
 import { datenSpeicherLeeren } from "@/app/providers";
+import { AuskunftFenster } from "@/components/kunden/AuskunftFenster";
 import { AddCustomerForm } from "@/components/kunden/AddCustomerForm";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
@@ -97,7 +98,7 @@ import { insertVehicle, updateVehicleById, deleteVehicleById, fetchVehiclesFuerK
 import { fahrzeugMitKennzeichen } from "@/lib/kennzeichen";
 import {
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
-  insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById,
+  insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById, updateSlotGroesse,
   upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails,
   insertRad, updateRadById, deleteRadById, setErfassungsart, setAnzahlRaeder, radZuZeile, type RadFelder,
 } from "@/lib/api/lager";
@@ -132,7 +133,7 @@ import {
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
   useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen,
 } from "@/lib/queries/hooks";
-import { insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag } from "@/lib/api/verkaufsreifen";
+import { insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag, satzZumVerkauf } from "@/lib/api/verkaufsreifen";
 
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
 // Effekte auslösen, die eigentlich nur auf echte Datenänderungen reagieren sollen.
@@ -306,6 +307,8 @@ export default function HomePage() {
   // hier NICHT das Ziel im Code: Wo der Satz liegt, wird nachgeschlagen – er wandert ja. Deshalb
   // kann die Auflösung auch nicht beim Start passieren, der Bestand ist da noch nicht geladen.
   const [gescannterSatzId, setGescannterSatzId] = useState<string | null>(null);
+  // Etikett an einem Verkaufsreifen gescannt (?reifen=…, E17): der Posten im Reiter „Verkauf".
+  const [gescannterVerkaufsreifenId, setGescannterVerkaufsreifenId] = useState<string | null>(null);
   // Kunde, für den der Kontaktdialog offen ist (Migration 23).
   const [kontaktKundeId, setKontaktKundeId] = useState<string | null>(null);
   // Saisonliste (docs/lager-ausbaukonzept.md D1). Die Voreinstellung folgt dem Jahreslauf:
@@ -552,6 +555,8 @@ export default function HomePage() {
   const [handyMeldung, setHandyMeldung] = useState<{ ok: boolean; text: string } | null>(null);
   // Kunde, dessen Anruf-Fenster offen ist (nach dem Antippen einer Anruf-Meldung).
   const [anrufKundeId, setAnrufKundeId] = useState<string | null>(null);
+  // Auskunftsauszug für diesen Kunden (E10) – über dem Kundenfenster.
+  const [auskunftKundeId, setAuskunftKundeId] = useState<string | null>(null);
   // Navigations-Button (Auftrag/Termin, wenn eine Adresse gepflegt ist): am Smartphone erst
   // fragen, ob mit Google Maps oder Apple Karten navigiert werden soll, statt direkt zu öffnen –
   // genau wie beim Anrufen-Button mit mehreren Nummern.
@@ -775,6 +780,11 @@ export default function HomePage() {
   async function verkaufsreifenLoeschen(id: string) {
     await deleteVerkaufsreifen(supabase, id);
     await neuLaden(qk.verkaufsreifen());
+  }
+  // E17 (Migration 64): Der Kunde lässt den Satz da. Bewusst nicht offline – auslagern ist es nie.
+  async function satzInDenVerkauf(satzId: string, posten: Record<string, string | number | boolean | null>[]) {
+    await satzZumVerkauf(supabase, satzId, posten);
+    await neuLaden(qk.verkaufsreifen(), qk.einlagerungen());
   }
   async function reifenZumAuftrag(orderId: string, posten: Verkaufsreifen, artikelId: string, menge: number) {
     await reifenAufAuftrag(supabase, articlePrices, orderId, artikelId, posten, menge);
@@ -1614,8 +1624,13 @@ export default function HomePage() {
   // Bulk-Anlage von Lagerplätzen nach einer Nummerierungslogik (Präfix + Start/Ende + Stellen),
   // z. B. Präfix "A", 1–20, 2-stellig → A-01 … A-20. Wird sowohl beim Anlegen eines neuen Lagers
   // als auch später zum Nachrüsten weiterer Plätze verwendet.
-  async function addStorageSlotsBulk(warehouseId: string, codes: string[]) {
-    await insertStorageSlotsBulk(supabase, warehouseId, codes);
+  async function addStorageSlotsBulk(warehouseId: string, codes: string[], groesse: PlatzGroesse = "normal") {
+    await insertStorageSlotsBulk(supabase, warehouseId, codes, groesse);
+    await refreshStorageSlots();
+  }
+  // Fachgröße umstellen (E12, Migration 64).
+  async function slotGroesseSetzen(id: string, groesse: PlatzGroesse) {
+    await updateSlotGroesse(supabase, id, groesse);
     await refreshStorageSlots();
   }
   async function deleteStorageSlot(id: string) {
@@ -2438,12 +2453,14 @@ export default function HomePage() {
     const parameter = new URLSearchParams(window.location.search);
     const rohPlatz = parameter.get(LAGERPLATZ_PARAMETER);
     const rohSatz = parameter.get(SATZ_PARAMETER);
-    if (!rohPlatz && !rohSatz) return;
+    const rohReifen = parameter.get(VERKAUFSREIFEN_PARAMETER);
+    if (!rohPlatz && !rohSatz && !rohReifen) return;
     const platzId = rohPlatz ? lagerplatzIdAusCode(rohPlatz) : null;
     // Für den Satz genügt hier die reine Kennung – dass es ein Satz-Etikett war, sagt schon der
     // Parametername, und `satzIdAusCode` erwartet den vollen Link.
     parameter.delete(LAGERPLATZ_PARAMETER);
     parameter.delete(SATZ_PARAMETER);
+    parameter.delete(VERKAUFSREIFEN_PARAMETER);
     const rest = parameter.toString();
     window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
     if (platzId) {
@@ -2453,6 +2470,11 @@ export default function HomePage() {
     }
     if (rohSatz) {
       setGescannterSatzId(rohSatz.toLowerCase());
+      setTab("lager");
+      return;
+    }
+    if (rohReifen) {
+      setGescannterVerkaufsreifenId(rohReifen.toLowerCase());
       setTab("lager");
     }
   }, []);
@@ -3062,6 +3084,7 @@ export default function HomePage() {
             onDeleteWarehouse={deleteWarehouse}
             onAddSlot={addStorageSlot}
             onAddSlotsBulk={addStorageSlotsBulk}
+            onSlotGroesse={slotGroesseSetzen}
             onDeleteSlot={deleteStorageSlot}
             onAssignTire={assignTire}
             onErfassungsart={erfassungsartSetzen}
@@ -3078,12 +3101,15 @@ export default function HomePage() {
             canAssignTire={darf("lager.einlagerung", "schreiben")}
             springeZuLagerplatzId={gescannterLagerplatzId}
             onLagerplatzGeoeffnet={() => setGescannterLagerplatzId(null)}
+            springeZuVerkaufsreifenId={gescannterVerkaufsreifenId}
+            onVerkaufsreifenGeoeffnet={() => setGescannterVerkaufsreifenId(null)}
             verkauf={darf("lager.verkauf", "lesen") ? {
               verkaufsreifen,
               darfSchreiben: darf("lager.verkauf", "schreiben"),
               darfLoeschen: darf("lager.verkauf", "loeschen"),
               onSpeichern: verkaufsreifenSpeichern,
               onLoeschen: verkaufsreifenLoeschen,
+              onSatzZumVerkauf: darf("lager.verkauf", "schreiben") && darf("lager.einlagerung", "schreiben") ? satzInDenVerkauf : undefined,
             } : null}
           />
         )}
@@ -3173,7 +3199,8 @@ export default function HomePage() {
             onFirmenfahrzeugAendern={firmenfahrzeugAendern}
             onFirmenfahrzeugAusmustern={firmenfahrzeugStilllegen}
             onKundeOeffnen={openDetail}
-            onKundenbestandGeaendert={() => { void neuLaden(qk.kunden()); void auftraegeNeuLaden(); }}
+            onKundenbestandGeaendert={() => { void neuLaden(qk.kunden(), qk.einlagerungen()); void refreshVehicles(); void auftraegeNeuLaden(); }}
+            kunden={customers}
           />
         )}
 
@@ -3182,6 +3209,7 @@ export default function HomePage() {
             employees={employees} articles={articles} articlePrices={articlePrices}
             customers={ohneTestkunden(customers)} vehicles={alleFahrzeuge}
             darfRechnungen={canView("rechnungen")}
+            darfReifenverkauf={darf("lager.verkauf", "lesen")}
             standardDauerMin={terminIntervall}
             onOpenOrder={setOffenerAuftragId}
             onOpenCustomer={openDetail}
@@ -3324,6 +3352,8 @@ export default function HomePage() {
 
       {/* Nach dem Antippen der Meldung „Anrufen: ‹Kunde›". Steht der Kunde noch nicht im
           geladenen Bestand, wartet das Fenster – der Abruf läuft bereits (siehe zielOeffnen). */}
+      {auskunftKundeId && <AuskunftFenster kundeId={auskunftKundeId} onClose={() => setAuskunftKundeId(null)} />}
+
       {anrufKundeId && (() => {
         const kunde = customers.find((c) => c.id === anrufKundeId);
         if (!kunde) return null;
@@ -3630,6 +3660,7 @@ export default function HomePage() {
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}
           onTestkundeLoeschen={isSuperAdmin ? () => testkundeRestlosLoeschen(selectedId) : undefined}
+          onAuskunft={isAdmin ? () => setAuskunftKundeId(selectedId) : undefined}
           darfTestkundeUmschalten={isSuperAdmin}
           onNeuerAuftrag={() => { void neuenAuftragAnlegen(selectedId); }}
           onUpdateOrder={updateOrder}

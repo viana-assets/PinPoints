@@ -4,7 +4,7 @@ import type { Article, ArticlePrice, Customer, Employee, Order, OrderArticle, Ve
 import { fetchAuswertungsdaten, type AuswertungsAbzug } from "@/lib/api/auswertung";
 import { artikelDetail, jeArtikel, jeMitarbeiter, kennzahlen, type Auswertungsdaten, type Zeitraum } from "@/lib/auswertung";
 import {
-  AUSWERTUNGS_ZEITRAUM_LABEL, aktuelleOderNaechsteSaison, ausDemRegal, belegtAm, belegungVerlauf, einsatz, EINSATZ_RASTER_VON,
+  AUSWERTUNGS_ZEITRAUM_LABEL, aktuelleOderNaechsteSaison, monatsende, ausDemRegal, belegtAm, belegungVerlauf, einsatz, EINSATZ_RASTER_VON,
   erbrachtNichtAbgerechnet, lagerAusblick, lagerBewegung, monatImZeitraum, monatKurz, monatLang, monatsreihe, neuAngelegteKunden,
   neuUndBestand, postenFuerPerson, rasterHinweis, saisonFenster, tagDeutsch, umsatzJeMonat, umsatzposten, umsatzstaerksteKunden, umsatzSumme,
   veraenderung, verschiebeJahr, vorigeSaison, vorjahr, wiederkehr, zeitraumFuer, zeitraumTitel, type AuswertungsZeitraum,
@@ -14,6 +14,7 @@ import { currentArticlePrice, formatEUR, LANGLIEGER_EURO, LANGLIEGER_MONATE, nae
 import { employeeColorFor } from "@/lib/calendar";
 import { langlieger } from "@/lib/langlieger";
 import { auftragsNr } from "@/lib/testkunde";
+import { lagerwertVerlauf, reifenAuswertung, VERKAUF_LANGE_LIEGEND_MONATE } from "@/lib/reifenverkauf";
 
 // Register „Auswertungen" – neu gestaltet am 26.09.2026 (Entwurf „M · Auswertungen", Fahrplan
 // E13). Vorher eine starre Seite: drei Zeiträume, sechs Kacheln, ein Balkendiagramm, zwei
@@ -25,22 +26,23 @@ import { auftragsNr } from "@/lib/testkunde";
 // dass jede Ansicht filterbar (Zeitraum, Mitarbeiter), vergleichbar (Vorjahr bis zum selben Tag)
 // und anklickbar ist – bis zur Rechnung, zum Auftrag, zum Kunden.
 //
-// Fünf Reiter: Umsatz (Quelle Rechnungsbuch), Kunden, Einsatz, Lager, Artikel. Export: DATEV-
+// Fünf Reiter: Umsatz (Quelle Rechnungsbuch), Kunden, Einsatz, Lager, Artikel – seit v103 ein
+// sechster, „Reifen" (Reifenverkauf, E18), für wer den Reifenverkauf lesen darf. Export: DATEV-
 // Buchungsstapel, Debitorenliste, Rechnungsliste, die aktuelle Ansicht als Tabelle.
 //
 // Gerechnet wird in lib/auswertung.ts, lib/auswertungAnsicht.ts und lib/datev.ts – alle mit
 // Prüffällen. Diese Datei zeigt nur an.
 
-type Reiter = "umsatz" | "kunden" | "einsatz" | "lager" | "artikel";
+type Reiter = "umsatz" | "kunden" | "einsatz" | "lager" | "artikel" | "reifen";
 const REITER: { wert: Reiter; text: string }[] = [
   { wert: "umsatz", text: "Umsatz" }, { wert: "kunden", text: "Kunden" }, { wert: "einsatz", text: "Einsatz" },
-  { wert: "lager", text: "Lager" }, { wert: "artikel", text: "Artikel" },
+  { wert: "lager", text: "Lager" }, { wert: "artikel", text: "Artikel" }, { wert: "reifen", text: "Reifen" },
 ];
 type Blatt = null | "frei" | "person" | "export" | "offen" | "monat" | "artikel";
 
 const eur0 = (n: number) => n.toLocaleString("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const stunden = (min: number) => `${Math.floor(min / 60)}:${String(Math.round(min % 60)).padStart(2, "0")}`;
-const LEER_ABZUG: AuswertungsAbzug = { orders: [], orderArticles: [], orderEmployees: {}, einlagerungen: [], auftragFahrzeuge: [], rechnungen: [], offeneRechnungsauftraege: [], lagerplaetze: 0, betrieb: null };
+const LEER_ABZUG: AuswertungsAbzug = { orders: [], orderArticles: [], orderEmployees: {}, einlagerungen: [], auftragFahrzeuge: [], rechnungen: [], offeneRechnungsauftraege: [], lagerplaetze: 0, betrieb: null, reifenVerkauf: null };
 
 function herunterladen(name: string, inhalt: BlobPart, typ: string) {
   const url = URL.createObjectURL(new Blob([inhalt], { type: typ }));
@@ -115,6 +117,8 @@ export function AuswertungPanel(p: {
   // Darf der Nutzer das Rechnungsbuch lesen (`rechnungen · lesen`)? Sonst liefert die Datenbank
   // still keine Rechnungen – dann rechnet der Umsatz wie bisher aus den erledigten Aufträgen.
   darfRechnungen: boolean;
+  // Darf der Nutzer den Reifenverkauf lesen (`lager.verkauf · lesen`)? Sonst kein Reiter „Reifen".
+  darfReifenverkauf: boolean;
   standardDauerMin: number;
   onOpenOrder: (id: string) => void;
   onOpenCustomer: (id: string) => void;
@@ -154,12 +158,12 @@ export function AuswertungPanel(p: {
     let abgebrochen = false;
     setLaedt(true);
     setLadeFehler(null);
-    fetchAuswertungsdaten(supabase, ladeVon, ladeBis, p.darfRechnungen)
+    fetchAuswertungsdaten(supabase, ladeVon, ladeBis, p.darfRechnungen, p.darfReifenverkauf)
       .then((d) => { if (!abgebrochen) setAbzug(d); })
       .catch((e) => { if (!abgebrochen) setLadeFehler(e instanceof Error ? e.message : "Die Auswertung konnte nicht geladen werden."); })
       .finally(() => { if (!abgebrochen) setLaedt(false); });
     return () => { abgebrochen = true; };
-  }, [supabase, ladeVon, ladeBis, p.darfRechnungen]);
+  }, [supabase, ladeVon, ladeBis, p.darfRechnungen, p.darfReifenverkauf]);
 
   const a = abzug ?? LEER_ABZUG;
   const nachPerson = (o: Order) => !person || (a.orderEmployees[o.id] ?? []).includes(person);
@@ -232,6 +236,13 @@ export function AuswertungPanel(p: {
   const lang = langlieger(a.einlagerungen, heute, gebuehrPreis, LANGLIEGER_MONATE, LANGLIEGER_EURO);
   const langSumme = lang.reduce((n, x) => n + (x.summeNetto ?? 0), 0);
 
+  // ---------------------------------------------------------------- Reifen (E18)
+  const rv = a.reifenVerkauf;
+  const ra = rv ? reifenAuswertung(rv.zeilen, rv.posten, z, heute) : null;
+  const raVJ = rv ? reifenAuswertung(rv.zeilen, rv.posten, zVJ, heute) : null;
+  const rvVerlauf = rv ? lagerwertVerlauf(rv.zeilen, rv.posten, monate.map((m) => { const e2 = monatsende(m); return e2 < heute ? e2 : heute; })) : [];
+  const reiterSichtbar = REITER.filter((r) => r.wert !== "reifen" || p.darfReifenverkauf);
+
   // ---------------------------------------------------------------- Artikel
   const ohneVerkauf = p.articles.filter((x) => x.active && !artikelWerte.some((w2) => w2.id === x.id)).map((x) => x.short_name).sort((x, y) => x.localeCompare(y, "de"));
   const einheit = (id: string) => (gebuehrArtikel.has(id) ? "Monate" : "Stück");
@@ -260,6 +271,7 @@ export function AuswertungPanel(p: {
       : reiter === "kunden" ? [["Kunde", "Umsatz netto", "Aufträge"], ...umsatzstaerksteKunden(posten, z, p.customers, 10000).map((x) => [x.name, x.netto, x.auftraege])]
       : reiter === "einsatz" ? [["Mitarbeiter", "Stunden", "Termine"], ...e.jePerson.map((x) => [x.name, Math.round((x.minuten / 60) * 100) / 100, x.termine])]
       : reiter === "lager" ? [["Monat", "Belegt am Monatsende", "Vorjahr"], ...monate.map((m, i) => [monatLang(m), verlauf[i], verlaufVJ[i]])]
+      : reiter === "reifen" ? [["Monat", "Lagerwert Reifenverkauf netto (ungefähr)"], ...monate.map((m, i) => [monatLang(m), rvVerlauf[i] ?? 0])]
       : [["Artikel", "Menge", "Einheit", "Umsatz netto"], ...artikelWerte.map((x) => [x.name, x.menge, einheit(x.id), x.umsatzNetto])];
     herunterladen(`Auswertung_${reiter}_${z.von}_${z.bis}.csv`, csv(zeilen), "text/csv;charset=utf-8");
   }
@@ -283,7 +295,7 @@ export function AuswertungPanel(p: {
             </button>
           </div>
           <div className="am-reiter" role="tablist">
-            {REITER.map((r) => (
+            {reiterSichtbar.map((r) => (
               <button key={r.wert} type="button" role="tab" aria-selected={reiter === r.wert} className={reiter === r.wert ? "aktiv" : ""} onClick={() => setReiter(r.wert)}>{r.text}</button>
             ))}
           </div>
@@ -587,6 +599,52 @@ export function AuswertungPanel(p: {
               </button>
             )}
           </>
+        )}
+
+        {/* ============================================================ REIFEN (E18) */}
+        {reiter === "reifen" && (
+          !ra ? (
+            <div className="db-karte"><div className="db-leer">{laedt ? "Lädt …" : "Für den Reifenverkauf fehlt das Leserecht."}</div></div>
+          ) : (
+            <>
+              <div className="am-antwort">
+                <span className="am-a-titel">REIFENVERKAUF · {titel.toUpperCase()}</span>
+                <div className="am-a-zeile"><span className="am-a-wert">{eur0(ra.neu.netto + ra.gebraucht.netto)}</span><span className="am-a-unter">netto · {ra.neu.stueck + ra.gebraucht.stueck} Stück</span></div>
+                {vergleich && raVJ && <Delta jetzt={ra.neu.netto + ra.gebraucht.netto} vorher={raVJ.neu.netto + raVJ.gebraucht.netto} dunkel einheit={eur0(raVJ.neu.netto + raVJ.gebraucht.netto)} />}
+                <span className="am-a-klein">aus erledigten Aufträgen, am Auftragsdatum</span>
+              </div>
+
+              <div className="am-kacheln">
+                <Kachel titel="Neu" wert={eur0(ra.neu.netto)} unter={`${ra.neu.stueck} Stück`}>
+                  {vergleich && raVJ && <Delta jetzt={ra.neu.netto} vorher={raVJ.neu.netto} />}
+                </Kachel>
+                <Kachel titel="Gebraucht" wert={eur0(ra.gebraucht.netto)} unter={`${ra.gebraucht.stueck} Stück`}>
+                  {vergleich && raVJ && <Delta jetzt={ra.gebraucht.netto} vorher={raVJ.gebraucht.netto} />}
+                </Kachel>
+                <Kachel titel="Marge" wert={ra.marge.stueckMitEk > 0 ? eur0(ra.marge.marge) : "–"}
+                  unter={ra.marge.stueck === 0 ? "nichts verkauft" : ra.marge.stueckMitEk === ra.marge.stueck ? "über alle verkauften Stück" : `über ${ra.marge.stueckMitEk} von ${ra.marge.stueck} Stück mit Einkaufspreis`} />
+                <Kachel titel="Lagerwert heute" wert={eur0(ra.lagerwert.vk)}
+                  unter={`${ra.lagerwert.stueck} Stück zum VK${ra.lagerwert.stueckMitEk > 0 ? ` · EK ${eur0(ra.lagerwert.ek)}` : ""}`} />
+              </div>
+
+              <div className="db-karte">
+                <div className="db-karte-kopf"><span className="db-karte-titel">Lagerwert im Verlauf</span><span className="small">am Monatsende, ungefähr</span></div>
+                <Saeulen werte={rvVerlauf} vorjahr={null} monate={monate} z={z} farbe="navy" />
+                <span className="small am-fuss">Zurückgerechnet aus dem heutigen Bestand und den Verkäufen seitdem, zum Verkaufspreis. Von Hand geänderte Bestände („einer war kaputt“) kennt die Rechnung nicht.</span>
+              </div>
+
+              {ra.langeLiegend.posten > 0 && (
+                <button type="button" className="sl-chance am-lang" onClick={p.onZuLager} disabled={!p.onZuLager}>
+                  <span className="db-punkt-zahl orange">{ra.langeLiegend.stueck}</span>
+                  <span className="db-punkt-text">
+                    <span className="db-punkt-titel">Liegt seit über {VERKAUF_LANGE_LIEGEND_MONATE} Monaten</span>
+                    <span className="small">{ra.langeLiegend.posten} {ra.langeLiegend.posten === 1 ? "Posten" : "Posten"} · {eur0(ra.langeLiegend.wertVk)} zum Verkaufspreis</span>
+                  </span>
+                  {p.onZuLager && <span className="db-link">Zum Lager ›</span>}
+                </button>
+              )}
+            </>
+          )
         )}
 
         {/* ============================================================ ARTIKEL */}

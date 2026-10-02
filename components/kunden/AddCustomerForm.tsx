@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { AdressFeld } from "@/components/AdressFeld";
 import type { Customer } from "@/lib/types";
+import { aehnlicheKunden, DUBLETTEN_GRUND_LABEL, starkerGrund } from "@/lib/dubletten";
 
 // Formular "Neuer Kunde".
 //
@@ -66,6 +67,13 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
   const [laufAnsicht, setLaufAnsicht] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // „Gibt es schon?" (26.09.2026, seit v103 mit E1): ähnlicher Name ab vier Zeichen, dazu gleiche
+  // Telefonnummer (jede Schreibweise), gleiche E-Mail oder gleicher Name mit gleicher PLZ – auch
+  // deaktivierte Kunden. Nur ein Hinweis; angelegt werden darf trotzdem (lib/dubletten.ts).
+  const aehnlich = kunden && !laufkundschaft
+    ? aehnlicheKunden({ name, company, address, phone_mobile: mobile, phone_landline: landline, email }, kunden)
+    : [];
+
   function leeren() {
     setCompany(""); setAnrede(""); setName(""); setAddress(""); setKoordinate(null);
     setMobile(""); setLandline(""); setEmail(""); setNote(""); setAuftragAnlegen(false);
@@ -80,6 +88,15 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
     if (!name.trim() || (!address.trim() && !laufkundschaft)) {
       setStatus({ text: "Bitte Name und Adresse angeben.", ok: false });
       return;
+    }
+    // E1: Spricht etwas Handfestes dafür, dass es den Kunden schon gibt (Nummer, E-Mail, Name mit
+    // PLZ), einmal fragen. Kein Verbot – das Ehepaar mit demselben Festnetz gibt es wirklich.
+    const stark = aehnlich.filter((t) => starkerGrund(t.gruende));
+    if (stark.length > 0 && !laufkundschaft) {
+      const k = stark[0].kunde;
+      const wer = `${(k.company || "").trim() || k.name}${k.kundennummer != null ? ` (Kd.-Nr. ${k.kundennummer})` : ""}`;
+      const warum = stark[0].gruende.filter((g) => g !== "name").map((g) => DUBLETTEN_GRUND_LABEL[g]).join(", ");
+      if (!window.confirm(`Ähnlicher Kunde vorhanden: ${wer} – ${warum}.\n\nTrotzdem neu anlegen?`)) return;
     }
     setBusy(true);
     // Nur wenn die Adresse von Hand getippt wurde, muss noch nachgeschlagen werden – bei einem
@@ -127,12 +144,6 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
   }
   const zeigeLaufGibtEs = laufAnsicht && laufkundschaftName !== null;
 
-  // „Gibt es schon?" (26.09.2026): ab vier Zeichen die Kunden, deren Name oder Firma so beginnt
-  // oder das Getippte enthält – auch deaktivierte. Nur ein Hinweis; angelegt werden darf trotzdem.
-  const q = name.trim().toLowerCase();
-  const aehnlich = q.length >= 4 && kunden
-    ? kunden.filter((k) => !k.laufkundschaft && [k.name, k.company ?? ""].some((x) => x.toLowerCase().includes(q))).slice(0, 2)
-    : [];
   const ARTEN: { wert: "kunde" | "einmal" | "lauf"; text: string }[] = [
     { wert: "kunde", text: "Kunde" }, { wert: "einmal", text: "Einmalkunde" }, { wert: "lauf", text: "Laufkundschaft" },
   ];
@@ -198,11 +209,12 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Vor- und Nachname" />
                 </label>
               </div>
-              {aehnlich.map((k) => (
-                <div key={k.id} className="nk-dublette">
+              {aehnlich.map(({ kunde: k, gruende }) => (
+                <div key={k.id} className={"nk-dublette" + (starkerGrund(gruende) ? " stark" : "")}>
                   <span className="db-punkt-text">
                     <b>Gibt es schon? {(k.company || "").trim() || k.name}{k.active === false ? " (deaktiviert)" : ""}</b>
                     <span>{[k.address, k.kundennummer != null ? `Kd.-Nr. ${k.kundennummer}` : null].filter(Boolean).join(" · ")}</span>
+                    <span className="nk-grund">{gruende.map((g) => DUBLETTEN_GRUND_LABEL[g]).join(" · ")}</span>
                   </span>
                   {onOpenKunde && <button type="button" className="db-link" onClick={() => onOpenKunde(k.id)}>Öffnen ›</button>}
                 </div>

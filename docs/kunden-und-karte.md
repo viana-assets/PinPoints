@@ -454,6 +454,57 @@ Name, Firma, Anrede, Anschrift, E-Mail, Telefon, Koordinaten, Kennzeichen und di
 Zeile bleibt stehen, „wer hat wann was geändert" bleibt nachvollziehbar. Geschwärzte Einträge
 tragen `audit_log.geschwaerzt_am`.
 
+## Dubletten finden und zusammenführen (Fahrplan E1, Migration 64, v103)
+
+Bei telefonischer Neuanlage entstehen doppelte Kunden zwangsläufig. Die Regeln stehen in
+`lib/dubletten.ts` (geprüft in `tests/dubletten.test.ts`), die Gründe vom schwächsten zum stärksten:
+
+- **ähnlicher Name** – der getippte Name steckt in Name oder Firma (nur beim Anlegen, ab vier Zeichen),
+- **gleicher Name und PLZ** – Reihenfolge der Wörter egal („Müller, Hans" = „Hans Mueller"), Anrede
+  und „Familie" zählen nicht, die PLZ ist die letzte fünfstellige Zahl der Adresse,
+- **gleiche E-Mail**, ohne Groß/klein,
+- **gleiche Telefonnummer** in der Vergleichsform aus D10 (`telefonVergleich`), Mobil oder Festnetz
+  über Kreuz, erst ab sechs Zeichen (eine Nummer ohne Vorwahl gibt es in jeder Stadt).
+
+**Beim Anlegen** („Neuer Kunde") steht der Hinweis „Gibt es schon?" mit Begründung unter dem Namen;
+bei einem starken Grund (alles außer „ähnlicher Name") fragt „Kunde anlegen" einmal nach. Es ist
+ein Hinweis, keine Sperre – das Ehepaar mit demselben Festnetz gibt es wirklich.
+
+**Admin → Dubletten** (`DublettenPanel.tsx`) listet alle vermuteten Paare im Bestand (ohne
+Laufkundschaft, Testkunden und Gelöschte). Gruppiert wird über die Merkmale statt jeden mit
+jedem zu vergleichen; eine Gruppe mit mehr als sechs Mitgliedern gilt als Sammelnummer (Zentrale,
+Hausverwaltung) und erzeugt keine Paare. Je Paar:
+
+- **Keine Dublette** – Vermerk in `kunden_keine_dublette` (kleinere Kennung zuerst), das Paar
+  erscheint nicht wieder.
+- **Zusammenführen …** – Auswahl, wer bleibt (Vorschlag: die kleinere Kundennummer, sie steht auf
+  den älteren Rechnungen), dazu die Liste, was ergänzt wird (`uebernommeneFelder`). Ausgeführt
+  von `kunden_zusammenfuehren()` in der Datenbank, ganz oder gar nicht: Aufträge (auch gelöschte),
+  Fahrzeuge, Reifensätze, Kontakte und der Verweis der Rechnungen ziehen um; Fahrzeuge mit
+  gleichem Kennzeichen (Vergleich wie `kennzeichenSchluessel`) werden zu einem, Satz und
+  Auftragszuordnung zeigen danach auf das bleibende; leere Felder werden gefüllt, nichts
+  überschrieben, eine zweite Mobilnummer wandert ins freie Festnetzfeld oder in die Notiz; der
+  jüngere Kontakt gilt samt Ergebnis und Wiedervorlage. Der andere Kunde kommt **leer** in den
+  Papierkorb, beide tragen einen Vermerk in der Notiz („Zusammengeführt am … mit/in Kd.-Nr. …").
+  Ausgestellte Rechnungen behalten Empfänger und Kundennummer, wie sie gedruckt wurden.
+- Nur wer Kunden löschen darf (Admin); die Laufkundschaft nie, Test- nie mit echtem Kunden.
+- Bekannte Grenze: Wird der leere Kunde später **endgültig** gelöscht, nimmt
+  `kunde_endgueltig_loeschen()` die Protokolleinträge mit, die noch auf ihn verweisen – auch die
+  frühen Einträge der umgezogenen Aufträge. Wer die Geschichte behalten will, lässt ihn im Papierkorb.
+
+## Auskunftsauszug nach Art. 15 DSGVO (Fahrplan E10, Migration 64, v103)
+
+Kundenfenster → „⋯" → **Auskunft (DSGVO)**, nur Admin und Superadmin (`kunde_auskunft()` prüft
+es; die Laufkundschaft ist ein Sammelkunde und hat keine Auskunft). Ein Abruf liefert alles in
+einem Stand: Stammdaten, Kontakte, Fahrzeuge, Aufträge mit Positionen und Fahrzeugen, Reifensätze
+mit Rädern und Platz, Rechnungen, und wie viele Einträge das Änderungsprotokoll zu ihm hat (die
+Einträge selbst nicht – frühere Fassungen und interne Kennungen gehören nicht in den Brief).
+`AuskunftFenster.tsx` setzt daraus ein A4-Schriftstück (`lib/auskunft.ts`), „Drucken / als PDF
+sichern" über die Druckfunktion des Browsers wie bei der Rechnung, und „Als Datei (JSON)" für eine
+elektronische Kopie. Dateiname ohne Kundennamen (`auskunft-kd-<nr>-<datum>`). Der Abschnitt zu
+Zwecken, Rechtsgrundlagen, Empfängern und Speicherdauer ist ein **Vorschlag** und vor dem
+Versand mit der eigenen Datenschutzerklärung abzugleichen – der Hinweis steht nur in der App.
+
 ## Das Kundenfenster in Reitern (Entwurf „O · Kunde", 26.09.2026)
 
 `DetailModal.tsx` zeigt oben den Kunden mit Kreis in der Zustandsfarbe, Kundennummer und

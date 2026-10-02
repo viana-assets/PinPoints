@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Betrieb, BetriebFelder, Employee, Firmenfahrzeug, Profile, Role } from "@/lib/types";
+import type { Betrieb, BetriebFelder, Customer, Employee, Firmenfahrzeug, Profile, Role } from "@/lib/types";
 import type { Bereichsrechte } from "@/lib/api/permissions";
 import type { Verb } from "@/lib/constants";
 import type { FirmenfahrzeugFelder } from "@/lib/api/firmenfahrzeuge";
@@ -15,6 +15,7 @@ import { PROTOKOLL_TAGE_STANDARD, TERMIN_INTERVALLE } from "@/lib/constants";
 import { fetchBetrieb, setzeTerminIntervall, speichereBetrieb, setzeNaechsteRechnungsnummer } from "@/lib/api/betrieb";
 import { BetriebsdatenPanel } from "./BetriebsdatenPanel";
 import { PapierkorbPanel } from "./PapierkorbPanel";
+import { DublettenPanel } from "./DublettenPanel";
 import { hoechsteRechnungsnummer } from "@/lib/api/rechnungen";
 import { GeokodierLauf } from "./GeokodierLauf";
 import { AdressenPruefen } from "./AdressenPruefen";
@@ -26,7 +27,7 @@ import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
 // dritter Unter-Tab eingebunden, ist aber seit Phase 4 eine eigene Kachel in der
 // Hauptnavigation (siehe components/admin/artikel/ArticleAdminPanel.tsx, app/page.tsx).
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
-type AdminReiter = "nutzer" | "mitarbeiter" | "transporter" | "rechte" | "betrieb" | "wartung" | "protokoll" | "papierkorb";
+type AdminReiter = "nutzer" | "mitarbeiter" | "transporter" | "rechte" | "betrieb" | "wartung" | "protokoll" | "dubletten" | "papierkorb";
 const ADMIN_REITER: { key: AdminReiter; label: string; nurSuperadmin?: boolean }[] = [
   { key: "nutzer", label: "Nutzer" },
   { key: "mitarbeiter", label: "Mitarbeiter" },
@@ -35,6 +36,7 @@ const ADMIN_REITER: { key: AdminReiter; label: string; nurSuperadmin?: boolean }
   { key: "betrieb", label: "Betrieb" },
   { key: "wartung", label: "Wartung" },
   { key: "protokoll", label: "Protokoll" },
+  { key: "dubletten", label: "Dubletten" },
   { key: "papierkorb", label: "Papierkorb" },
 ];
 
@@ -49,8 +51,10 @@ function initialen(text: string): string {
 export function AdminPanel({
   isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, onUpdateEmployeeProfileId, modulePermissions, onUpdateModulePermissions,
   firmenfahrzeuge, onFirmenfahrzeugAnlegen, onFirmenfahrzeugAendern, onFirmenfahrzeugAusmustern,
-  onKundeOeffnen, onKundenbestandGeaendert,
+  onKundeOeffnen, onKundenbestandGeaendert, kunden,
 }: {
+  // Der geladene Kundenbestand – für die Dublettensuche (E1, v103).
+  kunden: Customer[];
   // Nach dem Wiederherstellen aus dem Papierkorb (Migration 56): Kundenliste neu laden.
   onKundenbestandGeaendert: () => void;
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
@@ -323,6 +327,8 @@ export function AdminPanel({
           ) : (
             <div className="db-karte"><div className="db-leer">Lädt …</div></div>
           )
+        ) : aktiverReiter === "dubletten" ? (
+          <DublettenPanel supabase={supabase} kunden={kunden} onKundeOeffnen={onKundeOeffnen} onKundenbestandGeaendert={onKundenbestandGeaendert} />
         ) : aktiverReiter === "papierkorb" ? (
           <PapierkorbPanel supabase={supabase} isSuperAdmin={isSuperAdmin} onKundenbestandGeaendert={onKundenbestandGeaendert} />
         ) : aktiverReiter === "protokoll" ? (

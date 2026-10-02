@@ -1,6 +1,6 @@
 # Konstanten-Register
 
-**Stand: 01.10.2026** (gegen den Code abgeglichen: jede `export const` unter `lib/` ist
+**Stand: 02.10.2026** (gegen den Code abgeglichen: jede `export const` unter `lib/` ist
 eingetragen). Erstfassung 18.09.2026, vollständig aus dem Code erstellt – siehe „Was geprüft
 wurde" unten.
 
@@ -25,9 +25,11 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **116 exportierte Konstanten** (`export const`) in 27 Dateien unter `lib/` – gezählt am
+Insgesamt **123 exportierte Konstanten** (`export const`) in 29 Dateien unter `lib/` – gezählt am
 02.10.2026 (v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
-v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
+v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
+`PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
+`VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
 eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMETER`,
 `PROFIL_MAX_MM`). Die Zahl gehört bei jeder neuen Konstante mit nachgezogen.
 
@@ -98,6 +100,7 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 |---|---|---|---|---|
 | `KUNDEN_FILTER` | `lib/constants.ts` | `{ wert: KundenFilter; text: string }[]` | Die Zustandsfilter über der Kundenliste, mit Reihenfolge und Beschriftung. Der Typ `KundenFilter` kennt zusätzlich `"rueckruf"` (26.09.2026) – bewusst ohne eigenen Knopf, erreichbar über die Karte „Rückrufe heute fällig" und aus dem Dashboard | `KundenListePanel` (Pillen), `app/page.tsx` (Trefferzahlen, Filter) |
 | `KUNDEN_ZUSTAND_LABEL` | `lib/helpers.ts` | `Record<KundenZustand, string>` | Beschriftung der fünf Kundenzustände (kontaktiert/Termin/Wiedervorlage/offen/kein Interesse) | `DetailModal`, `app/page.tsx` (Karten-Popup, Kundenliste) |
+| `DUBLETTEN_GRUND_LABEL` | `lib/dubletten.ts` | `Record<DublettenGrund, string>` | Warum zwei Kunden dieselbe Person sein könnten: gleiche Telefonnummer, gleiche E-Mail, gleicher Name und PLZ, ähnlicher Name (E1, v103) | `AddCustomerForm` („Gibt es schon?"), `DublettenPanel`; `tests/dubletten.test.ts` |
 | `KUNDEN_ZUSTAND_REIHENFOLGE` | `lib/helpers.ts` | `readonly KundenZustand[]` | Reihenfolge der Zustände in Legenden/Auswahlen, nach Dringlichkeit sortiert | `app/page.tsx` (Zustandsfilter auf der Karte) |
 
 ---
@@ -119,6 +122,9 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `PROFIL_SCHNELLWERTE_MM` | `lib/constants.ts` | `number[]` (1–8) | Schnellwert-Knöpfe unter der Profiltiefe (seit v89) | `ProfilEingabe` in `RadBild.tsx` (Lager-Einlagern, Auftragsfenster) |
 | `DOT_ALT_JAHRE` | `lib/constants.ts` | `number` (6) | Reifenalter (Jahre), ab dem der Kunde angesprochen werden soll | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
 | `LAGERDAUER_HINWEIS_TAGE` | `lib/constants.ts` | `number` (365) | Tage ohne Bewegung, ab denen ein Hinweis erscheint | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
+| `PLATZ_GROESSE_LABEL` | `lib/constants.ts` | `Record<PlatzGroesse, string>` | Beschriftung der zwei Fachgrößen (normal/groß); dieselben Werte als Prüfregel `storage_slots_groesse_bekannt` (Migration 64, E12) | Doku der Fachgröße; Anzeige über `platzGroesse()` |
+| `GROSSES_FACH_AB_DURCHMESSER_MM` | `lib/lagerAnsicht.ts` | `number` (720) | Ab diesem Außendurchmesser braucht ein Reifen ein großes Fach (E12, Startwert) | `brauchtGrossesFach()` – `EinlagerungBlock`, `LagerPanel`; `tests/lagerAnsicht.test.ts` |
+| `GROSSES_FACH_AB_BREITE_MM` | `lib/lagerAnsicht.ts` | `number` (265) | Ab dieser Reifenbreite braucht ein Reifen ein großes Fach (E12, Startwert) | dito |
 | `LANGLIEGER_MONATE` | `lib/helpers.ts` | `number` (18) | Monate, ab denen ein Satz als „Langlieger" gilt | **nur intern** – über `istLanglieger()` (`AuslagernDialog`, `tests/lagerdauer.test.ts`) |
 | `LANGLIEGER_EURO` | `lib/helpers.ts` | `number` (150) | Summenschwelle, ab der ein Satz als „Langlieger" gilt | dito, über `istLanglieger()` |
 
@@ -131,6 +137,7 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `REIFENVERKAUF_ART` | `lib/constants.ts` | `Record<ReifenZustand, Article["abrechnungsart"]>` | Welche Abrechnungsart zu welchem Zustand gehört – die Datenbank prüft dasselbe (`position_verkaufsreifen_pruefen`) | `artikelFuer()` in `lib/reifenverkauf.ts` |
 | `ABRECHNUNGSARTEN` | `lib/constants.ts` | `Article["abrechnungsart"][]` | Die vier Abrechnungsarten in der Reihenfolge der Auswahlknöpfe | `ArticleDetailEditor` |
 | `ABRECHNUNGSART_LABEL` | `lib/constants.ts` | `Record<Article["abrechnungsart"], string>` | Beschriftung der Abrechnungsarten | `ArticleDetailEditor`, `ArticleAdminPanel` |
+| `VERKAUF_LANGE_LIEGEND_MONATE` | `lib/reifenverkauf.ts` | `number` (6) | Ab so vielen Monaten im Bestand steht ein Verkaufsposten in der Auswertung unter „liegt seit über …" (E18, v103) | `reifenAuswertung()`, `AuswertungPanel` (Reiter „Reifen"); `tests/reifenverkauf.test.ts` |
 | `NEUREIFEN_ALT_JAHRE` | `lib/constants.ts` | `number` (3) | Ab diesem Alter (DOT) gilt ein Neureifen als alt – Hinweis in Liste und Suche; gebrauchte nutzen `DOT_ALT_JAHRE` | `reifenHinweise()` in `lib/reifenverkauf.ts`, `tests/reifenverkauf.test.ts` |
 
 Die Größengrenzen (Breite 100–400, Querschnitt 20–95, Zoll 10–24) stehen in `fertig()` in
@@ -166,6 +173,7 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 |---|---|---|---|---|
 | `PROTOKOLL_TABELLE_LABEL` | `lib/constants.ts` | `Record<string, string>` | Tabellenname (wie in der DB) → Klartext | `ProtokollPanel`, `AuftragProtokoll` |
 | `PROTOKOLL_FELD_LABEL` | `lib/constants.ts` | `Record<string, string>` | Spaltenname → Klartext; enthält bewusst auch längst gelöschte Spalten (Historie bleibt lesbar) | `ProtokollPanel`, `tests/protokoll.test.ts` |
+| `PROTOKOLL_SCHWAERZEN_MONATE` | `lib/constants.ts` | `number` (36) | Nach so vielen Monaten schwärzt `protokoll_schwaerzen()` (Migration 56) personenbezogene Felder im Protokoll – hier nur für den Text im Auskunftsauszug; beide gemeinsam ändern (E10, v103) | `AuskunftFenster` |
 | `PROTOKOLL_TAGE_STANDARD` | `lib/constants.ts` | `number` (90) | Standard-Rückreichweite des Protokollfilters im Adminbereich | `ProtokollPanel`, `AdminPanel` |
 | `PROTOKOLL_AKTION_LABEL` | `lib/helpers.ts` | `Record<string, string>` | INSERT/UPDATE/DELETE → „angelegt"/„geändert"/„gelöscht" | `ProtokollPanel` |
 | `IST_KENNUNG` | `lib/helpers.ts` | `RegExp` | Erkennt eine UUID in einem Protokollwert (zum Kürzen/Nachschlagen) | **nur intern** – `protokollWert()` |
@@ -196,6 +204,7 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 |---|---|---|---|---|
 | `LAGERPLATZ_PARAMETER` | `lib/aufkleberCode.ts` | `string` ("lagerplatz") | Aufrufparameter des Regal-Aufklebers | `app/page.tsx`, `lagerplatzUrl()`/`lagerplatzIdAusCode()`, `LagerplatzAufkleber`, `EinlagerungBlock` |
 | `SATZ_PARAMETER` | `lib/aufkleberCode.ts` | `string` ("satz") | Aufrufparameter des Reifensatz-Aufklebers (seit 17.09.2026) | `app/page.tsx`, `satzUrl()`/`satzIdAusCode()`, `ReifensatzEtikett`, `EinlagerungBlock` |
+| `VERKAUFSREIFEN_PARAMETER` | `lib/aufkleberCode.ts` | `string` ("reifen") | Aufrufparameter des Etiketts an einem Verkaufsreifen: `/?reifen=…` öffnet den Posten im Reiter „Verkauf" (E17, v103) | `app/page.tsx`, `verkaufsreifenUrl()`/`verkaufsreifenIdAusCode()`, `VerkaufsreifenEtikett`, `scanZiel()` |
 | `ZIEL_SPEICHER` | `lib/benachrichtigungZiel.ts` | `string` ("pinpoints-ziel") | Name des Cache-Storage-Bereichs für das Benachrichtigungsziel | **nur intern**; muss wortgleich in `public/sw.js` gepflegt werden (Service Worker kann dieses Modul nicht importieren) |
 | `ZIEL_SCHLUESSEL` | `lib/benachrichtigungZiel.ts` | `string` | Schlüssel des abgelegten Navigationsziels | **nur intern**, über `zielAbholen()` (`app/page.tsx`); dito wortgleich in `public/sw.js` |
 | `PROTOKOLL_SCHLUESSEL` | `lib/benachrichtigungZiel.ts` | `string` | Schlüssel für „zuletzt angetippt" (Diagnose auf iPhones ohne Konsole) | **nur intern**, über `letztesAntippen()` (`PushEinstellung`); dito wortgleich in `public/sw.js` |

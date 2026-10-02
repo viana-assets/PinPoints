@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type {
-  EingelagertesRad, Erfassungsart, Felge, RadPosition, Saison, StorageSlot, TireStorage, Warehouse,
+  EingelagertesRad, Erfassungsart, Felge, PlatzGroesse, RadPosition, Saison, StorageSlot, TireStorage, Warehouse,
 } from "@/lib/types";
 import { ApiError, fetchPaged, qOne, qWrite } from "./client";
 
@@ -59,12 +59,20 @@ export async function insertStorageSlot(supabase: SupabaseClient, warehouseId: s
 // Bulk-Anlage von Lagerplätzen nach einer Nummerierungslogik (Präfix + Start/Ende + Stellen),
 // z. B. Präfix "A", 1–20, 2-stellig → A-01 … A-20. Wird sowohl beim Anlegen eines neuen Lagers
 // als auch später zum Nachrüsten weiterer Plätze verwendet.
-export async function insertStorageSlotsBulk(supabase: SupabaseClient, warehouseId: string, codes: string[]): Promise<void> {
+//
+// `groesse` (E12, Migration 64) wird nur mitgeschickt, wenn große Fächer angelegt werden – ohne
+// Migration 64 bleibt das normale Anlegen damit unverändert lauffähig.
+export async function insertStorageSlotsBulk(supabase: SupabaseClient, warehouseId: string, codes: string[], groesse: PlatzGroesse = "normal"): Promise<void> {
   if (codes.length === 0) return;
   await qWrite(
     "Die Lagerplätze konnten nicht angelegt werden",
-    supabase.from("storage_slots").insert(codes.map((code) => ({ warehouse_id: warehouseId, code })))
+    supabase.from("storage_slots").insert(codes.map((code) => ({ warehouse_id: warehouseId, code, ...(groesse === "gross" ? { groesse } : {}) })))
   );
+}
+
+// Fachgröße eines Platzes umstellen (E12, Migration 64).
+export async function updateSlotGroesse(supabase: SupabaseClient, id: string, groesse: PlatzGroesse): Promise<void> {
+  await qWrite("Die Fachgröße konnte nicht gespeichert werden", supabase.from("storage_slots").update({ groesse }).eq("id", id));
 }
 
 export async function deleteStorageSlotById(supabase: SupabaseClient, id: string): Promise<void> {

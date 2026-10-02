@@ -3,6 +3,7 @@ import type { Article, Verkaufsreifen } from "@/lib/types";
 import {
   artikelFuer, dotFehler, groesseAusText, groesseText, groessenVorschlag, lagerwert, passtZurSuche,
   positionsText, reifenFrei, reifenHinweise, reifenZustandVonArtikel, sortiereReifen, vorschlagMenge,
+  entwurfAlsPosten, entwurfFehler, etikettTexte, lagerwertVerlauf, postenAusSatz, reifenAuswertung, type ReifenVerkaufszeile,
 } from "@/lib/reifenverkauf";
 import { passtZumFilter } from "@/lib/lagerAnsicht";
 
@@ -190,5 +191,86 @@ describe("groessenAbweichung (E8)", () => {
     const { groessenAbweichung } = await import("@/lib/reifenverkauf");
     expect(groessenAbweichung(null, [{ position: "VL", reifengroesse: "225/45 R17" }])).toBeNull();
     expect(groessenAbweichung("205/55 R16", [{ position: "VL", reifengroesse: null }])).toBeNull();
+  });
+});
+
+describe("postenAusSatz (E17)", () => {
+  const satz = { erfassungsart: "sammel" as const, anzahl_raeder: 4, dot_date: "2121", profiltiefe_mm: 5, saison: "winter" as const };
+  it("Satzwert: ein Posten mit der Größe des Fahrzeugs", () => {
+    expect(postenAusSatz(satz, [], "205/55R16 91H")).toEqual([
+      { groesse: "205/55 R16", hersteller: "", modell: "", saison: "winter", dot: "2121", profiltiefe_mm: 5, felge: null, bestand: 4, preis: "", ek: "" },
+    ]);
+  });
+  it("je Rad: gruppiert nach Größe, DOT und Felge, schwächstes Profil", () => {
+    const rad = (dot: string, mm: number | null, felge: "alu" | "stahl" | "keine" | null = "alu", reifengroesse: string | null = null) => ({ reifengroesse, dot_date: dot, profiltiefe_mm: mm, felge });
+    const p = postenAusSatz({ ...satz, erfassungsart: "einzeln" }, [rad("2121", 5.5), rad("2121", 4.8), rad("3522", 6.5), rad("3522", null)], "225/45 R17");
+    expect(p.map((x) => [x.groesse, x.dot, x.bestand, x.profiltiefe_mm, x.felge])).toEqual([
+      ["225/45 R17", "2121", 2, 4.8, "alu"],
+      ["225/45 R17", "3522", 2, 6.5, "alu"],
+    ]);
+  });
+});
+
+describe("entwurfFehler / entwurfAlsPosten (E17)", () => {
+  const e = { groesse: "205/55 R16", hersteller: "Conti", modell: "", saison: "winter" as const, dot: "2121", profiltiefe_mm: 5, felge: null, bestand: 4, preis: "25", ek: "" };
+  it("vollständig ist fehlerfrei und wird zum Posten", () => {
+    expect(entwurfFehler(e)).toBeNull();
+    expect(entwurfAlsPosten(e)).toEqual({
+      zustand: "gebraucht", breite: 205, querschnitt: 55, zoll: 16, hersteller: "Conti", modell: null, saison: "winter",
+      dot: "2121", profiltiefe_mm: 5, felge: null, preis_netto: 25, ek_netto: null, bestand: 4,
+    });
+    expect(entwurfAlsPosten({ ...e, preis: "19,9", ek: "0" }).preis_netto).toBe(19.9);
+    expect(entwurfAlsPosten({ ...e, ek: "0" }).ek_netto).toBe(0);
+  });
+  it("sagt, was fehlt", () => {
+    expect(entwurfFehler({ ...e, hersteller: " " })).toBe("Hersteller fehlt.");
+    expect(entwurfFehler({ ...e, groesse: "groß" })).toMatch(/Größe/);
+    expect(entwurfFehler({ ...e, preis: "" })).toMatch(/Verkaufspreis/);
+    expect(entwurfFehler({ ...e, ek: "abc" })).toMatch(/Ankaufspreis/);
+    expect(entwurfFehler({ ...e, saison: null })).toBe("Saison fehlt.");
+    expect(entwurfFehler({ ...e, dot: "12" })).toMatch(/^DOT/);
+  });
+});
+
+describe("etikettTexte (E17)", () => {
+  it("Größe groß, Name fett, kein Preis", () => {
+    const t = etikettTexte(reifen({ zustand: "gebraucht", profiltiefe_mm: 5.5, xl: true, felge: "alu" }));
+    expect(t.gross).toEqual({ links: "235/55 R17", rechts: "Gebraucht" });
+    expect(t.kopf).toBe("Michelin Pilot Sport 4");
+    expect(t.zeilen).toEqual(["Sommer · 103V XL", "DOT 1224 · 5,5 mm · Komplettrad Alu"]);
+    expect(t.zeilen.join(" ")).not.toMatch(/€/);
+  });
+});
+
+describe("reifenAuswertung / lagerwertVerlauf (E18)", () => {
+  const auftrag = (datum: string, teil: Partial<{ status: string; order_number: number; deleted_at: string | null }> = {}) =>
+    ({ order_date: datum, status: "erledigt", order_number: 100, rechnung_noetig: true, deleted_at: null, ...teil }) as ReifenVerkaufszeile["auftrag"];
+  const zeile = (id: string, menge: number, preis: number, a: ReifenVerkaufszeile["auftrag"]): ReifenVerkaufszeile =>
+    ({ verkaufsreifen_id: id, quantity: menge, net_price: preis, vat_rate: 19, endpreis_netto: null, auftrag: a });
+  const posten = [
+    reifen({ id: "neu1", zustand: "neu", ek_netto: 80, preis_netto: 120, bestand: 2, created_at: "2026-01-10T00:00:00Z" }),
+    reifen({ id: "geb1", zustand: "gebraucht", ek_netto: null, preis_netto: 30, bestand: 4, created_at: "2026-08-01T00:00:00Z" }),
+  ];
+  const zeilen = [
+    zeile("neu1", 2, 120, auftrag("2026-03-05")),
+    zeile("geb1", 2, 30, auftrag("2026-09-10")),
+    zeile("geb1", 4, 30, auftrag("2026-09-12", { status: "offen" })),          // nur reserviert
+    zeile("neu1", 1, 120, auftrag("2026-03-06", { order_number: -3 })),       // Testauftrag
+  ];
+  it("Umsatz je Zustand, Marge nur mit Einkaufspreis, nur erledigte echte Aufträge", () => {
+    const a = reifenAuswertung(zeilen, posten, { von: "2026-01-01", bis: "2026-12-31" }, "2026-10-02");
+    expect(a.neu).toEqual({ stueck: 2, netto: 240 });
+    expect(a.gebraucht).toEqual({ stueck: 2, netto: 60 });
+    expect(a.marge).toEqual({ netto: 240, ek: 160, marge: 80, stueckMitEk: 2, stueck: 4 });
+    expect(a.lagerwert.vk).toBe(360);
+  });
+  it("lange liegend ab sechs Monaten", () => {
+    const a = reifenAuswertung(zeilen, posten, { von: "2026-01-01", bis: "2026-12-31" }, "2026-10-02");
+    expect(a.langeLiegend).toEqual({ posten: 1, stueck: 2, wertVk: 240 });
+  });
+  it("Verlauf: heutiger Bestand plus spätere Verkäufe, nur Posten, die es schon gab", () => {
+    expect(lagerwertVerlauf(zeilen, posten, ["2026-02-28", "2026-07-31", "2026-08-31", "2026-10-02"])).toEqual([
+      (2 + 2) * 120, 2 * 120, 2 * 120 + (4 + 2) * 30, 2 * 120 + 4 * 30,
+    ]);
   });
 });

@@ -746,3 +746,24 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   bekommt `true` bei Steuer 1,90, danach ist sie wieder unveränderlich; Telefonfälle wie in
   `tests/telefon.test.ts`; Techniker liest Vorlagen, legt keine an; Admin legt an (Stempel
   gesetzt), doppelter Name und Nicht-Liste abgewiesen; zurückgenommen, zweimal, erneut ausgeführt.
+- `64_dubletten_auskunft_fachgroesse_verkauf.sql` – **nach `63`, SQL zuerst, dann die Dateien**
+  (die Oberfläche ruft die Funktionen auf und liest `storage_slots.groesse`). (1) E1: Tabelle
+  `kunden_keine_dublette` (Paar, kleinere Kennung zuerst; RLS lesen `kunden·lesen`, anlegen/entfernen
+  `kunden·loeschen`) und `kunden_zusammenfuehren(behalten, weg)` (security definer, nur
+  `kunden·loeschen`): Fahrzeuge mit gleichem Kennzeichen vereint, Aufträge, Sätze, Kontakte,
+  Rechnungsverweise und alte Termine umgezogen, leere Felder gefüllt, der andere leer in den
+  Papierkorb, Vermerk in beiden Notizen. (2) E10: `kunde_auskunft(kunde)` (jsonb, nur Admin/
+  Superadmin, nicht für die Laufkundschaft). (3) E12: `storage_slots.groesse` normal/gross mit
+  Prüfregel. (4) E17: `verkaufsreifen.herkunft_satz_id` und `satz_zum_verkauf(satz, posten)`
+  (security invoker; Satz auslagern und Posten auf denselben Platz in einem Zug, prüft vorab
+  `lager.verkauf·schreiben` und den Hersteller). Ergebnistabelle mit fünf Zeilen. Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/64_rollback.sql` (macht gelaufene Zusammenführungen nicht
+  rückgängig). Geprüft gegen Postgres 16 (Stand 63): zweimal ausgeführt; Techniker darf nicht
+  zusammenführen, gleicher Kunde abgewiesen; Zusammenführen zieht Auftrag, Satz, Kontakt und
+  Auftragsfahrzeug um, vereint das doppelte Kennzeichen (Modell und Größe übernommen), füllt
+  Festnetz und E-Mail, legt den anderen mit Vermerk in den Papierkorb, zweiter Aufruf abgewiesen;
+  Rechnung zieht um (Unveränderlichkeit greift nicht); doppelter und verkehrt herum sortierter
+  Vermerk abgewiesen; Auskunft nur Admin, enthält Platz und Protokollzahl; Fachgröße „riesig"
+  abgewiesen; Satz zum Verkauf: leere Liste und fehlender Hersteller abgewiesen ohne Auslagern,
+  zwei Posten auf denselben Platz mit Lager und Herkunft, zweiter Aufruf abgewiesen, Techniker
+  ohne Verkaufsrecht abgewiesen und Satz liegt noch; zurückgenommen, zweimal, erneut ausgeführt.

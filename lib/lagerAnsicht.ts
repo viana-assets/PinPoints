@@ -1,5 +1,6 @@
-import type { Saison, StorageSlot, TireStorage, Warehouse } from "./types";
-import { lagerplatzIdAusCode, satzIdAusCode } from "./aufkleberCode";
+import type { PlatzGroesse, Saison, StorageSlot, TireStorage, Verkaufsreifen, Warehouse } from "./types";
+import { lagerplatzIdAusCode, satzIdAusCode, verkaufsreifenIdAusCode } from "./aufkleberCode";
+import { groesseAusText, groesseText, type Reifengroesse } from "./reifenverkauf";
 
 // Die Regeln hinter der neu gestalteten Lagerseite (26.09.2026, Entwurf „H · Lager").
 //
@@ -44,10 +45,14 @@ export function reiheTitel(reihe: string, anzahlReihen: number): string {
 export type ScanZiel =
   | { art: "platz"; slotId: string }
   | { art: "kunde"; kundeId: string }
+  | { art: "verkauf"; postenId: string }   // Etikett an einem Verkaufsreifen (E17)
   | { art: "unbekannt" }   // ein PinPoints-Code, aber nicht (mehr) in diesem Bestand
   | { art: "fremd" };      // gar kein PinPoints-Aufkleber (Paketaufkleber, Reifenetikett …)
 
-export function scanZiel(text: string, plaetze: Pick<StorageSlot, "id">[], saetze: Pick<TireStorage, "id" | "storage_slot_id" | "customer_id" | "removed_at">[]): ScanZiel {
+export function scanZiel(
+  text: string, plaetze: Pick<StorageSlot, "id">[], saetze: Pick<TireStorage, "id" | "storage_slot_id" | "customer_id" | "removed_at">[],
+  posten: Pick<Verkaufsreifen, "id">[] = []
+): ScanZiel {
   const platzId = lagerplatzIdAusCode(text);
   if (platzId) {
     return plaetze.some((p) => p.id === platzId) ? { art: "platz", slotId: platzId } : { art: "unbekannt" };
@@ -59,6 +64,8 @@ export function scanZiel(text: string, plaetze: Pick<StorageSlot, "id">[], saetz
     if (!satz.removed_at && plaetze.some((p) => p.id === satz.storage_slot_id)) return { art: "platz", slotId: satz.storage_slot_id };
     return { art: "kunde", kundeId: satz.customer_id };
   }
+  const postenId = verkaufsreifenIdAusCode(text);
+  if (postenId) return posten.some((p) => p.id === postenId) ? { art: "verkauf", postenId } : { art: "unbekannt" };
   return { art: "fremd" };
 }
 
@@ -83,4 +90,55 @@ export function lagerAuslastung(lager: Pick<Warehouse, "id" | "name">[], plaetze
 export function auslastungText(s: LagerStand): string {
   const frei = s.gesamt - s.belegt;
   return `${s.name} ist zu ${Math.round(s.anteil * 100)} % belegt – ${frei === 0 ? "kein Platz mehr frei" : frei === 1 ? "noch 1 Platz frei" : `noch ${frei} Plätze frei`}.`;
+}
+
+// ---------------------------------------------------------------- Fachgröße (E12, v103)
+//
+// Ein Lagerplatz ist ein normales oder ein großes Fach (Migration 64). Wann ein Reifen ein großes
+// braucht, entscheiden zwei Maße: der Außendurchmesser (wie hoch der Stapel im Fach wird, wenn die
+// Räder stehen, bzw. ob er hineinpasst, wenn sie liegen) und die Breite (vier liegende Räder
+// übereinander). Beide Grenzen sind Startwerte – nach dem ersten Saisonwechsel am echten Regal
+// nachmessen und hier anpassen.
+//
+//   205/55 R16 → 632 mm, 205 breit  → normal
+//   235/55 R17 → 690 mm             → normal
+//   255/55 R18 → 738 mm             → groß
+//   275/45 R20 → 756 mm, 275 breit  → groß
+export const GROSSES_FACH_AB_DURCHMESSER_MM = 720;
+export const GROSSES_FACH_AB_BREITE_MM = 265;
+
+// Fehlt der Querschnitt („195 R14 C"), gilt der übliche Wert solcher Reifen: 80 %.
+const QUERSCHNITT_OHNE_ANGABE = 80;
+
+export function reifenDurchmesserMm(g: Reifengroesse): number {
+  return Math.round(g.zoll * 25.4 + 2 * g.breite * (g.querschnitt ?? QUERSCHNITT_OHNE_ANGABE) / 100);
+}
+
+// Braucht diese Reifengröße ein großes Fach? Nicht lesbar oder leer → nein: Ohne Größe gibt es
+// nichts zu warnen, und „vielleicht groß" wäre bei jedem Altbestand ohne Größe Lärm.
+export function brauchtGrossesFach(groesse: string | null | undefined): boolean {
+  const g = groesseAusText(groesse);
+  if (!g) return false;
+  return reifenDurchmesserMm(g) >= GROSSES_FACH_AB_DURCHMESSER_MM || g.breite >= GROSSES_FACH_AB_BREITE_MM;
+}
+
+export function platzGroesse(slot: Pick<StorageSlot, "groesse">): PlatzGroesse {
+  return slot.groesse === "gross" ? "gross" : "normal";
+}
+
+// Der Hinweis, wenn ein großer Reifen in ein normales Fach soll – ein Hinweis, keine Sperre: Wer
+// davorsteht und sieht, dass es passt, darf. Null, wenn nichts zu sagen ist.
+export function platzZuKlein(slot: Pick<StorageSlot, "groesse" | "code">, groesse: string | null | undefined): string | null {
+  if (platzGroesse(slot) === "gross" || !brauchtGrossesFach(groesse)) return null;
+  const g = groesseAusText(groesse)!;
+  return `Großes Fach nötig: ${groesseText(g)} (Ø ${reifenDurchmesserMm(g)} mm) – Platz ${slot.code} ist ein normales Fach`;
+}
+
+// Die freien Plätze in der Reihenfolge, in der sie angeboten werden: Für einen großen Reifen die
+// großen Fächer zuerst, für alle anderen die normalen – damit die wenigen großen frei bleiben für
+// die Reifen, die sie brauchen. Innerhalb der Gruppe bleibt die bisherige Reihenfolge.
+export function plaetzeFuerReifen<T extends Pick<StorageSlot, "groesse">>(plaetze: T[], gross: boolean): T[] {
+  const passend = plaetze.filter((p) => (platzGroesse(p) === "gross") === gross);
+  const andere = plaetze.filter((p) => (platzGroesse(p) === "gross") !== gross);
+  return [...passend, ...andere];
 }

@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ArticlePrice, Verkaufsreifen, VerkaufsreifenFelder } from "@/lib/types";
 import { currentArticlePrice, DEFAULT_VAT_RATE } from "@/lib/helpers";
 import { positionsText } from "@/lib/reifenverkauf";
-import { fetchPaged, qOne, qWrite } from "./client";
+import { fetchPaged, q, qOne, qWrite } from "./client";
 
 // Datenzugriff für den Reifenverkauf (Migration 61). Reine Supabase-Wrapper ohne React-State –
 // Muster wie lib/api/lager.ts.
@@ -58,4 +58,13 @@ export async function reifenAufAuftrag(
       verkaufsreifen_id: posten.id,
     })
   );
+}
+
+// Ein eingelagerter Satz wird zum Verkaufsposten (E17, Migration 64): auslagern und die Posten auf
+// denselben Platz legen – in der Datenbank, in einem Zug. Die Posten kommen fertig aus
+// `entwurfAlsPosten` (lib/reifenverkauf.ts). Gibt die Kennungen der neuen Posten zurück.
+export async function satzZumVerkauf(supabase: SupabaseClient, satzId: string, posten: Record<string, string | number | boolean | null>[]): Promise<string[]> {
+  const ids = await q<string[]>("Der Satz konnte nicht in den Reifenverkauf übernommen werden",
+    supabase.rpc("satz_zum_verkauf", { p_satz: satzId, p_posten: posten }));
+  return ids ?? [];
 }

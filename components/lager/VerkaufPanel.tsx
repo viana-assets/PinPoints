@@ -7,6 +7,7 @@ import {
   reifenUnterzeile, sortiereReifen,
 } from "@/lib/reifenverkauf";
 import { VerkaufsreifenBlatt } from "./VerkaufsreifenBlatt";
+import { VerkaufsreifenEtikett } from "./VerkaufsreifenEtikett";
 
 // Der Reiter „Verkauf" im Lager (Migration 61, docs/lager.md „Reifenverkauf"): alles, was der
 // Betrieb an Reifen und Kompletträdern verkauft, über alle Lager – auch das Lager „Zuhause",
@@ -39,6 +40,9 @@ export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBe
   const [filter, setFilter] = useState<VerkaufFilter>("alle");
   // undefined = kein Blatt, null = neu erfassen, sonst die Kennung
   const [blatt, setBlatt] = useState<string | null | undefined>(undefined);
+  // Etikett für diesen Posten (E17) – über dem Blatt, das dafür schließt.
+  const [etikettId, setEtikettId] = useState<string | null>(null);
+  const etikettPosten = etikettId ? verkaufsreifen.find((v) => v.id === etikettId) ?? null : null;
 
   // Kommt der Wunsch von der Regalwand, gilt er, bis das Blatt geschlossen wird – abgeleitet statt
   // per Effekt in den eigenen Zustand kopiert.
@@ -170,8 +174,10 @@ export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBe
           onSpeichern={onSpeichern}
           onLoeschen={onLoeschen}
           onClose={schliessen}
+          onEtikett={offen ? () => { const id = offen.id; schliessen(); setEtikettId(id); } : undefined}
         />
       )}
+      {etikettPosten && <VerkaufsreifenEtikett posten={etikettPosten} onClose={() => setEtikettId(null)} />}
     </>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { passtZumFilter, reiheTitel, scanZiel } from "@/lib/lagerAnsicht";
+import { brauchtGrossesFach, passtZumFilter, platzGroesse, platzZuKlein, plaetzeFuerReifen, reifenDurchmesserMm, reiheTitel, scanZiel } from "@/lib/lagerAnsicht";
 import type { TireStorage } from "@/lib/types";
 
 // Die Regeln hinter der neuen Lagerseite (Entwurf H): Filter, Reihentitel, Scan-Weiche.
@@ -80,5 +80,42 @@ describe("lagerAuslastung (E11)", () => {
     expect(zuhause.voll).toBe(false);
     expect(auslastungText(halle)).toBe("Halle ist zu 90 % belegt – noch 1 Platz frei.");
     expect(lagerAuslastung(lager, plaetze, new Set(["p0"]))[0].voll).toBe(false);
+  });
+});
+
+describe("scanZiel mit Verkaufsreifen (E17)", () => {
+  const POSTEN = "66666666-6666-4666-8666-666666666666";
+  it("ein Verkaufsreifen-Etikett öffnet den Posten", () => {
+    expect(scanZiel(`https://app.example/?reifen=${POSTEN}`, [], [], [{ id: POSTEN }])).toEqual({ art: "verkauf", postenId: POSTEN });
+  });
+  it("ein unbekannter Posten ist unbekannt, nicht fremd", () => {
+    expect(scanZiel(`https://app.example/?reifen=${POSTEN}`, [], [], [])).toEqual({ art: "unbekannt" });
+  });
+});
+
+describe("Fachgröße (E12)", () => {
+  it("rechnet den Außendurchmesser", () => {
+    expect(reifenDurchmesserMm({ breite: 205, querschnitt: 55, zoll: 16 })).toBe(632);
+    expect(reifenDurchmesserMm({ breite: 275, querschnitt: 45, zoll: 20 })).toBe(756);
+    expect(reifenDurchmesserMm({ breite: 195, querschnitt: null, zoll: 14 })).toBe(668);
+  });
+  it("groß ab Durchmesser oder Breite", () => {
+    expect(brauchtGrossesFach("205/55 R16")).toBe(false);
+    expect(brauchtGrossesFach("235/55 R17")).toBe(false);
+    expect(brauchtGrossesFach("255/55 R18")).toBe(true);
+    expect(brauchtGrossesFach("275/35 R19")).toBe(true);
+    expect(brauchtGrossesFach(null)).toBe(false);
+    expect(brauchtGrossesFach("unbekannt")).toBe(false);
+  });
+  it("Hinweis nur bei großem Reifen im normalen Fach", () => {
+    expect(platzZuKlein({ code: "A1" }, "275/45 R20")).toBe("Großes Fach nötig: 275/45 R20 (Ø 756 mm) – Platz A1 ist ein normales Fach");
+    expect(platzZuKlein({ code: "A1", groesse: "gross" }, "275/45 R20")).toBeNull();
+    expect(platzZuKlein({ code: "A1" }, "205/55 R16")).toBeNull();
+  });
+  it("große Fächer zuerst für große Reifen, sonst zuletzt", () => {
+    const p = [{ id: "n1" }, { id: "g1", groesse: "gross" as const }, { id: "n2", groesse: "normal" as const }];
+    expect(plaetzeFuerReifen(p, true).map((x) => x.id)).toEqual(["g1", "n1", "n2"]);
+    expect(plaetzeFuerReifen(p, false).map((x) => x.id)).toEqual(["n1", "n2", "g1"]);
+    expect(platzGroesse({})).toBe("normal");
   });
 });

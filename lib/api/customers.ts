@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ContactHistoryEntry, Customer, GeoGenauigkeit, KontaktErgebnis } from "@/lib/types";
+import type { AuskunftDaten } from "@/lib/auskunft";
 import { geocodeAddress } from "@/lib/helpers";
 import { ApiError, fetchPaged, q, qOne, qWrite } from "./client";
 
@@ -356,3 +357,11 @@ export async function testkundeLoeschen(supabase: SupabaseClient, id: string): P
   return erste;
 }
 
+
+// Auskunftsauszug (Fahrplan E10, Migration 64): alles zu einem Kunden in einem Abruf. Nur Admin
+// und Superadmin – die Datenbank prüft es und sagt sonst im Klartext, warum nicht.
+export async function fetchKundeAuskunft(supabase: SupabaseClient, id: string): Promise<AuskunftDaten> {
+  const daten = await q<AuskunftDaten>("Der Auskunftsauszug konnte nicht erstellt werden", supabase.rpc("kunde_auskunft", { p_kunde: id }));
+  if (!daten) throw new ApiError("Der Auskunftsauszug konnte nicht erstellt werden", { message: "keine Rückmeldung der Datenbank." });
+  return daten;
+}

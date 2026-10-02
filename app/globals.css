@@ -3756,3 +3756,47 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .app-brand h1.marke-text{font-size:16px;}
 .login-box h1.marke-text{align-items:center;font-size:22px;}
 .login-box h1.marke-text small{font-size:12.5px;}
+
+/* ---------------- Fahrplan Runde 2 (v103) ---------------- */
+/* E12: großes Fach. An der kleinen Regalwand ein Strich oben, an der Platznummer ein Punkt –
+   genug, um es beim Suchen zu sehen, ohne die Farben (belegt/frei/Verkauf) zu überdecken. */
+.lg-w.fach-gross{box-shadow:inset 0 3px 0 #7d93b8;}
+.lg-w.fach-gross.pruefen{box-shadow:inset 0 3px 0 #7d93b8, inset 0 -5px 0 var(--accent);}
+.lg-code.fach-gross{position:relative;}
+.lg-code.fach-gross::after{content:"";position:absolute;top:3px;right:3px;width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.55;}
+.lg-knopf.an{border-color:var(--navy);color:var(--navy);font-weight:700;}
+
+/* E1: „Gibt es schon?" mit Begründung; die starken Gründe kräftiger. */
+.nk-dublette .nk-grund{font-weight:700;}
+.nk-dublette.stark{border:1.5px solid #ea580c;}
+.du-paar{gap:8px;}
+.du-gruende{font-size:12px;font-weight:700;color:#9a3412;}
+.du-kunde{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;border:1px solid var(--border);
+  border-radius:12px;padding:8px 12px;background:var(--panel);color:var(--text);cursor:pointer;}
+.du-kunde:hover{border-color:var(--accent);}
+.du-paar .pk-knoepfe{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;}
+.ab-option.gewaehlt{border:2px solid var(--accent);background:var(--chip-hover);}
+
+/* E17: Übernahme aus der Einlagerung, Etikett am Verkaufsreifen. */
+.vz-posten{display:flex;flex-direction:column;gap:8px;}
+.vk-etikett{align-self:flex-start;}
+
+/* E10: Auskunftsauszug – am Bildschirm ein Blatt im Fenster, auf Papier A4 (RECHNUNG_SEITE_CSS). */
+.modal-box.ak-fenster{width:760px;max-width:96vw;max-height:calc(94vh / var(--z));display:flex;flex-direction:column;gap:10px;padding:18px 20px;overflow-y:auto;}
+.druckbogen.ak-dokument{display:block;max-height:none;overflow:visible;background:#ffffff;color:#000000;padding:18px 20px;
+  border:1px solid var(--border);border-radius:8px;font-size:13px;line-height:1.45;}
+.ak-dokument h1{font-size:18px;margin:0 0 4px;}
+.ak-dokument h2{font-size:14px;margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid #c8c8c8;break-after:avoid;page-break-after:avoid;}
+.ak-dokument p{margin:6px 0;}
+.ak-klein{font-size:11px;color:#555555;}
+.ak-tabelle{width:100%;border-collapse:collapse;}
+.ak-tabelle th{width:32%;text-align:left;vertical-align:top;font-weight:600;padding:3px 10px 3px 0;}
+.ak-tabelle td{vertical-align:top;padding:3px 0;overflow-wrap:anywhere;}
+.ak-tabelle tr{break-inside:avoid;page-break-inside:avoid;}
+@media print{
+  .druckbogen.ak-dokument{border:none;border-radius:0;padding:0;font-size:10.5pt;display:block;}
+  /* Endet der Auszug mitten auf einer Seite, schien darunter der beige Seitenhintergrund durch
+     (gesehen im PDF, v103) – die Rechnung füllt ihre Seite und kennt das nicht. */
+  html:has(.ak-dokument), html:has(.ak-dokument) body{background:#ffffff !important;}
+}
+.nk-feld.ve-anzahl{flex:0 0 96px;}

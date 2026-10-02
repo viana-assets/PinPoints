@@ -86,6 +86,27 @@ Monatsschwelle. Seit dem 26.09.2026 als Zeilen statt als Tabelle; eine Zeile öf
 - **Aufkleber in Teilen (D18):** Mehr als 40 Regalaufkleber auf einmal werden in Teilen zu 40
   gedruckt (Auswahl „Teil 1 von 5: A-01 – C-08"), sonst hängt das iPhone.
 
+## Seit v103: große Fächer (E12, Migration 64)
+
+Ein Lagerplatz ist ein **normales** oder ein **großes Fach** (`storage_slots.groesse`, Prüfregel
+`storage_slots_groesse_bekannt`). Umgestellt wird im Blatt des Platzes („Als großes Fach markieren" /
+„Großes Fach ✓", wer Plätze anlegen darf); beim Anlegen mehrerer Plätze gibt es das Kästchen
+„als große Fächer". An der kleinen Regalwand trägt ein großes Fach einen Strich oben, an der
+Platznummer einen Punkt, im Blatt steht „großes Fach".
+
+Wann ein Reifen ein großes Fach braucht, rechnet `brauchtGrossesFach()` (`lib/lagerAnsicht.ts`) aus
+der Reifengröße des Fahrzeugs: ab **720 mm Außendurchmesser** (`GROSSES_FACH_AB_DURCHMESSER_MM`)
+oder ab **265 mm Breite** (`GROSSES_FACH_AB_BREITE_MM`) – Startwerte, nach dem ersten
+Saisonwechsel am echten Regal nachmessen. 205/55 R16 und 235/55 R17 sind normal, 255/55 R18 und
+275/45 R20 groß. Wirkung, jeweils als **Hinweis, nie als Sperre**:
+
+- Auftragsfenster, Platzwahl beim Einlagern: für einen großen Reifen stehen die großen Fächer
+  oben, für alle anderen unten (die wenigen großen bleiben frei für die, die sie brauchen); die
+  großen tragen „· groß". Ein normales Fach für einen großen Reifen gibt „Großes Fach nötig:
+  275/45 R20 (Ø 756 mm) – Platz A-14 ist ein normales Fach" (`platzZuKlein`).
+- Einlagern-Fenster im Lager: derselbe Satz unter der Fahrzeugwahl.
+- Liegt der Satz schon im normalen Fach, steht der Satz unter „Zu prüfen".
+
 ## QR-Aufkleber am Regal (Migration 22)
 
 Jeder Lagerplatz kann einen Aufkleber bekommen, der genau auf ihn zeigt.
@@ -793,6 +814,32 @@ entfernen und neu eintragen.
 - Löschen eines Postens geht nur, solange er auf keinem Auftrag stand – sonst ist er Beleg; dann
   den Bestand auf 0 setzen, er steht unter „Ausverkauft".
 
+### Kunde lässt die Reifen da (E17, Migration 64, v103)
+
+Im Blatt eines belegten Platzes: **„Kunde lässt sie da · zum Verkauf"** (wer einlagern und den
+Reifenverkauf schreiben darf). `SatzZumVerkaufBlatt.tsx` schlägt die Posten aus den Raddaten vor
+(`postenAusSatz`, `lib/reifenverkauf.ts`): bei Satzwert ein Posten mit der Größe des Fahrzeugs, dem
+DOT und dem Profil des Satzes und der Zahl der Räder; bei Messung je Rad je Größe, DOT und Felge
+ein Posten mit dem schwächsten Profil der Gruppe. Dazu kommen Hersteller (für alle Posten auf
+einmal), Verkaufspreis und – freiwillig – der Ankaufspreis (wird zum Einkaufspreis, also zur
+Marge). Zustand immer „gebraucht".
+
+`satz_zum_verkauf()` lagert den Satz aus und legt die Posten auf **denselben Platz**, in einem
+Zug (sonst wäre der Platz dazwischen doppelt belegt oder kurz frei). Rechte des Aufrufers;
+fehlt das Schreibrecht auf den Reifenverkauf, sagt die Funktion das, bevor sie etwas tut. Eine
+Lagergebühr wird dabei nicht berechnet. Der Posten trägt `herkunft_satz_id`; im Blatt steht
+„aus einer Einlagerung übernommen".
+
+### Etikett am Verkaufsreifen (E17, v103)
+
+Im Blatt eines Postens **„Etikett drucken"** (`VerkaufsreifenEtikett.tsx`): eines je Stück (Anzahl
+vorgegeben aus dem Bestand, höchstens 20), Brother 58 × 58 oder 60 × 86 mm wie beim Reifensatz,
+als PDF ins Teilen-Menü. Groß Größe und Zustand, fett Hersteller und Modell, darunter Saison,
+Index, DOT, Profil, Felge (`etikettTexte`). **Kein Preis** – er ändert sich, das Etikett bleibt
+kleben. Der QR-Code trägt `/?reifen=<Kennung>` (`VERKAUFSREIFEN_PARAMETER`): mit der Handy-Kamera
+öffnet er die App im Reiter „Verkauf" mit offenem Posten, der Scan-Knopf im Lager erkennt ihn
+ebenfalls (`scanZiel` → `verkauf`).
+
 ### Hinweise vor dem Verkauf (`reifenHinweise`)
 
 - Neureifen mit DOT älter als `NEUREIFEN_ALT_JAHRE` (3), gebrauchte älter als `DOT_ALT_JAHRE` (6).
@@ -805,5 +852,5 @@ entfernen und neu eintragen.
   fallen – andere Rechnungsangaben und DATEV-Konten. Mit dem Steuerberater klären; die zwei
   Artikel sind die Vorbereitung dafür. Heute gilt der Steuersatz des Artikels (sonst 19 %).
 - Gewährleistungshinweis für gebrauchte Reifen an Privatkunden auf der Rechnung.
-- Übernahme aus einer Einlagerung (Kunde lässt alte Reifen da), Etikett mit QR-Code je Posten,
-  Reifenverkauf in den Auswertungen (Umsatz neu/gebraucht, Marge, Ladenhüter).
+- (Erledigt in v103: Übernahme aus der Einlagerung, Etikett je Posten – oben; Reifenverkauf in den
+  Auswertungen – Reiter „Reifen", siehe `fahrplan.md` E18.)

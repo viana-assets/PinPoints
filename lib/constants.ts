@@ -7,7 +7,7 @@
 // stehen nur Konstanten, die von mehreren, fachlich unterschiedlichen Stellen in
 // app/page.tsx verwendet werden (Rollen, Berechtigungen, Auftragsstatus, Kalenderfarben).
 
-import type { Article, Felge, OrderStatus, RadPosition, ReifenZustand, Role, Saison } from "./types";
+import type { Article, Felge, OrderStatus, PlatzGroesse, RadPosition, ReifenZustand, Role, Saison } from "./types";
 
 // ---------------------------------------------------------------- Rollen
 export const ROLE_LABEL: Record<Role, string> = {
@@ -358,6 +358,15 @@ export const SAISON_LABEL: Record<Saison, string> = {
 
 export const SAISON_LISTE: Saison[] = ["sommer", "winter", "ganzjahr"];
 
+// ---------------------------------------------------------------- Lager: Fachgröße (E12)
+//
+// Die zwei Fachgrößen eines Lagerplatzes (Migration 64, Prüfregel `storage_slots_groesse_bekannt`).
+// Ab welcher Reifengröße ein großes Fach nötig ist: lib/lagerAnsicht.ts, `brauchtGrossesFach`.
+export const PLATZ_GROESSE_LABEL: Record<PlatzGroesse, string> = {
+  normal: "normales Fach",
+  gross: "großes Fach",
+};
+
 // ---------------------------------------------------------------- Lager: Räder und Profil
 //
 // Die vier Positionen in der Reihenfolge, in der sie auch im Radbild stehen: vorne zuerst,
@@ -455,6 +464,11 @@ export const DOT_ALT_JAHRE = 6;
 export const LAGERDAUER_HINWEIS_TAGE = 365;
 
 // ---------------------------------------------------------------- Protokoll (Migration 36)
+//
+// Nach wie vielen Monaten personenbezogene Felder im Protokoll geschwärzt werden (B1). Die Zahl
+// steht als Vorgabe in `protokoll_schwaerzen()` (Migration 56, nächtlich über pg_cron); hier nur
+// für den Text im Auskunftsauszug (E10). Wer eine Stelle ändert, ändert beide.
+export const PROTOKOLL_SCHWAERZEN_MONATE = 36;
 //
 // Der Trigger schreibt Tabellen- und Spaltennamen, wie sie in der Datenbank heißen. Für
 // jemanden, der das Protokoll liest, ist „order_articles.net_price“ keine Auskunft, sondern

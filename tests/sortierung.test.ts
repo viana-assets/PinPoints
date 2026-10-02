@@ -6,7 +6,11 @@ import { join } from "node:path";
 // können Zeilen zwischen zwei Seiten doppelt kommen oder fehlen. Der Test liest die Abfragen
 // aus lib/api/ und verlangt vor jedem `.range(` als letzte Sortierung einen eindeutigen Schlüssel.
 const ORDNER = join(__dirname, "..", "lib", "api");
-const EINDEUTIG = [/\.order\("id"\)\s*\.range\(/, /\.order\("module_key"\)\s*\.range\(/, /\.order\("tire_storage_id"\)\s*\.range\(/];
+// `kunde_a, kunde_b` ist der zusammengesetzte Primärschlüssel von `kunden_keine_dublette` (E1, Migration 64).
+const EINDEUTIG = [
+  /\.order\("id"\)\s*\.range\(/, /\.order\("module_key"\)\s*\.range\(/, /\.order\("tire_storage_id"\)\s*\.range\(/,
+  /\.order\("kunde_a"\)\s*\.order\("kunde_b"\)\s*\.range\(/,
+];
 
 describe("seitenweise Abfragen sind eindeutig sortiert", () => {
   for (const datei of readdirSync(ORDNER).filter((d) => d.endsWith(".ts"))) {

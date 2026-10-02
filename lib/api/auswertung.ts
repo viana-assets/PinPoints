@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AuftragFahrzeug, Betrieb, Order, OrderArticle, Rechnung, TireStorage } from "@/lib/types";
+import type { AuftragFahrzeug, Betrieb, Order, OrderArticle, Rechnung, TireStorage, Verkaufsreifen } from "@/lib/types";
+import type { ReifenVerkaufszeile } from "@/lib/reifenverkauf";
 import { fetchBetrieb } from "./betrieb";
 import { fetchPaged, q } from "./client";
 
@@ -34,6 +35,10 @@ export type AuswertungsAbzug = {
   offeneRechnungsauftraege: Order[];
   lagerplaetze: number;
   betrieb: Betrieb | null;
+  // Reifenverkauf (E18, v103): ALLE Positionen, die an einem Verkaufsposten hängen, mit Datum und
+  // Stand ihres Auftrags, dazu alle Posten – unabhängig vom Zeitraum, weil der Lagerwert im
+  // Verlauf die Verkäufe bis heute braucht. Null ohne Leserecht auf den Reifenverkauf.
+  reifenVerkauf: { zeilen: ReifenVerkaufszeile[]; posten: Verkaufsreifen[] } | null;
 };
 
 // `von`/`bis` ist der GELADENE Zeitraum: Er umfasst den gewählten, das Vorjahr, die zwölf
@@ -43,7 +48,8 @@ export async function fetchAuswertungsdaten(
   supabase: SupabaseClient,
   von: string,
   bis: string,
-  mitRechnungen: boolean
+  mitRechnungen: boolean,
+  mitReifenverkauf = false
 ): Promise<AuswertungsAbzug> {
   const orders = await fetchPaged<Order>(
     "Die Aufträge für die Auswertung konnten nicht geladen werden",
@@ -114,7 +120,10 @@ export async function fetchAuswertungsdaten(
   const testAuftrag = new Set([...orders, ...offeneRechnungsauftraege].filter((o) => o.order_number < 0).map((o) => o.id));
   const echt = <T extends { order_id: string }>(zeilen: T[]) => zeilen.filter((z) => !testAuftrag.has(z.order_id));
 
+  const reifenVerkauf = mitReifenverkauf ? await fetchReifenverkauf(supabase) : null;
+
   return {
+    reifenVerkauf,
     orders: orders.filter((o) => o.order_number > 0),
     orderArticles: echt(positionen),
     orderEmployees: Object.fromEntries(Object.entries(zuordnungen).filter(([id]) => !testAuftrag.has(id))),
@@ -124,4 +133,28 @@ export async function fetchAuswertungsdaten(
     offeneRechnungsauftraege: offeneRechnungsauftraege.filter((o) => o.order_number > 0),
     lagerplaetze: plaetze.error ? 0 : plaetze.count ?? 0, betrieb,
   };
+}
+
+// Die Grundlage der Reifenverkauf-Auswertung. Wenige Zeilen (ein Posten wird ein paar Mal
+// verkauft), deshalb vollständig und nicht nach Zeitraum. Testaufträge filtert
+// `reifenAuswertung` über die negative Nummer.
+async function fetchReifenverkauf(supabase: SupabaseClient): Promise<AuswertungsAbzug["reifenVerkauf"]> {
+  const posten = await fetchPaged<Verkaufsreifen>("Die Verkaufsreifen für die Auswertung konnten nicht geladen werden", (a, b) =>
+    supabase.from("verkaufsreifen").select("*").order("created_at").order("id").range(a, b));
+  const positionen = await fetchPaged<OrderArticle>("Die Reifenverkäufe für die Auswertung konnten nicht geladen werden", (a, b) =>
+    supabase.from("order_articles").select("*").not("verkaufsreifen_id", "is", null).is("deleted_at", null)
+      .order("created_at").order("id").range(a, b));
+  const ids = [...new Set(positionen.map((x) => x.order_id))];
+  const auftraege = new Map<string, Order>();
+  for (let i = 0; i < ids.length; i += 200) {
+    const teil = await q<Order[]>("Die Aufträge der Reifenverkäufe konnten nicht geladen werden",
+      supabase.from("orders").select("*").in("id", ids.slice(i, i + 200)));
+    for (const o of teil || []) auftraege.set(o.id, o);
+  }
+  const zeilen: ReifenVerkaufszeile[] = [];
+  for (const x of positionen) {
+    const o = auftraege.get(x.order_id);
+    if (o) zeilen.push({ ...x, auftrag: o });
+  }
+  return { zeilen, posten };
 }

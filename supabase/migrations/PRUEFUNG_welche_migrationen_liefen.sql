@@ -118,7 +118,10 @@ with pruefungen(nr, was, vorhanden) as (
     ('62', 'Löschsperre, Abfragebremse',        exists (select 1 from pg_trigger where tgname = 'trg_pruefe_auftrag_loeschen')
                                                   and to_regprocedure('public.fremdabfrage_erlaubt(text)') is not null),
     ('63', 'Telefon-Vergleich, Auftragsvorlagen', to_regclass('public.auftragsvorlagen') is not null
-                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'mobil_vergleich'))
+                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'mobil_vergleich')),
+    ('64', 'Dubletten, Auskunft, Fachgröße, Satz zum Verkauf', to_regprocedure('public.kunden_zusammenfuehren(uuid,uuid)') is not null
+                                                  and to_regprocedure('public.satz_zum_verkauf(uuid,jsonb)') is not null
+                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'storage_slots' and column_name = 'groesse'))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

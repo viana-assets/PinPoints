@@ -92,7 +92,7 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
   Reifengröße des Fahrzeugs. Reservieren beim Eintragen, Abbuchen beim Abschließen, beides von
   der Datenbank gezählt; ein Platz hält Kundensatz ODER Verkaufsreifen. Artikel „Reifen neu" /
   „Reifen gebraucht", Rechte-Bereich `lager.verkauf`. Einzelheiten: `docs/lager.md`,
-  „Reifenverkauf". Offen daraus: E16–E18.
+  „Reifenverkauf". Offen daraus: E16 (E17 und E18 seit v103 erledigt).
 
 * **26.09.2026 – Termine immer auf der Karte (Service Worker v85).** Bei einer Auswahl (Termine,
   Saisonliste) gelten die Zustands-Pillen nicht mehr und werden nicht gezeigt – ein in „Kunden"
@@ -427,8 +427,12 @@ für ein Versehen gehalten wird.
 
 ## D. Verbesserungen am Bestehenden
 
-**Alle offenen Punkte erledigt** (D1–D18, zuletzt am 02.10.2026 mit v100/v102). Neue Punkte
-kommen hier als Tabelle `| # | Was | Warum | Aufwand |` dazu.
+**D1–D18 erledigt** (zuletzt am 02.10.2026 mit v100/v102). Neue Punkte kommen hier als Tabelle
+`| # | Was | Warum | Aufwand |` dazu.
+
+| # | Was | Warum | Aufwand |
+|---|---|---|---|
+| D19 | Aufruf über einen QR-Code (`?lagerplatz=`, `?satz=`, `?reifen=`) übersteht das erste Neuladen nicht | Gefunden beim Prüfen von v103: Öffnet ein Gerät die App zum ersten Mal (noch kein Service Worker), übernimmt der neue Worker und `PwaBereit` lädt die Seite neu – die Adresszeile ist zu dem Zeitpunkt schon bereinigt, der Sprung geht verloren. Mit installierter App tritt es nicht auf. Abhilfe: den Sprung kurz in `sessionStorage` merken und nach dem Neuladen einlösen | klein |
 
 ---
 
@@ -437,6 +441,10 @@ kommen hier als Tabelle `| # | Was | Warum | Aufwand |` dazu.
 Nach Nutzen sortiert, nicht nach Aufwand.
 
 ### E1. Dublettenprüfung bei der Kundenanlage
+
+**Erledigt 02.10.2026 (Migration 64, v103):** „Gibt es schon?" mit Telefonnummer, E-Mail, Name + PLZ
+(Rückfrage bei starkem Grund), Admin → „Dubletten" mit Zusammenführen und „keine Dublette".
+Siehe `kunden-und-karte.md`.
 **Teilweise vorhanden:** Seit 26.09.2026 zeigt „Neuer Kunde" ab vier Zeichen Kunden mit gleichem
 Namensanfang („Gibt es schon?"), seit v93 verhindert die App doppelte Kennzeichen beim Kunden.
 Offen ist der Abgleich über die Telefonnummer und das Zusammenführen.
@@ -504,6 +512,9 @@ Dienst – vor dem Bau die Frage klären, ob das sein soll.
 *Aufwand: mittel bis groß.*
 
 ### E10. Auskunftsauszug je Kunde
+
+**Erledigt 02.10.2026 (Migration 64, v103):** Kundenfenster → „⋯" → „Auskunft (DSGVO)", nur Admin;
+Drucken/als PDF sichern und als Datei (JSON). Siehe `kunden-und-karte.md`.
 Ein Knopf im Kundenfenster (nur Admin), der alles zu diesem Kunden Gespeicherte als PDF
 zusammenstellt. Deckt die DSGVO-Auskunft ab, die heute nur durch Durchklicken bedienbar
 wäre. Passt zu B1/B2.
@@ -517,6 +528,9 @@ Hinweis, wenn ein Lager über 90 % belegt ist. Die Kennzahlen dafür werden bere
 *Aufwand: klein.*
 
 ### E12. Kapazitätsklasse am Lagerplatz
+
+**Erledigt 02.10.2026 (Migration 64, v103):** `storage_slots.groesse` normal/groß, Hinweis und
+Reihenfolge bei der Platzwahl ab 720 mm Durchmesser oder 265 mm Breite. Siehe `lager.md`.
 „Normal" und „groß/SUV", damit die Auswahl freier Plätze keine 20-Zöller in zu kleine
 Fächer schickt.
 *Aufwand: mittel.*
@@ -530,12 +544,19 @@ Rechnung (Verkürzung auf ein Jahr nur, wenn vereinbart).
 *Aufwand: klein, sobald die Antwort da ist.*
 
 ### E17. Reifenverkauf: Übernahme aus der Einlagerung und Etikett
+
+**Erledigt 02.10.2026 (Migration 64, v103):** „Kunde lässt sie da · zum Verkauf" im Platz-Blatt
+(`satz_zum_verkauf()`), Etikett je Verkaufsreifen mit `?reifen=`. Siehe `lager.md`.
 Ein Kunde lässt seine alten Reifen da oder verkauft sie an uns: aus dem eingelagerten Satz einen
 Verkaufsposten machen, Größe/DOT/Profil kommen aus den Raddaten mit. Dazu ein Etikett mit
 QR-Code je Posten (vorhandener Etikettendruck), Scan öffnet den Posten.
 *Aufwand: mittel.*
 
 ### E18. Reifenverkauf in den Auswertungen
+
+**Erledigt 02.10.2026 (v103, keine Migration):** Reiter „Reifen" in den Auswertungen – Umsatz neu/
+gebraucht mit Vorjahr, Marge über die Stück mit Einkaufspreis, Lagerwert heute und im Verlauf
+(zurückgerechnet, „ungefähr"), „liegt seit über sechs Monaten" (`VERKAUF_LANGE_LIEGEND_MONATE`).
 Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Verlauf,
 „liegt seit über sechs Monaten".
 *Aufwand: klein bis mittel.*

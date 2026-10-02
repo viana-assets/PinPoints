@@ -1,6 +1,6 @@
 # Berechtigungen und Rollen
 
-**Stand: 19.09.2026, ergänzt bis 01.10.2026 (`lager.verkauf`, Migration 61).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
+**Stand: 19.09.2026, ergänzt bis 02.10.2026 (`lager.verkauf`, Migration 61; Funktionen aus Migration 64).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
 Entscheidung tatsächlich fällt, und welche Irrtümer das Projekt dabei schon gemacht hat –
 damit sie kein zweites Mal gemacht werden.
 
@@ -245,6 +245,21 @@ umgedreht hat: „alles außer wegnehmen" lässt sich nur als Negativliste ausdr
 dafür: Eine neue Spalte an `orders` ist für Techniker automatisch änderbar.** Wer eine anlegt,
 muss sich fragen, ob sie in die gesperrte Liste gehört. Das steht auch in `architektur.md`,
 im Migrationsverlauf zu Migration 41.
+
+**Drei Funktionen aus Migration 64 (v103) prüfen selbst, wer sie aufrufen darf:**
+
+- `kunden_zusammenfuehren()` (E1, Admin → Dubletten): nur, wer Kunden **löschen** darf
+  (`darf('kunden','loeschen')`, Vorgabe Admin) – Zusammenführen legt einen Kunden in den
+  Papierkorb. `security definer`, weil es Aufträge, Fahrzeuge, Sätze und Rechnungsverweise
+  umhängt, die einzeln anderen Bereichen gehören; die Prüfung steht deshalb am Anfang der Funktion.
+  Die Vermerke „keine Dublette" (`kunden_keine_dublette`) liest, wer Kunden lesen darf, und
+  schreibt, wer Kunden löschen darf.
+- `kunde_auskunft()` (E10): nur **Admin und Superadmin**, unabhängig von der Matrix – der Auszug
+  ist die vollständigste Sammlung von Personendaten, die die App erzeugen kann.
+- `satz_zum_verkauf()` (E17): `security invoker`, es gelten die Rechte des Aufrufers –
+  Einlagerung schreiben (auslagern) und Reifenverkauf schreiben (Posten anlegen). Das zweite
+  prüft die Funktion vorab und sagt es im Klartext, statt nach dem Auslagern an der Richtlinie
+  zu scheitern.
 
 **Der Abschluss friert ein** (Migration 20, unverändert). An einem erledigten oder stornierten
 Auftrag ändert auch der Techniker nichts mehr. Das ist keine Einschränkung seiner Rechte,

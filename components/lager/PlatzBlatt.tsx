@@ -1,8 +1,9 @@
 import { useState } from "react";
-import type { Customer, EingelagertesRad, StorageSlot, TireStorage, Vehicle } from "@/lib/types";
+import type { Customer, EingelagertesRad, PlatzGroesse, StorageSlot, TireStorage, Vehicle } from "@/lib/types";
 import { PROFIL_HINWEIS_MM, PROFIL_KRITISCH_MM, RAD_POSITION_LABEL, RAD_POSITIONEN, SAISON_LABEL } from "@/lib/constants";
 import { dotJahr, formatDate, formatEUR, lagermonate, profilLage, profilText, satzProfilMm, todayStr } from "@/lib/helpers";
 import { ProfilMarke } from "./ProfilMarke";
+import { platzGroesse } from "@/lib/lagerAnsicht";
 
 // Das Blatt zu einem Lagerplatz (26.09.2026, Entwurf „H · Lager").
 //
@@ -17,7 +18,7 @@ const GRENZEN = { hinweis: PROFIL_HINWEIS_MM, kritisch: PROFIL_KRITISCH_MM };
 
 export function PlatzBlatt({
   slot, wo, satz, kunde, fahrzeug, raeder, gruende, verlauf, customers, raederFuer, lagergebuehrJeMonat,
-  canAssign, canDelete, onClose, onKunde, onAuslagern, onBearbeiten, onEtikett, onAufkleber, onLoeschen,
+  canAssign, canDelete, onClose, onKunde, onAuslagern, onBearbeiten, onEtikett, onAufkleber, onLoeschen, onGroesse, onZumVerkauf,
 }: {
   slot: StorageSlot;
   // „Hauptlager · Reihe A"
@@ -42,9 +43,25 @@ export function PlatzBlatt({
   onEtikett: (satzId: string) => void;
   onAufkleber: () => void;
   onLoeschen: () => void;
+  // Fachgröße umstellen (E12) – nur, wer Plätze anlegen darf.
+  onGroesse?: (groesse: PlatzGroesse) => Promise<void>;
+  // Der Kunde lässt den Satz da (E17): in den Reifenverkauf übernehmen.
+  onZumVerkauf?: () => void;
 }) {
   const [verlaufOffen, setVerlaufOffen] = useState(false);
+  const [groesseLaeuft, setGroesseLaeuft] = useState(false);
   const heute = todayStr();
+  const gross = platzGroesse(slot) === "gross";
+  const ort = gross ? `${wo} · großes Fach` : wo;
+
+  // Ein Schalter, der gleich speichert – hier richtig: Das Blatt hat keinen Speichern-Knopf, und
+  // die Fachgröße ist eine Eigenschaft des Regals, keine Eingabe, die man verwerfen könnte.
+  const groesseKnopf = onGroesse && (
+    <button type="button" className={"lg-knopf klein" + (gross ? " an" : "")} aria-pressed={gross} disabled={groesseLaeuft}
+      onClick={async () => { setGroesseLaeuft(true); try { await onGroesse(gross ? "normal" : "gross"); } finally { setGroesseLaeuft(false); } }}>
+      {gross ? "Großes Fach ✓" : "Als großes Fach markieren"}
+    </button>
+  );
 
   const verlaufKnopf = verlauf.length > 0 && (
     <button type="button" className="lg-link" onClick={() => setVerlaufOffen(!verlaufOffen)} aria-expanded={verlaufOffen}>
@@ -91,13 +108,14 @@ export function PlatzBlatt({
               <span className="lg-code gross frei">{slot.code}</span>
               <span className="lg-blatt-titel">
                 <b>Platz ist frei</b>
-                <span className="small">{wo}</span>
+                <span className="small">{ort}</span>
               </span>
               <button type="button" className="lg-zu" onClick={onClose} aria-label="Schließen">✕</button>
             </div>
             {canAssign && <button type="button" className="lg-knopf primaer gross" onClick={onBearbeiten}>Reifen einlagern</button>}
             <div className="lg-knoepfe">
               <button type="button" className="lg-knopf" onClick={onAufkleber}>Aufkleber fürs Regal</button>
+              {groesseKnopf}
               {canDelete && <button type="button" className="lg-knopf gefahr" onClick={loeschen}>Platz löschen</button>}
             </div>
             {verlaufKnopf || <span className="small">Auf diesem Platz lag noch kein Satz.</span>}
@@ -109,7 +127,7 @@ export function PlatzBlatt({
               <span className="lg-code gross">{slot.code}</span>
               <span className="lg-blatt-titel">
                 <b>{kunde ? kunde.name : "Unbekannter Kunde"}</b>
-                <span className="small">{wo}</span>
+                <span className="small">{ort}</span>
               </span>
               {kunde && onKunde
                 ? <button type="button" className="lg-pille" onClick={() => onKunde(kunde.id)}>Kunde ›</button>
@@ -176,6 +194,8 @@ export function PlatzBlatt({
               {canAssign && <button type="button" className="lg-knopf" onClick={onBearbeiten}>Bearbeiten</button>}
               <button type="button" className="lg-knopf klein" onClick={() => onEtikett(satz.id)}>Etikett für den Satz</button>
               <button type="button" className="lg-knopf klein" onClick={onAufkleber}>Aufkleber fürs Regal</button>
+              {groesseKnopf}
+              {onZumVerkauf && <button type="button" className="lg-knopf klein" onClick={onZumVerkauf}>Kunde lässt sie da · zum Verkauf</button>}
             </div>
             {verlaufKnopf}
             {verlaufListe}

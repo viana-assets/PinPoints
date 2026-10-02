@@ -16,7 +16,7 @@ import { dotFehler, groesseAusText, groesseText, reifenHinweise } from "@/lib/re
 
 type Felge = "keine" | "stahl" | "alu";
 
-export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBelegt, vorgabeLagerId, darfSchreiben, darfLoeschen, onSpeichern, onLoeschen, onClose }: {
+export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBelegt, vorgabeLagerId, darfSchreiben, darfLoeschen, onSpeichern, onLoeschen, onClose, onEtikett }: {
   // null = neu erfassen
   posten: Verkaufsreifen | null;
   warehouses: Warehouse[];
@@ -29,6 +29,8 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
   onSpeichern: (felder: VerkaufsreifenFelder, id: string | null) => Promise<void>;
   onLoeschen: (id: string) => Promise<void>;
   onClose: () => void;
+  // Etikett mit QR-Code je Stück (E17). Nur an einem gespeicherten Posten – vorher hat er keine Kennung.
+  onEtikett?: () => void;
 }) {
   const p = posten;
   const [zustand, setZustand] = useState<ReifenZustand>(p?.zustand ?? "neu");
@@ -133,7 +135,11 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
         {p && (
           <span className="small">
             {p.bestand} im Lager{reserviert > 0 ? ` · davon ${reserviert} auf offenen Aufträgen` : ""}{p.verkauft > 0 ? ` · ${p.verkauft} verkauft` : ""}
+            {p.herkunft_satz_id ? " · aus einer Einlagerung übernommen" : ""}
           </span>
+        )}
+        {p && onEtikett && (
+          <button type="button" className="btn-secondary btn-rand vk-etikett" onClick={onEtikett}>Etikett drucken</button>
         )}
 
         <div className="lg-lagerwahl ar-segment" role="group" aria-label="Zustand">

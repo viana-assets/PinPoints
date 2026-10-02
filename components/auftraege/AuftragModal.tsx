@@ -402,6 +402,8 @@ export function AuftragModal({
   const auftragsFahrzeuge = auftragFahrzeuge
     .filter((af) => af.order_id === order.id)
     .map((af) => ({ ...af, fahrzeug: vehicles.find((v) => v.id === af.vehicle_id) ?? null }));
+  // Die Reifengröße für die Platzwahl beim Einlagern (E12): die des ersten Autos am Auftrag, das eine hat.
+  const reifengroesseAmAuftrag = auftragsFahrzeuge.map((af) => af.fahrzeug?.tire_size).find((g) => !!g?.trim()) ?? null;
 
   // Ein Speichervorgang für das ganze Fenster. Die drei Aufrufe dahinter sind bestehende
   // Schnittstellen; nur Fahrzeug und Notiz werden übersprungen, wenn sie sich nicht geändert
@@ -1013,6 +1015,7 @@ export function AuftragModal({
                 onRadEntfernen={onRadEntfernen}
                 onFahrzeugAnlegen={(kennzeichen, modell) => onFahrzeugAnlegen(kennzeichen, modell, satz.id)}
                 onEtikett={onEtikett}
+                reifengroesse={reifengroesseAmAuftrag}
               />
             ))}
             {/* Der leere Block zum Anlegen des nächsten Satzes: Er hat noch keine Zeile in der
@@ -1036,6 +1039,7 @@ export function AuftragModal({
                 onRadSpeichern={onRadSpeichern}
                 onRadEntfernen={onRadEntfernen}
                 onFahrzeugAnlegen={onFahrzeugAnlegen}
+                reifengroesse={reifengroesseAmAuftrag}
               />
             )}
             {!einlagerungOffen && (
