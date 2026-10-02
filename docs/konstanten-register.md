@@ -25,12 +25,12 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **131 exportierte Konstanten** (`export const`) in 32 Dateien unter `lib/` – gezählt am
+Insgesamt **133 exportierte Konstanten** (`export const`) in 36 Dateien unter `lib/` – gezählt am
 02.10.2026 (v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
-`UMWEG_FAKTOR`, `MAPS_ZWISCHENZIELE_MAX`, `BESTAETIGUNG_ART_LABEL`; v105: `BELEG_ARTEN`, `BELEG_ART_LABEL`, `BELEG_BUCKET`, `BELEG_MAX_KANTE_PX`, `BELEG_JPEG_QUALITAET`) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
+`UMWEG_FAKTOR`, `MAPS_ZWISCHENZIELE_MAX`, `BESTAETIGUNG_ART_LABEL`; v105: `BELEG_ARTEN`, `BELEG_ART_LABEL`, `BELEG_BUCKET`, `BELEG_MAX_KANTE_PX`, `BELEG_JPEG_QUALITAET`; v106: `SPRUNG_PARAMETER`, `SPRUNG_MERKEN_MS`, dazu `lib/sprungMerker.ts` und drei Dateien aus der Teilung von `lib/helpers.ts` (`lagerdauer.ts`, `geocode.ts`, `protokollText.ts`) – deren Konstanten sind dieselben wie vorher) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
 eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMETER`,
 `PROFIL_MAX_MM`). Die Zahl gehört bei jeder neuen Konstante mit nachgezogen.
 
@@ -129,8 +129,8 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `BELEG_BUCKET` | `lib/constants.ts` | `string` (`auftrag-belege`) | Name des privaten Storage-Bereichs für Fotos und Unterschrift – heißt in Migration 65 genauso | `lib/api/belege.ts` |
 | `GROSSES_FACH_AB_DURCHMESSER_MM` | `lib/lagerAnsicht.ts` | `number` (720) | Ab diesem Außendurchmesser braucht ein Reifen ein großes Fach (E12, Startwert) | `brauchtGrossesFach()` – `EinlagerungBlock`, `LagerPanel`; `tests/lagerAnsicht.test.ts` |
 | `GROSSES_FACH_AB_BREITE_MM` | `lib/lagerAnsicht.ts` | `number` (265) | Ab dieser Reifenbreite braucht ein Reifen ein großes Fach (E12, Startwert) | dito |
-| `LANGLIEGER_MONATE` | `lib/helpers.ts` | `number` (18) | Monate, ab denen ein Satz als „Langlieger" gilt | **nur intern** – über `istLanglieger()` (`AuslagernDialog`, `tests/lagerdauer.test.ts`) |
-| `LANGLIEGER_EURO` | `lib/helpers.ts` | `number` (150) | Summenschwelle, ab der ein Satz als „Langlieger" gilt | dito, über `istLanglieger()` |
+| `LANGLIEGER_MONATE` | `lib/lagerdauer.ts` (bis v105 `lib/helpers.ts`) | `number` (18) | Monate, ab denen ein Satz als „Langlieger" gilt | **nur intern** – über `istLanglieger()` (`AuslagernDialog`, `tests/lagerdauer.test.ts`) |
+| `LANGLIEGER_EURO` | `lib/lagerdauer.ts` | `number` (150) | Summenschwelle, ab der ein Satz als „Langlieger" gilt | dito, über `istLanglieger()` |
 
 ## Lager: Reifenverkauf (Migration 61)
 
@@ -179,8 +179,8 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `PROTOKOLL_FELD_LABEL` | `lib/constants.ts` | `Record<string, string>` | Spaltenname → Klartext; enthält bewusst auch längst gelöschte Spalten (Historie bleibt lesbar) | `ProtokollPanel`, `tests/protokoll.test.ts` |
 | `PROTOKOLL_SCHWAERZEN_MONATE` | `lib/constants.ts` | `number` (36) | Nach so vielen Monaten schwärzt `protokoll_schwaerzen()` (Migration 56) personenbezogene Felder im Protokoll – hier nur für den Text im Auskunftsauszug; beide gemeinsam ändern (E10, v103) | `AuskunftFenster` |
 | `PROTOKOLL_TAGE_STANDARD` | `lib/constants.ts` | `number` (90) | Standard-Rückreichweite des Protokollfilters im Adminbereich | `ProtokollPanel`, `AdminPanel` |
-| `PROTOKOLL_AKTION_LABEL` | `lib/helpers.ts` | `Record<string, string>` | INSERT/UPDATE/DELETE → „angelegt"/„geändert"/„gelöscht" | `ProtokollPanel` |
-| `IST_KENNUNG` | `lib/helpers.ts` | `RegExp` | Erkennt eine UUID in einem Protokollwert (zum Kürzen/Nachschlagen) | **nur intern** – `protokollWert()` |
+| `PROTOKOLL_AKTION_LABEL` | `lib/protokollText.ts` (bis v105 `lib/helpers.ts`) | `Record<string, string>` | INSERT/UPDATE/DELETE → „angelegt"/„geändert"/„gelöscht" | `ProtokollPanel` |
+| `IST_KENNUNG` | `lib/protokollText.ts` | `RegExp` | Erkennt eine UUID in einem Protokollwert (zum Kürzen/Nachschlagen) | **nur intern** – `protokollWert()` |
 | `PROTOKOLL_SEITE` | `lib/api/audit.ts` | `number` (200) | Höchstzahl der auf einmal geladenen Protokolleinträge | **nur intern** – `fetchProtokoll()` |
 
 ---
@@ -227,6 +227,8 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `BESTAETIGUNG_ART_LABEL` | `lib/terminBestaetigung.ts` | `Record<BestaetigungArt, string>` | Bestätigung / Erinnerung – die zwei Texte an den Kunden (E9, v104) | `BestaetigungBlatt` |
 | `BELEG_MAX_KANTE_PX` | `lib/belege.ts` | `number` (1600) | Lange Kante eines Fotos nach dem Verkleinern – DOT-Nummer und Kratzer noch klar, meist 200–500 kB (E3, v105) | `zielMasse()`, `bildVerkleinern()`; `tests/belege.test.ts` |
 | `BELEG_JPEG_QUALITAET` | `lib/belege.ts` | `number` (0,8) | JPEG-Qualität beim Verkleinern | `bildVerkleinern()` (lib/belegBild.ts) |
+| `SPRUNG_PARAMETER` | `lib/sprungMerker.ts` | `readonly string[]` | Alle Adress-Parameter, die einen Sprung auslösen (Aufkleber, Benachrichtigung) – aus den Einzelkonstanten zusammengesetzt (D19, v106) | `sprungTeile()`; `tests/sprungMerker.test.ts` |
+| `SPRUNG_MERKEN_MS` | `lib/sprungMerker.ts` | `number` (60 000) | Wie lange ein gemerkter Sprung das Neuladen durch den Service Worker überdauert | `sprungLesen()` |
 | `WOCHENTAG_KURZ` | `lib/dashboard.ts` | `readonly ["So", …, "Sa"]` (Sonntag zuerst wie `getDay()`) | Kurze Wochentage für „Fr 25.9." (26.09.2026 zusammengeführt – stand vorher als Literal in `datumKurz()`) | `datumKurz()`, darüber Dashboard, Kundenfenster, Auftragsfenster, Aufträge im Kundenfenster |
 
 ---
@@ -267,7 +269,7 @@ weil sie im Code **nicht exportiert** sind (`const`, kein `export const`) – ge
 |---|---|---|---|---|
 | `PAGE_SIZE` | `lib/api/client.ts` | `number` (1000) | Seitengröße beim Nachladen ganzer Tabellen (PostgREST-Standardgrenze) | **nur intern** in `fetchPaged()` – darüber aber Basis aller `fetchX()`-Funktionen im ganzen `lib/api/`-Ordner |
 | `qk` | `lib/queries/keys.ts` | Objekt aus Schlüssel-Funktionen | Alle Query-Schlüssel des Zwischenspeichers (TanStack Query) – ausschließlich hier gebildet | `lib/queries/hooks.ts` (alle Hooks), `app/page.tsx` (`neuLaden()`/`refreshX()`, rund 20 Stellen) |
-| `DEFAULT_GEOCODE_REGION` | `lib/helpers.ts` | `string` ("Nürnberg, Deutschland") | Region, die an eine Adresse ohne erkennbaren Ort angehängt wird | **nur intern**, über `geocodeAnfrage()`/`geocodeAddress()` |
+| `DEFAULT_GEOCODE_REGION` | `lib/geocode.ts` (bis v105 `lib/helpers.ts`) | `string` ("Nürnberg, Deutschland") | Region, die an eine Adresse ohne erkennbaren Ort angehängt wird | **nur intern**, über `geocodeAnfrage()`/`geocodeAddress()` |
 | `AUFTRAG_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder am Auftrag, die offline geändert werden dürfen (F1, v101) | `aenderungen()` in `app/page.tsx` (`auftragsAbsicht`), `tests/offlineAusgang.test.ts` |
 | `POSITION_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder einer Leistung, die offline geändert werden dürfen | Typ `PositionFeld` |
 | `RAD_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder eines Rades, die offline gemessen werden dürfen | Typ `RadFeld` |

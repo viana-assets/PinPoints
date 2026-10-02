@@ -609,7 +609,7 @@ nie beides zu). Wer im Lagerfenster nur nachsehen wollte, zurückschaltete oder 
 hatte den Wert verloren, ohne „Zuordnung speichern" getippt zu haben (gemeldet 02.10.2026).
 Jetzt gilt:
 
-* **Lagerfenster** (`TireAssignModal` in `LagerPanel.tsx`): Die Wahl ist ein Entwurf. Umgestellt
+* **Lagerfenster** (`TireAssignModal.tsx`, bis v105 in `LagerPanel.tsx`): Die Wahl ist ein Entwurf. Umgestellt
   wird mit „Zuordnung speichern" – erst die Erfassungsart, dann die Angaben – oder mit dem
   ersten gemessenen Rad (das ist eine Eingabe). Der bisherige Satzwert steht so lange als
   Hinweis über dem Radbild. Die Rückfrage „Räder werden gelöscht" kommt beim Speichern.

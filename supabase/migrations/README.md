@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `65_fotos_und_unterschrift.sql`** (v105, siehe unten). **Stand 02.10.2026: Alle Migrationen 01–64 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103) –
+**Noch auszuführen: nichts.** **Stand 02.10.2026: Alle Migrationen 01–65 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103, 65 mit v105) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -768,8 +768,6 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   zwei Posten auf denselben Platz mit Lager und Herkunft, zweiter Aufruf abgewiesen, Techniker
   ohne Verkaufsrecht abgewiesen und Satz liegt noch; zurückgenommen, zweimal, erneut ausgeführt.
 
-## Noch auszuführen
-
 - `65_fotos_und_unterschrift.sql` – **nach `64`, SQL zuerst, dann die Dateien** (die Oberfläche
   liest `auftrag_belege` und lädt in den Bucket). (1) Privater Storage-Bucket `auftrag-belege`
   (höchstens 3 MB, nur JPEG/PNG/WebP) mit drei Richtlinien auf `storage.objects`: lesen, wenn der
@@ -788,3 +786,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   direkt nicht aufrufbar; Protokoll INSERT/INSERT/DELETE; endgültiges Löschen eines Kunden und eines
   Testkunden nimmt Belege und deren Protokolleinträge mit (der Name aus der Unterschrift bleibt
   nirgends stehen); zurückgenommen, zweimal, erneut ausgeführt.
+
+## Noch auszuführen
+
+- (keine – Runde 5, v106, braucht keine Migration)

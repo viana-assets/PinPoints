@@ -340,6 +340,11 @@ bis mittel.
 
 ### B4. CSP erlaubt weiterhin `unsafe-inline`
 
+**Erledigt 02.10.2026 (v106):** `proxy.ts` setzt die CSP mit einer Nonce je Aufruf und
+`'strict-dynamic'` (`lib/csp.ts`), alle Seiten werden beim Aufruf erzeugt, `offline.html` ohne
+`onclick`. Im Produktionsbau geprüft: alle Skripte mit Nonce, keine CSP-Meldung, ein
+eingeschleustes `onerror=` wird blockiert.
+
 `next.config.mjs` setzt `script-src 'self' 'unsafe-inline'`. Sauber wäre eine
 Nonce-Lösung über `proxy.ts`. Fremde Skript-Hosts sind bereits ausgeschlossen, das Risiko
 ist daher gering – aber der Punkt steht seit Phase 8 offen. Aufwand: klein bis mittel.
@@ -402,6 +407,11 @@ Abschnitt 2) – die Richtigstellung steht in `supabase/migrations/README.md` be
 
 ### C5. Große Dateien
 
+**Erledigt 02.10.2026 (v106), soweit hier vorgeschlagen:** `TireAssignModal.tsx` eigene Datei
+(LagerPanel ~850 Zeilen), `lib/helpers.ts` in neun Themendateien geteilt (~500 Zeilen, reicht sie
+weiter), zentrale Fehlermeldung als `components/FehlerHinweis.tsx`. `app/page.tsx` bleibt groß
+(~3.800 Zeilen) – der nächste Schnitt wären die Lade- und Schreibfunktionen je Modul.
+
 `app/page.tsx` ist wieder auf rund 3.550 Zeilen gewachsen (nach der Sanierung waren es
 1.290). `components/auftraege/AuftragModal.tsx` liegt bei knapp 1.200, `components/lager/
 LagerPanel.tsx` bei rund 950, `lib/helpers.ts` bei rund 1.110 Zeilen (Stand 02.10.2026).
@@ -412,6 +422,10 @@ Das ist kein akutes Problem, aber jedes neue Modul hat bisher Zustand und Ladefu
 Aufwand: mittel, jederzeit aufschiebbar.
 
 ### C6. Keine Tests für Komponenten
+
+**Erledigt 02.10.2026 (v106):** Testing Library + jsdom, `tests/*.test.tsx`: zentrale
+Fehlermeldung mit einer echten Trigger-Meldung (Migration 44), Fotos & Unterschrift, Papierkorb.
+Weitere Komponententests kommen mit den Komponenten, die sie betreffen.
 
 Vitest deckt ausschließlich reine Rechenfunktionen ab. Dass ein Trigger-Fehler (etwa die
 Vollständigkeitsprüfung der Rechnungsdaten) in der Oberfläche als lesbare Meldung ankommt,
@@ -427,12 +441,12 @@ für ein Versehen gehalten wird.
 
 ## D. Verbesserungen am Bestehenden
 
-**D1–D18 erledigt** (zuletzt am 02.10.2026 mit v100/v102). Neue Punkte kommen hier als Tabelle
+**D1–D19 erledigt** (zuletzt am 02.10.2026 mit v100/v102). Neue Punkte kommen hier als Tabelle
 `| # | Was | Warum | Aufwand |` dazu.
 
 | # | Was | Warum | Aufwand |
 |---|---|---|---|
-| D19 | Aufruf über einen QR-Code (`?lagerplatz=`, `?satz=`, `?reifen=`) übersteht das erste Neuladen nicht | Gefunden beim Prüfen von v103: Öffnet ein Gerät die App zum ersten Mal (noch kein Service Worker), übernimmt der neue Worker und `PwaBereit` lädt die Seite neu – die Adresszeile ist zu dem Zeitpunkt schon bereinigt, der Sprung geht verloren. Mit installierter App tritt es nicht auf. Abhilfe: den Sprung kurz in `sessionStorage` merken und nach dem Neuladen einlösen | klein |
+| D19 | **Erledigt 02.10.2026 (v106, `lib/sprungMerker.ts`).** Aufruf über einen QR-Code (`?lagerplatz=`, `?satz=`, `?reifen=`) übersteht das erste Neuladen nicht | Gefunden beim Prüfen von v103: Öffnet ein Gerät die App zum ersten Mal (noch kein Service Worker), übernimmt der neue Worker und `PwaBereit` lädt die Seite neu – die Adresszeile ist zu dem Zeitpunkt schon bereinigt, der Sprung geht verloren. Mit installierter App tritt es nicht auf. Abhilfe: den Sprung kurz in `sessionStorage` merken und nach dem Neuladen einlösen | klein |
 
 ---
 

@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 02.10.2026 (Migrationen bis 65, 65 noch auszuführen; Service Worker v105; Regeln seit der Projektdurchsicht vom
+Stand: 02.10.2026 (Migrationen bis 65, alle ausgeführt; Service Worker v106; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -278,10 +278,16 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   gefragt wird.** Mit `camera=()` scheiterte der QR-Scanner an „Kein Zugriff auf die Kamera",
   mit `geolocation=()` der Standortknopf der Karte (gefunden 26.09.2026). Wer eine
   Gerätefunktion einbaut, prüft zuerst diese Zeile – `(self)` erlaubt sie der eigenen Seite.
-- **Die CSP in `next.config.mjs` sperrt auch Bilder.** `img-src` nannte bis v105 nur Kartenkacheln;
-  die Fotos am Auftrag (E3) kommen als Links von `…supabase.co` und wären ohne Eintrag dort leer
-  geblieben – `connect-src` deckt nur `fetch`, nicht `<img>`. Wer Bilder von einem neuen Host zeigt,
-  trägt ihn hier ein.
+- **Die CSP sperrt auch Bilder.** `img-src` nannte bis v105 nur Kartenkacheln; die Fotos am Auftrag
+  (E3) kommen als Links von `…supabase.co` und wären ohne Eintrag leer geblieben – `connect-src`
+  deckt nur `fetch`, nicht `<img>`. Wer Bilder von einem neuen Host zeigt, trägt ihn ein. Die CSP
+  steht seit v106 in `lib/csp.ts` (gesetzt von `proxy.ts`), nicht mehr in `next.config.mjs`.
+- **Seit v106 gilt die CSP mit Nonce (B4): kein Inline-Skript, kein `onclick="…"`, kein
+  `javascript:`.** Auch nicht in `public/offline.html` – deren „Erneut versuchen" ist deshalb ein
+  Link. React-Handler (`onClick={…}`) sind nicht betroffen. Eine Seite, die beim Bauen vorgefertigt
+  wird, kennt die Nonce nicht und bleibt weiß – deshalb `dynamic = "force-dynamic"` in
+  `app/layout.tsx`; nicht entfernen. Geprüft wird das nur im Produktionsbau (`next build` +
+  `next start`), `next dev` erlaubt mehr.
 - **Dateien in Supabase Storage löscht kein SQL** (Migration 65). Eine Zeile mit Pfad geht per
   Kaskade mit, die Datei bleibt. Wer etwas mit Bildern löscht, sammelt vorher die Pfade und
   entfernt die Dateien über die Storage-Schnittstelle (`lib/api/belege.ts`, Papierkorb).
@@ -313,8 +319,9 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   Meldung sagt dann „geht nur mit Netz".
 - **Im Playwright-Prüfaufbau übernimmt beim ersten Aufruf der Service Worker und lädt neu**
   (`PwaBereit`, `controllerchange`). Ein Aufruf mit `?lagerplatz=`/`?reifen=` ist danach schon
-  bereinigt und scheint „nicht zu wirken" (02.10.2026, v103). Zum Prüfen solcher Sprünge den
-  Kontext mit `serviceWorkers: "block"` öffnen; im Betrieb ist es Fahrplan D19.
+  bereinigt und schien „nicht zu wirken" (02.10.2026, v103). Seit v106 übersteht der Sprung das
+  Neuladen (`lib/sprungMerker.ts`, D19); wer nur den Sprung selbst prüfen will, öffnet den Kontext
+  weiter mit `serviceWorkers: "block"`.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 
@@ -355,7 +362,8 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
 - **CI**: `.github/workflows/typecheck.yml` bei jedem Push/PR auf `main`
   (`tsc --noEmit`, `eslint .`, `vitest run`, `next build`).
 - **Tests**: Vitest unter `tests/`, für die reinen Rechenfunktionen (Preise, Rechnung,
-  Kalender, Lagerdauer, Aufkleber-Codes).
+  Kalender, Lagerdauer, Aufkleber-Codes); seit v106 auch Komponententests (`*.test.tsx`, Testing
+  Library in jsdom, Kopfzeile `// @vitest-environment jsdom`).
 - **TanStack Query** als Zwischenspeicher aller Datenabfragen (`lib/queries/`,
   `app/providers.tsx`), mit `idb-keyval` als Offline-Lesespeicher.
 

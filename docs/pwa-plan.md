@@ -416,7 +416,14 @@ CSP-Direktive `connect-src` – nicht unter `style-src`/`font-src`, die beide l�
 waren. `connect-src` in `next.config.mjs` erlaubte bis dahin nur Supabase; die Anfrage wurde
 blockiert, der Worker warf einen unbehandelten Fehler, und die App lief in Ersatzschriften
 statt in Outfit und Karla. Behoben durch Ergänzung der Schrift-Hosts in `connect-src`
-(`next.config.mjs`).
+(`next.config.mjs`; seit v106 steht die CSP in `lib/csp.ts` und kommt aus `proxy.ts` – auch für
+`/sw.js` selbst, dessen eigene CSP für die Abrufe des Workers gilt).
+
+**3. Ein Sprung über die Adresse ging beim allerersten Aufruf verloren** (Fahrplan D19, gelöst in
+v106). Ohne laufenden Worker übernimmt der neue (`clients.claim()`), `PwaBereit` lädt bei
+`controllerchange` neu – und `?lagerplatz=`/`?reifen=`/`?auftrag=` waren da schon aus der
+Adresszeile entfernt. `lib/sprungMerker.ts` merkt den Sprung dafür höchstens eine Minute in
+`sessionStorage` und löst ihn nach dem Neuladen ein; läuft schon ein Worker, wird nichts gemerkt.
 
 **2. Ein fehlgeschlagener Abruf im Service Worker wurde zu einem unbehandelten Fehler in der
 Konsole** (bei jedem Laden, unabhängig vom eigentlichen Problem oben) statt zu einer sauberen

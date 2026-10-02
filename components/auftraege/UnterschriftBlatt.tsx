@@ -47,7 +47,8 @@ export function UnterschriftBlatt({ auftragsNr, datum, vorschlagName, onSpeicher
   }
   function runter(e: React.PointerEvent<HTMLCanvasElement>) {
     e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
+    // Ohne Zeigerfang (ältere Browser, Testumgebung) bricht der Strich am Rand ab – mehr nicht.
+    e.currentTarget.setPointerCapture?.(e.pointerId);
     zeichnet.current = true;
     const p = punkt(e);
     letzter.current = p;

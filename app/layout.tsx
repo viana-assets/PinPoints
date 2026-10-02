@@ -12,6 +12,13 @@ import { PwaBereit } from "@/components/PwaBereit";
 import type { Viewport } from "next";
 import { ERSCHEINUNG } from "@/lib/erscheinung";
 
+// Jede Seite wird beim Aufruf erzeugt, nicht beim Bauen (Fahrplan B4, v106): Die CSP trägt je
+// Aufruf eine neue Nonce (proxy.ts, lib/csp.ts), und Next.js schreibt sie beim Erzeugen an seine
+// Skripte. Eine vorgefertigte Seite hätte keine – der Browser führte dann kein einziges Skript aus,
+// und die App bliebe weiß. Kosten: Die Startseite kommt nicht mehr aus dem Vorrat des Servers; sie
+// ist eine leere Hülle, deren Inhalt ohnehin im Browser entsteht.
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: `${ERSCHEINUNG.name} · Mobiler Reifenservice`,
   description: ERSCHEINUNG.beschreibung,

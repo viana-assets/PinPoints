@@ -18,8 +18,12 @@
   und am Reifensatz werden mit `qrcode` erzeugt und mit `jsqr` zurückgelesen
   (`components/QrScanner.tsx`, `lib/aufkleberCode.ts`).
 - **Vercel** Hosting, automatisches Deployment bei jedem Commit auf `main`.
-- **Sicherheits-Header** in `next.config.mjs`: CSP, `X-Frame-Options`, `Referrer-Policy`,
-  `Permissions-Policy`, HSTS (siehe dort für die Begründung der einzelnen Direktiven).
+- **Sicherheits-Header** in `next.config.mjs`: `X-Frame-Options`, `Referrer-Policy`,
+  `Permissions-Policy`, HSTS (siehe dort für die Begründung der einzelnen Direktiven). Die **CSP**
+  setzt seit v106 `proxy.ts` mit einer Nonce je Aufruf statt `'unsafe-inline'` (`lib/csp.ts`,
+  Fahrplan B4); dafür werden alle Seiten beim Aufruf erzeugt (`dynamic = "force-dynamic"` in
+  `app/layout.tsx`). Kein Inline-Skript und kein `onclick=` mehr – auch nicht in
+  `public/offline.html`.
 - **CI**: `.github/workflows/typecheck.yml` (GitHub Actions) läuft bei jedem Push/PR auf
   `main` und führt `npx tsc --noEmit`, `npm run lint`, `npm test` und `npm run build` aus
   (mit Platzhalter-Umgebungsvariablen) – Ergebnis sieht Vitali direkt am Commit/an der PR,
@@ -32,8 +36,11 @@
   Wurzelverzeichnis oder in `viana-pinpoints/`?") steckt in dieser Fassung nicht mehr – ein
   Push, bei dem der Anwendungsordner nicht exakt `viana-pinpoints` heißt, bricht wieder mit
   `Some specified paths were not resolved` ab.
-- **Tests**: Vitest **5**, `tests/*.test.ts` (23 Dateien) – weiterhin bewusst nur reine
-  Rechen-/Prüffunktionen ohne UI (`environment: "node"`, kein jsdom), aber deutlich mehr Themen
+- **Tests**: Vitest **5**, `tests/*.test.ts` für reine Rechen-/Prüffunktionen in Node; seit v106
+  (Fahrplan C6) zusätzlich Komponententests `tests/*.test.tsx` mit Testing Library in jsdom (Kopfzeile
+  `// @vitest-environment jsdom`): zentrale Fehlermeldung (kommt eine Datenbankregel lesbar an?),
+  Fotos & Unterschrift, Papierkorb (Reihenfolge Pfade → Löschen → Dateien). Bei den Rechentests
+  deutlich mehr Themen
   als ursprünglich: Preise/Rabatte/Endpreis, Rechnungsbeträge und -belege (`rechnung.test.ts`,
   `rechnungsbeleg.test.ts`, `rechnungsdaten.test.ts`), Rechte-Prüfung (`rechte.test.ts`),
   Protokoll-Aufbereitung (`protokoll.test.ts`), Gültigkeitszeiträume, Kalenderwochen und
@@ -41,7 +48,7 @@
   Saisonliste, Aufkleber-Codes (`aufkleberCode.test.ts`), das Etikett-PNG fürs Teilen-Menü
   (`etikettbild.test.ts`, 21.09.2026: Millimeter-Umrechnung, Textkürzung, Umbruch,
   Dateiname), Adress-/Hausnummer-Abgleich, Kundenzustand, Navigation, Sortieren/Suchen,
-  Terminerinnerung und Vorgeschichte. Weiterhin keine Komponententests.
+  Terminerinnerung und Vorgeschichte.
 - **TypeScript im `strict`-Modus** seit der Sanierung (vorher `strict: false`, damit waren
   null/undefined und implizite `any` ungeprüft).
 - **ESLint 9** mit `no-use-before-define` (`variables: true`, Funktionen und Klassen
@@ -94,6 +101,7 @@ viana-pinpoints/
     OfflineHinweis.tsx              Randbalken „Offline – angezeigt wird der Stand von …"
     AusgangFenster.tsx              Offline schreiben: „Noch nicht übertragen", Konflikte entscheiden (v101)
     QrScanner.tsx                   Kamera-Scan für Lagerplatz-/Reifensatz-Aufkleber
+    FehlerHinweis.tsx               Zentrale Fehlermeldung oben, aus unbehandelten Ablehnungen (C5/C6, v106)
     PwaBereit.tsx / PwaFassung.tsx / PwaInstallieren.tsx
                                     Installations-/Update-Mechanik der PWA
     PushEinstellung.tsx             An-/Abmelden für Push-Benachrichtigungen (Einstellungen)
@@ -172,8 +180,9 @@ viana-pinpoints/
       Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster
                                       (Migration 37)
     lager/
-      LagerPanel.tsx                 Tab "Lager" (Lager, Lagerplätze, Einlagerung, Einlagern-Fenster
-                                     mit Satz/je Rad), ~950 Zeilen
+      LagerPanel.tsx                 Tab "Lager" (Lager, Regalwand, Suche, Scan), ~850 Zeilen
+      TireAssignModal.tsx              Einlagern-/Lagerfenster: Kunde, Fahrzeug, Saison, DOT, Profil je Satz/Rad
+                                       (bis v105 in LagerPanel.tsx, C5)
       PlatzBlatt.tsx                   Blatt zu einem Lagerplatz (Entwurf H)
       LangliegerListe.tsx              Langlieger-Übersicht (Fahrplan E4)
       VerkaufPanel.tsx / VerkaufsreifenBlatt.tsx
@@ -212,7 +221,19 @@ viana-pinpoints/
     testkunde.ts                  Testkunden lesen: `auftragsNr()` („T3"), `istTestauftrag`,
                                   `ohneTest…`-Filter für Auswertungen und Exporte (Migration 60)
     calendar.ts                   Reine Kalender-Hilfsfunktionen (Wochenstart, ISO-KW, Mitarbeiterfarbe)
-    helpers.ts                  Datum/Distanz/Telefon/Preis/Protokoll-Hilfsfunktionen, ~1.110 Zeilen
+    helpers.ts                  Aufträge/Termine, Kundenzustand, Telefon/Navigation, Preise, Rechnungsdaten
+                                  (~500 Zeilen); reicht seit v106 die Themendateien darunter weiter (C5)
+    format.ts                     `todayStr`, `datumStr`, `formatDate`, `formatEUR` (C5, v106)
+    profiltiefe.ts                Satzwert, Lage, Text und Eingabe der Profiltiefe (C5, v106)
+    adresse.ts                    Hausnummer und PLZ aus der einzeiligen Adresse (C5, v106)
+    geocode.ts                    Geokodierung über /api/geocode, `ZuVieleAbfragen` (C5, v106)
+    regalwand.ts                  Reihen aus dem Platzcode, DOT-Jahr, `handlungsgruende` (C5, v106)
+    protokollText.ts              Protokollwerte und -felder lesbar (C5, v106)
+    sortieren.ts                  `suchtreffer`, `vergleiche`, `sortiere` (C5, v106)
+    lagerdauer.ts                 `lagermonate`, Langlieger-Grenzen (C5, v106)
+    menuLage.ts                   Menülage bei Seitenzoom (C5, v106)
+    csp.ts                        Content-Security-Policy mit Nonce (B4, v106)
+    sprungMerker.ts               QR-/Benachrichtigungs-Sprung übersteht das erste Neuladen (D19, v106)
     auftragsAnsicht.ts / kundenAnsicht.ts / lagerAnsicht.ts / saisonAnsicht.ts / terminAnsicht.ts
                                   Die Regeln hinter den neu gestalteten Listen (Entwürfe H–L,
                                   reine Funktionen, je eine Testdatei)
@@ -306,7 +327,8 @@ viana-pinpoints/
                                         Fragt die Datenbank, welche Migrationen gelaufen sind
   supabase/email-vorlagen/              Mail-Vorlagen für Supabase Auth (Einladung, Passwort)
   docs/                          Diese Dokumentation, siehe docs/README.md
-  proxy.ts                       Auth-Gate für geschützte Routen (bis Next.js 16: middleware.ts)
+  proxy.ts                       CSP mit Nonce je Aufruf (seit v106) und Auth-Gate für geschützte Routen
+                                 (bis Next.js 16: middleware.ts)
 ```
 
 ## Datenmodell
@@ -619,7 +641,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 65** (02.10.2026; 65 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 65** (02.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).

@@ -35,6 +35,8 @@ import {
   type Verb,
 } from "@/lib/constants";
 import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, VERKAUFSREIFEN_PARAMETER, lagerplatzIdAusCode } from "@/lib/aufkleberCode";
+import { sprungDieserLadung } from "@/lib/sprungMerker";
+import { FehlerHinweis, useAblehnungenAlsFehler } from "@/components/FehlerHinweis";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
 import { anrufAufsHandy } from "@/lib/push";
 import { MitnehmenFenster } from "@/components/auftraege/MitnehmenFenster";
@@ -630,11 +632,6 @@ export default function HomePage() {
   const kartenWahlRef = useRef<(kundenId: string) => void>(() => {});
   const tagWahlRef = useRef<(orderId: string) => void>(() => {});
 
-  // Jede Funktion in lib/api wirft bei einem Supabase-Fehler eine ApiError (siehe
-  // lib/api/client.ts). Bricht ein Klick-Handler dadurch ab, landet das als unbehandelte
-  // Promise-Ablehnung hier – eine einzige Stelle statt einer Fehlerbehandlung an ~60
-  // Aufrufstellen. Nebeneffekt, der so gewollt ist: das refreshX() nach dem fehlgeschlagenen
-  // Schreibvorgang läuft nicht mehr, die Eingabe des Nutzers bleibt also stehen.
   useEffect(() => {
     let abgebrochen = false;
     fetchBetrieb(supabase)
@@ -645,22 +642,9 @@ export default function HomePage() {
     return () => { abgebrochen = true; };
   }, [supabase]);
 
-  useEffect(() => {
-    function onRejection(e: PromiseRejectionEvent) {
-      const grund = e.reason as { message?: string } | undefined;
-      // Ohne Netz ist „Failed to fetch" keine Auskunft. Was offline geht, geht über den
-      // Ausgangskorb (F1) und landet gar nicht hier; alles andere braucht Netz.
-      if (istNetzfehler(e.reason)) {
-        setFehler("Keine Verbindung – das geht nur mit Netz. Ohne Netz lassen sich Notiz, Termin, Titel und Beschreibung, Leistungen und die Radmessung ändern.");
-        e.preventDefault();
-        return;
-      }
-      setFehler(grund?.message || "Es ist ein unerwarteter Fehler aufgetreten.");
-      e.preventDefault();
-    }
-    window.addEventListener("unhandledrejection", onRejection);
-    return () => window.removeEventListener("unhandledrejection", onRejection);
-  }, []);
+  // Jede Funktion in lib/api wirft bei einem Supabase-Fehler eine ApiError; was ein Klick-Handler
+  // nicht selbst fängt, zeigt die zentrale Meldung (components/FehlerHinweis.tsx).
+  useAblehnungenAlsFehler(setFehler);
 
   // Die Karte an den Startpunkt schieben – erst NACH dem Rendern, weil sie beim Wechsel von
   // einem Vollseiten-Reiter gerade erst eine Breite bekommt. invalidateSize() sagt Leaflet,
@@ -2475,8 +2459,10 @@ export default function HomePage() {
   //
   // Die Adresszeile wird sofort wieder bereinigt: sonst landet der Parameter in Lesezeichen und
   // im Verlauf, und ein Neuladen springt Wochen später wieder auf denselben Lagerplatz.
+  // Gelesen über `sprungDieserLadung()` (D19, v106): Beim allerersten Aufruf lädt der Service
+  // Worker die Seite einmal neu, und der Sprung muss das überstehen (lib/sprungMerker.ts).
   useEffect(() => {
-    const parameter = new URLSearchParams(window.location.search);
+    const parameter = sprungDieserLadung();
     const rohPlatz = parameter.get(LAGERPLATZ_PARAMETER);
     const rohSatz = parameter.get(SATZ_PARAMETER);
     const rohReifen = parameter.get(VERKAUFSREIFEN_PARAMETER);
@@ -2484,11 +2470,6 @@ export default function HomePage() {
     const platzId = rohPlatz ? lagerplatzIdAusCode(rohPlatz) : null;
     // Für den Satz genügt hier die reine Kennung – dass es ein Satz-Etikett war, sagt schon der
     // Parametername, und `satzIdAusCode` erwartet den vollen Link.
-    parameter.delete(LAGERPLATZ_PARAMETER);
-    parameter.delete(SATZ_PARAMETER);
-    parameter.delete(VERKAUFSREIFEN_PARAMETER);
-    const rest = parameter.toString();
-    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
     if (platzId) {
       setGescannterLagerplatzId(platzId);
       setTab("lager");
@@ -2575,17 +2556,12 @@ export default function HomePage() {
   // geöffnet, hier wird der Parameter gelesen. Die Adresszeile wird sofort bereinigt – sonst
   // landet der Parameter in Lesezeichen und im Verlauf, und ein Neuladen springt Wochen später
   // wieder auf denselben Auftrag.
+  // Bereinigt wird in `sprungDieserLadung()` (lib/sprungMerker.ts) – dort auch der Merker für das
+  // erste Neuladen durch den Service Worker (D19).
   useEffect(() => {
-    const parameter = new URLSearchParams(window.location.search);
+    const parameter = sprungDieserLadung();
     if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER) && !parameter.get(ANRUF_PARAMETER)
       && !parameter.get(MITNEHMEN_PARAMETER)) return;
-    const uebrig = new URLSearchParams(window.location.search);
-    uebrig.delete(MITNEHMEN_PARAMETER);
-    uebrig.delete(AUFTRAG_PARAMETER);
-    uebrig.delete(KUNDE_PARAMETER);
-    uebrig.delete(ANRUF_PARAMETER);
-    const rest = uebrig.toString();
-    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
     zielOeffnen(parameter);
   }, []);
 
@@ -3769,12 +3745,7 @@ export default function HomePage() {
         );
       })()}
 
-      {fehler && (
-        <div className="fehler-hinweis" role="alert">
-          <span>{fehler}</span>
-          <button type="button" onClick={() => setFehler(null)} aria-label="Meldung schließen">×</button>
-        </div>
-      )}
+      <FehlerHinweis text={fehler} onSchliessen={() => setFehler(null)} />
     </div>
   );
 }
