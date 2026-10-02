@@ -1,4 +1,5 @@
-import type { ArticlePrice, Customer, Order, OrderArticle } from "./types";
+import type { ArticlePrice, Customer, Order, OrderArticle, RadPosition } from "./types";
+import { RAD_POSITIONEN } from "./constants";
 
 // Das heutige Datum als `JJJJ-MM-TT` – in ORTSZEIT.
 //
@@ -284,6 +285,27 @@ export function satzProfilMm(
   if ((satz.erfassungsart ?? "sammel") === "sammel") return satz.profiltiefe_mm;
   const werte = raeder.map((r) => r.profiltiefe_mm).filter((w): w is number => w != null);
   return werte.length === 0 ? null : Math.min(...werte);
+}
+
+// Wie wurde gemessen – als eine Zeile für Listen (v98, 02.10.2026). Die Marke daneben zeigt nur
+// EINE Zahl; ob das ein Wert für den Satz ist oder das schwächste von vier Rädern, stand bis v97
+// nur als kleiner Pfeil und als Tooltip da – und den gibt es am Handy nicht.
+//   je Rad:    „je Rad 5,0 · 5,5 · 6,0 · 6,0" (Reihenfolge VL, VR, HL, HR; „–" = nicht gemessen)
+//   Satzwert:  „Satzwert" (kurz – steht in der Liste mit in der Zeile Kennzeichen · Saison)
+//   nichts erfasst: null
+export function profilAufteilung(
+  satz: { erfassungsart?: "sammel" | "einzeln"; profiltiefe_mm: number | null; anzahl_raeder?: number },
+  raeder: { position: RadPosition | null; profiltiefe_mm: number | null }[] = []
+): string | null {
+  if ((satz.erfassungsart ?? "sammel") === "sammel") return satz.profiltiefe_mm == null ? null : "Satzwert";
+  const anzahl = Math.max(satz.anzahl_raeder ?? 4, raeder.length);
+  const geordnet = [
+    ...RAD_POSITIONEN.map((p) => raeder.find((r) => r.position === p)),
+    ...raeder.filter((r) => r.position == null),
+  ];
+  const werte = geordnet.slice(0, Math.max(anzahl, 1)).map((r) => (r?.profiltiefe_mm != null ? profilZahl(r.profiltiefe_mm) : "–"));
+  if (werte.every((w) => w === "–")) return "je Rad, noch nicht gemessen";
+  return `je Rad ${werte.join(" · ")}`;
 }
 
 export type ProfilLage = "ohne" | "gut" | "hinweis" | "kritisch";

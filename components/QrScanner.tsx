@@ -150,7 +150,7 @@ export function QrScanner({ titel = "Code scannen", onErkannt, onClose }: {
             <div className="small" style={{ textAlign: "center", marginTop: 8 }}>{hinweis}</div>
           </>
         )}
-        <button className="btn-secondary btn-block" style={{ marginTop: 10 }} onClick={onClose}>Abbrechen</button>
+        <button className="btn-secondary btn-rand btn-block" style={{ marginTop: 10 }} onClick={onClose}>Abbrechen</button>
       </div>
     </div>
   );

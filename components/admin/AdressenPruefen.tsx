@@ -138,7 +138,7 @@ export function AdressenPruefen({ supabase, onFertig, onKundeOeffnen }: {
                         </em>
                       )}
                     </span>
-                    <button type="button" className="btn-secondary" onClick={() => uebernehmen(z, v)}>
+                    <button type="button" className="btn-secondary btn-rand" onClick={() => uebernehmen(z, v)}>
                       {aermer ? "Trotzdem übernehmen" : "Übernehmen"}
                     </button>
                   </li>
@@ -149,7 +149,7 @@ export function AdressenPruefen({ supabase, onFertig, onKundeOeffnen }: {
           {/* Wenn gar nichts passt, ist der Weg über das Kundenfenster der einzige – und der
               Hinweis steht dort, wo man ihn braucht, statt in der Anleitung oben. */}
           {(z.zustand === "kein-treffer" || z.zustand === "fehler") && (
-            <button type="button" className="btn-secondary adr-pruef-hand" onClick={() => onKundeOeffnen(z.id)}>
+            <button type="button" className="btn-secondary btn-rand adr-pruef-hand" onClick={() => onKundeOeffnen(z.id)}>
               Adresse von Hand korrigieren
             </button>
           )}

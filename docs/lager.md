@@ -134,8 +134,14 @@ verwechseln lassen; `lagerplatzIdAusCode()` und `satzIdAusCode()` prüfen deshal
 eigenen Parameternamen und lehnen den anderen mit einer Meldung ab, statt stillschweigend
 nichts zu tun (siehe `EinlagerungBlock.tsx`, `gescannt()`).
 
-Gedruckt wird wahlweise auf A4-Bögen oder im Format kleiner Etikettenrollen
-(`ETIKETT_FORMATE` in `ReifensatzEtikett.tsx`). An erster Stelle der Formatliste steht seit dem
+**Seit v96 (02.10.2026) gibt es genau ein Format: 58 × 58 mm auf dem Brother QL-820NWBc**
+(`ETIKETT_FORMAT` in `ReifensatzEtikett.tsx`, QR 30 mm oben, Daten darunter, Rand 2,5 mm,
+Schriftfaktor 1,25, 300 dpi). Die Formatauswahl ist entfallen – Entscheidung Vitali nach dem
+Drucktest: Alle anderen Formate würden nie benutzt. Satz- und Rad-Etikett haben seitdem denselben
+QR-Code (der Abzug von 3 mm galt nur im Querformat). Was folgt, ist die Geschichte bis v95.
+
+Gedruckt wurde bis v95 wahlweise auf A4-Bögen oder im Format kleiner Etikettenrollen
+(damals `ETIKETT_FORMATE`). An erster Stelle der Formatliste steht seit dem
 21.09.2026 die Rolle **50 × 80 mm, hochkant** – die im Betrieb tatsächlich liegt. Sie ist höher
 als breit; deshalb steht der QR-Code oben (44 mm statt 21 mm) und der Text darunter, beide über
 die volle Breite. Im Querformat bleibt es bei QR-Code links, Text rechts. Die Umschaltung
@@ -151,7 +157,7 @@ keines), hat Bluetooth für die App „Brother iPrint&Label" und schneidet nach 
 mit QR-Code oben und Daten darunter – **60 × 86 mm** (groß, QR 46 mm, Standard) und **58 × 58 mm**
 (sparsam, QR 30 mm). Es sind genau die Größen, die der Druckdialog des iPhones beim QL-820NWB als
 Papierformat anbietet. Die v92-Formate 62 × 100 (zu viel Rolle) und 62 × 40 quer (kennt der
-Druckdialog nicht, Anordnung unpraktisch) sind entfallen. Die alten Rollenformate bleiben vorerst
+Druckdialog nicht, Anordnung unpraktisch) sind entfallen. Die alten Rollenformate blieben bis v95
 wählbar. Je Format: `pxProMm` (300 dpi = `PX_PRO_MM_300`), `randMm` (3 bzw. 2,5 mm), `schrift`
 (1,75 bzw. 1,25), `qrOben` (QR oben auch beim Quadrat) und `papier` (der Eintrag im Druckdialog).
 Dieselben Werte gehen als `--etikett-rand`/`--etikett-s` ins Stilblatt und als `masse` in
@@ -161,7 +167,7 @@ Dieselben Werte gehen als `--etikett-rand`/`--etikett-s` ins Stilblatt und als `
 **Gedruckt wird beim Brother als PDF** (`lib/etikettPdf.ts`, `etikettenPdfDatei()` in
 `lib/etikettBild.ts`): eine Seite je Etikett in genau seiner Größe, darin das Etikett als
 1-Bit-Bild in 300 dpi. „Drucken" gibt das PDF ins Teilen-Menü; dort „Drucken", Drucker QL-820NWB,
-Papierformat wie im Fenster angegeben. Der Drucktest vom 02.10.2026 hat gezeigt, warum: Safari
+Papierformat 58 x 58 mm (steht auch im Fenster). Der Drucktest vom 02.10.2026 hat gezeigt, warum: Safari
 druckte die HTML-Seite in Bildschirmbreite verkleinert (QR knapp 3 statt 5 cm) und mit Fußzeile
 (Adresse, Datum, „Seite 1 von 1"); ein PDF kam in richtiger Größe und ohne Fußzeile heraus. Die
 App „Brother iPrint&Label" nimmt geteilte Dateien gar nicht an („Die Dateien können nicht
@@ -194,12 +200,13 @@ Vielfaches. Im Fenster „Etikett für den Reifensatz" stehen deshalb zwei Knöp
   – von dort lässt es sich in die Drucker-Software ziehen. Ein Abbrechen im Teilen-Menü löst
   bewusst keine Fehlermeldung aus.
 
-Im Alltag am Regal: „Etikett drucken" im Einlagerungsblock oder am Reifensatz öffnen, Format
-wählen (seit v95 steht Brother 60 × 86 mm als Erstes zur Auswahl; beim Brother siehe oben „Gedruckt
-wird beim Brother als PDF"), dann entweder **Drucken** tippen und
-im Systemdialog Ränder auf null und Skalierung auf 100 % stellen, oder – wenn nur der
-Bluetooth-Drucker zur Hand ist – **Als Bild teilen** tippen und im Teilen-Menü die App des
-Druckers antippen.
+Seit v95/v96 gilt beim Brother: **Drucken** erzeugt das PDF (siehe oben), es gibt keinen
+Systemdruckdialog der Webseite mehr in diesem Fenster. **Als Bild teilen** bleibt als Umweg über
+Bluetooth.
+
+Im Alltag am Regal (seit v96): „Etikett drucken" im Einlagerungsblock oder am Reifensatz öffnen,
+„je Satz" oder „je Rad" wählen, iPhone mit dem WLAN des Druckers verbinden (Wireless Direct),
+**Drucken** tippen, im Teilen-Menü „Drucken", Drucker QL-820NWB, Papierformat 58 x 58 mm.
 
 ---
 
@@ -527,6 +534,30 @@ als dieselbe Marke (`components/lager/ProfilMarke.tsx`, Farben nach `profilLage(
 Die Marke fragt immer `satzProfilMm()`; ob der Satz sammel oder einzeln erfasst ist, muss
 keine der drei Stellen wissen. Ein Pfeil (↓) markiert, dass es der schwächste von mehreren
 Werten ist, ein ⚠ den Wert unter dem gesetzlichen Minimum.
+
+**Seit v98 (02.10.2026) sagt die Lagerliste, wie gemessen wurde** (`profilAufteilung()` in
+`lib/helpers.ts`): „Satzwert" hinten in der Zeile Kennzeichen · Saison, bei Einzelerfassung eine
+eigene Zeile „je Rad 5,0 · 5,5 · – · 6,0" (VL, VR, HL, HR; „–" = nicht gemessen). Der Pfeil fällt
+dort weg (`ProfilMarke pfeil={false}`); in Saisonliste und Platz-Historie bleibt er. Anlass: Der
+Unterschied stand nur als kleiner Pfeil und als Tooltip da – den gibt es am Handy nicht.
+
+**Umschalten ist seit v98 kein Speichern mehr.** Bis v97 schrieb schon das Antippen von
+„Je Rad messen" in die Datenbank und löschte den Satzwert (die Prüfregel aus Migration 33 lässt
+nie beides zu). Wer im Lagerfenster nur nachsehen wollte, zurückschaltete oder mit ✕ schloss,
+hatte den Wert verloren, ohne „Zuordnung speichern" getippt zu haben (gemeldet 02.10.2026).
+Jetzt gilt:
+
+* **Lagerfenster** (`TireAssignModal` in `LagerPanel.tsx`): Die Wahl ist ein Entwurf. Umgestellt
+  wird mit „Zuordnung speichern" – erst die Erfassungsart, dann die Angaben – oder mit dem
+  ersten gemessenen Rad (das ist eine Eingabe). Der bisherige Satzwert steht so lange als
+  Hinweis über dem Radbild. Die Rückfrage „Räder werden gelöscht" kommt beim Speichern.
+* **Auftragsfenster** (`EinlagerungBlock.tsx`, speichert sonst sofort): „Je Rad messen" ist
+  zunächst nur eine Ansicht; umgestellt wird mit dem ersten gemessenen Rad. Zurück auf einen
+  Satzwert bleibt sofort wirksam, mit Rückfrage.
+
+Verlorene Werte aus der Zeit davor holt ein Skript aus dem Protokoll zurück (`audit_log` hält den
+Wert davor fest). Es liegt in `PinPoints\lokal\` (`profiltiefe_zurueckholen_1_pruefen.sql`,
+`…_2_ausfuehren.sql`) und nicht im Repository, weil sein Ergebnis Kundennamen zeigt.
 
 **Im Zuordnungsfenster des Lagers gibt es bei Einzelerfassung kein Sammelfeld** für die
 Profiltiefe, sondern das Radbild – seit v88 auch dort zum Messen, nicht nur zur Ansicht. Ein

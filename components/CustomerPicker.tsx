@@ -21,7 +21,7 @@ export function CustomerPicker({ customers, value, onChange, placeholder }: {
           <div style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--input-bg)", fontSize: 13 }}>
             {selected.name} <span className="small">– {selected.address}</span>
           </div>
-          <button type="button" className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => { setOpen(true); setQuery(""); }}>Ändern</button>
+          <button type="button" className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={() => { setOpen(true); setQuery(""); }}>Ändern</button>
         </div>
       </div>
     );

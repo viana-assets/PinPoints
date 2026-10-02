@@ -16,6 +16,16 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **02.10.2026 – Profiltiefe: Umschalten löscht nichts mehr (Service Worker v98).** „Je Rad messen"
+  ist ein Entwurf bis zum Speichern bzw. ersten Rad; Lagerliste zeigt „Satzwert" bzw. „je Rad …".
+  Rückhol-Skript für verlorene Werte in `PinPoints\lokal\`.
+
+* **02.10.2026 – Knöpfe erkennbar (Service Worker v97).** „Nach neuer Version suchen" orange,
+  weiße Nebenknöpfe in Fenstern und Karten mit Rand (`btn-rand`).
+
+* **02.10.2026 – Nur noch ein Etikettenformat: 58 × 58 mm (Service Worker v96).** Drucken im Betrieb
+  bestätigt; Formatauswahl und alle anderen Formate entfallen.
+
 * **02.10.2026 – Brother-Druck im Betrieb getestet, Formate angepasst (Service Worker v95).** 60 × 86 und
   58 × 58 mm (QR oben), „Drucken" als PDF in exakter Größe (ohne Safari-Fußzeile/Verkleinerung),
   „eingelagert seit" in eigener Zeile. 62 × 100 und 62 × 40 entfallen.
@@ -546,12 +556,11 @@ B1 und B2 erledigt. Ab hier:
 Kleine Punkte, die bei Vitali oder im Betrieb liegen oder auf eine Rückmeldung warten:
 
 - **Doppelte Fahrzeuge** beim Kunden (vor v93 entstanden) im Kundenfenster löschen.
-- **Brother QL-820NWBc:** Druck über PDF und Druckdialog ist seit v95 gebaut – im Betrieb einmal mit
-  der neuen Fassung bestätigen (60 × 86 und 58 × 58, auch „je Rad"). Danach die Folienrolle
-  DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf
+- **Brother QL-820NWBc:** Druck über PDF im Betrieb bestätigt (02.10.2026), Format 58 × 58 seit v96
+  fest. Offen: die Folienrolle DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf
   Reifensack/Anhänger.
-- **Etikettenformate im Admin einstellbar** (Wunsch 30.09.2026, „vorerst oder im Admin"):
-  heute stehen alle Rollenformate in der Auswahl. Braucht eine Spalte in `betrieb` (Migration).
+- ~~**Etikettenformate im Admin einstellbar**~~ – entfällt (02.10.2026): Es gibt nur noch das eine
+  Format 58 × 58 mm.
 
 *Lexware entfällt (Entscheidung 02.10.2026): PinPoints schreibt die Rechnungen, eine Übergabe an
 Lexware ist nicht geplant. Bitte nicht erneut vorschlagen.*

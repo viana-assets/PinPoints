@@ -154,7 +154,7 @@ export function PushEinstellung() {
             {laeuft ? "Wird verschickt…" : "Testnachricht an mich"}
           </button>
           <button
-            className="btn-secondary btn-block"
+            className="btn-secondary btn-rand btn-block"
             type="button"
             style={{ marginTop: 8 }}
             disabled={laeuft}

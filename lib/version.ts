@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v95";
+export const APP_VERSION = "v98";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,28 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v98", datum: "2026-10-02", titel: "Profiltiefe: Umschalten löscht nichts mehr",
+    punkte: [
+      "Im Lager unter „Bearbeiten“ löschte schon das Antippen von „Je Rad messen“ den Wert für den Satz – auch ohne Speichern. Jetzt bleibt er, bis du „Zuordnung speichern“ tippst oder das erste Rad misst. Mit ✕ bleibt alles, wie es war.",
+      "Im Auftragsfenster genauso: „Je Rad messen“ zeigt erst nur die Räder, der Satzwert bleibt bis zum ersten gemessenen Rad.",
+      "Die Lagerliste zeigt jetzt, wie gemessen wurde: „Satzwert“ in der Zeile, bei Einzelmessung „je Rad 5,0 · 5,5 · 6,0 · 6,0“.",
+    ],
+  },
+  {
+    version: "v97", datum: "2026-10-02", titel: "Knöpfe besser erkennbar",
+    punkte: [
+      "„Nach neuer Version suchen“ in den Einstellungen ist jetzt ein orangefarbener Knopf.",
+      "Weiße Knöpfe in Fenstern und Karten – etwa „Schließen“ beim Etikett, „Abbrechen“, „Zurück“ – haben jetzt einen Rand und sind als Knopf zu erkennen.",
+    ],
+  },
+  {
+    version: "v96", datum: "2026-10-02", titel: "Etiketten: immer 58 × 58 mm",
+    punkte: [
+      "Etiketten für Reifensatz und Einzelräder kommen jetzt immer im Format 58 × 58 mm – die Formatauswahl ist weg, die anderen Formate gibt es nicht mehr.",
+      "Gedruckt wird wie bisher: „Drucken“, im Teilen-Menü „Drucken“, Drucker QL-820NWB, Papierformat 58 x 58 mm.",
+    ],
+  },
   {
     version: "v95", datum: "2026-10-02", titel: "Etiketten für den Brother: richtige Größe",
     punkte: [

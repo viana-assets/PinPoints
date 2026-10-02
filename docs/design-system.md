@@ -146,6 +146,18 @@ modaler Dialog – wenn ein Speichervorgang scheitert, steht die Eingabe des Nut
 Formular und er soll sie direkt korrigieren können. Auf dem Handy rutscht sie über die
 Navigationsleiste. Gespeist wird sie zentral aus `app/page.tsx`, siehe `architektur.md`.
 
+## Knöpfe müssen als Knöpfe erkennbar sein (02.10.2026, v97)
+
+`.btn-secondary` ist weiß und randlos (`--chip-bg`). Auf dem beigen Seitengrund ist das eine
+Kachel, auf einer weißen Karte oder in einem Fenster nur fetter Text – Vitali hielt
+„Nach neuer Version suchen" und „Schließen" im Etikettfenster nicht für Knöpfe. Regeln:
+
+- Ein Knopf, der die Hauptsache des Blocks tut, ist **orange** (`.btn-primary`) – so auch
+  „Nach neuer Version suchen" in den Einstellungen (`PwaFassung.tsx`).
+- Jeder `.btn-secondary` auf Weiß trägt zusätzlich **`.btn-rand`** (1 px `--border`). Seit v97
+  haben alle bis auf das Abbrechen im Kartenbanner (`app/page.tsx`, liegt über der Karte) den Rand.
+  Wer einen neuen Nebenknopf in ein Fenster oder eine Karte setzt, schreibt `btn-secondary btn-rand`.
+
 ## Navigationsstruktur
 
 Eine Struktur, zwei Layouts (`#iconNav` in `app/page.tsx` + `globals.css`):
@@ -637,9 +649,11 @@ dazu ist `.etikett.hoch` in `app/globals.css`:
 .etikett.hoch .etikett-text{width:100%;flex:0 0 auto;}
 ```
 
-Die Klasse `hoch` wird gesetzt, wenn `hoeheMm > breiteMm` des gewählten Formats gilt
-(`hochformat` in `ReifensatzEtikett.tsx`) – zwei Zahlen, die schon als `ETIKETT_FORMATE`-Eintrag
-vorliegen, statt ein zweites Mal als Schalter gepflegt zu werden. Zwei Angaben, die dasselbe
+Die Klasse `hoch` wird gesetzt, wenn `hoeheMm > breiteMm` gilt oder das Format es ausdrücklich
+sagt (`qrOben`). Seit v96 gibt es nur noch ein Format (`ETIKETT_FORMAT`, 58 × 58 mm, `qrOben`),
+die Klasse ist damit immer gesetzt; die Querformat-Regeln bleiben für den Regalaufkleber und ein
+mögliches späteres Format stehen. Bis v95 ergab sie sich aus den zwei Zahlen des
+`ETIKETT_FORMATE`-Eintrags, statt ein zweites Mal als Schalter gepflegt zu werden. Zwei Angaben, die dasselbe
 sagen, laufen sonst irgendwann auseinander.
 
 **`lib/etikettBild.ts` zeichnet dieselbe Anordnung ein zweites Mal, auf eine Leinwand, für das

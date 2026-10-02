@@ -71,6 +71,13 @@ export function EinlagerungBlock({
   const [scannerOffen, setScannerOffen] = useState(false);
   const [meldung, setMeldung] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState(false);
+  // „Je Rad messen" ist zunächst nur eine Ansicht (v98, 02.10.2026). Vorher löschte schon das
+  // Umschalten den Satzwert in der Datenbank – wer nur nachsehen wollte, hatte ihn verloren.
+  // Umgestellt wird jetzt mit dem ersten gemessenen Rad. Gemerkt je Satz, damit ein anderer
+  // Satz nicht die Ansicht des vorigen erbt.
+  const [ansichtJeRad, setAnsichtJeRad] = useState<string | null>(null);
+  const einzelnGespeichert = einlagerung?.erfassungsart === "einzeln";
+  const einzelnAnzeige = einzelnGespeichert || (!!einlagerung && ansichtJeRad === einlagerung.id);
 
   // Ein belegter Platz taucht nicht in der Auswahl auf – der eigene bleibt sichtbar, sonst
   // verschwände die aktuelle Zuordnung aus ihrer eigenen Liste.
@@ -95,7 +102,10 @@ export function EinlagerungBlock({
   }
 
   async function erfassungsartSetzen(art: Erfassungsart) {
-    if (!einlagerung || einlagerung.erfassungsart === art) return;
+    if (!einlagerung) return;
+    // Nur die Ansicht wechseln, solange in der Datenbank noch der Satzwert gilt.
+    if (!einzelnGespeichert) { setAnsichtJeRad(art === "einzeln" ? einlagerung.id : null); return; }
+    if (art === "einzeln") return;
     // Zurück auf einen Sammelwert wirft die gemessenen Radzeilen weg – das ist echte
     // Messarbeit, also einmal nachfragen. In die andere Richtung gibt es nichts zu verlieren.
     if (art === "sammel" && raeder.length > 0) {
@@ -108,9 +118,18 @@ export function EinlagerungBlock({
     setMeldung(null);
     try {
       await onErfassungsart(einlagerung.id, art);
+      setAnsichtJeRad(null);
     } finally {
       setLaeuft(false);
     }
+  }
+
+  // Das erste gemessene Rad stellt den Satz um – erst dann weicht der Satzwert (die Datenbank
+  // erlaubt nie beides, Migration 33).
+  async function radSpeichern(position: RadPosition, felder: Partial<RadFelder>) {
+    if (!einlagerung) return;
+    if (!einzelnGespeichert) await onErfassungsart(einlagerung.id, "einzeln");
+    await onRadSpeichern(einlagerung.id, position, felder);
   }
 
   async function angabenAendern(felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) {
@@ -205,7 +224,7 @@ export function EinlagerungBlock({
                 {!fahrzeugFormOffen ? (
                   <button
                     type="button"
-                    className={"btn-secondary" + (vehicles.length === 0 ? " btn-block" : "")}
+                    className={"btn-secondary btn-rand" + (vehicles.length === 0 ? " btn-block" : "")}
                     style={vehicles.length === 0 ? { marginTop: 2 } : { marginTop: 4, padding: "3px 8px", fontSize: 12 }}
                     disabled={laeuft}
                     onClick={() => setFahrzeugFormOffen(true)}
@@ -243,7 +262,7 @@ export function EinlagerungBlock({
                         Anlegen und zuordnen
                       </button>
                       <button
-                        type="button" className="btn-secondary" disabled={laeuft}
+                        type="button" className="btn-secondary btn-rand" disabled={laeuft}
                         onClick={() => { setNeuesKennzeichen(""); setNeuesModell(""); setFahrzeugFormOffen(false); }}
                       >
                         Abbrechen
@@ -287,21 +306,29 @@ export function EinlagerungBlock({
               <div className="field" style={{ marginTop: 10, marginBottom: 0 }}>
                 <label>Profiltiefe</label>
                 <ErfassungsWahl
-                  einzeln={einlagerung.erfassungsart === "einzeln"}
+                  einzeln={einzelnAnzeige}
                   gesperrt={laeuft}
                   onWahl={(art) => void erfassungsartSetzen(art)}
                 />
               </div>
 
               <div style={{ marginTop: 8 }}>
-                {einlagerung.erfassungsart === "einzeln" ? (
-                  <RadBild
-                    raeder={raeder}
-                    anzahlRaeder={einlagerung.anzahl_raeder}
-                    gesperrt={laeuft}
-                    onSpeichern={(position, felder) => onRadSpeichern(einlagerung.id, position, felder)}
-                    onEntfernen={onRadEntfernen}
-                  />
+                {einzelnAnzeige ? (
+                  <>
+                    {!einzelnGespeichert && einlagerung.profiltiefe_mm != null && (
+                      <div className="small" style={{ marginBottom: 6 }}>
+                        Bisher ein Wert für den Satz: <b>{profilText(einlagerung.profiltiefe_mm)}</b>. Er bleibt,
+                        bis du das erste Rad misst.
+                      </div>
+                    )}
+                    <RadBild
+                      raeder={raeder}
+                      anzahlRaeder={einlagerung.anzahl_raeder}
+                      gesperrt={laeuft}
+                      onSpeichern={radSpeichern}
+                      onEntfernen={onRadEntfernen}
+                    />
+                  </>
                 ) : (
                   // Gespeichert wird kurz nach der letzten Änderung (SatzProfil) – nicht bei
                   // jedem Tipper, sonst stünde für „4,5" unterwegs der Wert 4 in der Datenbank.
@@ -313,7 +340,7 @@ export function EinlagerungBlock({
                 )}
               </div>
 
-              {einlagerung.erfassungsart === "einzeln" && (
+              {einzelnAnzeige && (
                 <div className="field" style={{ marginTop: 8, marginBottom: 0, maxWidth: 220 }}>
                   <label>Räder in diesem Satz</label>
                   {/* Nicht immer vier: „zwei weggeworfen, zwei eingelagert" ist ein realer
@@ -385,7 +412,7 @@ export function EinlagerungBlock({
               <option value="">– Lagerplatz wählen –</option>
               {freieSlots.map((s) => <option key={s.id} value={s.id}>{platzText(s)}</option>)}
             </select>
-            <button type="button" className="btn-secondary" disabled={!wahl || laeuft} onClick={() => zuordnen(wahl)}>
+            <button type="button" className="btn-secondary btn-rand" disabled={!wahl || laeuft} onClick={() => zuordnen(wahl)}>
               Zuordnen
             </button>
             <button type="button" className="btn-primary" disabled={laeuft} onClick={() => { setMeldung(null); setScannerOffen(true); }}>

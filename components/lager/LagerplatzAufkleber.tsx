@@ -70,7 +70,7 @@ export function LagerplatzAufkleber({ slots, lagerName, onClose }: {
 
         <div className="row druck-weg" style={{ marginTop: 12 }}>
           <button className="btn-primary" style={{ flex: 1 }} onClick={() => window.print()}>Drucken</button>
-          <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={onClose}>Schließen</button>
+          <button className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={onClose}>Schließen</button>
         </div>
       </div>
     </div>

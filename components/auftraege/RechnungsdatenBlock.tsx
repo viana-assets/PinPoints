@@ -107,7 +107,7 @@ export function RechnungsdatenBlock({
               onKeyDown={(e) => { if (e.key === "Enter" && email.trim()) { void onEmailSpeichern(email.trim()); setEmail(""); } }}
             />
             <button
-              type="button" className="btn-secondary" disabled={!email.trim()}
+              type="button" className="btn-secondary btn-rand" disabled={!email.trim()}
               onClick={() => { void onEmailSpeichern(email.trim()); setEmail(""); }}
             >
               übernehmen

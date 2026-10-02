@@ -2627,6 +2627,8 @@ span.db-link{cursor:inherit;}
 .lg-zeile-kunde{font-weight:700;font-size:14.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .lg-zeile.frei .lg-zeile-kunde{font-weight:600;color:var(--muted);}
 .lg-zeile-info{font-size:12.5px;color:#6f6553;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Wie gemessen wurde (v98): darf umbrechen – vier Werte sollen ganz lesbar sein, nicht „5,0 · 5,…". */
+.lg-zeile-profil{white-space:normal;}
 .lg-zeile-grund{font-size:12px;font-weight:700;color:#9a3412;}
 .lg-zeile .profil-marke{flex:0 0 auto;}
 .lg-betrag{flex:0 0 auto;font-family:var(--font-brand);font-weight:700;font-size:14px;color:var(--red);}

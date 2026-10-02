@@ -538,7 +538,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   auf dem Homescreen und im Installationsdialog heißt und aussieht: seit v88 „MR Assistent",
   seit v90 mit dem ganzen Logo als Symbol (`public/icons/mr-logo-*.png`). Die frühere Tarnung
   „Settings" liegt als `TARNUNG` bereit (`GETARNT = false`).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v95`**, Konstante
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v98`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus

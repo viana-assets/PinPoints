@@ -216,12 +216,12 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
 | `PX_PRO_MM` | `lib/etikettBild.ts` | `number` (8) | Bildpunkte je Millimeter (203 dpi, die Auflösung der Etikettendrucker) für das per „Als Bild teilen" erzeugte Etikett-PNG | `mmZuPx()` – `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
-| `PX_PRO_MM_300` | `lib/etikettBild.ts` | `number` (300 / 25,4) | Bildpunkte je Millimeter bei 300 dpi – Brother QL-820NWBc (seit 30.09.2026) | `ETIKETT_FORMATE` (Brother-Formate) in `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
+| `PX_PRO_MM_300` | `lib/etikettBild.ts` | `number` (300 / 25,4) | Bildpunkte je Millimeter bei 300 dpi – Brother QL-820NWBc (seit 30.09.2026) | `ETIKETT_FORMAT` (58 × 58 mm) in `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
 | `PT_PRO_MM` | `lib/etikettPdf.ts` | `number` (72 / 25,4) | PDF-Punkte je Millimeter – Seitengröße des Etikett-PDFs (seit 02.10.2026) | **nur intern** – `etikettPdf()`; `tests/etikettPdf.test.ts` |
 | `SCHWARZ_SCHWELLE` | `lib/etikettPdf.ts` | `number` (160) | Helligkeit, ab der ein Bildpunkt im 1-Bit-PDF weiß bleibt | **nur intern** – `einBitBild()`; `tests/etikettPdf.test.ts` |
 
-**Nicht aufgenommen, bewusst:** `ETIKETT_FORMATE` (die Liste der Rollenformate inkl. des neuen
-Eintrags 50 × 80 mm) liegt nicht in `lib/`, sondern als `export const` direkt in
+**Nicht aufgenommen, bewusst:** `ETIKETT_FORMAT` (seit v96 das eine Etikettenformat 58 × 58 mm;
+bis v95 die Liste `ETIKETT_FORMATE`) liegt nicht in `lib/`, sondern als `export const` direkt in
 `components/lager/ReifensatzEtikett.tsx` – außerhalb des oben festgelegten Umfangs dieses
 Registers, ebenso wie `QR_PIXEL` in derselben Datei (siehe „Umfang dieser Fassung"). Die übrigen
 Maß-Konstanten in `lib/etikettBild.ts` (`RAND_MM`, `SPALT_MM`, `SCHRIFT_KOPF_MM`,

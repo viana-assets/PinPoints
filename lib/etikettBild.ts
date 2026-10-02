@@ -35,7 +35,7 @@ import { einBitBild, etikettPdf, type PdfSeite } from "./etikettPdf";
 // genau das Umrechnen ist es, was einen QR-Code unscharf und damit unlesbar macht.
 export const PX_PRO_MM = 8;
 // 300 dpi – die Auflösung des Brother QL-820NWBc (seit 30.09.2026 im Betrieb). Für seine
-// Formate (60 × 86, 58 × 58) entsteht das Bild in dieser Dichte, aus demselben Grund wie oben.
+// Format (seit v96 nur 58 × 58) entsteht das Bild in dieser Dichte, aus demselben Grund wie oben.
 export const PX_PRO_MM_300 = 300 / 25.4;
 
 export function mmZuPx(mm: number, pxProMm: number = PX_PRO_MM): number {
@@ -68,7 +68,7 @@ export type EtikettInhalt = {
 
 export type EtikettMasse = {
   breiteMm: number; hoeheMm: number; qrMm: number;
-  // Seit 30.09.2026 je Format (siehe `ETIKETT_FORMATE`): Auflösung des Druckers, Rand und ein
+  // Seit 30.09.2026 je Format (siehe `ETIKETT_FORMAT`): Auflösung des Druckers, Rand und ein
   // Faktor für alle Schriftgrößen. Ohne Angabe gelten die Werte der kleinen 203-dpi-Rollen.
   pxProMm?: number;
   randMm?: number;

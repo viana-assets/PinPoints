@@ -100,7 +100,7 @@ export function GeokodierLauf({ supabase }: { supabase: SupabaseClient }) {
       {meldung && <div className="small" style={{ marginBottom: 8 }}>{meldung}</div>}
 
       {laeuft ? (
-        <button type="button" className="btn-secondary" onClick={() => { abbruch.current = true; }}>Abbrechen</button>
+        <button type="button" className="btn-secondary btn-rand" onClick={() => { abbruch.current = true; }}>Abbrechen</button>
       ) : (
         <button type="button" className="btn-primary" onClick={starten}>Sammellauf starten</button>
       )}

@@ -31,8 +31,10 @@ export function PwaFassung() {
             ? `Diese App läuft in Fassung ${fassung}.`
             : "Diese App läuft in einer älteren Fassung (sie meldet ihre Version noch nicht) oder ohne Service Worker."}
       </div>
+      {/* Orange wie jeder Hauptknopf der App (v97): Weiß auf weißer Karte war er nur fetter Text,
+          den niemand für einen Knopf hielt (Rückmeldung 02.10.2026). */}
       <button
-        className="btn-secondary btn-block"
+        className="btn-primary btn-block"
         type="button"
         disabled={laeuft}
         onClick={async () => {

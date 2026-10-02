@@ -16,11 +16,14 @@ import { profilLage, profilText, satzProfilMm } from "@/lib/helpers";
 
 const GRENZEN = { hinweis: PROFIL_HINWEIS_MM, kritisch: PROFIL_KRITISCH_MM };
 
-export function ProfilMarke({ satz, raeder, praefix = "Profil" }: {
+export function ProfilMarke({ satz, raeder, praefix = "Profil", pfeil = true }: {
   satz: Pick<TireStorage, "erfassungsart" | "profiltiefe_mm" | "anzahl_raeder">;
   raeder: EingelagertesRad[];
   // „Profil 6,5 mm" in Listen, leer im Auftragsfenster, wo die Überschrift es schon sagt.
   praefix?: string;
+  // Ohne Pfeil, wo daneben ohnehin steht, wie gemessen wurde (Lagerliste seit v98,
+  // `profilAufteilung()`).
+  pfeil?: boolean;
 }) {
   const mm = satzProfilMm(satz, raeder);
   const lage = profilLage(mm, GRENZEN);
@@ -48,7 +51,7 @@ export function ProfilMarke({ satz, raeder, praefix = "Profil" }: {
       {profilText(mm)}
       {/* Das Zeichen für „das ist der schlechteste von mehreren Werten". Kurz, weil es in
           jeder Tabellenzeile steht – die ganze Erklärung steht im Tooltip. */}
-      {einzeln && <span className="profil-min" aria-hidden="true"> ↓</span>}
+      {einzeln && pfeil && <span className="profil-min" aria-hidden="true"> ↓</span>}
       {mm < PROFIL_GESETZLICH_MM && <span className="profil-warn"> ⚠</span>}
     </span>
   );

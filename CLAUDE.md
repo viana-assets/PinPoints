@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 02.10.2026 (Migrationen bis 61, Service Worker v95; Regeln seit der Projektdurchsicht vom
+Stand: 02.10.2026 (Migrationen bis 61, Service Worker v98; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -294,6 +294,11 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   je Kunde UND gesamt im Speicher; nach dem Anlegen wurde nur der des im Kundentab gewählten
   Kunden neu geladen – im Auftragsfenster fehlte das neue Auto (29.09.2026). Wer etwas anlegt,
   verwirft alle Speicher, die es zeigen (`refreshVehicles` in `app/page.tsx`).
+- **In einem Fenster mit Speichern-Knopf darf ein Umschalter nicht selbst speichern.** „Je Rad
+  messen" im Lagerfenster schrieb sofort in die Datenbank und löschte damit den Satzwert – wer
+  nur nachsehen wollte und mit ✕ schloss, hatte ihn verloren (02.10.2026, v98). Wer etwas
+  löscht, das der Nutzer nicht bestätigt hat, braucht einen sehr guten Grund; hier half nur das
+  Protokoll (`audit_log`) beim Zurückholen.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 

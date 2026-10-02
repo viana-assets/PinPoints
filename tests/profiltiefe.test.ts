@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { satzProfilMm, profilLage, profilText, profilAusText, profilZahl, raederNachSatz } from "@/lib/helpers";
+import { satzProfilMm, profilAufteilung, profilLage, profilText, profilAusText, profilZahl, raederNachSatz } from "@/lib/helpers";
 import { PROFIL_HINWEIS_MM, PROFIL_KRITISCH_MM } from "@/lib/constants";
 
 const GRENZEN = { hinweis: PROFIL_HINWEIS_MM, kritisch: PROFIL_KRITISCH_MM };
@@ -188,5 +188,21 @@ describe("profilZahl", () => {
     for (const mm of [0, 1.6, 3, 6.5, 8.9, 25]) {
       expect(profilAusText(profilZahl(mm))).toBe(mm);
     }
+  });
+});
+
+describe("profilAufteilung", () => {
+  const rad = (position: "VL" | "VR" | "HL" | "HR" | null, mm: number | null) => ({ position, profiltiefe_mm: mm });
+  it("Satzwert: sagt es ausdrücklich, ohne Wert nichts", () => {
+    expect(profilAufteilung({ erfassungsart: "sammel", profiltiefe_mm: 6 })).toBe("Satzwert");
+    expect(profilAufteilung({ erfassungsart: "sammel", profiltiefe_mm: null })).toBeNull();
+  });
+  it("je Rad: feste Reihenfolge VL, VR, HL, HR, Lücke als –", () => {
+    const raeder = [rad("HR", 6), rad("VL", 5), rad("VR", 5.5)];
+    expect(profilAufteilung({ erfassungsart: "einzeln", profiltiefe_mm: null, anzahl_raeder: 4 }, raeder)).toBe("je Rad 5,0 · 5,5 · – · 6,0");
+  });
+  it("je Rad ohne Messung und mit weniger Rädern", () => {
+    expect(profilAufteilung({ erfassungsart: "einzeln", profiltiefe_mm: null, anzahl_raeder: 4 }, [])).toBe("je Rad, noch nicht gemessen");
+    expect(profilAufteilung({ erfassungsart: "einzeln", profiltiefe_mm: null, anzahl_raeder: 2 }, [rad("VL", 4), rad("VR", 4.5)])).toBe("je Rad 4,0 · 4,5");
   });
 });

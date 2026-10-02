@@ -5,7 +5,7 @@ import {
   DOT_ALT_JAHRE, LAGERDAUER_HINWEIS_TAGE, PROFIL_KRITISCH_MM,
   SAISON_LABEL, SAISON_LISTE,
 } from "@/lib/constants";
-import { handlungsgruende, nachReihen, raederNachSatz, suchtreffer } from "@/lib/helpers";
+import { handlungsgruende, nachReihen, profilAufteilung, profilText, raederNachSatz, suchtreffer } from "@/lib/helpers";
 import { passtZumFilter, reiheTitel, scanZiel, type LagerFilter } from "@/lib/lagerAnsicht";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { QrScanner } from "@/components/QrScanner";
@@ -363,8 +363,12 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     const fahrzeug = satz?.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
     const gruende = gruendeFuer(satz);
     const lagerName = mitLager ? warehouses.find((w) => w.id === slot.warehouse_id)?.name : null;
+    // Wie gemessen wurde (v98): „Satzwert" kurz mit in die Zeile, „je Rad 5,0 · 5,5 · …" als
+    // eigene Zeile – vier Zahlen brauchen den Platz.
+    const aufteilung = satz ? profilAufteilung(satz, raederVon(satz.id)) : null;
+    const jeRad = satz?.erfassungsart === "einzeln";
     const info = satz
-      ? [lagerName, fahrzeug?.license_plate, satz.saison ? SAISON_LABEL[satz.saison] : null, fahrzeug?.tire_size].filter(Boolean).join(" · ")
+      ? [lagerName, fahrzeug?.license_plate, satz.saison ? SAISON_LABEL[satz.saison] : null, fahrzeug?.tire_size, jeRad ? null : aufteilung].filter(Boolean).join(" · ")
       : [lagerName, canAssignTire ? "antippen zum Einlagern" : null].filter(Boolean).join(" · ");
     return (
       <button key={slot.id} type="button" className={"lg-zeile" + (satz ? "" : " frei")} onClick={() => platzOeffnen(slot)}>
@@ -372,9 +376,11 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
         <span className="lg-zeile-text">
           <span className="lg-zeile-kunde">{satz ? (kunde?.name ?? "Unbekannter Kunde") : "frei"}</span>
           {info && <span className="lg-zeile-info">{info}</span>}
+          {/* Wie gemessen wurde – ein Wert für den Satz oder je Rad (v98). */}
+          {jeRad && aufteilung && <span className="lg-zeile-info lg-zeile-profil">{aufteilung}</span>}
           {gruende.length > 0 && <span className="lg-zeile-grund">{gruende.join(" · ")}</span>}
         </span>
-        {satz && <ProfilMarke satz={satz} raeder={raederVon(satz.id)} praefix="" />}
+        {satz && <ProfilMarke satz={satz} raeder={raederVon(satz.id)} praefix="" pfeil={false} />}
       </button>
     );
   }
@@ -665,7 +671,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                 <div className="field"><label>Notiz</label><input type="text" value={editNote} onChange={(e) => setEditNote(e.target.value)} /></div>
                 <div className="row">
                   <button className="btn-primary" style={{ flex: 1 }} onClick={saveEditWarehouse}>Speichern</button>
-                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMenue("liste")}>Zurück</button>
+                  <button className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={() => setMenue("liste")}>Zurück</button>
                 </div>
               </>
             )}
@@ -689,7 +695,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                 />
                 <div className="row">
                   <button className="btn-primary" style={{ flex: 1 }} onClick={addMoreSlots}>Anlegen</button>
-                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMenue(null)}>Fertig</button>
+                  <button className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={() => setMenue(null)}>Fertig</button>
                 </div>
               </>
             )}
@@ -719,7 +725,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                 />
                 <div className="row">
                   <button className="btn-primary" style={{ flex: 1 }} onClick={createWarehouse}>Anlegen</button>
-                  <button className="btn-secondary" style={{ flex: "0 0 auto" }} onClick={() => setMenue(lager ? "liste" : null)}>Abbrechen</button>
+                  <button className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={() => setMenue(lager ? "liste" : null)}>Abbrechen</button>
                 </div>
               </>
             )}
@@ -783,37 +789,49 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
   // Auftragsfenster umstellen; hier stand bei einem neuen Satz immer nur das Sammelfeld
   // (gemeldet 29.09.2026). Bei einem neuen Satz gilt die Wahl erst beim Einlagern – die Räder
   // brauchen einen Satz, an dem sie hängen. Danach bleibt das Fenster offen zum Messen.
-  const [artNeu, setArtNeu] = useState<Erfassungsart>("sammel");
+  //
+  // Seit v98 (02.10.2026) ist die Wahl auch bei einem BESTEHENDEN Satz nur ein Entwurf. Vorher
+  // schrieb schon das Umschalten in die Datenbank: „Je Rad messen" löschte den Satzwert sofort,
+  // und wer nur nachsehen wollte und zurückschaltete oder mit ✕ schloss, hatte ihn verloren –
+  // ohne je „Zuordnung speichern" getippt zu haben (gemeldet 02.10.2026). Jetzt gilt die Wahl
+  // erst mit dem Knopf unten – oder mit dem ersten gemessenen Rad, denn das ist eine Eingabe.
+  const artGespeichert: Erfassungsart = assignment?.erfassungsart ?? "sammel";
+  const [art, setArt] = useState<Erfassungsart>(artGespeichert);
   const [eben, setEben] = useState(false);
-  const art: Erfassungsart = assignment ? (assignment.erfassungsart ?? "sammel") : artNeu;
   const einzeln = art === "einzeln";
+  const gemesseneRaeder = assignment ? raederFuer(assignment.id) : [];
 
   // Nur die Fahrzeuge des gewählten Kunden. Ein Satz kann nur zu einem Auto DIESES Kunden
   // gehören – die Datenbank lehnt alles andere ab (Migration 30), und eine Auswahl, die
   // Ungültiges anbietet, ist eine Einladung zum Fehler.
   const kundenFahrzeuge = customerId ? vehicles.filter((v) => v.customer_id === customerId) : [];
 
-  async function artWaehlen(neu: Erfassungsart) {
-    if (neu === art) return;
-    if (!assignment) { setArtNeu(neu); return; }
-    // Zurück auf einen Wert wirft die gemessenen Räder weg – echte Messarbeit, also einmal
-    // nachfragen. Dieselbe Frage wie im Auftragsfenster (EinlagerungBlock).
-    const raeder = raederFuer(assignment.id);
-    if (neu === "sammel" && raeder.length > 0
-      && !window.confirm(`Zurück auf einen Wert für den ganzen Satz? Die ${raeder.length} gemessenen Räder werden dabei gelöscht.`)) return;
-    setSaving(true);
-    try {
-      await onErfassungsart(assignment.id, neu);
-      if (neu === "einzeln") setProfiltiefe("");
-    } finally {
-      setSaving(false);
-    }
+  // Nur umschalten, nichts speichern. Der Satzwert im Feld bleibt stehen – wer zurückschaltet,
+  // sieht ihn wieder.
+  function artWaehlen(neu: Erfassungsart) {
+    setArt(neu);
+  }
+
+  // Das erste gemessene Rad stellt den Satz in der Datenbank auf „je Rad" um – erst dann weicht
+  // der Satzwert (die Datenbank erlaubt nie beides, Migration 33).
+  async function radSpeichern(position: RadPosition, felder: Partial<RadFelder>) {
+    if (!assignment) return;
+    if ((assignment.erfassungsart ?? "sammel") !== "einzeln") await onErfassungsart(assignment.id, "einzeln");
+    await onRadSpeichern(assignment.id, position, felder);
   }
 
   async function save() {
     if (!customerId) return;
+    // Zurück auf einen Wert wirft die gemessenen Räder weg – echte Messarbeit, also einmal
+    // nachfragen. Gefragt wird jetzt beim Speichern, nicht schon beim Umschalten.
+    const wechsel = !!assignment && art !== (assignment.erfassungsart ?? "sammel");
+    if (wechsel && art === "sammel" && gemesseneRaeder.length > 0
+      && !window.confirm(`Zurück auf einen Wert für den ganzen Satz? Die ${gemesseneRaeder.length} gemessenen Räder werden dabei gelöscht.`)) return;
     setSaving(true);
     try {
+      // Erst die Erfassungsart, dann die Angaben: Beim Wechsel auf „Satz" müssen die Räder weg
+      // sein, bevor der Satzwert geschrieben werden darf (Prüfregel aus Migration 33).
+      if (wechsel && assignment) await onErfassungsart(assignment.id, art);
       const id = await onAssign({
         id: assignment?.id, storageSlotId: slot.id, customerId,
         dotDate, profiltiefeMm: einzeln ? "" : profiltiefe, note,
@@ -894,7 +912,7 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
             4 mm" oder vier einzelne Werte. Dieselbe Wahl wie im Auftragsfenster. */}
         <div className="field">
           <label>Profiltiefe</label>
-          <ErfassungsWahl einzeln={einzeln} gesperrt={saving} onWahl={(neu) => void artWaehlen(neu)} />
+          <ErfassungsWahl einzeln={einzeln} gesperrt={saving} onWahl={artWaehlen} />
           {!einzeln && (
             <div style={{ marginTop: 8 }}>
               {/* Ohne `onSpeichern`: Hier speichert erst der Knopf unten das ganze Formular. */}
@@ -902,6 +920,12 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
                 wert={profiltiefe === "" ? null : Number(profiltiefe)}
                 onWert={(mm) => setProfiltiefe(mm == null ? "" : String(mm))}
               />
+              {assignment && artGespeichert === "einzeln" && gemesseneRaeder.length > 0 && (
+                <div className="small" style={{ marginTop: 6 }}>
+                  Noch gilt die Messung je Rad. Erst mit &bdquo;Zuordnung speichern&ldquo; wird auf
+                  einen Wert umgestellt – die {gemesseneRaeder.length} gemessenen Räder werden dann gelöscht.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -914,11 +938,19 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
         {einzeln && assignment && (
           <div className="field">
             {eben && <div className="small" style={{ marginBottom: 6 }}>Eingelagert. Jetzt jedes Rad antippen und die Profiltiefe eintragen.</div>}
+            {/* Der bisherige Satzwert bleibt sichtbar, solange noch kein Rad gemessen ist – und
+                bleibt gespeichert, wenn jetzt ✕ getippt wird. */}
+            {artGespeichert === "sammel" && assignment.profiltiefe_mm != null && (
+              <div className="small" style={{ marginBottom: 6 }}>
+                Bisher ein Wert für den Satz: <b>{profilText(assignment.profiltiefe_mm)}</b>. Er bleibt, bis du
+                das erste Rad misst oder &bdquo;Zuordnung speichern&ldquo; tippst.
+              </div>
+            )}
             <RadBild
-              raeder={raederFuer(assignment.id)}
+              raeder={gemesseneRaeder}
               anzahlRaeder={assignment.anzahl_raeder ?? 4}
               gesperrt={saving}
-              onSpeichern={(position, felder) => onRadSpeichern(assignment.id, position, felder)}
+              onSpeichern={radSpeichern}
               onEntfernen={onRadEntfernen}
             />
             <label style={{ marginTop: 8 }}>Räder in diesem Satz</label>
