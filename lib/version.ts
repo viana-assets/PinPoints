@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v98";
+export const APP_VERSION = "v102";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,41 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v102", datum: "2026-10-02", titel: "Vorlagen, Telefonsuche und viele kleine Verbesserungen",
+    punkte: [
+      "Auftragsvorlagen: Unter „Artikel“ lassen sich Leistungspakete wie „Saisonwechsel mobil“ anlegen. Im Auftrag trägt „+ Vorlage“ alle Leistungen mit einem Tipp ein.",
+      "Die Kundensuche findet jetzt auch Telefonnummern – egal ob mit Schrägstrich, Leerzeichen oder +49 geschrieben.",
+      "Im Lager: Ist ein Lager zu 90 % voll, steht das deutlich da. Passt die Reifengröße eines gemessenen Rades nicht zum Fahrzeug, erscheint ein Hinweis.",
+      "Ein stornierter Auftrag wird jetzt „wieder aufgenommen“ – mit dem Stornogrund vor Augen. Wer ohne eine einzige Leistung auf „Erledigt“ tippt, wird einmal gefragt.",
+      "In der Einsatzplanung zeigt „Storniert“ die abgesagten Termine. Freie Lagerplätze sind nach Lager sortiert, große Aufkleberbögen werden in Teilen gedruckt.",
+    ],
+  },
+  {
+    version: "v101", datum: "2026-10-02", titel: "Arbeiten ohne Netz",
+    punkte: [
+      "Im Funkloch oder in der Tiefgarage lässt sich jetzt weiterarbeiten: Notiz, Titel und Beschreibung, Termin, Leistungen und die Radmessung werden auf dem Handy gespeichert und übertragen, sobald wieder Netz da ist.",
+      "Unten steht dann „1 Änderung wartet auf Netz“, im Auftrag oben „auf dem Gerät gespeichert – noch nicht übertragen“. Antippen zeigt, was noch aussteht.",
+      "Hat in der Zwischenzeit jemand dasselbe Feld geändert, fragt die App nach, welche Fassung gelten soll – nichts wird still überschrieben.",
+      "Abschließen, Ein- und Auslagern und Kundendaten brauchen weiterhin Netz.",
+    ],
+  },
+  {
+    version: "v100", datum: "2026-10-02", titel: "Packliste, Löschschutz, IBAN-Prüfung",
+    punkte: [
+      "Neu im Dashboard: die Packliste für heute oder morgen – welche Leistungen anstehen (z. B. 8× Räderwechsel) und welche Reifengrößen die Autos fahren. Dieselbe Liste steht im Fenster hinter dem Abendhinweis.",
+      "Ein abgerechneter Auftrag lässt sich nicht mehr löschen – über ihn findet man die Rechnung. Bei erledigten und stornierten Aufträgen fragt die App eigens nach.",
+      "Die IBAN in den Betriebsdaten wird jetzt geprüft: Ein Tippfehler fällt schon beim Eintragen auf, nicht erst beim Kunden.",
+      "Hinter den Kulissen: Listen mit gleichem Datum stehen immer in derselben Reihenfolge, und die Adresssuche ist gegen Dauerabfragen gebremst.",
+    ],
+  },
+  {
+    version: "v99", datum: "2026-10-02", titel: "Etiketten: Format wieder wählbar, Regalaufkleber für den Brother",
+    punkte: [
+      "Beim Etikett für den Reifensatz lässt sich das Format wieder wählen: 58 × 58 mm ist voreingestellt, 60 × 86 mm (groß) steht zur Auswahl.",
+      "Die Aufkleber fürs Regal drucken jetzt ebenfalls auf dem Brother – 58 × 58 oder 60 × 86 mm, als PDF über „Drucken“ wie beim Reifensatz. Groß steht der Platz darauf, klein das Lager. Der A4-Bogen für den Bürodrucker bleibt als dritte Wahl.",
+    ],
+  },
   {
     version: "v98", datum: "2026-10-02", titel: "Profiltiefe: Umschalten löscht nichts mehr",
     punkte: [

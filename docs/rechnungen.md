@@ -462,7 +462,12 @@ Abschnitt; jede Zeile zeigt den gespeicherten Stand und öffnet ein Blatt mit ei
 
 1. **Briefkopf** – Firma, Inhaber, Anschrift, Kontakt, USt-IdNr., Steuernummer.
 2. **Bankverbindung** – Kontoinhaber, Bank, IBAN, BIC; Grundlage des Girocodes. Die Zeile
-   zeigt nur die letzten vier Stellen der IBAN.
+   zeigt nur die letzten vier Stellen der IBAN. (Zu D8: Seit Migration 63 trägt jede Rechnung
+   `texte.mit_steuer`; bei frühen Belegen wurde genau der Wert festgeschrieben, den die
+   Druckansicht bis dahin aus `steuer ≠ 0` geraten hatte – kein Beleg sieht anders aus.) Seit v100 (D17) wird die IBAN geprüft – Länge
+   je Land und Prüfsumme (`ibanFehler()` in `lib/rechnung.ts`): unter dem Feld steht beim
+   Tippen, ob sie stimmt, gespeichert wird eine falsche nicht, und eine schon gespeicherte
+   falsche färbt die Zeile rot.
 3. **Logo** – Upload als Datei, im Browser über `FileReader.readAsDataURL()` in eine
    `data:`-URI umgewandelt und so in `betrieb.logo` gespeichert. Zulässige Typen
    `LOGO_TYPEN = ["image/png", "image/jpeg", "image/svg+xml"]`, maximale Größe

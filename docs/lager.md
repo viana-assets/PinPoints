@@ -72,6 +72,20 @@ Monatsschwelle. Seit dem 26.09.2026 als Zeilen statt als Tabelle; eine Zeile öf
 
 ---
 
+## Seit v102: Auslastung, Größenabgleich, Platzauswahl, große Aufkleberbögen
+
+- **Fast volles Lager (E11):** ab 90 % belegter Plätze (`LAGER_VOLL_AB`, `lagerAuslastung()` in
+  `lib/lagerAnsicht.ts`) steht der Zähler am Lagerknopf rot, darunter „Nürnberg ist zu 92 % belegt
+  – noch 8 Plätze frei", und das Dashboard nennt das Lager unter „Zu erledigen".
+- **Reifengröße prüfen (E8):** Weicht die Größe eines gemessenen Rades von der am Fahrzeug ab,
+  steht das unter „Zu prüfen" am Platz und im Auftragsfenster unter dem Radbild
+  (`groessenAbweichung()` in `lib/reifenverkauf.ts`). Ein Hinweis, keine Sperre – Mischbereifung
+  gibt es.
+- **Platzauswahl nach Lager (D14):** Bei mehreren Lagern sind die freien Plätze im Auftragsfenster
+  nach Lager gruppiert, mit der Zahl freier Plätze je Lager.
+- **Aufkleber in Teilen (D18):** Mehr als 40 Regalaufkleber auf einmal werden in Teilen zu 40
+  gedruckt (Auswahl „Teil 1 von 5: A-01 – C-08"), sonst hängt das iPhone.
+
 ## QR-Aufkleber am Regal (Migration 22)
 
 Jeder Lagerplatz kann einen Aufkleber bekommen, der genau auf ihn zeigt.
@@ -82,7 +96,15 @@ Jeder Lagerplatz kann einen Aufkleber bekommen, der genau auf ihn zeigt.
   Erstausstattung eines Lagers.
 
 Beides öffnet denselben Druckbogen (`LagerplatzAufkleber`); der Unterschied ist allein die Länge
-der übergebenen Liste. Gedruckt wird über die Druckfunktion des Browsers – kein PDF-Erzeuger im
+der übergebenen Liste.
+
+**Seit v99 (02.10.2026) auch für den Brother:** Formatwahl wie beim Reifensatz-Etikett
+(`ETIKETT_FORMATE` aus `ReifensatzEtikett.tsx`: 58 × 58 als Vorgabe, 60 × 86), ein Aufkleber je
+Etikett, gedruckt als PDF über Teilen → Drucken (`etikettenPdfDatei()`, `teilenOderSpeichern()` in
+`lib/etikettBild.ts`). Darauf QR oben, groß der Platz, klein das Lager. Als dritte Wahl bleibt der
+**A4-Bogen** am Rechner, wie unten beschrieben. Geprüft: PDF je Format, Seitengröße, QR zurückgelesen.
+
+Bis v98 wurde ausschließlich über die Druckfunktion des Browsers gedruckt – kein PDF-Erzeuger im
 Paketumfang: das Ergebnis wäre dasselbe Blatt Papier, nur mit einer weiteren Abhängigkeit und
 ohne die Vorschau, in der man Ränder und Skalierung im Druckdialog noch geradeziehen kann. Die
 Druckansicht steckt in `@media print` in `globals.css` und blendet über `visibility` alles außer
@@ -134,10 +156,11 @@ verwechseln lassen; `lagerplatzIdAusCode()` und `satzIdAusCode()` prüfen deshal
 eigenen Parameternamen und lehnen den anderen mit einer Meldung ab, statt stillschweigend
 nichts zu tun (siehe `EinlagerungBlock.tsx`, `gescannt()`).
 
-**Seit v96 (02.10.2026) gibt es genau ein Format: 58 × 58 mm auf dem Brother QL-820NWBc**
-(`ETIKETT_FORMAT` in `ReifensatzEtikett.tsx`, QR 30 mm oben, Daten darunter, Rand 2,5 mm,
-Schriftfaktor 1,25, 300 dpi). Die Formatauswahl ist entfallen – Entscheidung Vitali nach dem
-Drucktest: Alle anderen Formate würden nie benutzt. Satz- und Rad-Etikett haben seitdem denselben
+**Seit v99 (02.10.2026): zwei Formate, 58 × 58 mm als Vorgabe und 60 × 86 mm (groß) wählbar**
+(`ETIKETT_FORMATE` in `ReifensatzEtikett.tsx`; 58 × 58: QR 30 mm, Rand 2,5 mm, Schrift 1,25;
+60 × 86: QR 46 mm, Rand 3 mm, Schrift 1,75; beide QR oben, 300 dpi). v96 hatte die Auswahl ganz
+entfernt und nur 58 × 58 gelassen; gemeint war „58 × 58 als Standard, die übrigen raus" –
+entfallen sind die kleinen 203-dpi-Rollen und der A4-Bogen. Satz- und Rad-Etikett haben denselben
 QR-Code (der Abzug von 3 mm galt nur im Querformat). Was folgt, ist die Geschichte bis v95.
 
 Gedruckt wurde bis v95 wahlweise auf A4-Bögen oder im Format kleiner Etikettenrollen

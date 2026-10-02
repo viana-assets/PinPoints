@@ -1,3 +1,4 @@
+import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useState } from "react";
 import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
 import { getPhoneNumbers, rechnungOffen, todayStr } from "@/lib/helpers";
@@ -128,11 +129,17 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                     <button type="button" onClick={() => { setMenuFuer(null); onOpenOrder(o.id); }}>Auftrag öffnen</button>
                     {!isTechniker && <button type="button" onClick={(e) => { setMenuFuer(null); onEditEmployees(e, o.id); }}>Mitarbeiter zuteilen</button>}
                     {cust && <button type="button" onClick={() => { setMenuFuer(null); onOpenCustomer(cust.id); }}>Kunde öffnen</button>}
-                    {!isTechniker && (
-                      <button type="button" className="gefahr" onClick={() => { setMenuFuer(null); if (confirm(`Auftrag ${auftragsNr(o.order_number)} wirklich löschen?`)) onDelete(o.id); }}>
-                        <IconTrash /> Löschen
-                      </button>
-                    )}
+                    {/* Abgerechnete Aufträge werden nicht gelöscht (D2, lib/auftragLoeschen.ts). */}
+                    {!isTechniker && (() => {
+                      const pruefung = auftragLoeschPruefung(o);
+                      return pruefung.erlaubt ? (
+                        <button type="button" className="gefahr" onClick={() => { setMenuFuer(null); if (confirm(pruefung.frage)) onDelete(o.id); }}>
+                          <IconTrash /> Löschen
+                        </button>
+                      ) : (
+                        <span className="small op-menue-hinweis">{pruefung.grund}</span>
+                      );
+                    })()}
                   </span>
                 )}
               </span>

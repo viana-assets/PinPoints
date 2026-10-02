@@ -10,13 +10,13 @@ import { fetchPaged, qWrite } from "./client";
 
 export async function fetchArticles(supabase: SupabaseClient): Promise<Article[]> {
   return fetchPaged<Article>("Die Artikel konnten nicht geladen werden", (von, bis) =>
-    supabase.from("articles").select("*").order("article_number").range(von, bis)
+    supabase.from("articles").select("*").order("article_number").order("id").range(von, bis)
   );
 }
 
 export async function fetchArticlePrices(supabase: SupabaseClient): Promise<ArticlePrice[]> {
   return fetchPaged<ArticlePrice>("Die Artikelpreise konnten nicht geladen werden", (von, bis) =>
-    supabase.from("article_prices").select("*").order("valid_from", { ascending: false }).range(von, bis)
+    supabase.from("article_prices").select("*").order("valid_from", { ascending: false }).order("id").range(von, bis)
   );
 }
 

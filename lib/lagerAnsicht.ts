@@ -1,4 +1,4 @@
-import type { Saison, StorageSlot, TireStorage } from "./types";
+import type { Saison, StorageSlot, TireStorage, Warehouse } from "./types";
 import { lagerplatzIdAusCode, satzIdAusCode } from "./aufkleberCode";
 
 // Die Regeln hinter der neu gestalteten Lagerseite (26.09.2026, Entwurf „H · Lager").
@@ -60,4 +60,27 @@ export function scanZiel(text: string, plaetze: Pick<StorageSlot, "id">[], saetz
     return { art: "kunde", kundeId: satz.customer_id };
   }
   return { art: "fremd" };
+}
+
+// ---------------------------------------------------------------- Auslastung (E11, v102)
+//
+// Ab welchem Anteil belegter Plätze ein Lager als „fast voll" gilt. Dann färbt sich sein Knopf in
+// der Lagerseite, darunter steht, wie viele Plätze noch frei sind, und das Dashboard nennt es
+// unter „Zu erledigen". Ein Lager ohne Plätze (das Lager „Zuhause") zählt nicht.
+export const LAGER_VOLL_AB = 0.9;
+
+export type LagerStand = { id: string; name: string; belegt: number; gesamt: number; anteil: number; voll: boolean };
+
+export function lagerAuslastung(lager: Pick<Warehouse, "id" | "name">[], plaetze: Pick<StorageSlot, "id" | "warehouse_id">[], belegt: Set<string>): LagerStand[] {
+  return lager.map((w) => {
+    const eigene = plaetze.filter((s) => s.warehouse_id === w.id);
+    const b = eigene.filter((s) => belegt.has(s.id)).length;
+    const anteil = eigene.length > 0 ? b / eigene.length : 0;
+    return { id: w.id, name: w.name, belegt: b, gesamt: eigene.length, anteil, voll: eigene.length > 0 && anteil >= LAGER_VOLL_AB };
+  });
+}
+
+export function auslastungText(s: LagerStand): string {
+  const frei = s.gesamt - s.belegt;
+  return `${s.name} ist zu ${Math.round(s.anteil * 100)} % belegt – ${frei === 0 ? "kein Platz mehr frei" : frei === 1 ? "noch 1 Platz frei" : `noch ${frei} Plätze frei`}.`;
 }

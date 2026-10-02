@@ -314,6 +314,11 @@
   .offline-hinweis{position:fixed;left:0;right:0;bottom:0;z-index:950;
     background:#1f2430;color:#fff;text-align:center;font-size:12px;font-weight:600;
     padding:6px 12px;}
+  /* Derselbe Balken mit wartenden Offline-Änderungen (F1): antippbar, öffnet den Ausgangskorb.
+     Rot, sobald etwas eine Entscheidung braucht oder nicht übernommen wurde. */
+  .offline-hinweis.ausgang{border:none;border-radius:0;width:100%;cursor:pointer;font-family:inherit;}
+  .offline-hinweis.ausgang.achtung{background:#b3261e;}
+  .ausgang-ansehen{text-decoration:underline;margin-left:6px;}
 
   /* Hinweisbalken "Neue Version verfügbar" (components/PwaBereit.tsx). Dunkel wie die
      Kurzmeldung, aber mit Schaltfläche und dauerhaft – er verschwindet erst, wenn geladen
@@ -1945,6 +1950,8 @@ button.el-zeile:hover{border-color:var(--accent);}
   font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;color:var(--text);}
 .op-menue button:hover{background:var(--hover);}
 .op-menue button.gefahr{color:#b3261e;}
+/* Statt „Löschen“ bei einem abgerechneten Auftrag: warum es fehlt (D2, v100). */
+.op-menue-hinweis{display:block;padding:10px 14px;max-width:240px;white-space:normal;color:var(--muted);line-height:1.4;}
 
 /* Auswahlblatt der Filter: am Handy von unten, am Rechner als kleines Fenster. */
 .auswahl-blatt{background:var(--panel);border-radius:20px;padding:10px 16px 18px;width:min(420px, calc(100vw - 32px));
@@ -2403,6 +2410,38 @@ button.el-zeile:hover{border-color:var(--accent);}
 .mz-inhalt{display:flex;flex-direction:column;gap:2px;min-width:0;}
 .mz-satz{font-size:12.5px;color:var(--muted);}
 .mz-satz b{color:var(--text);}
+/* Auftragsvorlagen (E6, v102): Liste unter den Artikeln, Blatt mit Positionen. */
+.vl-block{margin-top:14px;gap:6px;}
+.vl-zeile{display:flex;flex-direction:column;gap:2px;text-align:left;background:#fff;border:1px solid var(--border);border-radius:12px;padding:10px 12px;font:inherit;cursor:pointer;}
+.vl-zeile.inaktiv{opacity:.6;}
+.vl-zeile:disabled{cursor:default;}
+.vl-positionen{display:flex;flex-direction:column;gap:6px;margin:10px 0;}
+.vl-position{display:flex;align-items:center;gap:8px;}
+.vl-position input[type=number]{width:64px;}
+.vl-position span{flex:1;min-width:0;}
+.vl-position select{flex:1;min-width:0;}
+.vl-aktiv{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:4px;}
+/* Fast volles Lager (E11, v102): Knopf mit rotem Zähler, darunter ein Satz. */
+.lg-lagerwahl button.voll .lg-lagerwahl-zahl{color:#b3261e;font-weight:800;}
+.lg-voll{margin-top:8px;background:#fdf1f0;border:1px solid #e3b4b0;color:#8a1c14;border-radius:12px;padding:8px 12px;font-size:13px;font-weight:600;}
+/* Ausgangskorb (F1, v101): offline gespeicherte Änderungen, je Eintrag eine Karte. */
+.ag-zeile{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:8px;display:flex;flex-direction:column;gap:6px;background:#fff;}
+.ag-zeile.konflikt{border-color:#e0a100;background:#fff9e8;}
+.ag-zeile.abgelehnt{border-color:#e3b4b0;background:#fdf1f0;}
+.ag-kopf{display:flex;justify-content:space-between;gap:8px;align-items:baseline;}
+.ag-konflikt{display:flex;flex-direction:column;gap:2px;padding:6px 8px;background:#fff;border-radius:8px;border:1px solid var(--border);}
+.ag-feld{font-size:12px;font-weight:700;color:var(--muted);}
+.ag-fuss{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;}
+.ag-klein{padding:6px 10px;font-size:12.5px;}
+.ag-grund{color:#8a1c14;}
+/* Packliste (E2, v100): Leistungen und Reifengrößen eines Tages als Zählchips. */
+.pk-block{display:flex;flex-direction:column;gap:8px;margin-top:6px;}
+.pk-zeile{display:flex;flex-direction:column;gap:4px;}
+.pk-titel{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.pk-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.pk-chip{background:var(--bg);border:1px solid var(--border);border-radius:999px;padding:3px 10px;font-size:13px;}
+.pk-chip b{font-weight:800;}
+.pk-hinweis{color:var(--muted);}
 
 /* ---------------------------------------------------------------- Papierkorb (Migration 56)
    Grün für „erledigt", ein eigener roter Knopf für die eine Handlung, die sich nicht

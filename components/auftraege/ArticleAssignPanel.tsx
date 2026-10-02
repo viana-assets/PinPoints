@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Article, ArticlePrice, OrderArticle, ReifenZustand, StorageSlot, Verkaufsreifen, Warehouse } from "@/lib/types";
+import type { Article, ArticlePrice, Auftragsvorlage, OrderArticle, ReifenZustand, StorageSlot, Verkaufsreifen, Warehouse } from "@/lib/types";
 import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
 import { reifenFrei, reifenZustandVonArtikel } from "@/lib/reifenverkauf";
 import { ReifenSuche } from "./ReifenSuche";
@@ -35,7 +35,7 @@ export type ReifenImAuftrag = {
 // Seit Migration 61: „Reifen aus dem Lager" öffnet die Reifensuche (ReifenSuche.tsx). Dieselbe
 // Suche öffnet sich, wenn im Leistungsblatt ein Artikel mit der Abrechnungsart Reifenverkauf
 // gewählt wird – der Artikel allein wüsste weder Preis noch Reifen.
-export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove }: {
+export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove, vorlagen }: {
   orderId: string;
   reifen?: ReifenImAuftrag | null;
   articles: Article[];
@@ -60,6 +60,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   // Bezeichnung, sonst eine Zusatzzeile darunter.
   onUpdateText: (id: string, text: string | null) => Promise<void>;
   onRemove: (id: string) => Promise<void>;
+  // Auftragsvorlagen (E6, Migration 63): mehrere Leistungen mit einem Tipp.
+  vorlagen?: Auftragsvorlage[];
 }) {
   const activeArticles = articles.filter((a) => a.active);
   const [blattOffen, setBlattOffen] = useState(false);
@@ -68,6 +70,24 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   const [offeneZeile, setOffeneZeile] = useState<string | null>(null);
   // undefined = zu; null = alle Zustände; sonst nur neue bzw. gebrauchte
   const [reifenSuche, setReifenSuche] = useState<ReifenZustand | null | undefined>(undefined);
+  const [vorlagenOffen, setVorlagenOffen] = useState(false);
+  const aktiveVorlagen = (vorlagen ?? []).filter((v) => v.aktiv && v.positionen.length > 0);
+  // Eine Vorlage = ihre Positionen nacheinander, über denselben Weg wie ein einzelner Tipp (also
+  // auch offline, F1). Ein inzwischen inaktiver Artikel wird übersprungen; Reifen aus dem Lager
+  // gehören nicht in Vorlagen, sie brauchen die Auswahl eines bestimmten Reifens.
+  async function vorlageEintragen(v: Auftragsvorlage) {
+    setFuegtHinzu(v.id);
+    try {
+      for (const p of v.positionen) {
+        const a = activeArticles.find((x) => x.id === p.article_id);
+        if (!a || reifenZustandVonArtikel(a)) continue;
+        await onAdd(orderId, a.id, Math.max(1, p.quantity), null, null);
+      }
+      setVorlagenOffen(false);
+    } finally {
+      setFuegtHinzu(null);
+    }
+  }
   const totals = orderArticleTotals(rows, rechnungNoetig);
   const preisVon = (id: string) => currentArticlePrice(articlePrices.filter((p) => p.article_id === id));
 
@@ -211,6 +231,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
       ) : (
         <div className="ls-plus">
           <button type="button" className="dm-plus" onClick={() => setBlattOffen(true)}>+ Leistung hinzufügen</button>
+          {aktiveVorlagen.length > 0 && <button type="button" className="dm-plus" onClick={() => setVorlagenOffen(true)}>+ Vorlage</button>}
           {reifen && <button type="button" className="dm-plus" onClick={() => setReifenSuche(null)}>+ Reifen aus dem Lager</button>}
         </div>
       )}
@@ -258,6 +279,27 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                 </button>
               );
             })}
+          </div>
+        </div>
+      )}
+      {vorlagenOffen && (
+        <div className="modal-overlay auswahl-overlay ls-overlay" onClick={() => setVorlagenOffen(false)}>
+          <div className="auswahl-blatt am-breit ls-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Vorlage eintragen">
+            <div className="ab-griff" />
+            <div className="ar-blatt-kopf">
+              <div className="ab-titel">Vorlage eintragen</div>
+              <button type="button" className="modal-close" onClick={() => setVorlagenOffen(false)} aria-label="Schließen">×</button>
+            </div>
+            <span className="small">Alle Leistungen der Vorlage kommen mit dem heutigen Preis in den Auftrag – danach wie gewohnt änderbar.</span>
+            {aktiveVorlagen.map((v) => (
+              <button key={v.id} type="button" className="ab-option ls-artikel" disabled={!!fuegtHinzu} onClick={() => void vorlageEintragen(v)}>
+                <span className="ab-text ls-artikel-text">
+                  <b>{v.name}</b>
+                  <span className="small">{v.positionen.map((p) => `${p.quantity > 1 ? p.quantity + "× " : ""}${articles.find((a) => a.id === p.article_id)?.short_name ?? "?"}`).join(" · ")}</span>
+                </span>
+                <span className="ls-artikel-plus" aria-hidden="true">{fuegtHinzu === v.id ? "…" : "+"}</span>
+              </button>
+            ))}
           </div>
         </div>
       )}

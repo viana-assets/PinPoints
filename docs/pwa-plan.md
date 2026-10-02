@@ -93,7 +93,41 @@ funktioniert offline, die Karte zeigt einen Hinweis.
 
 Aufwand: mittel. Risiko: gering, solange nur gelesen wird.
 
-### Stufe 4 – Offline schreiben (weiterhin PLAN, nicht gebaut)
+### Stufe 4 – Offline schreiben — ERSTE RUNDE UMGESETZT 02.10.2026 (v101)
+
+**Was gebaut ist** (`lib/offline/`, Fahrplan F1, großer Zuschnitt, Runde 1):
+
+* **Ausgangskorb** (`lib/offline/speicher.ts`): eine Liste von **Absichten** in der IndexedDB,
+  unter eigenem Schlüssel `pinpoints-ausgang` – getrennt vom Datenbestand, den die App jederzeit
+  verwerfen darf. Abmelden fragt nach, wenn noch etwas wartet, und leert ihn nicht.
+* **Was offline geht** (`AUFTRAG_OFFLINE_FELDER` u. a. in `lib/offline/ausgang.ts`): am Auftrag
+  Titel, Beschreibung, Termin (Tag/von/bis, auch das Ziehen im Kalender), „Rechnung benötigt",
+  Laufkunden-Angaben, Technikernotiz; Leistungen eintragen, Menge, Endpreis, Text, entfernen; die
+  Radmessung (auch im Lager, das erste Rad stellt wie online auf „je Rad" um). Alles läuft über
+  `offlineOderDirekt()` in `app/page.tsx`: mit Netz direkt, ohne Netz oder bei Netzabbruch als
+  Absicht. Eine neue Leistung bekommt ihre Kennung auf dem Gerät (doppelt senden legt sie nicht
+  zweimal an); mehrere Änderungen am selben Feld werden zu einer zusammengelegt, mit der Basis
+  von vor der ersten.
+* **Sofort sichtbar, aber ehrlich**: Die Absichten liegen über dem geladenen Bestand
+  (`auftragsdatenAnwenden`, `raederAnwenden`, `saetzeAnwenden`), nicht im Zwischenspeicher –
+  ein Neuladen überschreibt sie nicht. Der Offline-Balken zeigt „n Änderungen warten", auch mit
+  Netz („werden übertragen"); im Auftragsfenster steht im Kopf „auf dem Gerät gespeichert –
+  noch nicht übertragen".
+* **Übertragen** (`lib/offline/senden.ts`): beim Start, wenn das Netz wiederkommt, nach jeder
+  neuen Absicht und alle 30 Sekunden, der Reihe nach. Vor jedem Schreiben wird der aktuelle
+  Stand gelesen: unverändert → übernehmen; anderes Feld geändert → übernehmen (feldweise);
+  **dasselbe Feld anders geändert → Konflikt**, beide Fassungen im Fenster „Noch nicht
+  übertragen", ein Mensch entscheidet; Auftrag inzwischen abgeschlossen/storniert oder Ablehnung
+  der Datenbank → „nicht übernommen" mit Grund.
+* **Nicht offline**, mit klarer Meldung statt „Failed to fetch": abschließen, stornieren,
+  Status, Mitarbeiter, ein-/auslagern, Kunden, Stammdaten, Rechnungen.
+
+**Runde 2 (offen):** Fahrzeug am Auftrag und Kilometerstand (dafür müssen die Fahrzeuge am
+Auftrag erst offline LESBAR werden – heute lädt sie das Auftragsfenster bei jedem Öffnen frisch,
+ohne Netz fehlen sie), neues Fahrzeug beim Kunden. Danach der Test mit absichtlich
+abgeschaltetem Telefon im Betrieb.
+
+Der Text unten ist die ursprüngliche Planung.
 
 Änderungen ohne Netz landen in einer lokalen Warteschlange und werden nachgereicht, sobald
 das Netz wieder da ist. Das ist kein Zwischenspeicher-Thema mehr, sondern eine

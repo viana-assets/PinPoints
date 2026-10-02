@@ -151,7 +151,11 @@ fehlen, erfinden Menschen welche.
 In Liste und Karten-Popup ist bei Firmenkunden der **Firmenname** die Überschrift und der
 Ansprechpartner steht darunter; bei Privatpersonen bleibt alles wie bisher. Die Suche greift
 zusätzlich auf Firma und E-Mail zu – sonst fände man einen Geschäftskunden nur über den Namen
-des Ansprechpartners, den im Alltag niemand parat hat.
+des Ansprechpartners, den im Alltag niemand parat hat. **Seit v102 (D10) auch auf die
+Telefonnummer, gleich in welcher Schreibweise** („0911/12345" findet „+49 911 12345"; ab vier
+Ziffern, `telefonPasst()` in `lib/telefon.ts`). Die Datenbank führt dieselbe Vergleichsform
+(`customers.mobil_vergleich`/`festnetz_vergleich`, Migration 63) – Grundlage für die
+Dublettenprüfung (E1).
 
 **Warum die Anrede ein eigenes Feld ist:** in der Altliste stand sie bei 30 Kunden im
 Namensfeld („Frau Graf"). Das verfälscht die alphabetische Sortierung – die Kundin landet unter
@@ -210,6 +214,14 @@ Die Route schützt dasselbe wie die Geocode-Route: nur angemeldete Nutzer, Minde
 Höchstlänge, Drosselung, Zwischenspeicher (`adressvorschlag_cache`, Migration 25), keine
 Weitergabe von Cookies oder Kundendaten – nur die Sucheingabe. Die Suche ist auf den
 Kartenmittelpunkt gewichtet, damit bei „Hauptstraße" die Nürnberger zuerst kommt.
+
+**Bremse über alle Server-Instanzen (B3, Migration 62, v100).** Die Drosselung im Speicher der
+Route gilt nur je Instanz. Zusätzlich zählt jetzt die Datenbank je Dienst, Nutzer und Minute
+(`fremdabfrage_erlaubt()`, `lib/fremdabfrage.ts`) – nur Aufrufe nach draußen, ein Treffer im
+Zwischenspeicher kostet nichts. Grenzen: Nominatim 50 je Nutzer / 55 gesamt je Minute, Photon
+60 / 300. Darüber antwortet die Route mit 429 und „bitte eine Minute warten"; der
+Massenlauf (`GeokodierLauf`) wartet dann von selbst eine Minute und macht weiter. Fehlt die
+Migration, gilt nur die alte Bremse.
 
 ### Beim Tippen
 

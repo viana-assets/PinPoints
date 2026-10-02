@@ -43,7 +43,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('19', 'customers.deleted_at (Soft-Delete)',  exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'deleted_at')),
     ('20', 'orders.order_number + completed_at',  (exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'order_number') and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'completed_at'))),
     ('21', 'Tabelle appointments ist entfernt',   (to_regclass('public.appointments') is null)),
-    ('22', 'tire_storage.order_id + articles.braucht_lagerplatz', (exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'order_id') and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'articles' and column_name = 'braucht_lagerplatz'))),
+    -- 22: `articles.braucht_lagerplatz` entfernt Migration 63 wieder – geprüft wird nur noch die bleibende Spalte.
+    ('22', 'tire_storage.order_id', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'order_id')),
     ('23', 'customers.kontakt_ergebnis',          exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'kontakt_ergebnis')),
     ('24', 'customers.company + anrede',          (exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'company') and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'anrede'))),
     ('25', 'Tabelle adressvorschlag_cache',       (to_regclass('public.adressvorschlag_cache') is not null)),
@@ -113,7 +114,11 @@ with pruefungen(nr, was, vorhanden) as (
     ('60', 'Testkunden, Neuigkeiten',          exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'testkunde')
                                                   and to_regprocedure('public.testkunde_loeschen(uuid)') is not null),
     ('61', 'Reifenverkauf aus dem Lager',      to_regclass('public.verkaufsreifen') is not null
-                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'verkaufsreifen_id'))
+                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'verkaufsreifen_id')),
+    ('62', 'Löschsperre, Abfragebremse',        exists (select 1 from pg_trigger where tgname = 'trg_pruefe_auftrag_loeschen')
+                                                  and to_regprocedure('public.fremdabfrage_erlaubt(text)') is not null),
+    ('63', 'Telefon-Vergleich, Auftragsvorlagen', to_regclass('public.auftragsvorlagen') is not null
+                                                  and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'customers' and column_name = 'mobil_vergleich'))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

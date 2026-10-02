@@ -651,3 +651,15 @@ export type Rechnung = {
   created_at: string;
   created_by: string | null;
 };
+
+// Eine Auftragsvorlage (Migration 63, E6): ein benanntes Leistungspaket. Eingetragen wird es als
+// ganz normale Positionen mit dem Preis des Tages – die Vorlage selbst kennt keine Preise.
+export type Auftragsvorlage = {
+  id: string;
+  name: string;
+  positionen: { article_id: string; quantity: number }[];
+  sortierung: number;
+  aktiv: boolean;
+  created_at: string;
+  updated_at: string;
+};

@@ -93,7 +93,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // gehören in den Aufträge-Tab – in der Planung sind sie Ballast, und am Monatsende stand die
   // Liste voller grüner „Erledigt"-Zeilen, zwischen denen die offenen verschwanden. Im Raster
   // bleiben sie sichtbar (✓ / ✕): Dort sagen sie, wo der Tag schon belegt WAR.
-  const [statusFilter, setStatusFilter] = useState<"all" | "offen" | "in_arbeit">("all");
+  //
+  // Seit v102 (D11) dazu „Storniert" – nicht als Teil der offenen Liste, sondern als eigene
+  // Sicht: Was ist aus dem Plan gefallen? Der Knopf erscheint nur, wenn es Stornos gibt.
+  const [statusFilter, setStatusFilter] = useState<"all" | "offen" | "in_arbeit" | "storniert">("all");
   // Der angeklickte Zeitpunkt, solange die Kundenauswahl offen ist.
   const [slot, setSlot] = useState<{ datum: string; von: string | null; bis: string | null } | null>(null);
   const [custFilter, setCustFilter] = useState("");
@@ -221,7 +224,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
 
   // Volle Liste unter dem Kalender – unabhängig vom ausgewählten Tag, mit eigenen Filtern/Sortierung.
   const listOrders = orders
-    .filter((o) => o.status === "offen" || o.status === "in_arbeit")
+    .filter((o) => (statusFilter === "storniert" ? o.status === "storniert" : o.status === "offen" || o.status === "in_arbeit"))
     .filter((o) => statusFilter === "all" || o.status === statusFilter)
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
     .filter(passtZumFahrzeug)
@@ -318,8 +321,8 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   } else if (listOrders.length > 0) {
     offeneGruppen.push({ titel: null, auftraege: listOrders });
   }
-  const offenZahl = (k: "all" | "offen" | "in_arbeit") => orders
-    .filter((o) => (o.status === "offen" || o.status === "in_arbeit") && (k === "all" || o.status === k))
+  const offenZahl = (k: "all" | "offen" | "in_arbeit" | "storniert") => orders
+    .filter((o) => (k === "storniert" ? o.status === "storniert" : (o.status === "offen" || o.status === "in_arbeit") && (k === "all" || o.status === k)))
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
     .filter(passtZumFahrzeug).length;
 
@@ -507,17 +510,19 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
         {/* ---- Offene Aufträge */}
         <div className="op-bereich">
           <div className="op-kopf">
-            <h4>Offene Aufträge</h4>
-            <span className="small">Erledigte und stornierte unter „Aufträge“</span>
+            <h4>{statusFilter === "storniert" ? "Stornierte Aufträge" : "Offene Aufträge"}</h4>
+            <span className="small">{statusFilter === "storniert" ? "aus dem geladenen Zeitraum" : "Erledigte unter „Aufträge“"}</span>
           </div>
           <div className="op-status">
             {/* „In Arbeit" gibt es seit v94 nicht mehr als Schritt (Auftragsfenster). Die Unterteilung
                 erscheint nur noch, solange ein älterer Auftrag in diesem Zustand steht – sonst
                 wären „Alle offenen" und „Offen" dieselbe Zahl zweimal. */}
-            {(offenZahl("in_arbeit") > 0 || statusFilter !== "all"
-              ? ([["all", "Alle offenen"], ["offen", "Offen"], ["in_arbeit", "In Arbeit"]] as const)
-              : ([["all", "Alle offenen"]] as const)
-            ).map(([k, t]) => (
+            {([
+              ["all", "Alle offenen"] as const,
+              ...(offenZahl("in_arbeit") > 0 || statusFilter === "offen" || statusFilter === "in_arbeit"
+                ? ([["offen", "Offen"], ["in_arbeit", "In Arbeit"]] as const) : []),
+              ...(offenZahl("storniert") > 0 || statusFilter === "storniert" ? ([["storniert", "Storniert"]] as const) : []),
+            ]).map(([k, t]) => (
               <button key={k} type="button" className={statusFilter === k ? "aktiv" : ""} onClick={() => setStatusFilter(k)}>
                 {t} <span className="op-zahl">{offenZahl(k)}</span>
               </button>

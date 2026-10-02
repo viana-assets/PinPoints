@@ -9,7 +9,7 @@ import { fetchPaged, qWrite } from "./client";
 
 export async function fetchEmployees(supabase: SupabaseClient): Promise<Employee[]> {
   return fetchPaged<Employee>("Die Mitarbeiter konnten nicht geladen werden", (von, bis) =>
-    supabase.from("employees").select("*").order("name").range(von, bis)
+    supabase.from("employees").select("*").order("name").order("id").range(von, bis)
   );
 }
 

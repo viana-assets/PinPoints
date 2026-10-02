@@ -63,6 +63,30 @@ function groessenZiffern(g: MitGroesse): string {
   return `${g.breite}${g.querschnitt ?? ""}${String(g.zoll).replace(".", "")}`;
 }
 
+// Passen die gemessenen Räder zur Reifengröße des Fahrzeugs? (E8, v102)
+//
+// Am Fahrzeug steht eine Größe, an jedem einzeln erfassten Rad ebenfalls – verglichen wurde nie.
+// Ein Satz, der zum falschen Auto gebucht ist, fällt sonst erst beim Montieren auf. Verglichen
+// werden Breite, Querschnitt und Zoll (Index und „XL" zählen nicht). Kein Befund, wenn eine der
+// beiden Größen fehlt oder nicht lesbar ist – dann gibt es nichts zu vergleichen, und eine
+// Warnung „unbekannt" wäre Lärm. Mischbereifung (vorne/hinten verschieden) meldet das auch;
+// der Text sagt deshalb „prüfen", nicht „falsch".
+export function groessenAbweichung(
+  fahrzeugGroesse: string | null | undefined,
+  raeder: { position: string | null; reifengroesse: string | null }[]
+): string | null {
+  const soll = groesseAusText(fahrzeugGroesse);
+  if (!soll) return null;
+  const gleich = (g: Reifengroesse) => g.breite === soll.breite && g.zoll === soll.zoll
+    && (g.querschnitt == null || soll.querschnitt == null || g.querschnitt === soll.querschnitt);
+  const abweichend = raeder
+    .map((r) => ({ pos: r.position, g: groesseAusText(r.reifengroesse) }))
+    .filter((x): x is { pos: string | null; g: Reifengroesse } => !!x.g && !gleich(x.g));
+  if (abweichend.length === 0) return null;
+  const liste = abweichend.map((x) => `${x.pos ? x.pos + " " : ""}${groesseText(x.g)}`).join(", ");
+  return `Reifengröße prüfen: ${liste} – am Fahrzeug steht ${groesseText(soll)}`;
+}
+
 // Die Reifengröße eines Fahrzeugs als Vorschlag für die Suche – die erste, die sich lesen lässt.
 export function groessenVorschlag(reifengroessen: (string | null | undefined)[]): string {
   for (const r of reifengroessen) {

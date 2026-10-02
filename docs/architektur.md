@@ -92,6 +92,7 @@ viana-pinpoints/
     AdressFeld.tsx                 Adressfeld mit Vorschlägen + Genauigkeits-Kennzeichnung
                                    (`geo_genauigkeit`, Migration 35)
     OfflineHinweis.tsx              Randbalken „Offline – angezeigt wird der Stand von …"
+    AusgangFenster.tsx              Offline schreiben: „Noch nicht übertragen", Konflikte entscheiden (v101)
     QrScanner.tsx                   Kamera-Scan für Lagerplatz-/Reifensatz-Aufkleber
     PwaBereit.tsx / PwaFassung.tsx / PwaInstallieren.tsx
                                     Installations-/Update-Mechanik der PWA
@@ -137,6 +138,7 @@ viana-pinpoints/
         ArticleAdminPanel.tsx          Tab "Artikel" (eigene Kachel, nicht mehr Teil von Admin –
                                        Ordnerpfad bewusst historisch belassen, um keine
                                        verwaiste Kopie im OneDrive-Ordner zu hinterlassen)
+        VorlagenBlock.tsx              Auftragsvorlagen pflegen, unter der Artikelliste (E6, v102)
         ArticleDetailEditor.tsx        Blatt: Artikel bearbeiten + Preis-Historie als Zeitleiste +
                                        Abrechnungsart/Einheit/Freitext-Schalter
     auftraege/
@@ -156,6 +158,7 @@ viana-pinpoints/
                                       „von wann auf wann" und „Termin von vorher übernehmen" (v91)
       ReifenSuche.tsx                 „+ Reifen aus dem Lager": Verkaufsreifen zum Auftrag (Migration 61)
       MitnehmenFenster.tsx            „Morgen … Sätze mitnehmen" zum Abhaken (Migration 55/58)
+      PacklisteBlock.tsx              Packliste: Leistungen und Reifengrößen des Tages (E2, v100)
     einsatzplanung/
       EinsatzplanungPanel.tsx        Tab "Einsatzplanung" (Kalender + Listenansicht)
       Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster
@@ -173,6 +176,7 @@ viana-pinpoints/
                                         (Migration 33/34, Entwurf X1 seit v89) bzw. die Marke
       ReifensatzEtikett.tsx / LagerplatzAufkleber.tsx
                                         QR-Aufkleber für Satz bzw. Regalplatz
+      QrBild.tsx                        QR-Code als Vorschaubild, für beide (C2, v102)
     auswertung/
       AuswertungPanel.tsx             Tab "Auswertungen" (Entwurf M, 26.09.2026): Reiter Umsatz,
                                       Kunden, Einsatz, Lager, Artikel; Export DATEV/CSV
@@ -206,6 +210,15 @@ viana-pinpoints/
     langlieger.ts                 Langlieger-Übersicht (Fahrplan E4)
     laufkunde.ts                  Laufkunde am Auftrag (Migration 57)
     mitnehmen.ts                  „Reifen mitnehmen" – eine Rechnung für Abendhinweis und Fenster
+    offline/
+      ausgang.ts                  Offline schreiben (F1): Absichten, Konflikte, Vorgreifen,
+                                  Zusammenlegen – reine Funktionen (v101)
+      speicher.ts                 Der Ausgangskorb in der IndexedDB, `useAusgang()`
+      senden.ts                   Übertragen der Reihe nach, Konflikt entscheiden
+    packliste.ts                  Packliste des Tages: Leistungen und Reifengrößen (E2, v100)
+    telefon.ts                    Telefonnummern in Vergleichsform, Suche (D10, v102)
+    auftragLoeschen.ts            Darf ein Auftrag gelöscht werden, mit welcher Frage (D2, v100)
+    fremdabfrage.ts               Abfragebremse der Adressdienste über die Datenbank (B3, v100)
     abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
     pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -239,7 +252,7 @@ viana-pinpoints/
     queries/
       keys.ts                      Zentrale Query-Schlüssel (`qk.kunden()`, `qk.rechnungen()`, …)
       hooks.ts                     Ein Hook je Datenbestand, mit "wird gerade gebraucht?"-Schalter
-                                   (21 Hooks, siehe „Datenladen" unten)
+                                   (22 Hooks, siehe „Datenladen" unten)
     api/
       client.ts                    Fundament der Schicht: ApiError, q()/qOne()/qWrite(),
                                    fetchPaged() (seitenweises Laden gegen die 1000-Zeilen-Kappung)
@@ -261,9 +274,10 @@ viana-pinpoints/
       session.ts                    Rolle + Anzeige-Einstellungen beim Initial-Load
       verkaufsreifen.ts              Reifenverkauf (Migration 61)
       mitnehmen.ts                   „Reifen mitnehmen" abhaken (Migration 58)
+      vorlagen.ts                    Auftragsvorlagen (Migration 63, E6)
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–61
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–63
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -479,7 +493,7 @@ Betriebsjahr weiter und kommen deshalb über ein Zeitfenster.
   `PAGE_SIZE` durch. Nötig, weil PostgREST je Anfrage höchstens 1000 Zeilen liefert – ohne
   `range()` hätte die App bei ~4500 Kunden stillschweigend ein Viertel geladen und trotzdem
   plausible Zahlen gezeigt.
-- **21 Hooks** in `lib/queries/hooks.ts`, jeder mit einem `aktiv`-Schalter: Lager, Artikel,
+- **22 Hooks** in `lib/queries/hooks.ts` (seit v102 `useVorlagen`), jeder mit einem `aktiv`-Schalter: Lager, Artikel,
   Mitarbeiter, Betrieb und Rechnungen laden erst beim Öffnen des jeweiligen Moduls, Fahrzeuge
   und die vollständige Auftragshistorie nur für den geöffneten Kunden. Immer geladen sind nur
   Kunden und das Auftrags-Zeitfenster – beide stecken in Karte, Dashboard und fast jeder Liste.
@@ -538,7 +552,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
   auf dem Homescreen und im Installationsdialog heißt und aussieht: seit v88 „MR Assistent",
   seit v90 mit dem ganzen Logo als Symbol (`public/icons/mr-logo-*.png`). Die frühere Tarnung
   „Settings" liegt als `TARNUNG` bereit (`GETARNT = false`).
-- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v98`**, Konstante
+- **Programm-Hülle im Cache** (`public/sw.js`, aktuelle Fassung **`v102`**, Konstante
   `FASSUNG`): ausschließlich JS-/CSS-Bündel unter `/_next/static/`, Icons, Manifest, die
   Offline-Seite und Google-Fonts landen im Cache – ausdrücklich **keine** Supabase-Antwort,
   keine Kartenkachel, kein `/api/`-Aufruf. Ein neuer Worker ruft nicht von sich aus
@@ -576,7 +590,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 61** (26.09.2026). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 63** (02.10.2026; 62 und 63 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -624,6 +638,11 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **59** – Einstellungen für den DATEV-Export.
 - **60** – Testkunden mit negativen Nummern, „Was gibt es Neues".
 - **61** – Reifenverkauf aus dem Lager: `verkaufsreifen`, Reservieren/Abbuchen in der Datenbank.
+- **63** – `mit_steuer` an alten Rechnungen festgeschrieben, Telefonnummern in Vergleichsform
+  (`telefon_vergleich()`, `customers.mobil_vergleich`/`festnetz_vergleich`), tote Spalte
+  `articles.braucht_lagerplatz` entfernt, Tabelle `auftragsvorlagen`.
+- **62** – Abgerechnete Aufträge nicht löschbar (`pruefe_auftrag_loeschen()`), Abfragebremse der
+  Adressdienste je Nutzer und Minute (`fremdabfrage_zaehler`, `fremdabfrage_erlaubt()`).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

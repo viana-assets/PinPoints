@@ -9,7 +9,7 @@ export async function fetchGepackt(supabase: SupabaseClient, daten: string[]): P
   if (daten.length === 0) return [];
   return fetchPaged<MitnehmenGepackt>(
     "Die Haken bei „Reifen mitnehmen“ konnten nicht geladen werden",
-    (von, bis) => supabase.from("mitnehmen_gepackt").select("*").in("fuer_datum", daten).range(von, bis)
+    (von, bis) => supabase.from("mitnehmen_gepackt").select("*").in("fuer_datum", daten).order("fuer_datum").order("tire_storage_id").range(von, bis)
   );
 }
 

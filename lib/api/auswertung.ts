@@ -48,13 +48,13 @@ export async function fetchAuswertungsdaten(
   const orders = await fetchPaged<Order>(
     "Die Aufträge für die Auswertung konnten nicht geladen werden",
     (a, b) => supabase.from("orders").select("*").is("deleted_at", null)
-      .gte("order_date", von).lte("order_date", bis).order("order_date").range(a, b)
+      .gte("order_date", von).lte("order_date", bis).order("order_date").order("order_number").order("id").range(a, b)
   );
   const offeneRechnungsauftraege = await fetchPaged<Order>(
     "Die noch nicht abgerechneten Aufträge konnten nicht geladen werden",
     (a, b) => supabase.from("orders").select("*").is("deleted_at", null)
       .eq("status", "erledigt").eq("rechnung_noetig", true).is("rechnung_erstellt_am", null)
-      .order("order_date").range(a, b)
+      .order("order_date").order("order_number").order("id").range(a, b)
   );
 
   const bekannt = new Set(orders.map((o) => o.id));
@@ -93,12 +93,12 @@ export async function fetchAuswertungsdaten(
 
   const einlagerungen = await fetchPaged<TireStorage>(
     "Die Einlagerungen für die Auswertung konnten nicht geladen werden",
-    (a, b) => supabase.from("tire_storage").select("*").order("created_at").range(a, b)
+    (a, b) => supabase.from("tire_storage").select("*").order("created_at").order("id").range(a, b)
   );
 
   const rechnungen = mitRechnungen
     ? await fetchPaged<Rechnung>("Das Rechnungsbuch für die Auswertung konnte nicht geladen werden", (a, b) =>
-        supabase.from("rechnungen").select("*").gte("datum", von).lte("datum", bis).order("nummer").range(a, b))
+        supabase.from("rechnungen").select("*").gte("datum", von).lte("datum", bis).order("nummer").order("id").range(a, b))
     : [];
 
   const plaetze = await supabase.from("storage_slots").select("id", { count: "exact", head: true });

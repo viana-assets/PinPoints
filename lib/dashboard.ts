@@ -53,6 +53,8 @@ export function zuErledigen(p: {
   mitarbeiterName: (id: string) => string;
   freiePlaetze: number | null;
   gesamtPlaetze: number | null;
+  // Lager, die zu 90 % oder mehr belegt sind (E11, `lagerAuslastung` in lib/lagerAnsicht.ts).
+  volleLager?: string[];
 }): ErledigenPunkt[] {
   const { orders, orderEmployees, heute } = p;
   const bis = toDateStr(addDays(new Date(heute + "T12:00:00"), 7));
@@ -122,11 +124,14 @@ export function zuErledigen(p: {
     zeilen: ohneName.map((o) => ({ text: kurz(o), auftragId: o.id })),
   });
 
-  if (p.freiePlaetze != null && p.gesamtPlaetze != null && p.gesamtPlaetze > 0 && p.freiePlaetze < LAGER_ENGPASS_AB) {
+  const voll = p.volleLager ?? [];
+  if (p.freiePlaetze != null && p.gesamtPlaetze != null && p.gesamtPlaetze > 0 && (p.freiePlaetze < LAGER_ENGPASS_AB || voll.length > 0)) {
     punkte.push({
       id: "lager", zahl: p.freiePlaetze,
       titel: p.freiePlaetze === 1 ? "Lagerplatz frei" : "Lagerplätze frei",
-      unter: `von ${p.gesamtPlaetze} – das Lager wird knapp`,
+      unter: voll.length > 0
+        ? `von ${p.gesamtPlaetze} – fast voll: ${voll.join(", ")}`
+        : `von ${p.gesamtPlaetze} – das Lager wird knapp`,
       zeilen: [],
     });
   }

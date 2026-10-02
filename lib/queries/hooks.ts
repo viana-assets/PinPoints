@@ -9,6 +9,7 @@ import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
+import { fetchVorlagen } from "@/lib/api/vorlagen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
   fetchEingelagerteRaeder,
@@ -116,6 +117,15 @@ export function useMitarbeiter(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.mitarbeiter(),
     queryFn: () => fetchEmployees(supabase),
+    enabled: aktiv,
+    staleTime: FRISCH_MS,
+  });
+}
+
+export function useVorlagen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.vorlagen(),
+    queryFn: () => fetchVorlagen(supabase),
     enabled: aktiv,
     staleTime: FRISCH_MS,
   });

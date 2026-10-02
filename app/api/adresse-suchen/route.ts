@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
+import { FREMDABFRAGE_ZU_VIEL, fremdabfrageErlaubt } from "@/lib/fremdabfrage";
 import { DEFAULT_MAP_CENTER } from "@/lib/mapStyles";
 
 // Adressvorschläge beim Tippen und für die Korrekturliste (Migration 25).
@@ -23,7 +24,8 @@ import { DEFAULT_MAP_CENTER } from "@/lib/mapStyles";
 // -----------------------
 //   * nur angemeldete Nutzer (sonst wäre sie ein offener Geocoding-Dienst auf fremde Kosten),
 //   * Mindest- und Höchstlänge der Eingabe,
-//   * Drosselung je Server-Instanz,
+//   * Drosselung je Server-Instanz, dazu seit Migration 62 je Nutzer und Minute über alle
+//     Instanzen (lib/fremdabfrage.ts),
 //   * Zwischenspeicher: dieselbe Eingabe geht nie zweimal nach draußen,
 //   * keine Weitergabe von Cookies oder Kundendaten – nur die Sucheingabe selbst.
 
@@ -109,6 +111,9 @@ export async function POST(request: Request) {
     .maybeSingle();
   if (gemerkt) return NextResponse.json({ treffer: gemerkt.treffer });
 
+  if (!(await fremdabfrageErlaubt(supabase, "photon"))) {
+    return NextResponse.json({ error: FREMDABFRAGE_ZU_VIEL }, { status: 429 });
+  }
   await drosseln();
 
   let treffer: Adressvorschlag[] = [];

@@ -35,7 +35,9 @@ export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
   const t = daten.texte;
   const nummerText = daten.entwurf ? null : daten.nummer_text;
   // Ob mit Steuer ausgewiesen wird, steht im Snapshot und nicht am Auftrag: Der Schalter dort
-  // kann sich geändert haben, seit der Beleg gedruckt wurde.
+  // kann sich geändert haben, seit der Beleg gedruckt wurde. Seit Migration 63 (D8) trägt JEDER
+  // Beleg das Feld – auch die frühen, bei denen es festgeschrieben wurde, wie es bis dahin
+  // geraten wurde. Der Rückfall greift nur noch in einer Datenbank ohne Migration 63.
   const mitSteuer = t.mit_steuer ?? daten.steuer !== 0;
 
   // Die Aufteilung je Steuersatz ergibt sich aus den Positionen – die stehen fest, also steht

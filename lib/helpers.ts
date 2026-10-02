@@ -571,6 +571,17 @@ export function geocodeAnfrage(address: string): string {
   return address + ", " + DEFAULT_GEOCODE_REGION;
 }
 
+// Die Adressdienste sind gebremst (Migration 62, lib/fremdabfrage.ts). Eine eigene Fehlerart,
+// damit ein Lauf über viele Adressen (GeokodierLauf) warten und weitermachen kann, statt die
+// Adresse als Fehler zu zählen.
+export class ZuVieleAbfragen extends Error {
+  constructor(text: string) { super(text); this.name = "ZuVieleAbfragen"; }
+}
+async function fehlertextAus(resp: Response): Promise<string> {
+  const daten = await resp.json().catch(() => null);
+  return typeof daten?.error === "string" ? daten.error : "Zu viele Adressabfragen in kurzer Zeit.";
+}
+
 export async function geocodeAddress(
   address: string
 ): Promise<{ lat: number; lng: number; genauigkeit: "exakt" | "ungefaehr" } | null> {
@@ -590,6 +601,7 @@ export async function geocodeAddress(
       })(),
     }),
   });
+  if (resp.status === 429) throw new ZuVieleAbfragen(await fehlertextAus(resp));
   if (!resp.ok) throw new Error("Geocoding fehlgeschlagen");
   const data = await resp.json();
   if (data == null || data.lat == null || data.lng == null) return null;

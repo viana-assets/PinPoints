@@ -306,14 +306,20 @@ damit keinen Reifen einlagern. Deshalb warnt `canView()` seitdem außerhalb der 
 der Konsole, wenn ein Bereich im Katalog fehlt. **Beim Testen von Rechten reicht der
 Superadmin nicht – es braucht je einen Testzugang pro Rolle.**
 
-**`canView()` trennt am ersten Punkt.** Die Regel `"kunden.schreiben"` wird zu Bereich `kunden`
+**Seit v102 (D16) zerlegt `canView()` über `regelZerlegen()`** (`lib/constants.ts`): Nur ein Verb
+am ENDE zählt als Verb, alles davor ist der Bereich – `"lager.einlagerung"` ist damit Bereich
+`lager.einlagerung` mit „lesen", `"lager.regale.schreiben"` Bereich `lager.regale` mit
+„schreiben". Die Falle unten ist damit geschlossen; der Absatz bleibt als Begründung.
+`rechtSchluessel()` ist das Gegenstück und baut seitdem die Zellenschlüssel der Rechtematrix.
+
+**Bis v101: `canView()` trennt am ersten Punkt.** Die Regel `"kunden.schreiben"` wird zu Bereich `kunden`
 und Verb `schreiben`. Ein zweistufiger Bereichsschlüssel wie `"lager.regale"` darf dort deshalb
 **nicht** stehen – er würde als Bereich `lager` mit dem Verb `regale` gelesen und wäre still
 falsch. Für Handlungszeilen ist `darf("lager.regale", "schreiben")` zu verwenden, mit beiden
 Werten getrennt. In `lib/module.ts` stehen aus diesem Grund ausschließlich einstufige
 Schlüssel.
 
-**`rechtSchluessel()` in `lib/constants.ts` wird derzeit von niemandem aufgerufen.** Der Helfer
+**(Bis v101) `rechtSchluessel()` in `lib/constants.ts` wurde von niemandem aufgerufen.** Der Helfer
 stammt aus dem Umbau und setzt Bereich und Verb zu einem Punktschlüssel zusammen – was
 angesichts der vorigen Falle eher eine Einladung als eine Hilfe ist. Wer aufräumt, kann ihn
 entfernen; wer ihn benutzen will, sollte vorher sicher sein, wofür.

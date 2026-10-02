@@ -10,19 +10,19 @@ import { ApiError, fetchPaged, qOne, qWrite } from "./client";
 
 export async function fetchWarehouses(supabase: SupabaseClient): Promise<Warehouse[]> {
   return fetchPaged<Warehouse>("Die Lager konnten nicht geladen werden", (von, bis) =>
-    supabase.from("warehouses").select("*").order("name").range(von, bis)
+    supabase.from("warehouses").select("*").order("name").order("id").range(von, bis)
   );
 }
 
 export async function fetchStorageSlots(supabase: SupabaseClient): Promise<StorageSlot[]> {
   return fetchPaged<StorageSlot>("Die Lagerplätze konnten nicht geladen werden", (von, bis) =>
-    supabase.from("storage_slots").select("*").order("code").range(von, bis)
+    supabase.from("storage_slots").select("*").order("code").order("id").range(von, bis)
   );
 }
 
 export async function fetchTireStorages(supabase: SupabaseClient): Promise<TireStorage[]> {
   return fetchPaged<TireStorage>("Die Einlagerungen konnten nicht geladen werden", (von, bis) =>
-    supabase.from("tire_storage").select("*").order("updated_at", { ascending: false }).range(von, bis)
+    supabase.from("tire_storage").select("*").order("updated_at", { ascending: false }).order("id").range(von, bis)
   );
 }
 
@@ -178,7 +178,7 @@ export async function fetchLagerKennzahlen(supabase: SupabaseClient): Promise<{ 
 
 export async function fetchEingelagerteRaeder(supabase: SupabaseClient): Promise<EingelagertesRad[]> {
   return fetchPaged<EingelagertesRad>("Die eingelagerten Räder konnten nicht geladen werden", (von, bis) =>
-    supabase.from("eingelagerte_raeder").select("*").order("created_at").range(von, bis)
+    supabase.from("eingelagerte_raeder").select("*").order("created_at").order("id").range(von, bis)
   );
 }
 
@@ -192,7 +192,8 @@ export type RadFelder = {
   bemerkung: string;
 };
 
-function radZuZeile(felder: Partial<RadFelder>) {
+// Auch vom Ausgangskorb benutzt (lib/offline/, F1): dieselbe Umrechnung offline wie online.
+export function radZuZeile(felder: Partial<RadFelder>) {
   const zeile: Record<string, unknown> = {};
   if (felder.position !== undefined) zeile.position = felder.position;
   if (felder.reifengroesse !== undefined) zeile.reifengroesse = felder.reifengroesse.trim() || null;

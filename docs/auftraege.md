@@ -88,6 +88,14 @@ offen ──▶ in_arbeit ──▶ erledigt          offen ──▶ storniert
 offen ──▶ erledigt      in_arbeit ──▶ offen      in_arbeit ──▶ storniert
 ```
 
+**Seit v102 (D12, D13):** Ein stornierter Auftrag wird „wieder aufgenommen" (Blatt zeigt Datum und
+Grund des Stornos, Frage „Warum findet der Auftrag doch statt?"), ein erledigter „wiedereröffnet"
+(„Warum muss am erledigten Auftrag noch etwas geändert werden?"). Beides setzt `offen` und
+schreibt den Grund nach `reopen_reason`. Wer „Auftrag erledigt" tippt, ohne dass eine Leistung
+eingetragen ist, wird einmal gefragt – danach sind die Positionen eingefroren. In der
+Einsatzplanung gibt es neben „Alle offenen" den Knopf „Storniert" (D11), sobald es im geladenen
+Zeitraum Stornos gibt.
+
 Aus `erledigt` **und** aus `storniert` heraus lässt die Datenbank eine Wiedereröffnung nach
 `offen` oder `in_arbeit` zu – nicht nur aus `erledigt`, wie es die vorige Fassung dieses
 Dokuments beschrieb. In der Oberfläche gibt es dafür aber nur einen Knopf, „Wiedereröffnen",
@@ -535,6 +543,15 @@ Anlegen, Ändern und Entfernen ab, solange der zugehörige Auftrag `erledigt` od
 ist. Gilt seit Migration 41 unverändert auch für den Techniker am eigenen Auftrag. Eine
 Ausnahme: ändert sich ausschließlich `deleted_at`, lässt der Trigger es durch – sonst ließe
 sich ein bereits abgeschlossener Auftrag nie mehr löschen (Soft-Delete, Migration 19).
+
+**(b2) Abgerechnet heißt: nicht löschen** (D2, Migration 62, v100). `pruefe_auftrag_loeschen()`
+lehnt das Löschen ab (Soft- wie Hard-Delete), sobald eine Rechnung auf den Auftrag verweist –
+auch eine stornierte – oder er eine Rechnungsnummer trägt. Ausgenommen ist die Weitergabe aus
+einem anderen Trigger (`pg_trigger_depth() > 1`): Ein Kunde, der in den Papierkorb geht, nimmt
+seine Aufträge mit, und `kunde_endgueltig_loeschen()` (Migration 56) bleibt bei seinen Regeln.
+Die Oberfläche bietet „Löschen" bei einem abgerechneten Auftrag gar nicht erst an (im
+Auftragsmenü steht stattdessen der Grund) und fragt bei erledigten und stornierten eigens nach
+– `auftragLoeschPruefung()` in `lib/auftragLoeschen.ts`, mit Auftragsnummer in jeder Frage.
 
 **(c) Vollständige Rechnungsdaten** – `pruefe_rechnungsdaten()` (Migration 44), läuft **nach**
 dem Statuswechsel-Trigger (Funktionsname beginnt mit `trg_p`, extra so gewählt, damit er nach

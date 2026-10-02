@@ -16,6 +16,31 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **02.10.2026 – Runde 1 der großen Liste (Migration 63, Service Worker v102).** D8 (`mit_steuer`
+  festgeschrieben), D10 (Telefon-Vergleichsform, Kundensuche über die Nummer), D11 (Filter
+  „Storniert" in der Einsatzplanung), D12 (stornierten Auftrag „wieder aufnehmen", mit Grund),
+  D13 (Rückfrage beim Abschließen ohne Leistung), D14 (freie Plätze nach Lager gruppiert), D16
+  (`canView` über `regelZerlegen`), D18 (Aufkleber in Teilen zu 40), C1 (tote Spalte weg), C2
+  (toter Code: `GEO_GENAUIGKEIT_LABEL`, Prop `pflicht`, doppeltes `QrBild`; `rechtSchluessel`
+  wird jetzt benutzt), C3 (siehe unten), E6 (Auftragsvorlagen), E8 (Reifengrößen-Abgleich),
+  E11 (Lager ab 90 % belegt).
+
+* **02.10.2026 – Offline schreiben, Runde 1 (Service Worker v101).** Ausgangskorb aus Absichten
+  (`lib/offline/`), Balken „n Änderungen warten", Fenster „Noch nicht übertragen" mit
+  Konfliktentscheidung. Offline: Titel, Beschreibung, Termin, Notiz, Leistungen, Radmessung.
+
+* **02.10.2026 – D2, D4, D17, B3 und E2 in einer Runde (Migration 62, Service Worker v100).**
+  Abgerechnete Aufträge lassen sich nicht mehr löschen (Datenbank und Oberfläche,
+  `lib/auftragLoeschen.ts`); erledigte und stornierte fragen eigens nach (damit auch D9: jede
+  Löschfrage nennt die Auftragsnummer). Alle seitenweisen Abfragen sind eindeutig sortiert
+  (`tests/sortierung.test.ts`). Die IBAN wird beim Speichern geprüft (Länge je Land, Prüfsumme).
+  Die Adressdienste zählen je Nutzer und Minute in der Datenbank (`fremdabfrage_erlaubt()`).
+  Neu im Dashboard und im Mitnehmen-Fenster: die **Packliste** – Leistungen und Reifengrößen
+  des Tages (`lib/packliste.ts`).
+
+* **02.10.2026 – Etikettenformat wieder wählbar, Regalaufkleber für den Brother (Service Worker v99).**
+  58 × 58 voreingestellt, 60 × 86 wählbar; Regalaufkleber ebenso als PDF, A4-Bogen bleibt.
+
 * **02.10.2026 – Profiltiefe: Umschalten löscht nichts mehr (Service Worker v98).** „Je Rad messen"
   ist ein Entwurf bis zum Speichern bzw. ersten Rad; Lagerliste zeigt „Satzwert" bzw. „je Rad …".
   Rückhol-Skript für verlorene Werte in `PinPoints\lokal\`.
@@ -300,6 +325,11 @@ siehe „Zuletzt erledigt".*
 
 ### B3. Geokodierung: Drosselung wirkt nur je Serverinstanz
 
+**Erledigt am 02.10.2026 (Migration 62, v100):** Zählung je Dienst, Nutzer und Minute in
+`fremdabfrage_zaehler`, abgefragt über `fremdabfrage_erlaubt()` (`lib/fremdabfrage.ts`).
+Nominatim 50 je Nutzer / 55 gesamt, Photon 60 / 300. Ohne die Migration fallen die Routen auf
+die alte Bremse zurück. Der Text unten ist die ursprüngliche Beschreibung.
+
 `app/api/geocode/route.ts` und `app/api/adresse-suchen/route.ts` bremsen über eine
 Modulvariable. Bei mehreren gleichzeitigen Vercel-Instanzen greift das nicht, und ein
 angemeldeter Nutzer kann die Route in einer Schleife aufrufen. Im Ernstfall sperrt der
@@ -337,11 +367,17 @@ sind. Sie stehen hier, damit sie niemand in guter Absicht kaputtmacht:
 
 ### C1. Tote Spalten entfernen
 
+**Erledigt 02.10.2026 (Migration 63, v102):** `articles.braucht_lagerplatz` ist entfernt.
+
 | Spalte | Status |
 |---|---|
 | `articles.braucht_lagerplatz` | Seit Migration 46 ohne Wirkung, im Code nirgends mehr gelesen. Kann fallen. |
 
 ### C2. Toter Code
+
+**Erledigt 02.10.2026 (v102):** `rechtSchluessel()` baut jetzt die Zellenschlüssel der Rechtematrix
+(Gegenstück `regelZerlegen()` für `canView`), `GEO_GENAUIGKEIT_LABEL` ist entfernt, das Prop
+`pflicht` samt totem Zweig ist weg, `QrBild` liegt einmal in `components/lager/QrBild.tsx`.
 
 - `rechtSchluessel()` in `lib/constants.ts` wird von niemandem aufgerufen. Entweder überall
   verwenden (dann auch in `canView()` und in `PermissionMatrix`, die den Schlüssel je
@@ -354,6 +390,10 @@ sind. Sie stehen hier, damit sie niemand in guter Absicht kaputtmacht:
   `ReifensatzEtikett.tsx`).
 
 ### C3. Kommentare, die etwas anderes sagen als der Code
+
+**Erledigt 02.10.2026 (v102):** Die Kommentare in `AuftraegePanel.tsx`/`EinsatzplanungPanel.tsx`
+waren bereits bereinigt. Migration 37 wird als ausgeführte Datei nicht mehr angefasst (CLAUDE.md
+Abschnitt 2) – die Richtigstellung steht in `supabase/migrations/README.md` bei Migration 37.
 
 - Migration 37 behauptet, die Standarddauer sei „auch im Code 60 Minuten" – in
   `lib/constants.ts` stehen 30, und maßgeblich ist ohnehin `betrieb.termin_intervall_min`.
@@ -387,22 +427,8 @@ für ein Versehen gehalten wird.
 
 ## D. Verbesserungen am Bestehenden
 
-Nach Nutzen sortiert.
-
-| # | Was | Warum | Aufwand |
-|---|---|---|---|
-| D2 | **Löschen eines Auftrags absichern**, wenn eine Rechnung dazu existiert oder der Auftrag erledigt/storniert ist | Heute lässt sich ein abgerechneter Auftrag ohne Warnung aus allen Listen entfernen. Die Rechnung bleibt als Beleg bestehen, ist aber nicht mehr auffindbar. | klein |
-| D4 | **Zweites Sortierkriterium** bei allen Auftragsabfragen (`order_date`, dann Auftragsnummer) | Ohne zweites Kriterium ist die Reihenfolge bei gleichem Datum nicht festgelegt; zusammen mit der seitenweisen Abfrage können Zeilen doppelt oder gar nicht erscheinen. | klein |
-| D8 | **`mit_steuer` nicht mehr raten.** `RechnungDokument` fällt bei alten Belegen ohne dieses Feld auf `steuer !== 0` zurück – bei einer Rechnung über lauter steuerfreie Positionen ist das falsch. Für Altbestände einmalig setzen statt schätzen. | klein |
-| D9 | **Einheitliche Löschbestätigung mit Auftragsnummer** – es gibt vier Stellen mit drei verschiedenen Texten, einer davon ohne jede Kennung | Bei lauter Aufträgen namens „Termin" ist der Titel keine brauchbare Rückfrage. | klein |
-| D10 | **Telefonnummern kanonisch speichern** (zusätzliche Vergleichsform) | Voraussetzung für zuverlässige Suche und für die Dublettenerkennung (E1). Heute sind „0911 12345", „0911/12345" und „+49 911 12345" drei verschiedene Nummern. | mittel |
-| D11 | **Filter „Storniert" in der Einsatzplanung** ergänzen – die Auftragsliste dort hat vier Filter, die Auftragsliste im Auftragsreiter fünf | klein |
-| D12 | **Wiedereröffnen eines stornierten Auftrags** vom normalen Wiedereröffnen unterscheiden und den Stornogrund dabei zeigen | Fachlich sind „Arbeit war fertig" und „kam gar nicht zustande" zwei verschiedene Situationen. | klein |
-| D13 | **Rückfrage beim Abschließen ohne Leistungen** („keine Leistung zugeordnet – trotzdem abschließen?") | klein |
-| D14 | **Freie Plätze nach Lager gruppieren** in der Lagerplatz-Auswahl (`optgroup`) | Am Handy muss man sonst je Zeile den angehängten Lagernamen mitlesen. | klein |
-| D16 | **`canView()` robuster machen** – es teilt den Schlüssel am ersten Punkt, ein zweistufiger Bereich wie `lager.regale` würde still falsch ausgewertet. Heute wird es nirgends so aufgerufen, die Falle steht aber offen. | klein |
-| D17 | **IBAN in den Betriebsdaten prüfen** (Länge und Prüfsumme) | Ein Tippfehler fällt sonst erst beim Kunden auf – oder der Girocode fehlt kommentarlos. | klein |
-| D18 | **Aufkleberdruck für sehr große Lager stückeln** | Mehrere hundert QR-Bilder auf einmal lassen Safari am iPhone hängen. | mittel |
+**Alle offenen Punkte erledigt** (D1–D18, zuletzt am 02.10.2026 mit v100/v102). Neue Punkte
+kommen hier als Tabelle `| # | Was | Warum | Aufwand |` dazu.
 
 ---
 
@@ -423,6 +449,10 @@ normalisierter Telefonnummer, dazu eine Admin-Ansicht mit Zusammenführen-Knopf.
 *Aufwand: mittel. Setzt D10 voraus.*
 
 ### E2. Kommissionierliste „Was muss heute mit"
+
+**Erledigt am 02.10.2026 (v100):** Karte „Packliste" im Dashboard (heute/morgen) und derselbe
+Block im Mitnehmen-Fenster – Leistungen in Summe, Reifengrößen der Autos, Hinweis auf Aufträge
+ohne bekannte Größe (`lib/packliste.ts`, `PacklisteBlock.tsx`).
 
 **Teilweise vorhanden seit 23.09.2026:** Die eingelagerten Sätze, die mitmüssen, zeigt die
 Mitnehmen-Liste hinter dem Abendhinweis (`lib/mitnehmen.ts`,
@@ -447,6 +477,9 @@ liegen für die Navigation ohnehin vor.
 *Aufwand: mittel.*
 
 ### E6. Auftragsvorlagen für wiederkehrende Leistungspakete
+
+**Erledigt 02.10.2026 (Migration 63, v102):** Vorlagen unter der Artikelliste, im Auftrag „+ Vorlage".
+Siehe `artikelstammdaten.md`.
 „Saisonwechsel mobil", „Wechsel + Wuchten" als ein Klick statt jeder Position einzeln.
 *Aufwand: klein bis mittel.*
 
@@ -457,6 +490,9 @@ ein spürbarer Unterschied.
 *Aufwand: groß.*
 
 ### E8. Reifengrößen-Abgleich beim Einlagern
+
+**Erledigt 02.10.2026 (v102):** `groessenAbweichung()` (`lib/reifenverkauf.ts`) – im Lager unter
+„Zu prüfen", im Auftragsfenster unter dem Radbild. Ein Hinweis, keine Sperre (Mischbereifung).
 Am Fahrzeug steht eine Reifengröße, am eingelagerten Rad ebenfalls – verglichen wird nie.
 Eine Warnung bei Abweichung findet falsch zugeordnete Sätze zum frühestmöglichen Zeitpunkt.
 *Aufwand: mittel.*
@@ -474,6 +510,9 @@ wäre. Passt zu B1/B2.
 *Aufwand: mittel.*
 
 ### E11. Lagerauslastung im Blick
+
+**Erledigt 02.10.2026 (v102):** ab 90 % (`LAGER_VOLL_AB`) roter Zähler am Lagerknopf, Satz darunter,
+Nennung im Dashboard unter „Zu erledigen".
 Hinweis, wenn ein Lager über 90 % belegt ist. Die Kennzahlen dafür werden bereits geladen.
 *Aufwand: klein.*
 
@@ -506,6 +545,12 @@ Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Ve
 ## F. Aus der alten Planung übernommen
 
 ### F1. Offline schreiben (PWA Stufe 4)
+
+**Runde 1 erledigt am 02.10.2026 (v101)** – Ausgangskorb, Anzeige, Konfliktabfrage; offline gehen
+Titel/Beschreibung/Termin/„Rechnung benötigt"/Notiz, Leistungen und die Radmessung. Siehe
+`pwa-plan.md`, Stufe 4. **Offen (Runde 2):** Fahrzeug am Auftrag und Kilometerstand (braucht
+zuerst offline lesbare Fahrzeuge am Auftrag), neues Fahrzeug beim Kunden, Test im Betrieb mit
+abgeschaltetem Telefon. Der Text unten ist die ursprüngliche Beschreibung.
 Lesen funktioniert offline (Stufen 1–3 sind gebaut). Schreiben nicht: es fehlt eine
 Warteschlange und eine Konfliktbehandlung.
 
@@ -544,12 +589,12 @@ Runde 35 (23.09.2026, Migrationen 55/56, Service Worker v61) hat D1, D3, C4, D5,
 B1 und B2 erledigt. Ab hier:
 
 1. **F1** – Offline schreiben im großen Zuschnitt, als eigenes Vorhaben (entschieden am
-   23.09.2026). Erste Runde: Warteschlange, Anzeige „n Änderungen warten", Status/Notiz/Radmessung;
+   23.09.2026). **Runde 1 erledigt 02.10.2026 (v101), Runde 2 offen (Fahrzeuge/Kilometer).** Erste Runde: Warteschlange, Anzeige „n Änderungen warten", Status/Notiz/Radmessung;
    zweite Runde: Leistungen, Uhrzeit, Fahrzeug, Konfliktabfrage.
-2. **D2** – Löschen eines Auftrags mit Rechnung absichern (klein, schützt Belege).
+2. ~~**D2**~~ – erledigt 02.10.2026 (v100).
 3. **DATEV-Probeimport** – die erste Datei beim Steuerberater einlesen lassen (E13 ist gebaut).
-4. **E2** – Kommissionierliste, auf der Mitnehmen-Liste aufbauend.
-5. **D17, D4, B3** – Kleinkram, der in einem Zug mitgeht.
+4. ~~**E2**~~ – erledigt 02.10.2026 (v100).
+5. ~~**D17, D4, B3**~~ – erledigt 02.10.2026 (v100).
 
 ## Offen aus den Runden seit dem 29.09.2026
 
@@ -557,7 +602,8 @@ Kleine Punkte, die bei Vitali oder im Betrieb liegen oder auf eine Rückmeldung 
 
 - **Doppelte Fahrzeuge** beim Kunden (vor v93 entstanden) im Kundenfenster löschen.
 - **Brother QL-820NWBc:** Druck über PDF im Betrieb bestätigt (02.10.2026), Format 58 × 58 seit v96
-  fest. Offen: die Folienrolle DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf
+  fest, 60 × 86 seit v99 wieder wählbar. Offen: Regalaufkleber auf dem Brother testen (seit v99),
+  die Folienrolle DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf
   Reifensack/Anhänger.
 - ~~**Etikettenformate im Admin einstellbar**~~ – entfällt (02.10.2026): Es gibt nur noch das eine
   Format 58 × 58 mm.

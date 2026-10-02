@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { geocodeAddress } from "@/lib/helpers";
+import { geocodeAddress, ZuVieleAbfragen } from "@/lib/helpers";
 import { fetchKundenOhneKoordinaten, setzeKundenKoordinaten } from "@/lib/api/customers";
 
 // Sammellauf für Kunden ohne Kartenposition.
@@ -48,7 +48,20 @@ export function GeokodierLauf({ supabase }: { supabase: SupabaseClient }) {
       for (const kunde of offen) {
         if (abbruch.current) { setMeldung(`Abgebrochen nach ${s.erledigt} von ${s.gesamt}. Ein erneuter Start macht dort weiter.`); break; }
         try {
-          const treffer = await geocodeAddress(kunde.address);
+          // Gebremst (Migration 62): eine Minute warten und dieselbe Adresse noch einmal, statt sie
+          // als Fehler zu zählen. Abbrechen bleibt dabei möglich.
+          const mitWarten = async () => {
+            try {
+              return await geocodeAddress(kunde.address);
+            } catch (e) {
+              if (!(e instanceof ZuVieleAbfragen)) throw e;
+              setMeldung("Der Kartendienst ist gebremst – eine Minute Pause, dann geht es weiter.");
+              for (let i = 0; i < 61 && !abbruch.current; i++) await new Promise((r) => setTimeout(r, 1000));
+              setMeldung(null);
+              return await geocodeAddress(kunde.address);
+            }
+          };
+          const treffer = await mitWarten();
           if (treffer) {
             await setzeKundenKoordinaten(supabase, kunde.id, treffer.lat, treffer.lng, treffer.genauigkeit);
             s.treffer++;

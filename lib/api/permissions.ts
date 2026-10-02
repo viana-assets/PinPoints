@@ -21,7 +21,7 @@ const SPALTE: Record<Verb, "read_roles" | "edit_roles" | "delete_roles"> = {
 export async function fetchModulePermissions(supabase: SupabaseClient): Promise<Record<string, Bereichsrechte>> {
   const rows = await fetchPaged<{ module_key: string; read_roles: string[] | null; edit_roles: string[] | null; delete_roles: string[] | null }>(
     "Die Rechte konnten nicht geladen werden",
-    (von, bis) => supabase.from("module_permissions").select("*").range(von, bis)
+    (von, bis) => supabase.from("module_permissions").select("*").order("module_key").range(von, bis)
   );
   const map: Record<string, Bereichsrechte> = {};
   rows.forEach((r) => {

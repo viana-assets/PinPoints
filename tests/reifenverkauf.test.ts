@@ -178,3 +178,17 @@ describe("Regalwand-Filter mit Verkaufsreifen", () => {
     expect(passtZumFilter(null, [], "winter", true)).toBe(false);
   });
 });
+
+describe("groessenAbweichung (E8)", () => {
+  it("meldet Räder, deren Größe nicht zum Fahrzeug passt", async () => {
+    const { groessenAbweichung } = await import("@/lib/reifenverkauf");
+    expect(groessenAbweichung("205/55 R16 91V", [{ position: "VL", reifengroesse: "205/55R16" }])).toBeNull();
+    expect(groessenAbweichung("205/55 R16", [{ position: "VL", reifengroesse: "205/55 R16" }, { position: "HL", reifengroesse: "225/45 R17" }]))
+      .toBe("Reifengröße prüfen: HL 225/45 R17 – am Fahrzeug steht 205/55 R16");
+  });
+  it("ohne lesbare Größe kein Befund", async () => {
+    const { groessenAbweichung } = await import("@/lib/reifenverkauf");
+    expect(groessenAbweichung(null, [{ position: "VL", reifengroesse: "225/45 R17" }])).toBeNull();
+    expect(groessenAbweichung("205/55 R16", [{ position: "VL", reifengroesse: null }])).toBeNull();
+  });
+});

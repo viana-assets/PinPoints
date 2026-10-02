@@ -11,7 +11,7 @@ import { q, qOne, fetchPaged } from "./client";
 
 export async function fetchRechnungen(supabase: SupabaseClient): Promise<Rechnung[]> {
   return fetchPaged<Rechnung>("Die Rechnungen konnten nicht geladen werden", (von, bis) =>
-    supabase.from("rechnungen").select("*").order("nummer", { ascending: false }).range(von, bis)
+    supabase.from("rechnungen").select("*").order("nummer", { ascending: false }).order("id").range(von, bis)
   );
 }
 

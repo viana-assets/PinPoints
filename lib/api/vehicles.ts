@@ -30,13 +30,13 @@ function toRow(fields: VehicleFields) {
 // ist ein Vollabzug hier billiger als 400 Einzelabfragen.
 export async function fetchVehicles(supabase: SupabaseClient): Promise<Vehicle[]> {
   return fetchPaged<Vehicle>("Die Fahrzeuge konnten nicht geladen werden", (von, bis) =>
-    supabase.from("vehicles").select("*").order("created_at").range(von, bis)
+    supabase.from("vehicles").select("*").order("created_at").order("id").range(von, bis)
   );
 }
 
 export async function fetchVehiclesFuerKunde(supabase: SupabaseClient, customerId: string): Promise<Vehicle[]> {
   return fetchPaged<Vehicle>("Die Fahrzeuge konnten nicht geladen werden", (von, bis) =>
-    supabase.from("vehicles").select("*").eq("customer_id", customerId).order("created_at").range(von, bis)
+    supabase.from("vehicles").select("*").eq("customer_id", customerId).order("created_at").order("id").range(von, bis)
   );
 }
 

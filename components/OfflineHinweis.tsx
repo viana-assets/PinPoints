@@ -55,14 +55,36 @@ export function standText(zeitpunkt: number): string {
 // `navigator.onLine` auch im Flugmodus gelegentlich weiterhin "online". app/page.tsx bildet
 // den Zustand aus drei Quellen (Browser, angehaltene Abfrage, gescheiterter Abruf) und reicht
 // ihn hierher. Fehlt die Angabe, gilt weiterhin das Browser-Signal.
-export function OfflineHinweis({ standVon, offline }: { standVon?: number; offline?: boolean }) {
+export function OfflineHinweis({ standVon, offline, ausgang, onAusgang }: {
+  standVon?: number;
+  offline?: boolean;
+  // Der Ausgangskorb (F1, lib/offline/): Was auf dem Gerät gespeichert, aber noch nicht
+  // übertragen ist. Der Balken erscheint dann auch MIT Netz – „gespeichert" darf nicht heißen
+  // „auf dem Gerät gespeichert", ohne dass es dasteht (Konzept „Offline schreiben", Baustein 3).
+  ausgang?: { wartet: number; konflikt: number; abgelehnt: number };
+  onAusgang?: () => void;
+}) {
   const offlineLautBrowser = useIstOffline();
-  if (!(offline ?? offlineLautBrowser)) return null;
-  return (
-    <div className="offline-hinweis" role="status">
-      {standVon
-        ? `Offline – angezeigt wird der ${standText(standVon)}`
-        : "Offline – es sind keine gespeicherten Daten vorhanden."}
-    </div>
-  );
+  const ohneNetz = offline ?? offlineLautBrowser;
+  const wartet = ausgang?.wartet ?? 0;
+  const offen = (ausgang?.konflikt ?? 0) + (ausgang?.abgelehnt ?? 0);
+  if (!ohneNetz && wartet === 0 && offen === 0) return null;
+
+  const teile: string[] = [];
+  if (ohneNetz) teile.push(standVon ? `Offline – angezeigt wird der ${standText(standVon)}` : "Offline – es sind keine gespeicherten Daten vorhanden.");
+  if (wartet > 0) teile.push(ohneNetz
+    ? `${wartet} ${wartet === 1 ? "Änderung wartet" : "Änderungen warten"} auf Netz`
+    : `${wartet} ${wartet === 1 ? "Änderung wird" : "Änderungen werden"} übertragen …`);
+  if ((ausgang?.konflikt ?? 0) > 0) teile.push(`${ausgang!.konflikt} ${ausgang!.konflikt === 1 ? "braucht" : "brauchen"} deine Entscheidung`);
+  if ((ausgang?.abgelehnt ?? 0) > 0) teile.push(`${ausgang!.abgelehnt} nicht übernommen`);
+  const text = teile.join(" · ");
+
+  if ((wartet > 0 || offen > 0) && onAusgang) {
+    return (
+      <button type="button" className={"offline-hinweis ausgang" + (offen > 0 ? " achtung" : "")} role="status" onClick={onAusgang}>
+        {text} <span className="ausgang-ansehen">ansehen ›</span>
+      </button>
+    );
+  }
+  return <div className="offline-hinweis" role="status">{text}</div>;
 }

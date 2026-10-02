@@ -6,7 +6,7 @@ import {
   SAISON_LABEL, SAISON_LISTE,
 } from "@/lib/constants";
 import { handlungsgruende, nachReihen, profilAufteilung, profilText, raederNachSatz, suchtreffer } from "@/lib/helpers";
-import { passtZumFilter, reiheTitel, scanZiel, type LagerFilter } from "@/lib/lagerAnsicht";
+import { auslastungText, lagerAuslastung, passtZumFilter, reiheTitel, scanZiel, type LagerFilter } from "@/lib/lagerAnsicht";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { QrScanner } from "@/components/QrScanner";
 import { LagerplatzAufkleber } from "./LagerplatzAufkleber";
@@ -15,7 +15,7 @@ import { PlatzBlatt } from "./PlatzBlatt";
 import { ProfilMarke } from "./ProfilMarke";
 import { ErfassungsWahl, RadBild, SatzProfil } from "./RadBild";
 import { VerkaufPanel } from "./VerkaufPanel";
-import { groesseText, reifenFrei, reifenName } from "@/lib/reifenverkauf";
+import { groessenAbweichung, groesseText, reifenFrei, reifenName } from "@/lib/reifenverkauf";
 
 // Lager-Modul, neu gestaltet am 26.09.2026 (Entwurf „H · Lager", docs/lager.md).
 //
@@ -215,7 +215,11 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   // Warum an diesem Platz etwas zu tun ist – leere Liste heißt: nichts.
   function gruendeFuer(satz: TireStorage | null): string[] {
     if (!satz) return [];
-    return handlungsgruende(satz, raederVon(satz.id), HANDLUNG_GRENZEN);
+    const gruende = handlungsgruende(satz, raederVon(satz.id), HANDLUNG_GRENZEN);
+    // E8: gemessene Räder gegen die Größe am Fahrzeug.
+    const fz = satz.vehicle_id ? vehicles.find((v) => v.id === satz.vehicle_id) : null;
+    const abweichung = groessenAbweichung(fz?.tire_size, raederVon(satz.id));
+    return abweichung ? [...gruende, abweichung] : gruende;
   }
 
   // Die Felder, über die ein Lagerplatz gefunden wird. Der Platz-Code steht auch bei einem
@@ -231,6 +235,12 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     ];
   }
 
+  // Fast volle Lager (E11): belegt ist ein Platz mit Kundensatz oder mit Verkaufsreifen –
+  // dieselbe Zählung wie `occupiedCount` darunter.
+  const auslastung = lagerAuslastung(
+    warehouses, storageSlots,
+    new Set(storageSlots.filter((s) => currentAssignment(s.id) || verkaufJePlatz.has(s.id)).map((s) => s.id))
+  );
   function occupiedCount(warehouseId: string): number {
     const slotIds = new Set(storageSlots.filter((s) => s.warehouse_id === warehouseId).map((s) => s.id));
     const saetze = tireStorages.filter((t) => slotIds.has(t.storage_slot_id) && !t.removed_at).length;
@@ -432,8 +442,10 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             <div className="lg-lagerwahl" role="group" aria-label="Lager wählen">
               {warehouses.map((w) => {
                 const gesamt = storageSlots.filter((s) => s.warehouse_id === w.id).length;
+                const voll = auslastung.find((a) => a.id === w.id)?.voll;
                 return (
-                  <button key={w.id} type="button" className={lager?.id === w.id ? "aktiv" : ""}
+                  <button key={w.id} type="button" className={(lager?.id === w.id ? "aktiv" : "") + (voll ? " voll" : "")}
+                    title={voll ? "fast voll" : undefined}
                     onClick={() => { setGewaehltesLagerId(w.id); setOffen({}); }}>
                     {w.name} <span className="lg-lagerwahl-zahl">{occupiedCount(w.id)}/{gesamt}</span>
                   </button>
@@ -441,6 +453,10 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
               })}
             </div>
           )}
+          {!suche.trim() && (() => {
+            const stand = auslastung.find((a) => a.id === lager?.id);
+            return stand?.voll ? <div className="lg-voll" role="status">{auslastungText(stand)}</div> : null;
+          })()}
           </>}
         </div>
 
@@ -813,10 +829,10 @@ function TireAssignModal({ slot, customers, vehicles, assignment, gruende, raede
   }
 
   // Das erste gemessene Rad stellt den Satz in der Datenbank auf „je Rad" um – erst dann weicht
-  // der Satzwert (die Datenbank erlaubt nie beides, Migration 33).
+  // der Satzwert (die Datenbank erlaubt nie beides, Migration 33). Das Umstellen erledigt seit
+  // v101 `radSpeichern` in app/page.tsx, auch ohne Netz (F1).
   async function radSpeichern(position: RadPosition, felder: Partial<RadFelder>) {
     if (!assignment) return;
-    if ((assignment.erfassungsart ?? "sammel") !== "einzeln") await onErfassungsart(assignment.id, "einzeln");
     await onRadSpeichern(assignment.id, position, felder);
   }
 

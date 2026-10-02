@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabaseServer";
+import { FREMDABFRAGE_ZU_VIEL, fremdabfrageErlaubt } from "@/lib/fremdabfrage";
 
 // Serverseitige Geokodierung (Roadmap Phase 8, Review-Befund A9).
 //
@@ -14,10 +15,9 @@ import { createClient } from "@/lib/supabaseServer";
 // zweimal abgefragt – bei einem Bestand mit vielen Kunden aus derselben Straße ist das der
 // größte Hebel.
 //
-// Bewusste Einschränkung: die Drosselung wirkt pro Server-Instanz. Auf Vercel können mehrere
-// Instanzen parallel laufen, dann greift sie nicht global. Für den heutigen Betrieb (einzelne
-// Adressen bei der Kundenanlage) reicht das; für einen Massenimport gehört ein echter,
-// zentraler Warteschlangen-Lauf gebaut (siehe docs/roadmap.md Phase 10).
+// Die Drosselung unten wirkt pro Server-Instanz. Seit Migration 62 (B3) zählt zusätzlich die
+// Datenbank je Nutzer und Minute über alle Instanzen (`lib/fremdabfrage.ts`) – nur Aufrufe nach
+// draußen, ein Treffer im Zwischenspeicher kostet nichts.
 
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
 const USER_AGENT = "MRAssistent/1.0 (Kontakt: vhermann@samhammer.de)";
@@ -52,7 +52,7 @@ export async function POST(request: Request) {
 
   // Eine Abfrage gegen Cache und Dienst – einmal geschrieben, zweimal benutzt (volle Adresse,
   // dann Straße ohne Hausnummer).
-  async function suchen(text: string): Promise<{ lat: number | null; lng: number | null } | "fehler"> {
+  async function suchen(text: string): Promise<{ lat: number | null; lng: number | null } | "fehler" | "zu-viel"> {
     const schluessel = text.toLowerCase().replace(/\s+/g, " ");
 
     const { data: treffer } = await supabase
@@ -65,6 +65,7 @@ export async function POST(request: Request) {
       return treffer.gefunden ? { lat: treffer.lat, lng: treffer.lng } : { lat: null, lng: null };
     }
 
+    if (!(await fremdabfrageErlaubt(supabase, "nominatim"))) return "zu-viel";
     await drosseln();
 
     let lat: number | null = null;
@@ -96,6 +97,7 @@ export async function POST(request: Request) {
   }
 
   const genau = await suchen(anfrage);
+  if (genau === "zu-viel") return NextResponse.json({ error: FREMDABFRAGE_ZU_VIEL }, { status: 429 });
   if (genau === "fehler") {
     return NextResponse.json({ error: "Der Kartendienst war nicht erreichbar." }, { status: 502 });
   }
@@ -112,6 +114,7 @@ export async function POST(request: Request) {
   }
 
   const grob = await suchen(ersatz);
+  if (grob === "zu-viel") return NextResponse.json({ error: FREMDABFRAGE_ZU_VIEL }, { status: 429 });
   if (grob === "fehler") {
     return NextResponse.json({ error: "Der Kartendienst war nicht erreichbar." }, { status: 502 });
   }

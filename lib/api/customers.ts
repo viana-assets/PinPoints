@@ -9,7 +9,7 @@ import { ApiError, fetchPaged, q, qOne, qWrite } from "./client";
 
 export async function fetchCustomers(supabase: SupabaseClient): Promise<Customer[]> {
   return fetchPaged<Customer>("Kunden konnten nicht geladen werden", (von, bis) =>
-    supabase.from("customers").select("*").is("deleted_at", null).order("name").range(von, bis)
+    supabase.from("customers").select("*").is("deleted_at", null).order("name").order("id").range(von, bis)
   );
 }
 
@@ -226,6 +226,7 @@ export async function fetchKundenOhneKoordinaten(
         .is("deleted_at", null)
         .neq("address", "")
         .order("name")
+        .order("id")
         .range(von, bis)
   );
 }
@@ -301,6 +302,7 @@ export async function fetchPapierkorb(supabase: SupabaseClient): Promise<Papierk
       .select("id,name,company,address,kundennummer,laufkundschaft,testkunde,deleted_at")
       .not("deleted_at", "is", null)
       .order("deleted_at", { ascending: false })
+      .order("id")
       .range(von, bis)
   );
 }

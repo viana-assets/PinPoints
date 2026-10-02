@@ -19,7 +19,7 @@ export async function fetchAuftragFahrzeuge(supabase: SupabaseClient, orderIds: 
     const teil = orderIds.slice(i, i + BLOCK);
     const zeilen = await fetchPaged<AuftragFahrzeug>(
       "Die Fahrzeuge am Auftrag konnten nicht geladen werden",
-      (von, bis) => supabase.from("auftrag_fahrzeuge").select("*").in("order_id", teil).range(von, bis)
+      (von, bis) => supabase.from("auftrag_fahrzeuge").select("*").in("order_id", teil).order("id").range(von, bis)
     );
     alle.push(...zeilen);
   }

@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Stand 02.10.2026: Alle Migrationen 01–61 sind in der Produktivdatenbank ausgeführt** –
+**Noch auszuführen: `62_loeschsperre_und_abfragebremse.sql`, dann `63_aufraeumen_telefon_vorlagen.sql`** (siehe unten). **Stand 02.10.2026: Alle Migrationen 01–61 sind in der Produktivdatenbank ausgeführt** –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -351,7 +351,9 @@ ausführliche Begründung steht im Kopfkommentar der jeweiligen Datei und in `do
 
 - `35` – `customers.geo_genauigkeit` (exakt / ungefähr / von Hand).
 - `36` – Änderungsprotokoll für Admin und Superadmin lesbar, Auftrags-/Kundenbezug als Spalten.
-- `37` – `orders.end_time`: Termine mit Von–bis.
+- `37` – `orders.end_time`: Termine mit Von–bis. (Richtigstellung 02.10.2026, Fahrplan C3: Der Kopfkommentar
+  sagt, die Standarddauer stehe „auch im Code" mit 60 Minuten – maßgeblich ist `betrieb.termin_intervall_min`,
+  die Datei selbst wird als ausgeführte Migration nicht mehr geändert.)
 - `38` – `orders.rechnung_noetig`, `order_articles.endpreis_netto`, Tabelle `betrieb`.
 - `46` – Abrechnungsart am Artikel (Lagergebühr), Altreifen-Rückfrage.
 - `47` – Abschluss eines Auftrags schreibt den Kontaktstand des Kunden.
@@ -713,3 +715,34 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   gelöschter echter Kunde nicht; zwei gleichzeitige Buchungen auf den letzten Reifen – die zweite
   wartet und wird abgewiesen; direkter Aufruf der Zählfunktion verweigert; zurückgenommen und
   erneut ausgeführt (kein zweiter Artikel).
+
+## Noch auszuführen
+
+- `62_loeschsperre_und_abfragebremse.sql` – **nach `61`, Reihenfolge SQL/Dateien egal** (die
+  Routen fallen ohne die Funktion auf die alte Bremse zurück). (1) D2: Trigger
+  `trg_pruefe_auftrag_loeschen` auf `orders` lehnt das Löschen (Soft- und Hard-Delete) eines
+  Auftrags ab, auf den eine Rechnung verweist oder der eine Rechnungsnummer trägt; Weitergabe
+  aus einem anderen Trigger (Kunde in den Papierkorb, endgültiges Löschen) bleibt erlaubt.
+  (2) B3: Tabelle `fremdabfrage_zaehler` (RLS an, keine Richtlinie) und `fremdabfrage_erlaubt(text)`
+  (security definer, nur für `authenticated`): zählt je Dienst, Nutzer und Minute, Nominatim
+  50/55, Photon 60/300, räumt Zeilen älter als eine Stunde selbst ab. Die Ergebnistabelle zeigt
+  Trigger, Tabelle, Funktion und wie viele Aufträge jetzt gesperrt sind. Zweiter Lauf folgenlos.
+  Rücknahme: `rollback/62_rollback.sql`. Geprüft gegen Postgres 16 (Stand 61): zweimal
+  ausgeführt; Löschen des abgerechneten Auftrags (Soft und Hard) abgewiesen mit Rechnungsnummer
+  im Text, anderer Auftrag löschbar, Notiz am abgerechneten Auftrag änderbar; Kunde mit
+  abgerechnetem Auftrag in den Papierkorb und endgültig gelöscht – Rechnung bleibt, Verweis
+  null; Bremse: 50 erlaubt, danach abgewiesen, ohne Nutzer nein, unbekannter Dienst Fehler;
+  zurückgenommen, zweimal, und erneut ausgeführt.
+- `63_aufraeumen_telefon_vorlagen.sql` – **nach `62`, SQL zuerst, dann die Dateien** (die Oberfläche
+  liest `auftragsvorlagen`; ohne Tabelle fehlt nur der Knopf „+ Vorlage"). (1) D8: frühe Rechnungen
+  ohne `texte.mit_steuer` bekommen genau den Wert, den die Druckansicht bisher geraten hat
+  (`steuer <> 0`) – Unveränderlichkeits-Trigger dafür in EINEM do-Block aus und wieder an. (2) D10:
+  `telefon_vergleich(text)` (immutable) und die berechneten Spalten `customers.mobil_vergleich` /
+  `festnetz_vergleich` mit Index. (3) C1: `articles.braucht_lagerplatz` entfernt. (4) E6: Tabelle
+  `auftragsvorlagen` mit RLS (lesen: Leistungen oder Artikel; schreiben: Artikel; löschen über
+  `pruefe_loeschrecht('artikel')`), Stempel- und Protokoll-Trigger, Name eindeutig, Positionen als
+  jsonb-Liste. Zweiter Lauf folgenlos. Rücknahme: `rollback/63_rollback.sql` (lässt `mit_steuer`
+  bewusst stehen). Geprüft gegen Postgres 16 (Stand 62): zweimal ausgeführt; Rechnung ohne Feld
+  bekommt `true` bei Steuer 1,90, danach ist sie wieder unveränderlich; Telefonfälle wie in
+  `tests/telefon.test.ts`; Techniker liest Vorlagen, legt keine an; Admin legt an (Stempel
+  gesetzt), doppelter Name und Nicht-Liste abgewiesen; zurückgenommen, zweimal, erneut ausgeführt.

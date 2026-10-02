@@ -650,8 +650,9 @@ dazu ist `.etikett.hoch` in `app/globals.css`:
 ```
 
 Die Klasse `hoch` wird gesetzt, wenn `hoeheMm > breiteMm` gilt oder das Format es ausdrücklich
-sagt (`qrOben`). Seit v96 gibt es nur noch ein Format (`ETIKETT_FORMAT`, 58 × 58 mm, `qrOben`),
-die Klasse ist damit immer gesetzt; die Querformat-Regeln bleiben für den Regalaufkleber und ein
+sagt (`qrOben`). Seit v96 tragen alle Etikettenformate `qrOben` (seit v99 wieder zwei:
+`ETIKETT_FORMATE`, 58 × 58 und 60 × 86 mm), die Klasse ist damit immer gesetzt – auch beim
+Regalaufkleber im Brother-Format; die Querformat-Regeln bleiben für den Regalaufkleber und ein
 mögliches späteres Format stehen. Bis v95 ergab sie sich aus den zwei Zahlen des
 `ETIKETT_FORMATE`-Eintrags, statt ein zweites Mal als Schalter gepflegt zu werden. Zwei Angaben, die dasselbe
 sagen, laufen sonst irgendwann auseinander.

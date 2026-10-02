@@ -1,7 +1,7 @@
 import { useRef, useState, type ReactNode } from "react";
 import type { Betrieb, BetriebFelder } from "@/lib/types";
 import { LOGO_MAX_BYTES, LOGO_TYPEN } from "@/lib/constants";
-import { nummernkreisFehler } from "@/lib/rechnung";
+import { ibanFehler, nummernkreisFehler } from "@/lib/rechnung";
 import { datevEinstellungFehler, type DatevEinstellung } from "@/lib/datev";
 
 // Der Briefkopf (Migration 48). Was hier steht, steht auf jeder Rechnung, die das Haus
@@ -131,6 +131,10 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
   }
 
   async function speichern() {
+    // Erst gar nicht speichern, was als IBAN nicht stimmen kann (D17) – sonst steht sie auf der
+    // nächsten Rechnung und im Girocode.
+    const ibanGrund = ibanFehler(f.iban);
+    if (ibanGrund) { setFehler(ibanGrund); return; }
     if (datevUngueltig) {
       setFehler("Bei den DATEV-Angaben steht etwas, das keine Zahl ist. Bitte nur Ziffern eintragen.");
       return;
@@ -198,7 +202,10 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
       info: b.firma.trim() ? [b.firma, b.ort, b.ust_id.trim() || b.steuernummer.trim() ? "Steuerangabe ✓" : "ohne USt-IdNr./Steuernummer"].filter(Boolean).join(" · ") : "Firma fehlt – ohne sie keine Rechnung",
       warn: !b.firma.trim() },
     { a: "bank", titel: "Bankverbindung",
-      info: b.iban.trim() ? `IBAN …${b.iban.replace(/\s/g, "").slice(-4)} · Girocode an` : "keine IBAN – kein Girocode auf der Rechnung", warn: !b.iban.trim() },
+      info: !b.iban.trim() ? "keine IBAN – kein Girocode auf der Rechnung"
+        : ibanFehler(b.iban) ? "IBAN stimmt nicht – bitte prüfen"
+        : `IBAN …${b.iban.replace(/\s/g, "").slice(-4)} · Girocode an`,
+      warn: !b.iban.trim() || !!ibanFehler(b.iban) },
     { a: "logo", titel: "Logo", info: b.logo ? `hinterlegt · ${Math.max(1, Math.round((b.logo.length * 3) / 4 / 1024))} kB` : "kein Logo" },
     { a: "texte", titel: "Texte auf der Rechnung", info: texte.length ? texte.join(", ") : "noch keine eigenen Texte" },
     { a: "nummernkreis", titel: "Nummernkreis",
@@ -280,7 +287,8 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
                 <div className="bd-raster">
                   <Feld label="Kontoinhaber" wert={f.kontoinhaber} onChange={(w) => setz({ kontoinhaber: w })} />
                   <Feld label="Bank" wert={f.bank} onChange={(w) => setz({ bank: w })} />
-                  <Feld label="IBAN" wert={f.iban} onChange={(w) => setz({ iban: w })} breit />
+                  <Feld label="IBAN" wert={f.iban} onChange={(w) => setz({ iban: w })} breit
+                    hinweis={f.iban.replace(/\s/g, "").length >= 15 ? (ibanFehler(f.iban) ?? "Prüfziffern stimmen.") : undefined} />
                   <Feld label="BIC" wert={f.bic} onChange={(w) => setz({ bic: w })}
                     hinweis="Innerhalb des SEPA-Raums nicht nötig." />
                 </div>

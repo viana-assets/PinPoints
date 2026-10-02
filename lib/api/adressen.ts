@@ -15,6 +15,10 @@ export async function sucheAdressen(anfrage: string, signal?: AbortSignal): Prom
     body: JSON.stringify({ query: anfrage }),
     signal,
   });
+  if (resp.status === 429) {
+    const daten = await resp.json().catch(() => null);
+    throw new Error(typeof daten?.error === "string" ? daten.error : "Zu viele Adressabfragen in kurzer Zeit.");
+  }
   if (!resp.ok) throw new Error("Adresssuche fehlgeschlagen");
   const daten = await resp.json();
   return Array.isArray(daten?.treffer) ? (daten.treffer as Adressvorschlag[]) : [];

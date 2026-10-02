@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { AuftragFahrzeug, Customer, Order, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, AuftragFahrzeug, Customer, Order, OrderArticle, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { SAISON_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/helpers";
 import { mitnehmenListe } from "@/lib/mitnehmen";
+import { packliste } from "@/lib/packliste";
+import { PacklisteBlock } from "./PacklisteBlock";
 import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 
 // Das Fenster hinter dem Abendhinweis „Morgen 3 Sätze mitnehmen" (Migration 55).
@@ -15,13 +17,16 @@ import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 //
 // Ein Techniker sieht hier nur seine eigenen Aufträge – die Datenbank gibt ihm keine anderen
 // (RLS, Migration 13/15). Das ist dieselbe Auswahl, die ihm die Meldung geschickt hat.
-export function MitnehmenFenster({ supabase, datum, orders, tireStorages, customers, vehicles, storageSlots, warehouses, laedt, onClose, onAuftragOeffnen }: {
+export function MitnehmenFenster({ supabase, datum, orders, tireStorages, customers, vehicles, orderArticles, articles, storageSlots, warehouses, laedt, onClose, onAuftragOeffnen }: {
   supabase: SupabaseClient;
   datum: string;
   orders: Order[];
   tireStorages: TireStorage[];
   customers: Customer[];
   vehicles: Vehicle[];
+  // Für die Packliste (E2).
+  orderArticles: OrderArticle[];
+  articles: Article[];
   storageSlots: StorageSlot[];
   warehouses: Warehouse[];
   // Lädt der Lagerbestand noch? Dann steht „lädt" statt „nichts mitzunehmen" da – das zweite
@@ -46,6 +51,10 @@ export function MitnehmenFenster({ supabase, datum, orders, tireStorages, custom
     [datum, tagesauftraege, tireStorages, fahrzeuge]
   );
   const saetze = eintraege.reduce((n, e) => n + e.saetze.length, 0);
+  const pack = useMemo(
+    () => packliste(datum, tagesauftraege, orderArticles, articles, fahrzeuge ?? [], vehicles),
+    [datum, tagesauftraege, orderArticles, articles, fahrzeuge, vehicles]
+  );
   const wartet = laedt || fahrzeuge === null;
 
   function platzText(slotId: string): string {
@@ -90,6 +99,14 @@ export function MitnehmenFenster({ supabase, datum, orders, tireStorages, custom
             </button>
           );
         })}
+
+        {/* Was außer den Sätzen mitmuss (E2). */}
+        {!wartet && (
+          <>
+            <h3 style={{ margin: "14px 0 4px" }}>Packliste</h3>
+            <PacklisteBlock liste={pack} />
+          </>
+        )}
       </div>
     </div>
   );

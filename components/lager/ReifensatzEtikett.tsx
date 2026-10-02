@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { QrBild } from "./QrBild";
 import type { Customer, EingelagertesRad, RadPosition, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { RAD_POSITIONEN, RAD_POSITION_LABEL, SAISON_LABEL } from "@/lib/constants";
 import { formatDate, profilText, satzProfilMm } from "@/lib/helpers";
 import { satzUrl } from "@/lib/aufkleberCode";
-import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
+import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, teilenOderSpeichern, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
 //
@@ -20,24 +21,22 @@ import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, type
 // ZWEI WEGE AUFS PAPIER
 //
 // 1. DRUCKEN: Die Etiketten werden als PDF in genau der Etikettengröße erzeugt und ins
-//    Teilen-Menü gegeben; dort „Drucken", Brother QL-820NWB, Papierformat 58 x 58 mm
+//    Teilen-Menü gegeben; dort „Drucken", Brother QL-820NWB, Papierformat wie im Fenster
 //    (lib/etikettPdf.ts – warum nicht die Druckfunktion des Browsers, steht dort).
 // 2. ALS BILD TEILEN (21.09.2026): Das Etikett als PNG in exakt seiner Größe, für die
 //    Brother-App über Bluetooth (Teilen-Menü „Bild sichern", in iPrint&Label unter „Erstellen").
 //    Umständlicher, aber ohne WLAN des Druckers. Wie das Bild entsteht: `lib/etikettBild.ts`.
 //
-// EIN FORMAT (seit v96, 02.10.2026): 58 × 58 mm auf der 62-mm-Rolle des Brother. Bis v95 gab
-// es eine Auswahlliste (60 × 86, kleine 203-dpi-Rollen, A4-Bogen) – im Betrieb gebraucht wird
-// nur dieses eine Format, Entscheidung Vitali 02.10.2026. Die Auswahl ist deshalb weg; ein
-// zweites Format käme als weiterer Eintrag zurück, die Maße stehen alle in `ETIKETT_FORMAT`.
-
-const QR_PIXEL = 512;
+// ZWEI FORMATE (seit v99, 02.10.2026): 58 × 58 mm als Vorgabe, 60 × 86 mm (groß) wählbar –
+// beide auf der 62-mm-Rolle des Brother. v96 hatte die Auswahl ganz entfernt; gemeint war aber
+// „58 × 58 als Standard, die übrigen Formate (kleine 203-dpi-Rollen, A4-Bogen) raus“
+// (Klarstellung Vitali 02.10.2026). Dieselbe Liste nutzt der Lagerplatz-Aufkleber.
 
 // Die Maße des Etiketts an EINER Stelle. Als Datensatz und nicht als lose Zahlen im Code: Das
 // Bild, das PDF und die Vorschau lesen alle dasselbe, und ein zweites Format wäre ein weiterer
 // Datensatz statt einer Suche nach Zahlen.
 export type EtikettFormat = {
-  text: string; breiteMm: number; hoeheMm: number;
+  schluessel: string; text: string; breiteMm: number; hoeheMm: number;
   // Kantenlänge des QR-Bildes. Gescannt wird aus der Hüfte heraus über einem Regal – da zählt
   // jeder Millimeter, ohne dass der Text darunter in Not gerät.
   qrMm: number;
@@ -52,43 +51,16 @@ export type EtikettFormat = {
   papier: string;
 };
 
-// Brother QL-820NWBc, 62-mm-Endlosrolle (DK-22205 Papier, DK-22212 Folie). 58 × 58 ist eines der
+// Brother QL-820NWBc, 62-mm-Endlosrolle (DK-22205 Papier, DK-22212 Folie). Beides sind
 // Papierformate, die der Druckdialog des iPhones für diesen Drucker anbietet – ein eigenes Maß
-// kennt er nicht. Getestet 02.10.2026: richtige Größe, QR lesbar, „seit …" in eigener Zeile.
-export const ETIKETT_FORMAT: EtikettFormat = {
-  text: "Brother 58 × 58 mm", breiteMm: 58, hoeheMm: 58, qrMm: 30,
-  pxProMm: PX_PRO_MM_300, randMm: 2.5, schrift: 1.25, qrOben: true, papier: "58 x 58 mm",
-};
+// kennt er nicht. Getestet 02.10.2026: richtige Größe, QR lesbar. Das erste ist die Vorgabe.
+export const ETIKETT_FORMATE: EtikettFormat[] = [
+  { schluessel: "58x58", text: "Brother 58 × 58 mm (Standard)", breiteMm: 58, hoeheMm: 58, qrMm: 30,
+    pxProMm: PX_PRO_MM_300, randMm: 2.5, schrift: 1.25, qrOben: true, papier: "58 x 58 mm" },
+  { schluessel: "60x86", text: "Brother 60 × 86 mm (groß)", breiteMm: 60, hoeheMm: 86, qrMm: 46,
+    pxProMm: PX_PRO_MM_300, randMm: 3, schrift: 1.75, qrOben: true, papier: "60 x 86 mm" },
+];
 
-// Ein Bild im Browser speichern. Nur die Rückfallebene für Geräte ohne Teilen-Menü – am
-// Handy, wo dieser Weg gebraucht wird, greift immer das Teilen.
-function herunterladen(datei: File) {
-  const url = URL.createObjectURL(datei);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = datei.name;
-  a.click();
-  // Erst freigeben, wenn der Browser den Download angenommen hat. Sofortiges Freigeben
-  // liefert in Safari eine leere Datei.
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
-
-function QrBild({ text, alt }: { text: string; alt: string }) {
-  const [datenUri, setDatenUri] = useState<string | null>(null);
-  const [fehler, setFehler] = useState(false);
-
-  useEffect(() => {
-    let abgebrochen = false;
-    QRCode.toDataURL(text, { width: QR_PIXEL, margin: 1, errorCorrectionLevel: "M" })
-      .then((uri) => { if (!abgebrochen) setDatenUri(uri); })
-      .catch(() => { if (!abgebrochen) setFehler(true); });
-    return () => { abgebrochen = true; };
-  }, [text]);
-
-  if (fehler) return <div className="qr-platzhalter">QR-Code konnte nicht erzeugt werden</div>;
-  if (!datenUri) return <div className="qr-platzhalter" />;
-  return <img src={datenUri} alt={alt} className="etikett-qr" />;
-}
 
 // Ein Etikett je Satz oder eines je Rad.
 //
@@ -117,7 +89,8 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   const [teilenHinweis, setTeilenHinweis] = useState<string | null>(null);
   useEffect(() => { setBasis(window.location.origin); }, []);
 
-  const gewaehlt = ETIKETT_FORMAT;
+  const [format, setFormat] = useState<string>(ETIKETT_FORMATE[0].schluessel);
+  const gewaehlt = ETIKETT_FORMATE.find((f) => f.schluessel === format) ?? ETIKETT_FORMATE[0];
   // QR-Code oben, Text darunter (Klasse `hoch` im Stilblatt).
   const hochformat = gewaehlt.qrOben;
 
@@ -258,11 +231,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
       const liste = await etikettenMitMassen();
       const name = dateiName(liste.length === 1 ? etiketten[0].bezeichnung : `etiketten-${liste.length}`, 1, 1).replace(/\.png$/, ".pdf");
       const pdf = await etikettenPdfDatei(liste, name);
-      if (navigator.canShare && navigator.canShare({ files: [pdf] })) {
-        await navigator.share({ files: [pdf] });
-        return;
-      }
-      herunterladen(pdf);
+      if (await teilenOderSpeichern([pdf]) === "geteilt") return;
       setTeilenHinweis("Dieses Gerät kennt kein Teilen-Menü – das PDF wurde gespeichert. Öffnen und drucken.");
     } catch (fehler) {
       if (fehler instanceof DOMException && fehler.name === "AbortError") return;
@@ -279,14 +248,9 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
       const dateien: File[] = [];
       for (const e of await etikettenMitMassen()) dateien.push(await etikettDatei(e.inhalt, e.masse, e.name));
 
-      const teilen = navigator.canShare && navigator.canShare({ files: dateien });
-      if (teilen) {
-        await navigator.share({ files: dateien });
-        return;
-      }
       // Rechner ohne Teilen-Menü: speichern statt teilen. Von dort lässt sich das Bild in die
       // Drucker-Software ziehen.
-      dateien.forEach(herunterladen);
+      if (await teilenOderSpeichern(dateien) === "geteilt") return;
       setTeilenHinweis(
         dateien.length === 1
           ? "Dieses Gerät kennt kein Teilen-Menü – das Etikett wurde stattdessen gespeichert."
@@ -335,10 +299,13 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
           </span>
         </div>
 
-        {/* Kein Auswahlfeld mehr (v96): Es gibt ein Format. Die Schritte stehen hier, weil sie in
-            der Sekunde gebraucht werden, in der jemand vor dem Druckdialog steht. */}
+        {/* Die Schritte stehen hier, weil sie in der Sekunde gebraucht werden, in der jemand vor
+            dem Druckdialog steht. */}
         <div className="field druck-weg" style={{ maxWidth: 340 }}>
-          <span className="small">Format: <b>{gewaehlt.text}</b></span>
+          <label htmlFor="etikett-format">Format</label>
+          <select id="etikett-format" value={format} onChange={(e) => setFormat(e.target.value)}>
+            {ETIKETT_FORMATE.map((f) => <option key={f.schluessel} value={f.schluessel}>{f.text}</option>)}
+          </select>
           <span className="small ek-schritte">
             <b>So druckst du:</b> iPhone mit dem WLAN des Druckers verbinden (Wireless Direct) ·
             &bdquo;Drucken&ldquo; tippen · im Teilen-Menü <b>&bdquo;Drucken&ldquo;</b> · Drucker
@@ -359,7 +326,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
         >
           {basis && etiketten.map((e) => (
             <div key={e.schluessel} className={"etikett" + (e.rad ? " etikett-rad" : "") + (hochformat ? " hoch" : "")}>
-              <QrBild text={satzUrl(e.satzId, basis)} alt="QR-Code Reifensatz" />
+              <QrBild text={satzUrl(e.satzId, basis)} alt="QR-Code Reifensatz" klasse="etikett-qr" />
               <div className="etikett-text">
                 {/* Position und Profil in EINER großen Zeile: Das sind die beiden Angaben,
                     wegen denen man das Etikett überhaupt anschaut, wenn vier gleich

@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
-import type { AuftragFahrzeug, Customer, Employee, Order, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, AuftragFahrzeug, Customer, Employee, Order, OrderArticle, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL, SAISON_LABEL } from "@/lib/constants";
 import { formatEUR, getPhoneNumbers, LANGLIEGER_MONATE, naechsteSaison, terminZeitraum } from "@/lib/helpers";
 import { naechsterWann } from "@/lib/terminAnsicht";
 import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { mitnehmenListe } from "@/lib/mitnehmen";
+import { packliste } from "@/lib/packliste";
+import { PacklisteBlock } from "@/components/auftraege/PacklisteBlock";
 import { langlieger } from "@/lib/langlieger";
+import { lagerAuslastung } from "@/lib/lagerAnsicht";
 import { alsNaechstes, datumKurz, saisonBarometer, wochenUmsatz, zuErledigen, type ErledigenPunkt } from "@/lib/dashboard";
 import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 import { setzeGepackt } from "@/lib/api/mitnehmen";
@@ -36,6 +39,9 @@ export function DashboardPanel(p: {
   storageSlots: StorageSlot[];
   warehouses: Warehouse[];
   vehicles: Vehicle[];
+  // Für die Packliste (E2): Leistungen der Aufträge und ihre Namen.
+  orderArticles: OrderArticle[];
+  articles: Article[];
   lagerLaedt: boolean;
   isTechniker: boolean;
   standardDauerMin: number;
@@ -121,6 +127,8 @@ export function DashboardPanel(p: {
     }
   }
   const eingeladen = mitZeilen.filter((z) => gepackt(z.satz.id).an).length;
+  // Die Packliste desselben Tages (E2): Leistungen und Reifengrößen – der Rest der Beladung.
+  const pack = packliste(mitDatum, mitTag === "heute" ? heuteListe : morgenListe, p.orderArticles, p.articles, fahrzeuge ?? [], p.vehicles);
   const platzText = (slotId: string) => {
     const platz = p.storageSlots.find((s) => s.id === slotId);
     if (!platz) return "?";
@@ -140,6 +148,9 @@ export function DashboardPanel(p: {
     mitarbeiterName: (id) => p.employees.find((e) => e.id === id)?.name || "Mitarbeiter",
     freiePlaetze: p.darfLager && p.gesamtPlaetze > 0 ? p.gesamtPlaetze - p.belegtePlaetze : null,
     gesamtPlaetze: p.darfLager ? p.gesamtPlaetze : null,
+    volleLager: p.darfLager
+      ? lagerAuslastung(p.warehouses, p.storageSlots, new Set(p.tireStorages.filter((t) => !t.removed_at).map((t) => t.storage_slot_id))).filter((a) => a.voll).map((a) => a.name)
+      : [],
   });
   const PUNKT_FARBE: Record<ErledigenPunkt["id"], string> = {
     rechnungen: "rot", ohne_mitarbeiter: "orange", ueberschneidung: "orange", rueckrufe: "blau", laufkunde: "grau", lager: "rot",
@@ -267,6 +278,24 @@ export function DashboardPanel(p: {
             )}
           </div>
         )}
+
+        {/* Packliste (E2): für alle, auch ohne Lagerrecht – Leistungen und Größen sind keine Lagerfrage. */}
+        <div className="db-karte">
+          <div className="db-mit-kopf">
+            <span className="db-mit-text">
+              <span className="db-karte-titel">Packliste</span>
+              <span className="small">
+                {fahrzeuge === null ? "lädt …" : `${pack.auftraege} ${pack.auftraege === 1 ? "Auftrag" : "Aufträge"} · ${datumKurz(mitDatum)}`}
+              </span>
+            </span>
+            <span className="db-umschalter">
+              {(["heute", "morgen"] as const).map((t) => (
+                <button key={t} type="button" className={mitTag === t ? "aktiv" : ""} onClick={() => setMitTag(t)}>{t === "heute" ? "Heute" : "Morgen"}</button>
+              ))}
+            </span>
+          </div>
+          {fahrzeuge !== null && <PacklisteBlock liste={pack} />}
+        </div>
 
         {punkte.length > 0 && (
           <div className="db-karte">

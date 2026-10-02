@@ -73,6 +73,8 @@ export async function fetchOrders(supabase: SupabaseClient, fenster: AuftragsFen
       .select(AUFTRAG_MIT_BEZUG)
       .is("deleted_at", null)
       .order("order_date", { ascending: false })
+      .order("order_number", { ascending: false })
+      .order("id")
       .range(von, bis);
     // Offene und begonnene Aufträge kommen immer mit, auch wenn sie älter sind als das
     // Fenster – was noch zu tun ist, darf nie aus dem Blick geraten.
@@ -98,6 +100,8 @@ export async function fetchOrdersFuerKunde(supabase: SupabaseClient, customerId:
         .eq("customer_id", customerId)
         .is("deleted_at", null)
         .order("order_date", { ascending: false })
+        .order("order_number", { ascending: false })
+        .order("id")
         .range(von, bis)
   );
   return aufteilen(zeilen);

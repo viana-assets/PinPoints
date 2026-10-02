@@ -12,7 +12,7 @@ import { fetchPaged, qOne, qWrite } from "./client";
 
 export async function fetchVerkaufsreifen(supabase: SupabaseClient): Promise<Verkaufsreifen[]> {
   return fetchPaged<Verkaufsreifen>("Die Verkaufsreifen konnten nicht geladen werden", (von, bis) =>
-    supabase.from("verkaufsreifen").select("*").order("updated_at", { ascending: false }).range(von, bis)
+    supabase.from("verkaufsreifen").select("*").order("updated_at", { ascending: false }).order("id").range(von, bis)
   );
 }
 

@@ -19,7 +19,7 @@ import { ArticleDetailEditor } from "./ArticleDetailEditor";
 type Filter = "aktiv" | "inaktiv" | "ohne" | "alle";
 const FILTER: [Filter, string][] = [["aktiv", "Aktiv"], ["inaktiv", "Inaktiv"], ["ohne", "Ohne Preis"], ["alle", "Alle"]];
 
-export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onUpdateArticleNumber, onAddArticlePrice, onUpdateArticlePrice, onDeleteArticlePrice }: {
+export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onUpdateArticleNumber, onAddArticlePrice, onUpdateArticlePrice, onDeleteArticlePrice, zusatz }: {
   articles: Article[];
   articlePrices: ArticlePrice[];
   onAddArticle: (shortName: string, longName: string) => Promise<void>;
@@ -28,6 +28,9 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
   onAddArticlePrice: (articleId: string, netPrice: number, vatRate: number, validFrom: string) => Promise<void>;
   onUpdateArticlePrice: (priceId: string, netPrice: number, vatRate: number, validFrom: string, validTo: string | null) => Promise<string | null>;
   onDeleteArticlePrice: (priceId: string) => Promise<void>;
+  // Unter der Liste: die Auftragsvorlagen (E6). Als fertiger Block von außen, damit dieses
+  // Fenster nicht auch noch deren Laden und Speichern kennen muss.
+  zusatz?: React.ReactNode;
 }) {
   const [suche, setSuche] = useState("");
   const [filter, setFilter] = useState<Filter>("aktiv");
@@ -160,6 +163,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
             })}
           </div>
         )}
+        {zusatz}
       </div>
 
       {neuOffen && (

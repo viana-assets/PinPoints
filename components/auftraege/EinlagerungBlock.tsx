@@ -8,6 +8,7 @@ import { ErfassungsWahl, RadBild, SatzProfil } from "@/components/lager/RadBild"
 import { doppelteKennzeichen, fahrzeugAuswahlText } from "@/lib/kennzeichen";
 import type { RadFelder } from "@/lib/api/lager";
 import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
+import { groessenAbweichung } from "@/lib/reifenverkauf";
 import { QrScanner } from "@/components/QrScanner";
 
 // Einlagerung im Auftragsfenster (Migration 22, siehe docs/lager.md).
@@ -23,19 +24,16 @@ import { QrScanner } from "@/components/QrScanner";
 
 export function EinlagerungBlock({
   titel = "Einlagerung",
-  pflicht, einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
+  einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
   onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
   onFahrzeugAnlegen, onEtikett,
 }: {
-  // Steht im Auftrag eine Leistung mit dem Kennzeichen „braucht Lagerplatz"? Dann verlangt auch
-  // die Datenbank vor dem Abschluss einen belegten Platz – dieser Block zeigt nur an, was dort
-  // ohnehin erzwungen wird. Ein Hinweis in der Oberfläche ohne Regel in der Datenbank wäre eine
-  // Bitte, keine Zusicherung.
+  // `pflicht` („braucht Lagerplatz", Migration 22) stand hier bis v101 und war an beiden
+  // Einbindungsstellen fest `false` – seit Migration 46 gibt es den Zwang nicht mehr (C2).
   // Die Überschrift des Blocks. Standard „Einlagerung"; trägt ein Auftrag mehrere Sätze, steht
   // hier „Satz 2 von 3". Als Prop und nicht als zweite Überschrift darüber: Zwei Titel
   // übereinander lesen sich wie zwei Abschnitte, und der untere wäre der leere.
   titel?: string;
-  pflicht: boolean;
   einlagerung: TireStorage | null;
   slots: StorageSlot[];
   warehouses: Warehouse[];
@@ -126,9 +124,9 @@ export function EinlagerungBlock({
 
   // Das erste gemessene Rad stellt den Satz um – erst dann weicht der Satzwert (die Datenbank
   // erlaubt nie beides, Migration 33).
+  // Umgestellt wird seit v101 in `radSpeichern` (app/page.tsx), auch ohne Netz (F1).
   async function radSpeichern(position: RadPosition, felder: Partial<RadFelder>) {
     if (!einlagerung) return;
-    if (!einzelnGespeichert) await onErfassungsart(einlagerung.id, "einzeln");
     await onRadSpeichern(einlagerung.id, position, felder);
   }
 
@@ -182,7 +180,7 @@ export function EinlagerungBlock({
   return (
     <div className="auftrag-block">
       <div className="auftrag-block-titel">
-        {titel}{pflicht && !einlagerung ? <span className="einlagerung-pflicht"> · Lagerplatz fehlt</span> : ""}
+        {titel}
       </div>
 
       {einlagerung && belegterPlatz ? (
@@ -328,6 +326,13 @@ export function EinlagerungBlock({
                       onSpeichern={radSpeichern}
                       onEntfernen={onRadEntfernen}
                     />
+                    {/* E8: Passt, was gemessen wurde, zur Größe am Fahrzeug? Nur ein Hinweis –
+                        Mischbereifung gibt es. */}
+                    {(() => {
+                      const fz = vehicles.find((v) => v.id === einlagerung.vehicle_id);
+                      const text = groessenAbweichung(fz?.tire_size, raeder);
+                      return text ? <div className="small einlagerung-pflicht" style={{ marginTop: 6 }}>{text}</div> : null;
+                    })()}
                   </>
                 ) : (
                   // Gespeichert wird kurz nach der letzten Änderung (SatzProfil) – nicht bei
@@ -401,16 +406,21 @@ export function EinlagerungBlock({
         <div className="small">– kein Lagerplatz belegt –</div>
       ) : (
         <>
-          {pflicht && (
-            <div className="small" style={{ marginBottom: 6 }}>
-              Dieser Auftrag enthält eine Leistung mit Einlagerung. Ohne belegten Lagerplatz
-              lässt er sich nicht abschließen.
-            </div>
-          )}
           <div className="einlagerung-zeile">
             <select value={wahl} onChange={(e) => setWahl(e.target.value)} disabled={laeuft}>
               <option value="">– Lagerplatz wählen –</option>
-              {freieSlots.map((s) => <option key={s.id} value={s.id}>{platzText(s)}</option>)}
+              {/* Nach Lager gruppiert (D14): Am Handy musste man sonst in jeder Zeile den
+                  angehängten Lagernamen mitlesen. Bei nur einem Lager keine Gruppe. */}
+              {warehouses.length > 1
+                ? warehouses
+                    .map((w) => ({ w, plaetze: freieSlots.filter((s) => s.warehouse_id === w.id) }))
+                    .filter((g) => g.plaetze.length > 0)
+                    .map((g) => (
+                      <optgroup key={g.w.id} label={`${g.w.name} (${g.plaetze.length} frei)`}>
+                        {g.plaetze.map((s) => <option key={s.id} value={s.id}>{s.code}</option>)}
+                      </optgroup>
+                    ))
+                : freieSlots.map((s) => <option key={s.id} value={s.id}>{platzText(s)}</option>)}
             </select>
             <button type="button" className="btn-secondary btn-rand" disabled={!wahl || laeuft} onClick={() => zuordnen(wahl)}>
               Zuordnen

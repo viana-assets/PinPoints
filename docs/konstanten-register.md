@@ -25,8 +25,9 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **110 exportierte Konstanten** (`export const`) in 24 Dateien unter `lib/` – gezählt am
-02.10.2026 mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
+Insgesamt **116 exportierte Konstanten** (`export const`) in 27 Dateien unter `lib/` – gezählt am
+02.10.2026 (v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
 eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMETER`,
 `PROFIL_MAX_MM`). Die Zahl gehört bei jeder neuen Konstante mit nachgezogen.
 
@@ -111,7 +112,6 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `RAD_POSITION_LABEL` | `lib/constants.ts` | `Record<RadPosition, string>` | Ausgeschriebene Beschriftung der Radpositionen | `ReifensatzEtikett`, `RadBild` |
 | `FELGE_LABEL` | `lib/constants.ts` | `Record<Felge, string>` | Beschriftung der Felgenart (Stahl/Alu/keine) | `RadBild` |
 | `FELGEN` | `lib/constants.ts` | `Felge[]` | Die drei Felgenarten als Liste | `RadBild` |
-| `GEO_GENAUIGKEIT_LABEL` | `lib/constants.ts` | `Record<GeoGenauigkeit, string>` | Beschriftung der Kartenpositions-Genauigkeit (exakt/ungefähr/von Hand) | **AKTUELL UNGENUTZT** – nirgends importiert (siehe unten) |
 | `PROFIL_GESETZLICH_MM` | `lib/constants.ts` | `number` (1,6) | Gesetzliches Minimum der Profiltiefe | `ProfilMarke`, `RadBild` |
 | `PROFIL_KRITISCH_MM` | `lib/constants.ts` | `number` (3) | Schwelle „kritisch" | `SaisonPanel`, `ProfilMarke`, `LagerPanel`, `RadBild`, `AuftragModal`, `app/page.tsx`, `tests/regalwand.test.ts`, `tests/profiltiefe.test.ts` |
 | `PROFIL_HINWEIS_MM` | `lib/constants.ts` | `number` (4) | Schwelle „Hinweis" | `ProfilMarke`, `RadBild`, `tests/profiltiefe.test.ts` |
@@ -156,6 +156,7 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `GIROCODE_FASSUNG` | `lib/rechnung.ts` | `string` ("002") | EPC-QR-Fassung (BIC darf entfallen) | **nur intern** – `girocodeText()` |
 | `GIROCODE_NAME_MAX` | `lib/rechnung.ts` | `number` (70) | Zeichenlimit für den Empfängernamen im Girocode | **nur intern** – `girocodeText()` |
 | `GIROCODE_ZWECK_MAX` | `lib/rechnung.ts` | `number` (140) | Zeichenlimit für den Verwendungszweck im Girocode | **nur intern** – `girocodeText()` |
+| `IBAN_LAENGE` | `lib/rechnung.ts` | `Record<string, number>` | IBAN-Länge je Land (DE 22, AT 20, CH 21 …); andere Länder 15–34 (D17, v100) | `ibanFehler()` – `BetriebsdatenPanel`, `tests/iban.test.ts` |
 
 ---
 
@@ -206,6 +207,7 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `EINSATZ_RASTER_VON` / `EINSATZ_RASTER_BIS` | `lib/auswertungAnsicht.ts` | `number` (7 / 19) | Stundenbereich des Rasters Wochentag × Uhrzeit | `einsatz()`, `rasterHinweis()`, `AuswertungPanel` |
 | `DATEV_SPALTEN` | `lib/datev.ts` | `string[]` (125) | Spaltenüberschriften des DATEV-Buchungsstapels, Version 700 | **nur intern** – `datevBuchungsstapel()`; `tests/datev.test.ts` |
 | `AUFTRAGS_SORTIERUNG_LABEL` | `lib/auftragsAnsicht.ts` | `Record<AuftragsSortierung, string>` | Die Sortierungen der Auftragsliste mit Beschriftung: anstehende zuerst (Vorgabe), neueste zuerst, Kunde A–Z, Auftragsnummer (26.09.2026) | `AuftraegePanel`, `auftragsGruppen()` |
+| `LAGER_VOLL_AB` | `lib/lagerAnsicht.ts` | `number` (0,9) | Ab diesem Anteil belegter Plätze gilt ein Lager als fast voll (E11, v102) | `lagerAuslastung()` – `LagerPanel`, `DashboardPanel`; `tests/lagerAnsicht.test.ts` |
 | `LAGER_ENGPASS_AB` | `lib/dashboard.ts` | `number` (10) | Ab weniger freien Lagerplätzen zeigt das Dashboard unter „Zu erledigen" die Warnung „Lager wird knapp" (25.09.2026); seit 26.09.2026 färbt dieselbe Grenze die Kachel „Lager" auf der Seite „Weitere" orange | `zuErledigen()`, darüber `DashboardPanel`; `app/page.tsx` (Hinweise für „Weitere"); `tests/dashboard.test.ts` |
 | `WOCHENTAG_KURZ` | `lib/dashboard.ts` | `readonly ["So", …, "Sa"]` (Sonntag zuerst wie `getDay()`) | Kurze Wochentage für „Fr 25.9." (26.09.2026 zusammengeführt – stand vorher als Literal in `datumKurz()`) | `datumKurz()`, darüber Dashboard, Kundenfenster, Auftragsfenster, Aufträge im Kundenfenster |
 
@@ -216,12 +218,12 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
 | `PX_PRO_MM` | `lib/etikettBild.ts` | `number` (8) | Bildpunkte je Millimeter (203 dpi, die Auflösung der Etikettendrucker) für das per „Als Bild teilen" erzeugte Etikett-PNG | `mmZuPx()` – `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
-| `PX_PRO_MM_300` | `lib/etikettBild.ts` | `number` (300 / 25,4) | Bildpunkte je Millimeter bei 300 dpi – Brother QL-820NWBc (seit 30.09.2026) | `ETIKETT_FORMAT` (58 × 58 mm) in `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
+| `PX_PRO_MM_300` | `lib/etikettBild.ts` | `number` (300 / 25,4) | Bildpunkte je Millimeter bei 300 dpi – Brother QL-820NWBc (seit 30.09.2026) | `ETIKETT_FORMATE` (58 × 58, 60 × 86 mm) in `ReifensatzEtikett`, `tests/etikettbild.test.ts` |
 | `PT_PRO_MM` | `lib/etikettPdf.ts` | `number` (72 / 25,4) | PDF-Punkte je Millimeter – Seitengröße des Etikett-PDFs (seit 02.10.2026) | **nur intern** – `etikettPdf()`; `tests/etikettPdf.test.ts` |
 | `SCHWARZ_SCHWELLE` | `lib/etikettPdf.ts` | `number` (160) | Helligkeit, ab der ein Bildpunkt im 1-Bit-PDF weiß bleibt | **nur intern** – `einBitBild()`; `tests/etikettPdf.test.ts` |
 
-**Nicht aufgenommen, bewusst:** `ETIKETT_FORMAT` (seit v96 das eine Etikettenformat 58 × 58 mm;
-bis v95 die Liste `ETIKETT_FORMATE`) liegt nicht in `lib/`, sondern als `export const` direkt in
+**Nicht aufgenommen, bewusst:** `ETIKETT_FORMATE` (seit v99 58 × 58 und 60 × 86 mm, auch vom
+Regalaufkleber genutzt; v96–v98 nur `ETIKETT_FORMAT`) liegt nicht in `lib/`, sondern als `export const` direkt in
 `components/lager/ReifensatzEtikett.tsx` – außerhalb des oben festgelegten Umfangs dieses
 Registers, ebenso wie `QR_PIXEL` in derselben Datei (siehe „Umfang dieser Fassung"). Die übrigen
 Maß-Konstanten in `lib/etikettBild.ts` (`RAND_MM`, `SPALT_MM`, `SCHRIFT_KOPF_MM`,
@@ -248,6 +250,11 @@ weil sie im Code **nicht exportiert** sind (`const`, kein `export const`) – ge
 | `PAGE_SIZE` | `lib/api/client.ts` | `number` (1000) | Seitengröße beim Nachladen ganzer Tabellen (PostgREST-Standardgrenze) | **nur intern** in `fetchPaged()` – darüber aber Basis aller `fetchX()`-Funktionen im ganzen `lib/api/`-Ordner |
 | `qk` | `lib/queries/keys.ts` | Objekt aus Schlüssel-Funktionen | Alle Query-Schlüssel des Zwischenspeichers (TanStack Query) – ausschließlich hier gebildet | `lib/queries/hooks.ts` (alle Hooks), `app/page.tsx` (`neuLaden()`/`refreshX()`, rund 20 Stellen) |
 | `DEFAULT_GEOCODE_REGION` | `lib/helpers.ts` | `string` ("Nürnberg, Deutschland") | Region, die an eine Adresse ohne erkennbaren Ort angehängt wird | **nur intern**, über `geocodeAnfrage()`/`geocodeAddress()` |
+| `AUFTRAG_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder am Auftrag, die offline geändert werden dürfen (F1, v101) | `aenderungen()` in `app/page.tsx` (`auftragsAbsicht`), `tests/offlineAusgang.test.ts` |
+| `POSITION_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder einer Leistung, die offline geändert werden dürfen | Typ `PositionFeld` |
+| `RAD_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder eines Rades, die offline gemessen werden dürfen | Typ `RadFeld` |
+| `FELD_TEXT` | `lib/offline/ausgang.ts` | `Record<string, string>` | Lesbare Feldnamen in der Konfliktanzeige | `AusgangFenster` |
+| `FREMDABFRAGE_ZU_VIEL` | `lib/fremdabfrage.ts` | `string` | Meldung, wenn die Abfragebremse der Adressdienste greift (B3, Migration 62) | `app/api/geocode/route.ts`, `app/api/adresse-suchen/route.ts` |
 
 ---
 
@@ -255,7 +262,7 @@ weil sie im Code **nicht exportiert** sind (`const`, kein `export const`) – ge
 
 | Konstante | Datei | Befund |
 |---|---|---|
-| `GEO_GENAUIGKEIT_LABEL` | `lib/constants.ts` | Vollständig definiert (`Record<GeoGenauigkeit, string>` mit den drei Werten „exakt"/„ungefähr"/„hand"), aber **nirgends im Code importiert oder gelesen** – auch nicht dort, wo `geo_genauigkeit` tatsächlich verarbeitet wird (`lib/helpers.ts`, `navigationUrls()`). Kandidat für Nachtrag an der eigentlich vorgesehenen Anzeigestelle oder für Entfernen. |
+| – | – | Keine mehr. `GEO_GENAUIGKEIT_LABEL` stand hier bis v101 und ist entfernt (Fahrplan C2). |
 
 Alle anderen als „nur intern" markierten Konstanten (siehe Spalte „Verwendet in" oben, z. B.
 `CENT`, `OFFENES_ENDE`, `GIROCODE_FASSUNG`, `PAGE_SIZE`, `GETARNT`) sind **keine** ungenutzten

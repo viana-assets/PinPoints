@@ -1,5 +1,7 @@
+import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
+import { useAusgang } from "@/lib/offline/speicher";
 import { useEffect, useRef, useState } from "react";
-import type { Article, ArticlePrice, AuftragFahrzeug, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import { formatDate, formatEUR, getPhoneNumbers, handlungsgruende, lagermonate, rechnungsdatenMaengel, todayStr } from "@/lib/helpers";
 import { employeeColorFor, hhmmAus, minutenAus } from "@/lib/calendar";
@@ -45,7 +47,7 @@ export function AuftragModal({
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
-  onAddArticle, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
+  onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
   andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen,
@@ -141,6 +143,8 @@ export function AuftragModal({
   onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddArticle: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null, text: string | null) => Promise<void>;
+  // Auftragsvorlagen (E6, Migration 63).
+  vorlagen?: Auftragsvorlage[];
   onUpdateArticleQty: (id: string, quantity: number) => Promise<void>;
   onUpdateArticleEndpreis: (id: string, endpreisNetto: number | null) => Promise<void>;
   onUpdateArticleText: (id: string, text: string | null) => Promise<void>;
@@ -253,6 +257,16 @@ export function AuftragModal({
     : customer;
   const [speichert, setSpeichert] = useState(false);
   const [gespeichert, setGespeichert] = useState(false);
+  // Offline schreiben (F1): Was für DIESEN Auftrag noch im Ausgangskorb liegt. Steht oben im
+  // Kopf, weil der Balken am unteren Rand unter diesem Fenster liegt – „gespeichert" ohne Netz
+  // heißt „auf dem Gerät", und das muss dastehen.
+  const ausgang = useAusgang();
+  const ausgangHier = ausgang.filter((a) =>
+    ("auftragId" in a && a.auftragId === order.id)
+    || (a.art === "rad" && einlagerungen.some((e) => e.id === a.satzId)));
+  const ausgangText = ausgangHier.length === 0 ? null
+    : ausgangHier.some((a) => a.zustand !== "wartet") ? "● Offline-Änderung braucht eine Entscheidung (Balken unten)"
+    : "● auf dem Gerät gespeichert – noch nicht übertragen";
   const [schliessenNachfrage, setSchliessenNachfrage] = useState(false);
 
   // Wechselt ein ANDERER Auftrag ins Fenster, setzt die Seite dieses Fenster vollständig neu
@@ -481,6 +495,9 @@ export function AuftragModal({
     // Die Frage schiebt sich EINMAL dazwischen und sperrt nichts: Wer sie beantwortet, ist im
     // selben Klick fertig.
     if (altreifenOffen) { setAltreifenFrage(true); setAltreifenGefragt(true); return; }
+    // D13: Ohne eine einzige Leistung abzuschließen ist fast immer ein Versehen – danach sind die
+    // Positionen eingefroren. Einmal fragen, nicht sperren: Eine Kulanzfahrt ohne Berechnung gibt es.
+    if (orderArticles.length === 0 && !confirm("Für diesen Auftrag ist keine Leistung eingetragen. Trotzdem als erledigt abschließen? Danach lassen sich keine Leistungen mehr eintragen.")) return;
     void statusSetzen("erledigt");
   }
 
@@ -528,22 +545,27 @@ export function AuftragModal({
   const menue: { key: MenuePunkt; text: string; info?: string; gefahr?: boolean; aus?: boolean }[] = [];
   if (!gesperrt && feldeAendern) menue.push({ key: "termin", text: "Termin & Team", info: "Datum, von–bis, Mitarbeiter, Transporter" });
   if (gesperrt) {
+    // Ein stornierter Auftrag wird „wieder aufgenommen", ein erledigter „wiedereröffnet" (D12):
+    // „kam doch zustande" und „war fertig, muss noch einmal angefasst werden" sind zwei Fälle.
+    const wiederText = order.status === "storniert" ? "Wieder aufnehmen" : "Wiedereröffnen";
     menue.push(darfWiedereroeffnen
-      ? { key: "wieder", text: "Wiedereröffnen", info: "mit Grund" }
-      : { key: "wieder", text: "Wiedereröffnen", info: "dazu wird Admin-Recht benötigt", aus: true });
+      ? { key: "wieder", text: wiederText, info: order.status === "storniert" ? "findet doch statt – mit Grund" : "mit Grund" }
+      : { key: "wieder", text: wiederText, info: "dazu wird Admin-Recht benötigt", aus: true });
   }
   if (rechnungDa && onRechnungOeffnen) menue.push({ key: "rechnung", text: "Rechnung ansehen", info: order.rechnung_nummer ?? undefined });
   menue.push({ key: "historie", text: "Historie", info: "wer hat was geändert" });
   if (!gesperrt && !isTechniker) menue.push({ key: "storno", text: "Stornieren", info: "mit Grund – bleibt in der Liste", gefahr: true });
   // Einen Auftrag, den man vor einer Sekunde selbst erzeugt hat, löscht man nicht – man nimmt
   // ihn zurück. Deshalb dort keine Rückfrage; es kann nichts verloren gehen.
-  if (!isTechniker) menue.push(frischAngelegt
+  // Ein abgerechneter Auftrag wird gar nicht erst zum Löschen angeboten (D2, lib/auftragLoeschen.ts).
+  const loeschPruefung = auftragLoeschPruefung(order);
+  if (!isTechniker && (frischAngelegt || loeschPruefung.erlaubt)) menue.push(frischAngelegt
     ? { key: "loeschen", text: "Verwerfen", info: "der Auftrag wurde eben erst angelegt", gefahr: true }
     : { key: "loeschen", text: "Löschen", info: "mit Rückfrage", gefahr: true });
 
   function menueAktion(k: MenuePunkt) {
     if (k === "loeschen") {
-      if (!frischAngelegt && !confirm(`Auftrag ${auftragsNr(order.order_number)} wirklich löschen?`)) return;
+      if (!frischAngelegt && (!loeschPruefung.erlaubt || !confirm(loeschPruefung.frage))) return;
       setMenueOffen(false);
       void onDelete(order.id);
       onClose();
@@ -570,8 +592,8 @@ export function AuftragModal({
           <button type="button" className="dm-zu" onClick={schliessenVersuchen} aria-label="Schließen">×</button>
           <span className="ao-kopf-text">
             <b>{frischAngelegt ? "Neuer Auftrag" : "Auftrag"} #{auftragsNr(order.order_number)}{order.order_number < 0 && <span className="test-marke">TEST</span>}</b>
-            <span className={"small" + (geaendert && !gesperrt ? " ao-ungespeichert" : "")}>
-              {speichert ? "speichert …" : frischAngelegt ? "noch nicht angelegt" : geaendert && !gesperrt ? "Änderungen noch nicht gespeichert" : gespeichert ? "✓ gespeichert" : ORDER_STATUS_LABEL[order.status]}
+            <span className={"small" + ((geaendert && !gesperrt) || ausgangText ? " ao-ungespeichert" : "")}>
+              {speichert ? "speichert …" : frischAngelegt ? "noch nicht angelegt" : geaendert && !gesperrt ? "Änderungen noch nicht gespeichert" : ausgangText ?? (gespeichert ? "✓ gespeichert" : ORDER_STATUS_LABEL[order.status])}
             </span>
           </span>
           {/* Speichern steht oben und nicht unten im Fuß: der Fuß trägt die Zustandswechsel,
@@ -887,6 +909,7 @@ export function AuftragModal({
               onUpdateEndpreis={onUpdateArticleEndpreis}
               onUpdateText={onUpdateArticleText}
               onRemove={onRemoveArticle}
+              vorlagen={vorlagen}
             />
           </div>
 
@@ -974,7 +997,6 @@ export function AuftragModal({
                 key={satz.id}
                 /* Die Nummer steht nur da, wenn es mehr als einen gibt. */
                 titel={einlagerungen.length > 1 ? `Einlagerung · Satz ${i + 1} von ${einlagerungen.length}` : "Einlagerung"}
-                pflicht={false}
                 einlagerung={satz}
                 slots={storageSlots}
                 warehouses={warehouses}
@@ -999,7 +1021,6 @@ export function AuftragModal({
             {einlagerungOffen && (
               <EinlagerungBlock
                 titel={einlagerungen.length > 0 ? `Einlagerung · Satz ${einlagerungen.length + 1}` : "Einlagerung"}
-                pflicht={false}
                 einlagerung={null}
                 slots={storageSlots}
                 warehouses={warehouses}
@@ -1085,7 +1106,7 @@ export function AuftragModal({
                 : <button type="button" className="ao-haupt orange" onClick={() => onRechnungOeffnen(order.id)}>Rechnung erstellen</button>
             )}
             {gesperrt && darfWiedereroeffnen && !(order.status === "erledigt" && rechnungNoetig && !rechnungDa && onRechnungOeffnen) && (
-              <button type="button" className="ao-zweit" onClick={() => setWiederOffen(true)}>Wiedereröffnen</button>
+              <button type="button" className="ao-zweit" onClick={() => setWiederOffen(true)}>{order.status === "storniert" ? "Wieder aufnehmen" : "Wiedereröffnen"}</button>
             )}
           </div>
         </div>
@@ -1158,8 +1179,20 @@ export function AuftragModal({
         <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); setWiederOffen(false); setWiederGrund(""); }}>
           <div className="auswahl-blatt ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Wiedereröffnen">
             <div className="ab-griff" />
-            <div className="ab-titel">Auftrag #{auftragsNr(order.order_number)} wiedereröffnen</div>
-            <label className="nk-feld"><span>Warum wird der Auftrag wiedereröffnet?</span>
+            <div className="ab-titel">
+              {order.status === "storniert"
+                ? `Stornierten Auftrag #${auftragsNr(order.order_number)} wieder aufnehmen`
+                : `Auftrag #${auftragsNr(order.order_number)} wiedereröffnen`}
+            </div>
+            {/* Beim Storno steht der Grund dabei (D12): Wer ihn wieder aufnimmt, soll sehen, warum er
+                abgesagt war – vielleicht hat sich daran nichts geändert. */}
+            {order.status === "storniert" && (
+              <div className="small" style={{ marginBottom: 8 }}>
+                Storniert{order.cancelled_at ? ` am ${formatDate(order.cancelled_at.slice(0, 10))}` : ""}
+                {order.cancel_reason ? <> – Grund: <b>{order.cancel_reason}</b></> : " – ohne Grund"}
+              </div>
+            )}
+            <label className="nk-feld"><span>{order.status === "storniert" ? "Warum findet der Auftrag doch statt?" : "Warum muss am erledigten Auftrag noch etwas geändert werden?"}</span>
               <input type="text" value={wiederGrund} onChange={(e) => setWiederGrund(e.target.value)} autoFocus />
             </label>
             <button
@@ -1167,7 +1200,7 @@ export function AuftragModal({
               disabled={!wiederGrund.trim()}
               onClick={async () => { await onSetStatus(order.id, "offen", { wiedereroeffnungsGrund: wiederGrund.trim() }); setWiederOffen(false); }}
             >
-              Wiedereröffnen
+              {order.status === "storniert" ? "Wieder aufnehmen" : "Wiedereröffnen"}
             </button>
           </div>
         </div>

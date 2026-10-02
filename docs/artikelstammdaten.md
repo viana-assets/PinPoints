@@ -138,6 +138,20 @@ umbenannt, wird im Artikelstamm umgestellt statt Code geändert – ein Vergleic
 Artikelnamen wäre beim ersten Umbenennen still kaputt, und still kaputte Prüfungen sind
 schlimmer als keine.
 
+## Auftragsvorlagen (Migration 63, E6, v102)
+
+Unter der Artikelliste: **Auftragsvorlagen** – benannte Leistungspakete wie „Saisonwechsel mobil"
+(Räderwechsel + 4× Wuchten + 4× Ventile). Im Auftrag steht neben „+ Leistung hinzufügen" dann
+„+ Vorlage"; ein Tipp trägt alle Positionen ein, jede als ganz normale Position mit dem Preis des
+Tages und über denselben Weg wie ein einzelner Tipp (also auch offline). Inaktive Artikel und
+Reifen aus dem Lager werden übersprungen. Eine Vorlage kennt keine Preise.
+
+Tabelle `auftragsvorlagen` (Name eindeutig ohne Groß/Klein, `positionen` als jsonb-Liste
+`[{article_id, quantity}]`, `aktiv`, `sortierung`). Lesen: wer Leistungen eintragen darf
+(`auftraege.leistungen`) oder Artikel sieht; pflegen: `artikel` schreiben; löschen: Trigger
+`pruefe_loeschrecht('artikel')`. Fehlt die Tabelle (Migration nicht gelaufen), lädt die App eine
+leere Liste – der Knopf erscheint dann nicht.
+
 ## Die Artikel-Seite (Entwurf „Q · Artikel", 26.09.2026)
 
 Karten statt Tabelle: Nummer, Kurz- und Langbezeichnung, Marken (Lagergebühr · beim Auslagern,

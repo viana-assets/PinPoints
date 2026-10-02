@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 02.10.2026 (Migrationen bis 61, Service Worker v98; Regeln seit der Projektdurchsicht vom
+Stand: 02.10.2026 (Migrationen bis 63, Service Worker v102; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -299,6 +299,11 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   nur nachsehen wollte und mit ✕ schloss, hatte ihn verloren (02.10.2026, v98). Wer etwas
   löscht, das der Nutzer nicht bestätigt hat, braucht einen sehr guten Grund; hier half nur das
   Protokoll (`audit_log`) beim Zurückholen.
+- **Ein neuer Schreibweg am Auftrag oder an der Radmessung geht durch `offlineOderDirekt()`**
+  (app/page.tsx, seit v101). Wer einen Supabase-Aufruf daran vorbei direkt schreibt, hat eine
+  Handlung, die ohne Netz still scheitert – genau das, was der Ausgangskorb abstellt. Gehört die
+  Handlung bewusst NICHT offline (abschließen, ein-/auslagern …), bleibt sie direkt; die zentrale
+  Meldung sagt dann „geht nur mit Netz".
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 

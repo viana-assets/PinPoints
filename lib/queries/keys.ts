@@ -25,6 +25,8 @@ export const qk = {
   firmenfahrzeuge: () => ["firmenfahrzeuge"] as const,
   artikel: () => ["artikel"] as const,
   artikelpreise: () => ["artikelpreise"] as const,
+  // Auftragsvorlagen (Migration 63, E6).
+  vorlagen: () => ["vorlagen"] as const,
 
   lager: () => ["lager"] as const,
   lagerplaetze: () => ["lagerplaetze"] as const,

@@ -28,7 +28,7 @@ function toRow(felder: FirmenfahrzeugFelder) {
 // Gefiltert wird erst in der Oberfläche, dort wo es um die Auswahl für NEUE Aufträge geht.
 export async function fetchFirmenfahrzeuge(supabase: SupabaseClient): Promise<Firmenfahrzeug[]> {
   return fetchPaged<Firmenfahrzeug>("Die Firmenfahrzeuge konnten nicht geladen werden", (von, bis) =>
-    supabase.from("firmenfahrzeuge").select("*").order("kennzeichen").range(von, bis)
+    supabase.from("firmenfahrzeuge").select("*").order("kennzeichen").order("id").range(von, bis)
   );
 }
 

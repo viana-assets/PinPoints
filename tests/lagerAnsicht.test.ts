@@ -68,3 +68,17 @@ describe("scanZiel", () => {
     expect(scanZiel("DHL 00340434161234567890", plaetze, saetze)).toEqual({ art: "fremd" });
   });
 });
+
+describe("lagerAuslastung (E11)", () => {
+  it("ab 90 % voll, Lager ohne Plätze nie", async () => {
+    const { lagerAuslastung, auslastungText } = await import("@/lib/lagerAnsicht");
+    const lager = [{ id: "a", name: "Halle" }, { id: "b", name: "Zuhause" }];
+    const plaetze = Array.from({ length: 10 }, (_, i) => ({ id: "p" + i, warehouse_id: "a" }));
+    const belegt = new Set(["p0", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8"]);
+    const [halle, zuhause] = lagerAuslastung(lager, plaetze, belegt);
+    expect(halle).toMatchObject({ belegt: 9, gesamt: 10, voll: true });
+    expect(zuhause.voll).toBe(false);
+    expect(auslastungText(halle)).toBe("Halle ist zu 90 % belegt – noch 1 Platz frei.");
+    expect(lagerAuslastung(lager, plaetze, new Set(["p0"]))[0].voll).toBe(false);
+  });
+});

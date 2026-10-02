@@ -8,14 +8,14 @@ import type {
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
   Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
   EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug, Rechnung,
-  Verkaufsreifen, VerkaufsreifenFelder,
+  Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, nextOrder, orderDateTime,
   effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
   plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
   getPhoneNumbers, navigationUrls, istHandy, menuLage, seitenZoom,
-  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen,
+  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen, DEFAULT_VAT_RATE,
 } from "@/lib/helpers";
 import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
 import { MAP_STYLES, MAP_STIL_REIHENFOLGE, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
@@ -29,7 +29,7 @@ import { KartenKundeKarte } from "@/components/karte/KartenKundeKarte";
 import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import {
   KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
-  RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
+  RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER, regelZerlegen,
   ANRUF_PARAMETER, MITNEHMEN_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD,
   PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
   type Verb,
@@ -39,7 +39,17 @@ import { zielAbholen } from "@/lib/benachrichtigungZiel";
 import { anrufAufsHandy } from "@/lib/push";
 import { MitnehmenFenster } from "@/components/auftraege/MitnehmenFenster";
 import { kundeZumAuftrag, kundeFuerAuftrag } from "@/lib/laufkunde";
-import { ohneTestkunden } from "@/lib/testkunde";
+import { auftragsNr, ohneTestkunden } from "@/lib/testkunde";
+import { telefonPasst } from "@/lib/telefon";
+import {
+  aenderungen, AUFTRAG_OFFLINE_FELDER, auftragsdatenAnwenden, ausgangStand, istNetzfehler, raederAnwenden,
+  saetzeAnwenden, type AbsichtInhalt, type AuftragFeld,
+} from "@/lib/offline/ausgang";
+import { ausgangAufnehmen, useAusgang } from "@/lib/offline/speicher";
+import { ausgangSenden } from "@/lib/offline/senden";
+import { AusgangFenster } from "@/components/AusgangFenster";
+import { VorlagenBlock } from "@/components/admin/artikel/VorlagenBlock";
+import { deleteVorlage, insertVorlage, updateVorlage } from "@/lib/api/vorlagen";
 import { APP_VERSION, neuigkeitenUngelesen } from "@/lib/version";
 import { NeuigkeitenBlatt } from "@/components/NeuigkeitenBlatt";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
@@ -89,7 +99,7 @@ import {
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
   insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById,
   upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails,
-  insertRad, updateRadById, deleteRadById, setErfassungsart, setAnzahlRaeder, type RadFelder,
+  insertRad, updateRadById, deleteRadById, setErfassungsart, setAnzahlRaeder, radZuZeile, type RadFelder,
 } from "@/lib/api/lager";
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
@@ -118,7 +128,7 @@ import { fetchBetrieb } from "@/lib/api/betrieb";
 import { qk } from "@/lib/queries/keys";
 import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
-  useMitarbeiter, useArtikel, useArtikelpreise, useBetrieb, useRechnungen, useAuftragRechnungen,
+  useMitarbeiter, useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useRechnungen, useAuftragRechnungen,
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
   useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen,
 } from "@/lib/queries/hooks";
@@ -131,6 +141,7 @@ const KEINE_AUFTRAEGE: Order[] = [];
 const KEINE_MITARBEITER: Employee[] = [];
 const KEINE_ARTIKEL: Article[] = [];
 const KEINE_ARTIKELPREISE: ArticlePrice[] = [];
+const KEINE_VORLAGEN: Auftragsvorlage[] = [];
 const KEINE_POSITIONEN: OrderArticle[] = [];
 const KEINE_LAGER: Warehouse[] = [];
 const KEINE_LAGERPLAETZE: StorageSlot[] = [];
@@ -345,7 +356,8 @@ export default function HomePage() {
   // Öffnen des jeweiligen Moduls bzw. des Kundendetails.
   const kundeOffen = selectedId !== null;
   const brauchtMitarbeiter = tab === "auftraege" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || tab === "auswertung" || kundeOffen;
-  const brauchtArtikel = tab === "artikel" || tab === "more" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || kundeOffen;
+  // Dashboard und Mitnehmen-Fenster seit v100 auch: Die Packliste nennt die Leistungen beim Namen (E2).
+  const brauchtArtikel = tab === "artikel" || tab === "more" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || tab === "dashboard" || kundeOffen || mitnehmenDatum !== null;
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
@@ -371,6 +383,7 @@ export default function HomePage() {
   const mitarbeiterQuery = useMitarbeiter(supabase, sitzungBereit && brauchtMitarbeiter);
   const artikelQuery = useArtikel(supabase, sitzungBereit && brauchtArtikel);
   const artikelpreiseQuery = useArtikelpreise(supabase, sitzungBereit && brauchtArtikel);
+  const vorlagenQuery = useVorlagen(supabase, sitzungBereit && (brauchtArtikel || offenerAuftragId !== null));
   const lagerQuery = useLager(supabase, sitzungBereit && brauchtLager);
   const lagerplaetzeQuery = useLagerplaetze(supabase, sitzungBereit && brauchtLager);
   const einlagerungenQuery = useEinlagerungen(supabase, sitzungBereit && brauchtLager);
@@ -405,21 +418,35 @@ export default function HomePage() {
   const auftragRechnungenQuery = useAuftragRechnungen(supabase, rechnungAuftragId, sitzungBereit);
   const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId, sitzungBereit);
   const kundeAuftraegeQuery = useKundenAuftraege(supabase, selectedId, sitzungBereit);
+  // Offline schreiben (F1): Was im Ausgangskorb wartet, liegt über dem geladenen Bestand – die
+  // Änderung ist sofort zu sehen, so wie online (lib/offline/ausgang.ts). Auf die Abfragedaten
+  // gelegt und nicht in den Zwischenspeicher geschrieben: Ein Neuladen vom Server überschreibt
+  // sie so nicht, solange sie nicht übertragen sind.
+  const ausgang = useAusgang();
+  const [ausgangOffen, setAusgangOffen] = useState(false);
+  const auftraegeDaten = useMemo(
+    () => (auftraegeQuery.data ? auftragsdatenAnwenden(auftraegeQuery.data, ausgang) : undefined),
+    [auftraegeQuery.data, ausgang]
+  );
+  const kundeAuftraegeDaten = useMemo(
+    () => (kundeAuftraegeQuery.data ? auftragsdatenAnwenden(kundeAuftraegeQuery.data, ausgang) : undefined),
+    [kundeAuftraegeQuery.data, ausgang]
+  );
   const historieQuery = useKundeHistorie(supabase, selectedId, sitzungBereit);
 
   // Für das Auftragsfenster werden die Fahrzeuge des zugehörigen Kunden gebraucht – im
   // Aufträge-Tab ist ja kein Kundendetail offen. Gleicher Abfrage-Schlüssel wie im
   // Kundendetail, der Zwischenspeicher wird also geteilt statt doppelt geladen.
   const offenerAuftrag =
-    (auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
-    (kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
+    (auftraegeDaten?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
+    (kundeAuftraegeDaten?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
   const auftragFahrzeugeQuery = useKundeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, sitzungBereit);
   // Aus derselben Nachbarschaft wie `offenerAuftrag` und aus demselben Grund: die Ableitung
   // liest den Zustand, eine Deklaration danach wäre ein Zugriff vor der Initialisierung.
   const kontaktKunde = (kundenQuery.data ?? KEINE_KUNDEN).find((c) => c.id === kontaktKundeId);
 
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
-  const orders = auftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
+  const orders = auftraegeDaten?.orders ?? KEINE_AUFTRAEGE;
   const employees = mitarbeiterQuery.data ?? KEINE_MITARBEITER;
   // Welche Mitarbeiter in den FILTERLEISTEN von Auftragsliste und Einsatzplanung auftauchen.
   // Ein Techniker sieht dort nur sich selbst: Die Leiste ist sonst eine vollständige
@@ -437,11 +464,14 @@ export default function HomePage() {
     : employees;
   const articles = artikelQuery.data ?? KEINE_ARTIKEL;
   const articlePrices = artikelpreiseQuery.data ?? KEINE_ARTIKELPREISE;
+  const vorlagen = vorlagenQuery.data ?? KEINE_VORLAGEN;
   const warehouses = lagerQuery.data ?? KEINE_LAGER;
   const storageSlots = lagerplaetzeQuery.data ?? KEINE_LAGERPLAETZE;
-  const tireStorages = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
+  const tireStoragesGeladen = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
+  const tireStorages = useMemo(() => saetzeAnwenden(tireStoragesGeladen, ausgang), [tireStoragesGeladen, ausgang]);
   const verkaufsreifen = verkaufsreifenQuery.data ?? KEINE_VERKAUFSREIFEN;
-  const eingelagerteRaeder = raederQuery.data ?? KEINE_RAEDER;
+  const raederGeladen = raederQuery.data ?? KEINE_RAEDER;
+  const eingelagerteRaeder = useMemo(() => raederAnwenden(raederGeladen, ausgang), [raederGeladen, ausgang]);
   const vehicles = kundeFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
   const alleFahrzeuge = alleFahrzeugeQuery.data ?? KEINE_FAHRZEUGE;
   const firmenfahrzeuge = firmenfahrzeugeQuery.data ?? KEINE_FIRMENFAHRZEUGE;
@@ -451,21 +481,21 @@ export default function HomePage() {
   // Das Kundendetail zeigt die VOLLSTÄNDIGE Auftragshistorie eines Kunden, unabhängig vom
   // Zeitfenster der Listen – dort will man sehen, was es zu diesem Kunden je gab.
   const gewaehlterKunde = selectedId ? customers.find((c) => c.id === selectedId) : undefined;
-  const kundeAuftraege = kundeAuftraegeQuery.data?.orders ?? KEINE_AUFTRAEGE;
+  const kundeAuftraege = kundeAuftraegeDaten?.orders ?? KEINE_AUFTRAEGE;
 
   // Mitarbeiter- und Leistungszuordnungen kommen seit Phase 10 verschachtelt mit den Aufträgen
   // (statt als zwei eigene Vollabzüge). Beide Quellen – Zeitfenster und geöffneter Kunde –
   // werden hier zusammengeführt, damit Popover und Kundendetail dieselben Daten sehen.
   const orderEmployees = useMemo(
-    () => ({ ...(auftraegeQuery.data?.orderEmployees ?? {}), ...(kundeAuftraegeQuery.data?.orderEmployees ?? {}) }),
-    [auftraegeQuery.data, kundeAuftraegeQuery.data]
+    () => ({ ...(auftraegeDaten?.orderEmployees ?? {}), ...(kundeAuftraegeDaten?.orderEmployees ?? {}) }),
+    [auftraegeDaten, kundeAuftraegeDaten]
   );
   const orderArticles = useMemo(() => {
     const nachId = new Map<string, OrderArticle>();
-    (auftraegeQuery.data?.orderArticles ?? KEINE_POSITIONEN).forEach((z) => nachId.set(z.id, z));
-    (kundeAuftraegeQuery.data?.orderArticles ?? KEINE_POSITIONEN).forEach((z) => nachId.set(z.id, z));
+    (auftraegeDaten?.orderArticles ?? KEINE_POSITIONEN).forEach((z) => nachId.set(z.id, z));
+    (kundeAuftraegeDaten?.orderArticles ?? KEINE_POSITIONEN).forEach((z) => nachId.set(z.id, z));
     return Array.from(nachId.values());
-  }, [auftraegeQuery.data, kundeAuftraegeQuery.data]);
+  }, [auftraegeDaten, kundeAuftraegeDaten]);
 
   // Fehlgeschlagene Abfragen sichtbar machen. TanStack Query fängt Fehler intern ab und legt
   // sie an der Abfrage ab – sie werden also KEINE unbehandelte Promise-Ablehnung und liefen
@@ -595,6 +625,13 @@ export default function HomePage() {
   useEffect(() => {
     function onRejection(e: PromiseRejectionEvent) {
       const grund = e.reason as { message?: string } | undefined;
+      // Ohne Netz ist „Failed to fetch" keine Auskunft. Was offline geht, geht über den
+      // Ausgangskorb (F1) und landet gar nicht hier; alles andere braucht Netz.
+      if (istNetzfehler(e.reason)) {
+        setFehler("Keine Verbindung – das geht nur mit Netz. Ohne Netz lassen sich Notiz, Termin, Titel und Beschreibung, Leistungen und die Radmessung ändern.");
+        e.preventDefault();
+        return;
+      }
       setFehler(grund?.message || "Es ist ein unerwarteter Fehler aufgetreten.");
       e.preventDefault();
     }
@@ -774,24 +811,95 @@ export default function HomePage() {
     await deleteArticlePriceApi(supabase, articlePrices, priceId);
     await refreshArticlePrices();
   }
+  // ---------------------------------------------------------------- Offline schreiben (F1)
+  //
+  // Eine Handlung, die offline gehen darf (lib/offline/ausgang.ts), läuft hierüber: Mit Netz
+  // direkt wie bisher. Ohne Netz – oder wenn der Versuch am Netz scheitert – wird sie als Absicht
+  // in den Ausgangskorb gelegt und ist sofort zu sehen; übertragen wird, sobald Netz da ist.
+  // Ein Fehler der DATENBANK (Rechte, Regeln) bleibt ein Fehler und wird angezeigt wie immer.
+  const netzLos = () => istOffline || (typeof navigator !== "undefined" && navigator.onLine === false);
+  async function offlineOderDirekt(
+    direkt: () => Promise<void>,
+    absicht: () => { inhalt: AbsichtInhalt; titel: string } | null
+  ): Promise<void> {
+    if (!netzLos()) {
+      try { await direkt(); return; } catch (e) { if (!istNetzfehler(e)) throw e; }
+    }
+    const a = absicht();
+    if (a) await ausgangAufnehmen(a.inhalt, a.titel);
+  }
+  const auftragFinden = (id: string) => orders.find((o) => o.id === id) ?? kundeAuftraege.find((o) => o.id === id);
+  const auftragTitel = (id: string, was: string) => {
+    const o = auftragFinden(id);
+    return `Auftrag ${o ? auftragsNr(o.order_number) : "?"} · ${was}`;
+  };
+  // Eine Änderung an Feldern des Auftrags als Absicht – nur die wirklich geänderten Felder.
+  function auftragsAbsicht(id: string, nachher: Partial<Record<AuftragFeld, unknown>>, was: string) {
+    const vorher = auftragFinden(id) as unknown as Partial<Record<AuftragFeld, unknown>> | undefined;
+    if (!vorher) throw new Error("Ohne Netz lässt sich nur ein Auftrag ändern, der auf diesem Gerät gespeichert ist.");
+    const diff = aenderungen(vorher, nachher, AUFTRAG_OFFLINE_FELDER);
+    return diff ? { inhalt: { art: "auftrag" as const, auftragId: id, ...diff }, titel: auftragTitel(id, was) } : null;
+  }
+  function positionsAbsicht(id: string, felder: Record<string, unknown>, was: string) {
+    const pos = orderArticles.find((p) => p.id === id);
+    if (!pos) throw new Error("Diese Leistung ist auf diesem Gerät nicht gespeichert.");
+    const basis = Object.fromEntries(Object.keys(felder).map((k) => [k, (pos as unknown as Record<string, unknown>)[k] ?? null]));
+    return { inhalt: { art: "position" as const, auftragId: pos.order_id, positionId: id, felder, basis }, titel: auftragTitel(pos.order_id, was) };
+  }
+
+  // Übertragen, sobald Netz da ist: beim Start, wenn das Netz wiederkommt, wenn eine neue
+  // Absicht dazukommt, und alle 30 Sekunden, solange etwas wartet. Danach alles neu laden, was
+  // eine übertragene Absicht verändert haben kann.
+  const wartendeAbsichten = ausgang.filter((a) => a.zustand === "wartet").length;
+  async function ausgangUebertragen() {
+    const uebernommen = await ausgangSenden(supabase);
+    if (uebernommen > 0) {
+      await Promise.all([auftraegeNeuLaden(), neuLaden(qk.eingelagerteRaeder(), qk.einlagerungen(), qk.verkaufsreifen())]);
+    }
+  }
+  const ausgangUebertragenRef = useRef(ausgangUebertragen);
+  useEffect(() => { ausgangUebertragenRef.current = ausgangUebertragen; });
+  useEffect(() => {
+    if (!sitzungBereit || istOffline || wartendeAbsichten === 0) return;
+    void ausgangUebertragenRef.current();
+    const t = setInterval(() => { void ausgangUebertragenRef.current(); }, 30000);
+    return () => clearInterval(t);
+  }, [sitzungBereit, istOffline, wartendeAbsichten]);
+
   async function addOrderArticle(orderId: string, articleId: string, quantity: number, endpreisNetto: number | null, text: string | null) {
-    await insertOrderArticle(supabase, articlePrices, orderId, articleId, quantity, endpreisNetto, text);
+    await offlineOderDirekt(
+      () => insertOrderArticle(supabase, articlePrices, orderId, articleId, quantity, endpreisNetto, text),
+      () => {
+        // Die Kennung entsteht auf dem Gerät: So lässt sich die neue Position offline auch gleich
+        // wieder ändern, und ein doppelter Versand legt sie nicht zweimal an.
+        const preis = currentArticlePrice(articlePrices.filter((p) => p.article_id === articleId));
+        const name = articles.find((a) => a.id === articleId)?.short_name ?? "Leistung";
+        return {
+          inhalt: { art: "position_neu", auftragId: orderId, zeile: {
+            id: crypto.randomUUID(), order_id: orderId, article_id: articleId, quantity,
+            net_price: preis ? preis.net_price : 0, vat_rate: preis ? preis.vat_rate : DEFAULT_VAT_RATE,
+            endpreis_netto: endpreisNetto, note: text,
+          } },
+          titel: auftragTitel(orderId, `${name} eingetragen`),
+        };
+      }
+    );
     await refreshOrderArticles();
   }
   async function updateOrderArticleQty(id: string, quantity: number) {
-    await updateOrderArticleQtyById(supabase, id, quantity);
+    await offlineOderDirekt(() => updateOrderArticleQtyById(supabase, id, quantity), () => positionsAbsicht(id, { quantity }, "Menge"));
     await refreshOrderArticles();
   }
   async function updateOrderArticleEndpreis(id: string, endpreisNetto: number | null) {
-    await updateOrderArticleEndpreisById(supabase, id, endpreisNetto);
+    await offlineOderDirekt(() => updateOrderArticleEndpreisById(supabase, id, endpreisNetto), () => positionsAbsicht(id, { endpreis_netto: endpreisNetto }, "Endpreis"));
     await refreshOrderArticles();
   }
   async function updateOrderArticleText(id: string, text: string | null) {
-    await updateOrderArticleTextById(supabase, id, text);
+    await offlineOderDirekt(() => updateOrderArticleTextById(supabase, id, text), () => positionsAbsicht(id, { note: text?.trim() || null }, "Text der Leistung"));
     await refreshOrderArticles();
   }
   async function removeOrderArticle(id: string) {
-    await deleteOrderArticleById(supabase, id);
+    await offlineOderDirekt(() => deleteOrderArticleById(supabase, id), () => positionsAbsicht(id, { deleted_at: new Date().toISOString() }, "Leistung entfernt"));
     await refreshOrderArticles();
   }
   function orderArticlesFor(orderId: string): OrderArticle[] {
@@ -839,7 +947,9 @@ export default function HomePage() {
   // Die Sichtbarkeitsregel eines Moduls ist seit Migration 42 ein Paar aus Bereich und Verb
   // („kunden.schreiben" für „Neuer Kunde"). Ohne Verb gilt „lesen".
   function canView(regel: string): boolean {
-    const [bereich, verb] = regel.split(".");
+    // Bereich und Verb über `regelZerlegen()` (D16): „lager.einlagerung" ist ein Bereich, kein
+    // Bereich „lager" mit dem Verb „einlagerung".
+    const { bereich, verb } = regelZerlegen(regel);
     // Ein Schlüssel, den der Katalog nicht kennt, ergäbe stillschweigend „niemand darf" –
     // der Reiter verschwände für alle außer dem Superadmin, und niemand käme auf die Idee,
     // den Grund in einer Konstantenliste zu suchen. Genau das ist beim Umbau am 17.09.2026
@@ -847,7 +957,7 @@ export default function HomePage() {
     if (process.env.NODE_ENV !== "production" && !RECHTE_VORGABE[bereich]) {
       console.warn(`Unbekannter Rechte-Bereich "${bereich}" – siehe RECHTE_KATALOG in lib/constants.ts`);
     }
-    return darf(bereich, (verb as Verb) || "lesen");
+    return darf(bereich, verb);
   }
   // Die Sichtbarkeitsregel eines Moduls aus lib/module.ts: `null` = immer, `"admin"` = nur
   // Admin/Superadmin, sonst der Modulschlüssel. An einer Stelle, damit Seitenleiste und
@@ -1690,13 +1800,32 @@ export default function HomePage() {
   // Ein Rad je Position: Gibt es die Position schon, wird sie geändert, sonst angelegt. Das
   // Unterscheiden gehört hierher und nicht in die Oberfläche – dort wüsste man es nur, wenn
   // man dieselbe Liste noch einmal durchsucht.
+  //
+  // Steht der Satz noch auf „ein Wert für den Satz", stellt das erste gemessene Rad ihn um
+  // (v98 im Fenster, seit v101 hier an EINER Stelle – auch für den Weg ohne Netz, F1).
   async function radSpeichern(einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) {
+    const satz = tireStoragesGeladen.find((t) => t.id === einlagerungId);
+    const umstellen = !!satz && (satz.erfassungsart ?? "sammel") !== "einzeln";
     const vorhanden = eingelagerteRaeder.find((r) => r.tire_storage_id === einlagerungId && r.position === position);
-    if (vorhanden) {
-      await updateRadById(supabase, vorhanden.id, felder);
-    } else {
-      await insertRad(supabase, einlagerungId, { ...felder, position });
-    }
+    await offlineOderDirekt(
+      async () => {
+        if (umstellen) {
+          await setErfassungsart(supabase, einlagerungId, "einzeln");
+          await refreshTireStorages();
+        }
+        if (vorhanden && !vorhanden.id.startsWith("offline-")) await updateRadById(supabase, vorhanden.id, felder);
+        else await insertRad(supabase, einlagerungId, { ...felder, position });
+      },
+      () => {
+        const { position: _p, ...zeile } = radZuZeile(felder) as Record<string, unknown>;
+        void _p;
+        const basis = vorhanden ? Object.fromEntries(Object.keys(zeile).map((k) => [k, (vorhanden as unknown as Record<string, unknown>)[k] ?? null])) : null;
+        return {
+          inhalt: { art: "rad", satzId: einlagerungId, position, radId: vorhanden?.id ?? null, felder: zeile, basis, umstellen },
+          titel: `Radmessung ${position}`,
+        };
+      }
+    );
     await neuLaden(qk.eingelagerteRaeder());
   }
   async function radEntfernen(radId: string) {
@@ -1708,6 +1837,28 @@ export default function HomePage() {
     title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean;
     status: OrderStatus; assignedEmployeeIds: string[]; laufkunde?: { name: string; telefon: string; ort: string };
   }) {
+    if (netzLos()) {
+      // Ohne Netz (F1): Titel, Beschreibung, Termin, „Rechnung benötigt" und die Angaben zum
+      // Laufkunden gehen in den Ausgangskorb. Mitarbeiter und Status nicht – das Konzept nimmt
+      // sie bewusst aus (Einteilen ist nicht Sache vor Ort, ein Statuswechsel friert ein).
+      const vorher = auftragFinden(id);
+      const mitarbeiterVorher = [...(orderEmployees[id] ?? [])].sort().join(",");
+      if (vorher && (vorher.status !== fields.status || mitarbeiterVorher !== [...fields.assignedEmployeeIds].sort().join(","))) {
+        throw new Error("Ohne Netz lassen sich Mitarbeiter und Status nicht ändern. Titel, Beschreibung, Termin und Leistungen gehen offline.");
+      }
+      const a = auftragsAbsicht(id, {
+        title: fields.title, description: fields.description || null, order_date: fields.orderDate,
+        time: fields.time || null, end_time: fields.endTime || null,
+        ...(fields.rechnungNoetig === undefined ? {} : { rechnung_noetig: fields.rechnungNoetig }),
+        ...(fields.laufkunde === undefined ? {} : {
+          laufkunde_name: fields.laufkunde.name.trim() || null,
+          laufkunde_telefon: fields.laufkunde.telefon.trim() || null,
+          laufkunde_ort: fields.laufkunde.ort.trim() || null,
+        }),
+      }, "Angaben");
+      if (a) await ausgangAufnehmen(a.inhalt, a.titel);
+      return;
+    }
     await updateOrderById(supabase, id, fields);
     // Die Einteilung nur anfassen, wenn sie sich wirklich geändert hat. Zwei Gründe, und der
     // zweite ist der wichtigere:
@@ -1725,7 +1876,10 @@ export default function HomePage() {
   }
   // Ein Termin wurde im Kalender gezogen (25.09.2026): nur Tag, Beginn und Ende.
   async function terminVerschieben(id: string, datum: string, von: string | null, bis: string | null) {
-    await updateOrderTermin(supabase, id, { orderDate: datum, time: von, endTime: bis });
+    await offlineOderDirekt(
+      () => updateOrderTermin(supabase, id, { orderDate: datum, time: von, endTime: bis }),
+      () => auftragsAbsicht(id, { order_date: datum, time: von || null, end_time: bis || null }, "Termin")
+    );
     await refreshOrders();
   }
   // Zustandswechsel eines Auftrags. Welche Übergänge erlaubt sind, entscheidet der Trigger aus
@@ -1767,7 +1921,10 @@ export default function HomePage() {
     await refreshOrders();
   }
   async function updateTechnikerNotiz(id: string, notiz: string) {
-    await updateOrderTechnikerNotiz(supabase, id, notiz);
+    await offlineOderDirekt(
+      () => updateOrderTechnikerNotiz(supabase, id, notiz),
+      () => auftragsAbsicht(id, { techniker_notiz: notiz || null }, "Notiz")
+    );
     await refreshOrders();
   }
   // „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
@@ -1920,6 +2077,9 @@ export default function HomePage() {
     if (settings.neuigkeiten_gesehen !== APP_VERSION && settings.user_id) void saveSettingsPatch({ neuigkeiten_gesehen: APP_VERSION });
   }
   async function handleLogout() {
+    // Wartende Offline-Änderungen stehen nur auf diesem Gerät (F1). Abmelden verwirft sie nicht –
+    // aber wer sich abmeldet, soll wissen, dass sie erst mit der nächsten Anmeldung weitergehen.
+    if (ausgang.length > 0 && !confirm(`${ausgang.length} ${ausgang.length === 1 ? "Änderung ist" : "Änderungen sind"} noch nicht übertragen. Trotzdem abmelden? Sie bleiben auf diesem Gerät und gehen nach der nächsten Anmeldung weiter.`)) return;
     await supabase.auth.signOut();
     // Der offline gespeicherte Datenbestand gehört zur Anmeldung, nicht zum Gerät. Ohne
     // dieses Leeren läge der Kundenbestand des Vorgängers auf einem weitergegebenen oder
@@ -1951,7 +2111,9 @@ export default function HomePage() {
           return c.name.toLowerCase().includes(s)
             || c.address.toLowerCase().includes(s)
             || (c.company || "").toLowerCase().includes(s)
-            || (c.email || "").toLowerCase().includes(s);
+            || (c.email || "").toLowerCase().includes(s)
+            // Seit v102 (D10) auch über die Telefonnummer, gleich in welcher Schreibweise.
+            || telefonPasst([c.phone_mobile, c.phone_landline], search);
         })
         // Nach dem angezeigten Namen (bei Firmen die Firma), wie Sortierung und Gruppen der Liste.
         .filter((c) => !letterFilter || anfangsbuchstabe(c) === letterFilter)
@@ -2662,7 +2824,11 @@ export default function HomePage() {
       ref={appRef}
       className={[fullPageTabs ? "vollseite" : "", positionSetzenFuer ? "punkt-setzen" : ""].filter(Boolean).join(" ") || undefined}
     >
-      <OfflineHinweis standVon={kundenQuery.dataUpdatedAt} offline={istOffline} />
+      <OfflineHinweis standVon={kundenQuery.dataUpdatedAt} offline={istOffline}
+        ausgang={ausgangStand(ausgang)} onAusgang={() => setAusgangOffen(true)} />
+      {ausgangOffen && (
+        <AusgangFenster absichten={ausgang} online={!istOffline} onSenden={() => void ausgangUebertragen()} onClose={() => setAusgangOffen(false)} />
+      )}
       <nav id="iconNav">
         {/* Bildmarke UND Schriftzug. Der Schriftzug ist echter Text, nicht Teil des Bildes:
             er steht damit in der Hausschrift, bleibt bei jeder Vergrößerung scharf, ist
@@ -2738,6 +2904,8 @@ export default function HomePage() {
             storageSlots={storageSlots}
             warehouses={warehouses}
             vehicles={alleFahrzeuge}
+            orderArticles={orderArticles}
+            articles={articles}
             lagerLaedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
             isTechniker={isTechniker}
             standardDauerMin={terminIntervall}
@@ -3044,6 +3212,18 @@ export default function HomePage() {
             onAddArticlePrice={addArticlePrice}
             onUpdateArticlePrice={updateArticlePrice}
             onDeleteArticlePrice={deleteArticlePrice}
+            zusatz={
+              <VorlagenBlock
+                vorlagen={vorlagen}
+                articles={articles}
+                darfPflegen={darf("artikel", "schreiben")}
+                onSpeichern={async (id, felder) => {
+                  if (id) await updateVorlage(supabase, id, felder); else await insertVorlage(supabase, felder);
+                  await neuLaden(qk.vorlagen());
+                }}
+                onLoeschen={async (id) => { await deleteVorlage(supabase, id); await neuLaden(qk.vorlagen()); }}
+              />
+            }
           />
         )}
       </div>
@@ -3165,6 +3345,8 @@ export default function HomePage() {
           tireStorages={tireStorages}
           customers={customers}
           vehicles={alleFahrzeuge}
+          orderArticles={orderArticles}
+          articles={articles}
           storageSlots={storageSlots}
           warehouses={warehouses}
           laedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
@@ -3379,6 +3561,7 @@ export default function HomePage() {
           onFahrzeugEntfernen={fahrzeugEntfernen}
           onDelete={deleteOrder}
           onAddArticle={addOrderArticle}
+          vorlagen={vorlagen}
           onUpdateArticleQty={updateOrderArticleQty}
           onUpdateArticleEndpreis={updateOrderArticleEndpreis}
           onUpdateArticleText={updateOrderArticleText}

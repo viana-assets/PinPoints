@@ -66,6 +66,11 @@ export async function qWrite(kontext: string, abfrage: PromiseLike<{ error: Post
 
 // Lädt eine Tabelle vollständig, seitenweise. `seite(von, bis)` baut dieselbe Abfrage mit
 // unterschiedlichem `range()` – abgebrochen wird, sobald eine Seite nicht mehr voll ist.
+//
+// Jede Abfrage hier braucht eine EINDEUTIGE Sortierung (Fahrplan D4, v100): Ohne sie ist die
+// Reihenfolge bei gleichem Datum oder Namen nicht festgelegt, und von Seite zu Seite können
+// Zeilen doppelt kommen oder fehlen. Deshalb endet jede `order()`-Kette mit `id` (bei
+// Aufträgen: Datum, Auftragsnummer, id). Geprüft in tests/sortierung.test.ts.
 export async function fetchPaged<T>(
   kontext: string,
   seite: (von: number, bis: number) => PromiseLike<Antwort<T[]>>

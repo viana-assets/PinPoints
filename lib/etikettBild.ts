@@ -35,7 +35,7 @@ import { einBitBild, etikettPdf, type PdfSeite } from "./etikettPdf";
 // genau das Umrechnen ist es, was einen QR-Code unscharf und damit unlesbar macht.
 export const PX_PRO_MM = 8;
 // 300 dpi – die Auflösung des Brother QL-820NWBc (seit 30.09.2026 im Betrieb). Für seine
-// Format (seit v96 nur 58 × 58) entsteht das Bild in dieser Dichte, aus demselben Grund wie oben.
+// Formate (58 × 58, 60 × 86) entsteht das Bild in dieser Dichte, aus demselben Grund wie oben.
 export const PX_PRO_MM_300 = 300 / 25.4;
 
 export function mmZuPx(mm: number, pxProMm: number = PX_PRO_MM): number {
@@ -68,7 +68,7 @@ export type EtikettInhalt = {
 
 export type EtikettMasse = {
   breiteMm: number; hoeheMm: number; qrMm: number;
-  // Seit 30.09.2026 je Format (siehe `ETIKETT_FORMAT`): Auflösung des Druckers, Rand und ein
+  // Seit 30.09.2026 je Format (siehe `ETIKETT_FORMATE`): Auflösung des Druckers, Rand und ein
   // Faktor für alle Schriftgrößen. Ohne Angabe gelten die Werte der kleinen 203-dpi-Rollen.
   pxProMm?: number;
   randMm?: number;
@@ -303,4 +303,26 @@ export async function etikettDatei(
   const blob = await new Promise<Blob | null>((fertig) => leinwand.toBlob(fertig, "image/png"));
   if (!blob) throw new Error("Das Etikett konnte nicht in ein Bild umgewandelt werden.");
   return new File([blob], name, { type: "image/png" });
+}
+
+// Eine oder mehrere Dateien ins Teilen-Menü geben – oder, wo es keines gibt (Rechner), speichern.
+// Für das Etikett-PDF und die Etikett-Bilder, beim Reifensatz-Etikett und beim Lagerplatz-
+// Aufkleber dieselbe Stelle (seit v99). Ein Abbrechen im Teilen-Menü kommt als `AbortError`
+// zurück; den behandelt der Aufrufer als Entscheidung, nicht als Fehler.
+export async function teilenOderSpeichern(dateien: File[]): Promise<"geteilt" | "gespeichert"> {
+  if (navigator.canShare && navigator.canShare({ files: dateien })) {
+    await navigator.share({ files: dateien });
+    return "geteilt";
+  }
+  for (const datei of dateien) {
+    const url = URL.createObjectURL(datei);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = datei.name;
+    a.click();
+    // Erst freigeben, wenn der Browser den Download angenommen hat. Sofortiges Freigeben
+    // liefert in Safari eine leere Datei.
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  }
+  return "gespeichert";
 }

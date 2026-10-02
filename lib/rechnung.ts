@@ -415,3 +415,41 @@ export function mailtoRechnung(
 export function istGueltig(r: Rechnung): boolean {
   return r.art === "rechnung" && !r.storniert_durch;
 }
+
+// ---------------------------------------------------------------- IBAN prüfen (D17, v100)
+//
+// Ein Tippfehler in der IBAN fiel bisher erst beim Kunden auf – im Girocode, den seine
+// Banking-App ablehnt, oder als Überweisung ins Leere. Geprüft werden die Länge je Land und die
+// Prüfsumme (ISO 13616, Modulo 97). Eine gültige Prüfsumme heißt nicht, dass das Konto
+// existiert – aber ein Zahlendreher fällt damit fast immer auf.
+//
+// Leer ist erlaubt: Dann gibt es eben keinen Girocode (BetriebsdatenPanel sagt das so).
+// Rückgabe: null = in Ordnung, sonst der Grund in Klartext.
+export const IBAN_LAENGE: Record<string, number> = {
+  DE: 22, AT: 20, CH: 21, LI: 21, NL: 18, BE: 16, LU: 20, FR: 27, IT: 27, ES: 24, PL: 28, CZ: 24, DK: 18,
+};
+
+export function ibanFehler(eingabe: string): string | null {
+  const iban = eingabe.replace(/\s+/g, "").toUpperCase();
+  if (iban === "") return null;
+  if (!/^[A-Z]{2}[0-9]{2}[A-Z0-9]+$/.test(iban)) {
+    return "Eine IBAN beginnt mit dem Länderkürzel und zwei Prüfziffern (z. B. DE..) und enthält sonst nur Ziffern und Buchstaben.";
+  }
+  const land = iban.slice(0, 2);
+  const soll = IBAN_LAENGE[land];
+  if (soll && iban.length !== soll) {
+    return `Eine IBAN aus ${land} hat ${soll} Zeichen, eingetragen sind ${iban.length}.`;
+  }
+  if (!soll && (iban.length < 15 || iban.length > 34)) {
+    return `Eine IBAN hat 15 bis 34 Zeichen, eingetragen sind ${iban.length}.`;
+  }
+  // Die ersten vier Zeichen ans Ende, Buchstaben als Zahlen (A = 10 … Z = 35), Rest durch 97.
+  const umgestellt = iban.slice(4) + iban.slice(0, 4);
+  let rest = 0;
+  for (const zeichen of umgestellt) {
+    const wert = zeichen >= "A" ? String(zeichen.charCodeAt(0) - 55) : zeichen;
+    for (const ziffer of wert) rest = (rest * 10 + Number(ziffer)) % 97;
+  }
+  if (rest !== 1) return "Die Prüfziffern der IBAN passen nicht – vermutlich ein Tippfehler oder Zahlendreher.";
+  return null;
+}

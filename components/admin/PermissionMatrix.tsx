@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Role } from "@/lib/types";
 import type { Bereichsrechte } from "@/lib/api/permissions";
 import {
-  ROLE_LABEL, RECHTE_KATALOG, RECHTE_VORGABE, PERMISSION_ROLES, VERBEN, VERB_LABEL,
+  ROLE_LABEL, RECHTE_KATALOG, RECHTE_VORGABE, PERMISSION_ROLES, VERBEN, VERB_LABEL, rechtSchluessel,
   type RechtBereich, type Verb,
 } from "@/lib/constants";
 
@@ -34,7 +34,7 @@ export function PermissionMatrix({ modulePermissions, onUpdateModulePermissions 
     const bestand = rechte(b.schluessel);
     const jetzt = bestand[verb] ?? [];
     const neu = jetzt.includes(rolle) ? jetzt.filter((r) => r !== rolle) : [...jetzt, rolle];
-    const zelle = `${b.schluessel}.${verb}`;
+    const zelle = rechtSchluessel(b.schluessel, verb);
     setSpeichert(zelle);
     await onUpdateModulePermissions(b.schluessel, verb, neu, bestand);
     setSpeichert(null);
@@ -68,7 +68,7 @@ export function PermissionMatrix({ modulePermissions, onUpdateModulePermissions 
               </button>
               {VERBEN.map((verb) => {
                 const gibtEs = b.verben.includes(verb);
-                const zelle = `${b.schluessel}.${verb}`;
+                const zelle = rechtSchluessel(b.schluessel, verb);
                 const an = b.gesperrt ? true : gibtEs && (aktuell[verb] ?? []).includes(rolle);
                 return (
                   <span key={verb} className="rm-zelle" title={gibtEs ? undefined : b.warumNicht}>

@@ -7,7 +7,7 @@
 // stehen nur Konstanten, die von mehreren, fachlich unterschiedlichen Stellen in
 // app/page.tsx verwendet werden (Rollen, Berechtigungen, Auftragsstatus, Kalenderfarben).
 
-import type { Article, Felge, GeoGenauigkeit, OrderStatus, RadPosition, ReifenZustand, Role, Saison } from "./types";
+import type { Article, Felge, OrderStatus, RadPosition, ReifenZustand, Role, Saison } from "./types";
 
 // ---------------------------------------------------------------- Rollen
 export const ROLE_LABEL: Record<Role, string> = {
@@ -227,8 +227,20 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
   einstellungen:          { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
 };
 
+// Der Schlüssel einer Zelle der Rechtematrix: „lager.regale" + „schreiben" → „lager.regale.schreiben".
 export function rechtSchluessel(bereich: string, verb: Verb): string {
   return `${bereich}.${verb}`;
+}
+
+// Die Gegenrichtung für `canView()` (D16): „lager.regale" ist ein BEREICH, „auftraege.lesen" ist
+// Bereich + Verb. Bis v101 wurde am ersten Punkt geteilt – aus „lager.einlagerung" wurde Bereich
+// „lager" mit dem Verb „einlagerung", und das gibt es nicht. Jetzt zählt nur ein Verb am ENDE als
+// Verb; alles davor ist der Bereich.
+export function regelZerlegen(regel: string): { bereich: string; verb: Verb } {
+  const teile = regel.split(".");
+  const letztes = teile[teile.length - 1] as Verb;
+  if (teile.length > 1 && VERBEN.includes(letztes)) return { bereich: teile.slice(0, -1).join("."), verb: letztes };
+  return { bereich: regel, verb: "lesen" };
 }
 
 export const PERMISSION_ROLES: Role[] = ["admin", "techniker", "user"];
@@ -411,13 +423,8 @@ export const NEUREIFEN_ALT_JAHRE = 3;
 //
 // Sie stehen hier und nicht im Code, weil sie an drei Stellen gebraucht werden (Radbild,
 // Liste, späterer Verkaufsanlass) – und weil ein Betrieb sie irgendwann anders sehen kann.
-// Wie genau eine Kartenposition ist (Migration 35). Dieselbe feste Werteliste steht als
-// Prüfregel in der Datenbank – hier nur die Beschriftung.
-export const GEO_GENAUIGKEIT_LABEL: Record<GeoGenauigkeit, string> = {
-  exakt: "genaue Position",
-  ungefaehr: "ungefähre Position – nur die Straße war auffindbar",
-  hand: "Position von Hand gesetzt",
-};
+// `GEO_GENAUIGKEIT_LABEL` stand hier bis v101 und wurde nirgends gelesen – das Kundenfenster
+// erklärt die Genauigkeit in ganzen Sätzen (DetailModal, `geoSatz`). Entfernt (Fahrplan C2).
 
 export const PROFIL_GESETZLICH_MM = 1.6;
 export const PROFIL_KRITISCH_MM = 3;
@@ -468,6 +475,7 @@ export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
   tire_storage: "Einlagerung",
   eingelagerte_raeder: "Einzelnes Rad",
   verkaufsreifen: "Verkaufsreifen",
+  auftragsvorlagen: "Auftragsvorlage",
   storage_slots: "Lagerplatz",
   warehouses: "Lager",
   articles: "Artikel",
