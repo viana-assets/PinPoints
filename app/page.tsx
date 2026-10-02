@@ -8,7 +8,7 @@ import type {
   Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
   Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
   EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug, Rechnung,
-  Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage, PlatzGroesse,
+  Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage, PlatzGroesse, AuftragBeleg,
 } from "@/lib/types";
 import {
   todayStr, formatDate, formatOrderDateTime, nextOrder, orderDateTime,
@@ -134,8 +134,9 @@ import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
   useMitarbeiter, useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useRechnungen, useAuftragRechnungen,
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
-  useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen,
+  useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks,
 } from "@/lib/queries/hooks";
+import { belegHochladen, belegLoeschen } from "@/lib/api/belege";
 import { insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag, satzZumVerkauf } from "@/lib/api/verkaufsreifen";
 
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
@@ -147,6 +148,8 @@ const KEINE_ARTIKEL: Article[] = [];
 const KEINE_ARTIKELPREISE: ArticlePrice[] = [];
 const KEINE_VORLAGEN: Auftragsvorlage[] = [];
 const KEINE_POSITIONEN: OrderArticle[] = [];
+const KEINE_BELEGE: AuftragBeleg[] = [];
+const KEINE_LINKS: Record<string, string> = {};
 const KEINE_LAGER: Warehouse[] = [];
 const KEINE_LAGERPLAETZE: StorageSlot[] = [];
 const KEINE_EINLAGERUNGEN: TireStorage[] = [];
@@ -430,6 +433,10 @@ export default function HomePage() {
   // Datenbank nicht hergibt, gibt sie auch dieser Abfrage nicht.
   const rechnungenQuery = useRechnungen(supabase, sitzungBereit && tab === "rechnungen");
   const auftragRechnungenQuery = useAuftragRechnungen(supabase, rechnungAuftragId, sitzungBereit);
+  // Fotos und Unterschrift des offenen Auftrags (E3, Migration 65) – nur solange er offen ist.
+  const auftragBelegeQuery = useAuftragBelege(supabase, offenerAuftragId, sitzungBereit && offenerAuftragId !== null);
+  const auftragBelege = auftragBelegeQuery.data ?? KEINE_BELEGE;
+  const belegLinksQuery = useBelegLinks(supabase, auftragBelege.map((b) => b.pfad), sitzungBereit && offenerAuftragId !== null);
   const kundeFahrzeugeQuery = useKundeFahrzeuge(supabase, selectedId, sitzungBereit);
   const kundeAuftraegeQuery = useKundenAuftraege(supabase, selectedId, sitzungBereit);
   // Offline schreiben (F1): Was im Ausgangskorb wartet, liegt über dem geladenen Bestand – die
@@ -3641,6 +3648,24 @@ export default function HomePage() {
           reifen={darf("lager.verkauf", "lesen") ? {
             verkaufsreifen, warehouses, storageSlots,
             onHinzufuegen: (posten, artikelId, menge) => reifenZumAuftrag(offenerAuftrag.id, posten, artikelId, menge),
+          } : null}
+          // Fotos und Unterschrift (E3). Dieselben Rechte wie der Auftrag selbst – die Datenbank
+          // prüft es ebenso (Migration 65, Speicher- und Tabellenrichtlinien). Fehler zeigt der
+          // Block selbst an, weil die zentrale Meldung hinter dem Auftragsfenster läge.
+          belege={darf("auftraege.auftrag", "lesen") ? {
+            liste: auftragBelege,
+            laedt: auftragBelegeQuery.isLoading,
+            links: belegLinksQuery.data ?? KEINE_LINKS,
+            darfHinzufuegen: darf("auftraege.auftrag", "schreiben"),
+            darfLoeschen: darf("auftraege.auftrag", "loeschen"),
+            onHochladen: async (art, datei, masse, beschriftung) => {
+              await belegHochladen(supabase, offenerAuftrag.id, art, datei, masse, beschriftung);
+              await neuLaden(qk.auftragBelege(offenerAuftrag.id));
+            },
+            onLoeschen: async (beleg) => {
+              await belegLoeschen(supabase, beleg);
+              await neuLaden(qk.auftragBelege(offenerAuftrag.id));
+            },
           } : null}
           onNavigate={openNavMenu}
           onCall={openCallMenu}

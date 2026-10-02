@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchPapierkorb, kundeEndgueltigLoeschen, kundeWiederherstellen, testkundeLoeschen, type PapierkorbKunde } from "@/lib/api/customers";
+import { belegDateienLoeschen, belegPfadeFuerKunde } from "@/lib/api/belege";
 import { formatDate } from "@/lib/helpers";
 
 // Der Papierkorb für Kunden (Fahrplan B2, Migration 56).
@@ -50,13 +51,31 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
     }
   }
 
+  // Fotos und Unterschriften (E3, Migration 65): Die Zeilen gehen mit den Aufträgen in der Datenbank
+  // fort, die DATEIEN nicht – die löscht in Supabase nur die Storage-Schnittstelle. Deshalb: die
+  // Pfade VOR dem Löschen einsammeln, dann löschen, dann die Dateien entfernen. In dieser
+  // Reihenfolge, weil die Datenbank das Löschen noch ablehnen kann (Reifen im Regal, fehlendes
+  // Recht) – dann sollen die Bilder noch da sein. Scheitert erst das Entfernen der Dateien, sind
+  // sie ohne Zeile unerreichbar, aber nicht gelöscht; die Meldung sagt das.
+  async function bilderEntfernen(pfade: string[]): Promise<string> {
+    if (pfade.length === 0) return "";
+    try {
+      await belegDateienLoeschen(supabase, pfade);
+      return ` ${pfade.length} ${pfade.length === 1 ? "Foto/Unterschrift" : "Fotos/Unterschriften"} gelöscht.`;
+    } catch {
+      return ` ACHTUNG: ${pfade.length} Bilddateien konnten nicht aus dem Speicher entfernt werden – bitte im Supabase-Dashboard unter Storage → auftrag-belege nachsehen.`;
+    }
+  }
+
   // Ein Testkunde (Migration 60) geht restlos – samt Testrechnungen, die beim echten Kunden
   // als Beleg bleiben müssten. `kunde_endgueltig_loeschen()` verweist ihn deshalb hierher.
   async function testkundeWeg(k: PapierkorbKunde) {
     setLaeuft(k.id); setFehler(null); setMeldung(null);
     try {
+      const pfade = await belegPfadeFuerKunde(supabase, k.id);
       const r = await testkundeLoeschen(supabase, k.id);
-      setMeldung(`Testkunde restlos gelöscht: ${r.auftraege} ${r.auftraege === 1 ? "Auftrag" : "Aufträge"}, ${r.rechnungen} Testrechnungen, ${r.fahrzeuge} ${r.fahrzeuge === 1 ? "Fahrzeug" : "Fahrzeuge"}, ${r.protokolleintraege} Protokolleinträge.`);
+      const bilder = await bilderEntfernen(pfade);
+      setMeldung(`Testkunde restlos gelöscht: ${r.auftraege} ${r.auftraege === 1 ? "Auftrag" : "Aufträge"}, ${r.rechnungen} Testrechnungen, ${r.fahrzeuge} ${r.fahrzeuge === 1 ? "Fahrzeug" : "Fahrzeuge"}, ${r.protokolleintraege} Protokolleinträge.${bilder}`);
       setBestaetigen(null);
       setStand((n) => n + 1);
     } catch (e) {
@@ -69,12 +88,15 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
   async function endgueltig(k: PapierkorbKunde) {
     setLaeuft(k.id); setFehler(null); setMeldung(null);
     try {
+      const pfade = await belegPfadeFuerKunde(supabase, k.id);
       const r = await kundeEndgueltigLoeschen(supabase, k.id);
+      const bilder = await bilderEntfernen(pfade);
       setMeldung(
         `Endgültig gelöscht${r.kundennummer ? ` (Kundennummer ${r.kundennummer})` : ""}: `
         + `${r.auftraege} ${r.auftraege === 1 ? "Auftrag" : "Aufträge"}, ${r.fahrzeuge} ${r.fahrzeuge === 1 ? "Fahrzeug" : "Fahrzeuge"}, `
         + `${r.protokolleintraege} Protokolleinträge.`
         + (r.rechnungen_bleiben > 0 ? ` ${r.rechnungen_bleiben} ${r.rechnungen_bleiben === 1 ? "Rechnung bleibt" : "Rechnungen bleiben"} als Beleg erhalten.` : "")
+        + bilder
       );
       setBestaetigen(null);
       setStand((n) => n + 1);

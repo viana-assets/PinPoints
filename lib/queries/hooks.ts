@@ -18,6 +18,7 @@ import { fetchModulePermissions } from "@/lib/api/permissions";
 import { fetchVerkaufsreifen } from "@/lib/api/verkaufsreifen";
 import { fetchBetrieb } from "@/lib/api/betrieb";
 import { fetchRechnungen, fetchRechnungenZuAuftrag } from "@/lib/api/rechnungen";
+import { belegLinks, fetchBelege } from "@/lib/api/belege";
 
 // Datenbestände der Anwendung als Abfragen (Roadmap Phase 10).
 //
@@ -258,5 +259,30 @@ export function useAuftragRechnungen(supabase: SupabaseClient, orderId: string |
     queryFn: () => fetchRechnungenZuAuftrag(supabase, orderId!),
     enabled: aktiv && !!orderId,
     staleTime: FRISCH_MS,
+  });
+}
+
+// Fotos und Unterschrift eines Auftrags (Migration 65, E3) – nur solange das Auftragsfenster offen ist.
+export function useAuftragBelege(supabase: SupabaseClient, orderId: string | null, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.auftragBelege(orderId ?? "-"),
+    queryFn: () => fetchBelege(supabase, orderId!),
+    enabled: aktiv && !!orderId,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Die Anzeige-Links gelten eine Stunde (lib/api/belege.ts). Nach 45 Minuten gelten sie hier als
+// alt und werden beim nächsten Öffnen neu geholt, nach 50 Minuten fliegen sie aus dem Speicher –
+// ein abgelaufener Link wäre ein kaputtes Bild.
+const BELEG_LINK_FRISCH_MS = 45 * 60_000;
+export function useBelegLinks(supabase: SupabaseClient, pfade: string[], aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.belegLinks(pfade),
+    queryFn: () => belegLinks(supabase, pfade),
+    enabled: aktiv && pfade.length > 0,
+    staleTime: BELEG_LINK_FRISCH_MS,
+    // Nicht in den Offline-Lesespeicher – das regelt app/providers.tsx über den Schlüssel.
+    gcTime: BELEG_LINK_FRISCH_MS + 5 * 60_000,
   });
 }

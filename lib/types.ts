@@ -674,3 +674,21 @@ export type Auftragsvorlage = {
   created_at: string;
   updated_at: string;
 };
+
+// Foto oder Unterschrift an einem Auftrag (Migration 65, Fahrplan E3). Die Datei liegt im privaten
+// Bucket `auftrag-belege` unter `pfad`; angezeigt wird sie über einen zeitlich begrenzten Link.
+export type BelegArt = "vorher" | "nachher" | "schaden" | "unterschrift";
+
+export type AuftragBeleg = {
+  id: string;
+  order_id: string;
+  art: BelegArt;
+  pfad: string;
+  // Bei Fotos eine Beschriftung, bei der Unterschrift der Name des Unterschreibenden.
+  beschriftung: string | null;
+  breite: number | null;
+  hoehe: number | null;
+  bytes: number | null;
+  created_at: string;
+  created_by: string | null;
+};

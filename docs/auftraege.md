@@ -352,6 +352,46 @@ Mailprogramm mit Betreff – jeweils mit dem fertigen Text, „Senden" tippt man
 vorher änderbar; „Text kopieren" für jeden anderen Weg. Fehlt eine Nummer oder E-Mail, steht der Weg
 ausgegraut mit Begründung da. Beim Laufkunden gelten Name und Telefon vom Auftrag.
 
+### Fotos und Unterschrift (Fahrplan E3, Migration 65, v105)
+
+Im Auftragsfenster die Karte **„Fotos & Unterschrift"** (`components/auftraege/FotoBlock.tsx`,
+zwischen Reifen und Notiz). Vorgewählt ist „Vorher", sobald der Auftrag „In Arbeit" oder erledigt
+ist „Nachher"; dazu „Schaden" und eine freiwillige Beschriftung („Felge VL"). „+ Foto … hinzufügen"
+öffnet die Auswahl des Handys (Kamera oder Mediathek, mehrere auf einmal). Bewusst ohne `capture`:
+Ein Foto, das ohne Netz mit der Kamera-App gemacht wurde, lässt sich so später nachreichen.
+
+- **Verkleinert vor dem Hochladen** auf 1600 Pixel lange Kante, JPEG 80 % (`lib/belegBild.ts`,
+  Regeln in `lib/belege.ts`) – meist 200–500 kB statt 3–6 MB. Hochkantfotos werden nach den
+  Kameradaten gedreht.
+- **Unterschrift** (`UnterschriftBlatt.tsx`): mit dem Finger auf einer Fläche, darüber der Satz
+  „Arbeiten zu Auftrag … am … ausgeführt, Fahrzeug übernommen.", darunter der Name in
+  Druckbuchstaben (vorbelegt mit dem Kundennamen, beim Laufkunden mit dem Namen am Auftrag).
+  Gespeichert wird EIN Bild mit Satz, Unterschrift, Name und Zeitpunkt – eine Unterschrift ohne den
+  Satz belegt nichts. Der Name steht zusätzlich in `beschriftung`. Wer neu unterschreiben lässt,
+  legt eine weitere an; es gilt die jüngste.
+- **Kein Zwang.** Solange der Auftrag offen ist und keine Unterschrift vorliegt, steht im Fuß „Noch
+  keine Unterschrift – jetzt unterschreiben lassen". Abschließen geht trotzdem (Kunde nicht da,
+  Wagen in der Halle).
+- **Nur mit Netz.** Ein Foto passt nicht in den Ausgangskorb, und „gespeichert" darf bei einem
+  Beleg nicht „auf dem Handy" heißen. Ohne Netz sagt der Block das und lädt nichts.
+- **Ändern gibt es nicht**, nur Hinzufügen und – mit dem Löschrecht für Aufträge, mit Rückfrage –
+  Löschen. Tippen öffnet das Bild groß.
+- **Ablage:** privater Speicherbereich `auftrag-belege` in Supabase Storage, Pfad
+  `<auftrag-id>/<art>-<zeit>-<zufall>.jpg|png`, höchstens 3 MB, nur Bilder. Angezeigt wird über
+  Links, die nach einer Stunde verfallen (`createSignedUrls`); sie kommen nicht in den
+  Offline-Lesespeicher (`app/providers.tsx`). Je Bild eine Zeile in `auftrag_belege`.
+- **Rechte** wie der Auftrag selbst (Migration 65): sehen, wer den Auftrag sieht (Techniker also nur
+  eigene), hinzufügen mit `auftraege.auftrag` schreiben, löschen mit `auftraege.auftrag` löschen.
+  Die Speicher-Richtlinien fragen dafür `orders` mit den Zeilenrechten des Aufrufers.
+- **Löschen von Dateien geht nur über die Storage-Schnittstelle**, nicht per SQL. Die App löscht
+  beim einzelnen Bild erst die Datei, dann die Zeile. Beim endgültigen Löschen eines Kunden bzw.
+  Testkunden (Papierkorb) sammelt sie vorher die Pfade, löscht in der Datenbank (die Zeilen gehen
+  mit den Aufträgen, ihre Protokolleinträge mit dem Protokoll des Kunden) und entfernt dann die
+  Dateien. Ein Auftrag im Papierkorb behält seine Bilder (wiederherstellbar).
+- **Auskunftsauszug** (E10): Abschnitt „Fotos und Unterschriften" mit Auftrag, Datum, Art und
+  Beschriftung. Die Bilder selbst gibt das Büro auf Wunsch als Dateien heraus (Supabase-Dashboard →
+  Storage → `auftrag-belege` → Ordner der Auftrags-Kennung).
+
 ### Doppelbuchungen (Fahrplan D1, 23.09.2026)
 
 Beim Einteilen im Auftragsfenster prüft `terminUeberschneidungen()` (`lib/ueberschneidung.ts`),

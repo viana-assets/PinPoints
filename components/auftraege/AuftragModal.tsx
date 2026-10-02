@@ -4,6 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import { BestaetigungBlatt } from "./BestaetigungBlatt";
+import { FotoBlock, type BelegeImAuftrag } from "./FotoBlock";
+import { UnterschriftBlatt } from "./UnterschriftBlatt";
+import { belegStand } from "@/lib/belege";
 import { formatDate, formatEUR, getPhoneNumbers, handlungsgruende, lagermonate, rechnungsdatenMaengel, todayStr } from "@/lib/helpers";
 import { employeeColorFor, hhmmAus, minutenAus } from "@/lib/calendar";
 import { datumKurz } from "@/lib/dashboard";
@@ -51,8 +54,10 @@ export function AuftragModal({
   onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
-  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null,
+  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null,
 }: {
+  // Fotos und Unterschrift (E3, Migration 65, v105). Null = Bereich nicht lesbar; dann fehlt die Karte.
+  belege?: BelegeImAuftrag | null;
   // Firmenname und Telefon für die Terminbestätigung an den Kunden (E9, v104).
   betrieb?: Pick<Betrieb, "firma" | "telefon"> | null;
   // Reifenverkauf aus dem Lager (Migration 61). Null = kein Zugriff; dann fehlt der Knopf.
@@ -469,6 +474,9 @@ export function AuftragModal({
   const [menueOffen, setMenueOffen] = useState(false);
   // Terminbestätigung / -erinnerung an den Kunden (E9).
   const [bestaetigungOffen, setBestaetigungOffen] = useState(false);
+  // Unterschrift des Kunden (E3). Das Blatt liegt hier und nicht im Fotoblock, weil auch der Fuß
+  // es öffnet („Noch keine Unterschrift").
+  const [unterschriftOffen, setUnterschriftOffen] = useState(false);
   const protokollRef = useRef<HTMLDivElement>(null);
   const terminRef = useRef<HTMLDivElement>(null);
   const zeitRef = useRef<HTMLInputElement>(null);
@@ -528,6 +536,10 @@ export function AuftragModal({
   const adresseDa = !!kundeAnzeige && kundeAnzeige.address.trim() !== "";
   const summen = orderArticles.reduce((n, r) => n + (r.endpreis_netto ?? r.quantity * r.net_price), 0);
   const rechnungDa = !!order.rechnung_nummer;
+  // Die Erinnerung an die Unterschrift (E3) – ein Hinweis im Fuß, keine Bedingung: Ohne Kunden vor
+  // Ort gibt es keine, und der Auftrag muss trotzdem fertig werden.
+  const unterschriftFehlt = !!belege && belege.darfHinzufuegen && !belege.laedt && !frischAngelegt
+    && (order.status === "offen" || order.status === "in_arbeit") && !belegStand(belege.liste).unterschrift;
 
   // Die eine Handlung, die in diesem Zustand dran ist.
   let fussHinweis: string;
@@ -1076,6 +1088,15 @@ export function AuftragModal({
             )}
           </div>
 
+          {/* ---------------------------------------------------------------- Fotos & Unterschrift */}
+          {belege && !frischAngelegt && (
+            <FotoBlock
+              belege={belege}
+              vorschlagArt={gesperrt || order.status === "in_arbeit" ? "nachher" : "vorher"}
+              onUnterschreiben={order.status === "storniert" ? null : () => setUnterschriftOffen(true)}
+            />
+          )}
+
           {/* ---------------------------------------------------------------- Notiz */}
           <div className="db-karte ao-karte">
             <div className="db-karte-kopf"><span className="db-karte-titel">Notiz des Technikers</span></div>
@@ -1109,6 +1130,9 @@ export function AuftragModal({
         {/* ---------------------------------------------------------------- Fuß */}
         <div className="ao-fuss">
           <span className={"ao-fuss-hinweis " + fussHinweisArt}>{fussHinweis}</span>
+          {unterschriftFehlt && (
+            <button type="button" className="ao-fuss-link" onClick={() => setUnterschriftOffen(true)}>Noch keine Unterschrift – jetzt unterschreiben lassen</button>
+          )}
           <div className="ao-fuss-knoepfe">
             {order.status === "offen" && frischAngelegt && (
               <button type="button" className="ao-haupt orange" onClick={() => void anlegen()}>Auftrag anlegen</button>
@@ -1127,6 +1151,16 @@ export function AuftragModal({
           </div>
         </div>
       </div>
+
+      {unterschriftOffen && belege && (
+        <UnterschriftBlatt
+          auftragsNr={auftragsNr(order.order_number)}
+          datum={order.order_date}
+          vorschlagName={laufkunde ? lkName : customer?.name ?? ""}
+          onSpeichern={(bild, masse, name) => belege.onHochladen("unterschrift", bild, masse, name)}
+          onClose={() => setUnterschriftOffen(false)}
+        />
+      )}
 
       {/* ---------------------------------------------------------------- Blatt: Menü */}
       {bestaetigungOffen && kundeAnzeige && (

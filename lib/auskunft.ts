@@ -1,5 +1,5 @@
-import type { Customer, OrderStatus, Saison } from "./types";
-import { ORDER_STATUS_LABEL, SAISON_LABEL } from "./constants";
+import type { BelegArt, Customer, OrderStatus, Saison } from "./types";
+import { BELEG_ART_LABEL, ORDER_STATUS_LABEL, SAISON_LABEL } from "./constants";
 import { auftragsNr } from "./testkunde";
 
 // Der Auskunftsauszug je Kunde (Fahrplan E10, v103) – „was ist über mich gespeichert?"
@@ -29,6 +29,9 @@ export type AuskunftDaten = {
   }[];
   rechnungen: { nummer: string; art: "rechnung" | "storno"; datum: string; netto: number; brutto: number }[];
   protokoll: { eintraege: number; aeltester: string | null; neuester: string | null };
+  // Seit Migration 65 (E3, v105): Fotos und Unterschriften an den Aufträgen. Optional, weil eine
+  // Datenbank vor Migration 65 das Feld nicht liefert.
+  belege?: { auftrag: number; art: BelegArt; beschriftung: string | null; aufgenommen: string }[];
 };
 
 export type Zeile = [string, string];
@@ -96,6 +99,15 @@ export function satzZeile(s: AuskunftDaten["reifensaetze"][number]): Zeile {
   return [kopf, teile.filter(Boolean).join(" · ")];
 }
 
+// Ein Foto oder eine Unterschrift. Das Bild selbst steht nicht im Auszug – es liegt im privaten
+// Speicher und wird auf Wunsch als Datei herausgegeben (docs/auftraege.md, „Fotos und Unterschrift").
+export function belegZeile(b: NonNullable<AuskunftDaten["belege"]>[number]): Zeile {
+  const was = b.art === "unterschrift"
+    ? `Unterschrift${b.beschriftung ? ` (${b.beschriftung})` : ""}`
+    : `Foto „${BELEG_ART_LABEL[b.art]}“${b.beschriftung ? ` – ${b.beschriftung}` : ""}`;
+  return [`${auftragsNr(b.auftrag)} · ${tag(b.aufgenommen)}`, was];
+}
+
 // Wie viele Einträge in jedem Abschnitt stehen – für die Übersicht oben im Auszug.
 export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
   return [
@@ -104,6 +116,7 @@ export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
     ["Aufträge", String(d.auftraege.length)],
     ["Reifensätze (eingelagert, auch frühere)", String(d.reifensaetze.length)],
     ["Rechnungen", String(d.rechnungen.length)],
+    ...(d.belege ? [["Fotos und Unterschriften", String(d.belege.length)] as Zeile] : []),
     ["Einträge im Änderungsprotokoll", String(d.protokoll.eintraege)],
   ];
 }

@@ -164,6 +164,8 @@ viana-pinpoints/
       MitnehmenFenster.tsx            „Morgen … Sätze mitnehmen" zum Abhaken (Migration 55/58)
       PacklisteBlock.tsx              Packliste: Leistungen und Reifengrößen des Tages (E2, v100)
       BestaetigungBlatt.tsx           Terminbestätigung/-erinnerung per WhatsApp, SMS, E-Mail (E9, v104)
+      FotoBlock.tsx                   Karte „Fotos & Unterschrift" im Auftragsfenster (E3, v105)
+      UnterschriftBlatt.tsx           Kunde unterschreibt mit dem Finger, ein Bild mit Satz und Name (E3, v105)
     einsatzplanung/
       EinsatzplanungPanel.tsx        Tab "Einsatzplanung" (Kalender + Listenansicht)
       RoutenBlatt.tsx                 Tagesroute je Mitarbeiter: kürzeste Reihenfolge ab Firma (E5, v104)
@@ -229,6 +231,8 @@ viana-pinpoints/
     telefon.ts                    Telefonnummern in Vergleichsform, Suche (D10, v102)
     dubletten.ts                  Dubletten finden: Gründe, Paare, Vorschlag fürs Zusammenführen (E1, v103)
     auskunft.ts                   Auskunftsauszug als Zeilen (E10, v103)
+    belege.ts                     Fotos/Unterschrift: Zielmaße, Pfad, Stand, Satz unter der Unterschrift (E3, v105)
+    belegBild.ts                  Foto im Browser verkleinern (Canvas, EXIF-Drehung) (E3, v105)
     route.ts                      Tagesroute: Luftlinie, nächster Nachbar + 2-opt, Maps-Link (E5, v104)
     stapelAuslagern.ts            Stapel-Auslagern: Reihenfolge des Regals, Gebührenvorschlag (E7, v104)
     terminBestaetigung.ts         Text und Links der Terminbestätigung (E9, v104)
@@ -268,7 +272,7 @@ viana-pinpoints/
     queries/
       keys.ts                      Zentrale Query-Schlüssel (`qk.kunden()`, `qk.rechnungen()`, …)
       hooks.ts                     Ein Hook je Datenbestand, mit "wird gerade gebraucht?"-Schalter
-                                   (22 Hooks, siehe „Datenladen" unten)
+                                   (24 Hooks, siehe „Datenladen" unten)
     api/
       client.ts                    Fundament der Schicht: ApiError, q()/qOne()/qWrite(),
                                    fetchPaged() (seitenweises Laden gegen die 1000-Zeilen-Kappung)
@@ -292,9 +296,10 @@ viana-pinpoints/
       mitnehmen.ts                   „Reifen mitnehmen" abhaken (Migration 58)
       vorlagen.ts                    Auftragsvorlagen (Migration 63, E6)
       dubletten.ts                   „Keine Dublette"-Vermerke, Zusammenführen (Migration 64, E1)
+      belege.ts                      Fotos/Unterschrift: Speicher-Upload, Anzeige-Links, Löschen (Migration 65, E3)
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–64
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–65
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -335,6 +340,10 @@ Migration 29 dazugekommen ist.
   (`id boolean primary key check (id)`), zunächst nur `termin_intervall_min`, seit Migration 48
   zusätzlich der komplette Briefkopf (Firma, Anschrift, USt-IdNr., Bankverbindung, Logo als
   data:-URI, Fuß-/Anschreibetexte) plus die beiden Nummernkreise für Rechnungen und Kunden.
+- **Fotos und Unterschrift** (**neu**, Migration 65): `auftrag_belege` – je Bild eine Zeile (Art
+  vorher/nachher/schaden/unterschrift, Pfad, Beschriftung, Maße), kein Update. Die Datei liegt im
+  privaten Storage-Bucket `auftrag-belege` unter `<order_id>/…`; die Speicher-Richtlinien auf
+  `storage.objects` fragen `orders` mit den Zeilenrechten des Aufrufers.
 - **Lager**: `warehouses`, `storage_slots` (+ seit Migration 64 `groesse`: normales oder großes Fach), `tire_storage` (+ seit Migration 46
   `entnahme_order_id` – in welchem Auftrag wurde ein Satz wieder herausgegeben),
   `eingelagerte_raeder` (einzeln gemessene Räder je Satz, mit Position VL/VR/HL/HR, DOT-Datum
@@ -511,7 +520,9 @@ Betriebsjahr weiter und kommen deshalb über ein Zeitfenster.
   `PAGE_SIZE` durch. Nötig, weil PostgREST je Anfrage höchstens 1000 Zeilen liefert – ohne
   `range()` hätte die App bei ~4500 Kunden stillschweigend ein Viertel geladen und trotzdem
   plausible Zahlen gezeigt.
-- **22 Hooks** in `lib/queries/hooks.ts` (seit v102 `useVorlagen`), jeder mit einem `aktiv`-Schalter: Lager, Artikel,
+- **24 Hooks** in `lib/queries/hooks.ts` (seit v102 `useVorlagen`, seit v105 `useAuftragBelege` und
+  `useBelegLinks` für Fotos und Unterschrift – die Links verfallen nach einer Stunde und kommen deshalb
+  nicht in den Offline-Lesespeicher), jeder mit einem `aktiv`-Schalter: Lager, Artikel,
   Mitarbeiter, Betrieb und Rechnungen laden erst beim Öffnen des jeweiligen Moduls, Fahrzeuge
   und die vollständige Auftragshistorie nur für den geöffneten Kunden. Immer geladen sind nur
   Kunden und das Auftrags-Zeitfenster – beide stecken in Karte, Dashboard und fast jeder Liste.
@@ -608,7 +619,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 64** (02.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 65** (02.10.2026; 65 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -664,6 +675,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **64** – Dubletten (`kunden_keine_dublette`, `kunden_zusammenfuehren()`), Auskunftsauszug
   (`kunde_auskunft()`), Fachgröße am Lagerplatz (`storage_slots.groesse`), Satz zum
   Verkaufsposten (`satz_zum_verkauf()`, `verkaufsreifen.herkunft_satz_id`).
+- **65** – Fotos und Unterschrift am Auftrag: privater Bucket `auftrag-belege` mit drei
+  Speicher-Richtlinien, Tabelle `auftrag_belege`, Auskunftsauszug mit Belegen
+  (`kunde_auskunft()` ruft die alte Fassung als `kunde_auskunft_grund()`).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

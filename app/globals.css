@@ -3842,3 +3842,33 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .st-knoepfe{display:flex;flex-direction:column;gap:8px;}
 .mz-kopf{display:flex;align-items:center;gap:8px;margin:0 32px 2px 0;}
 .mz-stapel{margin:8px 0 10px;width:100%;}
+
+/* ---------------- Fahrplan Runde 4 (v105) ---------------- */
+/* E3: Fotos und Unterschrift am Auftrag. Blätter darüber liegen über dem Auftragsfenster (10001). */
+.modal-foto{z-index:10004;}
+.fo-karte{display:flex;flex-direction:column;gap:10px;}
+.fo-gruppe{display:flex;flex-direction:column;gap:6px;}
+.fo-gruppe-titel{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.fo-raster{display:grid;grid-template-columns:repeat(auto-fill, minmax(86px, 1fr));gap:6px;}
+.fo-bild{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg);padding:0;cursor:zoom-in;}
+.fo-bild img{width:100%;height:100%;object-fit:cover;display:block;}
+.fo-platzhalter{display:flex;align-items:center;justify-content:center;width:100%;height:100%;color:var(--muted);}
+.fo-beschriftung{position:absolute;left:0;right:0;bottom:0;background:rgba(20,33,61,.72);color:#fff;font-size:11px;font-weight:600;
+  padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
+.fo-neu{display:flex;flex-direction:column;gap:8px;}
+.fo-text{width:100%;}
+.fo-unterschrift{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:10px;}
+.fo-unterschrift .small{flex:1 1 160px;}
+.fo-bild.fo-sig{aspect-ratio:auto;width:150px;height:56px;background:#fff;}
+.fo-bild.fo-sig img{object-fit:contain;}
+.fo-gross{background:var(--panel);border-radius:16px;padding:12px;width:min(96vw, 900px);max-height:calc(94vh / var(--z, 1));
+  display:flex;flex-direction:column;gap:10px;margin:auto;}
+.fo-gross img{max-width:100%;max-height:calc(70vh / var(--z, 1));object-fit:contain;border-radius:10px;align-self:center;background:#000;}
+.fo-gross img.fo-gross-sig{background:#fff;border:1px solid var(--border);}
+.fo-gross-fuss{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.fo-licht{display:flex;align-items:center;justify-content:center;}
+.us-satz{font-size:14px;line-height:1.4;}
+/* touch-action:none, sonst scrollt das Blatt beim Unterschreiben mit. */
+.us-flaeche{width:100%;aspect-ratio:900 / 320;border:1.5px dashed var(--frei-linie);border-radius:12px;background:#fff;touch-action:none;cursor:crosshair;}
+.us-zeile{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.ao-fuss-link{background:none;border:none;padding:2px 0;font:inherit;font-size:12.5px;font-weight:700;color:var(--accent);text-decoration:underline;cursor:pointer;align-self:center;}

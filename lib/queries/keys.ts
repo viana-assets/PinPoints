@@ -42,6 +42,10 @@ export const qk = {
   betrieb: () => ["betrieb"] as const,
   rechnungen: () => ["rechnungen"] as const,
   auftragRechnungen: (orderId: string) => ["auftrag", orderId, "rechnungen"] as const,
+  // Fotos und Unterschrift am Auftrag (Migration 65, E3).
+  auftragBelege: (orderId: string) => ["auftrag", orderId, "belege"] as const,
+  // Die zeitlich begrenzten Anzeige-Links dazu – je Satz Pfade ein Eintrag.
+  belegLinks: (pfade: string[]) => ["beleglinks", ...pfade] as const,
 
   modulrechte: () => ["modulrechte"] as const,
 

@@ -19,7 +19,9 @@ const csp = [
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "font-src 'self' data: https://fonts.gstatic.com",
   // Kartenkacheln: OpenStreetMap (Straße) und Esri/ArcGIS (Satellit) – siehe lib/mapStyles.ts.
-  "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://server.arcgisonline.com",
+  // Seit v105 auch Supabase: Fotos und Unterschrift am Auftrag (E3) kommen als zeitlich begrenzte
+  // Links aus dem privaten Speicher (`…supabase.co/storage/v1/object/sign/…`).
+  "img-src 'self' data: blob: https://*.tile.openstreetmap.org https://server.arcgisonline.com https://*.supabase.co",
   // Supabase (REST + Realtime). Die Geokodierung läuft seit Phase 8 über die eigene Route
   // /api/geocode, deshalb steht Nominatim hier bewusst NICHT mehr.
   // Neben Supabase stehen hier die Schrift-Hosts – und zwar wegen des Service Workers.

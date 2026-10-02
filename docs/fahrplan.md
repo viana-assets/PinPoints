@@ -473,6 +473,10 @@ Morgen. Nutzt ausschließlich Daten, die schon da sind.
 *Aufwand: klein bis mittel. Sehr hoher Alltagsnutzen.*
 
 ### E3. Foto und Unterschrift beim Abschließen
+
+**Erledigt 02.10.2026 (Migration 65, v105):** Auftragsfenster → Karte „Fotos & Unterschrift": Fotos
+vorher/nachher/Schaden (verkleinert auf 1600 px), Unterschrift des Kunden mit dem Finger; privater
+Speicherbereich `auftrag-belege`, Tabelle `auftrag_belege`. Hinweis im Fuß, kein Zwang. Siehe `auftraege.md`.
 Zustand der Reifen vorher/nachher fotografieren und den Kunden auf dem Handy quittieren
 lassen. Bei Reklamationen ist das der Unterschied zwischen Aussage gegen Aussage und einem
 Beleg. Das Datenmodell war dafür von Anfang an mitgedacht.

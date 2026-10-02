@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 02.10.2026 (Migrationen bis 64, alle ausgeführt; Service Worker v104; Regeln seit der Projektdurchsicht vom
+Stand: 02.10.2026 (Migrationen bis 65, 65 noch auszuführen; Service Worker v105; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -278,6 +278,13 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   gefragt wird.** Mit `camera=()` scheiterte der QR-Scanner an „Kein Zugriff auf die Kamera",
   mit `geolocation=()` der Standortknopf der Karte (gefunden 26.09.2026). Wer eine
   Gerätefunktion einbaut, prüft zuerst diese Zeile – `(self)` erlaubt sie der eigenen Seite.
+- **Die CSP in `next.config.mjs` sperrt auch Bilder.** `img-src` nannte bis v105 nur Kartenkacheln;
+  die Fotos am Auftrag (E3) kommen als Links von `…supabase.co` und wären ohne Eintrag dort leer
+  geblieben – `connect-src` deckt nur `fetch`, nicht `<img>`. Wer Bilder von einem neuen Host zeigt,
+  trägt ihn hier ein.
+- **Dateien in Supabase Storage löscht kein SQL** (Migration 65). Eine Zeile mit Pfad geht per
+  Kaskade mit, die Datei bleibt. Wer etwas mit Bildern löscht, sammelt vorher die Pfade und
+  entfernt die Dateien über die Storage-Schnittstelle (`lib/api/belege.ts`, Papierkorb).
 - **Bedienelemente im Kartencontainer brauchen `kartenFlaecheSperren`** (app/page.tsx), sonst
   zieht ein Wischen darüber die Karte mit und ein Tipp zählt als Kartenklick. Darin nur
   `onClick` – `mousedown`/`pointerdown` erreichen React dort nicht.

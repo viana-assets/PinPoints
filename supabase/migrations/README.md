@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: nichts.** **Stand 02.10.2026: Alle Migrationen 01–64 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103) –
+**Noch auszuführen: `65_fotos_und_unterschrift.sql`** (v105, siehe unten). **Stand 02.10.2026: Alle Migrationen 01–64 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -770,4 +770,21 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 
 ## Noch auszuführen
 
-- (keine – Runde 3, v104, braucht keine Migration)
+- `65_fotos_und_unterschrift.sql` – **nach `64`, SQL zuerst, dann die Dateien** (die Oberfläche
+  liest `auftrag_belege` und lädt in den Bucket). (1) Privater Storage-Bucket `auftrag-belege`
+  (höchstens 3 MB, nur JPEG/PNG/WebP) mit drei Richtlinien auf `storage.objects`: lesen, wenn der
+  Auftrag aus dem ersten Pfadteil sichtbar ist; hochladen zusätzlich mit `auftraege.auftrag·schreiben`;
+  löschen mit `auftraege.auftrag·loeschen`. (2) Tabelle `auftrag_belege` (Art vorher/nachher/schaden/
+  unterschrift, Pfad muss mit der Auftrags-Kennung beginnen, eindeutig), RLS wie der Auftrag, Löschen
+  über `pruefe_loeschrecht('auftraege.auftrag')`, Stempel und Protokoll, kein Update. (3)
+  `kunde_auskunft()` heißt jetzt `kunde_auskunft_grund()` (nicht mehr direkt aufrufbar); die neue
+  `kunde_auskunft()` hängt die Belege an. Ergebnistabelle mit vier Zeilen. Zweiter Lauf folgenlos.
+  Rücknahme: `rollback/65_rollback.sql` – der Bucket bleibt (Dateien lassen sich nur über die
+  Storage-Schnittstelle löschen); ihn bei Bedarf im Dashboard unter Storage leeren und löschen.
+  Geprüft gegen Postgres 16 (Stand 64, mit nachgebildetem `storage`-Schema): zweimal ausgeführt;
+  Techniker legt am eigenen Auftrag eine Datei und eine Zeile an, am fremden weder noch; falscher
+  Pfad und unbekannte Art abgewiesen; Techniker sieht seinen Beleg und darf ihn nicht löschen
+  (Meldung im Klartext); Admin legt an und löscht; Auskunft enthält die Belege, die alte Funktion ist
+  direkt nicht aufrufbar; Protokoll INSERT/INSERT/DELETE; endgültiges Löschen eines Kunden und eines
+  Testkunden nimmt Belege und deren Protokolleinträge mit (der Name aus der Unterschrift bleibt
+  nirgends stehen); zurückgenommen, zweimal, erneut ausgeführt.

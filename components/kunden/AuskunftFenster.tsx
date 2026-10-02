@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import { fetchKundeAuskunft } from "@/lib/api/customers";
-import { auftragZeile, auskunftDateiname, auskunftUmfang, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
+import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
 import { formatEUR } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { PROTOKOLL_SCHWAERZEN_MONATE, RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -105,6 +105,12 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
                 <Tabelle zeilen={daten.rechnungen.map((r) => [`${r.nummer} · ${datum(r.datum)}`, `${r.art === "storno" ? "Stornorechnung" : "Rechnung"} · ${formatEUR(r.brutto)} brutto`])} />
               </>)}
 
+              {daten.belege && daten.belege.length > 0 && (<>
+                <h2>Fotos und Unterschriften</h2>
+                <Tabelle zeilen={daten.belege.map(belegZeile)} />
+                <p className="ak-klein">Die Bilder selbst geben wir Ihnen auf Wunsch als Dateien heraus.</p>
+              </>)}
+
               {daten.kontakte.length > 0 && (<>
                 <h2>Kontakte</h2>
                 <Tabelle zeilen={daten.kontakte.map((k) => [datum(k.datum), k.notiz || "Kontakt"])} />
@@ -124,6 +130,7 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
                 Erfüllung gesetzlicher Aufbewahrungspflichten für Rechnungen und Buchungsbelege (Art. 6 Abs. 1
                 lit. c DSGVO). Die Daten stammen von Ihnen selbst. Sie werden gespeichert, solange die
                 Geschäftsbeziehung besteht; Rechnungen für die Dauer der gesetzlichen Aufbewahrungsfristen.
+                {daten.belege && daten.belege.length > 0 && " Fotos und Ihre Unterschrift halten den Zustand Ihres Fahrzeugs und die ausgeführte Arbeit fest, damit sich bei einer Reklamation nachvollziehen lässt, was gemacht wurde."}
               </p>
               <p>
                 Empfänger: Dienstleister, die für uns Hosting und Datenbank betreiben (Auftragsverarbeitung). Zur

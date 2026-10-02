@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v104";
+export const APP_VERSION = "v105";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v105", datum: "2026-10-02", titel: "Fotos und Unterschrift am Auftrag",
+    punkte: [
+      "Im Auftragsfenster gibt es die Karte „Fotos & Unterschrift“: Zustand vorher und nachher fotografieren, einen Schaden festhalten, auf Wunsch mit Beschriftung („Felge VL“). Die Fotos werden vor dem Hochladen verkleinert.",
+      "Der Kunde unterschreibt mit dem Finger auf dem Handy – mit dem Satz „Arbeiten ausgeführt, Fahrzeug übernommen“ und seinem Namen. Fehlt die Unterschrift, erinnert der Fuß des Auftrags daran; abschließen geht trotzdem.",
+      "Fotos und Unterschrift gehen nur mit Netz. Löschen kann nur, wer Aufträge löschen darf.",
+    ],
+  },
   {
     version: "v104", datum: "2026-10-02", titel: "Tagesroute, Stapel-Auslagern und Terminbestätigung",
     punkte: [

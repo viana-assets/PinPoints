@@ -89,7 +89,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
         dehydrateOptions: {
           // Nur erfolgreiche Abfragen aufheben. Einen Fehlversuch zu speichern und beim
           // nächsten Start als Zustand wiederherzustellen hilft niemandem.
-          shouldDehydrateQuery: (abfrage) => abfrage.state.status === "success",
+          // Die Anzeige-Links der Fotos (E3, v105) ebenfalls nicht: Sie verfallen nach einer
+          // Stunde, und ein Link mit Zugangsschlüssel gehört nicht dauerhaft aufs Gerät.
+          shouldDehydrateQuery: (abfrage) => abfrage.state.status === "success" && abfrage.queryKey[0] !== "beleglinks",
         },
       }}
     >

@@ -7,7 +7,7 @@
 // stehen nur Konstanten, die von mehreren, fachlich unterschiedlichen Stellen in
 // app/page.tsx verwendet werden (Rollen, Berechtigungen, Auftragsstatus, Kalenderfarben).
 
-import type { Article, Felge, OrderStatus, PlatzGroesse, RadPosition, ReifenZustand, Role, Saison } from "./types";
+import type { Article, BelegArt, Felge, OrderStatus, PlatzGroesse, RadPosition, ReifenZustand, Role, Saison } from "./types";
 
 // ---------------------------------------------------------------- Rollen
 export const ROLE_LABEL: Record<Role, string> = {
@@ -357,6 +357,19 @@ export const SAISON_LABEL: Record<Saison, string> = {
 };
 
 export const SAISON_LISTE: Saison[] = ["sommer", "winter", "ganzjahr"];
+
+// ---------------------------------------------------------------- Foto und Unterschrift (E3)
+//
+// Die vier Arten eines Belegs am Auftrag (Migration 65, Prüfregel `auftrag_belege_art_bekannt`), in
+// der Reihenfolge der Knöpfe. Der Speicherbereich heißt in der Datenbank genauso wie hier.
+export const BELEG_ARTEN: BelegArt[] = ["vorher", "nachher", "schaden", "unterschrift"];
+export const BELEG_ART_LABEL: Record<BelegArt, string> = {
+  vorher: "Vorher",
+  nachher: "Nachher",
+  schaden: "Schaden",
+  unterschrift: "Unterschrift",
+};
+export const BELEG_BUCKET = "auftrag-belege";
 
 // ---------------------------------------------------------------- Lager: Fachgröße (E12)
 //

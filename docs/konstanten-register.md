@@ -25,12 +25,12 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **126 exportierte Konstanten** (`export const`) in 31 Dateien unter `lib/` – gezählt am
+Insgesamt **131 exportierte Konstanten** (`export const`) in 32 Dateien unter `lib/` – gezählt am
 02.10.2026 (v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
-`UMWEG_FAKTOR`, `MAPS_ZWISCHENZIELE_MAX`, `BESTAETIGUNG_ART_LABEL`) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
+`UMWEG_FAKTOR`, `MAPS_ZWISCHENZIELE_MAX`, `BESTAETIGUNG_ART_LABEL`; v105: `BELEG_ARTEN`, `BELEG_ART_LABEL`, `BELEG_BUCKET`, `BELEG_MAX_KANTE_PX`, `BELEG_JPEG_QUALITAET`) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
 eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMETER`,
 `PROFIL_MAX_MM`). Die Zahl gehört bei jeder neuen Konstante mit nachgezogen.
 
@@ -124,6 +124,9 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `DOT_ALT_JAHRE` | `lib/constants.ts` | `number` (6) | Reifenalter (Jahre), ab dem der Kunde angesprochen werden soll | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
 | `LAGERDAUER_HINWEIS_TAGE` | `lib/constants.ts` | `number` (365) | Tage ohne Bewegung, ab denen ein Hinweis erscheint | `LagerPanel`, `AuftragModal`, `tests/regalwand.test.ts` |
 | `PLATZ_GROESSE_LABEL` | `lib/constants.ts` | `Record<PlatzGroesse, string>` | Beschriftung der zwei Fachgrößen (normal/groß); dieselben Werte als Prüfregel `storage_slots_groesse_bekannt` (Migration 64, E12) | Doku der Fachgröße; Anzeige über `platzGroesse()` |
+| `BELEG_ARTEN` | `lib/constants.ts` | `BelegArt[]` | Die vier Arten eines Belegs am Auftrag (vorher, nachher, Schaden, Unterschrift); dieselben Werte als Prüfregel `auftrag_belege_art_bekannt` (Migration 65, E3) | `FotoBlock` (Knöpfe ohne Unterschrift), `belegeNachArt()`; `tests/belege.test.ts` |
+| `BELEG_ART_LABEL` | `lib/constants.ts` | `Record<BelegArt, string>` | Beschriftung der Belegarten | `FotoBlock`, `belegZeile()` (Auskunft) |
+| `BELEG_BUCKET` | `lib/constants.ts` | `string` (`auftrag-belege`) | Name des privaten Storage-Bereichs für Fotos und Unterschrift – heißt in Migration 65 genauso | `lib/api/belege.ts` |
 | `GROSSES_FACH_AB_DURCHMESSER_MM` | `lib/lagerAnsicht.ts` | `number` (720) | Ab diesem Außendurchmesser braucht ein Reifen ein großes Fach (E12, Startwert) | `brauchtGrossesFach()` – `EinlagerungBlock`, `LagerPanel`; `tests/lagerAnsicht.test.ts` |
 | `GROSSES_FACH_AB_BREITE_MM` | `lib/lagerAnsicht.ts` | `number` (265) | Ab dieser Reifenbreite braucht ein Reifen ein großes Fach (E12, Startwert) | dito |
 | `LANGLIEGER_MONATE` | `lib/helpers.ts` | `number` (18) | Monate, ab denen ein Satz als „Langlieger" gilt | **nur intern** – über `istLanglieger()` (`AuslagernDialog`, `tests/lagerdauer.test.ts`) |
@@ -222,6 +225,8 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `UMWEG_FAKTOR` | `lib/route.ts` | `number` (1,3) | Straße statt Luftlinie: Faktor für die Kilometer der Tagesroute – ein Erfahrungswert, ohne Routendienst (E5, v104) | `routenvorschlag()`, `RoutenBlatt`; `tests/route.test.ts` |
 | `MAPS_ZWISCHENZIELE_MAX` | `lib/route.ts` | `number` (9) | Höchstzahl der Zwischenziele in einem Google-Maps-Link | `mapsRoutenUrl()`, `RoutenBlatt` |
 | `BESTAETIGUNG_ART_LABEL` | `lib/terminBestaetigung.ts` | `Record<BestaetigungArt, string>` | Bestätigung / Erinnerung – die zwei Texte an den Kunden (E9, v104) | `BestaetigungBlatt` |
+| `BELEG_MAX_KANTE_PX` | `lib/belege.ts` | `number` (1600) | Lange Kante eines Fotos nach dem Verkleinern – DOT-Nummer und Kratzer noch klar, meist 200–500 kB (E3, v105) | `zielMasse()`, `bildVerkleinern()`; `tests/belege.test.ts` |
+| `BELEG_JPEG_QUALITAET` | `lib/belege.ts` | `number` (0,8) | JPEG-Qualität beim Verkleinern | `bildVerkleinern()` (lib/belegBild.ts) |
 | `WOCHENTAG_KURZ` | `lib/dashboard.ts` | `readonly ["So", …, "Sa"]` (Sonntag zuerst wie `getDay()`) | Kurze Wochentage für „Fr 25.9." (26.09.2026 zusammengeführt – stand vorher als Literal in `datumKurz()`) | `datumKurz()`, darüber Dashboard, Kundenfenster, Auftragsfenster, Aufträge im Kundenfenster |
 
 ---

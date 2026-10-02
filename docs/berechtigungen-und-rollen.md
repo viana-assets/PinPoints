@@ -184,6 +184,13 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   `insert`-Richtlinie auf `orders` einem Techniker das Anlegen, selbst wenn die Matrix es ihm
   gäbe.
 - **`auftraege.leistungen` – Löschen für alle drei Rollen.** „Löschen" heißt hier korrigieren.
+- **`auftraege.auftrag` gilt auch für Fotos und Unterschrift** (Migration 65, v105): sehen, wer den
+  Auftrag sieht; hinzufügen mit S; löschen mit X – der Techniker kann also fotografieren und
+  unterschreiben lassen, aber keinen Beleg entfernen. Dieselben Regeln stehen zweimal: auf der
+  Tabelle `auftrag_belege` und auf dem Speicherbereich `auftrag-belege` (`storage.objects`), weil
+  eine Datei ohne Zeile sonst über den Dateinamen erreichbar bliebe. Die Speicher-Richtlinien
+  fragen `orders` mit den Zeilenrechten des Aufrufers – ein Techniker kommt deshalb auch mit einem
+  erratenen Pfad nicht an das Foto eines fremden Auftrags.
 - **`lager.einlagerung` – kein Löschen.** Auslagern ist das Schreiben; die Zeile bleibt als
   Historie stehen. `tire_storage` hat deshalb weder Löschrichtlinie noch Löschtrigger: Wenn die
   Anwendung etwas nie tut, soll auch kein Haken so tun, als könnte man es erlauben.
