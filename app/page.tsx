@@ -82,6 +82,9 @@ import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
 import { AuslagernDialog, type AuslagernWahl } from "@/components/lager/AuslagernDialog";
+import { StapelAuslagern } from "@/components/lager/StapelAuslagern";
+import { stapelSchritte, type StapelSchritt } from "@/lib/stapelAuslagern";
+import type { MitnehmenEintrag } from "@/lib/mitnehmen";
 import { ReifensatzEtikett } from "@/components/lager/ReifensatzEtikett";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
@@ -412,7 +415,15 @@ export default function HomePage() {
   const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
   // Der Briefkopf. Gebraucht, sobald eine Rechnung entstehen oder gezeigt werden soll –
   // NICHT beim Start: Er steht in keiner Liste und in keiner Karte.
-  const betriebQuery = useBetrieb(supabase, sitzungBereit && (tab === "rechnungen" || rechnungAuftragId !== null));
+  // Seit v104 auch für die Tagesroute (E5, Firmenadresse als Start) und die Terminbestätigung
+  // (E9, Firmenname und Telefon im Text) – eine Zeile, jeder darf sie lesen.
+  const betriebQuery = useBetrieb(supabase, sitzungBereit && (tab === "rechnungen" || tab === "einsatzplanung" || rechnungAuftragId !== null || offenerAuftragId !== null));
+  const firmenadresse = (() => {
+    const b = betriebQuery.data;
+    if (!b) return null;
+    const t = [b.strasse?.trim(), [b.plz?.trim(), b.ort?.trim()].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    return t || null;
+  })();
   // Bewusst ohne `canView()` als Bedingung: Die Rechteprüfung steht weiter unten im Bauteil,
   // und eine Abfrage, die eine noch nicht ausgewertete Konstante liest, läuft in die
   // temporale Totzone. Den Reiter erreicht ohnehin nur, wer ihn sehen darf – und was die
@@ -1661,6 +1672,14 @@ export default function HomePage() {
   // Die Entscheidung steht deshalb jetzt HIER und nicht mehr am Aufrufer: Ein Aufrufer, der
   // sich vertut, kostet Geld, und man sieht es ihm nicht an.
   const [auslagernSatzId, setAuslagernSatzId] = useState<string | null>(null);
+  // Stapel-Auslagern (E7): die Sätze eines Tages der Reihe nach. Die Liste und welche Aufträge schon
+  // eine Lagergebühr tragen, stehen beim Öffnen fest.
+  const [stapel, setStapel] = useState<{ datum: string; schritte: StapelSchritt[]; mitGebuehr: Set<string> } | null>(null);
+  function stapelOeffnen(datum: string, eintraege: MitnehmenEintrag[]) {
+    const gebuehrArtikel = new Set(articles.filter((a) => a.abrechnungsart === "lagergebuehr").map((a) => a.id));
+    const mitGebuehr = new Set(orderArticles.filter((z) => !z.deleted_at && gebuehrArtikel.has(z.article_id)).map((z) => z.order_id));
+    setStapel({ datum, schritte: stapelSchritte(eintraege, storageSlots, warehouses), mitGebuehr });
+  }
   const [auslagernAusAuftragId, setAuslagernAusAuftragId] = useState<string | null>(null);
   // Für welche Sätze ist gerade der Etikettendruck offen (17.09.2026)? Eine Liste, weil aus dem
   // Lager heraus auch mehrere auf einmal gedruckt werden können.
@@ -3102,6 +3121,7 @@ export default function HomePage() {
             springeZuLagerplatzId={gescannterLagerplatzId}
             onLagerplatzGeoeffnet={() => setGescannterLagerplatzId(null)}
             springeZuVerkaufsreifenId={gescannterVerkaufsreifenId}
+            onStapelAuslagern={darf("lager.einlagerung", "schreiben") ? () => { setMitnehmenDatum(todayStr()); void auftraegeNeuLaden(); void neuLaden(qk.einlagerungen()); } : undefined}
             onVerkaufsreifenGeoeffnet={() => setGescannterVerkaufsreifenId(null)}
             verkauf={darf("lager.verkauf", "lesen") ? {
               verkaufsreifen,
@@ -3120,6 +3140,7 @@ export default function HomePage() {
               der Bedienleiste der Einsatzplanung – ein eigener Balken darüber kostete am Handy
               eine ganze Zeile, die beim Scrollen stehen blieb. */}
           <EinsatzplanungPanel
+            firmenadresse={firmenadresse}
             fenster={{ wert: auftragsFenster, onChange: setAuftragsFenster, laedt: auftraegeQuery.isFetching }}
             standardDauerMin={terminIntervall}
             customers={customers}
@@ -3382,8 +3403,28 @@ export default function HomePage() {
           laedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
           onClose={() => setMitnehmenDatum(null)}
           onAuftragOeffnen={(id) => { setMitnehmenDatum(null); setOffenerAuftragId(id); }}
+          onDatum={setMitnehmenDatum}
+          onStapelAuslagern={darf("lager.einlagerung", "schreiben") ? (eintraege) => { const d = mitnehmenDatum; setMitnehmenDatum(null); stapelOeffnen(d, eintraege); } : undefined}
         />
       )}
+
+      {stapel && (() => {
+        const artikel = articles.find((a) => a.active && a.abrechnungsart === "lagergebuehr") ?? null;
+        const preis = artikel ? currentArticlePrice(articlePrices.filter((p) => p.article_id === artikel.id), todayStr()) : null;
+        return (
+          <StapelAuslagern
+            datum={stapel.datum}
+            schritte={stapel.schritte}
+            customers={customers}
+            vehicles={alleFahrzeuge}
+            gebuehrArtikelId={artikel && preis ? artikel.id : null}
+            monatspreis={preis ? preis.net_price : null}
+            auftraegeMitGebuehr={stapel.mitGebuehr}
+            onAuslagern={auslagernAusfuehren}
+            onClose={() => setStapel(null)}
+          />
+        );
+      })()}
 
       {callMenuFor && (
         <>
@@ -3512,6 +3553,7 @@ export default function HomePage() {
           // Ein anderer Auftrag = ein neues Fenster mit frischem Entwurf (Fahrplan D6).
           key={offenerAuftrag.id}
           order={offenerAuftrag}
+          betrieb={betriebQuery.data ?? null}
           onKundeOeffnen={(kundeId) => { setOffenerAuftragId(null); setFrischerAuftragId(null); openDetail(kundeId); }}
           andereAuftraege={orders}
           auftragsZuordnungen={orderEmployees}

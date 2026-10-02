@@ -1,8 +1,9 @@
 import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useAusgang } from "@/lib/offline/speicher";
 import { useEffect, useRef, useState } from "react";
-import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
+import { BestaetigungBlatt } from "./BestaetigungBlatt";
 import { formatDate, formatEUR, getPhoneNumbers, handlungsgruende, lagermonate, rechnungsdatenMaengel, todayStr } from "@/lib/helpers";
 import { employeeColorFor, hhmmAus, minutenAus } from "@/lib/calendar";
 import { datumKurz } from "@/lib/dashboard";
@@ -50,8 +51,10 @@ export function AuftragModal({
   onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
-  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen,
+  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null,
 }: {
+  // Firmenname und Telefon für die Terminbestätigung an den Kunden (E9, v104).
+  betrieb?: Pick<Betrieb, "firma" | "telefon"> | null;
   // Reifenverkauf aus dem Lager (Migration 61). Null = kein Zugriff; dann fehlt der Knopf.
   // Die Größe für die Suche rechnet das Fenster selbst aus den Fahrzeugen am Auftrag.
   reifen?: Omit<ReifenImAuftrag, "vorschlag"> | null;
@@ -464,6 +467,8 @@ export function AuftragModal({
   // Fenster, ein Speicherpunkt. Wer oben auf den Termin tippt oder im Menü „Termin & Team"
   // wählt, landet in der Karte, mit dem Cursor in der Uhrzeit.
   const [menueOffen, setMenueOffen] = useState(false);
+  // Terminbestätigung / -erinnerung an den Kunden (E9).
+  const [bestaetigungOffen, setBestaetigungOffen] = useState(false);
   const protokollRef = useRef<HTMLDivElement>(null);
   const terminRef = useRef<HTMLDivElement>(null);
   const zeitRef = useRef<HTMLInputElement>(null);
@@ -672,6 +677,13 @@ export function AuftragModal({
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.57 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.57 3.57a1 1 0 0 1-.25 1z" /></svg>
                   Anrufen
                 </button>
+                {/* E9: Bestätigung oder Erinnerung – solange der Termin noch vor einem liegt. */}
+                {!gesperrt && order.status !== "storniert" && (
+                  <button type="button" onClick={() => setBestaetigungOffen(true)} title="Termin an den Kunden schicken">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12a8.5 8.5 0 0 1-12.6 7.4L3 21l1.6-5.4A8.5 8.5 0 1 1 21 12z" /></svg>
+                    Bestätigen
+                  </button>
+                )}
                 {onKundeOeffnen && customer && !laufkunde && (
                   <button type="button" className="ao-kunde" onClick={() => { if (geaendert && !gesperrt) { setSchliessenNachfrage(true); return; } onKundeOeffnen(customer.id); }}>Kunde ›</button>
                 )}
@@ -1117,6 +1129,18 @@ export function AuftragModal({
       </div>
 
       {/* ---------------------------------------------------------------- Blatt: Menü */}
+      {bestaetigungOffen && kundeAnzeige && (
+        <BestaetigungBlatt
+          // Datum und Uhrzeit aus dem Entwurf: Wer eben verschoben und noch nicht gespeichert hat,
+          // bestätigt sonst den alten Termin. Gespeichert wird trotzdem nur mit „Speichern".
+          auftrag={{ order_date: datum || order.order_date, time: zeit || null, end_time: zeitBis || null }}
+          kunde={kundeAnzeige}
+          kennzeichen={auftragsFahrzeuge.map((af) => af.fahrzeug?.license_plate?.trim()).filter((k): k is string => !!k)}
+          betrieb={betrieb}
+          onClose={() => setBestaetigungOffen(false)}
+        />
+      )}
+
       {menueOffen && (
         <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); setMenueOffen(false); }}>
           <div className="auswahl-blatt ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Weitere Aktionen">

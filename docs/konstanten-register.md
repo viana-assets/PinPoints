@@ -25,11 +25,12 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **123 exportierte Konstanten** (`export const`) in 29 Dateien unter `lib/` – gezählt am
+Insgesamt **126 exportierte Konstanten** (`export const`) in 31 Dateien unter `lib/` – gezählt am
 02.10.2026 (v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
-`VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
+`VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
+`UMWEG_FAKTOR`, `MAPS_ZWISCHENZIELE_MAX`, `BESTAETIGUNG_ART_LABEL`) mit `grep -c "^export const" lib/*.ts lib/*/*.ts`. Seit diesem Tag ist jede davon hier
 eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMETER`,
 `PROFIL_MAX_MM`). Die Zahl gehört bei jeder neuen Konstante mit nachgezogen.
 
@@ -218,6 +219,9 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `AUFTRAGS_SORTIERUNG_LABEL` | `lib/auftragsAnsicht.ts` | `Record<AuftragsSortierung, string>` | Die Sortierungen der Auftragsliste mit Beschriftung: anstehende zuerst (Vorgabe), neueste zuerst, Kunde A–Z, Auftragsnummer (26.09.2026) | `AuftraegePanel`, `auftragsGruppen()` |
 | `LAGER_VOLL_AB` | `lib/lagerAnsicht.ts` | `number` (0,9) | Ab diesem Anteil belegter Plätze gilt ein Lager als fast voll (E11, v102) | `lagerAuslastung()` – `LagerPanel`, `DashboardPanel`; `tests/lagerAnsicht.test.ts` |
 | `LAGER_ENGPASS_AB` | `lib/dashboard.ts` | `number` (10) | Ab weniger freien Lagerplätzen zeigt das Dashboard unter „Zu erledigen" die Warnung „Lager wird knapp" (25.09.2026); seit 26.09.2026 färbt dieselbe Grenze die Kachel „Lager" auf der Seite „Weitere" orange | `zuErledigen()`, darüber `DashboardPanel`; `app/page.tsx` (Hinweise für „Weitere"); `tests/dashboard.test.ts` |
+| `UMWEG_FAKTOR` | `lib/route.ts` | `number` (1,3) | Straße statt Luftlinie: Faktor für die Kilometer der Tagesroute – ein Erfahrungswert, ohne Routendienst (E5, v104) | `routenvorschlag()`, `RoutenBlatt`; `tests/route.test.ts` |
+| `MAPS_ZWISCHENZIELE_MAX` | `lib/route.ts` | `number` (9) | Höchstzahl der Zwischenziele in einem Google-Maps-Link | `mapsRoutenUrl()`, `RoutenBlatt` |
+| `BESTAETIGUNG_ART_LABEL` | `lib/terminBestaetigung.ts` | `Record<BestaetigungArt, string>` | Bestätigung / Erinnerung – die zwei Texte an den Kunden (E9, v104) | `BestaetigungBlatt` |
 | `WOCHENTAG_KURZ` | `lib/dashboard.ts` | `readonly ["So", …, "Sa"]` (Sonntag zuerst wie `getDay()`) | Kurze Wochentage für „Fr 25.9." (26.09.2026 zusammengeführt – stand vorher als Literal in `datumKurz()`) | `datumKurz()`, darüber Dashboard, Kundenfenster, Auftragsfenster, Aufträge im Kundenfenster |
 
 ---

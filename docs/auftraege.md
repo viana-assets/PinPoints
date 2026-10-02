@@ -317,6 +317,41 @@ eine Tabellenspalte); beides steht im Auftragsfenster.
 Mitarbeiter-/Leistungs-Zuordnung bleibt Popover direkt in der Zeile (Büro); ein Techniker sieht
 dort nur Text, keinen Bearbeiten-Knopf.
 
+### Tagesroute (Fahrplan E5, v104)
+
+Im Monat steht in der Tagesliste je Mitarbeiter mit mindestens zwei Terminen **„Route ›"**, in der
+Tagesansicht über dem Raster **„Route des Tages"**. `RoutenBlatt.tsx` zeigt die kürzeste
+Reihenfolge – Umschalter „Alle" und je Mitarbeiter –, die Kilometer im Vergleich zur Reihenfolge
+nach Uhrzeit („spart ca. 14 km"), an jedem Stopp, der woanders steht als nach der Uhrzeit, „nach
+Uhrzeit 3.", und einen Knopf „In Google Maps öffnen" mit allen Stopps (höchstens neun
+Zwischenziele, das ist Googles Grenze in einem Link).
+
+- **Start und Ende** ist die Firmenadresse aus den Betriebsdaten (Briefkopf: Straße, PLZ, Ort). Sie
+  wird über die eigene Geocode-Route nachgeschlagen und für die Sitzung gemerkt; fehlt sie oder ist
+  sie nicht zu finden, beginnt die Route beim ersten Termin.
+- **Gerechnet** wird in `lib/route.ts`: Luftlinie zwischen den Kartenpositionen, nächster Nachbar ab
+  der Firma, dann 2-opt. **Kein Routendienst** – der bekäme jede Kundenanschrift. Die Kilometer sind
+  deshalb Luftlinie mal `UMWEG_FAKTOR` (1,3), also ungefähr; für die Reihenfolge reicht das.
+- Termine ohne Kartenposition (Laufkunde, Adresse nicht gefunden) stehen getrennt unter „ohne
+  Kartenposition", stornierte fahren nicht mit.
+- **Die Uhrzeiten bleiben, wie sie sind.** Ein vereinbarter Termin ist eine Zusage an den Kunden; wer
+  nach dem Vorschlag plant, verschiebt im Stundenraster.
+
+### Termin an den Kunden schicken (Fahrplan E9, v104)
+
+Im Auftragsfenster neben „Navigation" und „Anrufen" der Knopf **„Bestätigen"** (solange der Auftrag
+offen ist). `BestaetigungBlatt.tsx` schreibt eine **Bestätigung** (vorgewählt, solange der Termin in
+der Zukunft liegt) oder eine **Erinnerung** („heute"/„morgen" im Text), mit Anrede, Datum, Uhrzeit
+bzw. Zeitfenster, Einsatzort, Kennzeichen, Rückrufnummer und Firmenname aus den Betriebsdaten
+(`lib/terminBestaetigung.ts`). Datum und Uhrzeit kommen aus dem Entwurf des Fensters – wer eben
+verschoben hat, bestätigt den neuen Termin.
+
+Verschickt wird **vom eigenen Gerät** (Entscheidung 02.10.2026, kein Versanddienst): „WhatsApp"
+öffnet `wa.me` mit der Handynummer (Ländervorwahl nötig), „SMS" die Nachrichten-App, „E-Mail" das
+Mailprogramm mit Betreff – jeweils mit dem fertigen Text, „Senden" tippt man dort. Der Text ist
+vorher änderbar; „Text kopieren" für jeden anderen Weg. Fehlt eine Nummer oder E-Mail, steht der Weg
+ausgegraut mit Begründung da. Beim Laufkunden gelten Name und Telefon vom Auftrag.
+
 ### Doppelbuchungen (Fahrplan D1, 23.09.2026)
 
 Beim Einteilen im Auftragsfenster prüft `terminUeberschneidungen()` (`lib/ueberschneidung.ts`),

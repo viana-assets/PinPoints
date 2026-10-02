@@ -107,6 +107,24 @@ Saisonwechsel am echten Regal nachmessen. 205/55 R16 und 235/55 R17 sind normal,
 - Einlagern-Fenster im Lager: derselbe Satz unter der Fahrzeugwahl.
 - Liegt der Satz schon im normalen Fach, steht der Satz unter „Zu prüfen".
 
+## Seit v104: Stapel-Auslagern für den Saisonwechsel (E7)
+
+Statt jeden Satz einzeln durch den Auslagern-Dialog: **Mitnehmen-Fenster → „Der Reihe nach
+auslagern"** (auch über Lager → „⋯" → „Saisonwechsel: der Reihe nach auslagern", das öffnet die
+Mitnehmen-Liste von heute; ‹ › wechselt den Tag). Welche Sätze dazugehören, sagt dieselbe Regel wie
+Abendhinweis und Mitnehmen-Fenster (`mitnehmenListe`); geführt wird in der **Reihenfolge des
+Regals** – Lager, dann Platz („A-9" vor „A-10") –, nicht der Termine (`stapelSchritte`,
+`lib/stapelAuslagern.ts`).
+
+Je Satz groß der Platz, darunter Kunde, Fahrzeug, Saison und Termin, dazu die **Lagergebühr auf den
+Auftrag des Tages**: angefangene Monate mal Monatspreis wie im Dialog, Monate änderbar, abschaltbar.
+Nicht vorgeschlagen, wenn kein Preis gepflegt ist oder auf dem Auftrag beim Öffnen schon eine
+Lagergebühr stand. **„Ausgelagert"** bucht Auslagern und Gebühr über denselben Weg wie der Dialog
+(`auslagernAusfuehren`); **„Platz scannen"** tut dasselbe, wenn der gescannte Regal- oder
+Satzaufkleber zu diesem Satz passt – sonst eine Meldung und nichts passiert; **„Überspringen"** lässt
+ihn liegen. Die Liste steht beim Öffnen fest, der Balken oben zählt mit; am Ende „Übersprungene noch
+einmal". Nur wer einlagern darf (`lager.einlagerung · schreiben`).
+
 ## QR-Aufkleber am Regal (Migration 22)
 
 Jeder Lagerplatz kann einen Aufkleber bekommen, der genau auf ihn zeigt.

@@ -73,7 +73,9 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf, onStapelAuslagern }: {
+  // Saisonwechsel (E7): öffnet die Mitnehmen-Liste von heute, von dort „der Reihe nach auslagern".
+  onStapelAuslagern?: () => void;
   // Reifenverkauf (Migration 61). Null = kein Leserecht auf „Lager · Reifenverkauf" – dann gibt
   // es den Reiter nicht. Plätze mit Verkaufsreifen sperrt die Datenbank trotzdem für Kundensätze.
   verkauf: {
@@ -714,6 +716,11 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
                 {lager && canCreateSlot && (
                   <button type="button" className="ab-option" onClick={() => setMenue("plaetze")}>
                     <span className="ab-text">Plätze anlegen</span><span className="small">einzeln oder nach Nummerierung</span>
+                  </button>
+                )}
+                {onStapelAuslagern && (
+                  <button type="button" className="ab-option" onClick={() => { setMenue(null); onStapelAuslagern(); }}>
+                    <span className="ab-text">Saisonwechsel: der Reihe nach auslagern</span><span className="small">die Sätze für die Termine eines Tages</span>
                   </button>
                 )}
                 {lager && plaetzeImLager.length > 0 && (

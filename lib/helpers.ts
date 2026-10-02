@@ -227,11 +227,17 @@ export function getPhoneNumbers(cust: Customer): { label: string; number: string
 // OpenStreetMap die Hausnummer nicht kennt. Der Adresstext enthält sie aber – und Google
 // bzw. Apple finden sie. Die Koordinate mitzugeben hieße hier, die Navigation an den Anfang
 // der Straße zu schicken, obwohl die Hausnummer danebensteht.
-export function navigationUrls(cust: Customer): { google: string; apple: string } {
+// Das Ziel als Text – Koordinate oder Adresse nach genau dieser Regel. Auch die Tagesroute (E5,
+// lib/route.ts) nimmt es, damit beide Wege an dieselbe Einfahrt führen.
+export function navigationsZiel(cust: Pick<Customer, "lat" | "lng" | "geo_genauigkeit" | "address">): string {
   const hatPunkt = cust.lat != null && cust.lng != null;
   const punktIstGenauer = hatPunkt && (cust.geo_genauigkeit ?? "exakt") !== "ungefaehr";
-  const hasCoords = punktIstGenauer;
-  const dest = hasCoords ? `${cust.lat},${cust.lng}` : cust.address;
+  return punktIstGenauer ? `${cust.lat},${cust.lng}` : cust.address;
+}
+
+export function navigationUrls(cust: Customer): { google: string; apple: string } {
+  const hasCoords = cust.lat != null && cust.lng != null && (cust.geo_genauigkeit ?? "exakt") !== "ungefaehr";
+  const dest = navigationsZiel(cust);
   const q = encodeURIComponent(dest);
   return {
     google: `https://www.google.com/maps/dir/?api=1&destination=${q}`,

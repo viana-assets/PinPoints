@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v103";
+export const APP_VERSION = "v104";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v104", datum: "2026-10-02", titel: "Tagesroute, Stapel-Auslagern und Terminbestätigung",
+    punkte: [
+      "Tagesroute: In der Einsatzplanung zeigt „Route ›“ je Mitarbeiter die kürzeste Reihenfolge ab der Firmenadresse und zurück – mit den gesparten Kilometern und einem Knopf für Google Maps. Die Uhrzeiten bleiben, wie sie sind.",
+      "Saisonwechsel: Im Mitnehmen-Fenster (oder Lager → „⋯“) lagert „Der Reihe nach auslagern“ die Sätze des Tages in der Reihenfolge des Regals aus – je Satz ein Tipp, die Lagergebühr kommt gleich auf den Auftrag.",
+      "Terminbestätigung: Im Auftragsfenster schreibt „Bestätigen“ eine Bestätigung oder Erinnerung für den Kunden. Verschickt wird sie vom eigenen Handy per WhatsApp, SMS oder E-Mail.",
+    ],
+  },
   {
     version: "v103", datum: "2026-10-02", titel: "Dubletten, Auskunft, große Fächer und Reifenverkauf",
     punkte: [

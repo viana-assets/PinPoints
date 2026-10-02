@@ -3800,3 +3800,45 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
   html:has(.ak-dokument), html:has(.ak-dokument) body{background:#ffffff !important;}
 }
 .nk-feld.ve-anzahl{flex:0 0 96px;}
+
+/* ---------------- Fahrplan Runde 3 (v104) ---------------- */
+/* E5: Tagesroute. */
+.tag-gruppe-titel .tg-route{margin-left:auto;font-size:12px;}
+.ro-leiste{display:flex;justify-content:flex-end;margin:0 0 8px;}
+.ro-summe{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.ro-summe b{font-size:20px;font-family:var(--font-brand);}
+.ro-liste{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;}
+.ro-stopp{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--border);border-radius:12px;
+  padding:8px 10px;background:var(--panel);color:var(--text);cursor:pointer;font:inherit;}
+.ro-stopp.leise{opacity:.75;}
+.ro-nr{flex:0 0 26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;}
+.ro-text{display:flex;flex-direction:column;min-width:0;flex:1;}
+.ro-text .small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ro-anders{flex:0 0 auto;font-size:11px;font-weight:700;color:#9a3412;background:var(--accent-bg);border-radius:8px;padding:2px 6px;}
+.ro-ohne{display:flex;flex-direction:column;gap:6px;}
+.ro-maps{text-align:center;text-decoration:none;display:block;}
+
+/* E9: Terminbestätigung – über dem Auftragsfenster (10001). */
+.modal-bestaetigung{z-index:10002;}
+.be-wege{display:flex;gap:8px;flex-wrap:wrap;}
+.be-weg{flex:1 1 120px;min-height:44px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-weight:700;text-decoration:none;color:#fff;background:var(--navy);border:none;font:inherit;font-weight:700;cursor:pointer;padding:6px 8px;}
+.be-weg.whatsapp{background:#1f8f4e;}
+.be-weg.sms{background:var(--navy);}
+.be-weg.email{background:var(--accent);}
+.be-weg.kopie{background:var(--panel);color:var(--text);border:1px solid var(--border);}
+.be-weg.aus{background:var(--panel);color:var(--muted);border:1px dashed var(--frei-linie);cursor:default;}
+.be-weg small{font-weight:500;font-size:11px;}
+
+/* E7: Stapel-Auslagern. */
+.modal-stapel{z-index:10002;}
+.st-fortschritt{height:8px;border-radius:4px;background:var(--border);overflow:hidden;}
+.st-fortschritt span{display:block;height:100%;background:var(--green);transition:width .2s;}
+.st-platz{display:flex;align-items:center;gap:14px;}
+.st-wo{display:flex;flex-direction:column;}
+.st-gebuehr{display:flex;flex-direction:column;gap:6px;}
+.st-menge{display:flex;align-items:center;gap:8px;font-size:14px;}
+.st-menge input{width:70px;}
+.st-knoepfe{display:flex;flex-direction:column;gap:8px;}
+.mz-kopf{display:flex;align-items:center;gap:8px;margin:0 32px 2px 0;}
+.mz-stapel{margin:8px 0 10px;width:100%;}

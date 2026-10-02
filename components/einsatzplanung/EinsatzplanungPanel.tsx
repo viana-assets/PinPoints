@@ -11,12 +11,15 @@ import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { terminUeberschneidungen } from "@/lib/ueberschneidung";
 import { auftragsNr } from "@/lib/testkunde";
 import { terminAusZeile, terminText, type TerminStand } from "@/lib/terminAenderung";
+import { RoutenBlatt, type RoutenGruppe } from "./RoutenBlatt";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, fenster, isTechniker }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, fenster, isTechniker, firmenadresse = null }: {
+  // Start und Ende der Tagesroute (E5): die Firmenadresse aus den Betriebsdaten, sonst null.
+  firmenadresse?: string | null;
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Das Terminraster aus den Betriebseinstellungen – dieselbe Zahl wie im Auftragsfenster.
   standardDauerMin: number;
@@ -221,6 +224,14 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     ...employees.map((emp) => ({ employee: emp, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).includes(emp.id)) })),
     { employee: null, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).length === 0) },
   ].filter((g) => g.orders.length > 0);
+  // Die Tagesroute (E5): je Mitarbeiter eine, dazu „Alle", wenn es mehrere gibt.
+  const [routeFuer, setRouteFuer] = useState<string | null>(null);
+  // Stornierte fahren nicht mit.
+  const gefahren = (l: Order[]) => l.filter((o) => o.status !== "storniert");
+  const routenGruppen: RoutenGruppe[] = [
+    ...(dayGroups.length > 1 ? [{ id: "alle", name: "Alle", orders: gefahren(dayOrders) }] : []),
+    ...dayGroups.map((g) => ({ id: g.employee?.id ?? "ohne", name: g.employee ? g.employee.name : "Nicht zugeordnet", orders: gefahren(g.orders) })),
+  ].filter((g) => g.orders.length > 0);
 
   // Volle Liste unter dem Kalender – unabhängig vom ausgewählten Tag, mit eigenen Filtern/Sortierung.
   const listOrders = orders
@@ -407,6 +418,13 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
             })}
           </div>
         )}
+        {ansicht === "tag" && dayOrders.length > 1 && (
+          <div className="ro-leiste">
+            <button type="button" className="pl-pille" onClick={() => setRouteFuer(routenGruppen[0]?.id ?? null)}>
+              Route des Tages · {dayOrders.length} Termine ›
+            </button>
+          </div>
+        )}
         {ansicht !== "monat" && (
           <>
             <Stundenraster
@@ -478,6 +496,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                 <div className="tag-gruppe-titel">
                   <span className="pl-punkt" style={{ background: g.employee ? employeeColorFor(employees, g.employee.id) : "var(--frei-linie)" }} />
                   {g.employee ? g.employee.name : "Nicht zugeordnet"} · {g.orders.length}
+                  {g.orders.length > 1 && (
+                    <button type="button" className="text-knopf tg-route" onClick={() => setRouteFuer(g.employee?.id ?? "ohne")}>Route ›</button>
+                  )}
                 </div>
                 {g.orders.map((o) => {
                   const cust = kundeFuerAuftrag(o, customers);
@@ -669,6 +690,18 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           onClose={() => setSlot(null)}
           onWeiter={async (kundenId) => { await onNeuerAuftrag(kundenId, slot); }}
           onNeuerKunde={() => { const s = slot; setSlot(null); onNeuerKunde(s); }}
+        />
+      )}
+
+      {routeFuer && selectedDay && routenGruppen.length > 0 && (
+        <RoutenBlatt
+          datum={selectedDay}
+          gruppen={routenGruppen}
+          startGruppeId={routeFuer}
+          customers={customers}
+          firmenadresse={firmenadresse}
+          onOpenOrder={(id) => { setRouteFuer(null); onOpenOrder(id); }}
+          onClose={() => setRouteFuer(null)}
         />
       )}
     </div>

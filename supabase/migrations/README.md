@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `62_loeschsperre_und_abfragebremse.sql`, dann `63_aufraeumen_telefon_vorlagen.sql`** (siehe unten). **Stand 02.10.2026: Alle Migrationen 01–61 sind in der Produktivdatenbank ausgeführt** –
+**Noch auszuführen: nichts.** **Stand 02.10.2026: Alle Migrationen 01–64 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -716,7 +716,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   wartet und wird abgewiesen; direkter Aufruf der Zählfunktion verweigert; zurückgenommen und
   erneut ausgeführt (kein zweiter Artikel).
 
-## Noch auszuführen
+## 02.10.2026 – ausgeführt (Vitali, nach v103)
 
 - `62_loeschsperre_und_abfragebremse.sql` – **nach `61`, Reihenfolge SQL/Dateien egal** (die
   Routen fallen ohne die Funktion auf die alte Bremse zurück). (1) D2: Trigger
@@ -767,3 +767,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   abgewiesen; Satz zum Verkauf: leere Liste und fehlender Hersteller abgewiesen ohne Auslagern,
   zwei Posten auf denselben Platz mit Lager und Herkunft, zweiter Aufruf abgewiesen, Techniker
   ohne Verkaufsrecht abgewiesen und Satz liegt noch; zurückgenommen, zweimal, erneut ausgeführt.
+
+## Noch auszuführen
+
+- (keine – Runde 3, v104, braucht keine Migration)

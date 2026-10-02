@@ -5,7 +5,7 @@ Dieser Ordner ist die Detail-Dokumentation des Projekts, ein Baustein pro Datei.
 Fallstricke und ein Index hierher. Wer wissen will, **wie ein bestimmter Baustein
 funktioniert, wo er im Code liegt und womit er verknüpft ist**, findet das hier.
 
-Stand: 02.10.2026, Migrationen bis 64 (62, 63 und 64 noch auszuführen), Service Worker v103.
+Stand: 02.10.2026, Migrationen bis 64 (alle ausgeführt), Service Worker v104.
 
 ## Die eine Regel, die den Ordner zusammenhält
 

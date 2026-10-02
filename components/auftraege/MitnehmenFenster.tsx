@@ -3,7 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Article, AuftragFahrzeug, Customer, Order, OrderArticle, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { SAISON_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/helpers";
-import { mitnehmenListe } from "@/lib/mitnehmen";
+import { mitnehmenListe, type MitnehmenEintrag } from "@/lib/mitnehmen";
+import { addDays, toDateStr } from "@/lib/calendar";
 import { packliste } from "@/lib/packliste";
 import { PacklisteBlock } from "./PacklisteBlock";
 import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
@@ -17,7 +18,11 @@ import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 //
 // Ein Techniker sieht hier nur seine eigenen Aufträge – die Datenbank gibt ihm keine anderen
 // (RLS, Migration 13/15). Das ist dieselbe Auswahl, die ihm die Meldung geschickt hat.
-export function MitnehmenFenster({ supabase, datum, orders, tireStorages, customers, vehicles, orderArticles, articles, storageSlots, warehouses, laedt, onClose, onAuftragOeffnen }: {
+export function MitnehmenFenster({ supabase, datum, orders, tireStorages, customers, vehicles, orderArticles, articles, storageSlots, warehouses, laedt, onClose, onAuftragOeffnen, onDatum, onStapelAuslagern }: {
+  // Tag wechseln (‹ ›), seit v104 – der Weg aus dem Lager kommt mit „heute" an.
+  onDatum?: (datum: string) => void;
+  // Der geführte Modus „der Reihe nach auslagern" (E7). Fehlt ohne Recht zum Auslagern.
+  onStapelAuslagern?: (eintraege: MitnehmenEintrag[]) => void;
   supabase: SupabaseClient;
   datum: string;
   orders: Order[];
@@ -73,12 +78,23 @@ export function MitnehmenFenster({ supabase, datum, orders, tireStorages, custom
     <div className="modal-overlay modal-mitnehmen" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-box" style={{ position: "relative", maxWidth: 520 }}>
         <button className="modal-close" onClick={onClose} aria-label="Schließen">✕</button>
-        <h2 style={{ marginBottom: 2 }}>Mitnehmen am {formatDate(datum)}</h2>
+        <div className="mz-kopf">
+          {onDatum && <button type="button" className="pl-rund" aria-label="Tag zurück" onClick={() => onDatum(toDateStr(addDays(new Date(datum + "T12:00:00"), -1)))}>‹</button>}
+          <h2 style={{ margin: 0 }}>Mitnehmen am {formatDate(datum)}</h2>
+          {onDatum && <button type="button" className="pl-rund" aria-label="Tag weiter" onClick={() => onDatum(toDateStr(addDays(new Date(datum + "T12:00:00"), 1)))}>›</button>}
+        </div>
         <p className="small" style={{ marginTop: 0 }}>
           {wartet ? "Lädt …" : saetze === 0
             ? "Für diesen Tag liegt nichts im Regal, das mitmuss."
             : `${saetze} ${saetze === 1 ? "Satz" : "Sätze"} für ${eintraege.length} ${eintraege.length === 1 ? "Auftrag" : "Aufträge"}, in der Reihenfolge der Termine.`}
         </p>
+
+        {/* E7: beim Saisonwechsel nicht jeden Satz einzeln durch den Auslagern-Dialog. */}
+        {!wartet && saetze > 0 && onStapelAuslagern && (
+          <button type="button" className="am-knopf mz-stapel" onClick={() => onStapelAuslagern(eintraege)}>
+            Der Reihe nach auslagern · {saetze} {saetze === 1 ? "Satz" : "Sätze"}
+          </button>
+        )}
 
         {!wartet && eintraege.map(({ auftrag, saetze: liste }) => {
           const kunde = customers.find((c) => c.id === auftrag.customer_id);

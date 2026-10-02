@@ -163,8 +163,10 @@ viana-pinpoints/
       ReifenSuche.tsx                 „+ Reifen aus dem Lager": Verkaufsreifen zum Auftrag (Migration 61)
       MitnehmenFenster.tsx            „Morgen … Sätze mitnehmen" zum Abhaken (Migration 55/58)
       PacklisteBlock.tsx              Packliste: Leistungen und Reifengrößen des Tages (E2, v100)
+      BestaetigungBlatt.tsx           Terminbestätigung/-erinnerung per WhatsApp, SMS, E-Mail (E9, v104)
     einsatzplanung/
       EinsatzplanungPanel.tsx        Tab "Einsatzplanung" (Kalender + Listenansicht)
+      RoutenBlatt.tsx                 Tagesroute je Mitarbeiter: kürzeste Reihenfolge ab Firma (E5, v104)
       Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster
                                       (Migration 37)
     lager/
@@ -176,6 +178,7 @@ viana-pinpoints/
                                        Reiter „Verkauf": Reifen zum Verkauf erfassen (Migration 61)
       VerkaufsreifenEtikett.tsx        Etikett mit QR-Code je Verkaufsreifen (E17, v103)
       SatzZumVerkaufBlatt.tsx          Eingelagerten Satz in den Reifenverkauf übernehmen (E17, v103)
+      StapelAuslagern.tsx              Saisonwechsel: die Sätze eines Tages der Reihe nach auslagern (E7, v104)
       SaisonPanel.tsx                  Eigener Reiter „Saisonliste" (Migration 30/31)
       AuslagernDialog.tsx              Auslagern inkl. Lagergebühr-Vorschlag (Migration 46)
       RadBild.tsx / ProfilMarke.tsx     Profiltiefe: Radbild je Rad, Satzwert, Schnellwerte 1–8 mm
@@ -226,6 +229,9 @@ viana-pinpoints/
     telefon.ts                    Telefonnummern in Vergleichsform, Suche (D10, v102)
     dubletten.ts                  Dubletten finden: Gründe, Paare, Vorschlag fürs Zusammenführen (E1, v103)
     auskunft.ts                   Auskunftsauszug als Zeilen (E10, v103)
+    route.ts                      Tagesroute: Luftlinie, nächster Nachbar + 2-opt, Maps-Link (E5, v104)
+    stapelAuslagern.ts            Stapel-Auslagern: Reihenfolge des Regals, Gebührenvorschlag (E7, v104)
+    terminBestaetigung.ts         Text und Links der Terminbestätigung (E9, v104)
     auftragLoeschen.ts            Darf ein Auftrag gelöscht werden, mit welcher Frage (D2, v100)
     fremdabfrage.ts               Abfragebremse der Adressdienste über die Datenbank (B3, v100)
     abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
@@ -602,7 +608,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 64** (02.10.2026; 62, 63 und 64 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 64** (02.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).

@@ -479,6 +479,11 @@ Beleg. Das Datenmodell war dafür von Anfang an mitgedacht.
 *Aufwand: mittel bis groß (Dateiablage nötig).*
 
 ### E5. Tagesroute nach Fahrstrecke sortieren
+
+**Erledigt 02.10.2026 (v104, keine Migration):** Einsatzplanung → „Route ›" je Mitarbeiter (Monat) bzw.
+„Route des Tages" (Tag): kürzeste Reihenfolge ab der Firmenadresse und zurück, Vergleich mit der
+Uhrzeit-Reihenfolge, Link nach Google Maps. Luftlinie × 1,3, ohne Routendienst; Uhrzeiten bleiben.
+Siehe `auftraege.md`.
 Die Tagesliste sortiert nach Uhrzeit. Für einen mobilen Dienst mit mehreren Stopps wäre
 eine Reihenfolge nach kürzestem Weg unmittelbar Zeit- und Spritersparnis. Die Koordinaten
 liegen für die Navigation ohnehin vor.
@@ -492,6 +497,10 @@ Siehe `artikelstammdaten.md`.
 *Aufwand: klein bis mittel.*
 
 ### E7. Stapel-Auslagern für den Saisonwechsel
+
+**Erledigt 02.10.2026 (v104, keine Migration):** Mitnehmen-Fenster bzw. Lager → „⋯" → „Saisonwechsel:
+der Reihe nach auslagern" – die Sätze eines Tages in der Reihenfolge des Regals, je Satz ein Tipp
+mit Lagergebühr auf den Auftrag des Tages, „Platz scannen" als Gegenprobe. Siehe `lager.md`.
 Beim eigentlichen Saisonwechsel muss heute jeder Satz einzeln über den Auslagern-Dialog.
 Ein geführter Modus „einen nach dem anderen abarbeiten" wäre bei dreistelligen Stückzahlen
 ein spürbarer Unterschied.
@@ -506,6 +515,10 @@ Eine Warnung bei Abweichung findet falsch zugeordnete Sätze zum frühestmöglic
 *Aufwand: mittel.*
 
 ### E9. Terminbestätigung an den Kunden
+
+**Erledigt 02.10.2026 (v104, keine Migration):** Auftragsfenster → „Bestätigen": Bestätigung oder
+Erinnerung als fertiger Text, verschickt vom eigenen Gerät per WhatsApp, SMS oder E-Mail (kein
+Versanddienst, Entscheidung 02.10.2026). Siehe `auftraege.md`.
 Heute erinnert die App das eigene Personal. Eine Bestätigung oder Erinnerung an den Kunden
 (SMS oder E-Mail) senkt die Zahl der vergeblichen Anfahrten. Braucht einen externen
 Dienst – vor dem Bau die Frage klären, ob das sein soll.
