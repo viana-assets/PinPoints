@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AuftragFahrzeug, Vehicle } from "@/lib/types";
 import { doppelteKennzeichen, fahrzeugAuswahlText } from "@/lib/kennzeichen";
+import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 
 // Die Fahrzeuge an einem Auftrag – welches Auto (oder welche Autos) wird bearbeitet, und mit
 // welchem Kilometerstand.
@@ -100,10 +101,10 @@ export function FahrzeugeBlock({
             </select>
           )}
           <span className="ao-fz-neu">
-            <input
-              type="text" placeholder="Neues Kennzeichen" aria-label="Neues Kennzeichen"
+            <KennzeichenFeld
+              placeholder="Neues Kennzeichen" aria-label="Neues Kennzeichen"
               value={neuesKennzeichen}
-              onChange={(e) => setNeuesKennzeichen(e.target.value)}
+              onWert={setNeuesKennzeichen}
               onKeyDown={(e) => { if (e.key === "Enter" && neuesKennzeichen.trim()) { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); } }}
             />
             <button

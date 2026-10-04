@@ -1,4 +1,4 @@
-# Aufträge, Termine, Einsatzplanung (Stand 01.10.2026)
+# Aufträge, Termine, Einsatzplanung (Stand 04.10.2026)
 
 Ersetzt `auftragsablauf.md` (Stand 04.09.2026) und `auftraege-termine-einsatzplanung.md`
 (Stand 10.09.2026), die beide gelöscht werden. Dieses Blatt beschreibt nur den **Ist-Zustand**
@@ -253,6 +253,19 @@ gestaltet" (Design-Arbeitsfläche „Einsatzplanung mobil"). Keine Funktion ist 
   „⋯" mit Mitarbeiter zuteilen und Löschen. Sortierung als Auswahl (Termin/Kunde/Status) mit
   Richtungsknopf statt anklickbarer Spaltenköpfe.
 - Der Modulkopf (Symbol + „Einsatzplanung") steht nur noch am Rechner.
+- **Wischen blättert** (seit 04.10.2026, v107): Auf dem Kalender selbst – Monat, Wochenleiste der
+  Tagesansicht, Stundenraster – blättert ein Wisch nach links weiter, nach rechts zurück, je nach
+  Ansicht um einen Monat, eine Woche oder einen Tag (dieselbe Funktion `blaettern()` wie ‹ ›; die
+  Fläche ist `.planung-wisch`, die Listen darunter gehören nicht dazu). Was als Wisch zählt, steht
+  in `wischRichtung()` (`lib/wischen.ts`, Test `tests/wischen.test.ts`): mindestens 60 px
+  waagrecht, anderthalbmal so weit wie senkrecht, höchstens 800 ms, und der Finger muss sich in
+  den ersten 300 ms bewegen. Die letzte Bedingung trennt den Wisch vom **Termin ziehen** (lange
+  drücken, 400 ms); zusätzlich zählt ein Zug nie, dessen `touchmove` das Raster abgewehrt hat (der
+  Termin hängt dann am Finger). Zwei Finger (Zoomen) sind nie ein Wisch, und liegt unter dem
+  Finger ein Bereich, der sich selbst seitlich rollen lässt, wird nur geblättert, wenn er sich
+  dabei nicht bewegt hat. Nach dem Wechsel gleitet der Inhalt kurz aus der Blätterrichtung herein
+  (auch bei ‹ ›) – über eine Klasse, nicht über einen neuen Schlüssel, sonst ginge der Zoom des
+  Rasters verloren. Am Rechner mit Maus ändert sich nichts.
 
 Die Beschreibung darunter gilt weiter; wo sie Tabellen nennt, sind es jetzt Karten.
 

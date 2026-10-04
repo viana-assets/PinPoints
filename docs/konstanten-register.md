@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **133 exportierte Konstanten** (`export const`) in 36 Dateien unter `lib/` – gezählt am
-02.10.2026 (v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **137 exportierte Konstanten** (`export const`) in 37 Dateien unter `lib/` – gezählt am
+04.10.2026 (v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -92,6 +92,10 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `KLICK_RASTER_MIN` | `lib/calendar.ts` | `number` (15) | Raster beim Klick ins Stundenraster (abgerundet: Tipp auf „10:00" ergibt 10:00) | **nur intern** – `terminAusKlick()` |
 | `ZIEH_RASTER_MIN` | `lib/calendar.ts` | `number` (15) | Raster beim Ziehen eines Termins (gerundet) | **nur intern** – `gezogenerTermin()` |
 | `ANRUF_PARAMETER` | `lib/constants.ts` | `string` ("anruf") | Aufrufparameter von „Auf dem Handy anrufen": nur die Kunden-Kennung in der Adresse, keine Rufnummer | `app/api/push/anruf/route.ts`, `app/page.tsx` |
+| `WISCH_MIN_PX` | `lib/wischen.ts` | `number` (60) | So weit muss ein Finger im Kalender waagrecht gehen, damit es als Blättern zählt (v107) | **nur intern** – `wischRichtung()`; `tests/wischen.test.ts` |
+| `WISCH_VERHAELTNIS` | `lib/wischen.ts` | `number` (1.5) | So viel deutlicher waagrecht als senkrecht muss ein Wisch sein – sonst war es Scrollen | **nur intern** – `wischRichtung()` |
+| `WISCH_MAX_MS` | `lib/wischen.ts` | `number` (800) | Höchstdauer eines Wischs; langsames Schieben blättert nicht | **nur intern** – `wischRichtung()`; `tests/wischen.test.ts` |
+| `WISCH_START_MAX_MS` | `lib/wischen.ts` | `number` (300) | Bewegt sich der Finger erst später, war es langes Drücken (Termin ziehen, 400 ms) und kein Wisch | **nur intern** – `wischRichtung()`; `tests/wischen.test.ts` |
 
 ---
 

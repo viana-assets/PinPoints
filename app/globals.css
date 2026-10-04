@@ -648,6 +648,9 @@
 /* Das Rechnungsfenster öffnet AUS dem Auftragsfenster (10001), die Storno-Rückfrage wiederum
    aus dem Rechnungsfenster. Jede Ebene bekommt ihren eigenen Wert – dieselbe Regel wie oben. */
 .modal-rechnung { z-index: 10003; }
+/* Das Satz-Etikett wird auch aus dem Auftragsfenster (10001) geöffnet, steht in app/page.tsx aber
+   davor – ohne eigene Ebene lag es mit 10000 unsichtbar dahinter (gemeldet 04.10.2026, v108). */
+.modal-etikett { z-index: 10004; }
 .modal-storno { z-index: 10004; }
 
 .fehler-hinweis {
@@ -3872,3 +3875,18 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .us-flaeche{width:100%;aspect-ratio:900 / 320;border:1.5px dashed var(--frei-linie);border-radius:12px;background:#fff;touch-action:none;cursor:crosshair;}
 .us-zeile{display:flex;align-items:center;justify-content:space-between;gap:10px;}
 .ao-fuss-link{background:none;border:none;padding:2px 0;font:inherit;font-size:12.5px;font-weight:700;color:var(--accent);text-decoration:underline;cursor:pointer;align-self:center;}
+
+/* Einsatzplanung: Wischen blättert (v107). Die Fläche ordnet ihre Teile wie .planung-neu
+   (Abstand 12px), und ein Wechsel zeigt eine kurze Bewegung in Blätterrichtung. Während der
+   Bewegung wird seitlich abgeschnitten, damit kein waagrechter Rollbalken aufblitzt –
+   `overflow-x:clip` statt `hidden`, sonst wäre die Fläche ein Scrollbereich und die stehende
+   Tageszeile des Rasters (`position:sticky`) wirkungslos. */
+.planung-wisch{display:flex;flex-direction:column;gap:12px;}
+.planung-wisch.pw-vor,.planung-wisch.pw-zurueck{overflow-x:clip;}
+.planung-wisch.pw-vor{animation:pw-vor .2s ease-out;}
+.planung-wisch.pw-zurueck{animation:pw-zurueck .2s ease-out;}
+@keyframes pw-vor{from{opacity:.35;transform:translateX(32px);}to{opacity:1;transform:none;}}
+@keyframes pw-zurueck{from{opacity:.35;transform:translateX(-32px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion: reduce){
+  .planung-wisch.pw-vor,.planung-wisch.pw-zurueck{animation:none;}
+}

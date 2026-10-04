@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Firmenfahrzeug } from "@/lib/types";
 import type { FirmenfahrzeugFelder } from "@/lib/api/firmenfahrzeuge";
+import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 
 // Stammdaten der eigenen Transporter (Migration 32, Konzept: docs/lager-ausbaukonzept.md C1).
 //
@@ -45,9 +46,9 @@ export function FirmenfahrzeugPanel({ fahrzeuge, onAnlegen, onAendern, onAusmust
         <b className="ad-aktion-titel">Transporter anlegen</b>
         <span className="small">Die eigenen Transporter – nicht die Autos der Kunden. Sie lassen sich am Auftrag einteilen und in der Einsatzplanung filtern.</span>
         <div className="ad-aktion-zeile">
-          <input
-            type="text" placeholder="Kennzeichen, z. B. N-VI 100" aria-label="Kennzeichen"
-            value={kennzeichen} onChange={(e) => setKennzeichen(e.target.value)}
+          <KennzeichenFeld
+            placeholder="Kennzeichen, z. B. N-VI 100" aria-label="Kennzeichen"
+            value={kennzeichen} onWert={setKennzeichen}
             onKeyDown={(e) => { if (e.key === "Enter") void anlegen(); }}
           />
           <input
@@ -129,7 +130,7 @@ function FahrzeugZeile({ fahrzeug, nr, offen, onOeffnen, onAendern, onAusmustern
     <div className="db-karte ad-aktion">
       <b className="ad-aktion-titel">{fahrzeug.kennzeichen} bearbeiten</b>
       <div className="ad-aktion-zeile">
-        <input type="text" value={kennzeichen} onChange={(e) => setKennzeichen(e.target.value)} placeholder="Kennzeichen" aria-label="Kennzeichen" />
+        <KennzeichenFeld value={kennzeichen} onWert={setKennzeichen} placeholder="Kennzeichen" aria-label="Kennzeichen" />
         <input type="text" value={bezeichnung} onChange={(e) => setBezeichnung(e.target.value)} placeholder="Bezeichnung" aria-label="Bezeichnung" />
       </div>
       <input type="text" className="ad-eingabe" value={notiz} onChange={(e) => setNotiz(e.target.value)} placeholder="Notiz (optional), z. B. Regal für 8 Sätze" aria-label="Notiz" />

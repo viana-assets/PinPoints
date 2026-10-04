@@ -267,7 +267,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   }
 
   return (
-    <div className="modal-overlay druck-fenster" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="modal-overlay druck-fenster modal-etikett" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal-box druck-modal" style={{ position: "relative" }}>
         <button className="modal-close druck-weg" onClick={onClose}>✕</button>
         <h2 className="druck-weg">

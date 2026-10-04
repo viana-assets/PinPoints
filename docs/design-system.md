@@ -135,6 +135,11 @@ sichtbar. Die Einlagerungsblöcke (`.auftrag-block`) behalten ihr Innenleben und
 Leistungen (`.ls-*`): eine Zeile je Position mit −/+; Endpreis und Rechnungstext klappen
 darunter auf (bei einer freien Position ohne Text von selbst, mit orangem Rand).
 
+**Ebenen über dem Auftragsfenster** (`.modal-auftrag`, 10001): Bestätigung, Stapel-Auslagern und
+Auslagern-Dialog 10002, Rechnung und die Blätter im Auftrag (`.ao-blatt-overlay`, `.ls-overlay`)
+10003, Fotos, Unterschrift und Satz-Etikett (`.modal-etikett`, seit v108) 10004. Wer ein neues
+Fenster in `app/page.tsx` anlegt, das auch aus dem Auftrag heraus aufgeht, ordnet es hier ein.
+
 Kein Kind eines `.auswahl-blatt` darf schrumpfen (`flex-shrink:0`): Das Blatt scrollt, und ein
 Umschalter, der auf null Höhe gedrückt wird, ist unsichtbar statt erreichbar.
 
@@ -760,6 +765,12 @@ Kennzeichen als Schild (`.dm-kz`), Modell, Reifengröße und rechts das Entferne
 über die volle Breite der Kilometerstand. Das löst die Frage vom 21.09.2026 (Kreuz allein in der
 nächsten Zeile) ohne eigenes Handy-Raster: Das Kreuz steht immer oben rechts bei seinem
 Kennzeichen, und die Fläche selbst ist die Grenze zum nächsten Fahrzeug.
+
+**Kennzeichen tippen** (seit v108): jedes Kennzeichenfeld ist `components/KennzeichenFeld.tsx` –
+`autoCapitalize="characters"` stellt die Handytastatur auf groß, und was trotzdem klein ankommt,
+wandelt `kennzeichenGross()` (`lib/kennzeichen.ts`) beim Tippen um, ohne die Schreibmarke zu
+verschieben. Gilt im Kundenfenster, im Auftrag („Neues Kennzeichen"), beim Einlagern und unter
+Admin › Transporter.
 
 ## Dashboard im Kartenstil (25.09.2026)
 

@@ -16,6 +16,15 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **04.10.2026 – Etikett aus dem Auftrag, Kennzeichen groß (Service Worker v108).** Das
+  Satz-Etikett lag am Handy hinter dem Auftragsfenster (eigene Ebene `.modal-etikett`, 10004).
+  Kennzeichenfelder schreiben groß (`KennzeichenFeld`, `kennzeichenGross()`).
+
+* **04.10.2026 – Wischen im Kalender (Service Worker v107, ohne Migration).** In der
+  Einsatzplanung blättert ein Wisch nach links weiter, nach rechts zurück (Monat, Woche, Tag),
+  ohne dem Termin-Ziehen, dem Zoomen oder dem Scrollen in die Quere zu kommen
+  (`lib/wischen.ts`, siehe `auftraege.md` Abschnitt 5).
+
 * **02.10.2026 – Runde 1 der großen Liste (Migration 63, Service Worker v102).** D8 (`mit_steuer`
   festgeschrieben), D10 (Telefon-Vergleichsform, Kundensuche über die Nummer), D11 (Filter
   „Storniert" in der Einsatzplanung), D12 (stornierten Auftrag „wieder aufnehmen", mit Grund),

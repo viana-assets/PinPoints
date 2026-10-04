@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { SAISON_LABEL } from "@/lib/constants";
+import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 
 // Fahrzeuge je Kunde: Anzeige/Bearbeiten bestehender Fahrzeuge (VehicleRow) sowie das
 // Hinzufügen eines neuen Fahrzeugs (AddVehicleInline), beide auf demselben Formularlayout
@@ -32,7 +33,7 @@ function VehicleFieldsForm({ values, onChangeField }: {
     <>
       <div className="nk-zeile">
         <label className="nk-feld"><span>Kennzeichen</span>
-          <input type="text" placeholder="z. B. FÜ-AB 123" value={values.licensePlate} onChange={(e) => onChangeField("licensePlate", e.target.value)} />
+          <KennzeichenFeld placeholder="z. B. FÜ-AB 123" value={values.licensePlate} onWert={(w) => onChangeField("licensePlate", w)} />
         </label>
         <label className="nk-feld"><span>Marke / Modell</span>
           <input type="text" placeholder="z. B. VW Golf" value={values.makeModel} onChange={(e) => onChangeField("makeModel", e.target.value)} />

@@ -12,6 +12,7 @@ import { terminUeberschneidungen } from "@/lib/ueberschneidung";
 import { auftragsNr } from "@/lib/testkunde";
 import { terminAusZeile, terminText, type TerminStand } from "@/lib/terminAenderung";
 import { RoutenBlatt, type RoutenGruppe } from "./RoutenBlatt";
+import { seitlichRollbar, wischRichtung } from "@/lib/wischen";
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
@@ -291,6 +292,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // ‹ und › tun, was die Ansicht erwartet: Monat, Woche oder Tag weiter. Der Monatskalender
   // folgt dem Tag, damit „Monat" danach den Monat zeigt, in dem man gerade war.
   function blaettern(schritt: number) {
+    anstossen(schritt);
     if (ansicht === "monat") {
       setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + schritt, 1));
       return;
@@ -298,6 +300,53 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     const neu = addDays(ankerDatum, schritt * (ansicht === "woche" ? 7 : 1));
     setSelectedDay(toDateStr(neu));
     setMonthCursor(new Date(neu.getFullYear(), neu.getMonth(), 1));
+  }
+  // Wischen zum Blättern (04.10.2026, v107): nach links = weiter, nach rechts = zurück – auf dem
+  // Kalender selbst (Monat, Wochenleiste, Stundenraster), nicht auf den Listen darunter. Was als
+  // Wisch zählt, entscheidet `wischRichtung()` (lib/wischen.ts); hier werden nur die
+  // Finger-Ereignisse gesammelt. React-Handler genügen: Sie müssen nichts abwehren, nur zuhören.
+  //
+  // `abgewehrt`: Das Stundenraster hält beim Ziehen eines Termins das Scrollen an
+  // (`preventDefault` am berührten Block). Ein so abgewehrter Zug ist ein Termin am Finger und nie
+  // ein Wisch – das gilt zusätzlich zur Zeitregel in `wischRichtung()`.
+  const wischRef = useRef<{ x: number; y: number; t: number; ersteBewegung: number | null; abgewehrt: boolean;
+    rollt: HTMLElement | null; rolltVon: number } | null>(null);
+  const wischFlaecheRef = useRef<HTMLDivElement | null>(null);
+  function wischAuf(e: React.TouchEvent<HTMLDivElement>) {
+    if (e.touches.length !== 1) { wischRef.current = null; return; }
+    const f = e.touches[0];
+    const rollt = seitlichRollbar(e.target as Element, e.currentTarget);
+    wischRef.current = { x: f.clientX, y: f.clientY, t: e.timeStamp, ersteBewegung: null, abgewehrt: false,
+      rollt, rolltVon: rollt?.scrollLeft ?? 0 };
+  }
+  function wischZieht(e: React.TouchEvent<HTMLDivElement>) {
+    const w = wischRef.current;
+    if (!w) return;
+    // Zweiter Finger dazu: Das ist Zoomen, für den Rest dieser Berührung kein Wisch mehr.
+    if (e.touches.length !== 1) { wischRef.current = null; return; }
+    if (e.nativeEvent.defaultPrevented) w.abgewehrt = true;
+    const f = e.touches[0];
+    if (w.ersteBewegung === null && Math.hypot(f.clientX - w.x, f.clientY - w.y) > 10) w.ersteBewegung = e.timeStamp - w.t;
+  }
+  function wischAb(e: React.TouchEvent<HTMLDivElement>) {
+    const w = wischRef.current;
+    wischRef.current = null;
+    if (!w || w.abgewehrt || e.changedTouches.length !== 1) return;
+    // Ein seitlich rollbarer Bereich unter dem Finger hat sich bewegt: Es wurde gerollt, nicht geblättert.
+    if (w.rollt && Math.abs(w.rollt.scrollLeft - w.rolltVon) > 1) return;
+    const f = e.changedTouches[0];
+    const r = wischRichtung({ dx: f.clientX - w.x, dy: f.clientY - w.y, dauerMs: e.timeStamp - w.t, ersteBewegungMs: w.ersteBewegung });
+    if (r !== 0) blaettern(r);
+  }
+  // Eine kurze Bewegung in Blätterrichtung, damit man sieht, dass gewechselt wurde – beim Wischen
+  // wie bei ‹ und ›. Über die Klasse statt über einen Schlüssel: Ein neuer Schlüssel baute das
+  // Raster neu auf, und der eingestellte Zoom wäre weg.
+  function anstossen(schritt: number) {
+    const el = wischFlaecheRef.current;
+    if (!el) return;
+    el.classList.remove("pw-vor", "pw-zurueck");
+    el.getBoundingClientRect(); // die Animation neu beginnen lassen
+    el.classList.add(schritt > 0 ? "pw-vor" : "pw-zurueck");
   }
   function zuHeute() {
     const t = new Date();
@@ -398,89 +447,96 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           </div>
         </div>
 
-        {/* ---- Woche und Tag: das Stundenraster (mit Ziehen, v66). In der Tagesansicht steht
-            darüber die Woche als Leiste zum Tag-Wechseln. */}
-        {ansicht === "tag" && (
-          <div className="wochen-leiste" aria-label="Tag wählen">
-            {Array.from({ length: 7 }, (_, i) => addDays(wochenStart, i)).map((d) => {
-              const ds = toDateStr(d);
-              const anzahl = ordersOn(ds).filter(passtZumFahrzeug).length;
-              return (
-                <button key={ds} type="button"
-                  className={"wl-tag" + (ds === selectedDay ? " gewaehlt" : "") + (ds === heuteStr ? " heute" : "")}
-                  onClick={() => setSelectedDay(ds)}
-                  aria-label={`${WOCHENTAG[d.getDay()]}, ${d.getDate()}. ${MONATE[d.getMonth()]}, ${anzahl} Aufträge`}>
-                  <span className="wl-wt">{WOCHENTAG[d.getDay()].slice(0, 2).toUpperCase()}</span>
-                  <span className="wl-nr">{d.getDate()}</span>
-                  <span className={"wl-punkt" + (anzahl > 0 ? " voll" : "")} />
-                </button>
-              );
-            })}
-          </div>
-        )}
-        {ansicht === "tag" && dayOrders.length > 1 && (
-          <div className="ro-leiste">
-            <button type="button" className="pl-pille" onClick={() => setRouteFuer(routenGruppen[0]?.id ?? null)}>
-              Route des Tages · {dayOrders.length} Termine ›
-            </button>
-          </div>
-        )}
-        {ansicht !== "monat" && (
-          <>
-            <Stundenraster
-              tage={rasterTage}
-              auftraege={rasterAuftraege}
-              customers={customers}
-              employees={employees}
-              orderEmployees={orderEmployees}
-              standardDauerMin={standardDauerMin}
-              onOeffnen={onOpenOrder}
-              onTagOeffnen={ansicht === "woche" ? tagOeffnen : undefined}
-              onSlot={isTechniker ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
-              onVerschieben={onVerschieben ? (id, datum, von, bis) => { void terminSetzen(id, datum, von, bis); } : undefined}
-            />
-            <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} ziehen={!!onVerschieben} />
-          </>
-        )}
-
-        {/* ---- Monat */}
-        {ansicht === "monat" && (
-          <div className="monat-karte">
-            <div className="monat-reihe monat-kopf">
-              <span className="monat-kw-kopf">KW</span>
-              {["MO", "DI", "MI", "DO", "FR", "SA", "SO"].map((d, i) => <span key={d} className={"monat-wt" + (i > 4 ? " wochenende" : "")}>{d}</span>)}
+        {/* Die Fläche, auf der Wischen blättert (v107): Wochenleiste, Stundenraster und Monat –
+            nicht die Listen darunter. */}
+        <div className="planung-wisch" ref={wischFlaecheRef}
+          onTouchStart={wischAuf} onTouchMove={wischZieht} onTouchEnd={wischAb} onTouchCancel={() => { wischRef.current = null; }}
+          onAnimationEnd={(e) => e.currentTarget.classList.remove("pw-vor", "pw-zurueck")}>
+          {/* ---- Woche und Tag: das Stundenraster (mit Ziehen, v66). In der Tagesansicht steht
+              darüber die Woche als Leiste zum Tag-Wechseln. */}
+          {ansicht === "tag" && (
+            <div className="wochen-leiste" aria-label="Tag wählen">
+              {Array.from({ length: 7 }, (_, i) => addDays(wochenStart, i)).map((d) => {
+                const ds = toDateStr(d);
+                const anzahl = ordersOn(ds).filter(passtZumFahrzeug).length;
+                return (
+                  <button key={ds} type="button"
+                    className={"wl-tag" + (ds === selectedDay ? " gewaehlt" : "") + (ds === heuteStr ? " heute" : "")}
+                    onClick={() => setSelectedDay(ds)}
+                    aria-label={`${WOCHENTAG[d.getDay()]}, ${d.getDate()}. ${MONATE[d.getMonth()]}, ${anzahl} Aufträge`}>
+                    <span className="wl-wt">{WOCHENTAG[d.getDay()].slice(0, 2).toUpperCase()}</span>
+                    <span className="wl-nr">{d.getDate()}</span>
+                    <span className={"wl-punkt" + (anzahl > 0 ? " voll" : "")} />
+                  </button>
+                );
+              })}
             </div>
-            {weeks.map((w) => (
-              <div className="monat-reihe" key={toDateStr(w.days[0])}>
-                {/* Die Kalenderwoche ist der Weg in die Woche – ausgewählt wird der Montag. */}
-                <button type="button" className="monat-kw" title={`Woche ${w.kw} öffnen`}
-                  onClick={() => { setSelectedDay(toDateStr(w.days[0])); setAnsicht("woche"); }}>
-                  {w.kw}
-                </button>
-                {w.days.map((d, i) => {
-                  const ds = toDateStr(d);
-                  const inMonth = d.getMonth() === monthCursor.getMonth();
-                  const empsToday = employeesOnDay(ds).filter((e) => empFilter === "all" || e.id === empFilter);
-                  const ordersToday = orders.filter((o) => o.order_date === ds).filter(passtZumFahrzeug);
-                  const hasUnassigned = ordersToday.some((o) => (orderEmployees[o.id] || []).length === 0);
-                  return (
-                    <button type="button" key={ds}
-                      className={"monat-tag" + (inMonth ? "" : " aussen") + (ds === heuteStr ? " heute" : "") + (ds === selectedDay ? " gewaehlt" : "") + (i > 4 ? " wochenende" : "")}
-                      // Ein Tag im Monat angetippt = in diesen Tag hineinzoomen (24.09.2026).
-                      onClick={() => tagOeffnen(ds)}
-                      aria-label={`${d.getDate()}. ${MONATE[d.getMonth()]}, ${ordersToday.length} Aufträge – Tagesplan öffnen`}>
-                      <span className="monat-zahl">{d.getDate()}</span>
-                      <span className="monat-punkte">
-                        {ordersToday.length > 0 && empsToday.slice(0, 4).map((e) => <span key={e.id} style={{ background: employeeColorFor(employees, e.id) }} title={e.name} />)}
-                        {ordersToday.length > 0 && hasUnassigned && empFilter === "all" && <span className="ohne" title="Nicht zugeordnet" />}
-                      </span>
-                    </button>
-                  );
-                })}
+          )}
+          {ansicht === "tag" && dayOrders.length > 1 && (
+            <div className="ro-leiste">
+              <button type="button" className="pl-pille" onClick={() => setRouteFuer(routenGruppen[0]?.id ?? null)}>
+                Route des Tages · {dayOrders.length} Termine ›
+              </button>
+            </div>
+          )}
+          {ansicht !== "monat" && (
+            <>
+              <Stundenraster
+                tage={rasterTage}
+                auftraege={rasterAuftraege}
+                customers={customers}
+                employees={employees}
+                orderEmployees={orderEmployees}
+                standardDauerMin={standardDauerMin}
+                onOeffnen={onOpenOrder}
+                onTagOeffnen={ansicht === "woche" ? tagOeffnen : undefined}
+                onSlot={isTechniker ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
+                onVerschieben={onVerschieben ? (id, datum, von, bis) => { void terminSetzen(id, datum, von, bis); } : undefined}
+              />
+              <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} ziehen={!!onVerschieben} />
+            </>
+          )}
+
+          {/* ---- Monat */}
+          {ansicht === "monat" && (
+            <div className="monat-karte">
+              <div className="monat-reihe monat-kopf">
+                <span className="monat-kw-kopf">KW</span>
+                {["MO", "DI", "MI", "DO", "FR", "SA", "SO"].map((d, i) => <span key={d} className={"monat-wt" + (i > 4 ? " wochenende" : "")}>{d}</span>)}
               </div>
-            ))}
-          </div>
-        )}
+              {weeks.map((w) => (
+                <div className="monat-reihe" key={toDateStr(w.days[0])}>
+                  {/* Die Kalenderwoche ist der Weg in die Woche – ausgewählt wird der Montag. */}
+                  <button type="button" className="monat-kw" title={`Woche ${w.kw} öffnen`}
+                    onClick={() => { setSelectedDay(toDateStr(w.days[0])); setAnsicht("woche"); }}>
+                    {w.kw}
+                  </button>
+                  {w.days.map((d, i) => {
+                    const ds = toDateStr(d);
+                    const inMonth = d.getMonth() === monthCursor.getMonth();
+                    const empsToday = employeesOnDay(ds).filter((e) => empFilter === "all" || e.id === empFilter);
+                    const ordersToday = orders.filter((o) => o.order_date === ds).filter(passtZumFahrzeug);
+                    const hasUnassigned = ordersToday.some((o) => (orderEmployees[o.id] || []).length === 0);
+                    return (
+                      <button type="button" key={ds}
+                        className={"monat-tag" + (inMonth ? "" : " aussen") + (ds === heuteStr ? " heute" : "") + (ds === selectedDay ? " gewaehlt" : "") + (i > 4 ? " wochenende" : "")}
+                        // Ein Tag im Monat angetippt = in diesen Tag hineinzoomen (24.09.2026).
+                        onClick={() => tagOeffnen(ds)}
+                        aria-label={`${d.getDate()}. ${MONATE[d.getMonth()]}, ${ordersToday.length} Aufträge – Tagesplan öffnen`}>
+                        <span className="monat-zahl">{d.getDate()}</span>
+                        <span className="monat-punkte">
+                          {ordersToday.length > 0 && empsToday.slice(0, 4).map((e) => <span key={e.id} style={{ background: employeeColorFor(employees, e.id) }} title={e.name} />)}
+                          {ordersToday.length > 0 && hasUnassigned && empFilter === "all" && <span className="ohne" title="Nicht zugeordnet" />}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
 
         {/* ---- Aufträge am gewählten Tag (nur im Monat – in Woche und Tag steht es im Raster) */}
         {selectedDay && ansicht === "monat" && (

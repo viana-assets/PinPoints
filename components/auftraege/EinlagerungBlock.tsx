@@ -11,6 +11,7 @@ import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
 import { groessenAbweichung } from "@/lib/reifenverkauf";
 import { brauchtGrossesFach, platzGroesse, platzZuKlein, plaetzeFuerReifen } from "@/lib/lagerAnsicht";
 import { QrScanner } from "@/components/QrScanner";
+import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 
 // Einlagerung im Auftragsfenster (Migration 22, siehe docs/lager.md).
 //
@@ -239,9 +240,9 @@ export function EinlagerungBlock({
                 ) : (
                   <div style={{ marginTop: 4 }}>
                     <div className="row" style={{ marginBottom: 4 }}>
-                      <input
-                        type="text" placeholder="Kennzeichen, z. B. N-FS 2013" autoFocus
-                        value={neuesKennzeichen} onChange={(e) => setNeuesKennzeichen(e.target.value)}
+                      <KennzeichenFeld
+                        placeholder="Kennzeichen, z. B. N-FS 2013" autoFocus
+                        value={neuesKennzeichen} onWert={setNeuesKennzeichen}
                       />
                       <input
                         type="text" placeholder="Marke / Modell"

@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 02.10.2026 (Migrationen bis 65, alle ausgeführt; Service Worker v106; Regeln seit der Projektdurchsicht vom
+Stand: 04.10.2026 (Migrationen bis 65, alle ausgeführt; Service Worker v108; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -291,6 +291,13 @@ Jeder Punkt hier hat einmal Zeit gekostet.
 - **Dateien in Supabase Storage löscht kein SQL** (Migration 65). Eine Zeile mit Pfad geht per
   Kaskade mit, die Datei bleibt. Wer etwas mit Bildern löscht, sammelt vorher die Pfade und
   entfernt die Dateien über die Storage-Schnittstelle (`lib/api/belege.ts`, Papierkorb).
+- **Ein Fenster, das in `app/page.tsx` steht, aber aus dem Auftragsfenster heraus geöffnet wird,
+  braucht eine eigene Ebene über dessen `z-index: 10001`.** Das Satz-Etikett hatte keine (10000)
+  und stand im Code vor dem Auftragsfenster – am Handy lag es unsichtbar dahinter und erschien
+  erst nach dem Schließen des Auftrags (04.10.2026, v108). Die Leiter: Auftrag 10001,
+  Bestätigung/Stapel/Auslagern 10002, Rechnung/Blätter 10003, Foto/Unterschrift/Etikett 10004.
+  Geprüft wird mit `document.elementFromPoint` in der Mitte des Bildschirms, nicht durch Hinsehen
+  am Rechner – dort ist das Auftragsfenster schmaler, und das Fenster dahinter lugt hervor.
 - **Bedienelemente im Kartencontainer brauchen `kartenFlaecheSperren`** (app/page.tsx), sonst
   zieht ein Wischen darüber die Karte mit und ein Tipp zählt als Kartenklick. Darin nur
   `onClick` – `mousedown`/`pointerdown` erreichen React dort nicht.

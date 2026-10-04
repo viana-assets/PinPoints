@@ -102,6 +102,7 @@ viana-pinpoints/
     AusgangFenster.tsx              Offline schreiben: „Noch nicht übertragen", Konflikte entscheiden (v101)
     QrScanner.tsx                   Kamera-Scan für Lagerplatz-/Reifensatz-Aufkleber
     FehlerHinweis.tsx               Zentrale Fehlermeldung oben, aus unbehandelten Ablehnungen (C5/C6, v106)
+    KennzeichenFeld.tsx             Eingabefeld für Kennzeichen, schreibt immer groß (v108)
     PwaBereit.tsx / PwaFassung.tsx / PwaInstallieren.tsx
                                     Installations-/Update-Mechanik der PWA
     PushEinstellung.tsx             An-/Abmelden für Push-Benachrichtigungen (Einstellungen)
@@ -234,6 +235,7 @@ viana-pinpoints/
     menuLage.ts                   Menülage bei Seitenzoom (C5, v106)
     csp.ts                        Content-Security-Policy mit Nonce (B4, v106)
     sprungMerker.ts               QR-/Benachrichtigungs-Sprung übersteht das erste Neuladen (D19, v106)
+    wischen.ts                    Wann ein Wisch im Kalender als Blättern zählt (v107)
     auftragsAnsicht.ts / kundenAnsicht.ts / lagerAnsicht.ts / saisonAnsicht.ts / terminAnsicht.ts
                                   Die Regeln hinter den neu gestalteten Listen (Entwürfe H–L,
                                   reine Funktionen, je eine Testdatei)
@@ -265,7 +267,7 @@ viana-pinpoints/
     reifenverkauf.ts              Reifenverkauf: Größe lesen, Hinweise, Lagerwert (Migration 61);
                                   seit v103 Übernahme aus der Einlagerung, Etikett, Auswertung (E17/E18)
     terminAenderung.ts            Termin vorher → nachher für Rückgängig und Historie (v91)
-    kennzeichen.ts                Kennzeichen vergleichen, Dubletten erkennen (v93)
+    kennzeichen.ts                Kennzeichen vergleichen, Dubletten erkennen (v93), groß schreiben (v108)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)

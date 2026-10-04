@@ -789,4 +789,4 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 
 ## Noch auszuführen
 
-- (keine – Runde 5, v106, braucht keine Migration)
+- (keine – v108, Etikett im Auftrag und Kennzeichen groß, braucht keine Migration)

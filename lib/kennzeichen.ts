@@ -14,6 +14,14 @@ export function kennzeichenSchluessel(kennzeichen: string | null | undefined): s
   return (kennzeichen ?? "").toUpperCase().replace(/[\s\-–.·]/g, "");
 }
 
+// So, wie ein Kennzeichen eingetippt gespeichert wird: in Großbuchstaben (v108, KennzeichenFeld).
+// Leerzeichen und Bindestriche bleiben, wie sie getippt wurden – „FÜ-AB 123" ist die übliche
+// Schreibweise, und der Vergleich oben sieht ohnehin über sie hinweg. „ß" bleibt stehen (es
+// käme in einem Kennzeichen nicht vor, und „SS" verschöbe die Schreibmarke).
+export function kennzeichenGross(text: string): string {
+  return text.replace(/[^ß]+/g, (t) => t.toLocaleUpperCase("de-DE"));
+}
+
 // Das Fahrzeug mit diesem Kennzeichen, falls der Kunde es schon hat. Ein leeres Kennzeichen
 // passt zu nichts – „ohne Kennzeichen" ist keine Gleichheit.
 export function fahrzeugMitKennzeichen(fahrzeuge: Vehicle[], kennzeichen: string): Vehicle | null {

@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v106";
+export const APP_VERSION = "v108";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,20 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v108", datum: "2026-10-04", titel: "Etikett aus dem Auftrag, Kennzeichen groß",
+    punkte: [
+      "„Etikett drucken“ im Auftrag öffnet das Etikettfenster jetzt sichtbar vorne. Bisher lag es am Handy hinter dem Auftrag und erschien erst nach dem Schließen.",
+      "Kennzeichen werden beim Eintippen immer groß geschrieben – am iPhone steht die Tastatur gleich auf Großbuchstaben. Das gilt beim Kunden, im Auftrag, beim Einlagern und bei den Transportern.",
+    ],
+  },
+  {
+    version: "v107", datum: "2026-10-04", titel: "Im Kalender wischen",
+    punkte: [
+      "In der Einsatzplanung lässt sich jetzt auch durch Wischen blättern: nach links wischen zeigt den nächsten Monat, die nächste Woche oder den nächsten Tag, nach rechts wischen den vorherigen – je nachdem, welche Ansicht gerade offen ist. Die Pfeile oben bleiben.",
+      "Gewischt wird auf dem Kalender selbst. Senkrecht scrollen, einen Termin lang drücken und ziehen und mit zwei Fingern zoomen gehen wie bisher.",
+    ],
+  },
   {
     version: "v106", datum: "2026-10-02", titel: "Sicherer und aufgeräumt",
     punkte: [
