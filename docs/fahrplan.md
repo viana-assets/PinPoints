@@ -16,6 +16,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **04.10.2026 – Freie Termine grau, Suche mit × (Service Worker v110, ohne Migration).**
+  Termine ohne zugeteilten Mitarbeiter sind im Stundenraster hellgrau statt weiß. Jedes
+  Listen-Suchfeld hat ein × zum Leeren, auch am iPhone (`components/SuchFeld.tsx`, neun Stellen).
+
+* **04.10.2026 – Rechnung anderswo, Fehler aus dem Handbuch (Migration 66, Service Worker v109).**
+  Erledigte Aufträge lassen sich als „anderswo abgerechnet" vermerken (Wunsch 04.10.2026: ein
+  zweites System schreibt manche Rechnungen). Behoben: Rechnung für Laufkundschaft gesperrt,
+  leerer Druck aus dem Rechnungsbuch am iPhone, kein Weg zurück für einzeln gelöschte Aufträge
+  (jetzt Papierkorb), Rolle „Nutzer" beim Techniker, DATEV-Hinweis „Betriebsdaten", zwei
+  veraltete Doku-Stellen (Protokoll lesen, Uhrzeit-Pflicht, Wiedereröffnen).
+
 * **04.10.2026 – Etikett aus dem Auftrag, Kennzeichen groß (Service Worker v108).** Das
   Satz-Etikett lag am Handy hinter dem Auftragsfenster (eigene Ebene `.modal-etikett`, 10004).
   Kennzeichenfelder schreiben groß (`KennzeichenFeld`, `kennzeichenGross()`).
@@ -662,6 +673,8 @@ B1 und B2 erledigt. Ab hier:
 Kleine Punkte, die bei Vitali oder im Betrieb liegen oder auf eine Rückmeldung warten:
 
 - **Doppelte Fahrzeuge** beim Kunden (vor v93 entstanden) im Kundenfenster löschen.
+- **Noch offen aus der Liste vom 04.10.2026:** Offline schreiben Runde 2 (F1) und `app/page.tsx`
+  weiter teilen (C5) – als eigene Runden nach v109.
 - **Brother QL-820NWBc:** Druck über PDF im Betrieb bestätigt (02.10.2026), Format 58 × 58 seit v96
   fest, 60 × 86 seit v99 wieder wählbar. Offen: Regalaufkleber auf dem Brother testen (seit v99),
   die Folienrolle DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf

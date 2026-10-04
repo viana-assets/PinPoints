@@ -789,4 +789,22 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 
 ## Noch auszuführen
 
-- (keine – v108, Etikett im Auftrag und Kennzeichen groß, braucht keine Migration)
+- `66_rechnung_anderswo.sql` – **nach `65`, SQL zuerst, dann die Dateien von v109** (die Oberfläche
+  liest `orders.rechnung_extern`). (1) Spalte `orders.rechnung_extern`; ein Haken ohne gültige
+  Rechnung aus der Zeit von Migration 40 („im ERP erstellt") wird als anderswo abgerechnet übernommen.
+  (2) `stempel_rechnung()` neu: von Hand vermerken („anderswo abgerechnet", auf Wunsch mit Nummer) nur
+  bei erledigtem Auftrag mit „Rechnung nötig" und nur mit `rechnungen·schreiben`; zurücknehmen
+  ebenso; die Herkunft bestimmt der Trigger, nie der Aufrufer; die Nummer einer Rechnung aus dem MR
+  Assistent lässt sich von Hand nicht ändern. (3) `pruefe_rechnung_nicht_anderswo()` auf
+  `rechnungen`: keine Rechnung für einen anderswo abgerechneten Auftrag. (4) `pruefe_auftrag_loeschen()`
+  neu: auch ein anderswo abgerechneter Auftrag ohne Nummer wird nicht gelöscht. Ergebnistabelle mit
+  drei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/66_rollback.sql` (Haken und Nummer
+  bleiben, nur die Herkunft geht verloren). Geprüft gegen Postgres 16 (Stand 65): Techniker sieht den
+  fremden Auftrag nicht, Nutzer ohne Rechnungsrecht abgewiesen, offener Auftrag abgewiesen; Admin
+  vermerkt mit Nummer (Leerzeichen entfernt, Datum und Person vom Server) und ohne; `rechnung_extern`
+  direkt umschalten wirkungslos; Nummer nachtragen; Rechnung im MR Assistent für den vermerkten Auftrag
+  abgewiesen, ohne eine Nummer zu verbrauchen; Löschen mit und ohne Nummer abgewiesen; Nutzer nimmt
+  nicht zurück, Admin schon; danach Rechnung im MR Assistent, Haken intern, ihre Nummer von Hand
+  unveränderlich; Kunde in den Papierkorb und zurück lässt die Herkunft stehen; einzelner Auftrag
+  gelöscht und wiederhergestellt; zurückgenommen, zweimal; Altbestand mit ERP-Nummer beim erneuten
+  Lauf übernommen.

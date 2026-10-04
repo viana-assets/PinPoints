@@ -43,6 +43,11 @@
        freie Plätze", sondern fast nichts. Dieser Ton ist dieselbe Familie, nur so viel
        dunkler, dass die Form trägt. */
     --frei-linie:#c9bfa9;
+    /* Ein Termin, der noch niemandem zugeteilt ist (v110). Bis v109 weiß wie das Raster
+       selbst – im Handy-Bild war er davor kaum zu sehen, nur die gestrichelte Kante trug ihn.
+       Jetzt eine leicht graue Fläche mit etwas dunklerer Kante: sichtbar, aber erkennbar ohne
+       Personenfarbe. Neutral statt beige, damit er sich auch von der Spalte „heute" abhebt. */
+    --ohne-person:#e4e2de; --ohne-person-linie:#a89f8c;
     --navy:#1E3A5F;
     --hover:#ece6da; --input-bg:#ffffff; --stat-bg:#ffffff; --chip-bg:#ffffff; --chip-hover:#fff6f0;
     --overlay:rgba(30,24,14,.5);
@@ -1700,12 +1705,12 @@ input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
 .tm-block.tm-storniert .tm-wer{text-decoration:line-through;}
 /* Noch niemandem zugeteilt: keine Person, also keine Personenfarbe. Grau und gestrichelt –
    dieselbe Aussage wie ein freier Lagerplatz. */
-.tm-block.tm-ohne-person{background:var(--panel);color:var(--text);
-  border:1.5px dashed var(--frei-linie);box-shadow:none;}
+.tm-block.tm-ohne-person{background:var(--ohne-person);color:var(--text);
+  border:1.5px dashed var(--ohne-person-linie);box-shadow:0 1px 2px rgba(43,38,32,.12);}
 /* Angenommenes Ende (kein `end_time` gepflegt): die Unterkante ist eine Vermutung und sieht
    auch so aus. Sonst liest jemand die angenommene Stunde als Zusage. */
 .tm-block.tm-geschaetzt{border-bottom-style:dashed;border-bottom-color:rgba(255,255,255,.75);}
-.tm-block.tm-ohne-person.tm-geschaetzt{border-bottom-color:var(--frei-linie);}
+.tm-block.tm-ohne-person.tm-geschaetzt{border-bottom-color:var(--ohne-person-linie);}
 
 /* Termine ziehen (25.09.2026): verschieben am ganzen Block, Dauer an der Unterkante.
    Kein Markieren von Text und kein Kontextmenü beim langen Drücken – beides würde am Handy
@@ -1779,7 +1784,7 @@ button.el-zeile:hover{border-color:var(--accent);}
   font-size:11.5px;color:var(--muted);margin-top:8px;}
 .raster-legende span{display:flex;align-items:center;gap:5px;}
 .raster-legende i{width:12px;height:12px;border-radius:3px;flex:0 0 auto;}
-.raster-legende i.leg-ohne{background:var(--panel);border:1.5px dashed var(--frei-linie);}
+.raster-legende i.leg-ohne{background:var(--ohne-person);border:1.5px dashed var(--ohne-person-linie);}
 .raster-legende .rl-form{color:var(--muted);}
 
 /* Am Handy stehen seit 26.09.2026 alle sieben Tage nebeneinander, ohne seitliches Wischen.
@@ -2019,6 +2024,8 @@ button.el-zeile:hover{border-color:var(--accent);}
   min-width:0;}
 .rechnung-stand b{font-size:13px;}
 .rechnung-stand.erledigt{background:var(--bg);}
+/* Zwei Knöpfe nebeneinander, seit v109 („Rechnung erstellen" · „Anderswo abgerechnet"). */
+.rechnung-stand-knoepfe{display:flex;flex-wrap:wrap;gap:6px;}
 
 /* D2/D3: Was beim letzten Mal an diesem Fahrzeug auffiel. Steht über den Leistungen, weil
    genau dort die Entscheidung fällt, ob man Neureifen anbietet. */
@@ -2611,6 +2618,15 @@ span.db-link{cursor:inherit;}
 .lg-suchfeld input{flex:1;min-width:0;width:auto;border:none;outline:none;background:transparent;padding:0;height:100%;
   font:inherit;font-size:16px;color:var(--text);box-shadow:none;}
 .lg-suchfeld:focus-within{box-shadow:0 0 0 2px var(--accent);}
+/* Das × zum Leeren (v110, components/SuchFeld.tsx). Kommt aus der App, weil Safari am iPhone
+   keins zeigt; das eigene des Browsers ist deshalb aus – sonst stünden am Rechner zwei da.
+   Die Fläche ist 32 px groß (Finger), das Zeichen darin klein. */
+.lg-suchfeld input::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none;display:none;}
+.lg-leeren{flex:0 0 auto;width:32px;height:32px;margin-right:-6px;border:none;border-radius:50%;
+  background:transparent;color:var(--muted);display:inline-flex;align-items:center;justify-content:center;
+  padding:0;cursor:pointer;}
+.lg-leeren svg{width:20px;height:20px;padding:4px;border-radius:50%;background:var(--hover);box-sizing:border-box;}
+.lg-leeren:hover svg{background:var(--border);color:var(--text);}
 /* In der Zeile mit dem Scan-Knopf (Lager) nimmt das Feld den Rest der Breite; als eigene Zeile
    (Kundenliste) darf es nicht wachsen – `flex:1` in einer Spalte hieße Höhe 0 plus Inhalt. */
 .lg-suche .lg-suchfeld{flex:1 1 auto;}
@@ -3294,6 +3310,8 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ad-reiter button:hover{color:var(--text);}
 .ad-abschnitt{display:flex;flex-direction:column;gap:8px;}
 .ad-hilfe{padding:0 2px;}
+/* Zweiter Abschnitt im Papierkorb (Aufträge, v109). */
+.ad-zwischen{font-size:15px;font-weight:700;margin:14px 2px 0;}
 .ad-ok{color:var(--green);}
 .ad-aktion{gap:8px;}
 .ad-aktion-titel{font-size:14.5px;}

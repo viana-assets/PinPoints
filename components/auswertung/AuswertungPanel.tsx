@@ -329,7 +329,11 @@ export function AuswertungPanel(p: {
               <span className="am-a-titel">UMSATZ · {titel.toUpperCase()}</span>
               <div className="am-a-zeile"><span className="am-a-wert">{eur0(s.netto)}</span><span className="am-a-unter">netto</span></div>
               {p.darfRechnungen && (
-                <span className="am-a-klein">{eur0(s.mitRechnung)} abgerechnet · {eur0(s.ohneRechnung)} ohne Rechnung ({s.ohneAnzahl} {s.ohneAnzahl === 1 ? "Auftrag" : "Aufträge"})</span>
+                <span className="am-a-klein">
+                  {eur0(s.mitRechnung)} abgerechnet
+                  {s.anderswoAnzahl > 0 && <> · {eur0(s.anderswo)} anderswo abgerechnet ({s.anderswoAnzahl} {s.anderswoAnzahl === 1 ? "Auftrag" : "Aufträge"})</>}
+                  {" · "}{eur0(s.ohneRechnung)} ohne Rechnung ({s.ohneAnzahl} {s.ohneAnzahl === 1 ? "Auftrag" : "Aufträge"})
+                </span>
               )}
               {vergleich && (
                 <>
@@ -715,7 +719,7 @@ export function AuswertungPanel(p: {
                       <span className="am-x-marke gruen">DATEV</span>
                       <span className="ab-text"><b>DATEV-Buchungsstapel</b><span className="small">für den Steuerberater · SKR{a.betrieb?.datev_skr ?? "03"}, je Kunde ein Debitor</span></span>
                     </button>
-                    {datevHinweise.length > 0 && <span className="small am-x-hinweis">Erst in den Betriebsdaten eintragen (Admin → Betriebsdaten → DATEV-Export): {datevHinweise.join(" ")}</span>}
+                    {datevHinweise.length > 0 && <span className="small am-x-hinweis">Erst in den Betriebsdaten eintragen (Admin → Betrieb → DATEV-Export): {datevHinweise.join(" ")}</span>}
                     {exportFehler.length > 0 && <div className="hinweis-pflicht">{exportFehler.map((f) => <div key={f}>{f}</div>)}</div>}
                     <button type="button" className="ab-option am-x" disabled={!a.betrieb} onClick={() => a.betrieb && herunterladen(`Debitoren_${z.von}_${z.bis}.csv`, debitorenlisteCsv(a.rechnungen, a.betrieb, z), "text/csv;charset=utf-8")}>
                       <span className="am-x-marke blau">CSV</span>
@@ -766,10 +770,10 @@ export function AuswertungPanel(p: {
                   <div className="am-monat-liste">
                     {monatZeilen.map((x, i) => (
                       <button key={(x.rechnung?.id ?? x.order_id ?? "") + i} type="button" className="am-listen-zeile" disabled={!x.order_id} onClick={() => { if (x.order_id) { setBlatt(null); p.onOpenOrder(x.order_id); } }}>
-                        <span className="am-nr">{x.rechnung ? x.rechnung.nummer_text : "ohne"}</span>
+                        <span className="am-nr">{x.rechnung ? x.rechnung.nummer_text : x.quelle === "anderswo" ? "extern" : "ohne"}</span>
                         <span className="am-lz-text">
                           <b>{x.rechnung ? ((x.rechnung.empfaenger?.company || "").trim() || x.rechnung.empfaenger?.name) : ((p.customers.find((c) => c.id === x.customer_id)?.company || "").trim() || p.customers.find((c) => c.id === x.customer_id)?.name || "Auftrag")}</b>
-                          <span className="small">{tagDeutsch(x.datum)}{x.quelle === "storno" ? " · Storno" : x.quelle === "ohne" ? " · ohne Rechnung" : ""}</span>
+                          <span className="small">{tagDeutsch(x.datum)}{x.quelle === "storno" ? " · Storno" : x.quelle === "ohne" ? " · ohne Rechnung" : x.quelle === "anderswo" ? " · anderswo abgerechnet" : ""}</span>
                         </span>
                         <b>{formatEUR(x.netto)}</b>
                       </button>

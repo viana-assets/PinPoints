@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rechnungOffen } from "@/lib/helpers";
-import { nummernkreisFehler } from "@/lib/rechnung";
+import { ausstellMaengel, nummernkreisFehler } from "@/lib/rechnung";
 
 // Die Arbeitsliste „welche Rechnung muss ich noch schreiben". Ein Fehler hier heisst: ein
 // Auftrag wird nie abgerechnet, und zwar ohne dass irgendwo etwas fehlt - er taucht einfach
@@ -70,5 +70,15 @@ describe("nummernkreisFehler", () => {
   it("benennt die Lücke, die entstünde", () => {
     expect(nummernkreisFehler(1786, 1784, "RE")).toMatch(/fehlten die Nummern RE1785 im Kreis/);
     expect(nummernkreisFehler(1790, 1784, "RE")).toMatch(/RE1785 bis RE1789/);
+  });
+});
+
+describe("ausstellMaengel (v109)", () => {
+  it("Laufkundschaft braucht keine Anschrift", () => {
+    expect(ausstellMaengel({ kunde: { address: "", laufkundschaft: true }, betrieb: { firma: "X" }, zeilenAnzahl: 1 })).toEqual([]);
+    expect(ausstellMaengel({ kunde: { address: "", laufkundschaft: false }, betrieb: { firma: "X" }, zeilenAnzahl: 1 })).toEqual(["die Anschrift des Kunden fehlt"]);
+  });
+  it("nennt alles auf einmal, auch den Vermerk anderswo", () => {
+    expect(ausstellMaengel({ kunde: null, betrieb: { firma: " " }, zeilenAnzahl: 0, anderswo: true })).toHaveLength(4);
   });
 });

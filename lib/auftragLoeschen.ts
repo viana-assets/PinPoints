@@ -3,7 +3,7 @@
 // Bis v99 ließ sich jeder Auftrag mit derselben Rückfrage löschen, auch ein abgerechneter. Die
 // Rechnung blieb als Beleg bestehen, war aber über den Auftrag nicht mehr auffindbar. Jetzt:
 //
-//   * Rechnung vorhanden → NICHT löschen. Der Auftrag ist der Weg zur Rechnung.
+//   * Rechnung vorhanden (auch anderswo abgerechnet, v109) → NICHT löschen. Der Auftrag ist der Weg zur Rechnung.
 //   * erledigt / storniert → löschen geht, aber mit einer Frage, die sagt, was dabei verloren geht.
 //   * sonst → die bisherige Rückfrage.
 //
@@ -19,8 +19,15 @@ export type LoeschPruefung =
   | { erlaubt: false; grund: string }
   | { erlaubt: true; frage: string };
 
-export function auftragLoeschPruefung(o: Pick<Order, "order_number" | "status" | "rechnung_nummer">): LoeschPruefung {
+export function auftragLoeschPruefung(o: Pick<Order, "order_number" | "status" | "rechnung_nummer" | "rechnung_extern">): LoeschPruefung {
   const nr = auftragsNr(o.order_number);
+  // Anderswo abgerechnet (Migration 66): auch ohne Nummer ein Nachweis, dass abgerechnet ist.
+  if (o.rechnung_extern && !o.rechnung_nummer) {
+    return {
+      erlaubt: false,
+      grund: `Auftrag ${nr} ist als anderswo abgerechnet vermerkt und wird nicht gelöscht – erst den Vermerk zurücknehmen.`,
+    };
+  }
   if (o.rechnung_nummer) {
     return {
       erlaubt: false,

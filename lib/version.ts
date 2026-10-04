@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v108";
+export const APP_VERSION = "v110";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,23 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v110", datum: "2026-10-04", titel: "Freie Termine grau, Suche mit ×",
+    punkte: [
+      "Im Kalender (Woche und Tag) sind Termine, die noch niemandem zugeteilt sind, jetzt hellgrau hinterlegt statt weiß – man sieht sie auf einen Blick.",
+      "Jedes Suchfeld in den Listen (Kunden, Aufträge, Lager, Rechnungen …) hat am Ende ein ×, das den Suchtext auf einmal löscht – jetzt auch am iPhone.",
+    ],
+  },
+  {
+    version: "v109", datum: "2026-10-04", titel: "Rechnung anderswo erstellt",
+    punkte: [
+      "Ein erledigter Auftrag lässt sich jetzt als „anderswo abgerechnet“ vermerken, wenn die Rechnung in einem anderen System entstanden ist – auf Wunsch mit deren Rechnungsnummer. Er verschwindet dann aus „Rechnungen noch nicht ausgestellt“ und zählt in der Auswertung mit seinem Betrag. Zu finden im Auftrag bei der Rechnung oder im Menü „⋯“; zurücknehmen geht jederzeit.",
+      "Rechnungen für die Laufkundschaft lassen sich ausstellen – bisher verlangte das Fenster eine Anschrift, die es dort nicht gibt.",
+      "Aus dem Rechnungsbuch druckt das iPhone die Rechnung jetzt richtig, nicht mehr als leeres Blatt.",
+      "Einzeln gelöschte Aufträge stehen im Papierkorb (Admin) und lassen sich zurückholen.",
+      "Kleinigkeiten: In den Einstellungen steht bei Technikern jetzt „Techniker“, und der Hinweis beim DATEV-Export nennt den richtigen Reiter „Betrieb“.",
+    ],
+  },
   {
     version: "v108", datum: "2026-10-04", titel: "Etikett aus dem Auftrag, Kennzeichen groß",
     punkte: [

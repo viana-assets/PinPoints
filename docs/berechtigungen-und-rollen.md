@@ -30,9 +30,10 @@ Die Rolle steht in `profiles.role` (Constraint aus Migration 05), Anzeigenamen z
 Dazu kommt der **Superadmin**, und er ist bewusst keine vierte Spalte in der Matrix: Er darf
 immer alles, unabhängig davon, was in der Tabelle steht. Das ist das Sicherheitsnetz – eine
 falsch gesetzte Zeile darf nicht dazu führen, dass sich niemand mehr an die Verwaltung
-heranarbeiten kann. Der Superadmin ist die einzige Rolle, die die volle Accountliste sieht,
-die Rolle Superadmin vergeben und das Änderungsprotokoll (`public.audit_log`, Migration 18)
-lesen darf. Die Rechtematrix selbst ist ebenfalls nur für ihn sichtbar.
+heranarbeiten kann. Der Superadmin ist die einzige Rolle, die die volle Accountliste sieht
+und die Rolle Superadmin vergeben darf. Die Rechtematrix selbst ist ebenfalls nur für ihn sichtbar.
+Das Änderungsprotokoll (`public.audit_log`, Migration 18) lesen Admin **und** Superadmin – die
+Richtlinie „Admin liest das Protokoll" aus Migration 36 (bis 04.10.2026 stand hier „nur Superadmin").
 
 Gegen Selbstbeförderung ist die Rolle eigens gesperrt: Ein Trigger auf `profiles`
 (Migration 15/16) lehnt jede Änderung an `role` ab, die nicht vom Superadmin oder vom

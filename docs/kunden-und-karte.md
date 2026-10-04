@@ -8,7 +8,8 @@
   Termine** dieses Kunden (siehe `auftraege.md`), Kontakt-Historie.
 - **Kundenliste, neu gestaltet am 26.09.2026** (Entwurf „J · Kundenliste",
   `components/kunden/KundenListePanel.tsx`, Regeln in `lib/kundenAnsicht.ts`): Bedienleiste, die
-  beim Scrollen stehen bleibt – Titel mit Zahl und „+ Neu", Suche, Zustand als Pillen mit
+  beim Scrollen stehen bleibt – Titel mit Zahl und „+ Neu", Suche (mit × zum Leeren, seit v110
+  auch am iPhone – `components/SuchFeld.tsx`), Zustand als Pillen mit
   Farbpunkt wie die Nadeln und Trefferzahl, „Gebiet" (PLZ-Blatt mit Vorschlägen, dieselben wie
   in der Saisonliste) und „A–Z" (Buchstabenblatt) statt PLZ-Feld und Buchstabenleiste. Darüber
   der Liste die Karte **„Rückrufe heute fällig"** (Wiedervorlage erreicht, Kunde offen –

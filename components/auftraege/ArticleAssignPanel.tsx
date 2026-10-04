@@ -3,6 +3,7 @@ import type { Article, ArticlePrice, Auftragsvorlage, OrderArticle, ReifenZustan
 import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
 import { reifenFrei, reifenZustandVonArtikel } from "@/lib/reifenverkauf";
 import { ReifenSuche } from "./ReifenSuche";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Was der Reifenverkauf (Migration 61) im Auftrag braucht. Fehlt es (kein Leserecht auf
 // „Lager · Reifenverkauf", Bestand noch nicht geladen), gibt es den Knopf nicht – ein Artikel
@@ -260,10 +261,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
               <div className="ab-titel">Leistung hinzufügen</div>
               <button type="button" className="modal-close" onClick={() => setBlattOffen(false)} aria-label="Schließen">×</button>
             </div>
-            <label className="lg-suchfeld ls-suche">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-              <input type="search" placeholder="Leistung suchen …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Leistung suchen" autoFocus />
-            </label>
+            <SuchFeld className="ls-suche" value={suche} onWert={setSuche}
+              placeholder="Leistung suchen …" ariaLabel="Leistung suchen" autoFocus />
             <span className="small">Menge 1 – Menge, Endpreis und Text danach an der Zeile.</span>
             {katalog.length === 0 && <span className="small ls-leer">Kein Treffer.</span>}
             {katalog.map((a) => {

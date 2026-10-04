@@ -81,6 +81,16 @@ describe("Umsatz aus dem Rechnungsbuch", () => {
     const s = umsatzSumme(p, { von: "2026-09-01", bis: HEUTE });
     expect(s).toMatchObject({ netto: 250, mitRechnung: 200, ohneRechnung: 50, rechnungen: 1, ohneAnzahl: 1 });
   });
+  it("anderswo abgerechnet zählt mit dem Auftragsbetrag, nicht als offen (v109)", () => {
+    const anders = o("2026-09-14", "erledigt", { id: "anders", rechnung_noetig: true, rechnung_extern: true, rechnung_erstellt_am: "2026-09-15" } as Partial<Order>);
+    const p = umsatzposten([rechnung], [auftragMitRechnung, anders, offen], summe, true);
+    expect(p.map((x) => x.quelle)).toEqual(["rechnung", "anderswo"]);
+    expect(umsatzSumme(p, { von: "2026-09-01", bis: HEUTE })).toMatchObject({ netto: 300, mitRechnung: 200, anderswo: 100, anderswoAnzahl: 1, ohneAnzahl: 0 });
+    expect(erbrachtNichtAbgerechnet([anders, offen]).map((x) => x.id)).toEqual(["offen"]);
+    // Erst hier ausgestellt und storniert, dann anderswo: zählt anderswo (Rechnung + Storno = 0).
+    const p2 = umsatzposten([r("2026-09-15", 100, { order_id: "anders" }), r("2026-09-16", -100, { art: "storno", order_id: "anders", hebt_auf: "x" } as Partial<Rechnung>)].map((x, i) => i === 0 ? { ...x, storniert_durch: "s" } : x), [anders], summe, true);
+    expect(umsatzSumme(p2, { von: "2026-09-01", bis: HEUTE }).netto).toBe(100);
+  });
   it("Storno zieht an seinem Datum ab", () => {
     const p = umsatzposten([rechnung, storno], [], summe, true);
     expect(umsatzSumme(p, { von: "2026-09-01", bis: "2026-09-15" }).netto).toBe(200);

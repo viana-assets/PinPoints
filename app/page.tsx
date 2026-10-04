@@ -115,7 +115,7 @@ import {
 import {
   replaceOrderEmployees,
   insertOrder, updateOrderById, updateOrderTermin, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
-  updateOrderFirmenfahrzeug,
+  updateOrderFirmenfahrzeug, rechnungAnderswoVermerken, rechnungAnderswoZuruecknehmen,
   AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
 } from "@/lib/api/orders";
 import {
@@ -3180,6 +3180,7 @@ export default function HomePage() {
             onChange={saveSettingsPatch}
             isAdmin={isAdmin}
             isSuperAdmin={isSuperAdmin}
+            isTechniker={isTechniker}
             userEmail={userEmail}
             datenStand={kundenQuery.dataUpdatedAt}
             onAktualisieren={() => { void queryClient.invalidateQueries(); }}
@@ -3608,6 +3609,12 @@ export default function HomePage() {
           // Kein Knopf für den, der Rechnungen nicht einmal lesen darf. Ein Knopf, der ein
           // Fenster mit lauter abgeschalteten Schaltern öffnet, ist schlechter als keiner.
           onRechnungOeffnen={darf("rechnungen", "lesen") ? (id) => setRechnungAuftragId(id) : undefined}
+          // Rechnung in einem anderen System erstellt (Migration 66, v109) – nur, wer Rechnungen
+          // schreiben darf. Danach die Aufträge neu: Die Liste „noch nicht ausgestellt" hängt daran.
+          rechnungAnderswo={darf("rechnungen", "schreiben") ? {
+            vermerken: async (id, nummer) => { await rechnungAnderswoVermerken(supabase, id, nummer); await refreshOrders(); },
+            zuruecknehmen: async (id) => { await rechnungAnderswoZuruecknehmen(supabase, id); await refreshOrders(); },
+          } : undefined}
           auftragFahrzeuge={auftragFahrzeuge}
           onEmailSpeichern={kundenEmailSpeichern}
           onFahrzeugHinzufuegen={fahrzeugHinzufuegen}

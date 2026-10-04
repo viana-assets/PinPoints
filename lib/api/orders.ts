@@ -219,11 +219,71 @@ export async function updateOrderStatusById(
   );
 }
 
-// `setzeRechnungErstellt()` stand hier bis zum 18.09.2026: der Haken „im ERP geschrieben"
-// samt frei eingetippter Nummer (Migration 40). Seit PinPoints die Rechnung selbst ausstellt,
-// setzt den Haken ein Trigger (Migration 49) – und Migration 49 lässt ihn auch nicht mehr von
-// Hand lösen, solange ein gültiger Beleg am Auftrag hängt. Eine Funktion, die das trotzdem
-// anbietet, wäre ein Versprechen, das die Datenbank bricht.
+// „Anderswo abgerechnet" (Migration 66, v109). Bis zum 18.09.2026 stand hier
+// `setzeRechnungErstellt()` (Migration 40, „im ERP geschrieben") und wurde entfernt, als PinPoints
+// die Rechnungen selbst ausstellte. Seit 04.10.2026 entstehen manche Rechnungen wieder in einem
+// zweiten System – und ohne Vermerk blieben diese Aufträge für immer unter „noch nicht
+// ausgestellt" stehen.
+//
+// Datum, Person und die Herkunft „anderswo" setzt der Trigger `stempel_rechnung()`; was hier als
+// Zeitpunkt mitgeht, ist nur das Zeichen „jetzt abhaken". Er prüft auch: nur erledigt, nur mit
+// „Rechnung nötig", nur wer Rechnungen schreiben darf. Zurücknehmen geht nur, solange keine
+// Rechnung aus dem MR Assistent dranhängt – die wird storniert, nicht abgehakt.
+export async function rechnungAnderswoVermerken(supabase: SupabaseClient, id: string, nummer: string | null): Promise<void> {
+  await qWrite(
+    "Der Auftrag konnte nicht als abgerechnet vermerkt werden",
+    supabase.from("orders").update({ rechnung_erstellt_am: new Date().toISOString(), rechnung_nummer: nummer?.trim() || null }).eq("id", id)
+  );
+}
+
+export async function rechnungAnderswoZuruecknehmen(supabase: SupabaseClient, id: string): Promise<void> {
+  await qWrite(
+    "Der Vermerk „anderswo abgerechnet“ konnte nicht zurückgenommen werden",
+    supabase.from("orders").update({ rechnung_erstellt_am: null, rechnung_nummer: null }).eq("id", id)
+  );
+}
+
+// Einen einzeln gelöschten Auftrag zurückholen (v109). Die Leistungen kommen über den Trigger aus
+// Migration 19 mit, die Reservierung verkaufter Reifen über Migration 61. Recht: Aufträge schreiben.
+export async function auftragWiederherstellen(supabase: SupabaseClient, id: string): Promise<void> {
+  await qWrite(
+    "Der Auftrag konnte nicht wiederhergestellt werden",
+    supabase.from("orders").update({ deleted_at: null }).eq("id", id)
+  );
+}
+
+export type GeloeschterAuftrag = Pick<Order, "id" | "order_number" | "title" | "order_date" | "status" | "customer_id"> & {
+  deleted_at: string;
+  kunde: string;
+};
+
+// Der Papierkorb für Aufträge: nur die EINZELN gelöschten – Aufträge eines gelöschten Kunden kommen
+// mit dem Kunden zurück und stehen deshalb bei ihm. Zwei einfache Abfragen statt einer
+// verschachtelten, damit der Offline-Zwischenspeicher und der Prüfaufbau sie verstehen.
+export async function fetchGeloeschteAuftraege(supabase: SupabaseClient): Promise<GeloeschterAuftrag[]> {
+  const auftraege = await fetchPaged<Pick<Order, "id" | "order_number" | "title" | "order_date" | "status" | "customer_id"> & { deleted_at: string }>(
+    "Die gelöschten Aufträge konnten nicht geladen werden",
+    (von, bis) => supabase.from("orders")
+      .select("id,order_number,title,order_date,status,customer_id,deleted_at")
+      .not("deleted_at", "is", null)
+      .order("deleted_at", { ascending: false }).order("id")
+      .range(von, bis)
+  );
+  if (auftraege.length === 0) return [];
+  const kundenIds = [...new Set(auftraege.map((a) => a.customer_id))];
+  const kunden: { id: string; name: string | null; company: string | null; deleted_at: string | null }[] = [];
+  for (let i = 0; i < kundenIds.length; i += 200) {
+    const teil = await fetchPaged<{ id: string; name: string | null; company: string | null; deleted_at: string | null }>(
+      "Die Kunden der gelöschten Aufträge konnten nicht geladen werden",
+      (von, bis) => supabase.from("customers").select("id,name,company,deleted_at").in("id", kundenIds.slice(i, i + 200)).order("id").range(von, bis)
+    );
+    kunden.push(...teil);
+  }
+  const je = new Map(kunden.map((k) => [k.id, k]));
+  return auftraege
+    .filter((a) => { const k = je.get(a.customer_id); return !!k && !k.deleted_at; })
+    .map((a) => { const k = je.get(a.customer_id)!; return { ...a, kunde: k.company?.trim() || k.name?.trim() || "Kunde" }; });
+}
 
 // Freitext-Notiz der zugeordneten Techniker-Rolle (siehe lib/types.ts Order.techniker_notiz).
 // Migration 13/15 erlaubt der Techniker-Rolle per RLS nur, `status` und `techniker_notiz` an

@@ -143,6 +143,10 @@ export function veraenderung(jetzt: number, vorher: number): number | null {
 // und sie tauchen in keinem Rechnungsbuch auf. Erledigte Aufträge MIT „Rechnung nötig", aber ohne
 // Rechnung, sind noch kein Umsatz: Sie stehen als „Erbracht, noch nicht abgerechnet" daneben.
 //
+// Seit Migration 66 (v109) gibt es dazwischen „anderswo abgerechnet": Die Rechnung entstand in
+// einem anderen System und steht in keinem Rechnungsbuch hier. Solche Aufträge zählen mit ihrem
+// eigenen Betrag (netto und Steuer aus den Positionen) am Auftragsdatum – sonst fehlte ihr Umsatz.
+//
 // Ohne Leserecht auf das Rechnungsbuch (`rechnungen · lesen`) liefert die Datenbank schlicht
 // keine Rechnungen – still, ohne Fehler. Dann wäre der Umsatz zu klein, ohne dass es jemand
 // merkt. Für diesen Fall rechnet `umsatzposten` wie bisher aus allen erledigten Aufträgen.
@@ -150,7 +154,7 @@ export type Umsatzposten = {
   datum: string;
   netto: number;
   steuer: number;
-  quelle: "rechnung" | "storno" | "ohne";
+  quelle: "rechnung" | "storno" | "ohne" | "anderswo";
   customer_id: string | null;
   order_id: string | null;
   rechnung: Rechnung | null;
@@ -165,11 +169,21 @@ export function umsatzposten(
   const posten: Umsatzposten[] = [];
   if (mitRechnungsbuch) {
     const mitBeleg = new Set(rechnungen.map((r) => r.order_id).filter(Boolean));
+    // Für „anderswo" zählt nur ein GÜLTIGER Beleg: Wer hier eine Rechnung storniert und den Auftrag
+    // danach anderswo abgerechnet hat, hat Rechnung und Storno (zusammen 0) im Buch.
+    const mitGueltigemBeleg = new Set(rechnungen.filter((r) => r.art === "rechnung" && !r.storniert_durch).map((r) => r.order_id).filter(Boolean));
     for (const r of rechnungen) {
       posten.push({ datum: r.datum, netto: r.netto, steuer: r.steuer, quelle: r.art === "storno" ? "storno" : "rechnung", customer_id: r.customer_id, order_id: r.order_id, rechnung: r });
     }
     for (const o of orders) {
-      if (o.deleted_at || o.status !== "erledigt" || o.rechnung_noetig || mitBeleg.has(o.id)) continue;
+      if (o.deleted_at || o.status !== "erledigt") continue;
+      if (o.rechnung_noetig) {
+        if (!o.rechnung_extern || !o.rechnung_erstellt_am || mitGueltigemBeleg.has(o.id)) continue;
+        const s = auftragSumme(o);
+        posten.push({ datum: o.order_date, netto: s.net, steuer: s.vat, quelle: "anderswo", customer_id: o.customer_id, order_id: o.id, rechnung: null });
+        continue;
+      }
+      if (mitBeleg.has(o.id)) continue;
       const s = auftragSumme(o);
       posten.push({ datum: o.order_date, netto: s.net, steuer: s.vat, quelle: "ohne", customer_id: o.customer_id, order_id: o.id, rechnung: null });
     }
@@ -194,15 +208,18 @@ export type Umsatzsumme = {
   netto: number; steuer: number; brutto: number;
   mitRechnung: number; ohneRechnung: number;
   rechnungen: number; stornos: number; ohneAnzahl: number;
+  // Anderswo abgerechnet (v109): netto und Anzahl der Aufträge.
+  anderswo: number; anderswoAnzahl: number;
 };
 
 export function umsatzSumme(posten: Umsatzposten[], z: Zeitraum): Umsatzsumme {
-  const s: Umsatzsumme = { netto: 0, steuer: 0, brutto: 0, mitRechnung: 0, ohneRechnung: 0, rechnungen: 0, stornos: 0, ohneAnzahl: 0 };
+  const s: Umsatzsumme = { netto: 0, steuer: 0, brutto: 0, mitRechnung: 0, ohneRechnung: 0, rechnungen: 0, stornos: 0, ohneAnzahl: 0, anderswo: 0, anderswoAnzahl: 0 };
   for (const p of posten) {
     if (p.datum < z.von || p.datum > z.bis) continue;
     s.netto += p.netto;
     s.steuer += p.steuer;
     if (p.quelle === "ohne") { s.ohneRechnung += p.netto; s.ohneAnzahl += 1; }
+    else if (p.quelle === "anderswo") { s.anderswo += p.netto; s.anderswoAnzahl += 1; }
     else s.mitRechnung += p.netto;
     if (p.quelle === "rechnung") s.rechnungen += 1;
     if (p.quelle === "storno") s.stornos += 1;

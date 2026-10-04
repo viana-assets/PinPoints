@@ -8,6 +8,7 @@ import {
 } from "@/lib/reifenverkauf";
 import { VerkaufsreifenBlatt } from "./VerkaufsreifenBlatt";
 import { VerkaufsreifenEtikett } from "./VerkaufsreifenEtikett";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Der Reiter „Verkauf" im Lager (Migration 61, docs/lager.md „Reifenverkauf"): alles, was der
 // Betrieb an Reifen und Kompletträdern verkauft, über alle Lager – auch das Lager „Zuhause",
@@ -101,11 +102,8 @@ export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBe
       </div>
 
       <div className="lg-suche">
-        <label className="lg-suchfeld">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-          <input type="search" placeholder="235 55 17 oder Michelin" value={suche}
-            onChange={(e) => setSuche(e.target.value)} aria-label="Verkaufsreifen suchen" />
-        </label>
+        <SuchFeld value={suche} onWert={setSuche}
+          placeholder="235 55 17 oder Michelin" ariaLabel="Verkaufsreifen suchen" />
         {darfSchreiben && (
           <button type="button" className="vk-neu" onClick={() => setBlatt(null)} title="Reifen zum Verkauf erfassen">+ Erfassen</button>
         )}

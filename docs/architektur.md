@@ -103,6 +103,7 @@ viana-pinpoints/
     QrScanner.tsx                   Kamera-Scan für Lagerplatz-/Reifensatz-Aufkleber
     FehlerHinweis.tsx               Zentrale Fehlermeldung oben, aus unbehandelten Ablehnungen (C5/C6, v106)
     KennzeichenFeld.tsx             Eingabefeld für Kennzeichen, schreibt immer groß (v108)
+    SuchFeld.tsx                    Suchfeld der Listen mit × zum Leeren, auch am iPhone (v110)
     PwaBereit.tsx / PwaFassung.tsx / PwaInstallieren.tsx
                                     Installations-/Update-Mechanik der PWA
     PushEinstellung.tsx             An-/Abmelden für Push-Benachrichtigungen (Einstellungen)
@@ -643,7 +644,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 65** (02.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 66** (04.10.2026; 66 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -702,6 +703,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **65** – Fotos und Unterschrift am Auftrag: privater Bucket `auftrag-belege` mit drei
   Speicher-Richtlinien, Tabelle `auftrag_belege`, Auskunftsauszug mit Belegen
   (`kunde_auskunft()` ruft die alte Fassung als `kunde_auskunft_grund()`).
+- **66** – „Rechnung anderswo erstellt": `orders.rechnung_extern`, `stempel_rechnung()` mit
+  Rechteprüfung, keine zweite Rechnung für einen anderswo abgerechneten Auftrag
+  (`pruefe_rechnung_nicht_anderswo()`), Löschsperre auch ohne Nummer.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

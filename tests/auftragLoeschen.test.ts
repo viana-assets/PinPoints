@@ -17,4 +17,8 @@ describe("auftragLoeschPruefung", () => {
     const p = auftragLoeschPruefung({ order_number: 12, status: "offen", rechnung_nummer: null });
     expect(p).toEqual({ erlaubt: true, frage: "Auftrag 12 wirklich löschen?" });
   });
+  it("anderswo abgerechnet ohne Nummer wird nicht gelöscht (v109)", () => {
+    const p = auftragLoeschPruefung({ order_number: 13, status: "erledigt", rechnung_nummer: null, rechnung_extern: true });
+    expect(p.erlaubt).toBe(false);
+  });
 });

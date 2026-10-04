@@ -6,6 +6,12 @@ entschieden, dass PinPoints das rechnungsführende System wird. Dieses Dokument 
 seitherigen Ist-Zustand: Datenmodell, Nummernvergabe, Lebenszyklus, Druck und die
 Betriebsdaten-Maske.
 
+**Seit 04.10.2026 (Migration 66, v109) auch: „anderswo abgerechnet".** Manche Aufträge rechnet der
+Betrieb in einem zweiten System ab. Ohne Vermerk blieben sie für immer unter „noch nicht
+ausgestellt" – jetzt lassen sie sich im Auftragsfenster (Karte Rechnung oder Menü „⋯") als
+anderswo abgerechnet vermerken, auf Wunsch mit der fremden Rechnungsnummer, und wieder
+zurücknehmen. Einzelheiten unten bei den Auftragsfeldern.
+
 ## Zweck und Abgrenzung
 
 Eine Rechnung ist hier ein **Beleg**: eine fortlaufend nummerierte, inhaltlich eingefrorene
@@ -113,9 +119,29 @@ einzelne `orders.vehicle_id`). Relevant fürs Rechnungswesen sind zwei Felder:
 | Feld | Bedeutung |
 |---|---|
 | `rechnung_noetig` | Schalter „Rechnung benötigt" (Migration 38), Vorgabe `false`. Entscheidet, ob Positionen mit Steuer ausgewiesen werden. Steht am Auftrag, nicht an der Position. |
-| `rechnung_erstellt_am` | `null` = offen. Wird von `rechnung_am_auftrag()` (Trigger, Migration 49) nach `insert` auf `rechnungen` gesetzt – nicht vom Client. |
-| `rechnung_erstellt_von` | wer ausgestellt hat |
-| `rechnung_nummer` | Kopie von `nummer_text` der gültigen Rechnung, am Auftrag zur schnellen Anzeige |
+| `rechnung_erstellt_am` | `null` = offen. Wird von `rechnung_am_auftrag()` (Trigger, Migration 49) nach `insert` auf `rechnungen` gesetzt – oder, seit Migration 66, von Hand als „anderswo abgerechnet" (Datum setzt der Trigger). |
+| `rechnung_erstellt_von` | wer ausgestellt bzw. vermerkt hat |
+| `rechnung_nummer` | Kopie von `nummer_text` der gültigen Rechnung, am Auftrag zur schnellen Anzeige; bei „anderswo" die freiwillig eingetragene fremde Nummer |
+| `rechnung_extern` | `true` = anderswo abgerechnet (Migration 66). Setzt nur `stempel_rechnung()`, nie der Client. |
+
+**Anderswo abgerechnet** (Migration 66): vermerken nur bei einem erledigten Auftrag mit „Rechnung
+nötig" und nur mit `rechnungen·schreiben`; zurücknehmen ebenso. Solange der Vermerk steht, stellt
+der MR Assistent für den Auftrag keine Rechnung aus (`pruefe_rechnung_nicht_anderswo()`), und der
+Auftrag wird nicht gelöscht (`pruefe_auftrag_loeschen()`). Er fällt aus `rechnungOffen()` und damit
+aus allen Listen „noch nicht ausgestellt" (Dashboard, Aufträge, Rechnungsbuch, Auswertung). Im
+Umsatz der Auswertung zählt er mit seinem eigenen Betrag am Auftragsdatum (Quelle „anderswo",
+`lib/auswertungAnsicht.ts`); im DATEV-Export, in der Debitoren- und Rechnungsliste erscheint er nicht.
+Ein Haken aus der Zeit von Migration 40 („im ERP erstellt") ohne gültige Rechnung wurde beim Lauf
+von Migration 66 als anderswo abgerechnet übernommen.
+
+**Laufkundschaft** (seit v109 behoben): Das Rechnungsfenster verlangte bis v108 auch beim
+Sammelkunden eine Anschrift und sperrte damit jede Kleinbetragsrechnung. Die Mängelliste steht jetzt
+in `ausstellMaengel()` (`lib/rechnung.ts`, getestet) und nimmt die Laufkundschaft aus – wie
+`pruefe_rechnungsdaten()` in der Datenbank.
+
+**Drucken aus dem Rechnungsbuch** (seit v109): Das Belegfenster trägt jetzt `druck-fenster` wie das
+Rechnungsfenster am Auftrag; vorher druckte der Rechner die ganze Oberfläche mit und das iPhone
+ein leeres Blatt.
 
 Solange eine gültige Rechnung am Auftrag hängt, lässt sich `rechnung_erstellt_am` nicht mehr
 von Hand auf `null` zurücksetzen (`stempel_rechnung()`, erweitert in Migration 49) – die

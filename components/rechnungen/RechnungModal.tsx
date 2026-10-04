@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import type { Article, Betrieb, Customer, Order, OrderArticle, Rechnung } from "@/lib/types";
-import { entwurfBauen, mailtoRechnung, stornoAus, istGueltig, voraussichtlicheNummer } from "@/lib/rechnung";
+import { ausstellMaengel, entwurfBauen, mailtoRechnung, stornoAus, istGueltig, voraussichtlicheNummer } from "@/lib/rechnung";
 import type { RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -57,11 +57,7 @@ export function RechnungModal({
   // Was einer Rechnung im Weg steht. ALLES auf einmal und nicht der erste Mangel: Wer dreimal
   // hintereinander eine Meldung bekommt, die jeweils einen weiteren nennt, hält das Programm
   // für schikanös – zu Recht (dieselbe Überlegung wie in RechnungsdatenBlock).
-  const maengel: string[] = [];
-  if (!kunde) maengel.push("der Kunde ist nicht geladen");
-  if (!betrieb?.firma?.trim()) maengel.push("die Betriebsdaten fehlen (Admin → Betrieb)");
-  if (!kunde?.address?.trim()) maengel.push("die Anschrift des Kunden fehlt");
-  if (zeilen.length === 0) maengel.push("am Auftrag steht keine Leistung");
+  const maengel = ausstellMaengel({ kunde, betrieb, zeilenAnzahl: zeilen.length, anderswo: !!auftrag.rechnung_extern && !gueltige });
 
   async function ausstellen() {
     if (!entwurf) return;

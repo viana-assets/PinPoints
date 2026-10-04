@@ -3,12 +3,19 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchPapierkorb, kundeEndgueltigLoeschen, kundeWiederherstellen, testkundeLoeschen, type PapierkorbKunde } from "@/lib/api/customers";
 import { belegDateienLoeschen, belegPfadeFuerKunde } from "@/lib/api/belege";
 import { formatDate } from "@/lib/helpers";
+import { auftragWiederherstellen, fetchGeloeschteAuftraege, type GeloeschterAuftrag } from "@/lib/api/orders";
+import { auftragsNr } from "@/lib/testkunde";
+import { ORDER_STATUS_LABEL } from "@/lib/constants";
 
 // Der Papierkorb für Kunden (Fahrplan B2, Migration 56).
 //
 // Bis hierher wurde ein gelöschter Kunde nur markiert (`deleted_at`, Migration 19) und war danach
 // nirgends mehr zu sehen – weder, dass es ihn gab, noch seit wann er gelöscht ist. Für eine
 // Löschanfrage nach DSGVO gab es damit keinen bedienbaren Weg.
+//
+// Seit v109 darunter auch EINZELN gelöschte Aufträge („Löschen" im Auftragsfenster). Bis dahin
+// waren sie nur in der Datenbank zu sehen – der Papierkorb kannte nur Kunden. Aufträge eines
+// gelöschten Kunden stehen nicht dort: Sie kommen mit dem Kunden zurück.
 //
 // Zwei Handlungen, bewusst ungleich gewichtet:
 //   - Wiederherstellen: jeder, der Kunden schreiben darf. Holt die mitgelöschten Aufträge zurück.
@@ -28,11 +35,15 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
   const [meldung, setMeldung] = useState<string | null>(null);
   const [bestaetigen, setBestaetigen] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState<string | null>(null);
+  const [auftraege, setAuftraege] = useState<GeloeschterAuftrag[] | null>(null);
 
   useEffect(() => {
     let abgebrochen = false;
     fetchPapierkorb(supabase)
       .then((l) => { if (!abgebrochen) { setListe(l); setFehler(null); } })
+      .catch((e) => { if (!abgebrochen) setFehler(e instanceof Error ? e.message : String(e)); });
+    fetchGeloeschteAuftraege(supabase)
+      .then((l) => { if (!abgebrochen) setAuftraege(l); })
       .catch((e) => { if (!abgebrochen) setFehler(e instanceof Error ? e.message : String(e)); });
     return () => { abgebrochen = true; };
   }, [supabase, stand]);
@@ -42,6 +53,20 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
     try {
       await kundeWiederherstellen(supabase, k.id);
       setMeldung(`${k.name} ist wiederhergestellt – samt der mitgelöschten Aufträge.`);
+      onKundenbestandGeaendert();
+      setStand((n) => n + 1);
+    } catch (e) {
+      setFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setLaeuft(null);
+    }
+  }
+
+  async function auftragZurueck(a: GeloeschterAuftrag) {
+    setLaeuft(a.id); setFehler(null); setMeldung(null);
+    try {
+      await auftragWiederherstellen(supabase, a.id);
+      setMeldung(`Auftrag ${auftragsNr(a.order_number)} (${a.kunde}) ist wiederhergestellt – samt seinen Leistungen.`);
       onKundenbestandGeaendert();
       setStand((n) => n + 1);
     } catch (e) {
@@ -178,6 +203,36 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
                 </div>
               </div>
             )}
+          </div>
+        ))
+      )}
+
+      <h3 className="ad-zwischen">Gelöschte Aufträge</h3>
+      <span className="small ad-hilfe">
+        Einzeln gelöschte Aufträge. Wiederherstellen holt den Auftrag samt Leistungen zurück, in dem
+        Zustand, in dem er gelöscht wurde. Aufträge eines gelöschten Kunden kommen mit dem Kunden zurück.
+      </span>
+      {auftraege === null ? (
+        <div className="db-karte"><div className="db-leer">Lädt …</div></div>
+      ) : auftraege.length === 0 ? (
+        <div className="db-karte"><div className="db-leer">Keine einzeln gelöschten Aufträge.</div></div>
+      ) : (
+        auftraege.map((a) => (
+          <div key={a.id} className="ad-karte ad-karte-block">
+            <div className="ad-karte-zeile">
+              <span className="ad-kreis grau">#</span>
+              <span className="ad-karte-text">
+                <b>Auftrag {auftragsNr(a.order_number)} · {a.kunde}</b>
+                <span className="small">
+                  {a.title} · {formatDate(a.order_date)} · {ORDER_STATUS_LABEL[a.status]} · gelöscht {formatDate(a.deleted_at)}
+                </span>
+              </span>
+              <span className="ad-karte-knoepfe">
+                <button type="button" className="db-link" disabled={laeuft !== null} onClick={() => void auftragZurueck(a)}>
+                  {laeuft === a.id ? "…" : "Wiederherstellen"}
+                </button>
+              </span>
+            </div>
           </div>
         ))
       )}

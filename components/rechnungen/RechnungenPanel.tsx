@@ -6,6 +6,7 @@ import { istGueltig, mailtoRechnung, stornoAus, type RechnungEntwurf } from "@/l
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 import { auftragsNr, istTestrechnung } from "@/lib/testkunde";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Das Rechnungsbuch. Es zeigt, was das Haus ausgestellt hat – in der Reihenfolge der Nummern,
 // absteigend, weil die letzte Rechnung die ist, nach der gefragt wird.
@@ -115,10 +116,8 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
               </span>
             </div>
           </div>
-          <label className="lg-suchfeld re-suche">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-            <input type="search" placeholder="Nummer, Kunde oder Auftrag …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Rechnung suchen" />
-          </label>
+          <SuchFeld className="re-suche" value={suche} onWert={setSuche}
+            placeholder="Nummer, Kunde oder Auftrag …" ariaLabel="Rechnung suchen" />
           <div className="pl-filter au-filter" role="group" aria-label="Sicht">
             {([["alle", "Alle"], ["gueltig", "Gültig"], ["storniert", "Storniert"]] as const).map(([w, t]) => (
               <button key={w} type="button" className={"pl-pille" + (sicht === w ? " aktiv" : "")} aria-pressed={sicht === w} onClick={() => setSicht(w)}>
@@ -210,7 +209,9 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
       )}
 
       {beleg && (
-        <div className="modal-overlay modal-rechnung" onClick={() => setOffen(null)}>
+        // `druck-fenster` (v109): Ohne die Klasse greifen die Druckregeln aus globals.css nicht – am
+        // Rechner kam die ganze Oberfläche mit aufs Papier, am iPhone ein leeres Blatt.
+        <div className="modal-overlay druck-fenster modal-rechnung" onClick={() => setOffen(null)}>
           <div className="modal-box rechnung-modal" onClick={(e) => e.stopPropagation()}>
             <style>{RECHNUNG_SEITE_CSS}</style>
             <div className="re-kopfleiste druck-weg">

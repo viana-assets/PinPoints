@@ -49,7 +49,7 @@ export function AuftragModal({
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
   fremdeSaetze, onAuslagern, onEtikett,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
-  onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, auftragFahrzeuge,
+  onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, rechnungAnderswo, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
   onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
@@ -129,13 +129,18 @@ export function AuftragModal({
     // Nur bei der Laufkundschaft (Migration 57). Fehlt das Feld, bleibt der Wert unverändert.
     laufkunde?: { name: string; telefon: string; ort: string };
   }) => Promise<void>;
-  // Hakt „Rechnung erstellt" ab oder nimmt es zurück (Migration 40). Optional: Wer das Fenster
-  // ohne diese Zusage einbindet, bekommt den Block gar nicht erst zu sehen.
   // Öffnet das Rechnungsfenster. Es liegt NICHT in diesem Bauteil: Es braucht Betriebsdaten
   // und die Belege zu diesem Auftrag, und beides hier durchzureichen hieße, dem
   // Auftragsfenster ein zweites Thema aufzuladen. Der Knopf verweist, das Fenster steht in
   // app/page.tsx – auf derselben Ebene wie dieses hier.
   onRechnungOeffnen?: (orderId: string) => void;
+  // „Anderswo abgerechnet" (Migration 66, v109): Die Rechnung entsteht in einem anderen System, der
+  // Auftrag soll trotzdem aus „noch nicht ausgestellt" verschwinden. Nur für den, der Rechnungen
+  // schreiben darf – sonst fehlt das Ganze, und die Datenbank lehnt es ohnehin ab.
+  rechnungAnderswo?: {
+    vermerken: (orderId: string, nummer: string | null) => Promise<void>;
+    zuruecknehmen: (orderId: string) => Promise<void>;
+  };
   // Fahrzeuge an diesem Auftrag samt Kilometerstand (Migration 44). Ohne diese Angaben lässt
   // die Datenbank einen Auftrag mit „Rechnung benötigt" nicht abschließen.
   auftragFahrzeuge: AuftragFahrzeug[];
@@ -318,6 +323,12 @@ export function AuftragModal({
   const [stornoGrund, setStornoGrund] = useState("");
   const [wiederOffen, setWiederOffen] = useState(false);
   const [wiederGrund, setWiederGrund] = useState("");
+  // Blatt „Anderswo abgerechnet" (v109). Fehler stehen im Blatt bzw. in der Karte: Die zentrale
+  // Meldung läge hinter dem Auftragsfenster.
+  const [anderswoOffen, setAnderswoOffen] = useState(false);
+  const [anderswoNr, setAnderswoNr] = useState("");
+  const [anderswoLaeuft, setAnderswoLaeuft] = useState(false);
+  const [anderswoFehler, setAnderswoFehler] = useState<string | null>(null);
 
   // Ist der Einlagerungsblock aufgeklappt? Seit Migration 46 hängt er an keinem Artikel mehr,
   // sondern an diesem Knopf – wer nichts einlagert, sieht ihn gar nicht. Liegt schon etwas im
@@ -535,7 +546,28 @@ export function AuftragModal({
   const telefonDa = !!kundeAnzeige && getPhoneNumbers(kundeAnzeige).length > 0;
   const adresseDa = !!kundeAnzeige && kundeAnzeige.address.trim() !== "";
   const summen = orderArticles.reduce((n, r) => n + (r.endpreis_netto ?? r.quantity * r.net_price), 0);
-  const rechnungDa = !!order.rechnung_nummer;
+  // Drei Zustände der Rechnung: hier ausgestellt (`rechnungDa`), anderswo abgerechnet
+  // (`anderswo`, Migration 66) oder noch offen. Eine Nummer allein sagt es nicht – auch ein
+  // anderswo abgerechneter Auftrag kann eine tragen.
+  const anderswo = !!order.rechnung_extern && !!order.rechnung_erstellt_am;
+  const rechnungDa = !!order.rechnung_nummer && !anderswo;
+  const rechnungOffenHier = order.status === "erledigt" && rechnungNoetig && !rechnungDa && !anderswo;
+  async function anderswoAusfuehren(art: "vermerken" | "zuruecknehmen") {
+    if (!rechnungAnderswo) return;
+    setAnderswoLaeuft(true); setAnderswoFehler(null);
+    try {
+      if (art === "vermerken") {
+        await rechnungAnderswo.vermerken(order.id, anderswoNr.trim() || null);
+        setAnderswoOffen(false); setAnderswoNr("");
+      } else {
+        await rechnungAnderswo.zuruecknehmen(order.id);
+      }
+    } catch (e) {
+      setAnderswoFehler(e instanceof Error ? e.message : String(e));
+    } finally {
+      setAnderswoLaeuft(false);
+    }
+  }
   // Die Erinnerung an die Unterschrift (E3) – ein Hinweis im Fuß, keine Bedingung: Ohne Kunden vor
   // Ort gibt es keine, und der Auftrag muss trotzdem fertig werden.
   const unterschriftFehlt = !!belege && belege.darfHinzufuegen && !belege.laedt && !frischAngelegt
@@ -555,12 +587,12 @@ export function AuftragModal({
     fussHinweis = fehltListe.length ? `Fehlt noch: ${fehltListe.join(" · ")}` : "Bereit – geprüft wird beim Klick auf „Auftrag erledigt“.";
     fussHinweisArt = fehltListe.length ? "warn" : "ok";
   } else if (order.status === "erledigt") {
-    fussHinweis = `Abgeschlossen${order.completed_at ? ` am ${formatDate(order.completed_at.slice(0, 10))}` : ""} · die Leistungen stehen fest`;
+    fussHinweis = `Abgeschlossen${order.completed_at ? ` am ${formatDate(order.completed_at.slice(0, 10))}` : ""} · ${anderswo ? "anderswo abgerechnet" : "die Leistungen stehen fest"}`;
   } else {
     fussHinweis = `Storniert${order.cancelled_at ? ` am ${formatDate(order.cancelled_at.slice(0, 10))}` : ""}${order.cancel_reason ? ` – ${order.cancel_reason}` : ""}`;
   }
 
-  type MenuePunkt = "termin" | "wieder" | "rechnung" | "historie" | "storno" | "loeschen";
+  type MenuePunkt = "termin" | "wieder" | "rechnung" | "anderswo" | "anderswoZurueck" | "historie" | "storno" | "loeschen";
   const menue: { key: MenuePunkt; text: string; info?: string; gefahr?: boolean; aus?: boolean }[] = [];
   if (!gesperrt && feldeAendern) menue.push({ key: "termin", text: "Termin & Team", info: "Datum, von–bis, Mitarbeiter, Transporter" });
   if (gesperrt) {
@@ -572,6 +604,8 @@ export function AuftragModal({
       : { key: "wieder", text: wiederText, info: "dazu wird Admin-Recht benötigt", aus: true });
   }
   if (rechnungDa && onRechnungOeffnen) menue.push({ key: "rechnung", text: "Rechnung ansehen", info: order.rechnung_nummer ?? undefined });
+  if (rechnungOffenHier && rechnungAnderswo) menue.push({ key: "anderswo", text: "Anderswo abgerechnet", info: "Rechnung in einem anderen System erstellt" });
+  if (anderswo && rechnungAnderswo) menue.push({ key: "anderswoZurueck", text: "Vermerk „anderswo abgerechnet“ zurücknehmen", info: "steht danach wieder unter „noch nicht ausgestellt“" });
   menue.push({ key: "historie", text: "Historie", info: "wer hat was geändert" });
   if (!gesperrt && !isTechniker) menue.push({ key: "storno", text: "Stornieren", info: "mit Grund – bleibt in der Liste", gefahr: true });
   // Einen Auftrag, den man vor einer Sekunde selbst erzeugt hat, löscht man nicht – man nimmt
@@ -594,6 +628,8 @@ export function AuftragModal({
     if (k === "termin") zumTermin();
     else if (k === "wieder") setWiederOffen(true);
     else if (k === "rechnung") onRechnungOeffnen?.(order.id);
+    else if (k === "anderswo") { setAnderswoFehler(null); setAnderswoOffen(true); }
+    else if (k === "anderswoZurueck") void anderswoAusfuehren("zuruecknehmen");
     else if (k === "historie") protokollRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     else if (k === "storno") setStornoOffen(true);
   }
@@ -967,19 +1003,38 @@ export function AuftragModal({
             {/* Die Rechnung selbst (Migration 48/49). Erscheint erst beim erledigten Auftrag:
                 Vorher steht nicht fest, was abgerechnet wird, und eine Nummer, die man
                 zurücknehmen müsste, ist eine Lücke im Kreis. */}
-            {rechnungNoetig && order.status === "erledigt" && onRechnungOeffnen && (
-              <div className={"rechnung-stand" + (rechnungDa ? " erledigt" : "")}>
+            {rechnungNoetig && order.status === "erledigt" && (onRechnungOeffnen || rechnungAnderswo) && (
+              <div className={"rechnung-stand" + (rechnungDa || anderswo ? " erledigt" : "")}>
                 <span>
-                  <b>{rechnungDa ? `Rechnung ${order.rechnung_nummer}` : "Rechnung steht noch aus"}</b>
+                  <b>{anderswo
+                    ? `Anderswo abgerechnet${order.rechnung_nummer ? ` · ${order.rechnung_nummer}` : ""}`
+                    : rechnungDa ? `Rechnung ${order.rechnung_nummer}` : "Rechnung steht noch aus"}</b>
                   <span className="small">
-                    {rechnungDa
-                      ? `Ausgestellt am ${order.rechnung_erstellt_am ? formatDate(order.rechnung_erstellt_am.slice(0, 10)) : ""} – ansehen, drucken oder stornieren.`
-                      : "Die Leistungen stehen schon drin. Im Fenster erst ansehen, dann ausstellen."}
+                    {anderswo
+                      ? `Vermerkt am ${order.rechnung_erstellt_am ? formatDate(order.rechnung_erstellt_am.slice(0, 10)) : ""}. Die Rechnung liegt in einem anderen System.`
+                      : rechnungDa
+                        ? `Ausgestellt am ${order.rechnung_erstellt_am ? formatDate(order.rechnung_erstellt_am.slice(0, 10)) : ""} – ansehen, drucken oder stornieren.`
+                        : "Die Leistungen stehen schon drin. Im Fenster erst ansehen, dann ausstellen – oder vermerken, dass die Rechnung anderswo entstanden ist."}
                   </span>
+                  {anderswoFehler && !anderswoOffen && <span className="hinweis-pflicht">{anderswoFehler}</span>}
                 </span>
-                <button type="button" className={rechnungDa ? "es-knopf" : "am-mini"} onClick={() => onRechnungOeffnen(order.id)}>
-                  {rechnungDa ? "Rechnung ansehen" : "Rechnung erstellen"}
-                </button>
+                <span className="rechnung-stand-knoepfe">
+                  {anderswo && rechnungAnderswo && (
+                    <button type="button" className="es-knopf" disabled={anderswoLaeuft} onClick={() => void anderswoAusfuehren("zuruecknehmen")}>
+                      {anderswoLaeuft ? "…" : "Zurücknehmen"}
+                    </button>
+                  )}
+                  {!anderswo && onRechnungOeffnen && (
+                    <button type="button" className={rechnungDa ? "es-knopf" : "am-mini"} onClick={() => onRechnungOeffnen(order.id)}>
+                      {rechnungDa ? "Rechnung ansehen" : "Rechnung erstellen"}
+                    </button>
+                  )}
+                  {rechnungOffenHier && rechnungAnderswo && (
+                    <button type="button" className="es-knopf" onClick={() => { setAnderswoFehler(null); setAnderswoOffen(true); }}>
+                      Anderswo abgerechnet
+                    </button>
+                  )}
+                </span>
               </div>
             )}
           </div>
@@ -1140,12 +1195,12 @@ export function AuftragModal({
             {((order.status === "offen" && !frischAngelegt) || order.status === "in_arbeit") && (
               <button type="button" className="ao-haupt gruen" onClick={abschliessen}>Auftrag erledigt</button>
             )}
-            {order.status === "erledigt" && rechnungNoetig && onRechnungOeffnen && (
+            {order.status === "erledigt" && rechnungNoetig && onRechnungOeffnen && !anderswo && (
               rechnungDa
                 ? <button type="button" className="ao-zweit" onClick={() => onRechnungOeffnen(order.id)}>Rechnung {order.rechnung_nummer} ansehen</button>
                 : <button type="button" className="ao-haupt orange" onClick={() => onRechnungOeffnen(order.id)}>Rechnung erstellen</button>
             )}
-            {gesperrt && darfWiedereroeffnen && !(order.status === "erledigt" && rechnungNoetig && !rechnungDa && onRechnungOeffnen) && (
+            {gesperrt && darfWiedereroeffnen && !(rechnungOffenHier && onRechnungOeffnen) && (
               <button type="button" className="ao-zweit" onClick={() => setWiederOffen(true)}>{order.status === "storniert" ? "Wieder aufnehmen" : "Wiedereröffnen"}</button>
             )}
           </div>
@@ -1231,6 +1286,28 @@ export function AuftragModal({
               onClick={async () => { await statusSetzen("storniert", { stornoGrund: stornoGrund.trim() }); setStornoOffen(false); }}
             >
               Stornierung bestätigen
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- Blatt: Anderswo abgerechnet */}
+      {anderswoOffen && (
+        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); if (!anderswoLaeuft) setAnderswoOffen(false); }}>
+          <div className="auswahl-blatt ao-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Anderswo abgerechnet">
+            <div className="ab-griff" />
+            <div className="ab-titel">Auftrag #{auftragsNr(order.order_number)} anderswo abgerechnet?</div>
+            <div className="small" style={{ marginBottom: 8 }}>
+              Für Rechnungen aus einem anderen System. Der Auftrag gilt danach als abgerechnet und verschwindet aus
+              „noch nicht ausgestellt“. Hier entsteht kein Beleg und nichts im DATEV-Export; in der Auswertung zählt
+              der Auftrag mit seinem Betrag. Zurücknehmen geht jederzeit.
+            </div>
+            <label className="nk-feld"><span>Rechnungsnummer im anderen System (freiwillig)</span>
+              <input type="text" value={anderswoNr} maxLength={40} onChange={(e) => setAnderswoNr(e.target.value)} autoFocus autoComplete="off" />
+            </label>
+            {anderswoFehler && <div className="hinweis-pflicht">{anderswoFehler}</div>}
+            <button type="button" className="am-knopf" disabled={anderswoLaeuft} onClick={() => void anderswoAusfuehren("vermerken")}>
+              {anderswoLaeuft ? "speichert …" : "Als abgerechnet vermerken"}
             </button>
           </div>
         </div>

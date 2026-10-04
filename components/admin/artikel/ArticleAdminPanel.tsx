@@ -3,6 +3,7 @@ import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
 import { formatEUR, currentArticlePrice } from "@/lib/helpers";
 import { ABRECHNUNGSART_LABEL } from "@/lib/constants";
 import { ArticleDetailEditor } from "./ArticleDetailEditor";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Artikel-Übersicht (Migration 12 + 14), seit 26.09.2026 im Stil der übrigen Listen
 // (Entwurf Q): Karten statt Tabelle, Suche, Filter und die Bearbeitung als Blatt.
@@ -110,10 +111,8 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
             </div>
             <button type="button" className="kl-neu" onClick={() => setNeuOffen(true)}>+ Artikel</button>
           </div>
-          <label className="lg-suchfeld ar-suche">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-            <input type="search" placeholder="Bezeichnung oder Artikelnummer …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Artikel suchen" />
-          </label>
+          <SuchFeld className="ar-suche" value={suche} onWert={setSuche}
+            placeholder="Bezeichnung oder Artikelnummer …" ariaLabel="Artikel suchen" />
           <div className="pl-filter au-filter" role="group" aria-label="Filter">
             {FILTER.map(([f, t]) => (
               <button key={f} type="button" className={"pl-pille" + (filter === f ? " aktiv" : "")} aria-pressed={filter === f} onClick={() => setFilter(f)}>

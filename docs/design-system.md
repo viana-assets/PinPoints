@@ -772,6 +772,19 @@ wandelt `kennzeichenGross()` (`lib/kennzeichen.ts`) beim Tippen um, ohne die Sch
 verschieben. Gilt im Kundenfenster, im Auftrag („Neues Kennzeichen"), beim Einlagern und unter
 Admin › Transporter.
 
+**Suchfeld mit ×** (seit v110): jedes Suchfeld oben in einer Liste (Kunden, inaktive Kunden,
+Aufträge, Lager, Verkauf, Reifensuche, Leistungen, Rechnungen, Artikel) ist
+`components/SuchFeld.tsx` – das bekannte `.lg-suchfeld` mit Lupe, dazu am Ende ein × (`.lg-leeren`,
+32 px Tippfläche), sobald etwas drinsteht. Safari am iPhone zeigt im `type="search"` kein eigenes
+×; das des Browsers am Rechner ist ausgeblendet, damit nicht zwei dastehen. Nach dem Leeren
+bleibt der Cursor im Feld. Ein neues Listen-Suchfeld nimmt diese Komponente, kein eigenes
+`<label className="lg-suchfeld">`.
+
+**Termin ohne Person** (seit v110): Im Stundenraster trägt ein Termin, der noch niemandem
+zugeteilt ist, die hellgraue Fläche `--ohne-person` mit gestrichelter Kante `--ohne-person-linie`
+– ebenso das Feld in der Legende. Bis v109 war er weiß wie das Raster und am Handy kaum zu
+erkennen.
+
 ## Dashboard im Kartenstil (25.09.2026)
 
 Das Dashboard folgt der neuen Einsatzplanung (Entwurf F/G): weiße Karten ohne Rahmen mit

@@ -223,6 +223,25 @@ export function empfaengerFuerAuftrag(auftrag: Pick<Order, "laufkunde_name">, k:
   return { name, company: null, anrede: null, address: "", email: null, kundennummer: k.kundennummer };
 }
 
+// Was dem Ausstellen im Weg steht – ALLES auf einmal (RechnungModal). Die Anschrift fehlt bei der
+// Laufkundschaft absichtlich: Eine Kleinbetragsrechnung braucht keine (§ 33 UStDV), und
+// `pruefe_rechnungsdaten()` (Migration 53) verlangt sie dort auch nicht. Bis v108 stand diese
+// Prüfung im Fenster selbst und sperrte genau diese Rechnungen.
+export function ausstellMaengel(opts: {
+  kunde: Pick<Customer, "address" | "laufkundschaft"> | null | undefined;
+  betrieb: Pick<Betrieb, "firma"> | null | undefined;
+  zeilenAnzahl: number;
+  anderswo?: boolean;
+}): string[] {
+  const m: string[] = [];
+  if (!opts.kunde) m.push("der Kunde ist nicht geladen");
+  if (!opts.betrieb?.firma?.trim()) m.push("die Betriebsdaten fehlen (Admin → Betrieb)");
+  if (opts.kunde && !opts.kunde.laufkundschaft && !opts.kunde.address?.trim()) m.push("die Anschrift des Kunden fehlt");
+  if (opts.zeilenAnzahl === 0) m.push("am Auftrag steht keine Leistung");
+  if (opts.anderswo) m.push("der Auftrag ist als anderswo abgerechnet vermerkt – erst den Vermerk am Auftrag zurücknehmen");
+  return m;
+}
+
 export function entwurfBauen(opts: {
   auftrag: Order;
   kunde: Customer;

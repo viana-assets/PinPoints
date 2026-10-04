@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Customer } from "@/lib/types";
 import { anzeigeName, initialen } from "@/lib/kundenAnsicht";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // „Inaktive Kunden" (neu gestaltet am 26.09.2026, Entwurf „S · Inaktive Kunden") – vorher als
 // Block direkt in app/page.tsx: eine Liste ohne Suche mit zwei Knöpfen je Zeile.
@@ -45,10 +46,8 @@ export function InaktivePanel({ inaktive, alle, onSetActive, onOpen }: {
               <span className="lg-unter">{inaktive.length} deaktiviert{zurueck.length ? ` · ${zurueck.length} gerade reaktiviert` : ""}</span>
             </div>
           </div>
-          <label className="lg-suchfeld">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-            <input type="search" placeholder="Name, Firma, Adresse, Kundennummer …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Inaktive Kunden suchen" />
-          </label>
+          <SuchFeld value={suche} onWert={setSuche}
+            placeholder="Name, Firma, Adresse, Kundennummer …" ariaLabel="Inaktive Kunden suchen" />
         </div>
 
         <span className="small ik-hinweis">Deaktivierte Kunden stehen nicht in der Kundenliste und haben keine Nadel auf der Karte. Aufträge und Rechnungen bleiben erhalten.</span>

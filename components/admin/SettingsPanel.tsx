@@ -5,7 +5,7 @@ import { PushEinstellung } from "@/components/PushEinstellung";
 import { PwaFassung } from "@/components/PwaFassung";
 import { APP_VERSION } from "@/lib/version";
 import { standText } from "@/components/OfflineHinweis";
-import { ABENDHINWEIS_UHRZEIT_STANDARD } from "@/lib/constants";
+import { ABENDHINWEIS_UHRZEIT_STANDARD, ROLE_LABEL } from "@/lib/constants";
 
 // Tab "Einstellungen": Anzeige-/Wiedervorlage-Präferenzen, Nutzerinfo, Logout.
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
@@ -15,12 +15,14 @@ import { ABENDHINWEIS_UHRZEIT_STANDARD } from "@/lib/constants";
 // dort als eigener Reiter erreichbar – ein zweiter Weg an anderer Stelle macht die
 // Einstellungen unübersichtlich und lässt offen, welcher der "richtige" ist. `isAdmin` bleibt
 // als Prop, weil die Zeile "Angemeldet als …" die Rolle mit ausweist.
-export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userEmail, datenStand, onAktualisieren, laedt, onLogout, onNeuigkeiten, neuigkeitenUngelesen = 0 }: {
+export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTechniker = false, userEmail, datenStand, onAktualisieren, laedt, onLogout, onNeuigkeiten, neuigkeitenUngelesen = 0 }: {
   // „Was gibt es Neues" – nur für Admin und Superadmin gesetzt. Die Zahl sagt, wie viele
   // Fassungen seit dem letzten Öffnen dazugekommen sind.
   onNeuigkeiten?: () => void;
   neuigkeitenUngelesen?: number;
   settings: UserSettings; onChange: (p: Partial<UserSettings>) => void; isAdmin: boolean; isSuperAdmin: boolean; userEmail: string;
+  // Bis v108 stand beim Techniker „Nutzer" (gefunden beim Schreiben des Handbuchs, 02.10.2026).
+  isTechniker?: boolean;
   // Wann der Kundenbestand zuletzt wirklich vom Server kam. Steht hier dauerhaft und nicht nur
   // im Offline-Balken: Wer wissen will, wie frisch seine Daten sind, sucht das in den
   // Einstellungen – und nicht erst dann, wenn ohnehin gerade kein Netz da ist.
@@ -32,7 +34,7 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, userE
   onLogout: () => void;
 }) {
   const [abendZeit, setAbendZeit] = useState(settings.abendhinweis_uhrzeit || ABENDHINWEIS_UHRZEIT_STANDARD);
-  const rolle = isSuperAdmin ? "Superadmin" : isAdmin ? "Admin" : "Nutzer";
+  const rolle = isSuperAdmin ? ROLE_LABEL.superadmin : isAdmin ? ROLE_LABEL.admin : isTechniker ? ROLE_LABEL.techniker : ROLE_LABEL.user;
   const abendAn = settings.abendhinweis_aktiv !== false;
   // Die Wiedervorlage speichert jetzt bei jedem Schritt (vorher Zahlenfeld + eigener Knopf):
   // Ein Wert von 1 bis 24 ist mit − und + in wenigen Tipps erreicht und nie „halb getippt".

@@ -11,6 +11,7 @@ import { IconTrash, IconNavPin } from "@/components/icons";
 import { OrderModal } from "./OrderModal";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { auftragsNr } from "@/lib/testkunde";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Aufträge-Modul (neu gestaltet am 26.09.2026, Entwurf „K · Aufträge").
 //
@@ -198,10 +199,8 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
               </button>
             )}
           </div>
-          <label className="lg-suchfeld au-suche">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-            <input type="search" placeholder="Kunde oder Auftragsnummer …" value={suche} onChange={(e) => setSuche(e.target.value)} aria-label="Auftrag suchen" />
-          </label>
+          <SuchFeld className="au-suche" value={suche} onWert={setSuche}
+            placeholder="Kunde oder Auftragsnummer …" ariaLabel="Auftrag suchen" />
           <div className="pl-filter au-filter" role="group" aria-label="Status">
             {/* „In Arbeit" nur, solange es ältere Aufträge in diesem Zustand gibt (seit v94 kein
                 eigener Schritt mehr). */}

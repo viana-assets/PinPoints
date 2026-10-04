@@ -7,6 +7,7 @@ import { plzVorschlaege } from "@/lib/saisonAnsicht";
 import { datumKurz } from "@/lib/dashboard";
 import { IconNavPin } from "@/components/icons";
 import { CustomerRowMeta } from "./CustomerRowMeta";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Die Kundenliste (26.09.2026, Entwurf „J · Kundenliste") – vorher als Block direkt in
 // app/page.tsx: Suchfeld, sieben Filterknöpfe, PLZ-Eingabe und eine Buchstabenleiste über vier
@@ -91,11 +92,8 @@ export function KundenListePanel(p: {
               </button>
             )}
           </div>
-          <label className="lg-suchfeld">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-            <input type="search" placeholder="Name, Firma, Adresse …" value={p.search}
-              onChange={(e) => p.onSearch(e.target.value)} aria-label="Kunde suchen" />
-          </label>
+          <SuchFeld value={p.search} onWert={p.onSearch}
+            placeholder="Name, Firma, Adresse …" ariaLabel="Kunde suchen" />
           {/* Die Zahl steht an JEDER Pille, nicht nur an der aktiven: So sieht man, was ein Klick
               bringen würde, bevor man klickt. */}
           <div className="pl-filter" role="group" aria-label="Zustand">

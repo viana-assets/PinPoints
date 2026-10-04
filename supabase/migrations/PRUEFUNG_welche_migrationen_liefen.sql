@@ -124,7 +124,9 @@ with pruefungen(nr, was, vorhanden) as (
                                                   and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'storage_slots' and column_name = 'groesse')),
     ('65', 'Fotos und Unterschrift am Auftrag', to_regclass('public.auftrag_belege') is not null
                                                   and to_regprocedure('public.kunde_auskunft_grund(uuid)') is not null
-                                                  and exists (select 1 from storage.buckets where id = 'auftrag-belege'))
+                                                  and exists (select 1 from storage.buckets where id = 'auftrag-belege')),
+    ('66', 'Rechnung anderswo erstellt', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'rechnung_extern')
+                                                  and to_regprocedure('public.pruefe_rechnung_nicht_anderswo()') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

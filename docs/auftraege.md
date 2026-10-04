@@ -99,7 +99,7 @@ Zeitraum Stornos gibt.
 Aus `erledigt` **und** aus `storniert` heraus lässt die Datenbank eine Wiedereröffnung nach
 `offen` oder `in_arbeit` zu – nicht nur aus `erledigt`, wie es die vorige Fassung dieses
 Dokuments beschrieb. In der Oberfläche gibt es dafür aber nur einen Knopf, „Wiedereröffnen",
-und er setzt immer `in_arbeit`; er erscheint, sobald der Auftrag gesperrt ist (`erledigt` oder
+und er setzt seit v94 `offen` (bis v93 `in_arbeit`); er erscheint, sobald der Auftrag gesperrt ist (`erledigt` oder
 `storniert`), verlangt **Admin oder Superadmin** (`isAdmin` in `app/page.tsx`,
 `darfWiedereroeffnen={isAdmin}`) und eine Begründung (`reopen_reason`, Pflichtfeld laut
 Trigger). Storno verlangt ebenso einen Grund (`cancel_reason`). `completed_at/by` bzw.
@@ -224,8 +224,9 @@ die Datenbank vollständig kennt).
 
 Seit dem 09.09.2026 ist die Uhrzeit beim **Speichern im Auftragsfenster** Pflicht – nicht in
 der Datenbank erzwungen (ein Auftrag entsteht per Karten-Klick eine Sekunde lang ohne Uhrzeit,
-eine NOT-NULL-Regel würde genau diesen Weg verbauen) und nicht für Techniker (die dürfen
-ohnehin nur ihre Notiz schreiben).
+eine NOT-NULL-Regel würde genau diesen Weg verbauen). Sie gilt für jeden, der die Felder ändern
+darf – seit Migration 41 also auch für den Techniker an seinen eigenen Aufträgen (bis 04.10.2026
+stand hier „nicht für Techniker"; das galt nur, solange er ausschließlich die Notiz schreiben durfte).
 
 ## 5. Einsatzplanung: Monats-, Wochen- und Tagesansicht
 
@@ -287,7 +288,8 @@ Monatsübersicht, die in der vorigen Fassung dieses Dokuments beschrieben war:
   aus, sobald ein Termin darüber hinausgeht. **Farbe = Mitarbeiter** (erster zugeordneter,
   dieselbe Farbe wie im Monatskalender), **Form = Zustand** (▶ in Arbeit, ✓ erledigt, ✕
   storniert schraffiert/durchgestrichen, gestrichelte Unterkante = Ende nur geschätzt, weil
-  `end_time` fehlt). Überlappende Termine bekommen per Gruppen-Algorithmus
+  `end_time` fehlt). Noch niemandem zugeteilt: hellgraue Fläche mit gestrichelter Kante
+  (`--ohne-person`, seit v110 – vorher weiß und am Handy kaum zu sehen). Überlappende Termine bekommen per Gruppen-Algorithmus
   (`layoutSpalten`) eigene, gleich breite Spalten. Termine ohne Uhrzeit erscheinen in einer
   eigenen Leiste „ohne Uhrzeit" statt verloren zu gehen oder eine erfundene Zeit zu bekommen.
   Zoom per Strg+Mausrad, Zwei-Finger-Geste oder ±-Knöpfen zwischen 14 und 120 px je Stunde;
@@ -640,6 +642,17 @@ seine Aufträge mit, und `kunde_endgueltig_loeschen()` (Migration 56) bleibt bei
 Die Oberfläche bietet „Löschen" bei einem abgerechneten Auftrag gar nicht erst an (im
 Auftragsmenü steht stattdessen der Grund) und fragt bei erledigten und stornierten eigens nach
 – `auftragLoeschPruefung()` in `lib/auftragLoeschen.ts`, mit Auftragsnummer in jeder Frage.
+Seit Migration 66 (v109) gilt die Sperre auch für einen als **anderswo abgerechnet** vermerkten
+Auftrag ohne Nummer (siehe `rechnungen.md`).
+
+**(b3) Gelöschte Aufträge zurückholen** (v109). Ein einzeln gelöschter Auftrag steht unter
+Admin → Papierkorb im Abschnitt „Gelöschte Aufträge" (`fetchGeloeschteAuftraege()`,
+`auftragWiederherstellen()` in `lib/api/orders.ts`) – nur, wenn sein Kunde nicht selbst gelöscht
+ist; dann kommt er mit dem Kunden zurück. Wiederherstellen setzt `deleted_at` auf `null`; die
+Leistungen holt `propagate_soft_delete()` (Migration 19) mit zurück, die Reservierung verkaufter
+Reifen `auftrag_reifenverkauf_buchen()` (Migration 61). Recht: `auftraege.auftrag · schreiben` –
+Wiederherstellen ist kein Löschen (`pruefe_loeschrecht()`). Bis v108 gab es dafür keine
+Oberfläche.
 
 **(c) Vollständige Rechnungsdaten** – `pruefe_rechnungsdaten()` (Migration 44), läuft **nach**
 dem Statuswechsel-Trigger (Funktionsname beginnt mit `trg_p`, extra so gewählt, damit er nach

@@ -316,8 +316,13 @@ export type Order = {
   // einzutragen und nichts mehr zurückzunehmen. Eine Rechnung wird storniert, nicht abgehakt.
   rechnung_erstellt_am: string | null;
   rechnung_erstellt_von: string | null;
-  // Die Nummer des Belegs aus `rechnungen` – lückenlos vergeben (Migration 48).
+  // Die Nummer des Belegs aus `rechnungen` – lückenlos vergeben (Migration 48). Bei einem
+  // anderswo abgerechneten Auftrag die Nummer aus dem anderen System, falls eingetragen.
   rechnung_nummer: string | null;
+  // Anderswo abgerechnet (Migration 66, v109): Der Haken wurde von Hand gesetzt, der Beleg liegt
+  // in einem anderen System. Setzt nur der Trigger `stempel_rechnung()`. Optional, damit
+  // Testgerüste und Altdaten ohne die Spalte nichts brechen.
+  rechnung_extern?: boolean | null;
   // Nur bei Aufträgen der Laufkundschaft (Migration 57): wer es war, wie man ihn erreicht und
   // wo der Einsatz ist. Der Name ist Pflicht beim Abschließen und steht als Empfänger auf der
   // Rechnung; der Einsatzort ist Freitext und wird nicht geokodiert.

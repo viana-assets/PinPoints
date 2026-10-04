@@ -16,6 +16,7 @@ import { VerkaufPanel } from "./VerkaufPanel";
 import { SatzZumVerkaufBlatt } from "./SatzZumVerkaufBlatt";
 import { TireAssignModal } from "./TireAssignModal";
 import { groessenAbweichung, groesseText, reifenFrei, reifenName } from "@/lib/reifenverkauf";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Lager-Modul, neu gestaltet am 26.09.2026 (Entwurf „H · Lager", docs/lager.md).
 //
@@ -461,11 +462,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           )}
           {ansichtJetzt === "einlagerung" && <>
           <div className="lg-suche">
-            <label className="lg-suchfeld">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M20 20l-4-4" /></svg>
-              <input type="search" placeholder="Kunde, Kennzeichen, Platz …" value={suche}
-                onChange={(e) => setSuche(e.target.value)} aria-label="Wo liegt …? Kunde, Kennzeichen, Platz" />
-            </label>
+            <SuchFeld value={suche} onWert={setSuche}
+              placeholder="Kunde, Kennzeichen, Platz …" ariaLabel="Wo liegt …? Kunde, Kennzeichen, Platz" />
             <button type="button" className="lg-scan" onClick={() => { setScanHinweis(null); setScannerOffen(true); }} aria-label="Aufkleber scannen" title="Regal-Aufkleber oder Satz-Etikett scannen">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3" /><path d="M8 9h2v2H8zM14 9h2v2h-2zM8 14h2v2H8zM13 13h3v3" /></svg>
             </button>
