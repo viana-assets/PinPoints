@@ -235,6 +235,11 @@ export type TireStorage = {
   // Aus welchem Auftrag diese Einlagerung stammt (Migration 22). Null bei allem, was direkt im
   // Lager-Modul eingelagert wurde, und bei Altbestand von vor der Migration.
   order_id: string | null;
+  // Reifentausch (Migration 69): erfasst, liegt aber noch nicht im Regal. Übernimmt beim
+  // Abschließen des Auftrags den Platz von `tausch_fuer`. Optional, weil Testgerüste die Zeile von
+  // Hand bauen. Die Seite trennt diese Sätze vom Regalbestand (`tireStorages` in app/page.tsx).
+  kommt_rein?: boolean;
+  tausch_fuer?: string | null;
 };
 
 // Ein Satz ist für einen Einsatztag ins Auto geladen (Migration 58, Dashboard „Reifen
@@ -347,6 +352,18 @@ export type Employee = {
   name: string;
   profile_id: string | null;
   created_at: string;
+};
+
+// An welchem Tag ein Mitarbeiter eingesetzt werden kann (Migration 68). `von`/`bis` leer = ganzer
+// Tag; keine Zeile = nichts eingetragen. Bewusst ohne Grund (kein „krank", kein „Urlaub").
+export type Verfuegbarkeit = {
+  id: string;
+  employee_id: string;
+  datum: string;
+  von: string | null;
+  bis: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 // Eigener Transporter (Migration 32). Bewusst eine eigene Tabelle neben `Vehicle`: „Fahrzeug"

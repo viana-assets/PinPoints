@@ -105,7 +105,7 @@ import { fahrzeugMitKennzeichen } from "@/lib/kennzeichen";
 import {
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
   insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById, updateSlotGroesse,
-  upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails, satzVormerken, vormerkungZuruecknehmen,
+  upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails, satzVormerken, vormerkungZuruecknehmen, tauschAnlegen,
   insertRad, updateRadById, deleteRadById, setErfassungsart, setAnzahlRaeder, radZuZeile, type RadFelder,
 } from "@/lib/api/lager";
 import {
@@ -137,8 +137,10 @@ import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
   useMitarbeiter, useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useRechnungen, useAuftragRechnungen,
   useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
-  useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks,
+  useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten,
 } from "@/lib/queries/hooks";
+import { verfuegbarkeitAustragen, verfuegbarkeitSetzen, verfuegbarkeitVorlage } from "@/lib/api/verfuegbarkeit";
+import type { VerfuegbarkeitImPlan } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { belegHochladen, belegLoeschen } from "@/lib/api/belege";
 import { insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag, satzZumVerkauf } from "@/lib/api/verkaufsreifen";
 
@@ -417,6 +419,10 @@ export default function HomePage() {
     supabase,
     sitzungBereit && (brauchtMitarbeiter || offenerAuftragId !== null)
   );
+  // Verfügbarkeit der Mitarbeiter (Migration 68): für die Einsatzplanung und die Teamauswahl im
+  // Auftragsfenster. Fehlt die Tabelle noch (Migration nicht ausgeführt), bleibt die Abfrage
+  // still im Fehler – dann gibt es den Reiter einfach nicht.
+  const verfuegbarkeitQuery = useVerfuegbarkeiten(supabase, sitzungBereit && (tab === "einsatzplanung" || offenerAuftragId !== null));
   const lagerKennzahlenQuery = useLagerKennzahlen(supabase, sitzungBereit && (tab === "dashboard" || tab === "more"));
   const modulrechteQuery = useModulrechte(supabase, sitzungBereit);
   // Der Briefkopf. Gebraucht, sobald eine Rechnung entstehen oder gezeigt werden soll –
@@ -486,13 +492,20 @@ export default function HomePage() {
   const sichtbareMitarbeiter = isTechniker
     ? employees.filter((e) => e.profile_id && e.profile_id === settings.user_id)
     : employees;
+  const ichMitarbeiter = employees.find((e) => !!e.profile_id && e.profile_id === settings.user_id) ?? null;
   const articles = artikelQuery.data ?? KEINE_ARTIKEL;
   const articlePrices = artikelpreiseQuery.data ?? KEINE_ARTIKELPREISE;
   const vorlagen = vorlagenQuery.data ?? KEINE_VORLAGEN;
   const warehouses = lagerQuery.data ?? KEINE_LAGER;
   const storageSlots = lagerplaetzeQuery.data ?? KEINE_LAGERPLAETZE;
   const tireStoragesGeladen = einlagerungenQuery.data ?? KEINE_EINLAGERUNGEN;
-  const tireStorages = useMemo(() => saetzeAnwenden(tireStoragesGeladen, ausgang), [tireStoragesGeladen, ausgang]);
+  // ALLE Sätze, auch die eines Reifentauschs, die noch hereinkommen (Migration 69). Für Nachschlagen
+  // nach Kennung und für den Auftrag.
+  const alleSaetze = useMemo(() => saetzeAnwenden(tireStoragesGeladen, ausgang), [tireStoragesGeladen, ausgang]);
+  // Der Regalbestand: ohne Tausch-Sätze. Die liegen noch nicht im Regal (oder wurden verworfen) und
+  // gehören weder in Lager, Kundenfenster, Saisonliste noch in irgendeine Historie.
+  const tireStorages = useMemo(() => alleSaetze.filter((t) => !t.kommt_rein), [alleSaetze]);
+  const kommtReinSaetze = useMemo(() => alleSaetze.filter((t) => t.kommt_rein && !t.removed_at), [alleSaetze]);
   const verkaufsreifen = verkaufsreifenQuery.data ?? KEINE_VERKAUFSREIFEN;
   const raederGeladen = raederQuery.data ?? KEINE_RAEDER;
   const eingelagerteRaeder = useMemo(() => raederAnwenden(raederGeladen, ausgang), [raederGeladen, ausgang]);
@@ -957,6 +970,18 @@ export default function HomePage() {
     const rechte = modulePermissions[bereich] ?? RECHTE_VORGABE[bereich] ?? {};
     return (rechte[verb] ?? []).includes(myRole);
   }
+  // Verfügbarkeit (Migration 68, v112). Ob jemand für andere eintragen darf, prüft die Datenbank.
+  const verfuegbarkeitImPlan: VerfuegbarkeitImPlan | null = verfuegbarkeitQuery.data && !verfuegbarkeitQuery.isError
+    ? {
+        eintraege: verfuegbarkeitQuery.data,
+        ich: ichMitarbeiter,
+        alleSehen: darf("einsatzplanung.verfuegbarkeit", "lesen"),
+        alleSchreiben: darf("einsatzplanung.verfuegbarkeit", "schreiben"),
+        onSetzen: async (employeeId, datum, fenster) => { await verfuegbarkeitSetzen(supabase, employeeId, datum, fenster); await neuLaden(qk.verfuegbarkeiten()); },
+        onAustragen: async (employeeId, datum) => { await verfuegbarkeitAustragen(supabase, employeeId, datum); await neuLaden(qk.verfuegbarkeiten()); },
+        onVorlage: async (employeeId, tage, fenster) => { await verfuegbarkeitVorlage(supabase, employeeId, tage, fenster); await neuLaden(qk.verfuegbarkeiten()); },
+      }
+    : null;
   // Die Sichtbarkeitsregel eines Moduls ist seit Migration 42 ein Paar aus Bereich und Verb
   // („kunden.schreiben" für „Neuer Kunde"). Ohne Verb gilt „lesen".
   function canView(regel: string): boolean {
@@ -1678,7 +1703,13 @@ export default function HomePage() {
   const [etikettSatzIds, setEtikettSatzIds] = useState<string[]>([]);
 
   async function removeTireAssignment(id: string, ausAuftragId?: string | null) {
-    const satz = tireStorages.find((t) => t.id === id);
+    const satz = alleSaetze.find((t) => t.id === id);
+    // Ein Tausch-Satz (Migration 69) lag nie im Regal: Entfernen verwirft ihn, ohne Gebühr.
+    if (satz?.kommt_rein) {
+      await removeTireAssignmentById(supabase, id, null);
+      await refreshTireStorages();
+      return;
+    }
     const heuteAngelegt = !!satz && satz.created_at.slice(0, 10) === todayStr();
     const eigenerSatz = !!satz && !!ausAuftragId && satz.order_id === ausAuftragId;
 
@@ -1730,7 +1761,18 @@ export default function HomePage() {
   function vormerkungText(satz: TireStorage): string | null {
     if (!istVorgemerkt(satz)) return null;
     const o = orders.find((x) => x.id === satz.entnahme_order_id);
-    return o ? `vorgemerkt · ${auftragsNr(o.order_number)} am ${formatDate(o.order_date)}` : "vorgemerkt";
+    const tausch = kommtReinSaetze.some((k) => k.tausch_fuer === satz.id) ? " · Tausch" : "";
+    return (o ? `vorgemerkt · ${auftragsNr(o.order_number)} am ${formatDate(o.order_date)}` : "vorgemerkt") + tausch;
+  }
+
+  // Reifentausch (Migration 69): Der neue Satz kommt auf den Platz des vorgemerkten. Vorgeschlagen
+  // wird dasselbe Auto und die andere Saison – der übliche Wechsel im Frühjahr und Herbst.
+  async function tauschStarten(order: Order, altSatzId: string) {
+    const alt = tireStorages.find((t) => t.id === altSatzId);
+    if (!alt) return;
+    const andere: Saison | null = alt.saison === "winter" ? "sommer" : alt.saison === "sommer" ? "winter" : null;
+    await tauschAnlegen(supabase, alt, order.id, { vehicleId: alt.vehicle_id, saison: andere });
+    await refreshTireStorages();
   }
 
   // Die Vormerkung zurücknehmen (Migration 67): Der Satz bleibt einfach liegen, die zugehörige
@@ -1796,8 +1838,11 @@ export default function HomePage() {
   // mehrere Fahrzeuge, und damit gehören mehrere Sätze ins Regal. Die Datenbank ließ das immer
   // zu – eindeutig ist der PLATZ (ein aktiver Satz je Platz, Migration 15), nicht der Auftrag.
   // Eingeschränkt hat nur dieses `find` hier.
+  //
+  // Dazu die Tausch-Sätze dieses Auftrags (Migration 69): Sie werden hier wie jede Einlagerung
+  // erfasst (Fahrzeug, Saison, Profil) und kommen beim Abschließen auf ihren Platz.
   function einlagerungenZuAuftrag(orderId: string): TireStorage[] {
-    return tireStorages
+    return alleSaetze
       .filter((t) => t.order_id === orderId && !t.removed_at)
       .sort((a, b) => a.created_at.localeCompare(b.created_at));
   }
@@ -3172,6 +3217,7 @@ export default function HomePage() {
             onNeuerKunde={(termin) => { setTerminFuerNeuenKunden(termin); setTab("add"); }}
             onVerschieben={darf("auftraege.auftrag", "schreiben") ? terminVerschieben : undefined}
             isTechniker={isTechniker}
+            verfuegbarkeit={verfuegbarkeitImPlan}
           />
           </>
         )}
@@ -3525,7 +3571,7 @@ export default function HomePage() {
 
       {etikettSatzIds.length > 0 && (
         <ReifensatzEtikett
-          saetze={tireStorages.filter((t) => etikettSatzIds.includes(t.id))}
+          saetze={alleSaetze.filter((t) => etikettSatzIds.includes(t.id))}
           raeder={eingelagerteRaeder.filter((r) => etikettSatzIds.includes(r.tire_storage_id))}
           customers={customers}
           vehicles={alleFahrzeuge}
@@ -3619,6 +3665,8 @@ export default function HomePage() {
           ausLagerSaetze={saetzeAusDemLager(tireStorages, offenerAuftrag.id)}
           fruehereEinlagerungen={frueherEingelagert(tireStorages, offenerAuftrag.id)}
           onVormerkungZuruecknehmen={vormerkungAufheben}
+          onTausch={darf("lager.einlagerung", "schreiben") ? (altId) => tauschStarten(offenerAuftrag, altId) : undefined}
+          verfuegbarkeit={verfuegbarkeitImPlan?.alleSehen ? verfuegbarkeitImPlan.eintraege : null}
           onAuslagern={(satzId) => { setAuslagernAusAuftragId(offenerAuftrag.id); setAuslagernSatzId(satzId); }}
           onEtikett={(satzId) => setEtikettSatzIds([satzId])}
           storageSlots={storageSlots}

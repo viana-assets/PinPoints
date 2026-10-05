@@ -16,8 +16,10 @@ import { satzZustand } from "@/lib/lagerVormerkung";
 //     weil der Satz schon beim Anlegen „ausgelagert" worden war.
 //   - „Hier eingelagert": was in diesem Auftrag ins Regal kam und inzwischen wieder draußen ist.
 //     Sonst verschwände mit dem nächsten Saisonwechsel auch hier der Platz.
-export function LagerSaetzeAmAuftrag({ ausLager, frueher, storageSlots, warehouses, vehicles, auftraege, gesperrt, onZuruecknehmen }: {
+export function LagerSaetzeAmAuftrag({ ausLager, frueher, einlagerungen = [], storageSlots, warehouses, vehicles, auftraege, gesperrt, onZuruecknehmen }: {
   ausLager: TireStorage[];
+  // Die Einlagerungen dieses Auftrags – um einen Tausch (Migration 69) am alten Satz zu nennen.
+  einlagerungen?: TireStorage[];
   frueher: TireStorage[];
   storageSlots: StorageSlot[];
   warehouses: Warehouse[];
@@ -54,6 +56,7 @@ export function LagerSaetzeAmAuftrag({ ausLager, frueher, storageSlots, warehous
           {ausLager.map((satz) => {
             const k = kopf(satz);
             const vorgemerkt = satzZustand(satz) === "vorgemerkt";
+            const tausch = einlagerungen.find((e) => e.kommt_rein && e.tausch_fuer === satz.id);
             return (
               <div key={satz.id} className="ao-regal">
                 <span className={"ao-platz" + (vorgemerkt ? " ao-vorgemerkt" : " ao-draussen")}>{k.code}</span>
@@ -65,9 +68,12 @@ export function LagerSaetzeAmAuftrag({ ausLager, frueher, storageSlots, warehous
                       ? "liegt noch im Regal · geht beim Abschließen raus"
                       : `ausgelagert am ${formatDate((satz.removed_at ?? "").slice(0, 10))}`}
                   </span>
+                  {tausch && <span className="small tausch-hinweis">⇄ Tausch: {tausch.saison ? SAISON_LABEL[tausch.saison] : "der neue Satz"} kommt auf diesen Platz</span>}
                 </span>
                 {vorgemerkt && !gesperrt && (
-                  <button type="button" className="es-knopf" disabled={laeuft !== null} onClick={() => void zuruecknehmen(satz.id)}>
+                  <button type="button" className="es-knopf" disabled={laeuft !== null || !!tausch}
+                    title={tausch ? "Erst den Tausch-Satz unten entfernen" : undefined}
+                    onClick={() => void zuruecknehmen(satz.id)}>
                     {laeuft === satz.id ? "…" : "Zurücknehmen"}
                   </button>
                 )}

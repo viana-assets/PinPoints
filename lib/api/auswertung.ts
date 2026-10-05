@@ -97,10 +97,11 @@ export async function fetchAuswertungsdaten(
     fahrzeuge.push(...(f || []));
   }
 
-  const einlagerungen = await fetchPaged<TireStorage>(
+  // Ohne Tausch-Sätze, die noch nicht (oder nie) im Regal lagen (Migration 69).
+  const einlagerungen = (await fetchPaged<TireStorage>(
     "Die Einlagerungen für die Auswertung konnten nicht geladen werden",
     (a, b) => supabase.from("tire_storage").select("*").order("created_at").order("id").range(a, b)
-  );
+  )).filter((t) => !t.kommt_rein);
 
   const rechnungen = mitRechnungen
     ? await fetchPaged<Rechnung>("Das Rechnungsbuch für die Auswertung konnte nicht geladen werden", (a, b) =>

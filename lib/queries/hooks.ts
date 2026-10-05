@@ -7,6 +7,7 @@ import { fetchGepackt } from "@/lib/api/mitnehmen";
 import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsdaten } from "@/lib/api/orders";
 import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
+import { fetchVerfuegbarkeiten } from "@/lib/api/verfuegbarkeit";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
@@ -81,6 +82,21 @@ export function useFirmenfahrzeuge(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.firmenfahrzeuge(),
     queryFn: () => fetchFirmenfahrzeuge(supabase),
+    enabled: aktiv,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Verfügbarkeit der Mitarbeiter (Migration 68): ab zwei Monaten zurück. Für die Einsatzplanung
+// und das Auftragsfenster (Teamauswahl).
+export function useVerfuegbarkeiten(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.verfuegbarkeiten(),
+    queryFn: () => {
+      const d = new Date();
+      d.setDate(d.getDate() - 62);
+      return fetchVerfuegbarkeiten(supabase, `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    },
     enabled: aktiv,
     staleTime: FRISCH_MS,
   });

@@ -23,6 +23,8 @@ export const qk = {
 
   mitarbeiter: () => ["mitarbeiter"] as const,
   firmenfahrzeuge: () => ["firmenfahrzeuge"] as const,
+  // Verfügbarkeit der Mitarbeiter (Migration 68). Was davon zurückkommt, entscheidet die Rolle.
+  verfuegbarkeiten: () => ["verfuegbarkeiten"] as const,
   artikel: () => ["artikel"] as const,
   artikelpreise: () => ["artikelpreise"] as const,
   // Auftragsvorlagen (Migration 63, E6).

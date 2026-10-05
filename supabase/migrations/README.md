@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 66 und 67** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 02.10.2026: Alle Migrationen 01–65 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103, 65 mit v105) –
+**Noch auszuführen: 66, 67, 68 und 69** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 02.10.2026: Alle Migrationen 01–65 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103, 65 mit v105) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -825,3 +825,27 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Vormerkung auf; zurücknehmen; ohne Auftrag sofort auslagern; Abschluss, der an der
   Einlagerungsprüfung scheitert, lässt den Satz im Regal; Nutzer schließt ab; zurückgenommen, zweimal
   (Vorgemerktes ausgelagert, Prüfung wieder da), erneut ausgeführt.
+- `68_verfuegbarkeit.sql` – **nach `67`, SQL zuerst, dann die Dateien von v112.** Verfügbarkeit der
+  Mitarbeiter: Tabelle `verfuegbarkeiten` (je Mitarbeiter und Tag; `von`/`bis` leer = ganzer Tag),
+  Recht `einsatzplanung.verfuegbarkeit` (Vorgabe Admin lesen und schreiben), `verfuegbarkeit_pruefen()`
+  (eigene Zeile ohne Recht, nur ab heute; Meldungen im Klartext), Protokoll, Aufräumen nach 12 Monaten
+  samt Protokollzeilen (`verfuegbarkeit_aufraeumen()`), vier Richtlinien. Ergebnistabelle mit drei
+  Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/68_rollback.sql` (die Einträge sind danach
+  weg). Geprüft gegen Postgres 16 (Stand 67): Techniker trägt heute und ein Zeitfenster ein, ein
+  13 Monate alter Eintrag samt Protokoll verschwindet; für einen anderen, gestern, Fenster ohne Ende
+  oder verkehrt herum abgewiesen; Nutzer und Techniker sehen nur sich; fremdes Löschen still ohne
+  Wirkung; eigenes Ändern und Austragen; Verschieben auf einen anderen abgewiesen; Zugang ohne
+  Mitarbeiter mit Meldung; Admin sieht alle und trägt für einen ohne Zugang ein, auch gestern;
+  doppelter Tag abgewiesen; Superadmin sieht alle; Protokoll; zurückgenommen, zweimal, erneut.
+- `69_reifentausch.sql` – **nach `68`, SQL zuerst, dann die Dateien von v112.** Reifentausch auf
+  demselben Platz: `tire_storage.kommt_rein`/`tausch_fuer`; Platz-Index ohne hereinkommende Sätze
+  (erst der neue, dann der alte weg) und höchstens ein Tausch je Platz; `tire_storage_tausch_pruefen()`;
+  `tire_storage_vormerkung_pruefen()` und `auftrag_lager_entnahme()` neu (Abschließen tauscht).
+  Ergebnistabelle mit drei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/69_rollback.sql`
+  (wartende Tausch-Sätze werden verworfen, Funktionen und Index wie Migration 67/15; zweimal
+  lauffähig). Geprüft gegen Postgres 16 (Stand 68): Tausch angelegt; zweiter Satz und zweiter Tausch
+  auf dem Platz abgewiesen; gegen nicht vorgemerkten Satz und falschen Platz abgewiesen; Vormerkung
+  zurücknehmen bei stehendem Tausch abgewiesen; von Hand wirksam machen und nachträglich zum Tausch
+  machen abgewiesen; Abschließen tauscht; Wiedereröffnen lässt den neuen auf dem Platz; Storno hebt die
+  Vormerkung auf, danach scheitert der Abschluss mit Meldung, nach erneutem Vormerken geht er; Tausch
+  verwerfen; zurückgenommen, zweimal, erneut; Migration-67-Verhalten danach unverändert.

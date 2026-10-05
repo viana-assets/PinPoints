@@ -780,6 +780,13 @@ Aufträge, Lager, Verkauf, Reifensuche, Leistungen, Rechnungen, Artikel) ist
 bleibt der Cursor im Feld. Ein neues Listen-Suchfeld nimmt diese Komponente, kein eigenes
 `<label className="lg-suchfeld">`.
 
+**Verfügbarkeit** (seit v112, `.vf-*`): Grün heißt „hat Zeit" – kräftiger (`#bfe6d3`) für den ganzen
+Tag, hell und gestrichelt (`--green-bg`) für ein Zeitfenster, beige für „nichts eingetragen". Rot
+umrandet ist eine Zelle, an der jemand eingeplant ist, ohne eingetragen zu sein; am Termin im Raster
+steht dafür ein rotes „!" (`.tm-warn`). Dieselben Farben im Mockup, im Reiter, im Monat („x frei")
+und an der Teamauswahl. Ein Reifentausch ist hellblau (`.tausch-knopf`, `.tausch-hinweis`) – blau
+wie „eingeplant, aber nicht dringend".
+
 **Termin ohne Person** (seit v110): Im Stundenraster trägt ein Termin, der noch niemandem
 zugeteilt ist, die hellgraue Fläche `--ohne-person` mit gestrichelter Kante `--ohne-person-linie`
 – ebenso das Feld in der Legende. Bis v109 war er weiß wie das Raster und am Handy kaum zu

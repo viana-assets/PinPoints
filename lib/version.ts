@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v111";
+export const APP_VERSION = "v112";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v112", datum: "2026-10-05", titel: "Verfügbarkeit und Reifentausch",
+    punkte: [
+      "In der Einsatzplanung gibt es den Reiter „Verfügbarkeit“. Jeder Techniker trägt dort ein, an welchen Tagen er Zeit hat – ganzer Tag oder ein Zeitfenster, mit „Vorlage …“ auch gleich für mehrere Wochen. Er sieht dabei nur sich selbst.",
+      "Admins sehen alle auf einen Blick (eine Woche, eine Zeile je Mitarbeiter) und tragen für Mitarbeiter ohne eigenen Zugang selbst ein. Im Monat steht an jedem Tag „x frei“, in der Woche zeigen Punkte, wer Zeit hat.",
+      "Beim Einteilen im Auftrag stehen oben die, die an dem Tag Zeit haben; der Rest steht eingeklappt darunter. Wer eingeplant ist, ohne sich eingetragen zu haben, bekommt am Termin ein rotes „!“.",
+      "Reifentausch: Ist im Auftrag ein Satz zum Auslagern vorgemerkt, legt „Tausch auf …“ den anderen Satz auf denselben Platz. Beim Abschließen geht der alte raus und der neue rein.",
+    ],
+  },
   {
     version: "v111", datum: "2026-10-05", titel: "Auslagern erst beim Abschließen",
     punkte: [

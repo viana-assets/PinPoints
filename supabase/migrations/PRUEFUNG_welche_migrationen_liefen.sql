@@ -128,7 +128,11 @@ with pruefungen(nr, was, vorhanden) as (
     ('66', 'Rechnung anderswo erstellt', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'rechnung_extern')
                                                   and to_regprocedure('public.pruefe_rechnung_nicht_anderswo()') is not null),
     ('67', 'Auslagern erst beim Abschließen', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'order_articles' and column_name = 'lager_satz_id')
-                                                  and to_regprocedure('public.auftrag_lager_entnahme()') is not null)
+                                                  and to_regprocedure('public.auftrag_lager_entnahme()') is not null),
+    ('68', 'Verfügbarkeit der Mitarbeiter', to_regclass('public.verfuegbarkeiten') is not null
+                                                  and exists (select 1 from public.module_permissions where module_key = 'einsatzplanung.verfuegbarkeit')),
+    ('69', 'Reifentausch auf demselben Platz', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'kommt_rein')
+                                                  and to_regclass('public.tire_storage_ein_satz_im_regal_je_platz') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

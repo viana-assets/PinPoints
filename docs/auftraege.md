@@ -337,6 +337,36 @@ eine Tabellenspalte); beides steht im Auftragsfenster.
 Mitarbeiter-/Leistungs-Zuordnung bleibt Popover direkt in der Zeile (Büro); ein Techniker sieht
 dort nur Text, keinen Bearbeiten-Knopf.
 
+### Verfügbarkeit der Mitarbeiter (Migration 68, v112)
+
+Die Techniker sind selbstständig und tragen vorher ein, an welchen Tagen sie eingesetzt werden
+können. Tabelle `verfuegbarkeiten` (eine Zeile je Mitarbeiter und Tag; `von`/`bis` leer = ganzer
+Tag, sonst ein Zeitfenster; keine Zeile = **nichts eingetragen**, das heißt „unbekannt", nicht
+„keine Zeit"). Kein Grund – nur ob und wann. Nach zwölf Monaten löscht die Datenbank alte
+Einträge samt Protokoll (`verfuegbarkeit_aufraeumen()`). Rechte: `berechtigungen-und-rollen.md`.
+
+* **Reiter „Verfügbarkeit"** neben Monat, Woche, Tag (`VerfuegbarkeitAnsicht.tsx`):
+  * **Meine Verfügbarkeit** (wer nur sich sieht): ein Monat. Tipp auf einen leeren Tag = ganzer
+    Tag; zweiter Tipp öffnet das Blatt (ganzer Tag / Zeitfenster halbstündlich 6–21 Uhr /
+    austragen). „Vorlage …" trägt dieselben Wochentage für einen Zeitraum ein, Vorhandenes bleibt
+    (`vorlageTage()`). Darunter „Schon eingeplant". Austragen an einem Tag mit Terminen geht, mit
+    Hinweis – das Büro sieht dann die Warnmarke.
+  * **Wer hat wann Zeit?** (mit `einsatzplanung.verfuegbarkeit · lesen`): eine Woche, eine Zeile je
+    Mitarbeiter, unten „frei" je Tag. Rot umrandet: eingeplant, aber nicht eingetragen – darunter
+    als Liste. Mit „· schreiben" per Tipp für andere eintragen, auch für Mitarbeiter **ohne
+    Zugang** und rückwirkend.
+* **Monat**: „x frei" unter jedem kommenden Tag (0 nur, wo schon etwas geplant ist). Ist oben ein
+  Mitarbeiter gewählt, sind seine Tage ohne Eintrag gestreift.
+* **Woche**: Punkte in der Mitarbeiterfarbe im Tageskopf. **Tag**: Zeile „Verfügbar: …".
+* **Warnmarke**: Ein rotes „!" am Termin, wenn jemand eingeteilt ist, der sich für den Tag nicht
+  eingetragen hat (`nichtEingetragen()`). Beim Verschieben auf so einen Tag nennt der Hinweis ihn.
+* **Teamauswahl im Auftrag**: oben, wer an dem Tag Zeit hat (mit Zeitfenster), darunter
+  eingeklappt „Weitere (nicht eingetragen)". Wer eingeteilt ist, steht immer oben. Hinweis statt
+  Sperre, wenn jemand nicht eingetragen ist oder der Termin sein Fenster verlässt
+  (`teamHinweise()`). Entscheiden tut immer das Büro – die App plant niemanden selbst ein.
+
+Rechenregeln in `lib/verfuegbarkeit.ts`, geprüft in `tests/verfuegbarkeit.test.ts`.
+
 ### Tagesroute (Fahrplan E5, v104)
 
 Im Monat steht in der Tagesliste je Mitarbeiter mit mindestens zwei Terminen **„Route ›"**, in der

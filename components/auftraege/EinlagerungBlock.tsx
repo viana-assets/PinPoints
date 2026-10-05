@@ -194,6 +194,10 @@ export function EinlagerungBlock({
         <>
           <div><b>{belegterPlatz.code}</b> <span className="small">· {lagerName(belegterPlatz.warehouse_id)}{platzGroesse(belegterPlatz) === "gross" ? " · großes Fach" : ""}</span></div>
           {platzZuKlein(belegterPlatz, groesse) && <div className="small einlagerung-pflicht">{platzZuKlein(belegterPlatz, groesse)}</div>}
+          {/* Reifentausch (Migration 69): erfasst, aber noch nicht im Regal. */}
+          {einlagerung.kommt_rein && (
+            <div className="small tausch-hinweis">⇄ Tausch: kommt beim Abschließen des Auftrags auf diesen Platz – der alte Satz geht dann raus.</div>
+          )}
 
           {/* Fahrzeug und Saison stehen HIER und nicht in einem eigenen Fenster: Der Techniker
               hat den Satz gerade in der Hand, das Auto steht vor ihm. Fünf Minuten später weiß

@@ -51,7 +51,7 @@ function statusKlasse(status: string): string {
 // Ein Termin im Raster. Absichtlich ein div mit role="button": In den Block passt bei kurzen
 // Terminen kaum Text, und ein echter Knopf brächte eigene Innenabstände mit, die die Höhe
 // verfälschen – die Höhe ist hier aber die Aussage.
-function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehbar, zieht, geradeGezogen }: {
+function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehbar, zieht, geradeGezogen, warnung = null }: {
   auftrag: RasterAuftrag & { start: number; ende: number; geschaetzt: boolean; spalte: number; spalten: number };
   employees: Employee[];
   vonMinute: number;
@@ -65,6 +65,8 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
   // Ein Loslassen nach dem Ziehen löst im Browser oft noch einen Klick aus. Der darf den
   // Auftrag nicht öffnen – man wollte verschieben, nicht nachsehen.
   geradeGezogen: () => boolean;
+  // Jemand ist eingeteilt, hat sich für den Tag aber nicht eingetragen (Migration 68) – „!" am Block.
+  warnung?: string | null;
 }) {
   const hoehe = ((auftrag.ende - auftrag.start) / 60) * stundePx;
   const oben = ((auftrag.start - vonMinute) / 60) * stundePx;
@@ -75,7 +77,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
 
   return (
     <div
-      className={`tm-block ${statusKlasse(auftrag.status)}${farbe ? "" : " tm-ohne-person"}${auftrag.geschaetzt ? " tm-geschaetzt" : ""}${zieht ? " tm-zieht" : ""}`}
+      className={`tm-block ${statusKlasse(auftrag.status)}${farbe ? "" : " tm-ohne-person"}${auftrag.geschaetzt ? " tm-geschaetzt" : ""}${zieht ? " tm-zieht" : ""}${warnung ? " tm-warn" : ""}`}
       role="button"
       tabIndex={0}
       data-ziehbar={ziehbar ? "1" : undefined}
@@ -95,6 +97,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
         auftrag.title,
         namen || "niemandem zugeteilt",
         ORDER_STATUS_LABEL[auftrag.status],
+        warnung,
       ].filter(Boolean).join(" · ")}
       style={{
         // Position und Höhe MÜSSEN hier stehen: Sie sind kein Layoutstil, sondern die
@@ -120,9 +123,19 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
         {auftrag.status === "storniert" && <span aria-hidden="true"> ✕</span>}
       </span>
       <span className="tm-wer">{auftrag.kunde?.name || auftrag.title}</span>
+      {warnung && <span className="tm-warnmarke" aria-label={warnung}>!</span>}
       {/* Die Unterkante zum Länger- und Kürzerziehen. Nur bei ziehbaren Terminen. */}
       {ziehbar && <span className="tm-griff" data-griff="ende" aria-hidden="true" />}
     </div>
+  );
+}
+
+// Wer an einem Tag Zeit hat (Migration 68): kleine Punkte in der Farbe des Mitarbeiters.
+function TagesPunkte({ punkte }: { punkte: { id: string; farbe: string; titel: string }[] }) {
+  return (
+    <span className="rk-frei" title={punkte.length ? punkte.map((p) => p.titel).join(", ") : "niemand eingetragen"}>
+      {punkte.length === 0 ? <span className="rk-frei-leer">–</span> : punkte.slice(0, 6).map((p) => <i key={p.id} style={{ background: p.farbe }} />)}
+    </span>
   );
 }
 
@@ -147,7 +160,7 @@ type Zug = {
 // üblicherweise nehmen.
 const LANG_DRUECKEN_MS = 400;
 
-export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen, onTagOeffnen, onSlot, onVerschieben }: {
+export function Stundenraster({ tage, auftraege, customers, employees, orderEmployees, standardDauerMin, onOeffnen, onTagOeffnen, onSlot, onVerschieben, tagesPunkte, warnungFuer }: {
   // Ein Tag in der Tagesansicht, sieben in der Wochenansicht – sonst ändert sich nichts.
   tage: Date[];
   auftraege: Order[];
@@ -173,6 +186,11 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
   // Ende vorher schon nur angenommen war – dann bleibt es angenommen. Fehlt die Eigenschaft,
   // darf niemand ziehen.
   onVerschieben?: (id: string, datum: string, von: string, bis: string | null) => void;
+  // Verfügbarkeit (Migration 68): wer an diesem Tag Zeit hat – als Farbpunkte im Tageskopf. Fehlt
+  // es, darf die Rolle die Verfügbarkeit der anderen nicht sehen.
+  tagesPunkte?: (datum: string) => { id: string; farbe: string; titel: string }[];
+  // Warnmarke am Termin: jemand eingeteilt, der sich für den Tag nicht eingetragen hat.
+  warnungFuer?: (auftrag: Order) => string | null;
 }) {
   const heute = toDateStr(new Date());
 
@@ -586,11 +604,13 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
             onClick={() => onTagOeffnen(datum)} title="Diesen Tag in der Tagesansicht öffnen">
             <span className="rk-wochentag">{tag.toLocaleDateString("de-DE", { weekday: "short" })}</span>
             <span className="rk-datum">{tag.getDate()}.{tag.getMonth() + 1}.</span>
+            {tagesPunkte && <TagesPunkte punkte={tagesPunkte(datum)} />}
           </button>
         ) : (
           <div key={datum} className={"rk-tag" + (datum === heute ? " ist-heute" : "")}>
             <span className="rk-wochentag">{tag.toLocaleDateString("de-DE", { weekday: "short" })}</span>
             <span className="rk-datum">{tag.getDate()}.{tag.getMonth() + 1}.</span>
+            {tagesPunkte && <TagesPunkte punkte={tagesPunkte(datum)} />}
           </div>
         ))}
       </div>
@@ -649,6 +669,7 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
                 ziehbar={!!onVerschieben && (a.status === "offen" || a.status === "in_arbeit")}
                 zieht={zug?.id === a.id}
                 geradeGezogen={geradeGezogen}
+                warnung={warnungFuer ? warnungFuer(a) : null}
               />
             ))}
           </div>

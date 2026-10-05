@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Customer, Employee, Firmenfahrzeug, Order } from "@/lib/types";
+import type { Customer, Employee, Firmenfahrzeug, Order, Verfuegbarkeit } from "@/lib/types";
 import { todayStr, formatDate, orderDateTime, terminZeitraum } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
@@ -13,12 +13,31 @@ import { auftragsNr } from "@/lib/testkunde";
 import { terminAusZeile, terminText, type TerminStand } from "@/lib/terminAenderung";
 import { RoutenBlatt, type RoutenGruppe } from "./RoutenBlatt";
 import { seitlichRollbar, wischRichtung } from "@/lib/wischen";
+import { VerfuegbarkeitAnsicht } from "./VerfuegbarkeitAnsicht";
+import { eintragAm, fensterText, nichtEingetragen, verfuegbareAm, type Fenster } from "@/lib/verfuegbarkeit";
+
+// Was die Einsatzplanung über die Verfügbarkeit wissen muss (Migration 68). Null: Die Tabelle ist
+// (noch) nicht da oder nicht geladen – dann gibt es weder den Reiter noch die Punkte.
+export type VerfuegbarkeitImPlan = {
+  eintraege: Verfuegbarkeit[];
+  // Der eigene Mitarbeiter (über `employees.profile_id`), sonst null.
+  ich: Employee | null;
+  // `einsatzplanung.verfuegbarkeit · lesen` / `· schreiben`.
+  alleSehen: boolean;
+  alleSchreiben: boolean;
+  onSetzen: (employeeId: string, datum: string, fenster: Fenster) => Promise<void>;
+  onAustragen: (employeeId: string, datum: string) => Promise<void>;
+  onVorlage: (employeeId: string, tage: string[], fenster: Fenster) => Promise<void>;
+};
 
 // Einsatzplanung: Monats-Kalender (Mo–So, mit Kalenderwochen), Mitarbeiter-Filter mit
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, fenster, isTechniker, firmenadresse = null }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, fenster, isTechniker, firmenadresse = null, verfuegbarkeit = null }: {
+  // Verfügbarkeit der Mitarbeiter (Migration 68, v112): der Reiter „Verfügbarkeit", „x frei" im
+  // Monat, Punkte im Tageskopf und die Warnmarke an Terminen.
+  verfuegbarkeit?: VerfuegbarkeitImPlan | null;
   // Start und Ende der Tagesroute (E5): die Firmenadresse aus den Betriebsdaten, sonst null.
   firmenadresse?: string | null;
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
@@ -62,7 +81,13 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // Monat, Woche oder Tag. Die drei sind derselbe Bestand in drei Auflösungen, kein eigener
   // Zustand je Ansicht: Der ausgewählte Tag gilt in allen dreien und wandert beim Umschalten
   // mit – sonst landet man beim Wechsel von „Monat, 20.9." unvermittelt wieder bei heute.
-  const [ansicht, setAnsicht] = useState<"monat" | "woche" | "tag">("monat");
+  const [ansicht, setAnsicht] = useState<"monat" | "woche" | "tag" | "verf">("monat");
+  // Der Reiter „Verfügbarkeit" (v112): wer alle sehen darf, bekommt die Woche aller, alle anderen
+  // ihren eigenen Monat. Geblättert wird wie in der Ansicht, die dahinter steckt.
+  const vf = verfuegbarkeit;
+  const vfReiter = !!vf && (!!vf.ich || vf.alleSehen);
+  const vfModus: "alle" | "eigen" = vf?.alleSehen ? "alle" : "eigen";
+  const blaetterAnsicht: "monat" | "woche" | "tag" = ansicht === "verf" ? (vfModus === "alle" ? "woche" : "monat") : ansicht;
   // Beim Umschalten der Ansicht nach oben (25.09.2026). Die Bedienleiste bleibt stehen – wer
   // unten in den offenen Aufträgen auf „Woche" tippte, behielt aber seine Scrollposition, und
   // das Stundenraster lag unsichtbar darüber. Es sah aus, als gäbe es die Woche nicht.
@@ -144,9 +169,16 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     const alt = terminAusZeile(vorher as unknown as Record<string, unknown>) ?? { datum: vorher.order_date, von: null, bis: null };
     const neu = { ...vorher, order_date: datum, time: von, end_time: bis };
     const treffer = terminUeberschneidungen(neu, orderEmployees[id] || [], vorher.firmenfahrzeug_id, orders, orderEmployees, standardDauerMin)[0];
-    const warnung = treffer
-      ? `Achtung: ${treffer.art === "mitarbeiter" ? (employees.find((e) => e.id === treffer.werId)?.name || "Mitarbeiter") : fahrzeugText(treffer.werId)} ist ${treffer.von}–${treffer.bis} schon bei ${kundeFuerAuftrag(treffer.auftrag, customers)?.name || treffer.auftrag.title}.`
-      : null;
+    const fehlt = vf?.alleSehen ? nichtEingetragen(orderEmployees[id] || [], datum, vf.eintraege) : [];
+    const warnung = [
+      treffer
+        ? `Achtung: ${treffer.art === "mitarbeiter" ? (employees.find((e) => e.id === treffer.werId)?.name || "Mitarbeiter") : fahrzeugText(treffer.werId)} ist ${treffer.von}–${treffer.bis} schon bei ${kundeFuerAuftrag(treffer.auftrag, customers)?.name || treffer.auftrag.title}.`
+        : null,
+      // Verfügbarkeit (v112): an diesem Tag nicht eingetragen.
+      fehlt.length
+        ? `${fehlt.map((x) => employees.find((e) => e.id === x)?.name || "Mitarbeiter").join(", ")} ${fehlt.length === 1 ? "hat" : "haben"} sich für diesen Tag nicht eingetragen.`
+        : null,
+    ].filter(Boolean).join(" ") || null;
     // Höchstens zehn Schritte zurück – mehr merkt sich niemand, und der Stapel lebt nur, solange
     // diese Ansicht offen ist.
     setStapel((st) => [...st, { id, kunde, vorher: alt, nachher }].slice(-10));
@@ -278,10 +310,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
 
   let titel: string;
   let untertitel: string;
-  if (ansicht === "monat") {
+  if (blaetterAnsicht === "monat") {
     titel = `${MONATE[monthCursor.getMonth()]} ${monthCursor.getFullYear()}`;
-    untertitel = "Tag antippen öffnet den Tagesplan";
-  } else if (ansicht === "woche") {
+    untertitel = ansicht === "verf" ? "Meine Verfügbarkeit" : "Tag antippen öffnet den Tagesplan";
+  } else if (blaetterAnsicht === "woche") {
     const ende = addDays(wochenStart, 6);
     titel = `KW ${isoWeekNumber(wochenStart)}`;
     untertitel = `${wochenStart.getDate()}. ${wochenStart.getMonth() !== ende.getMonth() ? MONATE[wochenStart.getMonth()] + " " : ""}– ${ende.getDate()}. ${MONATE[ende.getMonth()]}`;
@@ -293,11 +325,11 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // folgt dem Tag, damit „Monat" danach den Monat zeigt, in dem man gerade war.
   function blaettern(schritt: number) {
     anstossen(schritt);
-    if (ansicht === "monat") {
+    if (blaetterAnsicht === "monat") {
       setMonthCursor(new Date(monthCursor.getFullYear(), monthCursor.getMonth() + schritt, 1));
       return;
     }
-    const neu = addDays(ankerDatum, schritt * (ansicht === "woche" ? 7 : 1));
+    const neu = addDays(ankerDatum, schritt * (blaetterAnsicht === "woche" ? 7 : 1));
     setSelectedDay(toDateStr(neu));
     setMonthCursor(new Date(neu.getFullYear(), neu.getMonth(), 1));
   }
@@ -381,6 +413,33 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   } else if (listOrders.length > 0) {
     offeneGruppen.push({ titel: null, auftraege: listOrders });
   }
+  // ---------------------------------------------------------------- Verfügbarkeit (v112)
+  const laeuftNoch = (o: Order) => o.status === "offen" || o.status === "in_arbeit";
+  function eingeplantAnzahl(employeeId: string, ds: string): number {
+    return orders.filter((o) => o.order_date === ds && laeuftNoch(o) && (orderEmployees[o.id] || []).includes(employeeId)).length;
+  }
+  function warnungAmTermin(o: Order): string | null {
+    if (!vf || !laeuftNoch(o) || o.order_date < heuteStr) return null;
+    const fehlt = nichtEingetragen(orderEmployees[o.id] || [], o.order_date, vf.eintraege);
+    if (fehlt.length === 0) return null;
+    return `nicht eingetragen: ${fehlt.map((x) => employees.find((e) => e.id === x)?.name || "?").join(", ")}`;
+  }
+  const meineTermine = vf?.ich
+    ? orders.filter((o) => laeuftNoch(o) && o.order_date >= heuteStr && (orderEmployees[o.id] || []).includes(vf.ich!.id))
+      .sort((a, b) => orderDateTime(a).getTime() - orderDateTime(b).getTime()).slice(0, 8)
+      .map((o) => ({ datum: o.order_date, text: `${terminZeitraum(o) || "ohne Uhrzeit"} · ${kundeFuerAuftrag(o, customers)?.name || o.title}` }))
+    : [];
+  const wochenLuecken = vf?.alleSehen && ansicht === "verf"
+    ? orders.filter((o) => laeuftNoch(o) && o.order_date >= heuteStr && o.order_date >= toDateStr(wochenStart) && o.order_date <= toDateStr(addDays(wochenStart, 6)))
+      .sort((a, b) => orderDateTime(a).getTime() - orderDateTime(b).getTime())
+      .flatMap((o) => {
+        const fehlt = nichtEingetragen(orderEmployees[o.id] || [], o.order_date, vf.eintraege);
+        if (fehlt.length === 0) return [];
+        const d = new Date(o.order_date + "T12:00:00");
+        return [`${WOCHENTAG[d.getDay()].slice(0, 2)} ${d.getDate()}.${d.getMonth() + 1}. ${terminZeitraum(o) || ""} · ${kundeFuerAuftrag(o, customers)?.name || o.title}: ${fehlt.map((x) => employees.find((e) => e.id === x)?.name || "?").join(", ")}`];
+      })
+    : [];
+
   const offenZahl = (k: "all" | "offen" | "in_arbeit" | "storniert") => orders
     .filter((o) => (k === "storniert" ? o.status === "storniert" : (o.status === "offen" || o.status === "in_arbeit") && (k === "all" || o.status === k)))
     .filter((o) => empFilter === "all" || (orderEmployees[o.id] || []).includes(empFilter))
@@ -416,15 +475,15 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
           </div>
 
           <div className="pl-segment" role="tablist" aria-label="Ansicht">
-            {(["monat", "woche", "tag"] as const).map((a) => (
+            {(vfReiter ? (["monat", "woche", "tag", "verf"] as const) : (["monat", "woche", "tag"] as const)).map((a) => (
               <button key={a} type="button" role="tab" aria-selected={ansicht === a}
                 className={ansicht === a ? "aktiv" : ""} onClick={() => setAnsicht(a)}>
-                {a === "monat" ? "Monat" : a === "woche" ? "Woche" : "Tag"}
+                {a === "monat" ? "Monat" : a === "woche" ? "Woche" : a === "tag" ? "Tag" : "Verfügbarkeit"}
               </button>
             ))}
           </div>
 
-          <div className="pl-filter">
+          <div className={"pl-filter" + (ansicht === "verf" ? " vf-aus" : "")}>
             {employees.length > 0 && (
               <button type="button" className={"pl-pille" + (empFilter !== "all" ? " aktiv" : "")} onClick={() => setBlatt("person")}>
                 <span className="pl-punkt" style={{ background: empFilter === "all" ? "var(--text)" : employeeColorFor(employees, empFilter) }} />
@@ -479,7 +538,36 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
               </button>
             </div>
           )}
-          {ansicht !== "monat" && (
+          {ansicht === "tag" && vf?.alleSehen && (
+            <div className="vf-heute">
+              <b>Verfügbar:</b>{" "}
+              {(() => {
+                const frei = verfuegbareAm(vf.eintraege, employees, toDateStr(rasterAnker));
+                return frei.length === 0 ? <span className="small">niemand eingetragen</span> : frei.map(({ employee: e, eintrag }) => (
+                  <span key={e.id} className="vf-chip"><i style={{ background: employeeColorFor(employees, e.id) }} />{e.name} <small>{fensterText(eintrag)}</small></span>
+                ));
+              })()}
+            </div>
+          )}
+          {ansicht === "verf" && vf && (
+            <VerfuegbarkeitAnsicht
+              modus={vfModus}
+              monat={monthCursor}
+              wochenStart={wochenStart}
+              heute={heuteStr}
+              employees={employees}
+              ich={vf.ich}
+              eintraege={vf.eintraege}
+              eingeplant={eingeplantAnzahl}
+              darfFuerAndere={vf.alleSchreiben}
+              meineTermine={meineTermine}
+              luecken={wochenLuecken}
+              onSetzen={vf.onSetzen}
+              onAustragen={vf.onAustragen}
+              onVorlage={vf.onVorlage}
+            />
+          )}
+          {(ansicht === "woche" || ansicht === "tag") && (
             <>
               <Stundenraster
                 tage={rasterTage}
@@ -492,6 +580,8 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                 onTagOeffnen={ansicht === "woche" ? tagOeffnen : undefined}
                 onSlot={isTechniker ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
                 onVerschieben={onVerschieben ? (id, datum, von, bis) => { void terminSetzen(id, datum, von, bis); } : undefined}
+                tagesPunkte={vf?.alleSehen && ansicht === "woche" ? (ds) => verfuegbareAm(vf.eintraege, employees, ds).map(({ employee: e, eintrag }) => ({ id: e.id, farbe: employeeColorFor(employees, e.id), titel: `${e.name} (${fensterText(eintrag)})` })) : undefined}
+                warnungFuer={vf?.alleSehen ? warnungAmTermin : undefined}
               />
               <RasterLegende employees={employees} sichtbareIds={rasterMitarbeiterIds} ziehen={!!onVerschieben} />
             </>
@@ -517,9 +607,15 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                     const empsToday = employeesOnDay(ds).filter((e) => empFilter === "all" || e.id === empFilter);
                     const ordersToday = orders.filter((o) => o.order_date === ds).filter(passtZumFahrzeug);
                     const hasUnassigned = ordersToday.some((o) => (orderEmployees[o.id] || []).length === 0);
+                    // Verfügbarkeit (v112): „x frei" für alle, die das sehen dürfen; mit gewähltem
+                    // Mitarbeiter sind seine Tage ohne Eintrag blass hinterlegt.
+                    const zeigtFrei = !!vf?.alleSehen && inMonth && ds >= heuteStr;
+                    const freiZahl = zeigtFrei ? verfuegbareAm(vf!.eintraege, employees, ds).length : 0;
+                    const ohneEintrag = !!vf && inMonth && ds >= heuteStr && empFilter !== "all"
+                      && (vf.alleSehen || vf.ich?.id === empFilter) && !eintragAm(vf.eintraege, empFilter, ds);
                     return (
                       <button type="button" key={ds}
-                        className={"monat-tag" + (inMonth ? "" : " aussen") + (ds === heuteStr ? " heute" : "") + (ds === selectedDay ? " gewaehlt" : "") + (i > 4 ? " wochenende" : "")}
+                        className={"monat-tag" + (inMonth ? "" : " aussen") + (ds === heuteStr ? " heute" : "") + (ds === selectedDay ? " gewaehlt" : "") + (i > 4 ? " wochenende" : "") + (ohneEintrag ? " ohne-eintrag" : "")}
                         // Ein Tag im Monat angetippt = in diesen Tag hineinzoomen (24.09.2026).
                         onClick={() => tagOeffnen(ds)}
                         aria-label={`${d.getDate()}. ${MONATE[d.getMonth()]}, ${ordersToday.length} Aufträge – Tagesplan öffnen`}>
@@ -528,6 +624,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                           {ordersToday.length > 0 && empsToday.slice(0, 4).map((e) => <span key={e.id} style={{ background: employeeColorFor(employees, e.id) }} title={e.name} />)}
                           {ordersToday.length > 0 && hasUnassigned && empFilter === "all" && <span className="ohne" title="Nicht zugeordnet" />}
                         </span>
+                        {/* „0 frei" nur, wo schon etwas geplant ist – dort ist es eine Warnung; an leeren
+                            Tagen weit voraus wäre es nur Rauschen. */}
+                        {zeigtFrei && (freiZahl > 0 || ordersToday.length > 0) && <span className={"monat-frei" + (freiZahl ? "" : " null")}>{freiZahl} frei</span>}
                       </button>
                     );
                   })}
@@ -585,7 +684,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
         )}
 
         {/* ---- Offene Aufträge */}
-        <div className="op-bereich">
+        <div className={"op-bereich" + (ansicht === "verf" ? " vf-aus" : "")}>
           <div className="op-kopf">
             <h4>{statusFilter === "storniert" ? "Stornierte Aufträge" : "Offene Aufträge"}</h4>
             <span className="small">{statusFilter === "storniert" ? "aus dem geladenen Zeitraum" : "Erledigte unter „Aufträge“"}</span>

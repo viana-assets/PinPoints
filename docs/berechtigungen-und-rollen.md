@@ -146,7 +146,7 @@ mit allen drei Listen bei zwei gleichzeitig offenen Fenstern die Änderung des a
 Vorgabe heißt: Was gilt, solange in `public.module_permissions` für diesen Bereich noch keine
 Zeile steht. Quelle ist `RECHTE_VORGABE` in `lib/constants.ts`; dieselben Werte hat
 Migration 42 beim ersten Lauf in die Tabelle geschrieben (bzw. Migration 48 für
-`rechnungen`, Migration 61 für `lager.verkauf`). **L** = lesen, **S** = schreiben, **X** = löschen, **–** = nichts. Was in der
+`rechnungen`, Migration 61 für `lager.verkauf`, Migration 68 für `einsatzplanung.verfuegbarkeit`). **L** = lesen, **S** = schreiben, **X** = löschen, **–** = nichts. Was in der
 Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 
 | Schlüssel | Zeile in der Maske | Admin | Techniker | Nutzer |
@@ -159,6 +159,7 @@ Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 | `auftraege.einteilung` | – Mitarbeiter einteilen | L S | L | L S |
 | `termine` | Termine | L | L | L |
 | `einsatzplanung` | Einsatzplanung | L | L | L |
+| `einsatzplanung.verfuegbarkeit` | – Verfügbarkeit aller Mitarbeiter (Migration 68) | L S | – | – |
 | `lager` | **Lager** (Modul) | L | L | L |
 | `lager.regale` | – Regale und Plätze verwalten | L S X | L | L |
 | `lager.einlagerung` | – Reifen ein- und auslagern | L S | L S | L S |
@@ -268,6 +269,16 @@ im Migrationsverlauf zu Migration 41.
   Einlagerung schreiben (auslagern) und Reifenverkauf schreiben (Posten anlegen). Das zweite
   prüft die Funktion vorab und sagt es im Klartext, statt nach dem Auslagern an der Richtlinie
   zu scheitern.
+
+**Die eigene Verfügbarkeit** (Migration 68, v112). Jeder, dessen Zugang mit einem Mitarbeiter
+verknüpft ist (`employees.profile_id`), sieht und pflegt seine **eigenen** Tage in
+`verfuegbarkeiten` – ohne Haken in der Matrix, aber nur ab heute. `einsatzplanung.verfuegbarkeit`
+(Vorgabe Admin; Superadmin immer) braucht nur, wer **alle** sehen (L) oder für andere eintragen
+und vergangene Tage berichtigen will (S). Die Richtlinien lauten „eigener Mitarbeiter ODER
+Recht"; was abgelehnt wird, begründet `verfuegbarkeit_pruefen()` (BEFORE-Trigger) im Klartext –
+„nur deine eigene", „vergangene Tage", „Zugang nicht verknüpft". Ein Grund (krank, Urlaub) wird
+bewusst nicht gespeichert. Die Oberfläche zeigt Verfügbarkeit beim Einteilen nur mit L: Ein
+Techniker sähe sonst bei allen Kollegen „nicht eingetragen".
 
 **Der Abschluss friert ein** (Migration 20, unverändert). An einem erledigten oder stornierten
 Auftrag ändert auch der Techniker nichts mehr. Das ist keine Einschränkung seiner Rechte,

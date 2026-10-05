@@ -182,6 +182,7 @@ viana-pinpoints/
       RoutenBlatt.tsx                 Tagesroute je Mitarbeiter: kürzeste Reihenfolge ab Firma (E5, v104)
       Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster
                                       (Migration 37)
+      VerfuegbarkeitAnsicht.tsx       Reiter „Verfügbarkeit“: eigener Monat bzw. Wochenübersicht aller (Migration 68, v112)
     lager/
       LagerPanel.tsx                 Tab "Lager" (Lager, Regalwand, Suche, Scan), ~850 Zeilen
       TireAssignModal.tsx              Einlagern-/Lagerfenster: Kunde, Fahrzeug, Saison, DOT, Profil je Satz/Rad
@@ -234,6 +235,7 @@ viana-pinpoints/
     protokollText.ts              Protokollwerte und -felder lesbar (C5, v106)
     sortieren.ts                  `suchtreffer`, `vergleiche`, `sortiere` (C5, v106)
     lagerdauer.ts                 `lagermonate`, Langlieger-Grenzen (C5, v106)
+    verfuegbarkeit.ts             Wer hat wann Zeit: Zeitfenster, Hinweise beim Einteilen, Vorlage (Migration 68, v112)
     lagerVormerkung.ts            Satz im Regal / vorgemerkt / ausgelagert, Gebühr bis zum Termin (Migration 67, v111)
     menuLage.ts                   Menülage bei Seitenzoom (C5, v106)
     csp.ts                        Content-Security-Policy mit Nonce (B4, v106)
@@ -310,6 +312,7 @@ viana-pinpoints/
       firmenfahrzeuge.ts             Eigene Transporter (getrennt von vehicles.ts, Migration 32)
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
+      verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
       permissions.ts                Modul-Berechtigungen (module_permissions, `darf()`)
       audit.ts                      Lesezugriff auf das Änderungsprotokoll (audit_log)
       protokoll.ts                   Namensauflösung/Aufbereitung fürs Protokoll
@@ -646,7 +649,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 67** (05.10.2026; 66 und 67 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 69** (05.10.2026; 66 bis 69 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -712,6 +715,13 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   (`entnahme_order_id` bei leerem `removed_at`); `auftrag_lager_entnahme()` lagert beim Abschluss
   aus, holt beim Wiedereröffnen zurück und hebt beim Stornieren/Löschen auf;
   `order_articles.lager_satz_id` für die Gebühr. Siehe `docs/lager.md`.
+- **68** – Verfügbarkeit der Mitarbeiter: `verfuegbarkeiten` (je Mitarbeiter und Tag, ganzer Tag
+  oder Zeitfenster), eigene Zeile ohne Recht, alle mit `einsatzplanung.verfuegbarkeit`;
+  `verfuegbarkeit_pruefen()` begründet Ablehnungen, Aufräumen nach 12 Monaten. Siehe
+  `docs/auftraege.md`.
+- **69** – Reifentausch auf demselben Platz: `tire_storage.kommt_rein`/`tausch_fuer`, neuer
+  Platz-Index ohne Tausch-Sätze, `auftrag_lager_entnahme()` tauscht beim Abschließen. Siehe
+  `docs/lager.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

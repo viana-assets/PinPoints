@@ -431,6 +431,36 @@ Was beim Öffnen schon für seinen Auftrag vorgemerkt ist, steht gleich als erle
 ausgelagert waren, als vorgemerkt zurück ins Regal gelegt, wenn ihr Platz noch frei war.
 Ältere Fassungen der App (bis v110) lagern weiter sofort aus; das bleibt zulässig.
 
+### Reifentausch auf demselben Platz (Migration 69, v112)
+
+Beim Saisonwechsel kommt der eine Satz heraus und der andere hinein – am liebsten auf DENSELBEN
+Platz, dann bleibt das Fach beim Kunden. Ist im Auftrag ein Satz vorgemerkt, steht über
+„+ Reifen einlagern" der Knopf **„⇄ Tausch auf A-12"**. Er legt den neuen Satz an
+(`tauschAnlegen()`): derselbe Platz, vorgeschlagen dasselbe Auto und die andere Saison. Der Satz
+wird im Auftrag wie jede Einlagerung erfasst, liegt aber noch nicht im Regal:
+
+| Spalte | Bedeutung |
+|---|---|
+| `kommt_rein` | true, solange der Tausch auf den Abschluss wartet; bleibt nach dem Verwerfen auf true |
+| `tausch_fuer` | der vorgemerkte Satz, dessen Platz er übernimmt |
+
+Ein Satz, der hereinkommt, zählt nicht als Belegung (Index `tire_storage_ein_satz_im_regal_je_platz`
+statt des alten aus Migration 15; dazu höchstens ein Tausch je Platz). Beim **Abschließen** geht der
+alte heraus und der neue übernimmt den Platz – in einem Schritt (`auftrag_lager_entnahme()`). Ist
+der Platz dann belegt (die Vormerkung wurde inzwischen aufgehoben, etwa durch Storno und
+Wiedereröffnen), scheitert der Abschluss mit der Meldung, was zu tun ist.
+
+Regeln (`tire_storage_tausch_pruefen()`): nur beim Anlegen, nur gegen einen für DIESEN Auftrag
+vorgemerkten Satz desselben Kunden auf dessen Platz, nur an einem offenen Auftrag; wirksam nur
+durch das Abschließen. Die Vormerkung des alten Satzes lässt sich nicht zurücknehmen, solange der
+Tausch steht („Zurücknehmen" ist dann gesperrt). „Einlagerung entfernen" am Tausch-Satz verwirft
+ihn ohne Dialog – er lag nie im Regal. **Wiedereröffnen dreht einen Tausch nicht zurück:** Der neue
+Satz bleibt auf dem Platz, der alte findet ihn belegt und bleibt draußen.
+
+Die Seite trennt Tausch-Sätze vom Regalbestand (`tireStorages` ohne `kommt_rein` in
+`app/page.tsx`): Sie erscheinen nur im Auftrag, nicht im Lager, Kundenfenster, in der Saisonliste,
+den Auswertungen oder einer Historie. Im Lager trägt der alte Satz „vorgemerkt · 1234 · Tausch".
+
 ### Der Auslagern-Dialog
 
 Wer eine Einlagerung entfernt – am Regal (Platz-Blatt im Lager) oder im Auftragsfenster über „Im Regal für

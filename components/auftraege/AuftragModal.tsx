@@ -1,7 +1,8 @@
 import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useAusgang } from "@/lib/offline/speicher";
 import { useEffect, useRef, useState } from "react";
-import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verfuegbarkeit, Warehouse } from "@/lib/types";
+import { eintragAm, fensterText, teamHinweise } from "@/lib/verfuegbarkeit";
 import type { RadFelder } from "@/lib/api/lager";
 import { BestaetigungBlatt } from "./BestaetigungBlatt";
 import { FotoBlock, type BelegeImAuftrag } from "./FotoBlock";
@@ -49,7 +50,7 @@ export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
-  fremdeSaetze, onAuslagern, onEtikett, ausLagerSaetze = [], fruehereEinlagerungen = [], onVormerkungZuruecknehmen,
+  fremdeSaetze, onAuslagern, onEtikett, ausLagerSaetze = [], fruehereEinlagerungen = [], onVormerkungZuruecknehmen, verfuegbarkeit = null, onTausch,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, rechnungAnderswo, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
@@ -123,8 +124,13 @@ export function AuftragModal({
   // hier eingelagert wurde und inzwischen wieder draußen ist (Migration 67, v111). Damit steht
   // der Platz auch nach dem Auslagern am Auftrag.
   ausLagerSaetze?: TireStorage[];
+  // Wer an welchem Tag Zeit hat (Migration 68). Nur für wer alle sehen darf – sonst null, und die
+  // Teamauswahl bleibt, wie sie war (ein Techniker sähe sonst bei allen anderen „nicht eingetragen").
+  verfuegbarkeit?: Verfuegbarkeit[] | null;
   fruehereEinlagerungen?: TireStorage[];
   onVormerkungZuruecknehmen?: (satzId: string) => Promise<void>;
+  // Reifentausch (Migration 69): der andere Satz kommt auf den Platz eines vorgemerkten.
+  onTausch?: (altSatzId: string) => Promise<void>;
   // Öffnet den Etikettendruck für einen Satz (17.09.2026).
   onEtikett: (satzId: string) => void;
   storageSlots: StorageSlot[];
@@ -383,6 +389,15 @@ export function AuftragModal({
       + `Auftrag ${auftragsNr(u.auftrag.order_number)} · ${kundeName(u.auftrag.customer_id)}`;
   }
   const doppeltMitarbeiter = doppelt.filter((u) => u.art === "mitarbeiter");
+  // Verfügbarkeit (v112): oben, wer an dem Tag Zeit hat; darunter eingeklappt der Rest. Wer schon
+  // eingeteilt ist, steht immer oben – sonst verschwände eine Auswahl im Zugeklappten.
+  const [weitereOffen, setWeitereOffen] = useState(false);
+  const [tauschLaeuft, setTauschLaeuft] = useState(false);
+  const mitVerfuegbarkeit = !!verfuegbarkeit && !!datum && !isTechniker;
+  const verfuegbar = (id: string) => (mitVerfuegbarkeit ? eintragAm(verfuegbarkeit!, id, datum) : null);
+  const teamOben = mitVerfuegbarkeit ? employees.filter((m) => verfuegbar(m.id) || mitarbeiterIds.includes(m.id)) : employees;
+  const teamWeitere = mitVerfuegbarkeit ? employees.filter((m) => !verfuegbar(m.id) && !mitarbeiterIds.includes(m.id)) : [];
+  const verfHinweise = mitVerfuegbarkeit ? teamHinweise(mitarbeiterIds, datum, zeit.trim() || null, zeitBis.trim() || null, verfuegbarkeit!, employees) : [];
   const doppeltFahrzeug = doppelt.filter((u) => u.art === "fahrzeug");
   const mitKonto = zugeordnete.filter((e) => e.profile_id);
   const erinnerungsHinweis =
@@ -865,17 +880,37 @@ export function AuftragModal({
                 ) : employees.length === 0 ? (
                   <span className="small">Noch keine Mitarbeiter angelegt (Admin → Mitarbeiter).</span>
                 ) : (
-                  <div className="ao-wahl">
-                    {employees.map((m) => {
-                      const an = mitarbeiterIds.includes(m.id);
-                      return (
-                        <button key={m.id} type="button" className={"ao-wahl-chip" + (an ? " an" : "")} aria-pressed={an}
-                          onClick={() => setMitarbeiterIds(an ? mitarbeiterIds.filter((x) => x !== m.id) : [...mitarbeiterIds, m.id])}>
-                          <span className="ao-wahl-punkt" style={{ background: employeeColorFor(employees, m.id) }} />
-                          {m.name}{an ? " ✓" : ""}
-                        </button>
-                      );
-                    })}
+                  <>
+                    {mitVerfuegbarkeit && (
+                      <span className="small">
+                        {teamOben.some((m) => verfuegbar(m.id)) ? "Verfügbar an diesem Tag:" : "Niemand hat sich für diesen Tag eingetragen."}
+                      </span>
+                    )}
+                    <div className="ao-wahl">
+                      {[...teamOben, ...(weitereOffen ? teamWeitere : [])].map((m) => {
+                        const an = mitarbeiterIds.includes(m.id);
+                        const v = verfuegbar(m.id);
+                        return (
+                          <button key={m.id} type="button" className={"ao-wahl-chip" + (an ? " an" : "") + (mitVerfuegbarkeit && !v ? " nicht-eingetragen" : "")} aria-pressed={an}
+                            onClick={() => setMitarbeiterIds(an ? mitarbeiterIds.filter((x) => x !== m.id) : [...mitarbeiterIds, m.id])}>
+                            <span className="ao-wahl-punkt" style={{ background: employeeColorFor(employees, m.id) }} />
+                            {m.name}{an ? " ✓" : ""}
+                            {mitVerfuegbarkeit && <span className={"ao-verf" + (v ? "" : " leer")}>{v ? fensterText(v) : "nicht eingetragen"}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {teamWeitere.length > 0 && (
+                      <button type="button" className="text-knopf" onClick={() => setWeitereOffen(!weitereOffen)} aria-expanded={weitereOffen}>
+                        {weitereOffen ? "▾" : "▸"} Weitere (nicht eingetragen) · {teamWeitere.length}
+                      </button>
+                    )}
+                  </>
+                )}
+                {verfHinweise.length > 0 && (
+                  <div className="doppelbuchung verf-hinweis" role="status">
+                    <b>Verfügbarkeit – kein Hindernis:</b>
+                    <ul>{verfHinweise.map((h) => <li key={h.employeeId}>{h.text}</li>)}</ul>
                   </div>
                 )}
                 {doppeltMitarbeiter.length > 0 && (
@@ -1054,7 +1089,7 @@ export function AuftragModal({
           <div className="ao-reifen">
             <span className="op-gruppe-titel ao-gruppe">REIFEN</span>
             <LagerSaetzeAmAuftrag
-              ausLager={ausLagerSaetze} frueher={fruehereEinlagerungen}
+              ausLager={ausLagerSaetze} frueher={fruehereEinlagerungen} einlagerungen={einlagerungen}
               storageSlots={storageSlots} warehouses={warehouses} vehicles={vehicles}
               auftraege={andereAuftraege} gesperrt={gesperrt}
               onZuruecknehmen={async (id) => { await onVormerkungZuruecknehmen?.(id); }}
@@ -1098,7 +1133,7 @@ export function AuftragModal({
               <EinlagerungBlock
                 key={satz.id}
                 /* Die Nummer steht nur da, wenn es mehr als einen gibt. */
-                titel={einlagerungen.length > 1 ? `Einlagerung · Satz ${i + 1} von ${einlagerungen.length}` : "Einlagerung"}
+                titel={(satz.kommt_rein ? "Tausch · " : "") + (einlagerungen.length > 1 ? `Einlagerung · Satz ${i + 1} von ${einlagerungen.length}` : "Einlagerung")}
                 einlagerung={satz}
                 slots={storageSlots}
                 warehouses={warehouses}
@@ -1149,6 +1184,17 @@ export function AuftragModal({
                 )
               ) : (
                 <>
+                  {/* Reifentausch (Migration 69): für jeden vorgemerkten Satz ohne Tausch der Weg,
+                      den anderen auf denselben Platz zu legen – die erste Wahl beim Saisonwechsel. */}
+                  {onTausch && ausLagerSaetze.filter((a) => istVorgemerkt(a) && !einlagerungen.some((e) => e.tausch_fuer === a.id)).map((a) => {
+                    const platz = storageSlots.find((sl) => sl.id === a.storage_slot_id);
+                    return (
+                      <button key={a.id} type="button" className="dm-plus tausch-knopf" disabled={tauschLaeuft}
+                        onClick={async () => { setTauschLaeuft(true); try { await onTausch(a.id); } finally { setTauschLaeuft(false); } }}>
+                        ⇄ Tausch auf {platz?.code ?? "denselben Platz"} – der andere Satz kommt auf diesen Platz
+                      </button>
+                    );
+                  })}
                   <button type="button" className="dm-plus" onClick={() => setEinlagerungOffen(true)}>
                     {einlagerungen.length > 0 ? "+ Noch einen Satz einlagern" : "+ Reifen einlagern"}
                   </button>

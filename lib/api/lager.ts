@@ -118,6 +118,22 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
   return neu.id;
 }
 
+// Reifentausch (Migration 69): Der neue Satz kommt auf den Platz eines Satzes, der für denselben
+// Auftrag zum Auslagern vorgemerkt ist. Bis zum Abschließen „kommt er rein" und zählt nicht als
+// Belegung; beim Abschließen tauscht die Datenbank beide in einem Schritt. Fahrzeug und Saison
+// schlägt der Aufrufer vor (dasselbe Auto, die andere Saison) – änderbar wie bei jeder Einlagerung.
+export async function tauschAnlegen(supabase: SupabaseClient, alt: Pick<TireStorage, "id" | "storage_slot_id" | "customer_id">, orderId: string,
+  vorschlag: { vehicleId: string | null; saison: Saison | null }): Promise<string> {
+  const neu = await qOne<{ id: string }>(
+    "Der Tausch konnte nicht angelegt werden",
+    supabase.from("tire_storage").insert({
+      storage_slot_id: alt.storage_slot_id, customer_id: alt.customer_id, order_id: orderId,
+      kommt_rein: true, tausch_fuer: alt.id, vehicle_id: vorschlag.vehicleId, saison: vorschlag.saison,
+    }).select("id").single()
+  );
+  return neu.id;
+}
+
 // Nur die beschreibenden Angaben eines bestehenden Satzes ändern – ohne den Lagerplatz
 // anzufassen. Getrennt von `upsertTireAssignment`, weil das im Alltag zwei verschiedene
 // Handlungen sind: „der Satz kommt auf A-12" ist eine Bewegung im Regal, „das ist der
@@ -197,7 +213,9 @@ export async function fetchLagerKennzahlen(supabase: SupabaseClient): Promise<{ 
   const belegt = await supabase
     .from("tire_storage")
     .select("id", { count: "exact", head: true })
-    .is("removed_at", null);
+    .is("removed_at", null)
+    // Ein Tausch, der noch hereinkommt (Migration 69), belegt nichts – der Platz zählt einmal.
+    .eq("kommt_rein", false);
   if (belegt.error) throw new ApiError("Die Lager-Kennzahlen konnten nicht geladen werden", belegt.error);
 
   const gesamt = await supabase.from("storage_slots").select("id", { count: "exact", head: true });

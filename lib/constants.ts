@@ -145,6 +145,10 @@ export const RECHTE_KATALOG: RechtBereich[] = [
   { schluessel: "einsatzplanung", label: "Einsatzplanung", verben: ["lesen"],
     erklaerung: "Kalender nach Tag, Woche und Monat.",
     warumNicht: "Die Einsatzplanung zeigt Aufträge – geschrieben und gelöscht wird bei „Aufträge“." },
+  { schluessel: "einsatzplanung.verfuegbarkeit", label: "– Verfügbarkeit aller Mitarbeiter", unter: true,
+    verben: ["lesen", "schreiben"],
+    erklaerung: "Sehen, wann ALLE Mitarbeiter Zeit haben (Reiter „Verfügbarkeit“, „x frei“ im Kalender, Hinweise beim Einteilen), und mit „Schreiben“ für sie eintragen – auch für Mitarbeiter ohne Zugang und für vergangene Tage. Die EIGENEN Tage sieht und pflegt jeder mit verknüpftem Mitarbeiter auch ohne dieses Recht (Migration 68).",
+    warumNicht: "Austragen IST hier ein Schreiben: Der Tag steht danach wieder auf „nichts eingetragen“. Ein eigenes Löschen gibt es nicht." },
 
   { schluessel: "lager", label: "Lager", verben: ["lesen"],
     erklaerung: "Darf der Reiter „Lager“ geöffnet werden? Was darin erlaubt ist, steht in den Zeilen darunter.",
@@ -211,6 +215,7 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
 
   termine:                { lesen: ["admin", "techniker", "user"] },
   einsatzplanung:         { lesen: ["admin", "techniker", "user"] },
+  "einsatzplanung.verfuegbarkeit": { lesen: ["admin"], schreiben: ["admin"] },
 
   lager:                  { lesen: ["admin", "techniker", "user"] },
   "lager.regale":         { lesen: ["admin", "techniker", "user"], schreiben: ["admin"], loeschen: ["admin"] },

@@ -71,7 +71,8 @@ export async function abendhinweiseVersenden(
     supabase.from("auftrag_fahrzeuge").select("*").in("order_id", auftragsIds),
   ]);
   const eintraege = mitnehmenListe(
-    morgen, auftraege as Order[], (saetze || []) as TireStorage[], (fahrzeuge || []) as AuftragFahrzeug[]
+    // Tausch-Sätze (Migration 69) liegen noch nicht im Regal – mitnehmen lässt sich nur, was dort liegt.
+    morgen, auftraege as Order[], ((saetze || []) as TireStorage[]).filter((t) => !t.kommt_rein), (fahrzeuge || []) as AuftragFahrzeug[]
   );
   if (eintraege.length === 0) return { ...leer, faellig: faellig.length };
 
