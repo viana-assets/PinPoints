@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v110";
+export const APP_VERSION = "v111";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v111", datum: "2026-10-05", titel: "Auslagern erst beim Abschließen",
+    punkte: [
+      "„Auslagern“ im Auftrag merkt die Reifen jetzt nur vor. Sie bleiben im Regal und belegen ihren Platz, bis der Auftrag abgeschlossen wird – erst dann gelten sie als ausgelagert. Wird der Termin storniert, bleiben sie einfach liegen.",
+      "Im Auftrag steht unter „Aus dem Lager“, auf welchem Platz die Reifen liegen – auch nach dem Abschluss. Im Lager tragen vorgemerkte Plätze die Marke „vorgemerkt · Auftragsnummer“, und die Suche findet sie über die Auftragsnummer.",
+      "Die Lagergebühr wird bis zum Termin gerechnet, nicht bis heute. „Zurücknehmen“ hebt die Vormerkung auf und nimmt die Gebühr gleich mit.",
+      "Im Kundenfenster steht unter „Früher eingelagert“, wo die Reifen früher lagen. Wer Reifen ohne Auftrag herausgibt (der Kunde holt sie selbst ab), wählt im Dialog „Ohne Auftrag – jetzt gleich auslagern“.",
+    ],
+  },
   {
     version: "v110", datum: "2026-10-04", titel: "Freie Termine grau, Suche mit ×",
     punkte: [

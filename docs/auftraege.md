@@ -59,6 +59,11 @@ Migration 50, die Bezeichnung selbst; sonst eine Zusatzzeile darunter), `deleted
 Seit Migration 61 kann eine Position `verkaufsreifen_id` tragen: Reifen aus dem Lager, die mit
 der Position reserviert und beim Abschließen abgebucht werden („+ Reifen aus dem Lager" im
 Auftragsfenster, Einzelheiten in `lager.md`, „Reifenverkauf").
+Seit Migration 67 kann eine Position `lager_satz_id` tragen: die Lagergebühr für genau einen
+Reifensatz, der mit diesem Auftrag aus dem Lager geht. Der Satz ist bis zum Abschließen nur
+**vorgemerkt** und liegt weiter im Regal; ausgelagert wird beim Abschluss, Stornieren und Löschen
+heben die Vormerkung auf, Wiedereröffnen holt den Satz zurück (Einzelheiten in `lager.md`,
+„Auslagern erst beim Abschließen").
 
 **`auftrag_fahrzeuge`** (Migration 44, `id`, `order_id`, `vehicle_id`, `kilometerstand`,
 `created/updated_at/by`, `unique(order_id, vehicle_id)`): welche Fahrzeuge ein Auftrag betrifft,

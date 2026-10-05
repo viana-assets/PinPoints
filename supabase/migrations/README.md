@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: nichts.** **Stand 02.10.2026: Alle Migrationen 01–65 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103, 65 mit v105) –
+**Noch auszuführen: 66 und 67** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 02.10.2026: Alle Migrationen 01–65 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103, 65 mit v105) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -808,3 +808,20 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   unveränderlich; Kunde in den Papierkorb und zurück lässt die Herkunft stehen; einzelner Auftrag
   gelöscht und wiederhergestellt; zurückgenommen, zweimal; Altbestand mit ERP-Nummer beim erneuten
   Lauf übernommen.
+- `67_auslagern_vormerken.sql` – **nach `66`, SQL zuerst, dann die Dateien von v111** (die Oberfläche
+  merkt nur noch vor und schreibt `order_articles.lager_satz_id`). Auslagern erst beim Abschließen:
+  (1) die Prüfung „Entnahme braucht ein Datum“ aus Migration 46 fällt – `entnahme_order_id` ohne
+  `removed_at` ist jetzt die Vormerkung. (2) Spalte `order_articles.lager_satz_id` (Gebühr gehört zu
+  einem Satz). (3) `tire_storage_vormerkung_pruefen()`: vormerken nur für einen offenen Auftrag
+  desselben Kunden, nicht doppelt. (4) `lager_vormerkung_zurueck()` und `auftrag_lager_entnahme()` auf
+  `orders`: Abschließen lagert aus, Wiedereröffnen holt zurück (wenn der Platz frei ist), Stornieren und
+  Löschen heben die Vormerkung auf. (5) Bestand: für einen noch offenen Auftrag schon ausgelagerte Sätze
+  kommen als vorgemerkt zurück, wenn ihr Platz frei ist. Ergebnistabelle mit drei Zeilen. Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/67_rollback.sql` (lagert Vorgemerktes sofort aus, dann die alte
+  Prüfung). Geprüft gegen Postgres 16 (Stand 66): Altbestand – offener Auftrag zurück ins Regal,
+  erledigter nicht; Techniker merkt vor; zweites Vormerken, fremder Kunde und erledigter Auftrag
+  abgewiesen (Meldung mit Nummer); Gebühr mit Satz; Abschließen lagert aus, Wiedereröffnen holt zurück;
+  nach neuer Belegung des Platzes bleibt der Satz draußen, ohne Fehler; Stornieren und Löschen heben die
+  Vormerkung auf; zurücknehmen; ohne Auftrag sofort auslagern; Abschluss, der an der
+  Einlagerungsprüfung scheitert, lässt den Satz im Regal; Nutzer schließt ab; zurückgenommen, zweimal
+  (Vorgemerktes ausgelagert, Prüfung wieder da), erneut ausgeführt.

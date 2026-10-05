@@ -558,7 +558,9 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   abrechnungsart: "Abrechnungsart", fragt_einlagerung: "fragt nach Altreifen",
   einheit: "Einheit", freitext: "Bezeichnung am Auftrag",
   // Auftrag / Lager, Nachzügler
-  end_time: "Uhrzeit bis", entnahme_order_id: "Auslagerung am Auftrag",
+  end_time: "Uhrzeit bis", entnahme_order_id: "Auslagerung mit Auftrag",
+  // Migration 67: die Lagergebühr gehört zu einem Reifensatz.
+  lager_satz_id: "Lagergebühr für Reifensatz",
   kundennummer: "Kundennummer",
   // Nachgezogen am 23.09.2026 (Fahrplan C4): Diese Spalten stehen in protokollierten Tabellen,
   // hatten aber keine Beschriftung und erschienen im Protokoll als Rohname. Gegengeprüft gegen

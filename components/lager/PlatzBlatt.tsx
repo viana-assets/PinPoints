@@ -17,7 +17,7 @@ import { platzGroesse } from "@/lib/lagerAnsicht";
 const GRENZEN = { hinweis: PROFIL_HINWEIS_MM, kritisch: PROFIL_KRITISCH_MM };
 
 export function PlatzBlatt({
-  slot, wo, satz, kunde, fahrzeug, raeder, gruende, verlauf, customers, raederFuer, lagergebuehrJeMonat,
+  slot, wo, satz, kunde, fahrzeug, raeder, gruende, vormerkung = null, verlauf, customers, raederFuer, lagergebuehrJeMonat,
   canAssign, canDelete, onClose, onKunde, onAuslagern, onBearbeiten, onEtikett, onAufkleber, onLoeschen, onGroesse, onZumVerkauf,
 }: {
   slot: StorageSlot;
@@ -28,6 +28,9 @@ export function PlatzBlatt({
   fahrzeug: Vehicle | null;
   raeder: EingelagertesRad[];
   gruende: string[];
+  // Der Satz geht mit einem Auftrag heraus (Migration 67): „vorgemerkt · 1234 am 08.10.". Er liegt
+  // noch hier; „Auslagern" führt dann zum Dialog, der auf den Auftrag verweist.
+  vormerkung?: string | null;
   // Frühere Einlagerungen auf diesem Platz, neueste zuerst.
   verlauf: TireStorage[];
   customers: Customer[];
@@ -128,6 +131,7 @@ export function PlatzBlatt({
               <span className="lg-blatt-titel">
                 <b>{kunde ? kunde.name : "Unbekannter Kunde"}</b>
                 <span className="small">{ort}</span>
+                {vormerkung && <span className="vm-marke">{vormerkung}</span>}
               </span>
               {kunde && onKunde
                 ? <button type="button" className="lg-pille" onClick={() => onKunde(kunde.id)}>Kunde ›</button>
@@ -190,7 +194,7 @@ export function PlatzBlatt({
             {satz.note && <div className="lg-notiz">{satz.note}</div>}
 
             <div className="lg-knoepfe">
-              {canAssign && <button type="button" className="lg-knopf primaer" onClick={() => onAuslagern(satz.id)}>Auslagern</button>}
+              {canAssign && <button type="button" className="lg-knopf primaer" onClick={() => onAuslagern(satz.id)}>{vormerkung ? "Vorgemerkt …" : "Auslagern"}</button>}
               {canAssign && <button type="button" className="lg-knopf" onClick={onBearbeiten}>Bearbeiten</button>}
               <button type="button" className="lg-knopf klein" onClick={() => onEtikett(satz.id)}>Etikett für den Satz</button>
               <button type="button" className="lg-knopf klein" onClick={onAufkleber}>Aufkleber fürs Regal</button>

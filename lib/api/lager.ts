@@ -162,6 +162,33 @@ export async function removeTireAssignmentById(
   );
 }
 
+// Auslagern erst beim Abschließen (Migration 67, v111): Im Auftrag wird der Satz nur VORGEMERKT.
+// Er bleibt im Regal und belegt seinen Platz; ausgelagert wird er von der Datenbank, wenn der
+// Auftrag abgeschlossen wird (`auftrag_lager_entnahme()`). Die Datenbank lässt das nur für einen
+// offenen Auftrag desselben Kunden zu und nicht für einen Satz, der schon anderswo vorgemerkt ist.
+export async function satzVormerken(supabase: SupabaseClient, id: string, auftragId: string): Promise<void> {
+  await qWrite(
+    "Die Reifen konnten nicht zum Auslagern vorgemerkt werden",
+    supabase.from("tire_storage").update({ entnahme_order_id: auftragId }).eq("id", id)
+  );
+}
+
+// Vormerkung zurücknehmen: Der Satz bleibt einfach liegen. Die Lagergebühr, die beim Vormerken auf
+// den Auftrag kam, geht mit – erkennbar an `lager_satz_id`. Zuerst die Vormerkung: Scheitert danach
+// das Entfernen der Gebühr, steht nur eine Position zu viel da, die man sieht und von Hand löscht;
+// umgekehrt wäre die Gebühr weg und der Satz trotzdem vorgemerkt.
+export async function vormerkungZuruecknehmen(supabase: SupabaseClient, id: string, auftragId: string): Promise<void> {
+  await qWrite(
+    "Die Vormerkung konnte nicht zurückgenommen werden",
+    supabase.from("tire_storage").update({ entnahme_order_id: null }).eq("id", id).is("removed_at", null)
+  );
+  await qWrite(
+    "Die Lagergebühr konnte nicht vom Auftrag genommen werden – bitte bei den Leistungen entfernen",
+    supabase.from("order_articles").update({ deleted_at: new Date().toISOString() })
+      .eq("order_id", auftragId).eq("lager_satz_id", id).is("deleted_at", null)
+  );
+}
+
 // Kennzahlen für das Dashboard, ohne dafür das ganze Lager zu laden (Roadmap Phase 10).
 // Seit Migration 15 belegt eine aktive Einlagerung genau einen Lagerplatz (partieller
 // Unique-Index), deshalb ist die Zahl der aktiven Einlagerungen zugleich die Zahl der belegten

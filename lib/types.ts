@@ -227,8 +227,10 @@ export type TireStorage = {
   created_at: string;
   updated_at: string;
   removed_at: string | null;
-  // In welchem Auftrag wurde der Satz herausgegeben (Migration 46)? Dort steht die
-  // Lagergebühr. `null` heißt: liegt noch, oder wurde ohne Auftrag entnommen.
+  // Mit welchem Auftrag geht der Satz heraus (Migration 46, seit Migration 67 auch VOR dem
+  // Auslagern)? Bei `removed_at` null ist er dafür vorgemerkt und liegt noch im Regal – ausgelagert
+  // wird beim Abschließen. Dort steht die Lagergebühr. `null` heißt: liegt ohne Vormerkung, oder
+  // wurde ohne Auftrag entnommen. Zustände: `satzZustand()` in lib/lagerVormerkung.ts.
   entnahme_order_id: string | null;
   // Aus welchem Auftrag diese Einlagerung stammt (Migration 22). Null bei allem, was direkt im
   // Lager-Modul eingelagert wurde, und bei Altbestand von vor der Migration.
@@ -480,6 +482,9 @@ export type OrderArticle = {
   // sind sie reserviert; beim Abschließen bucht die Datenbank sie ab. Optional, weil
   // Testgerüste die Zeile von Hand bauen und sie vor Migration 61 nicht kannten.
   verkaufsreifen_id?: string | null;
+  // Lagergebühr für diesen Reifensatz (Migration 67) – geht mit, wenn die Vormerkung zum
+  // Auslagern zurückgenommen wird.
+  lager_satz_id?: string | null;
 };
 
 // Reifen und Kompletträder, die der Betrieb verkauft (Migration 61). Ein Posten = gleiche Reifen

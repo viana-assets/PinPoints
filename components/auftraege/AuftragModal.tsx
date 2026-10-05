@@ -20,6 +20,8 @@ import { ArticleAssignPanel, type ReifenImAuftrag } from "./ArticleAssignPanel";
 import { groessenVorschlag } from "@/lib/reifenverkauf";
 import { IconNavPin } from "@/components/icons";
 import { EinlagerungBlock } from "./EinlagerungBlock";
+import { LagerSaetzeAmAuftrag } from "./LagerSaetzeAmAuftrag";
+import { istVorgemerkt } from "@/lib/lagerVormerkung";
 import { RechnungsdatenBlock } from "./RechnungsdatenBlock";
 import { FahrzeugeBlock } from "./FahrzeugeBlock";
 import { AuftragProtokoll } from "./AuftragProtokoll";
@@ -47,7 +49,7 @@ export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
-  fremdeSaetze, onAuslagern, onEtikett,
+  fremdeSaetze, onAuslagern, onEtikett, ausLagerSaetze = [], fruehereEinlagerungen = [], onVormerkungZuruecknehmen,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, rechnungAnderswo, auftragFahrzeuge,
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
@@ -117,6 +119,12 @@ export function AuftragModal({
   // hängt. Wer auslagern wollte, musste das Fenster verlassen und die Regalwand durchsuchen.
   fremdeSaetze: TireStorage[];
   onAuslagern: (satzId: string) => void;
+  // Was mit diesem Auftrag aus dem Lager geht oder ging (vorgemerkt oder ausgelagert), und was
+  // hier eingelagert wurde und inzwischen wieder draußen ist (Migration 67, v111). Damit steht
+  // der Platz auch nach dem Auslagern am Auftrag.
+  ausLagerSaetze?: TireStorage[];
+  fruehereEinlagerungen?: TireStorage[];
+  onVormerkungZuruecknehmen?: (satzId: string) => Promise<void>;
   // Öffnet den Etikettendruck für einen Satz (17.09.2026).
   onEtikett: (satzId: string) => void;
   storageSlots: StorageSlot[];
@@ -1045,6 +1053,12 @@ export function AuftragModal({
               Regal liegt, und was an diesem Auftrag eingelagert wird (Migration 46). */}
           <div className="ao-reifen">
             <span className="op-gruppe-titel ao-gruppe">REIFEN</span>
+            <LagerSaetzeAmAuftrag
+              ausLager={ausLagerSaetze} frueher={fruehereEinlagerungen}
+              storageSlots={storageSlots} warehouses={warehouses} vehicles={vehicles}
+              auftraege={andereAuftraege} gesperrt={gesperrt}
+              onZuruecknehmen={async (id) => { await onVormerkungZuruecknehmen?.(id); }}
+            />
             {fremdeSaetze.length > 0 && (
               <div className="db-karte ao-karte">
                 <div className="db-karte-kopf"><span className="db-karte-titel">Im Regal für diesen Kunden</span></div>
@@ -1053,6 +1067,9 @@ export function AuftragModal({
                   const lager = warehouses.find((w) => w.id === platz?.warehouse_id);
                   const fz = vehicles.find((v) => v.id === satz.vehicle_id);
                   const monate = lagermonate(satz.created_at, todayStr());
+                  // Schon für einen anderen Auftrag vorgemerkt (Migration 67): kein zweites
+                  // Auslagern, nur der Hinweis – der Knopf öffnet den Dialog, der dorthin führt.
+                  const anderswo = istVorgemerkt(satz) ? andereAuftraege.find((o) => o.id === satz.entnahme_order_id) : null;
                   return (
                     <div key={satz.id} className="ao-regal">
                       <span className="ao-platz">{platz?.code || "?"}</span>
@@ -1063,7 +1080,11 @@ export function AuftragModal({
                           {monate === 1 ? "angefangener Monat" : "angefangene Monate"}
                         </span>
                       </span>
-                      <button type="button" className="es-knopf" disabled={gesperrt} onClick={() => onAuslagern(satz.id)}>Auslagern</button>
+                      {istVorgemerkt(satz)
+                        ? <button type="button" className="es-knopf" onClick={() => onAuslagern(satz.id)}>
+                            <span className="vm-marke">vorgemerkt{anderswo ? ` · ${auftragsNr(anderswo.order_number)}` : ""}</span>
+                          </button>
+                        : <button type="button" className="es-knopf" disabled={gesperrt} onClick={() => onAuslagern(satz.id)}>Auslagern</button>}
                     </div>
                   );
                 })}
@@ -1123,7 +1144,7 @@ export function AuftragModal({
             )}
             {!einlagerungOffen && (
               gesperrt ? (
-                einlagerungen.length === 0 && fremdeSaetze.length === 0 && (
+                einlagerungen.length === 0 && fremdeSaetze.length === 0 && ausLagerSaetze.length === 0 && fruehereEinlagerungen.length === 0 && (
                   <span className="small">Nichts eingelagert. Der Auftrag ist abgeschlossen – eingelagert wird jetzt über die Regalwand.</span>
                 )
               ) : (
@@ -1134,8 +1155,8 @@ export function AuftragModal({
                   <span className="small">
                     {einlagerungen.length > 0
                       ? "Für ein weiteres Fahrzeug auf diesem Auftrag – mit eigenem Platz, Fahrzeug und Profil."
-                      : hatLagergebuehr
-                        ? "Auf diesem Auftrag steht eine Lagergebühr – hier wurde ausgelagert. Kommt der andere Satz jetzt ins Regal, hier weitermachen."
+                      : hatLagergebuehr || ausLagerSaetze.length > 0
+                        ? "Mit diesem Auftrag gehen Reifen aus dem Lager. Kommt der andere Satz jetzt ins Regal, hier weitermachen."
                         : "Nimmt der Kunde seine alten Reifen nicht mit, kommen sie hier ins Regal. Die Gebühr wird erst beim Auslagern fällig."}
                   </span>
                 </>

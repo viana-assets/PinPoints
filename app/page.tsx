@@ -87,6 +87,7 @@ import { AuslagernDialog, type AuslagernWahl } from "@/components/lager/Auslager
 import { StapelAuslagern } from "@/components/lager/StapelAuslagern";
 import { stapelSchritte, type StapelSchritt } from "@/lib/stapelAuslagern";
 import type { MitnehmenEintrag } from "@/lib/mitnehmen";
+import { frueherEingelagert, istVorgemerkt, saetzeAusDemLager } from "@/lib/lagerVormerkung";
 import { ReifensatzEtikett } from "@/components/lager/ReifensatzEtikett";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
@@ -104,7 +105,7 @@ import { fahrzeugMitKennzeichen } from "@/lib/kennzeichen";
 import {
   insertWarehouse, updateWarehouseById, deleteWarehouseById,
   insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById, updateSlotGroesse,
-  upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails,
+  upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails, satzVormerken, vormerkungZuruecknehmen,
   insertRad, updateRadById, deleteRadById, setErfassungsart, setAnzahlRaeder, radZuZeile, type RadFelder,
 } from "@/lib/api/lager";
 import {
@@ -1690,9 +1691,12 @@ export default function HomePage() {
     setAuslagernSatzId(id);
   }
 
-  // Der eine Weg nach außen: auslagern, Gebühr buchen, Auftrag notfalls anlegen. Die
-  // Reihenfolge ist Absicht – zuerst muss der Auftrag existieren, sonst hat die Gebühr kein
-  // Zuhause und `entnahme_order_id` zeigte auf nichts.
+  // Der eine Weg nach außen: vormerken (oder ohne Auftrag sofort auslagern), Gebühr buchen,
+  // Auftrag notfalls anlegen. Die Reihenfolge ist Absicht – zuerst muss der Auftrag existieren,
+  // sonst hat die Gebühr kein Zuhause und `entnahme_order_id` zeigte auf nichts.
+  //
+  // Seit Migration 67 (v111) geht ein Satz mit Auftrag erst beim ABSCHLIESSEN dieses Auftrags
+  // heraus; bis dahin ist er vorgemerkt und liegt im Regal. Das erledigt die Datenbank.
   async function auslagernAusfuehren(satzId: string, wahl: AuslagernWahl) {
     const satz = tireStorages.find((t) => t.id === satzId);
     let auftragId = wahl.auftragId;
@@ -1705,11 +1709,13 @@ export default function HomePage() {
       });
     }
 
-    await removeTireAssignmentById(supabase, satzId, auftragId);
-    if (auftragId && wahl.artikelId && wahl.menge > 0) {
+    if (wahl.sofort || !auftragId) await removeTireAssignmentById(supabase, satzId, null);
+    else await satzVormerken(supabase, satzId, auftragId);
+    if (auftragId && !wahl.sofort && wahl.artikelId && wahl.menge > 0) {
       // Beim Auslagern gibt es keinen Freitext: Die Lagergebühr ist ein benannter Artikel
-      // mit Monaten als Menge, und was sie beschreibt, steht im Artikelstamm.
-      await insertOrderArticle(supabase, articlePrices, auftragId, wahl.artikelId, wahl.menge, null, null);
+      // mit Monaten als Menge, und was sie beschreibt, steht im Artikelstamm. Sie hängt am Satz
+      // (`lager_satz_id`), damit sie beim Zurücknehmen der Vormerkung mitgeht.
+      await insertOrderArticle(supabase, articlePrices, auftragId, wahl.artikelId, wahl.menge, null, null, satzId);
       await refreshOrderArticles();
     }
     await refreshTireStorages();
@@ -1718,6 +1724,25 @@ export default function HomePage() {
     // Ein frisch angelegter Auftrag wird geöffnet: Sonst hätte man gerade eine Rechnungszeile
     // erzeugt, die nirgends zu sehen ist.
     if (wahl.neuerAuftrag && auftragId) setOffenerAuftragId(auftragId);
+  }
+
+  // „vorgemerkt · 1234 am 08.10." – im Lager und im Kundenfenster (Migration 67).
+  function vormerkungText(satz: TireStorage): string | null {
+    if (!istVorgemerkt(satz)) return null;
+    const o = orders.find((x) => x.id === satz.entnahme_order_id);
+    return o ? `vorgemerkt · ${auftragsNr(o.order_number)} am ${formatDate(o.order_date)}` : "vorgemerkt";
+  }
+
+  // Die Vormerkung zurücknehmen (Migration 67): Der Satz bleibt einfach liegen, die zugehörige
+  // Lagergebühr geht vom Auftrag.
+  async function vormerkungAufheben(satzId: string) {
+    const satz = tireStorages.find((t) => t.id === satzId);
+    if (!satz?.entnahme_order_id || satz.removed_at) return;
+    await vormerkungZuruecknehmen(supabase, satzId, satz.entnahme_order_id);
+    await refreshTireStorages();
+    await refreshOrderArticles();
+    setAuslagernSatzId(null);
+    setAuslagernAusAuftragId(null);
   }
 
   // ---------------------------------------------------------------- Aufträge-Modul (Termine inklusive)
@@ -1913,6 +1938,9 @@ export default function HomePage() {
   async function updateOrderStatus(id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
     await updateOrderStatusById(supabase, id, status, grund);
     await refreshOrders();
+    // Abschließen lagert vorgemerkte Reifen aus, Wiedereröffnen holt sie zurück, Stornieren hebt
+    // die Vormerkung auf – das tut die Datenbank (Migration 67). Hier nur nachladen.
+    if (tireStorages.some((t) => t.entnahme_order_id === id)) await refreshTireStorages();
     // Beim Abschließen schreibt die Datenbank den Kontaktstand des Kunden fort (Migration 47).
     // Ohne dieses Nachladen stünde die Nadel bis zum nächsten Seitenaufruf noch auf dem alten
     // Zustand – die Änderung ist echt, nur nicht zu sehen, und das ist schlimmer als keine.
@@ -2036,6 +2064,7 @@ export default function HomePage() {
   async function deleteOrder(id: string) {
     await deleteOrderById(supabase, id);
     await refreshOrders();
+    if (tireStorages.some((t) => t.entnahme_order_id === id)) await refreshTireStorages();
   }
 
   // ---------------------------------------------------------------- Mitarbeiter (Einsatzplanung)
@@ -3073,6 +3102,7 @@ export default function HomePage() {
             false. Ein Techniker konnte damit keinen Reifen einlagern. */}
         {tab === "lager" && canView("lager") && (
           <LagerPanel
+            vormerkung={vormerkungText}
             customers={customers}
             vehicles={alleFahrzeuge}
             warehouses={warehouses}
@@ -3526,8 +3556,11 @@ export default function HomePage() {
                 && (o.status === "offen" || o.status === "in_arbeit"))
               .sort((a, b) => b.order_date.localeCompare(a.order_date))}
             vorschlagAuftragId={auslagernAusAuftragId}
+            vorgemerktFuer={istVorgemerkt(satz) ? orders.find((o) => o.id === satz.entnahme_order_id) ?? null : null}
             onAbbrechen={() => { setAuslagernSatzId(null); setAuslagernAusAuftragId(null); }}
             onAuslagern={(wahl) => auslagernAusfuehren(satz.id, wahl)}
+            onAuftragOeffnen={(id) => { setAuslagernSatzId(null); setAuslagernAusAuftragId(null); setOffenerAuftragId(id); }}
+            onZuruecknehmen={() => vormerkungAufheben(satz.id)}
           />
         );
       })()}
@@ -3581,7 +3614,11 @@ export default function HomePage() {
           hatLagergebuehr={auftragHatLagergebuehr(offenerAuftrag.id)}
           fremdeSaetze={tireStorages.filter(
             (t) => t.customer_id === offenerAuftrag.customer_id && !t.removed_at && t.order_id !== offenerAuftrag.id
+              && t.entnahme_order_id !== offenerAuftrag.id
           )}
+          ausLagerSaetze={saetzeAusDemLager(tireStorages, offenerAuftrag.id)}
+          fruehereEinlagerungen={frueherEingelagert(tireStorages, offenerAuftrag.id)}
+          onVormerkungZuruecknehmen={vormerkungAufheben}
           onAuslagern={(satzId) => { setAuslagernAusAuftragId(offenerAuftrag.id); setAuslagernSatzId(satzId); }}
           onEtikett={(satzId) => setEtikettSatzIds([satzId])}
           storageSlots={storageSlots}

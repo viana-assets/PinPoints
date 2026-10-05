@@ -16,6 +16,13 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **05.10.2026 – Auslagern erst beim Abschließen (Migration 67, Service Worker v111).** Im Auftrag
+  wird ein Satz nur noch vorgemerkt; er liegt weiter im Regal und geht beim Abschließen heraus
+  (Wunsch 05.10.2026: Aufträge entstehen Tage vor dem Termin, das Regal stand bis dahin leer). Der
+  Platz steht am Auftrag („Aus dem Lager", „Hier eingelagert"), im Lager mit Marke und Suche nach
+  Auftragsnummer, im Kundenfenster mit „Früher eingelagert". Gebühr bis zum Termin gerechnet und
+  mit der Vormerkung zurücknehmbar. Runde 2 (Tausch auf demselben Platz) steht unten unter „Offen".
+
 * **04.10.2026 – Freie Termine grau, Suche mit × (Service Worker v110, ohne Migration).**
   Termine ohne zugeteilten Mitarbeiter sind im Stundenraster hellgrau statt weiß. Jedes
   Listen-Suchfeld hat ein × zum Leeren, auch am iPhone (`components/SuchFeld.tsx`, neun Stellen).
@@ -675,6 +682,11 @@ Kleine Punkte, die bei Vitali oder im Betrieb liegen oder auf eine Rückmeldung 
 - **Doppelte Fahrzeuge** beim Kunden (vor v93 entstanden) im Kundenfenster löschen.
 - **Noch offen aus der Liste vom 04.10.2026:** Offline schreiben Runde 2 (F1) und `app/page.tsx`
   weiter teilen (C5) – als eigene Runden nach v109.
+- **Reifentausch auf demselben Platz (Runde 2 zu Migration 67, Wunsch 05.10.2026):** Ist ein Satz
+  vorgemerkt und kommt im selben Auftrag der andere ins Regal, steht „Tausch auf A-12" als erste
+  Wahl. Der neue Satz wird gleich erfasst, gilt bis zum Abschluss als „kommt rein" und übernimmt beim
+  Abschließen den Platz, in einem Schritt mit dem Auslagern. Ein fester Stammplatz je Kunde ist
+  bewusst nicht vorgesehen (Entscheidung 05.10.2026).
 - **Brother QL-820NWBc:** Druck über PDF im Betrieb bestätigt (02.10.2026), Format 58 × 58 seit v96
   fest, 60 × 86 seit v99 wieder wählbar. Offen: Regalaufkleber auf dem Brother testen (seit v99),
   die Folienrolle DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf

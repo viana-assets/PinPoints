@@ -1770,6 +1770,12 @@ input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
   background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:8px 10px;
   font:inherit;color:inherit;}
 button.el-zeile{cursor:pointer;}
+/* Früher eingelagert (v111): zugeklappt, blasser – Erinnerung, kein Bestand. */
+.el-frueher{margin-top:4px;}
+.el-frueher summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);padding:4px 0;}
+.el-frueher .eingelagert-liste{margin-top:6px;}
+.el-zeile.el-alt{opacity:.75;}
+.el-zeile.el-alt .el-platz{background:var(--hover);color:var(--muted);}
 button.el-zeile:hover{border-color:var(--accent);}
 .el-platz{flex:0 0 auto;min-width:52px;display:flex;flex-direction:column;align-items:center;
   justify-content:center;padding:4px 8px;border-radius:8px;background:var(--accent-bg);
@@ -3602,6 +3608,13 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ao-regal{display:flex;align-items:center;gap:10px;padding:4px 0;}
 .ao-regal + .ao-regal{border-top:1px solid #f1ece2;padding-top:10px;}
 .ao-platz{font-family:var(--font-brand);font-weight:700;font-size:16px;color:var(--navy);background:#e4ebf3;border-radius:10px;padding:4px 10px;flex:0 0 auto;}
+/* Auslagern erst beim Abschließen (Migration 67, v111): vorgemerkt orange wie „etwas ist dran",
+   schon draußen grau – der Platz steht nur noch zur Erinnerung da. */
+.ao-platz.ao-vorgemerkt{background:var(--accent-bg);color:#c2410c;}
+.ao-platz.ao-draussen{background:var(--hover);color:var(--muted);}
+/* Die Marke „vorgemerkt · #123" an einem Satz im Lager, im Kundenfenster und im Auftrag. */
+.vm-marke{display:inline-block;align-self:flex-start;font-size:11px;font-weight:700;line-height:1.3;padding:1px 7px;border-radius:99px;
+  background:var(--accent-bg);color:#c2410c;white-space:nowrap;}
 .ao-notiz{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid var(--border);background:var(--bg);padding:10px 12px;font:inherit;
   font-size:14.5px;resize:vertical;}
 .ao-historie .auftrag-protokoll{border-top:none;margin-top:0;padding-top:0;}

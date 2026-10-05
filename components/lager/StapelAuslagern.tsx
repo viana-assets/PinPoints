@@ -19,6 +19,11 @@ import { QrScanner } from "@/components/QrScanner";
 //
 // Die Liste steht beim Öffnen fest: Was ausgelagert ist, verschwindet nicht aus ihr, sondern ist
 // abgehakt – sonst verrutscht beim Arbeiten die Zählung „7 von 23".
+//
+// Seit Migration 67 (v111) merkt „Herausgenommen" den Satz für den Auftrag des Tages vor; aus dem
+// Lager geht er, wenn der Auftrag abgeschlossen wird. Wird der Termin abgesagt, liegt er also
+// weiter im Regal – richtig, denn dann kommt er dorthin zurück. Was beim Öffnen schon für seinen
+// Auftrag vorgemerkt ist, steht gleich als erledigt da.
 export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrArtikelId, monatspreis, auftraegeMitGebuehr, onAuslagern, onClose }: {
   datum: string;
   schritte: StapelSchritt[];
@@ -33,8 +38,13 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
   onClose: () => void;
 }) {
   const heute = todayStr();
-  const [stand, setStand] = useState<Record<string, "raus" | "ueber">>({});
-  const [index, setIndex] = useState(0);
+  const [stand, setStand] = useState<Record<string, "raus" | "ueber">>(() => Object.fromEntries(
+    schritte.filter((x) => !x.satz.removed_at && x.satz.entnahme_order_id === x.auftrag.id).map((x) => [x.satz.id, "raus" as const])
+  ));
+  const [index, setIndex] = useState(() => {
+    const erster = schritte.findIndex((x) => !(!x.satz.removed_at && x.satz.entnahme_order_id === x.auftrag.id));
+    return erster === -1 ? schritte.length : erster;
+  });
   const [monate, setMonate] = useState<Record<string, string>>({});
   const [ohneGebuehr, setOhneGebuehr] = useState<Record<string, boolean>>({});
   const [laeuft, setLaeuft] = useState(false);
@@ -62,13 +72,13 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
     setLaeuft(true); setFehler(null);
     try {
       await onAuslagern(s.satz.id, {
-        auftragId: s.auftrag.id, neuerAuftrag: false,
+        auftragId: s.auftrag.id, neuerAuftrag: false, sofort: false,
         artikelId: gebuehrAn ? gebuehrArtikelId : null, menge: gebuehrAn ? menge : 0,
       });
       setStand((x) => ({ ...x, [s.satz.id]: "raus" }));
       weiter();
     } catch (e) {
-      setFehler(e instanceof Error ? e.message : "Das Auslagern hat nicht geklappt.");
+      setFehler(e instanceof Error ? e.message : "Das Vormerken hat nicht geklappt.");
     } finally {
       setLaeuft(false);
     }
@@ -94,10 +104,10 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
           <div className="ab-titel">Auslagern · {formatDate(datum)}</div>
           <button type="button" className="modal-close" onClick={onClose} disabled={laeuft} aria-label="Schließen">×</button>
         </div>
-        <div className="st-fortschritt" aria-label={`${raus} von ${schritte.length} ausgelagert`}>
+        <div className="st-fortschritt" aria-label={`${raus} von ${schritte.length} herausgenommen`}>
           <span style={{ width: `${schritte.length ? ((raus + ueber) / schritte.length) * 100 : 100}%` }} />
         </div>
-        <span className="small">{raus} von {schritte.length} ausgelagert{ueber ? ` · ${ueber} übersprungen` : ""} · in der Reihenfolge des Regals</span>
+        <span className="small">{raus} von {schritte.length} herausgenommen{ueber ? ` · ${ueber} übersprungen` : ""} · in der Reihenfolge des Regals</span>
 
         {s ? (
           <>
@@ -136,7 +146,7 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
             {fehler && <div className="hinweis-pflicht">{fehler}</div>}
             <div className="st-knoepfe">
               <button type="button" className="lg-knopf primaer gross" disabled={laeuft || (gebuehrAn && menge <= 0)} onClick={() => void auslagern()}>
-                {laeuft ? "lagert aus …" : "Ausgelagert"}
+                {laeuft ? "merkt vor …" : "Herausgenommen"}
               </button>
               <button type="button" className="lg-knopf" disabled={laeuft} onClick={() => { setFehler(null); setScanner(true); }}>Platz scannen</button>
               <button type="button" className="lg-knopf" disabled={laeuft} onClick={() => { setStand((x) => ({ ...x, [s.satz.id]: "ueber" })); setFehler(null); weiter(); }}>Überspringen</button>
@@ -145,7 +155,7 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
         ) : (
           <div className="db-karte">
             <div className="db-leer">
-              {schritte.length === 0 ? "Für diesen Tag liegt nichts im Regal, das mitmuss." : `Fertig: ${raus} ausgelagert${ueber ? `, ${ueber} übersprungen – die liegen noch im Regal` : ""}.`}
+              {schritte.length === 0 ? "Für diesen Tag liegt nichts im Regal, das mitmuss." : `Fertig: ${raus} herausgenommen${ueber ? `, ${ueber} übersprungen – die liegen noch im Regal` : ""}. Aus dem Lager gehen sie, wenn ihr Auftrag abgeschlossen wird.`}
             </div>
             {ueber > 0 && (
               <button type="button" className="lg-knopf" onClick={() => {

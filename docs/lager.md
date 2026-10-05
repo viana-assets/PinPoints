@@ -365,9 +365,71 @@ fest. Zwei Felder tragen das:
   Monate. Gepflegt im Artikelstamm, siehe `artikelstammdaten.md`.
 * **`tire_storage.entnahme_order_id`** hält fest, in welchem Auftrag der Satz herausgegeben
   wurde – also wo die Gebühr steht. `null` bedeutet: der Satz liegt noch, oder er wurde ohne
-  Auftrag entnommen. Eine Prüfregel in der Datenbank verlangt, dass ein gesetztes
-  `entnahme_order_id` immer ein gesetztes `removed_at` hat – eine Entnahme-Zuordnung ohne
-  Entnahme wäre ein Widerspruch.
+  Auftrag entnommen. Bis Migration 67 verlangte eine Prüfregel, dass ein gesetztes
+  `entnahme_order_id` immer ein gesetztes `removed_at` hat; seit v111 ist genau das die
+  **Vormerkung** (nächster Abschnitt).
+
+### Auslagern erst beim Abschließen (Migration 67, v111)
+
+Bis v110 galt ein Satz in dem Moment als ausgelagert, in dem jemand im Auftrag „Auslagern"
+tippte. Der Auftrag entsteht aber oft Tage vor dem Termin – und so lange stimmte das Regal nicht:
+Der Platz stand als frei da, der Satz war aus Auftrag, Kundenfenster und Lagersuche
+verschwunden, obwohl die Reifen noch im Fach lagen. Wer zum Termin ins Lager ging, fand am
+Auftrag keinen Platz mehr (Meldung 05.10.2026).
+
+Jetzt wird mit einem Auftrag nur **vorgemerkt**. Ein Satz ist
+
+| Zustand | `removed_at` | `entnahme_order_id` |
+|---|---|---|
+| im Regal | leer | leer |
+| vorgemerkt | leer | der Auftrag, mit dem er herausgeht |
+| ausgelagert | gesetzt | der Auftrag, oder leer ohne Auftrag |
+
+(`satzZustand()` in `lib/lagerVormerkung.ts`). Vorgemerkt belegt der Satz seinen Platz weiter.
+Den Rest erledigt die Datenbank am Auftrag (`auftrag_lager_entnahme()`, AFTER UPDATE auf
+`orders`, `security definer`):
+
+* **Abschließen** (→ erledigt): alle vorgemerkten Sätze werden ausgelagert. Scheitert der
+  Abschluss an einer anderen Prüfung, bleibt alles im Regal.
+* **Wiedereröffnen** (erledigt → offen/in Arbeit): seine Sätze kommen als vorgemerkt zurück auf
+  ihren alten Platz – sofern dort nichts anderes liegt (kein Kundensatz, keine Verkaufsreifen)
+  und der Satz nicht in den Verkauf gegangen ist (`lager_vormerkung_zurueck()`). Sonst bleiben
+  sie draußen.
+* **Stornieren oder Löschen**: Die Vormerkung fällt weg, die Reifen bleiben im Regal.
+
+`tire_storage_vormerkung_pruefen()` (BEFORE-Trigger) lässt Vormerken nur für einen offenen oder
+laufenden Auftrag **desselben Kunden** zu und nicht für einen Satz, der schon für einen anderen
+Auftrag vorgemerkt ist – dann nennt der Fehler dessen Nummer.
+
+Die Lagergebühr kommt weiter gleich beim Vormerken auf den Auftrag. Neu trägt die Position den
+Satz (`order_articles.lager_satz_id`): **„Zurücknehmen"** hebt die Vormerkung auf und nimmt
+genau diese Gebühr mit (`vormerkungZuruecknehmen()` in `lib/api/lager.ts`).
+
+**Wo man es sieht:**
+
+* Im Auftrag die Karte **„Aus dem Lager"** (`LagerSaetzeAmAuftrag.tsx`): Platz, Lager, Satz und
+  „liegt noch im Regal · geht beim Abschließen raus" bzw. „ausgelagert am …". Der Platz bleibt
+  nach dem Abschluss stehen. Darunter **„Hier eingelagert"**: was in diesem Auftrag ins Regal
+  kam und inzwischen wieder draußen ist, mit dem Platz von damals.
+* Unter „Im Regal für diesen Kunden" trägt ein Satz, der schon für einen anderen Auftrag
+  vorgemerkt ist, statt „Auslagern" die Marke „vorgemerkt · 1234".
+* Im Lager trägt die Zeile die Marke „vorgemerkt · 1234 am 08.10." (`.vm-marke`), und die Suche
+  findet den Platz über die **Auftragsnummer**. Im Platz-Blatt heißt der Knopf „Vorgemerkt …"
+  und öffnet den Dialog, der zum Auftrag führt oder die Vormerkung zurücknimmt.
+* Im Kundenfenster dieselbe Marke, darunter zugeklappt **„Früher eingelagert"** mit Platz und
+  Zeitraum (`frueherEingelagerteSaetze()` in `lib/eingelagert.ts`).
+
+**Ohne Auftrag** (der Kunde holt seine Reifen selbst ab) wird weiter sofort ausgelagert: im
+Dialog „Ohne Auftrag – jetzt gleich auslagern". Ohne Gebühr, ohne Vormerkung, der Platz ist
+gleich frei.
+
+**Stapel-Auslagern** (E7) merkt ebenfalls nur vor – der Knopf heißt dort „Herausgenommen". Wird
+ein Termin abgesagt, liegt der Satz deshalb weiter im Regal, und dorthin kommt er ja auch zurück.
+Was beim Öffnen schon für seinen Auftrag vorgemerkt ist, steht gleich als erledigt da.
+
+**Bestand:** Migration 67 hat Sätze, die für einen noch nicht abgeschlossenen Auftrag schon
+ausgelagert waren, als vorgemerkt zurück ins Regal gelegt, wenn ihr Platz noch frei war.
+Ältere Fassungen der App (bis v110) lagern weiter sofort aus; das bleibt zulässig.
 
 ### Der Auslagern-Dialog
 
@@ -376,8 +438,10 @@ diesen Kunden" (siehe unten) – bekommt seit Migration 46 nicht mehr einen stil
 Datenbankschreibvorgang, sondern einen Dialog (`AuslagernDialog`, `lib/helpers.ts`:
 `lagermonate()`, `istLanglieger()`):
 
-* **Monate**: `lagermonate(eingelagert_am, heute)` – Kalendermonate, **ein angefangener Monat
-  zählt voll**. 16.02. bis 17.09. sind damit 8 Monate, nicht 7; mindestens ein Monat wird immer
+* **Monate**: `lagermonate(eingelagert_am, bis)` – Kalendermonate, **ein angefangener Monat
+  zählt voll**. `bis` ist seit v111 der **Termin** des Auftrags, mit dem der Satz herausgeht,
+  wenn er noch kommt, sonst heute (`lagerBis()` in `lib/lagerVormerkung.ts`) – wer am 28.09.
+  für den 02.10. vormerkt, berechnet den Oktober mit. 16.02. bis 17.09. sind damit 8 Monate, nicht 7; mindestens ein Monat wird immer
   berechnet, auch wenn derselbe Tag ein- und ausgelagert wird. Gerechnet wird über
   Kalenderfelder, nicht über Millisekunden – ein Monat hat keine feste Länge.
 * Ist im Artikelstamm keine Leistung mit Abrechnungsart „Lagergebühr" hinterlegt, wird nur
@@ -401,10 +465,15 @@ Datenbankschreibvorgang, sondern einen Dialog (`AuslagernDialog`, `lib/helpers.t
   (viele Monate) und eine **Summe**, die aus dem Rahmen fällt (kann auch bei wenigen Monaten
   entstehen, wenn der Monatspreis hoch ist). Die Anwendung entscheidet nicht, ob gekürzt wird –
   sie macht die Zahl nur sichtbar, bevor die Rechnung geschrieben ist.
-* **Auf welchen Auftrag die Gebühr kommt**, wird im Dialog gewählt: vorgeschlagen der Auftrag,
-  aus dem heraus ausgelagert wurde (falls er noch offen oder in Arbeit ist), sonst der neueste
-  offene Auftrag des Kunden, sonst „Neuen Auftrag anlegen" – der wird mit dem heutigen Datum
-  angelegt und danach automatisch geöffnet.
+* **Mit welchem Auftrag der Satz herausgeht** (dort steht auch die Gebühr), wird im Dialog
+  gewählt: vorgeschlagen der Auftrag, aus dem heraus ausgelagert wurde (falls er noch offen oder
+  in Arbeit ist), sonst der neueste offene Auftrag des Kunden, sonst „Neuen Auftrag anlegen" –
+  der wird mit dem heutigen Datum angelegt und danach automatisch geöffnet. Dritte Wahl seit
+  v111: „Ohne Auftrag – jetzt gleich auslagern". Der Auftrag, in dem der Satz **eingelagert**
+  wurde, steht nicht zur Wahl; ist er noch offen, macht jemand offenbar eine Einlagerung
+  rückgängig, und „sofort" ist vorbelegt.
+* Ist der Satz **schon vorgemerkt**, zeigt der Dialog nur das: für welchen Auftrag, mit
+  „Auftrag öffnen" und „Vormerkung zurücknehmen".
 
 Getestet in `tests/lagerdauer.test.ts` – ein Fehler in der Monatsrechnung ist bares Geld, in
 beide Richtungen, und der Kunde merkt es am Tresen.

@@ -287,6 +287,7 @@ export function DetailModal(props: {
                   plaetze={props.storageSlots}
                   lager={props.warehouses}
                   fahrzeuge={props.vehicles}
+                  auftraege={props.orders}
                   onZumPlatz={props.onZumLagerplatz}
                 />
               </div>

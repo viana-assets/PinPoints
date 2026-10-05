@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
-import { eingelagerteSaetze } from "@/lib/eingelagert";
+import { eingelagerteSaetze, frueherEingelagerteSaetze } from "@/lib/eingelagert";
 
 // Die Liste „Eingelagerte Reifen" im Kundenfenster (25.09.2026).
 
@@ -36,5 +36,16 @@ describe("eingelagerteSaetze", () => {
 
   it("lässt ausgelagerte Sätze weg", () => {
     expect(eingelagerteSaetze([satz("s1", "p17", null, "2026-09-01")], plaetze, lager, [])).toEqual([]);
+  });
+});
+
+// v111 (Migration 67): Was früher im Regal lag, mit dem Platz von damals.
+describe("frueherEingelagerteSaetze", () => {
+  it("nimmt nur ausgelagerte Sätze, die zuletzt ausgelagerten zuerst, und behält den Platz", () => {
+    const liste = frueherEingelagerteSaetze(
+      [satz("s1", "p17", null, "2025-10-01"), satz("s2", "p20", null), satz("s3", "pa2", null, "2026-04-01")],
+      plaetze, lager, []
+    );
+    expect(liste.map((z) => `${z.satz.id}/${z.platz}`)).toEqual(["s3/A-2", "s1/17"]);
   });
 });

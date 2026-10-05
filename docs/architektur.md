@@ -164,6 +164,7 @@ viana-pinpoints/
       ArticleAssignPanel.tsx         Leistungen am Auftrag: −/+ je Zeile, Endpreis/Text
                                      aufklappbar, Blatt „Leistung hinzufügen" (Migration 38/50)
       EinlagerungBlock.tsx            Reifen ein-/auslagern direkt am Auftrag
+      LagerSaetzeAmAuftrag.tsx        „Aus dem Lager“ / „Hier eingelagert“ – Platz am Auftrag, auch nach dem Auslagern (v111)
       FahrzeugeBlock.tsx              Fahrzeuge am Auftrag inkl. Kilometerstand, immer sichtbar
                                       (Migration 44/51)
       RechnungsdatenBlock.tsx         Rechnungs-Checkliste am Auftrag, prüft die Fahrzeuge nur
@@ -233,6 +234,7 @@ viana-pinpoints/
     protokollText.ts              Protokollwerte und -felder lesbar (C5, v106)
     sortieren.ts                  `suchtreffer`, `vergleiche`, `sortiere` (C5, v106)
     lagerdauer.ts                 `lagermonate`, Langlieger-Grenzen (C5, v106)
+    lagerVormerkung.ts            Satz im Regal / vorgemerkt / ausgelagert, Gebühr bis zum Termin (Migration 67, v111)
     menuLage.ts                   Menülage bei Seitenzoom (C5, v106)
     csp.ts                        Content-Security-Policy mit Nonce (B4, v106)
     sprungMerker.ts               QR-/Benachrichtigungs-Sprung übersteht das erste Neuladen (D19, v106)
@@ -644,7 +646,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 66** (04.10.2026; 66 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 67** (05.10.2026; 66 und 67 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -706,6 +708,10 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **66** – „Rechnung anderswo erstellt": `orders.rechnung_extern`, `stempel_rechnung()` mit
   Rechteprüfung, keine zweite Rechnung für einen anderswo abgerechneten Auftrag
   (`pruefe_rechnung_nicht_anderswo()`), Löschsperre auch ohne Nummer.
+- **67** – Auslagern erst beim Abschließen: Im Auftrag wird ein Satz nur vorgemerkt
+  (`entnahme_order_id` bei leerem `removed_at`); `auftrag_lager_entnahme()` lagert beim Abschluss
+  aus, holt beim Wiedereröffnen zurück und hebt beim Stornieren/Löschen auf;
+  `order_articles.lager_satz_id` für die Gebühr. Siehe `docs/lager.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

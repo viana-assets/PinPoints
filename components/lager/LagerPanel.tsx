@@ -73,9 +73,12 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf, onStapelAuslagern }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf, onStapelAuslagern, vormerkung }: {
   // Saisonwechsel (E7): öffnet die Mitnehmen-Liste von heute, von dort „der Reihe nach auslagern".
   onStapelAuslagern?: () => void;
+  // „vorgemerkt · 1234 am 08.10." für einen Satz, der mit einem Auftrag herausgeht (Migration 67) –
+  // er liegt noch im Fach und belegt den Platz. Null bei allen anderen.
+  vormerkung?: (satz: TireStorage) => string | null;
   // Reifenverkauf (Migration 61). Null = kein Leserecht auf „Lager · Reifenverkauf" – dann gibt
   // es den Reiter nicht. Plätze mit Verkaufsreifen sperrt die Datenbank trotzdem für Kundensätze.
   verkauf: {
@@ -260,6 +263,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
       slot.code, kunde?.name, kunde?.company,
       fahrzeug?.license_plate, fahrzeug?.make_model,
       satz.saison ? SAISON_LABEL[satz.saison] : null, satz.note,
+      // Wer zum Termin ins Lager geht, sucht nach der Auftragsnummer.
+      vormerkung?.(satz),
     ];
   }
 
@@ -418,6 +423,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           title={platzGroesse(slot) === "gross" ? "großes Fach" : undefined}>{slot.code}</span>
         <span className="lg-zeile-text">
           <span className="lg-zeile-kunde">{satz ? (kunde?.name ?? "Unbekannter Kunde") : "frei"}</span>
+          {satz && vormerkung?.(satz) && <span className="vm-marke">{vormerkung(satz)}</span>}
           {info && <span className="lg-zeile-info">{info}</span>}
           {/* Wie gemessen wurde – ein Wert für den Satz oder je Rad (v98). */}
           {jeRad && aufteilung && <span className="lg-zeile-info lg-zeile-profil">{aufteilung}</span>}
@@ -656,6 +662,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           fahrzeug={blattSatz?.vehicle_id ? vehicles.find((v) => v.id === blattSatz.vehicle_id) ?? null : null}
           raeder={blattSatz ? raederVon(blattSatz.id) : []}
           gruende={gruendeFuer(blattSatz)}
+          vormerkung={blattSatz ? vormerkung?.(blattSatz) ?? null : null}
           verlauf={historyFor(blattSlot.id)}
           customers={customers}
           raederFuer={raederVon}

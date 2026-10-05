@@ -158,7 +158,10 @@ export async function insertOrderArticle(
   // Der Text, der auf der Rechnung erscheint (Migration 50). Bei einem Freitext-Artikel als
   // BEZEICHNUNG, sonst als Zusatzzeile darunter – welches von beidem, entscheidet der Haken
   // am Artikel, nicht diese Funktion.
-  text: string | null
+  text: string | null,
+  // Die Lagergebühr gehört zu genau einem Reifensatz (Migration 67). Mit der Vormerkung
+  // zurückgenommen, geht sie über diese Angabe mit.
+  lagerSatzId: string | null = null
 ): Promise<void> {
   const price = currentArticlePrice(existingPrices.filter((p) => p.article_id === articleId));
   await qWrite(
@@ -171,6 +174,7 @@ export async function insertOrderArticle(
       // Migration 38 gab, hat Migration 39 entfernt.
       endpreis_netto: endpreisNetto,
       note: text,
+      ...(lagerSatzId ? { lager_satz_id: lagerSatzId } : {}),
     })
   );
 }

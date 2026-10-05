@@ -4,15 +4,24 @@ import { useState } from "react";
 import type { Article, ArticlePrice, Customer, Order, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { currentArticlePrice, formatDate, formatEUR, istLanglieger, lagermonate, todayStr } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
+import { lagerBis } from "@/lib/lagerVormerkung";
 
 // Was beim Auslagern passieren soll. Der Aufrufer entscheidet nicht selbst, sondern bekommt
 // die Wahl des Nutzers als ein Stück – sonst müsste jede Aufrufstelle dieselben vier Fälle
 // (Gebühr ja/nein, Auftrag alt/neu) noch einmal auseinandersortieren.
+//
+// Seit Migration 67 (v111) wird mit einem Auftrag nur VORGEMERKT: Der Satz bleibt im Regal und geht
+// erst beim Abschließen dieses Auftrags heraus. Sofort ausgelagert wird nur noch ohne Auftrag
+// (`sofort`) – etwa wenn der Kunde seine Reifen selbst im Lager abholt.
 export type AuslagernWahl = {
-  // Auf welchen Auftrag kommt die Gebühr? Null heißt: keine Gebühr berechnen.
+  // Mit welchem Auftrag geht der Satz heraus (dort steht auch die Gebühr)? Null bei `sofort` und
+  // bei `neuerAuftrag`.
   auftragId: string | null;
   // Statt eines bestehenden Auftrags einen neuen für diesen Kunden anlegen.
   neuerAuftrag: boolean;
+  // Ohne Auftrag, jetzt gleich auslagern – der Platz ist sofort frei.
+  sofort: boolean;
+  // Null heißt: keine Gebühr berechnen.
   artikelId: string | null;
   menge: number;
 };
@@ -25,7 +34,7 @@ export type AuslagernWahl = {
 // Die Menge bleibt änderbar, und „keine Gebühr" ist eine gleichberechtigte Antwort.
 export function AuslagernDialog({
   satz, kunde, fahrzeug, slot, warehouse, gebuehrArtikel, articlePrices,
-  offeneAuftraege, vorschlagAuftragId, onAbbrechen, onAuslagern,
+  offeneAuftraege, vorschlagAuftragId, vorgemerktFuer, onAbbrechen, onAuslagern, onAuftragOeffnen, onZuruecknehmen,
 }: {
   satz: TireStorage;
   kunde: Customer | undefined;
@@ -40,24 +49,48 @@ export function AuslagernDialog({
   offeneAuftraege: Order[];
   // Der Auftrag, aus dem heraus ausgelagert wurde – falls es einen gibt. Er steht vorne.
   vorschlagAuftragId: string | null;
+  // Ist der Satz schon für einen Auftrag vorgemerkt (Migration 67), zeigt der Dialog nur das –
+  // mit dem Weg zum Auftrag und zum Zurücknehmen. Ein zweites Vormerken lässt die Datenbank
+  // ohnehin nicht zu.
+  vorgemerktFuer: Order | null;
   onAbbrechen: () => void;
   onAuslagern: (wahl: AuslagernWahl) => Promise<void>;
+  onAuftragOeffnen: (auftragId: string) => void;
+  onZuruecknehmen: () => Promise<void>;
 }) {
-  const monate = lagermonate(satz.created_at, todayStr());
   const [artikelId, setArtikelId] = useState(gebuehrArtikel[0]?.id ?? "");
-  const [menge, setMenge] = useState(String(monate));
+  // Die Menge folgt den berechneten Monaten, bis jemand sie selbst ändert.
+  const [mengeEigen, setMengeEigen] = useState<string | null>(null);
   // Vorbelegung in dieser Reihenfolge: der Auftrag, aus dem heraus ausgelagert wurde; sonst
   // der neueste offene Auftrag des Kunden; sonst ein neuer. Der Kunde steht meist gerade
   // daneben – wer hier erst ein Auswahlfeld durchsuchen muss, trägt die Gebühr nicht ein.
   // Der Vorschlag zählt nur, wenn er auch zur Auswahl steht. Ein Auftrag, der inzwischen
   // abgeschlossen wurde, wäre sonst ein Zustand ohne passende Zeile im Auswahlfeld: Angezeigt
   // stünde der erste Eintrag, gespeichert würde ein anderer.
-  const vorschlagGilt = offeneAuftraege.some((o) => o.id === vorschlagAuftragId);
+  //
+  // Ohne offenen Auftrag und ohne Gebührenartikel ist „sofort" die Vorbelegung: Dann gibt es weder
+  // etwas zu berechnen noch einen Termin, auf den die Reifen warten.
+  //
+  // Der Auftrag, in dem der Satz EINGELAGERT wurde, steht nicht zur Wahl: Mit ihm herausgeben
+  // hieße, ihn im selben Termin hinein- und wieder hinauszutragen. Ist er noch offen, wird
+  // offenbar eine Einlagerung rückgängig gemacht („Einlagerung entfernen") – dann ist „sofort"
+  // die Vorbelegung.
+  const eigenerOffen = !!satz.order_id && offeneAuftraege.some((o) => o.id === satz.order_id);
+  const auswahl = offeneAuftraege.filter((o) => o.id !== satz.order_id);
+  const vorschlagGilt = auswahl.some((o) => o.id === vorschlagAuftragId);
   const [ziel, setZiel] = useState<string>(
-    (vorschlagGilt ? vorschlagAuftragId : null) ?? offeneAuftraege[0]?.id ?? "neu"
+    eigenerOffen ? "sofort"
+      : (vorschlagGilt ? vorschlagAuftragId : null) ?? auswahl[0]?.id ?? (gebuehrArtikel.length > 0 ? "neu" : "sofort")
   );
   const [ohneGebuehr, setOhneGebuehr] = useState(gebuehrArtikel.length === 0);
   const [laeuft, setLaeuft] = useState(false);
+
+  // Gezählt wird bis zum Termin des Auftrags, mit dem die Reifen herausgehen – nicht bis heute.
+  const zielAuftrag = auswahl.find((o) => o.id === ziel) ?? null;
+  const bis = lagerBis(todayStr(), zielAuftrag);
+  const monate = lagermonate(satz.created_at, bis);
+  const menge = mengeEigen ?? String(monate);
+  const sofort = ziel === "sofort";
 
   const artikel = gebuehrArtikel.find((a) => a.id === artikelId);
   const preis = artikel
@@ -68,7 +101,6 @@ export function AuslagernDialog({
   const langlieger = istLanglieger(monate, summe);
 
   const platz = [warehouse?.name, slot?.code].filter(Boolean).join(" · ") || "Lagerplatz unbekannt";
-  const bis = todayStr();
 
   // Ohne gültigen Preis gibt es nichts zu berechnen. Bis zum 21.09.2026 stand der Hinweis
   // „kein gültiger Preis hinterlegt" zwar da, der Knopf ließ sich aber trotzdem drücken – und
@@ -76,24 +108,56 @@ export function AuslagernDialog({
   // „8 Monate · 0,00 €", und niemand sah, dass die App genau davor gewarnt hatte. Eine
   // Warnung, die man wegklicken kann, ohne dass etwas passiert, ist keine Warnung.
   const kannBerechnen = !!artikel && preis !== null && mengeZahl > 0;
-  const wirdBerechnet = !ohneGebuehr && kannBerechnen;
+  const wirdBerechnet = !sofort && !ohneGebuehr && kannBerechnen;
 
   async function bestaetigen() {
     setLaeuft(true);
     try {
-      await onAuslagern(
-        !wirdBerechnet
-          ? { auftragId: null, neuerAuftrag: false, artikelId: null, menge: 0 }
-          : {
-              auftragId: ziel === "neu" ? null : ziel,
-              neuerAuftrag: ziel === "neu",
-              artikelId: artikel.id,
-              menge: mengeZahl,
-            }
-      );
+      await onAuslagern({
+        auftragId: sofort || ziel === "neu" ? null : ziel,
+        neuerAuftrag: ziel === "neu",
+        sofort,
+        artikelId: wirdBerechnet ? artikel.id : null,
+        menge: wirdBerechnet ? mengeZahl : 0,
+      });
     } finally {
       setLaeuft(false);
     }
+  }
+
+  async function zuruecknehmen() {
+    setLaeuft(true);
+    try { await onZuruecknehmen(); } finally { setLaeuft(false); }
+  }
+
+  if (vorgemerktFuer) {
+    return (
+      <div className="modal-overlay modal-auslagern" onClick={(e) => { if (e.target === e.currentTarget) onAbbrechen(); }}>
+        <div className="modal-box" style={{ position: "relative", maxWidth: 480 }}>
+          <button className="modal-close" onClick={onAbbrechen} aria-label="Schließen">✕</button>
+          <h2>Zum Auslagern vorgemerkt</h2>
+          <div className="auslagern-satz">
+            <strong>{kunde?.name ?? "Unbekannter Kunde"}</strong>
+            {fahrzeug ? ` · ${[fahrzeug.license_plate, fahrzeug.make_model].filter(Boolean).join(" ")}` : ""}
+            <br />
+            {platz} · eingelagert {formatDate(satz.created_at.slice(0, 10))}
+          </div>
+          <div className="auslagern-hinweis">
+            Vorgemerkt für Auftrag {auftragsNr(vorgemerktFuer.order_number)} am {formatDate(vorgemerktFuer.order_date)}
+            {vorgemerktFuer.title ? ` · ${vorgemerktFuer.title}` : ""}. Die Reifen liegen noch im Regal
+            und gehen heraus, wenn dieser Auftrag abgeschlossen wird.
+          </div>
+          <div className="auslagern-fuss">
+            <button type="button" className="btn-secondary btn-rand" onClick={() => void zuruecknehmen()} disabled={laeuft}>
+              Vormerkung zurücknehmen
+            </button>
+            <button type="button" className="btn-primary" onClick={() => onAuftragOeffnen(vorgemerktFuer.id)} disabled={laeuft}>
+              Auftrag öffnen
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -112,21 +176,41 @@ export function AuslagernDialog({
           {/* Die Zahl steht groß da, weil sie die einzige ist, die hier zur Entscheidung
               gehört. Der Zeitraum daneben, damit man sie nachrechnen kann, ohne die
               Einlagerung zu suchen. */}
+          <div className="field">
+            <label htmlFor="auslagern-ziel">Mit welchem Auftrag?</label>
+            <select id="auslagern-ziel" value={ziel} onChange={(e) => setZiel(e.target.value)}>
+              {auswahl.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {auftragsNr(o.order_number)} · {formatDate(o.order_date)} · {o.title}
+                </option>
+              ))}
+              <option value="neu">Neuen Auftrag für diesen Kunden anlegen</option>
+              <option value="sofort">Ohne Auftrag – jetzt gleich auslagern</option>
+            </select>
+            <span className="small">
+              {sofort
+                ? "Der Platz ist sofort frei – etwa wenn der Kunde seine Reifen selbst abholt."
+                : ziel === "neu"
+                  ? "Der Auftrag wird mit dem heutigen Datum angelegt und danach geöffnet. Die Reifen bleiben bis zu seinem Abschluss im Regal."
+                  : `Die Reifen bleiben im Regal und belegen ihren Platz, bis Auftrag ${auftragsNr(zielAuftrag?.order_number ?? 0)} abgeschlossen wird – erst dann gelten sie als ausgelagert.`}
+            </span>
+          </div>
+
           <div className="auslagern-dauer">
             <span className="auslagern-monate">{monate}</span>
             <span>
               {monate === 1 ? "angefangener Monat" : "angefangene Monate"} im Regal
               <br />
               <span className="small">
-                {formatDate(satz.created_at.slice(0, 10))} – {formatDate(bis)} · ein angefangener Monat zählt voll
+                {formatDate(satz.created_at.slice(0, 10))} – {formatDate(bis)}{bis > todayStr() ? " (Termin)" : ""} · ein angefangener Monat zählt voll
               </span>
             </span>
           </div>
 
-          {gebuehrArtikel.length === 0 ? (
+          {sofort ? null : gebuehrArtikel.length === 0 ? (
             <div className="auslagern-hinweis">
               Im Artikelstamm ist kein Artikel mit der Abrechnungsart &bdquo;Lagergebühr&ldquo;
-              hinterlegt. Der Satz wird nur ausgelagert – berechnet wird nichts. Wer das ändern
+              hinterlegt. Der Satz wird nur vorgemerkt – berechnet wird nichts. Wer das ändern
               will, stellt den Einlagerungsartikel unter &bdquo;Artikel&ldquo; um.
             </div>
           ) : (
@@ -136,7 +220,7 @@ export function AuslagernDialog({
                   type="checkbox" id="auslagern-ohne-gebuehr"
                   checked={ohneGebuehr} onChange={(e) => setOhneGebuehr(e.target.checked)}
                 />
-                <label htmlFor="auslagern-ohne-gebuehr">Ohne Gebühr auslagern</label>
+                <label htmlFor="auslagern-ohne-gebuehr">Ohne Gebühr</label>
               </div>
 
               {!ohneGebuehr && (
@@ -157,7 +241,7 @@ export function AuslagernDialog({
                       <label htmlFor="auslagern-menge">Menge (Monate)</label>
                       <input
                         id="auslagern-menge" type="number" min={0} step={1}
-                        value={menge} onChange={(e) => setMenge(e.target.value)}
+                        value={menge} onChange={(e) => setMengeEigen(e.target.value)}
                       />
                     </div>
                     <div className="field">
@@ -200,22 +284,6 @@ export function AuslagernDialog({
                     </div>
                   )}
 
-                  <div className="field">
-                    <label htmlFor="auslagern-ziel">Auf welchen Auftrag?</label>
-                    <select id="auslagern-ziel" value={ziel} onChange={(e) => setZiel(e.target.value)}>
-                      {offeneAuftraege.map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {auftragsNr(o.order_number)} · {formatDate(o.order_date)} · {o.title}
-                        </option>
-                      ))}
-                      <option value="neu">Neuen Auftrag für diesen Kunden anlegen</option>
-                    </select>
-                    {ziel === "neu" && (
-                      <span className="small">
-                        Der Auftrag wird mit dem heutigen Datum angelegt und danach geöffnet.
-                      </span>
-                    )}
-                  </div>
                 </>
               )}
             </>
@@ -226,11 +294,13 @@ export function AuslagernDialog({
           <button type="button" className="btn-secondary btn-rand" onClick={onAbbrechen} disabled={laeuft}>Abbrechen</button>
           <button
             type="button" className="btn-primary" onClick={bestaetigen}
-            disabled={laeuft || (!ohneGebuehr && gebuehrArtikel.length > 0 && !kannBerechnen)}
+            disabled={laeuft || (!sofort && !ohneGebuehr && gebuehrArtikel.length > 0 && !kannBerechnen)}
           >
-            {ohneGebuehr || gebuehrArtikel.length === 0
-              ? "Auslagern"
-              : ziel === "neu" ? "Auslagern und Auftrag anlegen" : "Auslagern und berechnen"}
+            {sofort
+              ? "Jetzt auslagern"
+              : ziel === "neu"
+                ? "Vormerken und Auftrag anlegen"
+                : wirdBerechnet ? "Vormerken und berechnen" : "Vormerken"}
           </button>
         </div>
       </div>

@@ -19,6 +19,32 @@ export type EingelagerterSatz = {
   fahrzeug: Vehicle | null;
 };
 
+// Was früher für diesen Kunden im Regal lag – mit dem Platz von damals (Migration 67, v111). Neueste
+// Auslagerung zuerst; „Wo lagen die Winterreifen letztes Jahr?" ist die Frage dahinter.
+export function frueherEingelagerteSaetze(
+  saetze: TireStorage[],
+  plaetze: StorageSlot[],
+  lager: Warehouse[],
+  fahrzeuge: Vehicle[]
+): EingelagerterSatz[] {
+  return saetze
+    .filter((s) => !!s.removed_at)
+    .sort((a, b) => (b.removed_at ?? "").localeCompare(a.removed_at ?? "") || a.id.localeCompare(b.id))
+    .map((satz) => zeile(satz, plaetze, lager, fahrzeuge));
+}
+
+function zeile(satz: TireStorage, plaetze: StorageSlot[], lager: Warehouse[], fahrzeuge: Vehicle[]): EingelagerterSatz {
+  const platz = plaetze.find((p) => p.id === satz.storage_slot_id);
+  const halle = platz ? lager.find((w) => w.id === platz.warehouse_id) : undefined;
+  return {
+    satz,
+    lager: halle?.name ?? "?",
+    platz: platz?.code ?? "?",
+    platzId: satz.storage_slot_id,
+    fahrzeug: satz.vehicle_id ? fahrzeuge.find((v) => v.id === satz.vehicle_id) ?? null : null,
+  };
+}
+
 export function eingelagerteSaetze(
   saetze: TireStorage[],
   plaetze: StorageSlot[],
@@ -27,17 +53,7 @@ export function eingelagerteSaetze(
 ): EingelagerterSatz[] {
   return saetze
     .filter((s) => !s.removed_at)
-    .map((satz) => {
-      const platz = plaetze.find((p) => p.id === satz.storage_slot_id);
-      const halle = platz ? lager.find((w) => w.id === platz.warehouse_id) : undefined;
-      return {
-        satz,
-        lager: halle?.name ?? "?",
-        platz: platz?.code ?? "?",
-        platzId: satz.storage_slot_id,
-        fahrzeug: satz.vehicle_id ? fahrzeuge.find((v) => v.id === satz.vehicle_id) ?? null : null,
-      };
-    })
+    .map((satz) => zeile(satz, plaetze, lager, fahrzeuge))
     .sort((a, b) =>
       a.lager.localeCompare(b.lager, "de", { numeric: true })
       || a.platz.localeCompare(b.platz, "de", { numeric: true, sensitivity: "base" }));
