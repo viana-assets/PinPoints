@@ -93,7 +93,7 @@ funktioniert offline, die Karte zeigt einen Hinweis.
 
 Aufwand: mittel. Risiko: gering, solange nur gelesen wird.
 
-### Stufe 4 – Offline schreiben — ERSTE RUNDE UMGESETZT 02.10.2026 (v101)
+### Stufe 4 – Offline schreiben — RUNDE 1 (v101, 02.10.2026) UND RUNDE 2 (v113, 05.10.2026) UMGESETZT
 
 **Was gebaut ist** (`lib/offline/`, Fahrplan F1, großer Zuschnitt, Runde 1):
 
@@ -122,10 +122,28 @@ Aufwand: mittel. Risiko: gering, solange nur gelesen wird.
 * **Nicht offline**, mit klarer Meldung statt „Failed to fetch": abschließen, stornieren,
   Status, Mitarbeiter, ein-/auslagern, Kunden, Stammdaten, Rechnungen.
 
-**Runde 2 (offen):** Fahrzeug am Auftrag und Kilometerstand (dafür müssen die Fahrzeuge am
-Auftrag erst offline LESBAR werden – heute lädt sie das Auftragsfenster bei jedem Öffnen frisch,
-ohne Netz fehlen sie), neues Fahrzeug beim Kunden. Danach der Test mit absichtlich
-abgeschaltetem Telefon im Betrieb.
+**Runde 2 (v113, 05.10.2026):** Fahrzeug am Auftrag zuordnen und entfernen, Kilometerstand,
+neues Kennzeichen beim Kunden – vier neue Absichten `fahrzeug_neu`, `fahrzeug_zu`, `fahrzeug_weg`,
+`km` in `lib/offline/ausgang.ts`.
+
+* **Offline lesbar:** Die Fahrzeuge am Auftrag sind jetzt eine Abfrage im Zwischenspeicher
+  (`useAuftragFahrzeuge`, `qk.auftragFahrzeuge(id)`), nicht mehr ein eigener Zustand. Der Vorrat
+  `useEinsatzVorrat` (`lib/queries/hooks.ts`) lädt mit Netz die Fahrzeuge der offenen Aufträge von
+  gestern bis 14 Tage voraus (`VORRAT_TAGE_ZURUECK`, `VORRAT_TAGE_VORAUS`) samt der Kartei ihrer
+  Kunden und legt sie in den Speicher – der wird wie alles andere in der IndexedDB gehalten.
+* **Kennungen vom Gerät:** Neues Auto und neue Zuordnung bekommen ihre UUID auf dem Gerät. Eine
+  Zuordnung oder ein Kilometerstand an einem noch wartenden Auto geht selbst dann in den Korb,
+  wenn das Netz inzwischen da ist (`wartetAufAnlage`) – sonst überholte sie die Anlage.
+* **Doppelte Kennzeichen:** Beim Senden von `fahrzeug_neu` wird am Server nachgesehen, ob der
+  Kunde das Kennzeichen schon hat; dann wird DIESES Fahrzeug genommen und die wartenden
+  Zuordnungen werden umgehängt (`ersetze` im Ergebnis von `senden.ts`). Eine schon bestehende
+  Zuordnung (23505) zählt als übernommen.
+* **Zusammenlegen:** Ein Kilometerstand an einer noch wartenden Zuordnung wird in sie eingerechnet;
+  wer eine noch wartende Zuordnung entfernt, nimmt sie einfach aus dem Korb. Zwei Kilometerstände
+  derselben Zeile werden einer, mit der Basis von vor dem ersten (Konfliktabfrage wie bei den
+  Feldern am Auftrag).
+
+Offen bleibt nur der Test mit absichtlich abgeschaltetem Telefon im Betrieb.
 
 Der Text unten ist die ursprüngliche Planung.
 

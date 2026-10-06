@@ -830,6 +830,8 @@ tr.klickbar:hover { background: var(--hover); }
 .etikett-kunde{font-weight:800;font-size:calc(2.6mm * var(--etikett-s,1));overflow:hidden;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
 .etikett-zeile{font-size:calc(2.1mm * var(--etikett-s,1));overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Notiz (v115): bis zu drei Zeilen, fett – wie im Bild (lib/etikettBild.ts). */
+.etikett-notiz{font-size:calc(2.1mm * var(--etikett-s,1));font-weight:700;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;line-height:1.2;}
 
 /* Das Rad-Etikett (17.09.2026). Andere Gewichtung als beim Satz-Etikett: Dort trägt der
    Kundenname die Aussage, hier die POSITION und die Profiltiefe. Wer vier gleich aussehende
@@ -1892,9 +1894,6 @@ button.el-zeile:hover{border-color:var(--accent);}
 .monat-punkte span.ohne{background:var(--muted);opacity:.5;}
 /* Verfügbarkeit (Migration 68, v112): „x frei" unter jedem kommenden Tag, für wer alle sehen darf.
    Ist ein Mitarbeiter gewählt, sind seine Tage ohne Eintrag blass gestreift. */
-.monat-karte:has(.monat-frei) .monat-tag{height:70px;}
-.monat-frei{font-size:10px;font-weight:800;line-height:1.3;color:#0f6b4a;background:var(--green-bg);border-radius:99px;padding:0 6px;}
-.monat-frei.null{color:var(--muted);background:var(--hover);}
 .monat-tag.ohne-eintrag .monat-zahl{background:repeating-linear-gradient(135deg,#efeae0 0 4px,transparent 4px 8px);color:var(--muted);}
 
 /* Tagesansicht: die Woche als Leiste zum Wechseln. */
@@ -2742,6 +2741,14 @@ span.db-link{cursor:inherit;}
 .lg-rad.hinweis{background:var(--accent-bg);color:#9a3412;}
 .lg-rad.kritisch{background:var(--red-bg);color:#b3261e;}
 .lg-notiz{font-size:13.5px;background:var(--bg);border-radius:12px;padding:8px 10px;white-space:pre-wrap;}
+/* Notizen am Satz (Migration 71, v115): Satznotiz und je Rad. */
+.rn-block{display:flex;flex-direction:column;gap:6px;margin-top:10px;}
+.rn-block textarea{resize:vertical;}
+.rn-raster{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.rn-raster input{min-width:0;}
+.rn-anzeige{display:flex;flex-direction:column;gap:2px;}
+.rn-anzeige b{display:inline-block;min-width:26px;color:var(--text);}
+.rn-anzeige.klein{font-size:12.5px;padding:6px 8px;margin-top:4px;}
 .lg-knoepfe{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:8px;}
 .lg-knopf{min-height:44px;border-radius:14px;border:1px solid var(--border);background:var(--panel);color:var(--text);
   font:inherit;font-weight:700;font-size:14px;cursor:pointer;padding:0 10px;}

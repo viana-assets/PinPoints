@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **139 exportierte Konstanten** (`export const`) in 38 Dateien unter `lib/` – gezählt am
-05.10.2026 (v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **144 exportierte Konstanten** (`export const`) in 39 Dateien unter `lib/` – gezählt am
+06.10.2026 (v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -120,6 +120,8 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `SAISON_LISTE` | `lib/constants.ts` | `Saison[]` | Die drei Saisonwerte als Liste (für Auswahlknöpfe) | `SaisonPanel`, `LagerPanel`, `EinlagerungBlock` |
 | `RAD_POSITIONEN` | `lib/constants.ts` | `RadPosition[]` | Die vier Radpositionen (VL/VR/HL/HR) in Anzeigereihenfolge | `ReifensatzEtikett`, `RadBild` |
 | `RAD_POSITION_LABEL` | `lib/constants.ts` | `Record<RadPosition, string>` | Ausgeschriebene Beschriftung der Radpositionen | `ReifensatzEtikett`, `RadBild` |
+| `RAD_NOTIZ_SPALTE` | `lib/constants.ts` | `Record<RadPosition, "notiz_vl" …>` | Spalte am Satz für die Notiz je Rad (Migration 71, v115) | `lib/lagerNotizen.ts`, `ReifenNotizen` |
+| `RAD_NOTIZ_MAX` | `lib/constants.ts` | `number` (300) | Höchstlänge einer Notiz je Rad – dieselbe Grenze prüft die Datenbank (`tire_storage_notiz_je_rad_laenge`) | `ReifenNotizen` |
 | `FELGE_LABEL` | `lib/constants.ts` | `Record<Felge, string>` | Beschriftung der Felgenart (Stahl/Alu/keine) | `RadBild` |
 | `FELGEN` | `lib/constants.ts` | `Felge[]` | Die drei Felgenarten als Liste | `RadBild` |
 | `PROFIL_GESETZLICH_MM` | `lib/constants.ts` | `number` (1,6) | Gesetzliches Minimum der Profiltiefe | `ProfilMarke`, `RadBild` |
@@ -279,7 +281,10 @@ weil sie im Code **nicht exportiert** sind (`const`, kein `export const`) – ge
 | `AUFTRAG_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder am Auftrag, die offline geändert werden dürfen (F1, v101) | `aenderungen()` in `app/page.tsx` (`auftragsAbsicht`), `tests/offlineAusgang.test.ts` |
 | `POSITION_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder einer Leistung, die offline geändert werden dürfen | Typ `PositionFeld` |
 | `RAD_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Felder eines Rades, die offline gemessen werden dürfen | Typ `RadFeld` |
+| `SATZ_OFFLINE_FELDER` | `lib/offline/ausgang.ts` | `readonly string[]` | Notizen am Satz, die offline geändert werden dürfen (Absicht „satz“, v115) | Typ `SatzFeld` |
 | `FELD_TEXT` | `lib/offline/ausgang.ts` | `Record<string, string>` | Lesbare Feldnamen in der Konfliktanzeige | `AusgangFenster` |
+| `VORRAT_TAGE_VORAUS` | `lib/queries/hooks.ts` | `number` (14) | So viele Tage voraus legt `useEinsatzVorrat()` die Fahrzeuge der offenen Aufträge aufs Gerät (Offline Runde 2, v113) | **nur intern** in `useEinsatzVorrat()` |
+| `VORRAT_TAGE_ZURUECK` | `lib/queries/hooks.ts` | `number` (1) | Und so viele Tage zurück – gestern Liegengebliebenes | **nur intern** in `useEinsatzVorrat()` |
 | `FREMDABFRAGE_ZU_VIEL` | `lib/fremdabfrage.ts` | `string` | Meldung, wenn die Abfragebremse der Adressdienste greift (B3, Migration 62) | `app/api/geocode/route.ts`, `app/api/adresse-suchen/route.ts` |
 
 ---

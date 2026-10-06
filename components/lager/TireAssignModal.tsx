@@ -6,9 +6,11 @@ import { profilText } from "@/lib/helpers";
 import { platzZuKlein } from "@/lib/lagerAnsicht";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { ErfassungsWahl, RadBild, SatzProfil } from "./RadBild";
+import { ReifenNotizenFelder } from "./ReifenNotizen";
+import { notizAenderungen, type SatzNotizFeld, type SatzNotizen } from "@/lib/lagerNotizen";
 
 // Einen Satz auf einen Lagerplatz legen oder seine Angaben ändern: Kunde, Fahrzeug, Saison, DOT,
-// Profiltiefe (ein Wert oder je Rad), Notiz. Geöffnet aus dem Platz-Blatt der Regalwand
+// Profiltiefe (ein Wert oder je Rad), Notiz zum Satz und je Rad (seit v115). Geöffnet aus dem Platz-Blatt der Regalwand
 // (LagerPanel.tsx → PlatzBlatt.tsx → „Bearbeiten" bzw. „Einlagern").
 //
 // Bis v105 stand dieses Fenster unten in LagerPanel.tsx (Fahrplan C5): Die Datei war auf über
@@ -21,7 +23,7 @@ export function TireAssignModal({ slot, customers, vehicles, assignment, gruende
   gruende: string[];
   raederFuer: (satzId: string) => EingelagertesRad[];
   onClose: () => void;
-  onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<string>;
+  onAssign: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null; radNotizen?: SatzNotizen }) => Promise<string>;
   onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
   onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
   onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
@@ -32,7 +34,13 @@ export function TireAssignModal({ slot, customers, vehicles, assignment, gruende
   const [saison, setSaison] = useState<Saison | "">(assignment?.saison || "");
   const [dotDate, setDotDate] = useState(assignment?.dot_date || "");
   const [profiltiefe, setProfiltiefe] = useState(assignment?.profiltiefe_mm != null ? String(assignment.profiltiefe_mm) : "");
-  const [note, setNote] = useState(assignment?.note || "");
+  // Die Notizen gelten wie alles hier erst mit dem Knopf unten.
+  const notizenVorher: SatzNotizen = {
+    note: assignment?.note ?? "", notiz_vl: assignment?.notiz_vl ?? "", notiz_vr: assignment?.notiz_vr ?? "",
+    notiz_hl: assignment?.notiz_hl ?? "", notiz_hr: assignment?.notiz_hr ?? "",
+  };
+  const [notizen, setNotizen] = useState<SatzNotizen>(notizenVorher);
+  const note = notizen.note ?? "";
   const [saving, setSaving] = useState(false);
   // Ein Wert für den Satz oder je Rad (Migration 33). Bis v87 ließ sich das nur im
   // Auftragsfenster umstellen; hier stand bei einem neuen Satz immer nur das Sammelfeld
@@ -84,6 +92,13 @@ export function TireAssignModal({ slot, customers, vehicles, assignment, gruende
       const id = await onAssign({
         id: assignment?.id, storageSlotId: slot.id, customerId,
         dotDate, profiltiefeMm: einzeln ? "" : profiltiefe, note,
+        // Nur geänderte Notizen je Rad mitschicken – eine Datenbank vor Migration 71 kennt die
+        // Spalten nicht, und ein Satz ohne Notiz soll dort weiter speichern können.
+        radNotizen: (() => {
+          const { note: _n, ...rad } = notizAenderungen(notizenVorher, notizen) ?? {};
+          void _n;
+          return Object.keys(rad).length ? rad : undefined;
+        })(),
         // Beim Kundenwechsel darf kein Fahrzeug des Vorgängers hängenbleiben.
         vehicleId: kundenFahrzeuge.some((v) => v.id === vehicleId) ? vehicleId : null,
         saison: saison || null,
@@ -221,7 +236,10 @@ export function TireAssignModal({ slot, customers, vehicles, assignment, gruende
             />
           </div>
         )}
-        <div className="field"><label>Notiz (optional)</label><textarea value={note} onChange={(e) => setNote(e.target.value)} /></div>
+        <div className="field">
+          <ReifenNotizenFelder werte={notizen} anzahlRaeder={assignment?.anzahl_raeder ?? 4} gesperrt={saving}
+            onAendern={(feld: SatzNotizFeld, wert: string) => setNotizen((n) => ({ ...n, [feld]: wert }))} />
+        </div>
         <button className="btn-primary btn-block" disabled={!customerId || saving} onClick={() => void save()}>
           {!assignment ? (einzeln ? "Reifen einlagern und Räder messen" : "Reifen einlagern") : eben ? "Fertig" : "Zuordnung speichern"}
         </button>

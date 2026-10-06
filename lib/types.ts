@@ -224,6 +224,12 @@ export type TireStorage = {
   dot_date: string | null;
   profiltiefe_mm: number | null;
   note: string | null;
+  // Notiz je Rad (Migration 71) – unabhängig davon, ob je Rad gemessen wurde. Optional, weil eine
+  // Datenbank vor Migration 71 die Spalten nicht liefert (und Testgerüste sie nicht kennen).
+  notiz_vl?: string | null;
+  notiz_vr?: string | null;
+  notiz_hl?: string | null;
+  notiz_hr?: string | null;
   created_at: string;
   updated_at: string;
   removed_at: string | null;

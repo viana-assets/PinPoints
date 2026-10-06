@@ -94,4 +94,23 @@ describe("FotoBlock", () => {
     await waitFor(() => expect(b.onLoeschen).toHaveBeenCalledWith(expect.objectContaining({ id: "1" })));
     expect(frage).toHaveBeenCalledTimes(2);
   });
+  it("abgeschlossen und unterschrieben: kein neues Unterschreiben, kein Löschen der Unterschrift (Migration 70)", () => {
+    render(<FotoBlock vorschlagArt="nachher" unterschriftFest onUnterschreiben={() => {}} belege={belege({
+      darfLoeschen: true, liste: [beleg("1", "nachher"), beleg("3", "unterschrift", "Hans Muster")],
+    })} />);
+    expect(screen.queryByRole("button", { name: "Neu unterschreiben lassen" })).toBeNull();
+    expect(screen.getByText(/steht fest, der Auftrag ist abgeschlossen/)).toBeTruthy();
+    // Fotos gehen weiter – auch nach dem Abschluss.
+    expect(screen.getByText(/Foto „Nachher“ hinzufügen/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /^Unterschrift: Hans Muster,/ }));
+    expect(screen.queryByRole("button", { name: "Löschen" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Schließen" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Nachher,/ }));
+    expect(screen.getByRole("button", { name: "Löschen" })).toBeTruthy();
+  });
+
+  it("abgeschlossen ohne Unterschrift: Nachholen geht", () => {
+    render(<FotoBlock vorschlagArt="nachher" unterschriftFest onUnterschreiben={() => {}} belege={belege()} />);
+    expect(screen.getByRole("button", { name: "Kunde unterschreiben lassen" })).toBeTruthy();
+  });
 });

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { SatzNotizen } from "@/lib/lagerNotizen";
 import type { Customer, EingelagertesRad, Erfassungsart, PlatzGroesse, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, VerkaufsreifenFelder, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
 import {
@@ -111,7 +112,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   onSlotGroesse: (id: string, groesse: PlatzGroesse) => Promise<void>;
   onDeleteSlot: (id: string) => Promise<void>;
   // Gibt die Kennung des Satzes zurück (beim Einlagern die neue).
-  onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) => Promise<string>;
+  onAssignTire: (fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null; radNotizen?: SatzNotizen }) => Promise<string>;
   // Profiltiefe als ein Wert für den Satz oder je Rad (Migration 33) – seit v88 auch hier und
   // nicht nur im Auftragsfenster. Dieselben Handlungen wie dort.
   onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
@@ -263,6 +264,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
       slot.code, kunde?.name, kunde?.company,
       fahrzeug?.license_plate, fahrzeug?.make_model,
       satz.saison ? SAISON_LABEL[satz.saison] : null, satz.note,
+      // Notizen je Rad (Migration 71): „Schraube“ findet den Satz mit der Schraube.
+      satz.notiz_vl, satz.notiz_vr, satz.notiz_hl, satz.notiz_hr,
       // Wer zum Termin ins Lager geht, sucht nach der Auftragsnummer.
       vormerkung?.(satz),
     ];

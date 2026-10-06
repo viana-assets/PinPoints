@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 66, 67, 68 und 69** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 02.10.2026: Alle Migrationen 01–65 sind in der Produktivdatenbank ausgeführt** (62–64 laut Vitali nach v103, 65 mit v105) –
+**Noch auszuführen: 70 und 71** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 05.10.2026: Alle Migrationen 01–69 sind in der Produktivdatenbank ausgeführt** (66–69 laut Vitali am 05.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -787,7 +787,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Testkunden nimmt Belege und deren Protokolleinträge mit (der Name aus der Unterschrift bleibt
   nirgends stehen); zurückgenommen, zweimal, erneut ausgeführt.
 
-## Noch auszuführen
+## 05.10.2026 – ausgeführt (Vitali, 66 bis 69)
 
 - `66_rechnung_anderswo.sql` – **nach `65`, SQL zuerst, dann die Dateien von v109** (die Oberfläche
   liest `orders.rechnung_extern`). (1) Spalte `orders.rechnung_extern`; ein Haken ohne gültige
@@ -849,3 +849,30 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   machen abgewiesen; Abschließen tauscht; Wiedereröffnen lässt den neuen auf dem Platz; Storno hebt die
   Vormerkung auf, danach scheitert der Abschluss mit Meldung, nach erneutem Vormerken geht er; Tausch
   verwerfen; zurückgenommen, zweimal, erneut; Migration-67-Verhalten danach unverändert.
+
+## Noch auszuführen
+
+- `70_unterschrift_fest.sql` – **nach `69`, SQL zuerst, dann die Dateien von v114.** Die Unterschrift
+  eines erledigten Auftrags steht fest: `auftrag_unterschrift_pruefen()` (BEFORE INSERT/DELETE auf
+  `auftrag_belege`) lehnt am erledigten Auftrag eine zweite Unterschrift und das Löschen der
+  Unterschrift ab, am stornierten jede Unterschrift; fehlt sie beim Abschluss, darf sie nachgeholt
+  werden. Fotos sind frei. Ergebnistabelle mit zwei Zeilen. Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/70_rollback.sql` (ändert keine Daten; zweimal lauffähig). Geprüft gegen Postgres 16
+  (Stand 69): offen zweimal unterschrieben; nach dem Abschluss dritte abgewiesen, Foto geht;
+  Unterschrift löschen abgewiesen, Foto löschen geht; ohne Unterschrift abgeschlossen – Nachholen
+  geht, zweite abgewiesen; wiedereröffnet – neue und Löschen gehen; storniert – Unterschrift
+  abgewiesen, Foto geht; Auftrag samt Unterschrift löschen (Kaskade) und endgültiges Löschen eines
+  Kunden aus dem Papierkorb gehen; zurückgenommen, zweimal, erneut ausgeführt.
+- `71_notiz_je_rad.sql` – **nach `70`, SQL zuerst, dann die Dateien von v115.** Notiz je Rad am
+  eingelagerten Satz: `tire_storage.notiz_vl`, `notiz_vr`, `notiz_hl`, `notiz_hr` (Prüfregel höchstens
+  300 Zeichen), unabhängig von „ein Wert für den Satz“ oder „je Rad“; vorhandene Bemerkungen gemessener
+  Räder werden übernommen, wo am Satz noch nichts steht (`eingelagerte_raeder.bemerkung` bleibt, die
+  App schreibt sie nicht mehr); `kunde_auskunft()` liefert zusätzlich `reifen_notizen`. Ergebnistabelle
+  mit zwei Zeilen. Zweiter Lauf folgenlos (kein Satz wird erneut geändert). Rücknahme:
+  `rollback/71_rollback.sql` (schreibt Notizen in leere Bemerkungen gemessener Räder zurück und
+  entfernt die Spalten in EINER Anweisung – Notizen an Sätzen ohne gemessene Räder gehen verloren;
+  zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 70): Bemerkungen VL/HR übernommen, leere nicht;
+  Admin setzt Notiz VR und Satznotiz; 301 Zeichen abgewiesen; Umschalten auf Satzwert lässt die
+  Notizen stehen; Techniker setzt eine Notiz; Auskunft mit vier Notizen und weiter mit Belegen;
+  Protokoll hat die Änderung; zurückgenommen (Notiz VR in die leere Bemerkung geschrieben), zweimal,
+  erneut ausgeführt.

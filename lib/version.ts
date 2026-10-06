@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v112";
+export const APP_VERSION = "v116";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,35 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v116", datum: "2026-10-06", titel: "Ruhigerer Monatskalender",
+    punkte: [
+      "Im Monat der Einsatzplanung steht unter den Tagen kein grünes „x frei“ mehr – der Kalender zeigt wieder nur die Termine. Wer wann Zeit hat, steht weiter im Reiter „Verfügbarkeit“, als Punkte in der Woche und beim Einteilen im Auftrag.",
+    ],
+  },
+  {
+    version: "v115", datum: "2026-10-06", titel: "Notiz je Rad beim Einlagern",
+    punkte: [
+      "Beim Einlagern lässt sich jetzt zu jedem einzelnen Reifen eine Notiz eintragen – etwa „Schraube in der Lauffläche“ am Rad vorne rechts. Dazu bleibt die Notiz zum ganzen Satz. Das geht im Auftrag und im Lager unter „Bearbeiten“, auch bei „Ein Wert für den Satz“ und auch ohne Netz.",
+      "Die Notizen stehen im Platz-Blatt, am Auftrag beim nächsten Wechsel, im Kundenfenster und auf dem Etikett des Rades. Die Lagersuche findet sie: Wer „Schraube“ sucht, findet den Satz.",
+      "Gibt der Kunde die Reifen zum Verkauf ab, kommt die Notiz mit an den Posten.",
+    ],
+  },
+  {
+    version: "v114", datum: "2026-10-06", titel: "Unterschrift steht nach dem Abschluss fest",
+    punkte: [
+      "Ist ein Auftrag abgeschlossen und unterschrieben, steht die Unterschrift fest: Es gibt kein „Neu unterschreiben lassen“ und kein Löschen mehr. Wer wirklich neu unterschreiben lassen muss, öffnet den Auftrag erst wieder.",
+      "Fehlt die Unterschrift beim Abschluss noch, lässt sie sich nachholen – etwa wenn der Kunde nicht da war. Fotos lassen sich wie bisher auch nach dem Abschluss ergänzen.",
+    ],
+  },
+  {
+    version: "v113", datum: "2026-10-05", titel: "Fahrzeuge und Kilometerstand auch ohne Netz",
+    punkte: [
+      "Im Auftrag lassen sich jetzt auch ohne Netz Fahrzeuge zuordnen, entfernen und der Kilometerstand eintragen. Die Änderungen warten oben in der Leiste und gehen von selbst raus, sobald wieder Netz da ist.",
+      "Ein neues Kennzeichen beim Kunden lässt sich ebenfalls offline anlegen. Beim Senden wird noch einmal nachgesehen, ob es das Auto beim Kunden schon gibt – dann wird das vorhandene genommen.",
+      "Die Fahrzeuge der Aufträge der nächsten zwei Wochen legt die App vorab aufs Gerät. Wer ohne Netz einen solchen Auftrag öffnet, sieht sie trotzdem.",
+    ],
+  },
   {
     version: "v112", datum: "2026-10-05", titel: "Verfügbarkeit und Reifentausch",
     punkte: [

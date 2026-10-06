@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 05.10.2026 (Migrationen bis 69, 66 bis 69 noch auszuführen; Service Worker v112; Regeln seit der Projektdurchsicht vom
+Stand: 06.10.2026 (Migrationen bis 71, 70 und 71 noch auszuführen; Service Worker v116; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -313,14 +313,15 @@ Jeder Punkt hier hat einmal Zeit gekostet.
 - **Ein Zwischenspeicher ist nur so frisch wie die Stelle, die ihn verwirft.** Fahrzeuge liegen
   je Kunde UND gesamt im Speicher; nach dem Anlegen wurde nur der des im Kundentab gewählten
   Kunden neu geladen – im Auftragsfenster fehlte das neue Auto (29.09.2026). Wer etwas anlegt,
-  verwirft alle Speicher, die es zeigen (`refreshVehicles` in `app/page.tsx`).
+  verwirft alle Speicher, die es zeigen (`refreshVehicles`, seit v113 in `app/_seite/useFahrzeugAktionen.ts`).
 - **In einem Fenster mit Speichern-Knopf darf ein Umschalter nicht selbst speichern.** „Je Rad
   messen" im Lagerfenster schrieb sofort in die Datenbank und löschte damit den Satzwert – wer
   nur nachsehen wollte und mit ✕ schloss, hatte ihn verloren (02.10.2026, v98). Wer etwas
   löscht, das der Nutzer nicht bestätigt hat, braucht einen sehr guten Grund; hier half nur das
   Protokoll (`audit_log`) beim Zurückholen.
 - **Ein neuer Schreibweg am Auftrag oder an der Radmessung geht durch `offlineOderDirekt()`**
-  (app/page.tsx, seit v101). Wer einen Supabase-Aufruf daran vorbei direkt schreibt, hat eine
+  (app/page.tsx, seit v101; die Hooks unter `app/_seite/` bekommen sie im Kontext). Wer einen
+  Supabase-Aufruf daran vorbei direkt schreibt, hat eine
   Handlung, die ohne Netz still scheitert – genau das, was der Ausgangskorb abstellt. Gehört die
   Handlung bewusst NICHT offline (abschließen, ein-/auslagern …), bleibt sie direkt; die zentrale
   Meldung sagt dann „geht nur mit Netz".
@@ -373,6 +374,10 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
   Library in jsdom, Kopfzeile `// @vitest-environment jsdom`).
 - **TanStack Query** als Zwischenspeicher aller Datenabfragen (`lib/queries/`,
   `app/providers.tsx`), mit `idb-keyval` als Offline-Lesespeicher.
+- **`app/page.tsx` und `app/_seite/`** (seit v113): Neue Handlungen eines Bereichs gehören in
+  einen Hook unter `app/_seite/` (Vorbild `useLagerAktionen`, `useFahrzeugAktionen`), nicht
+  zusätzlich in `HomePage`. Der Hook bekommt einen Kontext und wird vor dem ersten `return`
+  aufgerufen; was er zurückgibt, gibt es erst ab dieser Zeile.
 
 ---
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Customer, EingelagertesRad, TireStorage, Vehicle } from "@/lib/types";
 import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
+import { notizenText } from "@/lib/lagerNotizen";
 import { entwurfAlsPosten, entwurfFehler, groesseAusText, groesseText, postenAusSatz, profilMmText, type PostenEntwurf } from "@/lib/reifenverkauf";
 
 // Ein eingelagerter Satz wird zum Verkaufsposten (Fahrplan E17, v103).
@@ -47,7 +48,7 @@ export function SatzZumVerkaufBlatt({ satz, raeder, fahrzeug, kunde, platzText, 
     setLaeuft(true);
     setFehler(null);
     try {
-      await onUebernehmen(entwuerfe.map(entwurfAlsPosten));
+      await onUebernehmen(entwuerfe.map((e) => entwurfAlsPosten(e, notizenText(satz))));
     } catch (e) {
       setFehler(e instanceof Error ? e.message : "Das Übernehmen hat nicht geklappt.");
     } finally {
@@ -128,6 +129,7 @@ export function SatzZumVerkaufBlatt({ satz, raeder, fahrzeug, kunde, platzText, 
           );
         })}
 
+        {notizenText(satz) && <span className="small">Die Notiz vom Satz kommt mit an den Posten: <b>{notizenText(satz)}</b></span>}
         {fehler && <div className="hinweis-pflicht">{fehler}</div>}
         <div className="ad-knoepfe">
           <span className="ad-luecke" />

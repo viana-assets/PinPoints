@@ -1,3 +1,4 @@
+import type { SatzNotizen } from "@/lib/lagerNotizen";
 import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useAusgang } from "@/lib/offline/speicher";
 import { useEffect, useRef, useState } from "react";
@@ -20,6 +21,7 @@ import {
 import { ArticleAssignPanel, type ReifenImAuftrag } from "./ArticleAssignPanel";
 import { groessenVorschlag } from "@/lib/reifenverkauf";
 import { IconNavPin } from "@/components/icons";
+import { ReifenNotizenAnzeige } from "@/components/lager/ReifenNotizen";
 import { EinlagerungBlock } from "./EinlagerungBlock";
 import { LagerSaetzeAmAuftrag } from "./LagerSaetzeAmAuftrag";
 import { istVorgemerkt } from "@/lib/lagerVormerkung";
@@ -56,7 +58,7 @@ export function AuftragModal({
   onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
   onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
-  onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onFahrzeugAnlegen,
+  onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
   andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null,
 }: {
   // Fotos und Unterschrift (E3, Migration 65, v105). Null = Bereich nicht lesbar; dann fehlt die Karte.
@@ -196,6 +198,8 @@ export function AuftragModal({
   onErfassungsart: (einlagerungId: string, art: Erfassungsart) => Promise<void>;
   onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
   onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
+  // Notizen am Satz – zum Satz und je Rad (Migration 71, v115).
+  onSatzNotizen: (satzId: string, felder: SatzNotizen) => Promise<void>;
   onRadEntfernen: (radId: string) => Promise<void>;
   // Legt ein Fahrzeug für den Kunden dieses Auftrags an und ordnet es dem eingelagerten Satz
   // gleich zu – aus dem Auftrag heraus, ohne Umweg über das Kundenfenster.
@@ -1114,6 +1118,8 @@ export function AuftragModal({
                           {lager?.name ? `${lager.name} · ` : ""}seit {formatDate(satz.created_at.slice(0, 10))} · {monate}{" "}
                           {monate === 1 ? "angefangener Monat" : "angefangene Monate"}
                         </span>
+                        {/* Was beim Einlagern notiert wurde – „VR: Schraube“ (Migration 71). */}
+                        <ReifenNotizenAnzeige satz={satz} klein />
                       </span>
                       {istVorgemerkt(satz)
                         ? <button type="button" className="es-knopf" onClick={() => onAuslagern(satz.id)}>
@@ -1148,6 +1154,7 @@ export function AuftragModal({
                 onAnzahlRaeder={onAnzahlRaeder}
                 onRadSpeichern={onRadSpeichern}
                 onRadEntfernen={onRadEntfernen}
+                onSatzNotizen={onSatzNotizen}
                 onFahrzeugAnlegen={(kennzeichen, modell) => onFahrzeugAnlegen(kennzeichen, modell, satz.id)}
                 onEtikett={onEtikett}
                 reifengroesse={reifengroesseAmAuftrag}
@@ -1173,6 +1180,7 @@ export function AuftragModal({
                 onAnzahlRaeder={onAnzahlRaeder}
                 onRadSpeichern={onRadSpeichern}
                 onRadEntfernen={onRadEntfernen}
+                onSatzNotizen={onSatzNotizen}
                 onFahrzeugAnlegen={onFahrzeugAnlegen}
                 reifengroesse={reifengroesseAmAuftrag}
               />
@@ -1216,6 +1224,7 @@ export function AuftragModal({
               belege={belege}
               vorschlagArt={gesperrt || order.status === "in_arbeit" ? "nachher" : "vorher"}
               onUnterschreiben={order.status === "storniert" ? null : () => setUnterschriftOffen(true)}
+              unterschriftFest={order.status === "erledigt"}
             />
           )}
 

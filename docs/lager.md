@@ -461,6 +461,36 @@ Die Seite trennt Tausch-Sätze vom Regalbestand (`tireStorages` ohne `kommt_rein
 `app/page.tsx`): Sie erscheinen nur im Auftrag, nicht im Lager, Kundenfenster, in der Saisonliste,
 den Auswertungen oder einer Historie. Im Lager trägt der alte Satz „vorgemerkt · 1234 · Tausch".
 
+### Notizen am Satz – zum Satz und je Rad (Migration 71, v115)
+
+Wunsch 06.10.2026: Beim Einlagern steckte in einem Reifen eine Schraube – das soll am REIFEN stehen
+und ein halbes Jahr später im Lager noch zu lesen sein. Am Satz gibt es deshalb neben der
+Satznotiz (`note`) eine Notiz je Rad: `notiz_vl`, `notiz_vr`, `notiz_hl`, `notiz_hr` (je höchstens
+300 Zeichen, `RAD_NOTIZ_MAX`; Prüfregel `tire_storage_notiz_je_rad_laenge`).
+
+* **Am Satz, nicht am gemessenen Rad.** Die Bemerkung an `eingelagerte_raeder` (Migration 33) gab es
+  nur bei „je Rad messen“, und beim Zurückschalten auf „ein Wert für den Satz“ ging sie mit den
+  Rädern verloren. Die neuen Spalten gelten in beiden Messarten und bleiben beim Umschalten.
+  Migration 71 hat vorhandene Bemerkungen übernommen; die App schreibt `bemerkung` nicht mehr (das
+  Feld unter „Mehr zu diesem Rad“ ist entfallen).
+* **Eintragen** (`components/lager/ReifenNotizen.tsx`): im Auftrag im Block „Einlagerung“
+  (gespeichert beim Verlassen des Feldes, `ReifenNotizenAmSatz`) und im Lager unter „Bearbeiten“
+  (`TireAssignModal`, gilt mit „Zuordnung speichern“ – Fenster mit Speichern-Knopf). Die Felder je
+  Rad sind zugeklappt („+ Notiz zu einem Rad“), solange keine da ist; es sind so viele wie Räder im
+  Satz (`satzPositionen()`).
+* **Ohne Netz** wie die Radmessung: Absicht `satz` mit `SATZ_OFFLINE_FELDER` (lib/offline/), beim
+  Senden feldweise gegen den Stand am Server geprüft; ein inzwischen ausgelagerter Satz bekommt die
+  Notiz nicht mehr („nicht übernommen“).
+* **Zu sehen** (`ReifenNotizenAnzeige`): im Platz-Blatt, am Auftrag unter „Im Regal für diesen
+  Kunden“, „Aus dem Lager“ und „Hier eingelagert“, im Kundenfenster (auch „Früher eingelagert“).
+  Auf dem Rad-Etikett steht die Notiz dieses Rades, auf dem Satz-Etikett die Notizen je Rad (nicht
+  die Satznotiz) – fett, bis zu drei Zeilen (`EtikettInhalt.notiz`, lib/etikettBild.ts). Die
+  Lagersuche findet auch die Notizen je Rad.
+* **Zum Verkauf** („Kunde lässt sie da“): Die Notizen kommen als `notiz` an den Posten
+  (`entwurfAlsPosten(e, notizenText(satz))`).
+* **Auskunft nach DSGVO**: `kunde_auskunft()` liefert `reifen_notizen` (Datum, Platz, Position,
+  Notiz); im Auszug als „Notizen zu einzelnen Reifen“.
+
 ### Der Auslagern-Dialog
 
 Wer eine Einlagerung entfernt – am Regal (Platz-Blatt im Lager) oder im Auftragsfenster über „Im Regal für

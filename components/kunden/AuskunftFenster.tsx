@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import { fetchKundeAuskunft } from "@/lib/api/customers";
-import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
+import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, reifenNotizZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
 import { formatEUR } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { PROTOKOLL_SCHWAERZEN_MONATE, RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -98,6 +98,11 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
               {daten.reifensaetze.length > 0 && (<>
                 <h2>Eingelagerte Reifen</h2>
                 <Tabelle zeilen={daten.reifensaetze.map(satzZeile)} />
+              </>)}
+
+              {daten.reifen_notizen && daten.reifen_notizen.length > 0 && (<>
+                <h2>Notizen zu einzelnen Reifen</h2>
+                <Tabelle zeilen={daten.reifen_notizen.map(reifenNotizZeile)} />
               </>)}
 
               {daten.rechnungen.length > 0 && (<>

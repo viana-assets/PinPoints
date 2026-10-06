@@ -783,7 +783,7 @@ bleibt der Cursor im Feld. Ein neues Listen-Suchfeld nimmt diese Komponente, kei
 **Verfügbarkeit** (seit v112, `.vf-*`): Grün heißt „hat Zeit" – kräftiger (`#bfe6d3`) für den ganzen
 Tag, hell und gestrichelt (`--green-bg`) für ein Zeitfenster, beige für „nichts eingetragen". Rot
 umrandet ist eine Zelle, an der jemand eingeplant ist, ohne eingetragen zu sein; am Termin im Raster
-steht dafür ein rotes „!" (`.tm-warn`). Dieselben Farben im Mockup, im Reiter, im Monat („x frei")
+steht dafür ein rotes „!" (`.tm-warn`). Dieselben Farben im Mockup, im Reiter
 und an der Teamauswahl. Ein Reifentausch ist hellblau (`.tausch-knopf`, `.tausch-hinweis`) – blau
 wie „eingeplant, aber nicht dringend".
 

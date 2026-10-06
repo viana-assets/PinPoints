@@ -1,5 +1,5 @@
 "use client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { qk } from "./keys";
 import { fetchCustomers, fetchContactHistory } from "@/lib/api/customers";
@@ -8,6 +8,9 @@ import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsd
 import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVerfuegbarkeiten } from "@/lib/api/verfuegbarkeit";
+import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
+import { fetchVehiclesFuerKunden } from "@/lib/api/vehicles";
+import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
@@ -99,6 +102,54 @@ export function useVerfuegbarkeiten(supabase: SupabaseClient, aktiv: boolean) {
     },
     enabled: aktiv,
     staleTime: FRISCH_MS,
+  });
+}
+
+// Die Fahrzeuge am geöffneten Auftrag (Migration 44). Bis v112 ein `useEffect` mit eigenem Zustand
+// in app/page.tsx – und damit offline leer: Was nicht im Zwischenspeicher liegt, kennt das Gerät
+// ohne Netz nicht (Offline Runde 2, v113).
+export function useAuftragFahrzeuge(supabase: SupabaseClient, orderId: string | null, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.auftragFahrzeuge(orderId || "-"),
+    queryFn: () => fetchAuftragFahrzeuge(supabase, [orderId as string]),
+    enabled: aktiv && !!orderId,
+    staleTime: FRISCH_MS,
+  });
+}
+
+// Wie weit voraus der Vorrat reicht, und wie weit zurück (ein Termin von gestern wird oft erst
+// heute fertig erfasst).
+export const VORRAT_TAGE_VORAUS = 14;
+export const VORRAT_TAGE_ZURUECK = 1;
+
+// Der Vorrat für unterwegs (Offline Runde 2, v113): Für die kommenden offenen Aufträge werden die
+// Fahrzeuge am Auftrag und die Fahrzeuge der Kunden geladen, solange Netz da ist, und in die
+// Einzelspeicher der Auftrags- und Kundenfenster gelegt. Wer morgens die App öffnet, hat damit am
+// Nachmittag ohne Netz noch Kennzeichen und Kilometerstand jedes Termins – auch von Aufträgen, die
+// er online nie geöffnet hat.
+export function useEinsatzVorrat(supabase: SupabaseClient, auftraege: Order[], aktiv: boolean) {
+  const queryClient = useQueryClient();
+  return useQuery({
+    queryKey: qk.einsatzVorrat(),
+    queryFn: async () => {
+      const heute = new Date();
+      const tag = (n: number) => { const d = new Date(heute); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+      const von = tag(-VORRAT_TAGE_ZURUECK), bis = tag(VORRAT_TAGE_VORAUS);
+      const kommend = auftraege.filter((o) => (o.status === "offen" || o.status === "in_arbeit") && !o.deleted_at
+        && o.order_date >= von && o.order_date <= bis).slice(0, 300);
+      const zuordnungen = await fetchAuftragFahrzeuge(supabase, kommend.map((o) => o.id));
+      const kundenIds = [...new Set(kommend.map((o) => o.customer_id))];
+      const fahrzeuge = await fetchVehiclesFuerKunden(supabase, kundenIds);
+      for (const o of kommend) {
+        queryClient.setQueryData(qk.auftragFahrzeuge(o.id), zuordnungen.filter((z) => z.order_id === o.id));
+      }
+      for (const k of kundenIds) {
+        queryClient.setQueryData(qk.kundeFahrzeuge(k), fahrzeuge.filter((v) => v.customer_id === k));
+      }
+      return { auftraege: kommend.length, stand: new Date().toISOString() };
+    },
+    enabled: aktiv && auftraege.length > 0,
+    staleTime: 10 * 60_000,
   });
 }
 

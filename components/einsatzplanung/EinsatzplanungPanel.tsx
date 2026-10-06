@@ -35,8 +35,8 @@ export type VerfuegbarkeitImPlan = {
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
 export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, fenster, isTechniker, firmenadresse = null, verfuegbarkeit = null }: {
-  // Verfügbarkeit der Mitarbeiter (Migration 68, v112): der Reiter „Verfügbarkeit", „x frei" im
-  // Monat, Punkte im Tageskopf und die Warnmarke an Terminen.
+  // Verfügbarkeit der Mitarbeiter (Migration 68, v112): der Reiter „Verfügbarkeit", Punkte im
+  // Tageskopf und die Warnmarke an Terminen (das „x frei" im Monat ist seit v116 entfallen).
   verfuegbarkeit?: VerfuegbarkeitImPlan | null;
   // Start und Ende der Tagesroute (E5): die Firmenadresse aus den Betriebsdaten, sonst null.
   firmenadresse?: string | null;
@@ -607,10 +607,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                     const empsToday = employeesOnDay(ds).filter((e) => empFilter === "all" || e.id === empFilter);
                     const ordersToday = orders.filter((o) => o.order_date === ds).filter(passtZumFahrzeug);
                     const hasUnassigned = ordersToday.some((o) => (orderEmployees[o.id] || []).length === 0);
-                    // Verfügbarkeit (v112): „x frei" für alle, die das sehen dürfen; mit gewähltem
-                    // Mitarbeiter sind seine Tage ohne Eintrag blass hinterlegt.
-                    const zeigtFrei = !!vf?.alleSehen && inMonth && ds >= heuteStr;
-                    const freiZahl = zeigtFrei ? verfuegbareAm(vf!.eintraege, employees, ds).length : 0;
+                    // Verfügbarkeit (v112): Mit gewähltem Mitarbeiter sind seine Tage ohne Eintrag blass
+                    // hinterlegt. Das „x frei" unter jedem Tag ist seit v116 weg (Rückmeldung
+                    // 06.10.2026: überlagert den Kalender, wird nicht gebraucht) – wer Zeit hat, steht
+                    // im Reiter „Verfügbarkeit", in der Woche als Punkte und beim Einteilen.
                     const ohneEintrag = !!vf && inMonth && ds >= heuteStr && empFilter !== "all"
                       && (vf.alleSehen || vf.ich?.id === empFilter) && !eintragAm(vf.eintraege, empFilter, ds);
                     return (
@@ -624,9 +624,6 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                           {ordersToday.length > 0 && empsToday.slice(0, 4).map((e) => <span key={e.id} style={{ background: employeeColorFor(employees, e.id) }} title={e.name} />)}
                           {ordersToday.length > 0 && hasUnassigned && empFilter === "all" && <span className="ohne" title="Nicht zugeordnet" />}
                         </span>
-                        {/* „0 frei" nur, wo schon etwas geplant ist – dort ist es eine Warnung; an leeren
-                            Tagen weit voraus wäre es nur Rauschen. */}
-                        {zeigtFrei && (freiZahl > 0 || ordersToday.length > 0) && <span className={"monat-frei" + (freiZahl ? "" : " null")}>{freiZahl} frei</span>}
                       </button>
                     );
                   })}

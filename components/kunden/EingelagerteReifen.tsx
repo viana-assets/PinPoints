@@ -4,6 +4,7 @@ import { eingelagerteSaetze, frueherEingelagerteSaetze } from "@/lib/eingelagert
 import { formatDate } from "@/lib/helpers";
 import { istVorgemerkt } from "@/lib/lagerVormerkung";
 import { auftragsNr } from "@/lib/testkunde";
+import { ReifenNotizenAnzeige } from "@/components/lager/ReifenNotizen";
 
 // Abschnitt „Eingelagerte Reifen" im Kundenfenster (25.09.2026): alle Sätze des Kunden auf
 // einen Blick – Lagerplatz, Kennzeichen, Saison, Größe, DOT. Gebaut für Firmenkunden mit vielen
@@ -64,7 +65,8 @@ export function EingelagerteReifen({ saetze, plaetze, lager, fahrzeuge, auftraeg
                 </span>
                 {angaben && <span className="small">{angaben}</span>}
                 {vormerkung(satz) && <span className="vm-marke">{vormerkung(satz)}</span>}
-                {satz.note && <span className="small">{satz.note}</span>}
+                {/* Satznotiz und Notizen je Rad (Migration 71). */}
+                <ReifenNotizenAnzeige satz={satz} klein />
               </span>
             </>
           );
@@ -94,6 +96,7 @@ export function EingelagerteReifen({ saetze, plaetze, lager, fahrzeuge, auftraeg
                   <span className="small">
                     {formatDate(satz.created_at.slice(0, 10))} – {formatDate((satz.removed_at ?? "").slice(0, 10))}
                   </span>
+                  <ReifenNotizenAnzeige satz={satz} klein />
                 </span>
               </div>
             ))}

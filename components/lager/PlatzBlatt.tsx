@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ReifenNotizenAnzeige } from "./ReifenNotizen";
 import type { Customer, EingelagertesRad, PlatzGroesse, StorageSlot, TireStorage, Vehicle } from "@/lib/types";
 import { PROFIL_HINWEIS_MM, PROFIL_KRITISCH_MM, RAD_POSITION_LABEL, RAD_POSITIONEN, SAISON_LABEL } from "@/lib/constants";
 import { dotJahr, formatDate, formatEUR, lagermonate, profilLage, profilText, satzProfilMm, todayStr } from "@/lib/helpers";
@@ -191,7 +192,8 @@ export function PlatzBlatt({
               )}
             </div>
 
-            {satz.note && <div className="lg-notiz">{satz.note}</div>}
+            {/* Satznotiz und Notizen je Rad (Migration 71) – „VR: Schraube in der Lauffläche“. */}
+            <ReifenNotizenAnzeige satz={satz} />
 
             <div className="lg-knoepfe">
               {canAssign && <button type="button" className="lg-knopf primaer" onClick={() => onAuslagern(satz.id)}>{vormerkung ? "Vorgemerkt …" : "Auslagern"}</button>}

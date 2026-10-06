@@ -355,7 +355,8 @@ Einträge samt Protokoll (`verfuegbarkeit_aufraeumen()`). Rechte: `berechtigunge
     Mitarbeiter, unten „frei" je Tag. Rot umrandet: eingeplant, aber nicht eingetragen – darunter
     als Liste. Mit „· schreiben" per Tipp für andere eintragen, auch für Mitarbeiter **ohne
     Zugang** und rückwirkend.
-* **Monat**: „x frei" unter jedem kommenden Tag (0 nur, wo schon etwas geplant ist). Ist oben ein
+* **Monat**: Das „x frei" unter jedem kommenden Tag ist seit v116 entfallen (Rückmeldung 06.10.2026:
+  überlagert den Kalender, wird nicht gebraucht). Ist oben ein
   Mitarbeiter gewählt, sind seine Tage ohne Eintrag gestreift.
 * **Woche**: Punkte in der Mitarbeiterfarbe im Tageskopf. **Tag**: Zeile „Verfügbar: …".
 * **Warnmarke**: Ein rotes „!" am Termin, wenn jemand eingeteilt ist, der sich für den Tag nicht
@@ -419,6 +420,13 @@ Ein Foto, das ohne Netz mit der Kamera-App gemacht wurde, lässt sich so später
   Gespeichert wird EIN Bild mit Satz, Unterschrift, Name und Zeitpunkt – eine Unterschrift ohne den
   Satz belegt nichts. Der Name steht zusätzlich in `beschriftung`. Wer neu unterschreiben lässt,
   legt eine weitere an; es gilt die jüngste.
+- **Nach dem Abschluss steht die Unterschrift fest** (Migration 70, v114; Rückfrage 06.10.2026).
+  Am erledigten Auftrag gibt es kein „Neu unterschreiben lassen“ und kein Löschen der Unterschrift
+  mehr (`unterschriftFest` in `FotoBlock`); die Datenbank lehnt beides ebenfalls ab
+  (`auftrag_unterschrift_pruefen()`). Fehlt die Unterschrift beim Abschluss noch ganz, darf sie
+  nachgeholt werden – der Kunde war nicht da. Am stornierten Auftrag keine Unterschrift. Fotos sind
+  davon nicht betroffen, sie werden oft erst später nachgereicht. Wiedereröffnen hebt die Sperre
+  auf.
 - **Kein Zwang.** Solange der Auftrag offen ist und keine Unterschrift vorliegt, steht im Fuß „Noch
   keine Unterschrift – jetzt unterschreiben lassen". Abschließen geht trotzdem (Kunde nicht da,
   Wagen in der Halle).
@@ -764,6 +772,13 @@ wie bei den Auswertungen), `addAuftragFahrzeug()`, `setKilometerstand()`,
 `removeAuftragFahrzeug()` (echtes `DELETE`, kein Soft-Delete – anders als `orders` und
 `order_articles`). `lib/api/orders.ts` kennt seither weder `updateOrderVehicle()` noch ein
 `vehicleId`-Feld in `insertOrder()`/`updateOrderById()`.
+
+**Ohne Netz (seit v113, Offline Runde 2):** Zuordnen, Entfernen, Kilometerstand und ein neues
+Kennzeichen beim Kunden gehen über `offlineOderDirekt()` in den Ausgangskorb (Absichten
+`fahrzeug_zu`, `fahrzeug_weg`, `km`, `fahrzeug_neu`). Die Handlungen stehen in
+`app/_seite/useFahrzeugAktionen.ts`; die Liste am Auftrag ist eine Abfrage (`useAuftragFahrzeuge`)
+mit den wartenden Absichten darübergelegt, und `useEinsatzVorrat` legt die Fahrzeuge der Aufträge
+der nächsten 14 Tage vorab aufs Gerät. Einzelheiten in `pwa-plan.md`, Stufe 4.
 
 Zwei weitere Stellen lasen bis zum 21.09.2026 `orders.vehicle_id` statt `auftrag_fahrzeuge` und
 sind auf die neue, einzige Quelle umgestellt: der Vorgeschichte-Hinweis im Auftragsfenster

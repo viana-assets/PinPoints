@@ -32,6 +32,8 @@ export type AuskunftDaten = {
   // Seit Migration 65 (E3, v105): Fotos und Unterschriften an den Aufträgen. Optional, weil eine
   // Datenbank vor Migration 65 das Feld nicht liefert.
   belege?: { auftrag: number; art: BelegArt; beschriftung: string | null; aufgenommen: string }[];
+  // Seit Migration 71 (v115): die Notizen je Rad an den eingelagerten Sätzen. Optional wie oben.
+  reifen_notizen?: { eingelagert: string; platz: string | null; position: string; notiz: string }[];
 };
 
 export type Zeile = [string, string];
@@ -108,6 +110,11 @@ export function belegZeile(b: NonNullable<AuskunftDaten["belege"]>[number]): Zei
   return [`${auftragsNr(b.auftrag)} · ${tag(b.aufgenommen)}`, was];
 }
 
+// Eine Notiz zu einem Rad (Migration 71): „03.10.2026 · Platz BC-61 · VR“ – „Schraube …“.
+export function reifenNotizZeile(n: NonNullable<AuskunftDaten["reifen_notizen"]>[number]): Zeile {
+  return [[tag(n.eingelagert), n.platz ? `Platz ${n.platz}` : null, n.position].filter(Boolean).join(" · "), n.notiz];
+}
+
 // Wie viele Einträge in jedem Abschnitt stehen – für die Übersicht oben im Auszug.
 export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
   return [
@@ -117,6 +124,7 @@ export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
     ["Reifensätze (eingelagert, auch frühere)", String(d.reifensaetze.length)],
     ["Rechnungen", String(d.rechnungen.length)],
     ...(d.belege ? [["Fotos und Unterschriften", String(d.belege.length)] as Zeile] : []),
+    ...(d.reifen_notizen ? [["Notizen zu einzelnen Reifen", String(d.reifen_notizen.length)] as Zeile] : []),
     ["Einträge im Änderungsprotokoll", String(d.protokoll.eintraege)],
   ];
 }

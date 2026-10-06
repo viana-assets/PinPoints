@@ -16,6 +16,28 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **06.10.2026 – Kein „x frei“ mehr im Monat (Service Worker v116, ohne Migration).** Rückmeldung
+  06.10.2026: Die grünen Pillen unter jedem Tag überlagern den Kalender und werden nicht gebraucht.
+  Die Verfügbarkeit bleibt im Reiter „Verfügbarkeit“, als Punkte in der Woche, als Zeile im Tag und
+  beim Einteilen.
+
+* **06.10.2026 – Notiz je Rad am eingelagerten Satz (Migration 71, Service Worker v115).** Wunsch
+  06.10.2026: Beim Einlagern steckte eine Schraube in einem Reifen. Jetzt gibt es am Satz eine Notiz
+  je Rad (VL, VR, HL, HR) neben der Satznotiz – im Auftrag und im Lager einzutragen, auch ohne Netz
+  und unabhängig von der Messart; zu sehen im Platz-Blatt, am Auftrag (auch beim Auslagern), im
+  Kundenfenster, auf dem Etikett, in der Lagersuche und in der Auskunft nach DSGVO.
+
+* **06.10.2026 – Unterschrift steht nach dem Abschluss fest (Migration 70, Service Worker v114).**
+  Rückfrage 06.10.2026: Am erledigten Auftrag stand noch „Neu unterschreiben lassen“. Jetzt gibt es
+  dort weder eine zweite Unterschrift noch ihr Löschen – in der App und in der Datenbank. Eine
+  fehlende Unterschrift lässt sich nachholen, Fotos gehen weiter.
+
+* **05.10.2026 – Offline Runde 2, `app/page.tsx` geteilt (Service Worker v113, ohne Migration).**
+  Fahrzeug am Auftrag zuordnen/entfernen, Kilometerstand und ein neues Kennzeichen beim Kunden gehen
+  jetzt auch ohne Netz (F1 Runde 2, siehe `pwa-plan.md`); die Fahrzeuge der Aufträge der nächsten
+  14 Tage liegen vorab auf dem Gerät. C5: Lager- und Fahrzeug-Handlungen als Hooks unter
+  `app/_seite/`, `app/page.tsx` von ~3.950 auf ~3.550 Zeilen.
+
 * **05.10.2026 – Verfügbarkeit der Mitarbeiter, Reifentausch (Migrationen 68 und 69, Service Worker
   v112).** Wunsch 05.10.2026: Die selbstständigen Techniker tragen ein, wann sie Zeit haben (Reiter
   „Verfügbarkeit", eigener Monat bzw. Wochenübersicht aller für den Admin, Vorlage „jede Woche"),
@@ -447,6 +469,11 @@ Abschnitt 2) – die Richtigstellung steht in `supabase/migrations/README.md` be
 weiter), zentrale Fehlermeldung als `components/FehlerHinweis.tsx`. `app/page.tsx` bleibt groß
 (~3.800 Zeilen) – der nächste Schnitt wären die Lade- und Schreibfunktionen je Modul.
 
+**Weiter am 05.10.2026 (v113):** die Handlungen von Lager und Fahrzeugen als Hooks unter
+`app/_seite/` (`useLagerAktionen`, `useFahrzeugAktionen`), `app/page.tsx` von ~3.950 auf ~3.550
+Zeilen. Nächste Kandidaten nach demselben Muster: Aufträge (~270 Zeilen), Karte und Nadeln
+(~450 Zeilen, hängt an vielen Refs – erst mit Browser-Prüfung).
+
 `app/page.tsx` ist wieder auf rund 3.550 Zeilen gewachsen (nach der Sanierung waren es
 1.290). `components/auftraege/AuftragModal.tsx` liegt bei knapp 1.200, `components/lager/
 LagerPanel.tsx` bei rund 950, `lib/helpers.ts` bei rund 1.110 Zeilen (Stand 02.10.2026).
@@ -635,9 +662,8 @@ Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Ve
 
 **Runde 1 erledigt am 02.10.2026 (v101)** – Ausgangskorb, Anzeige, Konfliktabfrage; offline gehen
 Titel/Beschreibung/Termin/„Rechnung benötigt"/Notiz, Leistungen und die Radmessung. Siehe
-`pwa-plan.md`, Stufe 4. **Offen (Runde 2):** Fahrzeug am Auftrag und Kilometerstand (braucht
-zuerst offline lesbare Fahrzeuge am Auftrag), neues Fahrzeug beim Kunden, Test im Betrieb mit
-abgeschaltetem Telefon. Der Text unten ist die ursprüngliche Beschreibung.
+`pwa-plan.md`, Stufe 4. **Runde 2 erledigt am 05.10.2026 (v113)** – Fahrzeug am Auftrag,
+Kilometerstand, neues Kennzeichen beim Kunden. Der Text unten ist die ursprüngliche Beschreibung.
 Lesen funktioniert offline (Stufen 1–3 sind gebaut). Schreiben nicht: es fehlt eine
 Warteschlange und eine Konfliktbehandlung.
 
@@ -676,10 +702,10 @@ Runde 35 (23.09.2026, Migrationen 55/56, Service Worker v61) hat D1, D3, C4, D5,
 B1 und B2 erledigt. Ab hier:
 
 1. **F1** – Offline schreiben im großen Zuschnitt, als eigenes Vorhaben (entschieden am
-   23.09.2026). **Runde 1 erledigt 02.10.2026 (v101), Runde 2 offen (Fahrzeuge/Kilometer).** Erste Runde: Warteschlange, Anzeige „n Änderungen warten", Status/Notiz/Radmessung;
+   23.09.2026). **Runde 1 erledigt 02.10.2026 (v101), Runde 2 erledigt 05.10.2026 (v113).** Erste Runde: Warteschlange, Anzeige „n Änderungen warten", Status/Notiz/Radmessung;
    zweite Runde: Leistungen, Uhrzeit, Fahrzeug, Konfliktabfrage.
 2. ~~**D2**~~ – erledigt 02.10.2026 (v100).
-3. **DATEV-Probeimport** – die erste Datei beim Steuerberater einlesen lassen (E13 ist gebaut).
+3. ~~**DATEV-Probeimport**~~ – beim Steuerberater erledigt (Rückmeldung 05.10.2026).
 4. ~~**E2**~~ – erledigt 02.10.2026 (v100).
 5. ~~**D17, D4, B3**~~ – erledigt 02.10.2026 (v100).
 
@@ -687,9 +713,6 @@ B1 und B2 erledigt. Ab hier:
 
 Kleine Punkte, die bei Vitali oder im Betrieb liegen oder auf eine Rückmeldung warten:
 
-- **Doppelte Fahrzeuge** beim Kunden (vor v93 entstanden) im Kundenfenster löschen.
-- **Noch offen aus der Liste vom 04.10.2026:** Offline schreiben Runde 2 (F1) und `app/page.tsx`
-  weiter teilen (C5) – als eigene Runden nach v109.
 - **Stammplatz je Kunde:** bewusst nicht vorgesehen (Entscheidung 05.10.2026) – der Reifentausch
   (Migration 69) hält den Platz beim Saisonwechsel ohnehin beim Kunden.
 - **Brother QL-820NWBc:** Druck über PDF im Betrieb bestätigt (02.10.2026), Format 58 × 58 seit v96

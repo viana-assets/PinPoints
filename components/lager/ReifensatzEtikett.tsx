@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { QrBild } from "./QrBild";
 import type { Customer, EingelagertesRad, RadPosition, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
-import { RAD_POSITIONEN, RAD_POSITION_LABEL, SAISON_LABEL } from "@/lib/constants";
+import { RAD_POSITION_LABEL, SAISON_LABEL } from "@/lib/constants";
 import { formatDate, profilText, satzProfilMm } from "@/lib/helpers";
 import { satzUrl } from "@/lib/aufkleberCode";
+import { notizenText, radNotiz, satzPositionen } from "@/lib/lagerNotizen";
 import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, teilenOderSpeichern, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
@@ -130,9 +131,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
 
   // Wie viele Räder gehören zu diesem Satz? `anzahl_raeder` ist die Angabe am Satz; bei
   // Sammelmessung steht sie trotzdem, weil sie zum Reifensatz gehört und nicht zur Messart.
-  function positionenZu(satz: TireStorage): RadPosition[] {
-    return RAD_POSITIONEN.slice(0, Math.min(Math.max(satz.anzahl_raeder || 4, 1), RAD_POSITIONEN.length));
-  }
+  const positionenZu = (satz: TireStorage): RadPosition[] => satzPositionen(satz);
 
   // ------------------------------------------------------------------ Der Inhalt
   //
@@ -168,6 +167,9 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
             platzText(satz),
             `eingelagert seit ${formatDate(satz.created_at.slice(0, 10))}`,
           ],
+          // Nur die Notizen je Rad: Sie betreffen den Reifen. Die Satznotiz („Kunde will Rückruf“)
+          // gehört ins Lager, nicht auf den Reifen – und das Etikett ist klein.
+          notiz: notizenText(satz, false) || null,
         },
       }];
     }
@@ -189,6 +191,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
             [rad?.reifengroesse, fahrzeugText(satz)].filter(Boolean).join(" · "),
             platzText(satz),
           ],
+          notiz: radNotiz(satz, position),
         },
       };
     });
@@ -343,6 +346,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
                 {e.inhalt.zeilen.map((zeile, i) => (
                   <div key={i} className="etikett-zeile">{zeile}</div>
                 ))}
+                {e.inhalt.notiz && <div className="etikett-notiz">{e.inhalt.notiz}</div>}
               </div>
             </div>
           ))}

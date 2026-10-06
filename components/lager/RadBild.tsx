@@ -340,6 +340,8 @@ export function RadBild({ raeder, anzahlRaeder, gesperrt, onSpeichern, onEntfern
 
 // Was außer der Profiltiefe zu einem Rad gehört. Jede Angabe wird beim Verlassen des Feldes
 // bzw. beim Antippen gespeichert – dieselbe Regel wie oben, ohne eigenen Knopf.
+// Die Bemerkung stand bis v114 hier; seit Migration 71 ist sie die „Notiz je Rad“ am Satz
+// (ReifenNotizen.tsx) – auch ohne Einzelmessung, und sie bleibt beim Umschalten erhalten.
 function RadDetails({ rad, gesperrt, onSpeichern, onEntfernen }: {
   rad: EingelagertesRad | null;
   gesperrt: boolean;
@@ -348,7 +350,7 @@ function RadDetails({ rad, gesperrt, onSpeichern, onEntfernen }: {
 }) {
   const [felge, setFelge] = useState<Felge | null>(rad?.felge ?? null);
   const [sensor, setSensor] = useState(rad?.sensor ?? false);
-  const text = (feld: "reifengroesse" | "dotDate" | "bemerkung", alt: string | null) => ({
+  const text = (feld: "reifengroesse" | "dotDate", alt: string | null) => ({
     defaultValue: alt ?? "",
     disabled: gesperrt,
     onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
@@ -374,7 +376,6 @@ function RadDetails({ rad, gesperrt, onSpeichern, onEntfernen }: {
         <label className="nk-feld"><span>Reifengröße</span><input type="text" placeholder="205/55 R16" {...text("reifengroesse", rad?.reifengroesse ?? null)} /></label>
         <label className="nk-feld"><span>DOT</span><input type="text" inputMode="numeric" placeholder="2523" {...text("dotDate", rad?.dot_date ?? null)} /></label>
       </div>
-      <label className="nk-feld"><span>Bemerkung</span><input type="text" placeholder="z. B. Felge Bordsteinschaden" {...text("bemerkung", rad?.bemerkung ?? null)} /></label>
       {onEntfernen && (
         <button type="button" className="lg-link rm-entfernen" disabled={gesperrt} onClick={() => void onEntfernen()}>Messung dieses Rades entfernen</button>
       )}

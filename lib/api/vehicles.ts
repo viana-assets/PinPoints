@@ -40,6 +40,19 @@ export async function fetchVehiclesFuerKunde(supabase: SupabaseClient, customerI
   );
 }
 
+// Die Fahrzeuge mehrerer Kunden auf einmal – für den Vorrat unterwegs (Offline Runde 2, v113). In
+// Blöcken, damit die Adresszeile nicht zu lang wird.
+export async function fetchVehiclesFuerKunden(supabase: SupabaseClient, customerIds: string[]): Promise<Vehicle[]> {
+  const BLOCK = 150;
+  const alle: Vehicle[] = [];
+  for (let i = 0; i < customerIds.length; i += BLOCK) {
+    const teil = customerIds.slice(i, i + BLOCK);
+    alle.push(...await fetchPaged<Vehicle>("Die Fahrzeuge konnten nicht geladen werden", (von, bis) =>
+      supabase.from("vehicles").select("*").in("customer_id", teil).order("created_at").order("id").range(von, bis)));
+  }
+  return alle;
+}
+
 // Gibt die Kennung des angelegten Fahrzeugs zurück. Gebraucht wird sie dort, wo das Anlegen
 // nur der halbe Vorgang ist: Im Auftragsfenster soll das neue Auto dem eingelagerten Satz
 // gleich zugeordnet werden – sonst hätte der Techniker es angelegt und müsste es anschließend

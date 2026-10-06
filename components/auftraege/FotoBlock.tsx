@@ -21,6 +21,11 @@ import { formatDate } from "@/lib/helpers";
 // das in Wahrheit auf dem Handy liegt, wäre bei einem Beleg das Falsche.
 //
 // Ändern gibt es nicht (Migration 65). Löschen nur mit dem Löschrecht für Aufträge, mit Rückfrage.
+//
+// Seit v114 (Migration 70) steht die Unterschrift eines ABGESCHLOSSENEN Auftrags fest: kein
+// „Neu unterschreiben lassen“ und kein Löschen mehr. Fehlt sie beim Abschluss noch ganz, darf sie
+// nachgeholt werden (der Kunde war nicht da). Fotos gehen weiter – sie werden oft erst später aus
+// der Mediathek nachgereicht. Die Datenbank lehnt eine zweite Unterschrift ebenfalls ab.
 
 export type BelegeImAuftrag = {
   liste: AuftragBeleg[];
@@ -39,8 +44,10 @@ function zeitText(iso: string): string {
   return `${formatDate(iso.slice(0, 10))} ${new Date(iso).toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}`;
 }
 
-export function FotoBlock({ belege, vorschlagArt, onUnterschreiben }: {
+export function FotoBlock({ belege, vorschlagArt, onUnterschreiben, unterschriftFest = false }: {
   belege: BelegeImAuftrag;
+  // Auftrag erledigt: Eine vorhandene Unterschrift lässt sich weder ersetzen noch löschen.
+  unterschriftFest?: boolean;
   // Vor der Arbeit „vorher", danach „nachher" – die Seite weiß, wo der Auftrag steht.
   vorschlagArt: BelegArt;
   onUnterschreiben: (() => void) | null;
@@ -148,12 +155,13 @@ export function FotoBlock({ belege, vorschlagArt, onUnterschreiben }: {
             {vorschau(stand.unterschrift, "fo-bild fo-sig")}
             <span className="small">
               Unterschrieben{stand.unterschrift.beschriftung ? ` von ${stand.unterschrift.beschriftung}` : ""} am {zeitText(stand.unterschrift.created_at)}
+              {unterschriftFest ? " · steht fest, der Auftrag ist abgeschlossen" : ""}
             </span>
           </>
         ) : (
           <span className="small">Noch keine Unterschrift des Kunden.</span>
         )}
-        {onUnterschreiben && belege.darfHinzufuegen && (
+        {onUnterschreiben && belege.darfHinzufuegen && !(unterschriftFest && stand.unterschrift) && (
           <button type="button" className="lg-knopf" disabled={!!laeuft} onClick={onUnterschreiben}>
             {stand.unterschrift ? "Neu unterschreiben lassen" : "Kunde unterschreiben lassen"}
           </button>
@@ -176,7 +184,7 @@ export function FotoBlock({ belege, vorschlagArt, onUnterschreiben }: {
               : <span className="small">Das Bild lädt noch …</span>}
             <div className="fo-gross-fuss">
               <span className="small">aufgenommen {zeitText(gross.created_at)}{gross.breite && gross.hoehe ? ` · ${gross.breite}×${gross.hoehe}` : ""}</span>
-              {belege.darfLoeschen && (
+              {belege.darfLoeschen && !(unterschriftFest && gross.art === "unterschrift") && (
                 <button type="button" className="lg-knopf gefahr" disabled={!!laeuft} onClick={() => void loeschen(gross)}>
                   {laeuft ?? "Löschen"}
                 </button>

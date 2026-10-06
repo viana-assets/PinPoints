@@ -20,10 +20,19 @@
 // (eintragen, Menge, Endpreis, Text, entfernen) und die Radmessung. NICHT offline: abschließen,
 // stornieren, Status, Mitarbeiter, ein- und auslagern, Kunden, Stammdaten.
 //
+// RUNDE 2 (v113): die Fahrzeuge am Auftrag – ein Fahrzeug zuordnen oder entfernen, den
+// Kilometerstand eintragen, und ein neues Kennzeichen anlegen, das es beim Kunden noch nicht gibt
+// (es landet beim Kunden, wie online). Ein offline angelegtes Fahrzeug und seine Zuordnung tragen
+// schon auf dem Gerät ihre endgültige Kennung (eine echte UUID): Spätere Absichten können sich
+// darauf beziehen, und ein zweiter Versand scheitert harmlos an der Eindeutigkeit.
+//
+// v115 (Migration 71): die Notizen am eingelagerten Satz – zum Satz und je Rad. Sie gehören zur
+// Radmessung (dieselbe Hand, derselbe Moment) und gehen deshalb wie sie auch ohne Netz.
+//
 // Alles hier sind reine Funktionen – geprüft in tests/offlineAusgang.test.ts. Gespeichert wird
 // in lib/offline/speicher.ts, gesendet in lib/offline/senden.ts.
 
-import type { EingelagertesRad, Order, OrderArticle, RadPosition, TireStorage } from "@/lib/types";
+import type { AuftragFahrzeug, EingelagertesRad, Order, OrderArticle, RadPosition, TireStorage, Vehicle } from "@/lib/types";
 import type { Auftragsdaten } from "@/lib/api/orders";
 
 // Die Felder am Auftrag, die offline geändert werden dürfen.
@@ -39,6 +48,10 @@ export type PositionFeld = (typeof POSITION_OFFLINE_FELDER)[number];
 export const RAD_OFFLINE_FELDER = ["reifengroesse", "dot_date", "profiltiefe_mm", "felge", "sensor", "bemerkung"] as const;
 export type RadFeld = (typeof RAD_OFFLINE_FELDER)[number];
 
+// Die Notizen am Satz (Migration 71).
+export const SATZ_OFFLINE_FELDER = ["note", "notiz_vl", "notiz_vr", "notiz_hl", "notiz_hr"] as const;
+export type SatzFeld = (typeof SATZ_OFFLINE_FELDER)[number];
+
 type Werte<K extends string> = Partial<Record<K, unknown>>;
 
 export type AbsichtInhalt =
@@ -51,7 +64,14 @@ export type AbsichtInhalt =
       radId: string | null; felder: Werte<RadFeld>; basis: Werte<RadFeld> | null;
       // Der Satz stand noch auf „ein Wert für den Satz": vor dem Rad auf „je Rad" umstellen.
       umstellen: boolean;
-    };
+    }
+  // v115: Notizen am eingelagerten Satz.
+  | { art: "satz"; satzId: string; felder: Werte<SatzFeld>; basis: Werte<SatzFeld> }
+  // Runde 2 (v113): Fahrzeuge am Auftrag.
+  | { art: "fahrzeug_neu"; kundeId: string; auftragId: string | null; zeile: Pick<Vehicle, "id" | "customer_id" | "license_plate" | "make_model" | "tire_size" | "note"> }
+  | { art: "fahrzeug_zu"; auftragId: string; zeile: Pick<AuftragFahrzeug, "id" | "order_id" | "vehicle_id" | "kilometerstand"> }
+  | { art: "fahrzeug_weg"; auftragId: string; zeileId: string }
+  | { art: "km"; auftragId: string; zeileId: string; felder: { kilometerstand?: unknown }; basis: { kilometerstand?: unknown } };
 
 export type AbsichtZustand = "wartet" | "konflikt" | "abgelehnt";
 
@@ -184,10 +204,56 @@ export function raederAnwenden(raeder: EingelagertesRad[], absichten: Absicht[])
 
 // Ein Satz, der durch die erste Radmessung auf „je Rad" umgestellt wird, verliert dabei seinen
 // Satzwert (Migration 33: nie beides) – auch in der Anzeige.
+//
+// Seit v115 liegen auch die wartenden Notizen am Satz darüber.
 export function saetzeAnwenden(saetze: TireStorage[], absichten: Absicht[]): TireStorage[] {
   const umgestellt = new Set(absichten.filter((a) => a.art === "rad" && a.umstellen && a.zustand !== "abgelehnt").map((a) => (a as { satzId: string }).satzId));
-  if (umgestellt.size === 0) return saetze;
-  return saetze.map((s) => (umgestellt.has(s.id) && s.erfassungsart !== "einzeln" ? { ...s, erfassungsart: "einzeln", profiltiefe_mm: null } : s));
+  const notizen = absichten.filter((a): a is Absicht & { art: "satz" } => a.art === "satz" && a.zustand !== "abgelehnt");
+  if (umgestellt.size === 0 && notizen.length === 0) return saetze;
+  return saetze.map((s) => {
+    let neu = umgestellt.has(s.id) && s.erfassungsart !== "einzeln" ? { ...s, erfassungsart: "einzeln" as const, profiltiefe_mm: null } : s;
+    for (const a of notizen) if (a.satzId === s.id) neu = { ...neu, ...(a.felder as Partial<TireStorage>) };
+    return neu;
+  });
+}
+
+// Runde 2: die Fahrzeuge am Auftrag mit den wartenden Absichten – zugeordnet, Kilometerstand,
+// entfernt. Nur für den einen Auftrag, dessen Liste gerade gezeigt wird.
+export function auftragFahrzeugeAnwenden(liste: AuftragFahrzeug[], absichten: Absicht[], auftragId: string | null): AuftragFahrzeug[] {
+  if (!auftragId) return liste;
+  let out = liste;
+  for (const a of absichten) {
+    if (a.zustand === "abgelehnt") continue;
+    if (a.art === "fahrzeug_zu" && a.auftragId === auftragId) {
+      if (!out.some((z) => z.id === a.zeile.id || z.vehicle_id === a.zeile.vehicle_id)) {
+        out = [...out, { ...a.zeile, created_at: a.erstellt, updated_at: a.erstellt }];
+      }
+    }
+    if (a.art === "km" && a.auftragId === auftragId) {
+      out = out.map((z) => (z.id === a.zeileId ? { ...z, kilometerstand: (a.felder.kilometerstand ?? null) as number | null } : z));
+    }
+    if (a.art === "fahrzeug_weg" && a.auftragId === auftragId) out = out.filter((z) => z.id !== a.zeileId);
+  }
+  return out;
+}
+
+// Runde 2: offline angelegte Fahrzeuge erscheinen gleich in der Kartei des Kunden.
+export function fahrzeugeAnwenden(fahrzeuge: Vehicle[], absichten: Absicht[], kundeId: string | null): Vehicle[] {
+  if (!kundeId) return fahrzeuge;
+  const neu = absichten.filter((a): a is Absicht & { art: "fahrzeug_neu" } => a.art === "fahrzeug_neu" && a.kundeId === kundeId && a.zustand !== "abgelehnt");
+  if (neu.length === 0) return fahrzeuge;
+  const zusatz = neu.filter((a) => !fahrzeuge.some((v) => v.id === a.zeile.id))
+    .map((a) => ({ ...a.zeile, created_at: a.erstellt, updated_at: a.erstellt }));
+  return zusatz.length ? [...fahrzeuge, ...zusatz] : fahrzeuge;
+}
+
+// Wartet zu dieser Kennung noch eine Anlage auf dem Gerät? Dann gibt es sie am Server noch nicht,
+// und jede weitere Änderung daran muss ebenfalls in den Ausgangskorb – direkt geschrieben träfe sie
+// eine Zeile, die (noch) nicht da ist.
+export function wartetAufAnlage(absichten: Absicht[], id: string): boolean {
+  return absichten.some((a) => a.zustand === "wartet" && (
+    (a.art === "fahrzeug_neu" && a.zeile.id === id) || (a.art === "fahrzeug_zu" && a.zeile.id === id)
+    || (a.art === "position_neu" && a.zeile.id === id)));
 }
 
 // ---------------------------------------------------------------- Zählen
@@ -205,8 +271,9 @@ export const FELD_TEXT: Record<string, string> = {
   title: "Titel", description: "Beschreibung", order_date: "Datum", time: "Beginn", end_time: "Ende",
   rechnung_noetig: "Rechnung benötigt", techniker_notiz: "Notiz", laufkunde_name: "Name (Laufkunde)",
   laufkunde_telefon: "Telefon (Laufkunde)", laufkunde_ort: "Ort (Laufkunde)",
-  quantity: "Menge", endpreis_netto: "Endpreis", note: "Text", deleted_at: "entfernt",
+  quantity: "Menge", endpreis_netto: "Endpreis", note: "Text", deleted_at: "entfernt", kilometerstand: "Kilometerstand",
   reifengroesse: "Reifengröße", dot_date: "DOT", profiltiefe_mm: "Profiltiefe", felge: "Felge", sensor: "Sensor", bemerkung: "Bemerkung",
+  notiz_vl: "Notiz VL", notiz_vr: "Notiz VR", notiz_hl: "Notiz HL", notiz_hr: "Notiz HR",
 };
 
 export function wertText(wert: unknown): string {
@@ -228,7 +295,23 @@ export function zusammenlegen(korb: Absicht[], neu: AbsichtInhalt): Absicht[] | 
     (neu.art === "auftrag" && a.art === "auftrag" && a.auftragId === neu.auftragId)
     || (neu.art === "position" && a.art === "position" && a.positionId === neu.positionId)
     || (neu.art === "rad" && a.art === "rad" && a.satzId === neu.satzId && a.position === neu.position)
+    || (neu.art === "km" && a.art === "km" && a.zeileId === neu.zeileId)
+    || (neu.art === "satz" && a.art === "satz" && a.satzId === neu.satzId)
   );
+  // Runde 2: Kilometerstand an einer offline zugeordneten Zeile → in die Zuordnung einrechnen.
+  if (neu.art === "km") {
+    const anlage = korb.find((a) => a.art === "fahrzeug_zu" && a.zustand === "wartet" && a.zeile.id === neu.zeileId);
+    if (anlage && anlage.art === "fahrzeug_zu") {
+      return korb.map((a) => (a === anlage ? { ...anlage, zeile: { ...anlage.zeile, kilometerstand: (neu.felder.kilometerstand ?? null) as number | null } } : a));
+    }
+  }
+  // Runde 2: eine Zeile entfernen. War sie offline zugeordnet, verschwindet die Zuordnung –
+  // am Server hat es sie nie gegeben. Sonst wird das Entfernen angehängt; ein wartender
+  // Kilometerstand davor geht beim Senden zuerst durch und schadet nicht.
+  if (neu.art === "fahrzeug_weg") {
+    const anlage = korb.find((a) => a.art === "fahrzeug_zu" && a.zustand === "wartet" && a.zeile.id === neu.zeileId);
+    if (anlage) return korb.filter((a) => a !== anlage);
+  }
   // Eine offline angelegte Position, die gleich wieder geändert wird: in die Anlage einrechnen.
   if (neu.art === "position") {
     const anlage = korb.find((a) => a.art === "position_neu" && a.zustand === "wartet" && a.zeile.id === neu.positionId);
@@ -245,6 +328,12 @@ export function zusammenlegen(korb: Absicht[], neu: AbsichtInhalt): Absicht[] | 
       return { ...a, felder: { ...a.felder, ...neu.felder }, basis: { ...neu.basis, ...a.basis } };
     }
     if (a.art === "position" && neu.art === "position") {
+      return { ...a, felder: { ...a.felder, ...neu.felder }, basis: { ...neu.basis, ...a.basis } };
+    }
+    if (a.art === "km" && neu.art === "km") {
+      return { ...a, felder: { ...a.felder, ...neu.felder }, basis: { ...neu.basis, ...a.basis } };
+    }
+    if (a.art === "satz" && neu.art === "satz") {
       return { ...a, felder: { ...a.felder, ...neu.felder }, basis: { ...neu.basis, ...a.basis } };
     }
     if (a.art === "rad" && neu.art === "rad") {

@@ -64,6 +64,9 @@ export type EtikettInhalt = {
   // Die fette Kopfzeile des Satz-Etiketts (der Kundenname). Darf zwei Zeilen brauchen.
   kopf?: string;
   zeilen: string[];
+  // Seit v115 (Migration 71): die Notiz – am Rad-Etikett die dieses Rades, am Satz-Etikett alle.
+  // Darf bis zu drei Zeilen umbrechen; was nicht passt, endet mit „…“.
+  notiz?: string | null;
 };
 
 export type EtikettMasse = {
@@ -220,6 +223,10 @@ export function etikettZeichnen(
   blockHoehe += kopfZeilen.length * zeilenHoehe(SCHRIFT_KOPF_MM);
   const sichtbareZeilen = inhalt.zeilen.filter(Boolean);
   blockHoehe += sichtbareZeilen.length * zeilenHoehe(SCHRIFT_ZEILE_MM);
+  const notizZeilen = inhalt.notiz?.trim()
+    ? umbrechen(inhalt.notiz.trim(), textBreite, 3, messenMit(SCHRIFT_ZEILE_MM, true))
+    : [];
+  blockHoehe += notizZeilen.length * zeilenHoehe(SCHRIFT_ZEILE_MM);
 
   // Im Querformat sitzt der Textblock mittig neben dem Code; im Hochformat beginnt er direkt
   // unter ihm. Ihn dort ebenfalls zu zentrieren hieße, ihn vom Code wegzuschieben – und
@@ -252,6 +259,11 @@ export function etikettZeichnen(
     // Was nicht mehr aufs Etikett passt, wird weggelassen statt über den Rand geschrieben.
     if (y + px(SCHRIFT_ZEILE_MM * f) > h - rand) break;
     y = schreiben(textKuerzen(zeile, textBreite, messenMit(SCHRIFT_ZEILE_MM, false)), y, SCHRIFT_ZEILE_MM, false);
+  }
+  // Die Notiz fett: „VR: Schraube“ ist der Grund, warum man das Etikett noch einmal anschaut.
+  for (const zeile of notizZeilen) {
+    if (y + px(SCHRIFT_ZEILE_MM * f) > h - rand) break;
+    y = schreiben(zeile, y, SCHRIFT_ZEILE_MM, true);
   }
 }
 

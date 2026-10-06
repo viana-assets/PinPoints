@@ -3,6 +3,7 @@ import type {
   EingelagertesRad, Erfassungsart, Felge, PlatzGroesse, RadPosition, Saison, StorageSlot, TireStorage, Warehouse,
 } from "@/lib/types";
 import { ApiError, fetchPaged, qOne, qWrite } from "./client";
+import type { SatzNotizen } from "@/lib/lagerNotizen";
 
 // Datenzugriffsschicht für das Lager-Modul (Warehouses, Lagerplätze, Reifen-Einlagerung).
 // Reine Supabase-Wrapper ohne React-State – siehe lib/api/employees.ts für das Muster.
@@ -85,7 +86,7 @@ export async function deleteStorageSlotById(supabase: SupabaseClient, id: string
 // entstehen zu lassen, von denen die Oberfläche willkürlich eine anzeigt.
 // Gibt die Kennung des Satzes zurück – beim Anlegen die neue. Das Lager-Modul braucht sie, um
 // gleich danach auf Einzelerfassung umzustellen und die Räder zu messen (v88).
-export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; orderId?: string | null; vehicleId?: string | null; saison?: Saison | null }): Promise<string> {
+export async function upsertTireAssignment(supabase: SupabaseClient, fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; orderId?: string | null; vehicleId?: string | null; saison?: Saison | null; radNotizen?: SatzNotizen }): Promise<string> {
   const patch = {
     storage_slot_id: fields.storageSlotId,
     customer_id: fields.customerId,
@@ -103,6 +104,8 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
     // Unterscheidung würde das Lager-Modul, das keinen Auftrag kennt, beim Bearbeiten einer
     // Einlagerung deren Auftragsbezug stillschweigend auf null setzen.
     ...(fields.orderId === undefined ? {} : { order_id: fields.orderId }),
+    // Notizen je Rad (Migration 71) – nur wenn der Aufrufer sie kennt, aus demselben Grund.
+    ...(fields.radNotizen ?? {}),
   };
   if (fields.id) {
     await qWrite(
@@ -116,6 +119,15 @@ export async function upsertTireAssignment(supabase: SupabaseClient, fields: { i
     supabase.from("tire_storage").insert(patch).select("id").single()
   );
   return neu.id;
+}
+
+// Notizen am Satz (Migration 71): die Satznotiz und die Notizen je Rad. Nur die übergebenen
+// Felder; leer heißt „keine Notiz". Für den Weg ohne Netz siehe `satzNotizenSetzen` in
+// app/_seite/useLagerAktionen.ts (Absicht „satz“).
+export async function satzNotizenSpeichern(supabase: SupabaseClient, id: string, felder: SatzNotizen): Promise<void> {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() };
+  for (const [k, v] of Object.entries(felder)) patch[k] = (v ?? "").trim() || null;
+  await qWrite("Die Notiz konnte nicht gespeichert werden", supabase.from("tire_storage").update(patch).eq("id", id));
 }
 
 // Reifentausch (Migration 69): Der neue Satz kommt auf den Platz eines Satzes, der für denselben

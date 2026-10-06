@@ -16,10 +16,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ABGESCHLOSSENE_ZUSTAENDE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import type { OrderStatus } from "@/lib/types";
 import { istNetzfehler, konfliktFelder, type Absicht } from "./ausgang";
+import { fahrzeugMitKennzeichen } from "@/lib/kennzeichen";
+import type { Vehicle } from "@/lib/types";
 import { ausgangAendern, ausgangAlle, ausgangEntfernen, ausgangLaden } from "./speicher";
 
 type Ergebnis =
-  | { ok: true }
+  // `ersetze`: Ein offline angelegtes Fahrzeug gab es am Server schon (dasselbe Kennzeichen hat
+  // inzwischen jemand anders angelegt). Spätere Absichten beziehen sich dann auf das vorhandene.
+  | { ok: true; ersetze?: { von: string; nach: string } }
   | { konflikt: { feld: string; meine: unknown; server: unknown }[] }
   | { abgelehnt: string };
 
@@ -80,6 +84,61 @@ async function einzeln(supabase: SupabaseClient, a: Absicht): Promise<Ergebnis> 
     return { ok: true };
   }
 
+  // ---------------------------------------------------------------- Runde 2: Fahrzeuge (v113)
+  if (a.art === "fahrzeug_neu") {
+    // Wie online (`fahrzeugFuerKennzeichen`): Steht das Kennzeichen beim Kunden schon, wird DIESES
+    // Fahrzeug genommen statt eines zweiten.
+    const vorhanden = pruefe(await supabase.from("vehicles").select("*").eq("customer_id", a.kundeId)) as Vehicle[] | null;
+    if (vorhanden?.some((v) => v.id === a.zeile.id)) return { ok: true };
+    const gleich = fahrzeugMitKennzeichen(vorhanden ?? [], a.zeile.license_plate ?? "");
+    if (gleich) return { ok: true, ersetze: { von: a.zeile.id, nach: gleich.id } };
+    const antwort = await supabase.from("vehicles").insert(a.zeile);
+    if (antwort.error?.code === "23505") return { ok: true };
+    pruefe(antwort);
+    return { ok: true };
+  }
+
+  if (a.art === "fahrzeug_zu") {
+    const grund = await auftragOffen(supabase, a.auftragId);
+    if (grund) return { abgelehnt: grund };
+    const antwort = await supabase.from("auftrag_fahrzeuge").insert(a.zeile);
+    // Schon da – dieselbe Zeile (zweiter Versand) oder dasselbe Auto am Auftrag (Eindeutigkeit
+    // order_id/vehicle_id, Migration 44): erledigt.
+    if (antwort.error?.code === "23505") return { ok: true };
+    pruefe(antwort);
+    return { ok: true };
+  }
+
+  if (a.art === "fahrzeug_weg") {
+    const grund = await auftragOffen(supabase, a.auftragId);
+    if (grund) return { abgelehnt: grund };
+    pruefe(await supabase.from("auftrag_fahrzeuge").delete().eq("id", a.zeileId));
+    return { ok: true };
+  }
+
+  if (a.art === "km") {
+    const grund = await auftragOffen(supabase, a.auftragId);
+    if (grund) return { abgelehnt: grund };
+    const server = pruefe(await supabase.from("auftrag_fahrzeuge").select("kilometerstand").eq("id", a.zeileId).maybeSingle()) as Record<string, unknown> | null;
+    if (!server) return { abgelehnt: "Dieses Fahrzeug steht nicht mehr am Auftrag." };
+    const konflikt = konfliktFelder(a.felder, a.basis, server);
+    if (konflikt.length > 0) return { konflikt };
+    pruefe(await supabase.from("auftrag_fahrzeuge").update(a.felder).eq("id", a.zeileId));
+    return { ok: true };
+  }
+
+  // Notizen am Satz (v115, Migration 71)
+  if (a.art === "satz") {
+    const spalten = [...Object.keys(a.felder), "removed_at"].join(", ");
+    const server = pruefe(await supabase.from("tire_storage").select(spalten).eq("id", a.satzId).maybeSingle()) as Record<string, unknown> | null;
+    if (!server) return { abgelehnt: "Diesen Reifensatz gibt es nicht mehr." };
+    if (server.removed_at) return { abgelehnt: "Der Satz ist inzwischen ausgelagert – die Notiz wurde nicht mehr eingetragen." };
+    const konflikt = konfliktFelder(a.felder, a.basis, server);
+    if (konflikt.length > 0) return { konflikt };
+    pruefe(await supabase.from("tire_storage").update({ ...a.felder, updated_at: new Date().toISOString() }).eq("id", a.satzId));
+    return { ok: true };
+  }
+
   // Radmessung
   const satz = pruefe(await supabase.from("tire_storage").select("erfassungsart").eq("id", a.satzId).maybeSingle()) as { erfassungsart: string } | null;
   if (!satz) return { abgelehnt: "Diesen Reifensatz gibt es nicht mehr." };
@@ -125,9 +184,33 @@ export function ausgangSenden(supabase: SupabaseClient): Promise<number> {
           continue;
         }
       }
+      // Dasselbe für Fahrzeuge (Runde 2): Die Zuordnung eines offline angelegten Autos, dessen
+      // Anlage nicht durchging, und der Kilometerstand einer Zuordnung, die nicht durchging.
+      if (a.art === "fahrzeug_zu") {
+        const anlage = ausgangAlle().find((b) => b.art === "fahrzeug_neu" && b.zeile.id === a.zeile.vehicle_id && b.zustand !== "wartet");
+        if (anlage) {
+          await ausgangAendern(a.id, { zustand: "abgelehnt", grund: "Gehört zu einem neuen Fahrzeug, das selbst nicht übernommen wurde." });
+          continue;
+        }
+      }
+      if (a.art === "km") {
+        const anlage = ausgangAlle().find((b) => b.art === "fahrzeug_zu" && b.zeile.id === a.zeileId && b.zustand !== "wartet");
+        if (anlage) {
+          await ausgangAendern(a.id, { zustand: "abgelehnt", grund: "Gehört zu einer Fahrzeug-Zuordnung, die selbst nicht übernommen wurde." });
+          continue;
+        }
+      }
       try {
         const e = await einzeln(supabase, a);
-        if ("ok" in e) { await ausgangEntfernen(a.id); uebernommen++; }
+        if ("ok" in e) {
+          await ausgangEntfernen(a.id); uebernommen++;
+          if (e.ersetze) {
+            const { von, nach } = e.ersetze;
+            for (const b of ausgangAlle()) {
+              if (b.art === "fahrzeug_zu" && b.zeile.vehicle_id === von) await ausgangAendern(b.id, { zeile: { ...b.zeile, vehicle_id: nach } } as Partial<Absicht>);
+            }
+          }
+        }
         else if ("konflikt" in e) await ausgangAendern(a.id, { zustand: "konflikt", konflikt: e.konflikt });
         else await ausgangAendern(a.id, { zustand: "abgelehnt", grund: e.abgelehnt });
       } catch (fehler) {

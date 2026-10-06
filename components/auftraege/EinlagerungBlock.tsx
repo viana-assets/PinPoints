@@ -5,6 +5,8 @@ import type {
 import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { profilText, satzProfilMm } from "@/lib/helpers";
 import { ErfassungsWahl, RadBild, SatzProfil } from "@/components/lager/RadBild";
+import { ReifenNotizenAmSatz, ReifenNotizenAnzeige } from "@/components/lager/ReifenNotizen";
+import type { SatzNotizen } from "@/lib/lagerNotizen";
 import { doppelteKennzeichen, fahrzeugAuswahlText } from "@/lib/kennzeichen";
 import type { RadFelder } from "@/lib/api/lager";
 import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
@@ -27,7 +29,7 @@ import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 export function EinlagerungBlock({
   titel = "Einlagerung",
   einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
-  onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen,
+  onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen,
   onFahrzeugAnlegen, onEtikett, reifengroesse = null,
 }: {
   // Die Reifengröße des Autos am Auftrag (E12). Braucht sie ein großes Fach, stehen die großen
@@ -59,6 +61,8 @@ export function EinlagerungBlock({
   onAnzahlRaeder: (einlagerungId: string, anzahl: number) => Promise<void>;
   onRadSpeichern: (einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) => Promise<void>;
   onRadEntfernen: (radId: string) => Promise<void>;
+  // Notizen am Satz (Migration 71, v115). Fehlt, wo nur angezeigt wird.
+  onSatzNotizen?: (satzId: string, felder: SatzNotizen) => Promise<void>;
   // Ein Fahrzeug direkt hier anlegen und dem Satz zuordnen. Der Techniker steht am Auto, im
   // Auftrag – ihn dafür ins Kundenfenster und wieder zurück zu schicken, war der längste Weg
   // für die kürzeste Eingabe (Kennzeichen + Modell).
@@ -208,6 +212,7 @@ export function EinlagerungBlock({
               {fahrzeugText(einlagerung.vehicle_id)} · {einlagerung.saison ? SAISON_LABEL[einlagerung.saison] : "ohne Saison"}
               {" · "}Profil {profilText(satzProfilMm(einlagerung, raeder))}
               {einlagerung.erfassungsart === "einzeln" ? " (schwächstes Rad)" : ""}
+              <ReifenNotizenAnzeige satz={einlagerung} klein />
             </div>
           ) : (
             <>
@@ -376,6 +381,13 @@ export function EinlagerungBlock({
                     }}
                   />
                 </div>
+              )}
+
+              {/* Notizen (v115): zum Satz und je Rad – „VR: Schraube in der Lauffläche“. Hier, weil
+                  der Techniker den Reifen gerade in der Hand hat; gespeichert beim Verlassen. */}
+              {onSatzNotizen && (
+                <ReifenNotizenAmSatz key={einlagerung.id} satz={einlagerung} gesperrt={laeuft}
+                  onSpeichern={(felder) => onSatzNotizen(einlagerung.id, felder)} />
               )}
 
               {/* Das Etikett steht NEBEN dem Entfernen und nicht weiter oben beim Lagerplatz:

@@ -355,13 +355,16 @@ export function entwurfFehler(e: PostenEntwurf): string | null {
 }
 
 // Der Entwurf so, wie `satz_zum_verkauf()` ihn erwartet. Nur für fehlerfreie Entwürfe aufrufen.
-export function entwurfAlsPosten(e: PostenEntwurf): Record<string, string | number | boolean | null> {
+// Seit v115 mit der Notiz vom Satz („VR: Schraube“ – Migration 71): Wer die Reifen später verkauft,
+// soll es wissen. Sie steht am Posten und lässt sich dort ändern.
+export function entwurfAlsPosten(e: PostenEntwurf, notiz?: string | null): Record<string, string | number | boolean | null> {
   const g = groesseAusText(e.groesse)!;
   return {
     zustand: "gebraucht", breite: g.breite, querschnitt: g.querschnitt, zoll: g.zoll,
     hersteller: e.hersteller.trim(), modell: e.modell.trim() || null, saison: e.saison,
     dot: e.dot.replace(/\D/g, "") || null, profiltiefe_mm: e.profiltiefe_mm, felge: e.felge,
     preis_netto: betrag(e.preis), ek_netto: betrag(e.ek), bestand: e.bestand,
+    ...(notiz?.trim() ? { notiz: notiz.trim() } : {}),
   };
 }
 

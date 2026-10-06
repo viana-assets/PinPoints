@@ -4,37 +4,37 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import type {
-  Customer, ContactHistoryEntry, UserSettings,
-  Warehouse, StorageSlot, TireStorage, Order, OrderStatus, Vehicle, Role, Profile, Employee,
-  Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison, Firmenfahrzeug,
-  EingelagertesRad, Erfassungsart, RadPosition, AuftragFahrzeug, Rechnung,
-  Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage, PlatzGroesse, AuftragBeleg,
+  Customer, ContactHistoryEntry, UserSettings, Warehouse, StorageSlot, TireStorage, Order, OrderStatus,
+  Vehicle, Role, Employee, Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison,
+  Firmenfahrzeug, EingelagertesRad, Rechnung, Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
+  AuftragBeleg,
 } from "@/lib/types";
 import {
-  todayStr, formatDate, formatOrderDateTime, nextOrder, orderDateTime,
-  effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref,
-  plzAus, naechsteSaison, raederNachSatz, satzProfilMm, geocodeAddress,
-  getPhoneNumbers, navigationUrls, istHandy, menuLage, seitenZoom,
-  formatEUR, letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen, DEFAULT_VAT_RATE,
+  todayStr, formatDate, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
+  KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref, plzAus, naechsteSaison, raederNachSatz,
+  satzProfilMm, geocodeAddress, getPhoneNumbers, navigationUrls, istHandy, menuLage, seitenZoom, formatEUR,
+  letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen, DEFAULT_VAT_RATE,
 } from "@/lib/helpers";
 import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
-import { MAP_STYLES, MAP_STIL_REIHENFOLGE, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import {
-  buendeln, ausschnittText, nadelTerminText, tagesStationen, tagesWege,
-  BUENDEL_BIS_ZOOM, BUENDEL_AUSWAHL_AB, type KartenPunkt, type TagesStation,
+  MAP_STYLES, MAP_STIL_REIHENFOLGE, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey,
+} from "@/lib/mapStyles";
+import {
+  buendeln, ausschnittText, nadelTerminText, tagesStationen, tagesWege, BUENDEL_BIS_ZOOM, BUENDEL_AUSWAHL_AB,
+  type KartenPunkt, type TagesStation,
 } from "@/lib/karte";
 import { nadelHtml, stationHtml, buendelHtml, NADEL_MASS, KREIS_MASS, STATION_MASS } from "@/components/karte/nadel";
 import { KartenBedienung, type StreifenStation } from "@/components/karte/KartenBedienung";
 import { KartenKundeKarte } from "@/components/karte/KartenKundeKarte";
 import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import {
-  KUNDEN_FILTER, type KundenFilter, TERMIN_FILTER, type TerminFilter,
-  RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER, regelZerlegen,
-  ANRUF_PARAMETER, MITNEHMEN_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD,
-  PROFIL_KRITISCH_MM, STANDARD_DAUER_MIN,
-  type Verb,
+  type KundenFilter, TERMIN_FILTER, type TerminFilter, RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
+  regelZerlegen, ANRUF_PARAMETER, MITNEHMEN_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD, PROFIL_KRITISCH_MM,
+  STANDARD_DAUER_MIN, type Verb,
 } from "@/lib/constants";
-import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, VERKAUFSREIFEN_PARAMETER, lagerplatzIdAusCode } from "@/lib/aufkleberCode";
+import {
+  LAGERPLATZ_PARAMETER, SATZ_PARAMETER, VERKAUFSREIFEN_PARAMETER, lagerplatzIdAusCode,
+} from "@/lib/aufkleberCode";
 import { sprungDieserLadung } from "@/lib/sprungMerker";
 import { FehlerHinweis, useAblehnungenAlsFehler } from "@/components/FehlerHinweis";
 import { zielAbholen } from "@/lib/benachrichtigungZiel";
@@ -45,7 +45,7 @@ import { auftragsNr, ohneTestkunden } from "@/lib/testkunde";
 import { telefonPasst } from "@/lib/telefon";
 import {
   aenderungen, AUFTRAG_OFFLINE_FELDER, auftragsdatenAnwenden, ausgangStand, istNetzfehler, raederAnwenden,
-  saetzeAnwenden, type AbsichtInhalt, type AuftragFeld,
+  saetzeAnwenden, fahrzeugeAnwenden, type AbsichtInhalt, type AuftragFeld,
 } from "@/lib/offline/ausgang";
 import { ausgangAufnehmen, useAusgang } from "@/lib/offline/speicher";
 import { ausgangSenden } from "@/lib/offline/senden";
@@ -58,10 +58,7 @@ import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
 // Marke.
-import {
-  IconKunden, IconTermine, IconMap, IconLager, IconAuftraege, IconMore,
-  IconMarke,
-} from "@/components/icons";
+import { IconKunden, IconMap, IconMore, IconMarke } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
 import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
@@ -83,10 +80,8 @@ import { KontaktModal } from "@/components/kunden/KontaktModal";
 import { DetailModal } from "@/components/kunden/DetailModal";
 import { CustomerPicker } from "@/components/CustomerPicker";
 import { LagerPanel } from "@/components/lager/LagerPanel";
-import { AuslagernDialog, type AuslagernWahl } from "@/components/lager/AuslagernDialog";
+import { AuslagernDialog } from "@/components/lager/AuslagernDialog";
 import { StapelAuslagern } from "@/components/lager/StapelAuslagern";
-import { stapelSchritte, type StapelSchritt } from "@/lib/stapelAuslagern";
-import type { MitnehmenEintrag } from "@/lib/mitnehmen";
 import { frueherEingelagert, istVorgemerkt, saetzeAusDemLager } from "@/lib/lagerVormerkung";
 import { ReifensatzEtikett } from "@/components/lager/ReifensatzEtikett";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
@@ -100,49 +95,42 @@ import { DashboardPanel } from "@/components/dashboard/DashboardPanel";
 import { KundenListePanel } from "@/components/kunden/KundenListePanel";
 import { anfangsbuchstabe, anzeigeName, rueckrufFaellig } from "@/lib/kundenAnsicht";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
-import { insertVehicle, updateVehicleById, deleteVehicleById, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
-import { fahrzeugMitKennzeichen } from "@/lib/kennzeichen";
-import {
-  insertWarehouse, updateWarehouseById, deleteWarehouseById,
-  insertStorageSlot, insertStorageSlotsBulk, deleteStorageSlotById, updateSlotGroesse,
-  upsertTireAssignment, removeTireAssignmentById, updateTireStorageDetails, satzVormerken, vormerkungZuruecknehmen, tauschAnlegen,
-  insertRad, updateRadById, deleteRadById, setErfassungsart, setAnzahlRaeder, radZuZeile, type RadFelder,
-} from "@/lib/api/lager";
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
   updateArticlePrice as updateArticlePriceApi, deleteArticlePrice as deleteArticlePriceApi,
-  insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleEndpreisById, updateOrderArticleTextById, deleteOrderArticleById,
+  insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleEndpreisById, updateOrderArticleTextById,
+  deleteOrderArticleById,
 } from "@/lib/api/articles";
 import {
-  replaceOrderEmployees,
-  insertOrder, updateOrderById, updateOrderTermin, updateOrderStatusById, updateOrderTechnikerNotiz, deleteOrderById,
-  updateOrderFirmenfahrzeug, rechnungAnderswoVermerken, rechnungAnderswoZuruecknehmen,
-  AUFTRAGSFENSTER_LABEL, type AuftragsFenster,
+  replaceOrderEmployees, insertOrder, updateOrderById, updateOrderTermin, updateOrderStatusById,
+  updateOrderTechnikerNotiz, deleteOrderById, updateOrderFirmenfahrzeug, rechnungAnderswoVermerken,
+  rechnungAnderswoZuruecknehmen, type AuftragsFenster,
 } from "@/lib/api/orders";
 import {
-  markCustomerContacted, markCustomerOpen, setWiedervorlageBulk,
-  setCustomerActive, deleteCustomerRow, updateCustomerFieldsById, insertCustomer,
-  setzePositionVonHand, positionNeuSuchen, testkundeLoeschen,
+  markCustomerContacted, markCustomerOpen, setWiedervorlageBulk, setCustomerActive, deleteCustomerRow,
+  updateCustomerFieldsById, insertCustomer, setzePositionVonHand, positionNeuSuchen, testkundeLoeschen,
 } from "@/lib/api/customers";
 import { upsertModulePermissions, type Bereichsrechte } from "@/lib/api/permissions";
-import { fetchAuftragFahrzeuge, addAuftragFahrzeug, setKilometerstand, removeAuftragFahrzeug } from "@/lib/api/auftragFahrzeuge";
 import {
-  insertFirmenfahrzeug, updateFirmenfahrzeugById, firmenfahrzeugAusmustern,
-  type FirmenfahrzeugFelder,
+  insertFirmenfahrzeug, updateFirmenfahrzeugById, firmenfahrzeugAusmustern, type FirmenfahrzeugFelder,
 } from "@/lib/api/firmenfahrzeuge";
 import { fetchOwnRole, fetchOrCreateUserSettings, updateUserSettings } from "@/lib/api/session";
 import { fetchBetrieb } from "@/lib/api/betrieb";
 import { qk } from "@/lib/queries/keys";
 import {
-  useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie,
-  useMitarbeiter, useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useRechnungen, useAuftragRechnungen,
-  useLager, useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge,
-  useFirmenfahrzeuge, useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten,
+  useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie, useMitarbeiter,
+  useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useRechnungen, useAuftragRechnungen, useLager,
+  useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge, useFirmenfahrzeuge,
+  useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten,
 } from "@/lib/queries/hooks";
 import { verfuegbarkeitAustragen, verfuegbarkeitSetzen, verfuegbarkeitVorlage } from "@/lib/api/verfuegbarkeit";
 import type { VerfuegbarkeitImPlan } from "@/components/einsatzplanung/EinsatzplanungPanel";
+import { useLagerAktionen } from "./_seite/useLagerAktionen";
+import { useFahrzeugAktionen } from "./_seite/useFahrzeugAktionen";
 import { belegHochladen, belegLoeschen } from "@/lib/api/belege";
-import { insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag, satzZumVerkauf } from "@/lib/api/verkaufsreifen";
+import {
+  insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag, satzZumVerkauf,
+} from "@/lib/api/verkaufsreifen";
 
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
 // Effekte auslösen, die eigentlich nur auf echte Datenänderungen reagieren sollen.
@@ -471,6 +459,11 @@ export default function HomePage() {
     (auftraegeDaten?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
     (kundeAuftraegeDaten?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
   const auftragFahrzeugeQuery = useKundeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, sitzungBereit);
+  // Die Fahrzeuge des Kunden am geöffneten Auftrag – mit den offline angelegten (Runde 2, v113).
+  const auftragKundenFahrzeuge = useMemo(
+    () => fahrzeugeAnwenden(auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE, ausgang, offenerAuftrag?.customer_id ?? null),
+    [auftragFahrzeugeQuery.data, ausgang, offenerAuftrag?.customer_id],
+  );
   // Aus derselben Nachbarschaft wie `offenerAuftrag` und aus demselben Grund: die Ableitung
   // liest den Zustand, eine Deklaration danach wäre ein Zugriff vor der Initialisierung.
   const kontaktKunde = (kundenQuery.data ?? KEINE_KUNDEN).find((c) => c.id === kontaktKundeId);
@@ -844,15 +837,21 @@ export default function HomePage() {
   // in den Ausgangskorb gelegt und ist sofort zu sehen; übertragen wird, sobald Netz da ist.
   // Ein Fehler der DATENBANK (Rechte, Regeln) bleibt ein Fehler und wird angezeigt wie immer.
   const netzLos = () => istOffline || (typeof navigator !== "undefined" && navigator.onLine === false);
+  //
+  // `nurOffline` (Runde 2, v113): Die Änderung betrifft etwas, das selbst noch im Ausgangskorb
+  // wartet (ein offline angelegtes Fahrzeug, eine offline zugeordnete Zeile). Direkt geschrieben
+  // träfe sie am Server nichts – also auch mit Netz in den Korb, hinter die Anlage. Mehrere
+  // Absichten auf einmal (neues Fahrzeug + Zuordnung) kommen als Liste, in dieser Reihenfolge.
   async function offlineOderDirekt(
     direkt: () => Promise<void>,
-    absicht: () => { inhalt: AbsichtInhalt; titel: string } | null
+    absicht: () => { inhalt: AbsichtInhalt; titel: string } | { inhalt: AbsichtInhalt; titel: string }[] | null,
+    nurOffline = false,
   ): Promise<void> {
-    if (!netzLos()) {
+    if (!netzLos() && !nurOffline) {
       try { await direkt(); return; } catch (e) { if (!istNetzfehler(e)) throw e; }
     }
     const a = absicht();
-    if (a) await ausgangAufnehmen(a.inhalt, a.titel);
+    for (const x of Array.isArray(a) ? a : a ? [a] : []) await ausgangAufnehmen(x.inhalt, x.titel);
   }
   const auftragFinden = (id: string) => orders.find((o) => o.id === id) ?? kundeAuftraege.find((o) => o.id === id);
   const auftragTitel = (id: string, was: string) => {
@@ -930,26 +929,6 @@ export default function HomePage() {
   }
   function orderArticlesFor(orderId: string): OrderArticle[] {
     return orderArticles.filter((oa) => oa.order_id === orderId);
-  }
-  // Fahrzeuge stehen in ZWEI Zwischenspeichern: je Kunde (Kundenfenster, Auftragsfenster) und
-  // alle zusammen (Lager, Saisonliste). Bis v92 lud diese Funktion nur den des gerade
-  // geöffneten KUNDEN neu – ein im Auftrag angelegtes Fahrzeug fehlte dann in der Auswahl
-  // „+ weiteres Fahrzeug" desselben Auftrags, während das Lager es längst zeigte (gemeldet
-  // 29.09.2026). Jetzt werden alle Kunden-Listen und die Gesamtliste verworfen; geladen wird
-  // ohnehin nur, was gerade angezeigt wird.
-  async function refreshVehicles() {
-    await Promise.all([
-      queryClient.invalidateQueries({ predicate: (q) => q.queryKey[0] === "kunde" && q.queryKey[2] === "fahrzeuge" }),
-      neuLaden(qk.fahrzeuge()),
-    ]);
-  }
-  // Ein Fahrzeug zu diesem Kennzeichen: das vorhandene des Kunden, sonst ein neues. Gelesen
-  // wird frisch aus der Datenbank, nicht aus dem Zwischenspeicher – sonst entstünde die
-  // Dublette genau in dem Fall, für den es diese Prüfung gibt (Liste noch nicht nachgeladen).
-  async function fahrzeugFuerKennzeichen(kundeId: string, kennzeichen: string, modell = ""): Promise<string> {
-    const vorhanden = fahrzeugMitKennzeichen(await fetchVehiclesFuerKunde(supabase, kundeId), kennzeichen);
-    if (vorhanden) return vorhanden.id;
-    return insertVehicle(supabase, kundeId, { licensePlate: kennzeichen, makeModel: modell, tireSize: "", note: "" });
   }
   async function refreshModulePermissions() {
     neuLaden(qk.modulrechte());
@@ -1630,162 +1609,14 @@ export default function HomePage() {
     return lat != null;
   }
   // ---------------------------------------------------------------- Lager-Modul
-  async function addWarehouse(fields: { name: string; address: string; note: string }): Promise<string | undefined> {
-    const id = await insertWarehouse(supabase, fields);
-    await refreshWarehouses();
-    return id;
-  }
-  async function updateWarehouse(id: string, fields: { name: string; address: string; note: string }) {
-    await updateWarehouseById(supabase, id, fields);
-    await refreshWarehouses();
-  }
-  async function deleteWarehouse(id: string) {
-    await deleteWarehouseById(supabase, id);
-    await refreshWarehouses();
-    await refreshStorageSlots();
-    await refreshTireStorages();
-  }
-  async function addStorageSlot(warehouseId: string, code: string) {
-    await insertStorageSlot(supabase, warehouseId, code);
-    await refreshStorageSlots();
-  }
-  // Bulk-Anlage von Lagerplätzen nach einer Nummerierungslogik (Präfix + Start/Ende + Stellen),
-  // z. B. Präfix "A", 1–20, 2-stellig → A-01 … A-20. Wird sowohl beim Anlegen eines neuen Lagers
-  // als auch später zum Nachrüsten weiterer Plätze verwendet.
-  async function addStorageSlotsBulk(warehouseId: string, codes: string[], groesse: PlatzGroesse = "normal") {
-    await insertStorageSlotsBulk(supabase, warehouseId, codes, groesse);
-    await refreshStorageSlots();
-  }
-  // Fachgröße umstellen (E12, Migration 64).
-  async function slotGroesseSetzen(id: string, groesse: PlatzGroesse) {
-    await updateSlotGroesse(supabase, id, groesse);
-    await refreshStorageSlots();
-  }
-  async function deleteStorageSlot(id: string) {
-    await deleteStorageSlotById(supabase, id);
-    await refreshStorageSlots();
-    await refreshTireStorages();
-  }
-  async function assignTire(fields: { id?: string; storageSlotId: string; customerId: string; dotDate: string; profiltiefeMm: string; note: string; vehicleId?: string | null; saison?: Saison | null }) {
-    const id = await upsertTireAssignment(supabase, fields);
-    await refreshTireStorages();
-    return id;
-  }
-  // Das Herausgeben eines Satzes geht seit Migration 46 durch EINEN Dialog – egal, ob es an
-  // der Regalwand oder im Auftragsfenster angestoßen wurde. Vorher war es ein stiller
-  // Datenbankschreibvorgang; genau dabei ging die Lagergebühr verloren, weil niemand mehr
-  // gefragt wurde, wie viele Monate der Satz denn nun gelegen hat.
-  //
-  // Ausgenommen bleibt der Fall „ich habe mich beim Einlagern vertan": Wer den Satz entfernt,
-  // den er im selben Auftrag HEUTE erst angelegt hat, korrigiert einen Fehler und schuldet
-  // dafür nichts.
-  //
-  // Beides muss zutreffen, und bis zum 21.09.2026 prüfte der Code keines von beidem: Das
-  // Auftragsfenster übergab pauschal „ohne Dialog". Ein Satz, der seit acht Monaten im Regal
-  // lag und zu einem alten Auftrag gehörte, ging damit über den Knopf „Einlagerung entfernen"
-  // kostenlos hinaus – ohne Gebühr, ohne `entnahme_order_id`, ohne dass jemand gefragt wurde.
-  // Über die Regalwand lief derselbe Vorgang die ganze Zeit richtig.
-  //
-  // Die Entscheidung steht deshalb jetzt HIER und nicht mehr am Aufrufer: Ein Aufrufer, der
-  // sich vertut, kostet Geld, und man sieht es ihm nicht an.
-  const [auslagernSatzId, setAuslagernSatzId] = useState<string | null>(null);
-  // Stapel-Auslagern (E7): die Sätze eines Tages der Reihe nach. Die Liste und welche Aufträge schon
-  // eine Lagergebühr tragen, stehen beim Öffnen fest.
-  const [stapel, setStapel] = useState<{ datum: string; schritte: StapelSchritt[]; mitGebuehr: Set<string> } | null>(null);
-  function stapelOeffnen(datum: string, eintraege: MitnehmenEintrag[]) {
-    const gebuehrArtikel = new Set(articles.filter((a) => a.abrechnungsart === "lagergebuehr").map((a) => a.id));
-    const mitGebuehr = new Set(orderArticles.filter((z) => !z.deleted_at && gebuehrArtikel.has(z.article_id)).map((z) => z.order_id));
-    setStapel({ datum, schritte: stapelSchritte(eintraege, storageSlots, warehouses), mitGebuehr });
-  }
-  const [auslagernAusAuftragId, setAuslagernAusAuftragId] = useState<string | null>(null);
-  // Für welche Sätze ist gerade der Etikettendruck offen (17.09.2026)? Eine Liste, weil aus dem
-  // Lager heraus auch mehrere auf einmal gedruckt werden können.
-  const [etikettSatzIds, setEtikettSatzIds] = useState<string[]>([]);
-
-  async function removeTireAssignment(id: string, ausAuftragId?: string | null) {
-    const satz = alleSaetze.find((t) => t.id === id);
-    // Ein Tausch-Satz (Migration 69) lag nie im Regal: Entfernen verwirft ihn, ohne Gebühr.
-    if (satz?.kommt_rein) {
-      await removeTireAssignmentById(supabase, id, null);
-      await refreshTireStorages();
-      return;
-    }
-    const heuteAngelegt = !!satz && satz.created_at.slice(0, 10) === todayStr();
-    const eigenerSatz = !!satz && !!ausAuftragId && satz.order_id === ausAuftragId;
-
-    if (heuteAngelegt && eigenerSatz) {
-      await removeTireAssignmentById(supabase, id, null);
-      await refreshTireStorages();
-      return;
-    }
-    if (ausAuftragId) setAuslagernAusAuftragId(ausAuftragId);
-    setAuslagernSatzId(id);
-  }
-
-  // Der eine Weg nach außen: vormerken (oder ohne Auftrag sofort auslagern), Gebühr buchen,
-  // Auftrag notfalls anlegen. Die Reihenfolge ist Absicht – zuerst muss der Auftrag existieren,
-  // sonst hat die Gebühr kein Zuhause und `entnahme_order_id` zeigte auf nichts.
-  //
-  // Seit Migration 67 (v111) geht ein Satz mit Auftrag erst beim ABSCHLIESSEN dieses Auftrags
-  // heraus; bis dahin ist er vorgemerkt und liegt im Regal. Das erledigt die Datenbank.
-  async function auslagernAusfuehren(satzId: string, wahl: AuslagernWahl) {
-    const satz = tireStorages.find((t) => t.id === satzId);
-    let auftragId = wahl.auftragId;
-
-    if (wahl.neuerAuftrag && satz) {
-      const kunde = customers.find((c) => c.id === satz.customer_id);
-      auftragId = await addOrder({
-        customerId: satz.customer_id, title: terminTitel(kunde?.name), description: "",
-        orderDate: todayStr(), time: "", status: "offen", assignedEmployeeIds: [],
-      });
-    }
-
-    if (wahl.sofort || !auftragId) await removeTireAssignmentById(supabase, satzId, null);
-    else await satzVormerken(supabase, satzId, auftragId);
-    if (auftragId && !wahl.sofort && wahl.artikelId && wahl.menge > 0) {
-      // Beim Auslagern gibt es keinen Freitext: Die Lagergebühr ist ein benannter Artikel
-      // mit Monaten als Menge, und was sie beschreibt, steht im Artikelstamm. Sie hängt am Satz
-      // (`lager_satz_id`), damit sie beim Zurücknehmen der Vormerkung mitgeht.
-      await insertOrderArticle(supabase, articlePrices, auftragId, wahl.artikelId, wahl.menge, null, null, satzId);
-      await refreshOrderArticles();
-    }
-    await refreshTireStorages();
-    setAuslagernSatzId(null);
-    setAuslagernAusAuftragId(null);
-    // Ein frisch angelegter Auftrag wird geöffnet: Sonst hätte man gerade eine Rechnungszeile
-    // erzeugt, die nirgends zu sehen ist.
-    if (wahl.neuerAuftrag && auftragId) setOffenerAuftragId(auftragId);
-  }
-
-  // „vorgemerkt · 1234 am 08.10." – im Lager und im Kundenfenster (Migration 67).
-  function vormerkungText(satz: TireStorage): string | null {
-    if (!istVorgemerkt(satz)) return null;
-    const o = orders.find((x) => x.id === satz.entnahme_order_id);
-    const tausch = kommtReinSaetze.some((k) => k.tausch_fuer === satz.id) ? " · Tausch" : "";
-    return (o ? `vorgemerkt · ${auftragsNr(o.order_number)} am ${formatDate(o.order_date)}` : "vorgemerkt") + tausch;
-  }
-
-  // Reifentausch (Migration 69): Der neue Satz kommt auf den Platz des vorgemerkten. Vorgeschlagen
-  // wird dasselbe Auto und die andere Saison – der übliche Wechsel im Frühjahr und Herbst.
-  async function tauschStarten(order: Order, altSatzId: string) {
-    const alt = tireStorages.find((t) => t.id === altSatzId);
-    if (!alt) return;
-    const andere: Saison | null = alt.saison === "winter" ? "sommer" : alt.saison === "sommer" ? "winter" : null;
-    await tauschAnlegen(supabase, alt, order.id, { vehicleId: alt.vehicle_id, saison: andere });
-    await refreshTireStorages();
-  }
-
-  // Die Vormerkung zurücknehmen (Migration 67): Der Satz bleibt einfach liegen, die zugehörige
-  // Lagergebühr geht vom Auftrag.
-  async function vormerkungAufheben(satzId: string) {
-    const satz = tireStorages.find((t) => t.id === satzId);
-    if (!satz?.entnahme_order_id || satz.removed_at) return;
-    await vormerkungZuruecknehmen(supabase, satzId, satz.entnahme_order_id);
-    await refreshTireStorages();
-    await refreshOrderArticles();
-    setAuslagernSatzId(null);
-    setAuslagernAusAuftragId(null);
-  }
+  // Die Handlungen stehen seit v113 in app/_seite/useLagerAktionen.ts (Fahrplan C5).
+  const {
+    addStorageSlot, addStorageSlotsBulk, addWarehouse, anzahlRaederSetzen, assignTire, auftragHatLagergebuehr, auslagernAusAuftragId, auslagernAusfuehren, auslagernSatzId, deleteStorageSlot, deleteWarehouse, einlagernFuerAuftrag, einlagerungAngabenAendern, einlagerungenZuAuftrag, erfassungsartSetzen, etikettSatzIds, radEntfernen, radSpeichern, removeTireAssignment, satzNotizenSetzen, setAuslagernAusAuftragId, setAuslagernSatzId, setEtikettSatzIds, setStapel, slotGroesseSetzen, stapel, stapelOeffnen, tauschStarten, updateWarehouse, vormerkungAufheben, vormerkungText,
+  } = useLagerAktionen({
+    supabase, tireStorages, alleSaetze, kommtReinSaetze, tireStoragesGeladen, eingelagerteRaeder, storageSlots, warehouses,
+    customers, orders, articles, articlePrices, orderArticles, orderArticlesFor, addOrder, setOffenerAuftragId, neuLaden,
+    offlineOderDirekt, refreshWarehouses, refreshStorageSlots, refreshTireStorages, refreshOrderArticles,
+  });
 
   // ---------------------------------------------------------------- Aufträge-Modul (Termine inklusive)
   // Mitarbeiter-Zuordnung läuft komplett über `order_employees` (Migration 11) – ein Auftrag kann
@@ -1829,103 +1660,6 @@ export default function HomePage() {
     if (!id) return;
     setFrischerAuftragId(id);
     setOffenerAuftragId(id);
-  }
-  // ------------------------------------------------------- Einlagerung am Auftrag (Migration 22)
-  // Die aktive Einlagerung eines Auftrags. "Aktiv" heißt: noch nicht ausgelagert
-  // (`removed_at is null`) – die Historie eines Lagerplatzes bleibt davon unberührt.
-  //
-  // Eine LISTE und kein einzelner Satz (17.09.2026): Seit Migration 44 trägt ein Auftrag
-  // mehrere Fahrzeuge, und damit gehören mehrere Sätze ins Regal. Die Datenbank ließ das immer
-  // zu – eindeutig ist der PLATZ (ein aktiver Satz je Platz, Migration 15), nicht der Auftrag.
-  // Eingeschränkt hat nur dieses `find` hier.
-  //
-  // Dazu die Tausch-Sätze dieses Auftrags (Migration 69): Sie werden hier wie jede Einlagerung
-  // erfasst (Fahrzeug, Saison, Profil) und kommen beim Abschließen auf ihren Platz.
-  function einlagerungenZuAuftrag(orderId: string): TireStorage[] {
-    return alleSaetze
-      .filter((t) => t.order_id === orderId && !t.removed_at)
-      .sort((a, b) => a.created_at.localeCompare(b.created_at));
-  }
-  // Steht auf diesem Auftrag eine Lagergebühr? Das heißt: Hier wurde AUSGELAGERT und die
-  // Monate werden berechnet – nicht, dass ein Lagerplatz zu belegen wäre. Seit Migration 46
-  // ist das Kennzeichen eine Abrechnungsart, kein Lagerplatz-Zwang mehr.
-  function auftragHatLagergebuehr(orderId: string): boolean {
-    return orderArticlesFor(orderId).some(
-      (pos) => articles.find((a) => a.id === pos.article_id)?.abrechnungsart === "lagergebuehr"
-    );
-  }
-  // Mit `einlagerungId` zieht GENAU DIESER Satz auf den neuen Platz, ohne entsteht ein neuer.
-  //
-  // Vorher suchte diese Funktion sich den Satz selbst („den einen dieses Auftrags") und zog ihn
-  // um. Bei zwei Autos war das falsch herum: Wer den zweiten Satz einlagern wollte, verschob
-  // den ersten. Welcher Satz gemeint ist, weiß nur die Maske – also sagt sie es.
-  async function einlagernFuerAuftrag(order: Order, lagerplatzId: string, einlagerungId?: string) {
-    await upsertTireAssignment(supabase, {
-      id: einlagerungId,
-      storageSlotId: lagerplatzId,
-      customerId: order.customer_id,
-      dotDate: "", profiltiefeMm: "", note: "",
-      orderId: order.id,
-    });
-    await refreshTireStorages();
-  }
-
-  // Fahrzeug und Saison am eingelagerten Satz (Migration 30). Eigener Weg neben
-  // `einlagernFuerAuftrag`: dort geht es um den Lagerplatz, hier um die Beschreibung des
-  // Satzes. Beides zusammenzulegen hieße, bei jeder Saisonänderung den Platz erneut zu
-  // schreiben.
-  async function einlagerungAngabenAendern(einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) {
-    await updateTireStorageDetails(supabase, einlagerungId, felder);
-    await refreshTireStorages();
-  }
-
-  // ---------------------------------------------------------------- Räder (Migration 33)
-  //
-  // Sammelmessung oder Einzelerfassung – nie beides. Das Umschalten räumt in der richtigen
-  // Reihenfolge auf (siehe setErfassungsart in lib/api/lager.ts), damit niemand in eine
-  // Fehlermeldung der Datenbank läuft.
-  async function erfassungsartSetzen(einlagerungId: string, art: Erfassungsart) {
-    await setErfassungsart(supabase, einlagerungId, art);
-    await Promise.all([refreshTireStorages(), neuLaden(qk.eingelagerteRaeder())]);
-  }
-  async function anzahlRaederSetzen(einlagerungId: string, anzahl: number) {
-    await setAnzahlRaeder(supabase, einlagerungId, anzahl);
-    await refreshTireStorages();
-  }
-  // Ein Rad je Position: Gibt es die Position schon, wird sie geändert, sonst angelegt. Das
-  // Unterscheiden gehört hierher und nicht in die Oberfläche – dort wüsste man es nur, wenn
-  // man dieselbe Liste noch einmal durchsucht.
-  //
-  // Steht der Satz noch auf „ein Wert für den Satz", stellt das erste gemessene Rad ihn um
-  // (v98 im Fenster, seit v101 hier an EINER Stelle – auch für den Weg ohne Netz, F1).
-  async function radSpeichern(einlagerungId: string, position: RadPosition, felder: Partial<RadFelder>) {
-    const satz = tireStoragesGeladen.find((t) => t.id === einlagerungId);
-    const umstellen = !!satz && (satz.erfassungsart ?? "sammel") !== "einzeln";
-    const vorhanden = eingelagerteRaeder.find((r) => r.tire_storage_id === einlagerungId && r.position === position);
-    await offlineOderDirekt(
-      async () => {
-        if (umstellen) {
-          await setErfassungsart(supabase, einlagerungId, "einzeln");
-          await refreshTireStorages();
-        }
-        if (vorhanden && !vorhanden.id.startsWith("offline-")) await updateRadById(supabase, vorhanden.id, felder);
-        else await insertRad(supabase, einlagerungId, { ...felder, position });
-      },
-      () => {
-        const { position: _p, ...zeile } = radZuZeile(felder) as Record<string, unknown>;
-        void _p;
-        const basis = vorhanden ? Object.fromEntries(Object.keys(zeile).map((k) => [k, (vorhanden as unknown as Record<string, unknown>)[k] ?? null])) : null;
-        return {
-          inhalt: { art: "rad", satzId: einlagerungId, position, radId: vorhanden?.id ?? null, felder: zeile, basis, umstellen },
-          titel: `Radmessung ${position}`,
-        };
-      }
-    );
-    await neuLaden(qk.eingelagerteRaeder());
-  }
-  async function radEntfernen(radId: string) {
-    await deleteRadById(supabase, radId);
-    await neuLaden(qk.eingelagerteRaeder());
   }
 
   async function updateOrder(id: string, fields: {
@@ -2026,47 +1760,14 @@ export default function HomePage() {
     await refreshOrders();
   }
   // „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
-  // Fahrzeuge am Auftrag (Migration 44). Geladen wird nur für den gerade geöffneten Auftrag –
-  // für die Liste braucht es sie nicht, und ein Vollabzug über alle Aufträge wäre derselbe
-  // Fehler wie die dreizehn Vollabzüge beim Start, die Phase 10 abgestellt hat.
-  const [auftragFahrzeuge, setAuftragFahrzeuge] = useState<AuftragFahrzeug[]>([]);
-  useEffect(() => {
-    let abgebrochen = false;
-    if (!offenerAuftragId) { setAuftragFahrzeuge([]); return; }
-    fetchAuftragFahrzeuge(supabase, [offenerAuftragId])
-      .then((zeilen) => { if (!abgebrochen) setAuftragFahrzeuge(zeilen); })
-      .catch(() => { if (!abgebrochen) setAuftragFahrzeuge([]); });
-    return () => { abgebrochen = true; };
-  }, [offenerAuftragId, supabase]);
-
-  async function auftragFahrzeugeNeu(orderId: string) {
-    setAuftragFahrzeuge(await fetchAuftragFahrzeuge(supabase, [orderId]));
-  }
-  async function fahrzeugHinzufuegen(orderId: string, vehicleId: string) {
-    await addAuftragFahrzeug(supabase, orderId, vehicleId, null);
-    await auftragFahrzeugeNeu(orderId);
-  }
-  // Ein Auto, das der Kunde noch nicht in der Kartei hat: erst anlegen, dann zuordnen. Es
-  // bleibt beim Kunden stehen – beim nächsten Auftrag muss niemand das Kennzeichen noch
-  // einmal tippen, genau wie bei der E-Mail-Adresse.
-  // Seit v93: Hat der Kunde das Kennzeichen schon, wird DIESES Fahrzeug genommen statt eines
-  // neuen (siehe `fahrzeugFuerKennzeichen`). Steht es schon am Auftrag, passiert nichts.
-  async function rechnungsFahrzeugAnlegen(orderId: string, kundeId: string, kennzeichen: string) {
-    const fahrzeugId = await fahrzeugFuerKennzeichen(kundeId, kennzeichen);
-    if (!auftragFahrzeuge.some((af) => af.order_id === orderId && af.vehicle_id === fahrzeugId)) {
-      await addAuftragFahrzeug(supabase, orderId, fahrzeugId, null);
-    }
-    await auftragFahrzeugeNeu(orderId);
-    await refreshVehicles();
-  }
-  async function kilometerstandSetzen(id: string, km: number | null) {
-    await setKilometerstand(supabase, id, km);
-    if (offenerAuftragId) await auftragFahrzeugeNeu(offenerAuftragId);
-  }
-  async function fahrzeugEntfernen(id: string) {
-    await removeAuftragFahrzeug(supabase, id);
-    if (offenerAuftragId) await auftragFahrzeugeNeu(offenerAuftragId);
-  }
+  // ---------------------------------------------------------------- Fahrzeuge (app/_seite/useFahrzeugAktionen.ts)
+  const {
+    addVehicle, auftragFahrzeuge, deleteVehicle, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
+    kilometerstandSetzen, rechnungsFahrzeugAnlegen, refreshVehicles, updateVehicle,
+  } = useFahrzeugAktionen({
+    supabase, queryClient, orders, offenerAuftragId, sitzungBereit, istOffline, netzLos, ausgang, auftragTitel,
+    neuLaden, offlineOderDirekt, refreshTireStorages,
+  });
   // Die E-Mail-Adresse aus der Rechnungs-Abhakliste landet beim KUNDEN, nicht am Auftrag.
   async function kundenEmailSpeichern(kundeId: string, email: string) {
     // `previousAddress` bleibt unverändert: Wir ändern nur die E-Mail-Adresse, und eine
@@ -2124,46 +1825,6 @@ export default function HomePage() {
   async function updateEmployeeProfile(employeeId: string, profileId: string | null) {
     await updateEmployeeProfileId(supabase, employeeId, profileId);
     await refreshEmployees();
-  }
-
-  // ---------------------------------------------------------------- Fahrzeuge
-  async function addVehicle(customerId: string, fields: {
-    licensePlate: string; makeModel: string; tireSize: string; note: string;
-  }) {
-    // Im Kundenfenster wird bewusst angelegt – eine Dublette ist dort ein Versehen. Die Meldung
-    // nennt das Kennzeichen nicht (keine Kundendaten in Fehlermeldungen, CLAUDE.md 5).
-    if (fahrzeugMitKennzeichen(await fetchVehiclesFuerKunde(supabase, customerId), fields.licensePlate)) {
-      throw new Error("Dieses Kennzeichen ist bei diesem Kunden schon angelegt.");
-    }
-    await insertVehicle(supabase, customerId, fields);
-    await refreshVehicles();
-  }
-
-  // Fahrzeug aus dem Auftragsfenster heraus: anlegen UND dem eingelagerten Satz zuordnen.
-  // Beides in einem Schritt, weil es fachlich einer ist – der Techniker steht am Auto und
-  // sagt „das hier gehört zu diesem Satz".
-  async function fahrzeugAusAuftragAnlegen(orderId: string, kennzeichen: string, modell: string, einlagerungId?: string) {
-    const auftrag = orders.find((o) => o.id === orderId);
-    if (!auftrag) return;
-    const fahrzeugId = await fahrzeugFuerKennzeichen(auftrag.customer_id, kennzeichen, modell);
-    await refreshVehicles();
-    // Dem Satz zuordnen, aus dessen Block heraus das Fahrzeug angelegt wurde. Ohne diese Id
-    // landete es bei zwei Sätzen im falschen – vorher gab es nur einen, da war die Frage
-    // nicht zu stellen.
-    if (einlagerungId) {
-      await updateTireStorageDetails(supabase, einlagerungId, { vehicleId: fahrzeugId });
-      await refreshTireStorages();
-    }
-  }
-  async function updateVehicle(id: string, fields: {
-    licensePlate: string; makeModel: string; tireSize: string; note: string;
-  }) {
-    await updateVehicleById(supabase, id, fields);
-    await refreshVehicles();
-  }
-  async function deleteVehicle(id: string) {
-    await deleteVehicleById(supabase, id);
-    await refreshVehicles();
   }
 
   async function saveSettingsPatch(patch: Partial<UserSettings>) {
@@ -3622,7 +3283,7 @@ export default function HomePage() {
           auftragsZuordnungen={orderEmployees}
           kundeName={(id) => customers.find((c) => c.id === id)?.name ?? "Unbekannter Kunde"}
           customer={customers.find((c) => c.id === offenerAuftrag.customer_id)}
-          vehicles={auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE}
+          vehicles={auftragKundenFahrzeuge}
           employees={employees}
           assignedEmployeeIds={orderEmployees[offenerAuftrag.id] || []}
           articles={articles}
@@ -3684,6 +3345,7 @@ export default function HomePage() {
           onAnzahlRaeder={anzahlRaederSetzen}
           onRadSpeichern={radSpeichern}
           onRadEntfernen={radEntfernen}
+          onSatzNotizen={satzNotizenSetzen}
           onFahrzeugAnlegen={(kennzeichen, modell, einlagerungId) => fahrzeugAusAuftragAnlegen(offenerAuftrag.id, kennzeichen, modell, einlagerungId)}
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
@@ -3759,7 +3421,7 @@ export default function HomePage() {
             // des Auftrags (Migration 44) – bei drei Autos an einem Termin sind es drei.
             kennzeichen={auftragFahrzeuge
               .filter((af) => af.order_id === auftrag.id)
-              .map((af) => (auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE).find((v) => v.id === af.vehicle_id)?.license_plate?.trim() || "")
+              .map((af) => auftragKundenFahrzeuge.find((v) => v.id === af.vehicle_id)?.license_plate?.trim() || "")
               .filter(Boolean)}
             rechnungen={auftragRechnungenQuery.data ?? KEINE_RECHNUNGEN}
             darfSchreiben={darf("rechnungen", "schreiben")}

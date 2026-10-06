@@ -44,6 +44,12 @@ export const qk = {
   betrieb: () => ["betrieb"] as const,
   rechnungen: () => ["rechnungen"] as const,
   auftragRechnungen: (orderId: string) => ["auftrag", orderId, "rechnungen"] as const,
+  // Fahrzeuge am Auftrag (Migration 44) – seit v113 eine Abfrage statt eines Zustands, damit sie im
+  // Offline-Speicher landet (Offline Runde 2).
+  auftragFahrzeuge: (orderId: string) => ["auftrag", orderId, "fahrzeuge"] as const,
+  // Der Vorrat für unterwegs (v113): Fahrzeuge am Auftrag und Fahrzeuge der Kunden für die
+  // kommenden offenen Aufträge, einmal geladen, solange Netz da ist.
+  einsatzVorrat: () => ["einsatz-vorrat"] as const,
   // Fotos und Unterschrift am Auftrag (Migration 65, E3).
   auftragBelege: (orderId: string) => ["auftrag", orderId, "belege"] as const,
   // Die zeitlich begrenzten Anzeige-Links dazu – je Satz Pfade ein Eintrag.

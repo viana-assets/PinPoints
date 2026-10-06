@@ -147,7 +147,7 @@ export const RECHTE_KATALOG: RechtBereich[] = [
     warumNicht: "Die Einsatzplanung zeigt Aufträge – geschrieben und gelöscht wird bei „Aufträge“." },
   { schluessel: "einsatzplanung.verfuegbarkeit", label: "– Verfügbarkeit aller Mitarbeiter", unter: true,
     verben: ["lesen", "schreiben"],
-    erklaerung: "Sehen, wann ALLE Mitarbeiter Zeit haben (Reiter „Verfügbarkeit“, „x frei“ im Kalender, Hinweise beim Einteilen), und mit „Schreiben“ für sie eintragen – auch für Mitarbeiter ohne Zugang und für vergangene Tage. Die EIGENEN Tage sieht und pflegt jeder mit verknüpftem Mitarbeiter auch ohne dieses Recht (Migration 68).",
+    erklaerung: "Sehen, wann ALLE Mitarbeiter Zeit haben (Reiter „Verfügbarkeit“, Punkte in der Woche, Hinweise beim Einteilen), und mit „Schreiben“ für sie eintragen – auch für Mitarbeiter ohne Zugang und für vergangene Tage. Die EIGENEN Tage sieht und pflegt jeder mit verknüpftem Mitarbeiter auch ohne dieses Recht (Migration 68).",
     warumNicht: "Austragen IST hier ein Schreiben: Der Tag steht danach wieder auf „nichts eingetragen“. Ein eigenes Löschen gibt es nicht." },
 
   { schluessel: "lager", label: "Lager", verben: ["lesen"],
@@ -399,6 +399,13 @@ export const RAD_POSITION_LABEL: Record<RadPosition, string> = {
   HR: "hinten rechts",
 };
 
+// Notiz je Rad (Migration 71): die Spalte am Satz je Position, und wie lang eine Notiz sein darf
+// (dieselbe Grenze steht als Prüfregel in der Datenbank, `tire_storage_notiz_je_rad_laenge`).
+export const RAD_NOTIZ_SPALTE: Record<RadPosition, "notiz_vl" | "notiz_vr" | "notiz_hl" | "notiz_hr"> = {
+  VL: "notiz_vl", VR: "notiz_vr", HL: "notiz_hl", HR: "notiz_hr",
+};
+export const RAD_NOTIZ_MAX = 300;
+
 export const FELGE_LABEL: Record<Felge, string> = {
   stahl: "Stahl",
   alu: "Alu",
@@ -583,6 +590,8 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   read_roles: "Rollen mit Leserecht", edit_roles: "Rollen mit Schreibrecht",
   delete_roles: "Rollen mit Löschrecht",
   felge: "Felge", sensor: "RDKS-Sensor", reifengroesse: "Reifengröße",
+  // Migration 71
+  notiz_vl: "Notiz vorne links", notiz_vr: "Notiz vorne rechts", notiz_hl: "Notiz hinten links", notiz_hr: "Notiz hinten rechts",
   // Migration 56: der eine Eintrag, der nach dem endgültigen Löschen eines Kunden übrig bleibt.
   endgueltig_geloescht: "endgültig gelöscht (DSGVO)",
   tire_storage_id: "Einlagerung", braucht_lagerplatz: "braucht Lagerplatz (bis Migration 46)",

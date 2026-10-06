@@ -6,6 +6,7 @@ import { SAISON_LABEL } from "@/lib/constants";
 import { formatDate } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { satzZustand } from "@/lib/lagerVormerkung";
+import { ReifenNotizenAnzeige } from "@/components/lager/ReifenNotizen";
 
 // Wo die Reifen dieses Auftrags im Lager liegen oder lagen (Migration 67, v111).
 //
@@ -69,6 +70,7 @@ export function LagerSaetzeAmAuftrag({ ausLager, frueher, einlagerungen = [], st
                       : `ausgelagert am ${formatDate((satz.removed_at ?? "").slice(0, 10))}`}
                   </span>
                   {tausch && <span className="small tausch-hinweis">⇄ Tausch: {tausch.saison ? SAISON_LABEL[tausch.saison] : "der neue Satz"} kommt auf diesen Platz</span>}
+                  <ReifenNotizenAnzeige satz={satz} klein />
                 </span>
                 {vorgemerkt && !gesperrt && (
                   <button type="button" className="es-knopf" disabled={laeuft !== null || !!tausch}
@@ -97,6 +99,7 @@ export function LagerSaetzeAmAuftrag({ ausLager, frueher, einlagerungen = [], st
                     {k.lager ? `${k.lager} · ` : ""}eingelagert {formatDate(satz.created_at.slice(0, 10))} · ausgelagert {formatDate((satz.removed_at ?? "").slice(0, 10))}
                     {mit ? ` mit Auftrag ${auftragsNr(mit.order_number)}` : ""}
                   </span>
+                  <ReifenNotizenAnzeige satz={satz} klein />
                 </span>
               </div>
             );

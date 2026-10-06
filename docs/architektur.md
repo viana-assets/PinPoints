@@ -72,6 +72,11 @@ viana-pinpoints/
     layout.tsx              Root-Layout, lädt Google Fonts + Leaflet CSS/JS
     globals.css              Design-Tokens + alle Styles (ein einziges CSS-File)
     page.tsx                 Hauptanwendung, ~3.550 Zeilen – siehe "app/page.tsx heute" unten
+    _seite/                   Handlungs-Hooks der Startseite, aus page.tsx herausgelöst (v113, C5);
+                              der Unterstrich hält den Ordner aus dem Routing heraus
+      typen.ts                Gemeinsame Typen (NeuLaden, OfflineOderDirekt, AuftragAnlegen …)
+      useLagerAktionen.ts     Lager, Plätze, Einlagerung am Auftrag, Auslagern/Vormerken, Tausch, Räder
+      useFahrzeugAktionen.ts  Kartei der Fahrzeuge, Fahrzeuge am Auftrag, Kilometerstand (offline-fähig)
     manifest.ts               Erzeugt das PWA-Manifest aus lib/erscheinung.ts (kein statisches
                               manifest.webmanifest mehr, damit der App-Name nicht an zwei
                               Stellen gepflegt werden muss)
@@ -197,6 +202,7 @@ viana-pinpoints/
       SaisonPanel.tsx                  Eigener Reiter „Saisonliste" (Migration 30/31)
       AuslagernDialog.tsx              Auslagern inkl. Lagergebühr-Vorschlag (Migration 46)
       RadBild.tsx / ProfilMarke.tsx     Profiltiefe: Radbild je Rad, Satzwert, Schnellwerte 1–8 mm
+      ReifenNotizen.tsx            Notiz zum Satz und je Rad: Felder (Speichern-Knopf), am Satz (beim Verlassen), Anzeige (v115)
                                         (Migration 33/34, Entwurf X1 seit v89) bzw. die Marke
       ReifensatzEtikett.tsx / LagerplatzAufkleber.tsx
                                         QR-Aufkleber für Satz bzw. Regalplatz
@@ -237,6 +243,7 @@ viana-pinpoints/
     lagerdauer.ts                 `lagermonate`, Langlieger-Grenzen (C5, v106)
     verfuegbarkeit.ts             Wer hat wann Zeit: Zeitfenster, Hinweise beim Einteilen, Vorlage (Migration 68, v112)
     lagerVormerkung.ts            Satz im Regal / vorgemerkt / ausgelagert, Gebühr bis zum Termin (Migration 67, v111)
+    lagerNotizen.ts               Notizen am Satz – zum Satz und je Rad (Migration 71, v115)
     menuLage.ts                   Menülage bei Seitenzoom (C5, v106)
     csp.ts                        Content-Security-Policy mit Nonce (B4, v106)
     sprungMerker.ts               QR-/Benachrichtigungs-Sprung übersteht das erste Neuladen (D19, v106)
@@ -308,7 +315,7 @@ viana-pinpoints/
       orders.ts                    Aufträge/Termine + Mitarbeiter-Zuordnung (order_employees)
       auftragFahrzeuge.ts            Fahrzeuge am Auftrag inkl. Kilometerstand (Migration 44)
       employees.ts                 Mitarbeiter (Einsatzplanung)
-      vehicles.ts                  Kundenfahrzeuge
+      vehicles.ts                  Kundenfahrzeuge (seit v113 auch `fetchVehiclesFuerKunden` in Blöcken zu 150)
       firmenfahrzeuge.ts             Eigene Transporter (getrennt von vehicles.ts, Migration 32)
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
@@ -328,7 +335,7 @@ viana-pinpoints/
       belege.ts                      Fotos/Unterschrift: Speicher-Upload, Anzeige-Links, Löschen (Migration 65, E3)
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–65
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–71
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -469,6 +476,14 @@ Dateien) – `HomePage` behält nur noch ihre `refreshX()`/`addX()`/`updateX()`/
 Funktionen, die die passende `lib/api`-Funktion aufrufen und danach den React-State
 aktualisieren bzw. über `qk.*` einen Query-Schlüssel für ungültig erklären.
 
+**Seit v113 (Fahrplan C5)** wandern die Handlungen eines Bereichs als Hook nach `app/_seite/`:
+`useLagerAktionen` und `useFahrzeugAktionen` bekommen von `HomePage` einen Kontext (Daten,
+`neuLaden`, `offlineOderDirekt`, `refreshX`) und geben die Funktionen zurück, die vorher in
+`HomePage` standen – Namen und Verhalten unverändert, die Props der Panels bleiben gleich. Damit
+ist die Datei von ~3.950 auf ~3.550 Zeilen geschrumpft. Der Hook wird vor dem ersten `return`
+aufgerufen (Regel der Hooks); was er zurückgibt, ist erst ab dieser Zeile da – Funktionen weiter
+oben dürfen es nur in Rückrufen benutzen, nicht beim Rendern.
+
 Was noch in `app/page.tsx` steckt (bewusst): der App-State selbst, die dünnen `refreshX()`/
 CRUD-Wrapper, die Popover-Logik (`xMenuFor`/`clampMenuTop()` …), die Karten-Initialisierung
 und -Interaktion (Leaflet, Marker, Popups) sowie Tab-/Routing-Logik. `supabase.auth.getUser()`/
@@ -550,7 +565,9 @@ Betriebsjahr weiter und kommen deshalb über ein Zeitfenster.
   `PAGE_SIZE` durch. Nötig, weil PostgREST je Anfrage höchstens 1000 Zeilen liefert – ohne
   `range()` hätte die App bei ~4500 Kunden stillschweigend ein Viertel geladen und trotzdem
   plausible Zahlen gezeigt.
-- **24 Hooks** in `lib/queries/hooks.ts` (seit v102 `useVorlagen`, seit v105 `useAuftragBelege` und
+- **27 Hooks** in `lib/queries/hooks.ts` (seit v113 `useAuftragFahrzeuge` und `useEinsatzVorrat` –
+  der Vorrat legt die Fahrzeuge der Aufträge der nächsten 14 Tage vorab in den Speicher, damit sie
+  offline lesbar sind; seit v112 `useVerfuegbarkeiten`; seit v102 `useVorlagen`, seit v105 `useAuftragBelege` und
   `useBelegLinks` für Fotos und Unterschrift – die Links verfallen nach einer Stunde und kommen deshalb
   nicht in den Offline-Lesespeicher), jeder mit einem `aktiv`-Schalter: Lager, Artikel,
   Mitarbeiter, Betrieb und Rechnungen laden erst beim Öffnen des jeweiligen Moduls, Fahrzeuge
@@ -649,7 +666,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 69** (05.10.2026; 66 bis 69 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 71** (06.10.2026; 70 und 71 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -722,6 +739,12 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **69** – Reifentausch auf demselben Platz: `tire_storage.kommt_rein`/`tausch_fuer`, neuer
   Platz-Index ohne Tausch-Sätze, `auftrag_lager_entnahme()` tauscht beim Abschließen. Siehe
   `docs/lager.md`.
+- **70** – Die Unterschrift eines erledigten Auftrags steht fest: `auftrag_unterschrift_pruefen()`
+  (BEFORE INSERT/DELETE auf `auftrag_belege`) lehnt eine zweite Unterschrift und das Löschen ab;
+  am stornierten Auftrag keine Unterschrift. Fotos frei. Siehe `docs/auftraege.md`.
+- **71** – Notiz je Rad am Satz: `tire_storage.notiz_vl` … `notiz_hr` (je höchstens 300 Zeichen),
+  unabhängig von der Messart; Bemerkungen gemessener Räder übernommen; Auskunft nach DSGVO mit
+  `reifen_notizen`. Siehe `docs/lager.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den
