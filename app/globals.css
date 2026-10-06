@@ -3399,6 +3399,11 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ad-wartung > .wh-card{max-width:none !important;padding:0;box-shadow:none;background:none;}
 .ad-wartung > div{max-width:none !important;}
 .ad-wartung h4{font-family:var(--font-brand);font-size:16px;margin:0 0 4px;}
+/* Alle Daten löschen (Wartung, nur Superadmin, v117). */
+.ad-alles{display:flex;flex-direction:column;gap:6px;}
+.ad-alles-frage{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+.ad-alles-liste{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:3px;}
+.ad-alles-schritt{display:flex;flex-direction:column;gap:4px;align-items:flex-start;}
 .ad-filter{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;}
 .ad-filter::-webkit-scrollbar{display:none;}
 .ad-auswahl{flex:0 0 auto;display:flex;align-items:center;gap:6px;height:36px;border-radius:18px;border:1px solid var(--border);

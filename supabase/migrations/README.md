@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 70 und 71** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 05.10.2026: Alle Migrationen 01–69 sind in der Produktivdatenbank ausgeführt** (66–69 laut Vitali am 05.10.2026) –
+**Noch auszuführen: 72** (Abschnitt „Noch auszuführen“ unten). **Stand 06.10.2026: Alle Migrationen 01–71 sind in der Produktivdatenbank ausgeführt** (70 und 71 laut Vitali am 06.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -850,9 +850,9 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Vormerkung auf, danach scheitert der Abschluss mit Meldung, nach erneutem Vormerken geht er; Tausch
   verwerfen; zurückgenommen, zweimal, erneut; Migration-67-Verhalten danach unverändert.
 
-## Noch auszuführen
+## 06.10.2026 – ausgeführt (Vitali, 70 und 71)
 
-- `70_unterschrift_fest.sql` – **nach `69`, SQL zuerst, dann die Dateien von v114.** Die Unterschrift
+- `70_unterschrift_fest.sql` – **ausgeführt 06.10.2026.** Nach `69`, SQL zuerst, dann die Dateien von v114. Die Unterschrift
   eines erledigten Auftrags steht fest: `auftrag_unterschrift_pruefen()` (BEFORE INSERT/DELETE auf
   `auftrag_belege`) lehnt am erledigten Auftrag eine zweite Unterschrift und das Löschen der
   Unterschrift ab, am stornierten jede Unterschrift; fehlt sie beim Abschluss, darf sie nachgeholt
@@ -863,7 +863,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   geht, zweite abgewiesen; wiedereröffnet – neue und Löschen gehen; storniert – Unterschrift
   abgewiesen, Foto geht; Auftrag samt Unterschrift löschen (Kaskade) und endgültiges Löschen eines
   Kunden aus dem Papierkorb gehen; zurückgenommen, zweimal, erneut ausgeführt.
-- `71_notiz_je_rad.sql` – **nach `70`, SQL zuerst, dann die Dateien von v115.** Notiz je Rad am
+- `71_notiz_je_rad.sql` – **ausgeführt 06.10.2026.** Nach `70`, SQL zuerst, dann die Dateien von v115. Notiz je Rad am
   eingelagerten Satz: `tire_storage.notiz_vl`, `notiz_vr`, `notiz_hl`, `notiz_hr` (Prüfregel höchstens
   300 Zeichen), unabhängig von „ein Wert für den Satz“ oder „je Rad“; vorhandene Bemerkungen gemessener
   Räder werden übernommen, wo am Satz noch nichts steht (`eingelagerte_raeder.bemerkung` bleibt, die
@@ -875,4 +875,26 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Admin setzt Notiz VR und Satznotiz; 301 Zeichen abgewiesen; Umschalten auf Satzwert lässt die
   Notizen stehen; Techniker setzt eine Notiz; Auskunft mit vier Notizen und weiter mit Belegen;
   Protokoll hat die Änderung; zurückgenommen (Notiz VR in die leere Bemerkung geschrieben), zweimal,
+  erneut ausgeführt.
+
+## Noch auszuführen
+
+- `72_alle_daten_loeschen.sql` – **nach `71`, SQL zuerst, dann die Dateien von v117.** „Alle Daten
+  löschen“ für den Superadmin (Admin › Wartung): `alle_daten_umfang()` (Zeilen je Tabelle, Zugänge,
+  Fotos, ausgestellte Rechnungen), `alle_daten_sicherung()` (alle Tabellen als ein JSON-Dokument) und
+  `alle_daten_loeschen('löschen')`. Beim Ausführen der Migration selbst wird **nichts** gelöscht – das
+  geht nur über die App. Gelöscht werden die Zugänge außer Admin/Superadmin (`auth.users`, mit Profil,
+  Einstellungen, Geräten per Kaskade) und ALLE Tabellen im Schema `public` außer
+  `alle_daten_behalten()` (`profiles`, `module_permissions`, `user_settings`, `push_geraete`) – in
+  EINER `truncate`-Anweisung, Zähler auf Anfang; danach alle Sequenzen neu, die `betrieb`-Zeile leer
+  neu angelegt (Rechnungs- und Kundennummern beginnen wieder vorn) und genau ein Protokolleintrag
+  ohne Inhalte. Die Bilddateien löscht die App vorher über die Storage-Schnittstelle. Nur Superadmin,
+  nur mit genau dem Wort „löschen“ (klein) – beides prüft die Funktion selbst. Ergebnistabelle mit drei
+  Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/72_rollback.sql` (entfernt nur die Funktionen;
+  gelöschte Daten kommen dadurch nicht zurück – dafür die Sicherungsdatei; zweimal lauffähig). Geprüft
+  gegen Postgres 16 (Stand 71, mit Beispieldaten in allen Bereichen): Admin abgewiesen (Umfang,
+  Sicherung, Löschen); falsche Wörter („Löschen“, „loeschen“, leer) abgewiesen; Sicherung enthält alle
+  Tabellen; nach dem Löschen alle Datentabellen leer, zwei Profile (Superadmin, Admin) und zwei
+  Zugänge übrig, Rechtetabelle unverändert, Betrieb leer mit Anfangsnummern, ein Protokolleintrag;
+  danach ein neuer Kunde mit Nummer 10000 und ein Auftrag mit Nummer 1; zurückgenommen, zweimal,
   erneut ausgeführt.

@@ -10,7 +10,7 @@ am Rechner im Büro und am Handy beim Kunden.
 Next.js 16 (App Router) · React 19 · TypeScript (strict) · Supabase (Postgres, Auth, RLS)
 · Vercel · Leaflet · TanStack Query · Vitest
 
-Stand: 06.10.2026, Migrationen bis 71 (70 und 71 noch auszuführen), Service Worker `v116`.
+Stand: 06.10.2026, Migrationen bis 72 (72 noch auszuführen), Service Worker `v117`.
 
 ---
 

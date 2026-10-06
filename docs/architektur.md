@@ -153,6 +153,7 @@ viana-pinpoints/
       FirmenfahrzeugPanel.tsx         Eigene Transporter (Migration 32)
       AdressenPruefen.tsx             Korrekturliste für ungenau geokodierte Kundenadressen
       GeokodierLauf.tsx               Sammellauf über den ganzen Kundenbestand
+      AlleDatenLoeschen.tsx           Wartung, nur Superadmin: alle Daten löschen, Sicherung (Migration 72, v117)
       artikel/
         ArticleAdminPanel.tsx          Tab "Artikel" (eigene Kachel, nicht mehr Teil von Admin –
                                        Ordnerpfad bewusst historisch belassen, um keine
@@ -334,8 +335,9 @@ viana-pinpoints/
       dubletten.ts                   „Keine Dublette"-Vermerke, Zusammenführen (Migration 64, E1)
       belege.ts                      Fotos/Unterschrift: Speicher-Upload, Anzeige-Links, Löschen (Migration 65, E3)
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
+      alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–71
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–72
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -666,7 +668,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 71** (06.10.2026; 70 und 71 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 72** (06.10.2026; 72 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -745,6 +747,11 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **71** – Notiz je Rad am Satz: `tire_storage.notiz_vl` … `notiz_hr` (je höchstens 300 Zeichen),
   unabhängig von der Messart; Bemerkungen gemessener Räder übernommen; Auskunft nach DSGVO mit
   `reifen_notizen`. Siehe `docs/lager.md`.
+- **72** – Alle Daten löschen (nur Superadmin, Admin › Wartung): `alle_daten_umfang()`,
+  `alle_daten_sicherung()`, `alle_daten_loeschen('löschen')`. Löscht alle Zugänge außer Admin/
+  Superadmin und ALLE Tabellen in `public` außer `alle_daten_behalten()` in einer `truncate`-
+  Anweisung, setzt Sequenzen und `betrieb` zurück. Eine neue Einstellungs-Tabelle, die das Löschen
+  überstehen soll, gehört in `alle_daten_behalten()` (CLAUDE.md, Abschnitt 2).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

@@ -134,7 +134,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('69', 'Reifentausch auf demselben Platz', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'kommt_rein')
                                                   and to_regclass('public.tire_storage_ein_satz_im_regal_je_platz') is not null),
     ('70', 'Unterschrift steht fest', to_regprocedure('public.auftrag_unterschrift_pruefen()') is not null),
-    ('71', 'Notiz je Rad am Satz', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'notiz_hr'))
+    ('71', 'Notiz je Rad am Satz', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'notiz_hr')),
+    ('72', 'Alle Daten löschen (Superadmin)', to_regprocedure('public.alle_daten_loeschen(text)') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

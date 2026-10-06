@@ -16,6 +16,14 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **06.10.2026 – Alle Daten löschen für den Superadmin (Migration 72, Service Worker v117).** Wunsch
+  06.10.2026: die Datenbank mit einem Befehl auf null stellen, wie bei einem frischen Unternehmen.
+  Entschieden: wirklich alles, auch echte Rechnungen, Artikel, Lager, Mitarbeiter, Transporter,
+  Briefkopf und Nummernkreise; übrig bleiben nur Admin-/Superadmin-Zugänge und die Rechte; eine
+  Sicherung als JSON-Datei wird angeboten, ist aber keine Pflicht. Admin › Wartung, Übersicht mit
+  Zahlen und Hinweis auf die Aufbewahrungspflicht, Bestätigung mit dem Wort „löschen“ (prüft auch die
+  Datenbank). Bilddateien löscht die App vorher über die Storage-Schnittstelle.
+
 * **06.10.2026 – Kein „x frei“ mehr im Monat (Service Worker v116, ohne Migration).** Rückmeldung
   06.10.2026: Die grünen Pillen unter jedem Tag überlagern den Kalender und werden nicht gebraucht.
   Die Verfügbarkeit bleibt im Reiter „Verfügbarkeit“, als Punkte in der Woche, als Zeile im Tag und

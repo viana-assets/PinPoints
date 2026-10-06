@@ -20,6 +20,7 @@ import { hoechsteRechnungsnummer } from "@/lib/api/rechnungen";
 import { GeokodierLauf } from "./GeokodierLauf";
 import { AdressenPruefen } from "./AdressenPruefen";
 import { FirmenfahrzeugPanel } from "./FirmenfahrzeugPanel";
+import { AlleDatenLoeschen } from "./AlleDatenLoeschen";
 
 // Admin-Modul: Nutzerverwaltung – als eigener Tab statt separater Seite, damit man wie bei
 // Termine einfach das Fenster wechselt statt zu navigieren. Bündelt zusätzlich die
@@ -357,6 +358,8 @@ export function AdminPanel({
                 Liste neu aufbauen
               </button>
             </div>
+            {/* Ganz unten und nur für den Superadmin: alles auf null (Migration 72, v117). */}
+            {isSuperAdmin && <div className="db-karte ad-wartung"><AlleDatenLoeschen supabase={supabase} /></div>}
           </div>
         ) : aktiverReiter === "rechte" && isSuperAdmin ? (
           <PermissionMatrix modulePermissions={modulePermissions} onUpdateModulePermissions={onUpdateModulePermissions} />

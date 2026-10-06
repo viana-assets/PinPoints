@@ -502,6 +502,10 @@ export const PROTOKOLL_SCHWAERZEN_MONATE = 36;
 //
 // Was NICHT übersetzt ist, wird im Rohnamen angezeigt statt verschwiegen: Ein Feld, das
 // niemand benannt hat, ist immer noch eine Änderung, die stattgefunden hat.
+// „Alle Daten löschen“ (Migration 72): das Wort, das der Superadmin zum Bestätigen eintippt. Dasselbe
+// Wort prüft die Datenbank in `alle_daten_loeschen()`.
+export const ALLE_DATEN_BESTAETIGUNG = "löschen";
+
 export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
   orders: "Auftrag",
   betrieb: "Betriebsdaten",
@@ -590,6 +594,8 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   read_roles: "Rollen mit Leserecht", edit_roles: "Rollen mit Schreibrecht",
   delete_roles: "Rollen mit Löschrecht",
   felge: "Felge", sensor: "RDKS-Sensor", reifengroesse: "Reifengröße",
+  // Migration 72
+  alle_daten_geloescht: "alle Daten gelöscht", zugaenge_geloescht: "Zugänge gelöscht",
   // Migration 71
   notiz_vl: "Notiz vorne links", notiz_vr: "Notiz vorne rechts", notiz_hl: "Notiz hinten links", notiz_hr: "Notiz hinten rechts",
   // Migration 56: der eine Eintrag, der nach dem endgültigen Löschen eines Kunden übrig bleibt.

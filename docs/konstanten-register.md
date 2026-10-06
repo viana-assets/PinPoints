@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **144 exportierte Konstanten** (`export const`) in 39 Dateien unter `lib/` – gezählt am
-06.10.2026 (v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **145 exportierte Konstanten** (`export const`) in 39 Dateien unter `lib/` – gezählt am
+06.10.2026 (v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -183,6 +183,7 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
+| `ALLE_DATEN_BESTAETIGUNG` | `lib/constants.ts` | `string` | Das Wort „löschen“, das der Superadmin zum Bestätigen von „Alle Daten löschen“ eintippt; die Datenbank prüft es noch einmal selbst (`alle_daten_loeschen()`, Migration 72, v117) | `AlleDatenLoeschen` |
 | `PROTOKOLL_TABELLE_LABEL` | `lib/constants.ts` | `Record<string, string>` | Tabellenname (wie in der DB) → Klartext | `ProtokollPanel`, `AuftragProtokoll` |
 | `PROTOKOLL_FELD_LABEL` | `lib/constants.ts` | `Record<string, string>` | Spaltenname → Klartext; enthält bewusst auch längst gelöschte Spalten (Historie bleibt lesbar) | `ProtokollPanel`, `tests/protokoll.test.ts` |
 | `PROTOKOLL_SCHWAERZEN_MONATE` | `lib/constants.ts` | `number` (36) | Nach so vielen Monaten schwärzt `protokoll_schwaerzen()` (Migration 56) personenbezogene Felder im Protokoll – hier nur für den Text im Auskunftsauszug; beide gemeinsam ändern (E10, v103) | `AuskunftFenster` |

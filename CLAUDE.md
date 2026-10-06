@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 06.10.2026 (Migrationen bis 71, 70 und 71 noch auszuführen; Service Worker v116; Regeln seit der Projektdurchsicht vom
+Stand: 06.10.2026 (Migrationen bis 72, 72 noch auszuführen; Service Worker v117; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -142,6 +142,10 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
   **Das ist Absicht und keine Lücke – nicht „reparieren".**
 - Regel daraus: **Durchsetzung, die sich erklären muss, gehört in einen BEFORE-Trigger,
   nicht in eine Policy.**
+- **„Alle Daten löschen“ (Migration 72) leert JEDE Tabelle in `public`**, außer denen in
+  `alle_daten_behalten()` (Profile, Rechte, Einstellungen, Push-Geräte). Eine neue Tabelle wird
+  also automatisch mitgelöscht – richtig für Fachdaten. Soll eine neue EINSTELLUNGS-Tabelle das
+  Löschen überstehen, kommt sie mit einer neuen Migration in diese Liste.
 
 ### Und auf der Code-Seite dazu
 

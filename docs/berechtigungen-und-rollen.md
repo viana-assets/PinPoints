@@ -265,6 +265,10 @@ im Migrationsverlauf zu Migration 41.
   schreibt, wer Kunden löschen darf.
 - `kunde_auskunft()` (E10): nur **Admin und Superadmin**, unabhängig von der Matrix – der Auszug
   ist die vollständigste Sammlung von Personendaten, die die App erzeugen kann.
+- `alle_daten_umfang()`, `alle_daten_sicherung()`, `alle_daten_loeschen()` (Migration 72, v117):
+  nur **Superadmin**, unabhängig von der Matrix; das Löschen zusätzlich nur mit dem Wort „löschen“,
+  das die Funktion selbst prüft. Unter Admin › Wartung sieht nur der Superadmin die Karte. Übrig
+  bleiben die Zugänge mit der Rolle Admin oder Superadmin und die Rechtetabelle.
 - `satz_zum_verkauf()` (E17): `security invoker`, es gelten die Rechte des Aufrufers –
   Einlagerung schreiben (auslagern) und Reifenverkauf schreiben (Posten anlegen). Das zweite
   prüft die Funktion vorab und sagt es im Klartext, statt nach dem Auslagern an der Richtlinie

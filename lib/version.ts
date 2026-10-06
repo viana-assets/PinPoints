@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v116";
+export const APP_VERSION = "v117";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v117", datum: "2026-10-06", titel: "Alle Daten löschen (nur Superadmin)",
+    punkte: [
+      "Unter Admin › Wartung kann der Superadmin jetzt alle Daten löschen und die App auf null stellen – wie bei einem frischen Unternehmen: Kunden, Aufträge, Rechnungen, Lager, Artikel, Mitarbeiter, Transporter, Briefkopf, Fotos und Protokoll. Die Nummern beginnen danach neu.",
+      "Übrig bleiben nur die Zugänge mit der Rolle Admin oder Superadmin und die Rechte. Alle anderen Zugänge werden gelöscht.",
+      "Vorher zeigt das Fenster, was alles weggeht, und bietet eine Sicherung als Datei an. Gelöscht wird erst, wenn das Wort „löschen“ klein eingetippt und bestätigt ist.",
+    ],
+  },
   {
     version: "v116", datum: "2026-10-06", titel: "Ruhigerer Monatskalender",
     punkte: [
