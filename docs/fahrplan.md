@@ -16,6 +16,9 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **07.10.2026 – Etikett je Rad als Vorgabe (Service Worker v123, ohne Migration).** Im Fenster
+  „Etikett für den Reifensatz“ ist „Ein Etikett je Rad“ vorgewählt und steht oben in der Liste.
+
 * **07.10.2026 – Reifentausch: verwaister Tausch sperrte den Platz (Migration 76, Service Worker
   v122).** Bildschirmfoto: „duplicate key … tire_storage_ein_tausch_je_platz“. Ein Tausch-Satz aus
   einem stornierten/gelöschten Auftrag blieb unsichtbar auf dem Platz. Jetzt verwirft Storno/Löschen

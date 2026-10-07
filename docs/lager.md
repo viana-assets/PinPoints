@@ -200,7 +200,9 @@ nichts zu tun (siehe `EinlagerungBlock.tsx`, `gescannt()`).
 60 × 86: QR 46 mm, Rand 3 mm, Schrift 1,75; beide QR oben, 300 dpi). v96 hatte die Auswahl ganz
 entfernt und nur 58 × 58 gelassen; gemeint war „58 × 58 als Standard, die übrigen raus" –
 entfallen sind die kleinen 203-dpi-Rollen und der A4-Bogen. Satz- und Rad-Etikett haben denselben
-QR-Code (der Abzug von 3 mm galt nur im Querformat). Was folgt, ist die Geschichte bis v95.
+QR-Code (der Abzug von 3 mm galt nur im Querformat). **Seit v123 ist „Ein Etikett je Rad“ die
+Vorgabe** (Wunsch 07.10.2026), „Ein Etikett je Satz“ steht als zweite Wahl darunter. Was folgt, ist
+die Geschichte bis v95.
 
 Gedruckt wurde bis v95 wahlweise auf A4-Bögen oder im Format kleiner Etikettenrollen
 (damals `ETIKETT_FORMATE`). An erster Stelle der Formatliste steht seit dem

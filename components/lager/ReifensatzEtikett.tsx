@@ -85,7 +85,9 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   onClose: () => void;
 }) {
   const [basis, setBasis] = useState("");
-  const [art, setArt] = useState<EtikettArt>("satz");
+  // Vorgabe seit v123: eines je Rad (Wunsch 07.10.2026 – gedruckt wird fast immer je Rad, die Wahl
+  // jedes Mal umzustellen kostete einen Handgriff). „Ein Etikett je Satz“ bleibt wählbar.
+  const [art, setArt] = useState<EtikettArt>("raeder");
   const [teilenLaeuft, setTeilenLaeuft] = useState(false);
   const [teilenHinweis, setTeilenHinweis] = useState<string | null>(null);
   useEffect(() => { setBasis(window.location.origin); }, []);
@@ -292,8 +294,8 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
         <div className="field druck-weg" style={{ maxWidth: 340 }}>
           <label htmlFor="etikett-art">Was wird gedruckt?</label>
           <select id="etikett-art" value={art} onChange={(e) => setArt(e.target.value as EtikettArt)}>
-            <option value="satz">Ein Etikett je Satz</option>
             <option value="raeder">Ein Etikett je Rad (VL, VR, HL, HR)</option>
+            <option value="satz">Ein Etikett je Satz</option>
           </select>
           <span className="small">
             {art === "satz"

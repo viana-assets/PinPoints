@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v122";
+export const APP_VERSION = "v123";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,12 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v123", datum: "2026-10-07", titel: "Etikett je Rad als Vorgabe",
+    punkte: [
+      "Beim Etikett für den Reifensatz ist jetzt „Ein Etikett je Rad (VL, VR, HL, HR)“ vorgewählt. Wer nur ein Etikett für den ganzen Satz braucht, stellt es wie bisher um.",
+    ],
+  },
   {
     version: "v122", datum: "2026-10-07", titel: "Reifentausch: Platz wieder frei",
     punkte: [
