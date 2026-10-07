@@ -455,7 +455,11 @@ vorgemerkten Satz desselben Kunden auf dessen Platz, nur an einem offenen Auftra
 durch das Abschließen. Die Vormerkung des alten Satzes lässt sich nicht zurücknehmen, solange der
 Tausch steht („Zurücknehmen" ist dann gesperrt). „Einlagerung entfernen" am Tausch-Satz verwirft
 ihn ohne Dialog – er lag nie im Regal. **Wiedereröffnen dreht einen Tausch nicht zurück:** Der neue
-Satz bleibt auf dem Platz, der alte findet ihn belegt und bleibt draußen.
+Satz bleibt auf dem Platz, der alte findet ihn belegt und bleibt draußen. **Stornieren oder Löschen**
+des Auftrags verwirft seit Migration 76 (v122) auch seinen Tausch-Satz; vorher blieb er stehen, war
+nirgends zu sehen und sperrte den Platz für jeden neuen Tausch („duplicate key … 
+tire_storage_ein_tausch_je_platz“, gefunden 07.10.2026). Migration 76 hat solche verwaisten Sätze
+einmal verworfen.
 
 Die Seite trennt Tausch-Sätze vom Regalbestand (`tireStorages` ohne `kommt_rein` in
 `app/page.tsx`): Sie erscheinen nur im Auftrag, nicht im Lager, Kundenfenster, in der Saisonliste,

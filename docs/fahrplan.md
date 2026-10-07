@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **07.10.2026 – Reifentausch: verwaister Tausch sperrte den Platz (Migration 76, Service Worker
+  v122).** Bildschirmfoto: „duplicate key … tire_storage_ein_tausch_je_platz“. Ein Tausch-Satz aus
+  einem stornierten/gelöschten Auftrag blieb unsichtbar auf dem Platz. Jetzt verwirft Storno/Löschen
+  ihn mit; vorhandene Reste einmal aufgeräumt. Der Ablauf „im Büro anlegen und vormerken, beim
+  Kunden Tausch anlegen“ ist so vorgesehen und geht damit.
+
 * **07.10.2026 – Alte Richtlinien aufgeräumt, Transporter beim Büro (Migration 75, Service Worker
   v121).** Die Prüfabfrage zeigte 39 alte, zu weite Richtlinien aus 13–16 in der Produktivdatenbank
   (jeder konnte alle Kunden lesen, für Nutzer galt bei Aufträgen die Matrix nicht). Entschieden:
