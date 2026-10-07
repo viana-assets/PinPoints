@@ -316,6 +316,21 @@ gefahrlos auszuführen, wenn die frühe Fassung nie lief – sie findet dann sch
 Merksatz für jede Umbenennung: Erst nach dem **alten** Namen droppen, dann unter dem neuen
 anlegen.
 
+**Und ein drittes Mal (gefunden 07.10.2026, behoben mit Migration 75):** Neben den „Bereich …“-
+Richtlinien standen noch 39 aus den Migrationen 13–16 – „Kunden lesen“, „Kontakthistorie lesen“,
+„Fahrzeuge lesen“, „Mitarbeiter lesen“ mit `true`, „Nicht-Techniker verwalten Auftraege“ für alle
+außer Techniker, „Eingeloggte Nutzer verwalten eingelagerte Räder“ und die alten
+`has_module_permission('view.…'/'action.…')`-Richtlinien. Migration 42 hatte etwa „Nicht-Techniker
+verwalten Aufträge“ mit „ä“ gedroppt; die Richtlinie hieß „Auftraege“. `drop policy if exists` mit
+falschem Namen tut still nichts. Folge: Jeder Angemeldete konnte über die Schnittstelle alle Kunden
+lesen, und bei der Rolle Nutzer galt die Matrix für Aufträge nicht. **Wer Richtlinien ersetzt,
+prüft danach mit `pg_policies`, was tatsächlich auf der Tabelle steht** – die Prüfabfrage gehört
+in die Ergebnistabelle der Migration. Seit Migration 75 gelten auf diesen Tabellen nur noch die
+„Bereich …“-Richtlinien, dazu „Techniker legt Fahrzeug eigener Kunden an“ (73) und „Artikel für
+Leistungen lesen“ (75: wer Leistungen lesen darf, liest Artikel und Preise – der Techniker braucht
+sie für die Leistungen, das Recht „Artikel lesen“ hat er nicht). Sichtbare Folge: Im Lager sieht
+der Techniker bei Sätzen fremder Kunden „Unbekannter Kunde“.
+
 **Ein verbotenes DELETE meldet sich nicht.** Eine Richtlinie, die ein `delete` verbietet, wirft
 keinen Fehler – die Zeile ist für die Anweisung schlicht nicht sichtbar, es werden null Zeilen
 gelöscht, und der Nutzer klickt „Löschen", nichts passiert, niemand sagt warum. Deshalb fragen

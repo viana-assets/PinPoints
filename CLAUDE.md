@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 07.10.2026 (Migrationen bis 74, 73 und 74 noch auszuführen; Service Worker v120; Regeln seit der Projektdurchsicht vom
+Stand: 07.10.2026 (Migrationen bis 75, 73–75 noch auszuführen; Service Worker v121; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -142,6 +142,10 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
   **Das ist Absicht und keine Lücke – nicht „reparieren".**
 - Regel daraus: **Durchsetzung, die sich erklären muss, gehört in einen BEFORE-Trigger,
   nicht in eine Policy.**
+- **`drop policy if exists` mit falschem Namen tut still nichts.** Migration 42 droppte „…
+  Aufträge“, die Richtlinie hieß „… Auftraege“ – 39 alte, viel zu weite Richtlinien aus 13–16
+  standen bis Migration 75 (07.10.2026) weiter und lockerten per ODER jede neue. Wer Richtlinien
+  ersetzt, gibt in der Ergebnistabelle aus, was laut `pg_policies` danach auf der Tabelle steht.
 - **„Alle Daten löschen“ (Migration 72) leert JEDE Tabelle in `public`**, außer denen in
   `alle_daten_behalten()` (Profile, Rechte, Einstellungen, Push-Geräte). Eine neue Tabelle wird
   also automatisch mitgelöscht – richtig für Fachdaten. Soll eine neue EINSTELLUNGS-Tabelle das

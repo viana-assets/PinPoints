@@ -472,7 +472,9 @@ export function AuftragModal({
         assignedEmployeeIds: mitarbeiterIds,
         ...(laufkunde ? { laufkunde: { name: lkName, telefon: lkTelefon, ort: lkOrt } } : {}),
       });
-      if (firmenfahrzeugId !== (order.firmenfahrzeug_id || "")) await onSetFirmenfahrzeug(order.id, firmenfahrzeugId || null);
+      // Den Transporter teilt das Büro ein (Migration 75): Beim Techniker nie mitschreiben – sonst
+      // überschriebe ein offenes Fenster mit altem Stand eine Änderung, die das Büro inzwischen gemacht hat.
+      if (!isTechniker && firmenfahrzeugId !== (order.firmenfahrzeug_id || "")) await onSetFirmenfahrzeug(order.id, firmenfahrzeugId || null);
       if (notiz !== (order.techniker_notiz || "")) await onUpdateTechnikerNotiz(order.id, notiz);
       setGespeichert(true);
     } finally {

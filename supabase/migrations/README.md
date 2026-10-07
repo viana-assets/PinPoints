@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 73 und 74** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
+**Noch auszuführen: 73, 74 und 75** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -928,3 +928,20 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   fremder Kunde abgewiesen; Fahrzeugangaben beim eigenen Kunden gespeichert, beim fremden abgewiesen;
   Admin ändert eine vorhandene Adresse; Protokoll nennt den Techniker; ohne „Aufträge schreiben“
   abgewiesen; zurückgenommen, zweimal, erneut ausgeführt.
+- `75_alte_richtlinien_aufraeumen.sql` – **nach `74`, SQL zuerst, dann die Dateien von v121.** Die
+  Prüfabfrage vom 07.10.2026 zeigte in der Produktivdatenbank 39 alte Richtlinien aus 13–16 neben den
+  „Bereich …“-Richtlinien (u. a. „Kunden lesen“, „Kontakthistorie lesen“, „Fahrzeuge lesen“,
+  „Mitarbeiter lesen“ mit `true`, „Nicht-Techniker verwalten Auftraege“, „Eingeloggte Nutzer verwalten
+  eingelagerte Räder“). Entschieden: aufräumen. EIN do-Block: prüft zuerst, dass jede betroffene
+  Tabelle für jede Aktion eine „Bereich …“-Richtlinie hat (außer Löschen bei `tire_storage`, das es
+  nie gibt), bricht sonst ohne Änderung ab; legt „Artikel für Leistungen lesen“ auf `articles` und
+  `article_prices` an (`darf('auftraege.leistungen','lesen')`) und entfernt die 39. Dazu
+  `restrict_techniker_order_update()` neu: Den Transporter ändert der Techniker nicht mehr.
+  Ergebnistabelle mit drei Zeilen (alte Richtlinien 0, „Artikel für Leistungen lesen“ 2 von 2,
+  Transporter gesperrt true). Zweiter Lauf folgenlos. Rücknahme: `rollback/75_rollback.sql` (stellt
+  die 39 genau wieder her, aus `pg_policies` abgeschrieben; zweimal lauffähig). Geprüft gegen Postgres
+  16 (Stand 74): Wächter bricht ab, wenn eine Ersatzrichtlinie fehlt; Sichtbarkeit je Rolle vorher/
+  nachher – Admin und Nutzer unverändert, Techniker nur eigene Kunden, Fahrzeuge, Kollegen, Artikel
+  weiter lesbar; der ganze Technikerablauf (25 Schritte) geht weiter, Transporter abgewiesen; Nutzer
+  legt Kunde und Auftrag an; Admin setzt Transporter; zurückgenommen, zweimal – Richtlinien identisch
+  mit vorher –, erneut ausgeführt.

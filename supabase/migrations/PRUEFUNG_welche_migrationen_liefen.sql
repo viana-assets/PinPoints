@@ -138,7 +138,9 @@ with pruefungen(nr, was, vorhanden) as (
     ('72', 'Alle Daten löschen (Superadmin)', to_regprocedure('public.alle_daten_loeschen(text)') is not null),
     ('73', 'Techniker legt Kennzeichen an', exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'vehicles' and policyname = 'Techniker legt Fahrzeug eigener Kunden an')),
     ('74', 'Techniker ergänzt E-Mail und Fahrzeugangaben', to_regprocedure('public.kunde_email_ergaenzen(uuid,text)') is not null
-                                                  and to_regprocedure('public.fahrzeug_angaben_ergaenzen(uuid,text,text)') is not null)
+                                                  and to_regprocedure('public.fahrzeug_angaben_ergaenzen(uuid,text,text)') is not null),
+    ('75', 'Alte Richtlinien aufgeräumt', not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'customers' and policyname = 'Kunden lesen')
+                                                  and exists (select 1 from pg_policies where schemaname = 'public' and policyname = 'Artikel für Leistungen lesen'))
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

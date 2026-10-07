@@ -337,7 +337,7 @@ viana-pinpoints/
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
       alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–74
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–75
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -668,7 +668,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 74** (07.10.2026; 73 und 74 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 75** (07.10.2026; 73–75 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -758,6 +758,10 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **74** – `kunde_email_ergaenzen()` und `fahrzeug_angaben_ergaenzen()`: Wer Kunden schreiben darf,
   und der Techniker bei Kunden seiner Aufträge, setzen die E-Mail (der Techniker nur, wenn noch keine
   hinterlegt ist) bzw. Marke/Modell und Reifengröße – genau diese Felder, nicht die ganze Zeile.
+- **75** – 39 alte Richtlinien aus den Migrationen 13–16 entfernt (sie lockerten per ODER die
+  „Bereich …“-Richtlinien, etwa „Kunden lesen“ = true); Ersatz nur „Artikel für Leistungen lesen“.
+  Der Transporter (`orders.firmenfahrzeug_id`) ist für den Techniker gesperrt. Siehe
+  `docs/berechtigungen-und-rollen.md`, „Fallen“.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

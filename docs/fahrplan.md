@@ -16,6 +16,13 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **07.10.2026 – Alte Richtlinien aufgeräumt, Transporter beim Büro (Migration 75, Service Worker
+  v121).** Die Prüfabfrage zeigte 39 alte, zu weite Richtlinien aus 13–16 in der Produktivdatenbank
+  (jeder konnte alle Kunden lesen, für Nutzer galt bei Aufträgen die Matrix nicht). Entschieden:
+  aufräumen; „Rechnung nötig“ bleibt für den Techniker schaltbar (er entscheidet beim Kunden); den
+  Transporter teilt das Büro ein – jetzt auch in der Datenbank. „Neuer Auftrag“ im Auslagern-Dialog
+  braucht der Techniker nicht (v119 ausgeblendet).
+
 * **07.10.2026 – Tagesliste unter dem Monat nach Uhrzeit (Service Worker v120, ohne Migration).**
   Rückmeldung mit Bildschirmfoto: Die Aufträge des Tages standen in Ladereihenfolge (17:45 vor
   14:31). Jetzt früheste Uhrzeit zuerst, ohne Uhrzeit am Ende, je Mitarbeitergruppe.
