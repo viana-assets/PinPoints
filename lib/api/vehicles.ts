@@ -75,3 +75,13 @@ export async function updateVehicleById(supabase: SupabaseClient, id: string, fi
 export async function deleteVehicleById(supabase: SupabaseClient, id: string): Promise<void> {
   await qWrite("Das Fahrzeug konnte nicht gelöscht werden", supabase.from("vehicles").delete().eq("id", id));
 }
+
+// Marke/Modell und Reifengröße ergänzen (Migration 74, v119). Über eine Funktion statt über
+// `updateVehicleById`: Der Techniker darf an Fahrzeugen seiner Kunden genau diese zwei Felder
+// ändern, nicht Kennzeichen, Notiz oder Kunde – die Datenbank prüft das selbst.
+export async function fahrzeugAngabenErgaenzen(supabase: SupabaseClient, id: string, modell: string, reifengroesse: string): Promise<void> {
+  await qWrite(
+    "Die Angaben zum Fahrzeug konnten nicht gespeichert werden",
+    supabase.rpc("fahrzeug_angaben_ergaenzen", { p_fahrzeug: id, p_modell: modell, p_reifengroesse: reifengroesse })
+  );
+}

@@ -19,7 +19,7 @@ import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 // Auto bearbeitet wird, ist keine Frage der Abrechnung.
 export function FahrzeugeBlock({
   fahrzeuge, alleFahrzeuge, gesperrt,
-  onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
+  onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen,
 }: {
   // Die Fahrzeuge DIESES Auftrags, angereichert um das zugehörige Fahrzeug.
   fahrzeuge: (AuftragFahrzeug & { fahrzeug: Vehicle | null })[];
@@ -29,10 +29,24 @@ export function FahrzeugeBlock({
   onFahrzeugHinzufuegen: (vehicleId: string) => Promise<void>;
   onFahrzeugAnlegen: (kennzeichen: string) => Promise<void>;
   onKilometerstand: (id: string, km: number | null) => Promise<void>;
+  // Marke/Modell und Reifengröße ergänzen (Migration 74, v119). Fehlt der Handler, gibt es den
+  // Knopf nicht.
+  onFahrzeugAngaben?: (vehicleId: string, modell: string, reifengroesse: string) => Promise<void>;
   onFahrzeugEntfernen: (id: string) => Promise<void>;
 }) {
   const [neuesKennzeichen, setNeuesKennzeichen] = useState("");
   const [auswahl, setAuswahl] = useState("");
+  // Welches Fahrzeug gerade seine Angaben bekommt – immer nur eins, mit eigenem Entwurf.
+  const [angaben, setAngaben] = useState<{ id: string; modell: string; groesse: string } | null>(null);
+  const [speichert, setSpeichert] = useState(false);
+  async function angabenSpeichern() {
+    if (!angaben || !onFahrzeugAngaben) return;
+    setSpeichert(true);
+    try {
+      await onFahrzeugAngaben(angaben.id, angaben.modell.trim(), angaben.groesse.trim());
+      setAngaben(null);
+    } finally { setSpeichert(false); }
+  }
 
   // Nur Fahrzeuge anbieten, die noch nicht am Auftrag stehen – ein Auto zweimal einzutragen
   // hieße zwei Kilometerstände für denselben Wagen am selben Tag, und die Datenbank lehnt es
@@ -82,6 +96,31 @@ export function FahrzeugeBlock({
               />
               <span>km</span>
             </label>
+            {onFahrzeugAngaben && !gesperrt && angaben?.id !== f.vehicle_id && (
+              <button type="button" className="es-knopf ao-fz-angaben-knopf"
+                onClick={() => setAngaben({ id: f.vehicle_id, modell: f.fahrzeug?.make_model ?? "", groesse: f.fahrzeug?.tire_size ?? "" })}>
+                {f.fahrzeug?.make_model && f.fahrzeug?.tire_size ? "Modell / Reifengröße ändern" : "Modell / Reifengröße ergänzen"}
+              </button>
+            )}
+            {angaben?.id === f.vehicle_id && (
+              <div className="ao-fz-angaben">
+                <label className="nk-feld"><span>Marke / Modell</span>
+                  <input type="text" placeholder="z. B. VW Golf" value={angaben.modell} maxLength={100}
+                    onChange={(e) => setAngaben({ ...angaben, modell: e.target.value })} />
+                </label>
+                <label className="nk-feld"><span>Reifengröße</span>
+                  <input type="text" placeholder="z. B. 205/55 R16" value={angaben.groesse} maxLength={60}
+                    onChange={(e) => setAngaben({ ...angaben, groesse: e.target.value })} />
+                </label>
+                <div className="pk-knoepfe">
+                  <button type="button" className="am-mini" disabled={speichert} onClick={() => void angabenSpeichern()}>
+                    {speichert ? "Speichert …" : "Speichern"}
+                  </button>
+                  <button type="button" className="btn-secondary btn-rand" disabled={speichert} onClick={() => setAngaben(null)}>Abbrechen</button>
+                </div>
+                <span className="small">Wird beim Fahrzeug des Kunden gespeichert.</span>
+              </div>
+            )}
           </div>
         );
       })}

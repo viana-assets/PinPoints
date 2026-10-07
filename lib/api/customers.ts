@@ -365,3 +365,13 @@ export async function fetchKundeAuskunft(supabase: SupabaseClient, id: string): 
   if (!daten) throw new ApiError("Der Auskunftsauszug konnte nicht erstellt werden", { message: "keine Rückmeldung der Datenbank." });
   return daten;
 }
+
+// Die E-Mail-Adresse des Kunden aus dem Auftrag heraus (Migration 74, v119). Wer Kunden schreiben
+// darf, setzt sie; der Techniker darf sie bei Kunden seiner Aufträge ergänzen, solange noch keine
+// hinterlegt ist – ohne sie lässt sich ein Auftrag mit „Rechnung nötig“ nicht abschließen.
+export async function kundeEmailErgaenzen(supabase: SupabaseClient, kundeId: string, email: string): Promise<void> {
+  await qWrite(
+    "Die E-Mail-Adresse konnte nicht gespeichert werden",
+    supabase.rpc("kunde_email_ergaenzen", { p_kunde: kundeId, p_email: email })
+  );
+}

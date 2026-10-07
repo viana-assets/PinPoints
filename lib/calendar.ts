@@ -219,3 +219,11 @@ export function zeitfenster(
   }
   return { vonStunde: Math.max(0, von), bisStunde: Math.min(24, Math.max(bis, von + 1)) };
 }
+
+// Reihenfolge der Termine eines Tages: früheste Uhrzeit zuerst, ohne Uhrzeit ans Ende, bei
+// gleicher Zeit nach Auftragsnummer. Die Tagesliste unter dem Monatskalender zeigte die Aufträge
+// bis v119 in der Reihenfolge, in der sie geladen wurden – 17:45 stand vor 14:31 (Rückmeldung
+// 07.10.2026). Nur die Uhrzeit, nicht das Datum: verglichen werden Aufträge DESSELBEN Tages.
+export function nachUhrzeit(a: { time: string | null; order_number: number }, b: { time: string | null; order_number: number }): number {
+  return (a.time || "99:99").localeCompare(b.time || "99:99") || a.order_number - b.order_number;
+}

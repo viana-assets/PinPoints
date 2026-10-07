@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 73** (Abschnitt „Noch auszuführen“ unten). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
+**Noch auszuführen: 73 und 74** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -914,3 +914,17 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   beim eigenen Kunden an; beim fremden Kunden abgewiesen; Ändern bleibt wirkungslos; Nutzer
   unverändert; ohne „Aufträge schreiben“ abgewiesen; Foto und Kilometerstand am eigenen Auftrag gehen
   (schon vorher); zurückgenommen, zweimal, danach wieder abgewiesen; erneut ausgeführt.
+- `74_techniker_email_und_fahrzeugangaben.sql` – **nach `73`, SQL zuerst, dann die Dateien von v119.**
+  Durchsicht 07.10.2026: Der Techniker konnte eine fehlende E-Mail des Kunden nicht eintragen (ohne
+  sie scheitert der Abschluss mit „Rechnung nötig“) und Modell/Reifengröße am Fahrzeug nicht ergänzen.
+  Zwei Funktionen statt Richtlinien, damit nur genau diese Felder frei werden:
+  `kunde_email_ergaenzen(kunde, email)` (Kunden schreiben – immer; Techniker – eigene Kunden, mit
+  „Aufträge schreiben“, nur solange keine Adresse hinterlegt ist; einfache Formatprüfung, klein
+  geschrieben) und `fahrzeug_angaben_ergaenzen(fahrzeug, modell, reifengroesse)` (Kunden schreiben –
+  immer; Techniker – Fahrzeuge eigener Kunden). Beides läuft durch Protokoll und Stempel.
+  Ergebnistabelle mit zwei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/74_rollback.sql`
+  (entfernt die Funktionen; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 73): ungültige
+  Adresse abgewiesen; Techniker trägt fehlende Adresse ein (getrimmt, klein); zweite abgewiesen;
+  fremder Kunde abgewiesen; Fahrzeugangaben beim eigenen Kunden gespeichert, beim fremden abgewiesen;
+  Admin ändert eine vorhandene Adresse; Protokoll nennt den Techniker; ohne „Aufträge schreiben“
+  abgewiesen; zurückgenommen, zweimal, erneut ausgeführt.

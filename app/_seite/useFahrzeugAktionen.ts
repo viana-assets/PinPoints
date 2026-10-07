@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QueryClient } from "@tanstack/react-query";
 import { addAuftragFahrzeug, removeAuftragFahrzeug, setKilometerstand } from "@/lib/api/auftragFahrzeuge";
 import { updateTireStorageDetails } from "@/lib/api/lager";
-import { deleteVehicleById, fetchVehiclesFuerKunde, insertVehicle, updateVehicleById } from "@/lib/api/vehicles";
+import { deleteVehicleById, fahrzeugAngabenErgaenzen, fetchVehiclesFuerKunde, insertVehicle, updateVehicleById } from "@/lib/api/vehicles";
 import { fahrzeugMitKennzeichen, kennzeichenGross } from "@/lib/kennzeichen";
 import { type Absicht, type AbsichtInhalt, auftragFahrzeugeAnwenden, fahrzeugeAnwenden, wartetAufAnlage } from "@/lib/offline/ausgang";
 import { useAuftragFahrzeuge, useEinsatzVorrat } from "@/lib/queries/hooks";
@@ -186,10 +186,18 @@ export function useFahrzeugAktionen(k: FahrzeugKontext) {
     await deleteVehicleById(supabase, id);
     await refreshVehicles();
   }
+  // Marke/Modell und Reifengröße aus dem Auftrag heraus (Migration 74, v119) – auch für den
+  // Techniker. Nur mit Netz: Ein Fahrzeug, das es am Server noch nicht gibt, hat noch nichts zu
+  // ergänzen, und der Ausgangskorb kennt diese Absicht (noch) nicht.
+  async function fahrzeugAngabenSetzen(id: string, modell: string, reifengroesse: string) {
+    if (netzLos()) throw new Error("Modell und Reifengröße lassen sich nur mit Netz speichern.");
+    await fahrzeugAngabenErgaenzen(supabase, id, modell, reifengroesse);
+    await refreshVehicles();
+  }
 
 
   return {
-    addVehicle, auftragFahrzeuge, deleteVehicle, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
+    addVehicle, auftragFahrzeuge, deleteVehicle, fahrzeugAngabenSetzen, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
     kilometerstandSetzen, rechnungsFahrzeugAnlegen, refreshVehicles, updateVehicle,
   };
 }

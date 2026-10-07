@@ -16,6 +16,18 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **07.10.2026 – Tagesliste unter dem Monat nach Uhrzeit (Service Worker v120, ohne Migration).**
+  Rückmeldung mit Bildschirmfoto: Die Aufträge des Tages standen in Ladereihenfolge (17:45 vor
+  14:31). Jetzt früheste Uhrzeit zuerst, ohne Uhrzeit am Ende, je Mitarbeitergruppe.
+
+* **07.10.2026 – Techniker ergänzt E-Mail und Fahrzeugangaben (Migration 74, Service Worker v119).**
+  Aus der Durchsicht „was kann der Techniker am Auftrag nicht“ (alle Schritte als Techniker gegen
+  die Datenbank gespielt). Behoben: fehlende E-Mail des Kunden (sonst kein Abschluss mit „Rechnung
+  nötig“), Modell/Reifengröße am Fahrzeug, und im Auslagern-Dialog kein „neuer Auftrag“ mehr für
+  den Techniker. Offen zur Entscheidung: ob der Techniker „Rechnung nötig“ ausschalten darf, ob er
+  den Transporter selbst wählt, und das Aufräumen alter Richtlinien aus Migration 15/16 (laut
+  Prüfabfrage vom 07.10.2026 in der Produktivdatenbank noch aktiv).
+
 * **07.10.2026 – Techniker legt Kennzeichen an (Migration 73, Service Worker v118).** Befund aus dem
   Test: Der Techniker konnte kein neues Kennzeichen eintragen – die Datenbank verlangte dafür
   „Kunden schreiben“ – und damit auch keinen Kilometerstand (das Feld gehört zum Fahrzeug am

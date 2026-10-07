@@ -55,7 +55,7 @@ export function AuftragModal({
   fremdeSaetze, onAuslagern, onEtikett, ausLagerSaetze = [], fruehereEinlagerungen = [], onVormerkungZuruecknehmen, verfuegbarkeit = null, onTausch,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, rechnungAnderswo, auftragFahrzeuge,
-  onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugEntfernen,
+  onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen,
   onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
@@ -166,6 +166,8 @@ export function AuftragModal({
   // Einlagerungsblock heraus, mit anderer Bedeutung und anderen Argumenten.
   onRechnungsFahrzeugAnlegen: (orderId: string, kundeId: string, kennzeichen: string) => Promise<void>;
   onKilometerstand: (id: string, km: number | null) => Promise<void>;
+  // Marke/Modell und Reifengröße eines Fahrzeugs (Migration 74) – auch für den Techniker.
+  onFahrzeugAngaben?: (vehicleId: string, modell: string, reifengroesse: string) => Promise<void>;
   onFahrzeugEntfernen: (id: string) => Promise<void>;
   onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
@@ -984,6 +986,7 @@ export function AuftragModal({
               onFahrzeugHinzufuegen={(vid) => onFahrzeugHinzufuegen(order.id, vid)}
               onFahrzeugAnlegen={(kz) => onRechnungsFahrzeugAnlegen(order.id, order.customer_id, kz)}
               onKilometerstand={onKilometerstand}
+              onFahrzeugAngaben={onFahrzeugAngaben}
               onFahrzeugEntfernen={onFahrzeugEntfernen}
             />
           </div>
@@ -1042,7 +1045,10 @@ export function AuftragModal({
               <RechnungsdatenBlock
                 kunde={customer ?? null}
                 gesperrt={gesperrt}
-                darfKundeAendern={!isTechniker}
+                // Seit v119 auch der Techniker: Eine FEHLENDE E-Mail darf er bei seinem Kunden
+                // ergänzen (Migration 74, `kunde_email_ergaenzen()`), sonst ließe sich sein
+                // Auftrag nicht abschließen. Eine schon hinterlegte ändert weiter das Büro.
+                darfKundeAendern
                 fahrzeuge={auftragsFahrzeuge}
                 onEmailSpeichern={(email) => onEmailSpeichern(order.customer_id, email)}
               />

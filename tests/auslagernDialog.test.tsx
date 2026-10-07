@@ -55,6 +55,13 @@ describe("AuslagernDialog", () => {
     expect([...auswahl.options].map((o) => o.value)).toEqual(["neu", "sofort"]);
   });
 
+  it("bietet dem Techniker keinen neuen Auftrag an (v119) – ohne offenen Auftrag steht „sofort“ vorn", () => {
+    zeige({ offeneAuftraege: [], vorschlagAuftragId: null, darfNeuerAuftrag: false });
+    const auswahl = screen.getByLabelText("Mit welchem Auftrag?") as HTMLSelectElement;
+    expect(auswahl.value).toBe("sofort");
+    expect([...auswahl.options].map((o) => o.value)).toEqual(["sofort"]);
+  });
+
   it("zeigt bei einem vorgemerkten Satz nur den Weg zum Auftrag und zum Zurücknehmen", () => {
     const onZuruecknehmen = vi.fn(async () => {});
     zeige({ satz: { ...satz, entnahme_order_id: "o1" }, vorgemerktFuer: auftrag("o1", 101, "2099-12-20"), onZuruecknehmen });

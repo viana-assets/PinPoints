@@ -35,6 +35,7 @@ export type AuslagernWahl = {
 export function AuslagernDialog({
   satz, kunde, fahrzeug, slot, warehouse, gebuehrArtikel, articlePrices,
   offeneAuftraege, vorschlagAuftragId, vorgemerktFuer, onAbbrechen, onAuslagern, onAuftragOeffnen, onZuruecknehmen,
+  darfNeuerAuftrag = true,
 }: {
   satz: TireStorage;
   kunde: Customer | undefined;
@@ -57,6 +58,9 @@ export function AuslagernDialog({
   onAuslagern: (wahl: AuslagernWahl) => Promise<void>;
   onAuftragOeffnen: (auftragId: string) => void;
   onZuruecknehmen: () => Promise<void>;
+  // Darf hier ein neuer Auftrag entstehen? Der Techniker darf keine Aufträge anlegen (Migration
+  // 42) – ohne diesen Schalter bot ihm die Liste eine Wahl an, die beim Ausführen scheiterte (v119).
+  darfNeuerAuftrag?: boolean;
 }) {
   const [artikelId, setArtikelId] = useState(gebuehrArtikel[0]?.id ?? "");
   // Die Menge folgt den berechneten Monaten, bis jemand sie selbst ändert.
@@ -80,7 +84,7 @@ export function AuslagernDialog({
   const vorschlagGilt = auswahl.some((o) => o.id === vorschlagAuftragId);
   const [ziel, setZiel] = useState<string>(
     eigenerOffen ? "sofort"
-      : (vorschlagGilt ? vorschlagAuftragId : null) ?? auswahl[0]?.id ?? (gebuehrArtikel.length > 0 ? "neu" : "sofort")
+      : (vorschlagGilt ? vorschlagAuftragId : null) ?? auswahl[0]?.id ?? (gebuehrArtikel.length > 0 && darfNeuerAuftrag ? "neu" : "sofort")
   );
   const [ohneGebuehr, setOhneGebuehr] = useState(gebuehrArtikel.length === 0);
   const [laeuft, setLaeuft] = useState(false);
@@ -184,7 +188,7 @@ export function AuslagernDialog({
                   {auftragsNr(o.order_number)} · {formatDate(o.order_date)} · {o.title}
                 </option>
               ))}
-              <option value="neu">Neuen Auftrag für diesen Kunden anlegen</option>
+              {darfNeuerAuftrag && <option value="neu">Neuen Auftrag für diesen Kunden anlegen</option>}
               <option value="sofort">Ohne Auftrag – jetzt gleich auslagern</option>
             </select>
             <span className="small">

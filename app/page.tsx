@@ -108,7 +108,7 @@ import {
 } from "@/lib/api/orders";
 import {
   markCustomerContacted, markCustomerOpen, setWiedervorlageBulk, setCustomerActive, deleteCustomerRow,
-  updateCustomerFieldsById, insertCustomer, setzePositionVonHand, positionNeuSuchen, testkundeLoeschen,
+  updateCustomerFieldsById, kundeEmailErgaenzen, insertCustomer, setzePositionVonHand, positionNeuSuchen, testkundeLoeschen,
 } from "@/lib/api/customers";
 import { upsertModulePermissions, type Bereichsrechte } from "@/lib/api/permissions";
 import {
@@ -1762,18 +1762,18 @@ export default function HomePage() {
   // „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
   // ---------------------------------------------------------------- Fahrzeuge (app/_seite/useFahrzeugAktionen.ts)
   const {
-    addVehicle, auftragFahrzeuge, deleteVehicle, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
+    addVehicle, auftragFahrzeuge, deleteVehicle, fahrzeugAngabenSetzen, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
     kilometerstandSetzen, rechnungsFahrzeugAnlegen, refreshVehicles, updateVehicle,
   } = useFahrzeugAktionen({
     supabase, queryClient, orders, offenerAuftragId, sitzungBereit, istOffline, netzLos, ausgang, auftragTitel,
     neuLaden, offlineOderDirekt, refreshTireStorages,
   });
   // Die E-Mail-Adresse aus der Rechnungs-Abhakliste landet beim KUNDEN, nicht am Auftrag.
+  // Seit v119 über `kunde_email_ergaenzen()` (Migration 74): So darf auch der Techniker eine
+  // fehlende Adresse eintragen – sonst ließe sich sein Auftrag mit „Rechnung nötig“ nicht
+  // abschließen. Die Funktion ändert nur dieses eine Feld; eine Geokodierung entfällt damit.
   async function kundenEmailSpeichern(kundeId: string, email: string) {
-    // `previousAddress` bleibt unverändert: Wir ändern nur die E-Mail-Adresse, und eine
-    // unveränderte Adresse soll keine erneute Geokodierung auslösen.
-    const kunde = customers.find((c) => c.id === kundeId);
-    await updateCustomerFieldsById(supabase, kundeId, { email }, kunde?.address);
+    await kundeEmailErgaenzen(supabase, kundeId, email);
     neuLaden(qk.kunden());
   }
 
@@ -3268,6 +3268,7 @@ export default function HomePage() {
             onAuslagern={(wahl) => auslagernAusfuehren(satz.id, wahl)}
             onAuftragOeffnen={(id) => { setAuslagernSatzId(null); setAuslagernAusAuftragId(null); setOffenerAuftragId(id); }}
             onZuruecknehmen={() => vormerkungAufheben(satz.id)}
+            darfNeuerAuftrag={!isTechniker && darf("auftraege.auftrag", "schreiben")}
           />
         );
       })()}
@@ -3367,6 +3368,7 @@ export default function HomePage() {
           onFahrzeugHinzufuegen={fahrzeugHinzufuegen}
           onRechnungsFahrzeugAnlegen={rechnungsFahrzeugAnlegen}
           onKilometerstand={kilometerstandSetzen}
+          onFahrzeugAngaben={fahrzeugAngabenSetzen}
           onFahrzeugEntfernen={fahrzeugEntfernen}
           onDelete={deleteOrder}
           onAddArticle={addOrderArticle}

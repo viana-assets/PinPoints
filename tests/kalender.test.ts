@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, gezogenerTermin, isoWeekNumber, startOfWeekMonday, toDateStr } from "@/lib/calendar";
+import { addDays, gezogenerTermin, isoWeekNumber, nachUhrzeit, startOfWeekMonday, toDateStr } from "@/lib/calendar";
 
 // Der Einsatzplanungs-Kalender hängt komplett an diesen vier Funktionen. Besonders die
 // ISO-Kalenderwoche und der Wochenstart sind klassische Stolperstellen (Jahreswechsel,
@@ -73,5 +73,14 @@ describe("gezogenerTermin", () => {
 
   it("endet spätestens um 23:59", () => {
     expect(gezogenerTermin("dauer", h(24), 0, h(22), h(23)).ende).toBe(h(23, 59));
+  });
+});
+
+describe("nachUhrzeit (Tagesliste, v119)", () => {
+  it("früheste Uhrzeit zuerst, ohne Uhrzeit ans Ende, gleiche Zeit nach Nummer", () => {
+    const t = (time: string | null, order_number: number) => ({ time, order_number });
+    const liste = [t("17:45", 4), t(null, 9), t("15:38", 3), t("14:31", 1), t("15:01", 2), t("15:01", 0)];
+    expect(liste.sort(nachUhrzeit).map((o) => `${o.time}/${o.order_number}`))
+      .toEqual(["14:31/1", "15:01/0", "15:01/2", "15:38/3", "17:45/4", "null/9"]);
   });
 });

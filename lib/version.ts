@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v118";
+export const APP_VERSION = "v120";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,20 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v120", datum: "2026-10-07", titel: "Tagesliste nach Uhrzeit",
+    punkte: [
+      "In der Einsatzplanung stehen die Aufträge unter dem Monatskalender jetzt nach Uhrzeit – der früheste Termin oben, Aufträge ohne Uhrzeit am Ende.",
+    ],
+  },
+  {
+    version: "v119", datum: "2026-10-07", titel: "Techniker ergänzt E-Mail und Fahrzeugangaben",
+    punkte: [
+      "Fehlt beim Kunden die E-Mail-Adresse, kann sie jetzt auch der Techniker im Auftrag eintragen – sonst ließ sich ein Auftrag mit „Rechnung nötig“ nicht abschließen. Eine schon hinterlegte Adresse ändert weiter das Büro.",
+      "Am Fahrzeug im Auftrag gibt es „Modell / Reifengröße ergänzen“ – für alle, die am Auftrag arbeiten, auch für den Techniker.",
+      "Beim Auslagern im Lager bietet die App dem Techniker keinen „neuen Auftrag“ mehr an – den legt das Büro an.",
+    ],
+  },
   {
     version: "v118", datum: "2026-10-07", titel: "Techniker trägt neue Kennzeichen ein",
     punkte: [

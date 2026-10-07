@@ -3618,6 +3618,9 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ao-km input{flex:1;min-width:0;max-width:180px;height:40px;border-radius:10px;border:1px solid var(--border);padding:0 10px;font:inherit;
   font-size:15px;font-weight:700;background:var(--panel);color:var(--text);}
 .ao-fz-hinzu{display:flex;flex-direction:column;gap:6px;}
+/* Modell / Reifengröße am Fahrzeug des Auftrags (v119). */
+.ao-fz-angaben-knopf{align-self:flex-start;}
+.ao-fz-angaben{display:flex;flex-direction:column;gap:8px;}
 .ao-fz-hinzu select{height:42px;border-radius:12px;border:1.5px dashed #c9bfa9;background:transparent;font:inherit;font-weight:700;
   font-size:14px;color:#6f6553;padding:0 10px;cursor:pointer;}
 .ao-fz-neu{display:flex;gap:6px;}

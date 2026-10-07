@@ -253,7 +253,9 @@ gestaltet" (Design-Arbeitsfläche „Einsatzplanung mobil"). Keine Funktion ist 
   (`position:sticky`, Höhe der Leiste als `--pl-hoehe` gemessen; `.raster` dafür mit
   `overflow:clip` statt `hidden`, sonst wäre es ein eigener Scrollbereich und sticky wirkungslos).
 - **Aufträge am Tag** (unter dem Monat) als Karten je Mitarbeiter: Zeit, Kunde, Transporter,
-  Status, Navigation; Karte öffnet den Auftrag, der Name den Kunden.
+  Status, Navigation; Karte öffnet den Auftrag, der Name den Kunden. Seit v120 nach Uhrzeit
+  sortiert, früheste zuerst, ohne Uhrzeit am Ende (`nachUhrzeit()` in `lib/calendar.ts`) – vorher
+  in Ladereihenfolge, 17:45 stand vor 14:31.
 - **Offene Aufträge** als Karten statt Tabelle, bei Sortierung nach Termin nach Tagen gruppiert.
   Mitarbeiter als Farbkreis (antippen = zuteilen, nicht für Techniker), Status als Pille,
   „⋯" mit Mitarbeiter zuteilen und Löschen. Sortierung als Auswahl (Termin/Kunde/Status) mit
@@ -705,7 +707,10 @@ dem Statuswechsel-Trigger (Funktionsname beginnt mit `trg_p`, extra so gewählt,
 sowie einen Kilometerstand. Die Fehlermeldung nennt **alle** fehlenden Punkte auf einmal, nicht
 nur den ersten. Beim Stornieren wird nichts verlangt. Im Auftragsfenster spiegelt
 `RechnungsdatenBlock.tsx`/`rechnungsdatenMaengel()` (`lib/helpers.ts`) dieselbe Regel als
-Abhakliste – sie sperrt nichts, die Datenbank ist die durchsetzende Instanz.
+Abhakliste – sie sperrt nichts, die Datenbank ist die durchsetzende Instanz. Eine fehlende
+E-Mail lässt sich dort direkt eintragen – seit v119 auch vom Techniker bei Kunden seiner Aufträge,
+solange noch keine hinterlegt ist (`kunde_email_ergaenzen()`, Migration 74); eine vorhandene ändert
+das Büro im Kundenfenster.
 
 **(d) Einlagerung/Altreifen – KEIN Zwang mehr.** Die frühere Fassung dieses Dokuments
 beschrieb hier noch eine Pflicht aus Migration 22: enthält der Auftrag eine Leistung mit
@@ -755,6 +760,10 @@ er ist **immer sichtbar** – nicht mehr, anders als bis zum 21.09.2026, nur hin
 Block trägt beliebig viele Fahrzeuge je Auftrag mit je eigenem Kilometerstand – etwa wenn zwei
 Autos desselben Kunden am selben Termin bereift werden –, bietet die übrigen Fahrzeuge des
 Kunden zur Auswahl an und legt ein neu eingetipptes Kennzeichen als Fahrzeug beim Kunden an.
+Seit v119 lassen sich je Fahrzeug **Marke/Modell und Reifengröße** ergänzen („Modell /
+Reifengröße ergänzen“) – über `fahrzeug_angaben_ergaenzen()` (Migration 74), damit auch der
+Techniker es kann, ohne Kennzeichen, Notiz oder Kunde ändern zu dürfen. Nur mit Netz. Das neue
+Kennzeichen darf der Techniker seit Migration 73 anlegen.
 `RechnungsdatenBlock.tsx` zeigt die Fahrzeuge seither nur noch **zum Prüfen**, als zwei
 Abhakzeilen „Fahrzeug" und „Kilometerstand" – geändert werden sie ausschließlich oben im Block
 „Fahrzeug".

@@ -528,7 +528,8 @@ Datenbankschreibvorgang, sondern einen Dialog (`AuslagernDialog`, `lib/helpers.t
 * **Mit welchem Auftrag der Satz herausgeht** (dort steht auch die Gebühr), wird im Dialog
   gewählt: vorgeschlagen der Auftrag, aus dem heraus ausgelagert wurde (falls er noch offen oder
   in Arbeit ist), sonst der neueste offene Auftrag des Kunden, sonst „Neuen Auftrag anlegen" –
-  der wird mit dem heutigen Datum angelegt und danach automatisch geöffnet. Dritte Wahl seit
+  der wird mit dem heutigen Datum angelegt und danach automatisch geöffnet (nicht für den
+  Techniker, der keine Aufträge anlegen darf – seit v119 fehlt ihm diese Wahl). Dritte Wahl seit
   v111: „Ohne Auftrag – jetzt gleich auslagern". Der Auftrag, in dem der Satz **eingelagert**
   wurde, steht nicht zur Wahl; ist er noch offen, macht jemand offenbar eine Einlagerung
   rückgängig, und „sofort" ist vorbelegt.

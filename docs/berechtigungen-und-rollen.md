@@ -229,7 +229,9 @@ bleibt das **Schreiben** an `darf('kunden','schreiben')` – wer die Anschrift s
 Eine Ausnahme seit Migration 73 (07.10.2026): Ein **neues Fahrzeug anlegen** darf der Techniker
 beim eigenen Kunden, wenn er Aufträge schreiben darf – das Kennzeichen am Auftrag gehört zu seiner
 Arbeit vor Ort, und ohne Fahrzeug gibt es kein Kilometerfeld. Ändern und Löschen von Fahrzeugen
-bleiben bei `darf('kunden','schreiben')`.
+bleiben bei `darf('kunden','schreiben')`. Seit Migration 74 (v119) zwei Funktionen für genau
+einzelne Felder: `kunde_email_ergaenzen()` (der Techniker nur bei eigenen Kunden und nur, solange
+keine Adresse hinterlegt ist) und `fahrzeug_angaben_ergaenzen()` (Marke/Modell, Reifengröße).
 
 **Nur Kollegen auf gemeinsamen Aufträgen** (Migration 42). `public.ist_kollege(mitarbeiter)`
 liefert wahr für einen selbst und für jeden, der mit einem auf mindestens einem Auftrag steht.

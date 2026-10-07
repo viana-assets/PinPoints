@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Customer, Employee, Firmenfahrzeug, Order, Verfuegbarkeit } from "@/lib/types";
 import { todayStr, formatDate, orderDateTime, terminZeitraum } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
-import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber } from "@/lib/calendar";
+import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber, nachUhrzeit } from "@/lib/calendar";
 import { AUFTRAGSFENSTER_LABEL, type AuftragsFenster } from "@/lib/api/orders";
 import { RasterLegende, Stundenraster } from "./Stundenraster";
 import { OrderModal } from "@/components/auftraege/OrderModal";
@@ -252,7 +252,8 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     return f ? f.kennzeichen : "unbekanntes Fahrzeug";
   }
 
-  const dayOrders = (selectedDay ? ordersOn(selectedDay) : []).filter(passtZumFahrzeug);
+  // Nach Uhrzeit (v119) – die Gruppen je Mitarbeiter übernehmen die Reihenfolge.
+  const dayOrders = (selectedDay ? ordersOn(selectedDay) : []).filter(passtZumFahrzeug).sort(nachUhrzeit);
   const dayGroups: { employee: Employee | null; orders: Order[] }[] = [
     ...employees.map((emp) => ({ employee: emp, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).includes(emp.id)) })),
     { employee: null, orders: dayOrders.filter((o) => (orderEmployees[o.id] || []).length === 0) },
