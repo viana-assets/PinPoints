@@ -226,6 +226,10 @@ Kunden? Bewusst **nicht** korrigiert wurde die Kontakthistorie: Wann wer mit dem
 telefoniert hat, ist Büroarbeit; der Techniker braucht die Anschrift, nicht den Vorgang. Ebenso
 bleibt das **Schreiben** an `darf('kunden','schreiben')` – wer die Anschrift seines Kunden
 ändern kann, ändert dessen Kartei.
+Eine Ausnahme seit Migration 73 (07.10.2026): Ein **neues Fahrzeug anlegen** darf der Techniker
+beim eigenen Kunden, wenn er Aufträge schreiben darf – das Kennzeichen am Auftrag gehört zu seiner
+Arbeit vor Ort, und ohne Fahrzeug gibt es kein Kilometerfeld. Ändern und Löschen von Fahrzeugen
+bleiben bei `darf('kunden','schreiben')`.
 
 **Nur Kollegen auf gemeinsamen Aufträgen** (Migration 42). `public.ist_kollege(mitarbeiter)`
 liefert wahr für einen selbst und für jeden, der mit einem auf mindestens einem Auftrag steht.

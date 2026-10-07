@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 72** (Abschnitt „Noch auszuführen“ unten). **Stand 06.10.2026: Alle Migrationen 01–71 sind in der Produktivdatenbank ausgeführt** (70 und 71 laut Vitali am 06.10.2026) –
+**Noch auszuführen: 73** (Abschnitt „Noch auszuführen“ unten). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -877,9 +877,9 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Protokoll hat die Änderung; zurückgenommen (Notiz VR in die leere Bemerkung geschrieben), zweimal,
   erneut ausgeführt.
 
-## Noch auszuführen
+## 06.10.2026 – ausgeführt (Vitali, 72)
 
-- `72_alle_daten_loeschen.sql` – **nach `71`, SQL zuerst, dann die Dateien von v117.** „Alle Daten
+- `72_alle_daten_loeschen.sql` – **ausgeführt 06.10.2026.** Nach `71`, SQL zuerst, dann die Dateien von v117. „Alle Daten
   löschen“ für den Superadmin (Admin › Wartung): `alle_daten_umfang()` (Zeilen je Tabelle, Zugänge,
   Fotos, ausgestellte Rechnungen), `alle_daten_sicherung()` (alle Tabellen als ein JSON-Dokument) und
   `alle_daten_loeschen('löschen')`. Beim Ausführen der Migration selbst wird **nichts** gelöscht – das
@@ -898,3 +898,19 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Zugänge übrig, Rechtetabelle unverändert, Betrieb leer mit Anfangsnummern, ein Protokolleintrag;
   danach ein neuer Kunde mit Nummer 10000 und ein Auftrag mit Nummer 1; zurückgenommen, zweimal,
   erneut ausgeführt.
+
+## Noch auszuführen
+
+- `73_techniker_kennzeichen.sql` – **nach `72`, SQL zuerst, dann die Dateien von v118.** Befund aus
+  dem Test 07.10.2026: Der Techniker konnte am Auftrag kein neues Kennzeichen anlegen (und ohne
+  Fahrzeug gibt es kein Kilometerfeld) – `vehicles` INSERT verlangte „Kunden schreiben“. Neu eine
+  zusätzliche INSERT-Richtlinie nur für die Rolle Techniker, nur für Kunden, auf deren Aufträgen er
+  eingeteilt ist (`ist_eigener_kunde()`), und nur mit „Aufträge schreiben“. Ändern und Löschen
+  bleiben bei „Kunden schreiben“. Ergebnistabelle mit vier Zeilen, darunter ohne Namen: wie viele
+  Techniker-Zugänge NICHT mit einem Mitarbeiter verknüpft sind (sollte 0 sein) und ob Techniker
+  Aufträge schreiben dürfen (sollte true sein) – ohne beides scheitern beim Techniker auch Fotos und
+  Kilometerstand. Zweiter Lauf folgenlos. Rücknahme: `rollback/73_rollback.sql` (entfernt nur die
+  Richtlinie; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 71): Techniker legt Kennzeichen
+  beim eigenen Kunden an; beim fremden Kunden abgewiesen; Ändern bleibt wirkungslos; Nutzer
+  unverändert; ohne „Aufträge schreiben“ abgewiesen; Foto und Kilometerstand am eigenen Auftrag gehen
+  (schon vorher); zurückgenommen, zweimal, danach wieder abgewiesen; erneut ausgeführt.

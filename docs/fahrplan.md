@@ -16,6 +16,13 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **07.10.2026 – Techniker legt Kennzeichen an (Migration 73, Service Worker v118).** Befund aus dem
+  Test: Der Techniker konnte kein neues Kennzeichen eintragen – die Datenbank verlangte dafür
+  „Kunden schreiben“ – und damit auch keinen Kilometerstand (das Feld gehört zum Fahrzeug am
+  Auftrag). Neu eine Richtlinie nur für den Techniker und nur für eigene Kunden. Fotos und
+  Kilometerstand am eigenen Auftrag gingen in der Datenbank schon; die Ergebnistabelle der
+  Migration zeigt, ob alle Techniker-Zugänge mit einem Mitarbeiter verknüpft sind.
+
 * **06.10.2026 – Alle Daten löschen für den Superadmin (Migration 72, Service Worker v117).** Wunsch
   06.10.2026: die Datenbank mit einem Befehl auf null stellen, wie bei einem frischen Unternehmen.
   Entschieden: wirklich alles, auch echte Rechnungen, Artikel, Lager, Mitarbeiter, Transporter,
