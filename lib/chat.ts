@@ -10,7 +10,9 @@ import type { PushInhalt } from "./pushInhalt";
 // tests/chat.test.ts. Datenzugriff in lib/api/chat.ts, Versand der Push-Meldung in
 // lib/chatVersand.ts, Oberfläche in components/chat/.
 //
-// Ein gemeinsamer Chat für alle mit dem Recht „chat · lesen“. Eine Nachricht kann eine KARTE
+// Ein gemeinsamer Chat für alle mit dem Recht „chat · lesen“ – seit Migration 84 (v137) dazu
+// Einzelchats zwischen zwei Personen, Bearbeiten/Löschen der eigenen Nachricht und Fotos (unten,
+// „Einzelchats, Bearbeiten/Löschen, Fotos“). Eine Nachricht kann eine KARTE
 // tragen – Auftrag, Kunde, Lagerplatz oder Verkaufsreifen. Die Karte ist ein Schnappschuss
 // (Titel und Unterzeile, wie sie beim Schreiben galten) plus die Kennung, über die das Antippen
 // den aktuellen Stand öffnet.
@@ -20,9 +22,16 @@ export const CHAT_TEXT_MAX = 4000;
 // So viel von der Nachricht steht in der Push-Meldung. Der Sperrbildschirm zeigt ohnehin nur
 // zwei, drei Zeilen; der Rest steht im Chat.
 export const CHAT_PUSH_TEXT_MAX = 140;
-// So viele Nachrichten lädt der Chat beim Öffnen. Ältere bleiben gespeichert (12 Monate), werden
-// aber erst gebraucht, wenn jemand weit zurückblättert – das kommt mit den Einzelchats.
+// So viele Nachrichten lädt der Chat beim Öffnen einer Unterhaltung. Ältere bleiben gespeichert
+// (12 Monate); „Ältere laden“ oben im Verlauf holt jeweils so viele dazu (seit v137).
 export const CHAT_LADEN_ANZAHL = 300;
+export const CHAT_NACHLADEN_ANZAHL = 300;
+// So lange nach dem Schreiben lässt sich eine Nachricht bearbeiten (Migration 84). Dieselbe Frist
+// prüft die Datenbank (`chat_nachricht_aendern()`). Wer eine Stelle ändert, ändert beide. Löschen
+// geht jederzeit.
+export const CHAT_BEARBEITEN_STUNDEN = 24;
+// Der private Speicherbereich für Fotos im Chat (Migration 84). Erster Ordner = der Schreiber.
+export const CHAT_FOTO_BUCKET = "chat-fotos";
 // Rückfall, falls die Live-Verbindung (Supabase Realtime) nicht steht: so oft wird nachgefragt.
 export const CHAT_ABFRAGE_MS = 20_000;
 // Länge eines Kartentitels und einer Unterzeile. Ein Auftragstitel kann lang sein; auf der Karte
@@ -41,8 +50,18 @@ export type ChatReaktion = { profile_id: string; emoji: string };
 
 export type ChatNachricht = {
   id: string;
+  // Seit Migration 84: 'team' oder 'direkt' (Einzelchat mit Empfänger `an`).
+  kanal?: "team" | "direkt";
+  an?: string | null;
   autor: string;
   text: string;
+  // Bearbeitet bzw. gelöscht (Migration 84). Eine gelöschte Nachricht hat keinen Text mehr.
+  bearbeitet_am?: string | null;
+  geloescht_am?: string | null;
+  // Foto (Migration 84): Pfad im Bucket `chat-fotos` und die Maße nach dem Verkleinern.
+  foto_pfad?: string | null;
+  foto_breite?: number | null;
+  foto_hoehe?: number | null;
   // Worauf die Nachricht antwortet (Migration 81). Leer, wenn keine Antwort oder die
   // Ursprungsnachricht aufgeräumt ist.
   antwort_auf?: string | null;
@@ -56,6 +75,16 @@ export type ChatNachricht = {
 };
 
 export type ChatPerson = { id: string; name: string; rolle: string };
+
+// Eine Zeile der Unterhaltungsliste (`chat_unterhaltungen()`, Migration 84). `partner` leer = Team.
+export type ChatUnterhaltung = {
+  partner: string | null;
+  letzte_am: string | null;
+  letzte_von: string | null;
+  letzte_text: string | null;
+  letzte_foto: boolean;
+  ungelesen: number;
+};
 
 // Wie die Karte im Verlauf aussieht: Zeichen links, Farbe, Text des Knopfes.
 export const CHAT_BEZUG_ANSICHT: Record<ChatBezugArt, { zeichen: string; oeffnen: string; klasse: string }> = {
@@ -236,11 +265,95 @@ export function meineReaktion(reaktionen: ChatReaktion[] | undefined, ichId: str
 // (mehr) geladen, steht „frühere Nachricht“ da.
 export const CHAT_ZITAT_MAX = 90;
 export function antwortVorschau(
-  ursprung: Pick<ChatNachricht, "autor" | "text" | "bezug_titel"> | null | undefined,
+  ursprung: Pick<ChatNachricht, "autor" | "text" | "bezug_titel" | "geloescht_am" | "foto_pfad"> | null | undefined,
   nameVon: (id: string) => string
 ): { wer: string; text: string } {
   if (!ursprung) return { wer: "", text: "frühere Nachricht" };
-  return { wer: nameVon(ursprung.autor), text: kuerzen(ursprung.text || ursprung.bezug_titel || "", CHAT_ZITAT_MAX) };
+  if (ursprung.geloescht_am) return { wer: nameVon(ursprung.autor), text: "Nachricht gelöscht" };
+  return { wer: nameVon(ursprung.autor), text: kuerzen(ursprung.text || ursprung.bezug_titel || (ursprung.foto_pfad ? "📷 Foto" : ""), CHAT_ZITAT_MAX) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Einzelchats, Bearbeiten/Löschen, Fotos (Migration 84, v137)
+// ---------------------------------------------------------------------------------------------
+
+// Bearbeiten: nur die eigene, nicht gelöschte Nachricht, nur innerhalb der Frist.
+export function darfBearbeiten(
+  n: Pick<ChatNachricht, "autor" | "created_at" | "geloescht_am">,
+  ichId: string | null,
+  jetzt: Date = new Date()
+): boolean {
+  if (!ichId || n.autor !== ichId || n.geloescht_am) return false;
+  return jetzt.getTime() - new Date(n.created_at).getTime() <= CHAT_BEARBEITEN_STUNDEN * 3_600_000;
+}
+
+export function darfLoeschen(n: Pick<ChatNachricht, "autor" | "geloescht_am">, ichId: string | null): boolean {
+  return !!ichId && n.autor === ichId && !n.geloescht_am;
+}
+
+// Der Pfad im Bucket: erst der Schreiber (danach richten sich Speicher-Richtlinien und die
+// Prüfregel `chat_foto_passt`), dann Zeitstempel und Zufall.
+export function chatFotoPfad(autorId: string, zufall: string, zeit: Date, endung: "jpg" | "png" = "jpg"): string {
+  const stempel = zeit.toISOString().replace(/[-:]/g, "").replace(/\..*$/, "");
+  return `${autorId}/${stempel}-${zufall}.${endung}`;
+}
+
+// Das Ziel aus dem Link einer Push-Meldung (`?chat=…`): „1“ ist der Team-Chat, eine Kennung der
+// Einzelchat mit dieser Person.
+export function chatZielAus(wert: string | null | undefined): string | null {
+  const w = (wert || "").trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(w) ? w.toLowerCase() : null;
+}
+
+// Was in der Unterhaltungsliste unter dem Namen steht.
+export function unterhaltungVorschau(u: ChatUnterhaltung, ichId: string | null, nameVon: (id: string) => string): string {
+  if (!u.letzte_am) return u.partner ? "Noch nichts geschrieben" : "Noch keine Nachrichten";
+  const wer = u.letzte_von === ichId ? "Du: " : !u.partner && u.letzte_von ? `${nameVon(u.letzte_von)}: ` : "";
+  const text = u.letzte_text?.trim() ? u.letzte_text : u.letzte_foto ? "📷 Foto" : "Nachricht gelöscht";
+  return kuerzen(wer + text, CHAT_ZITAT_MAX);
+}
+
+// Ein ausgewähltes, schon verkleinertes Foto vor dem Senden (lib/belegBild.ts).
+export type ChatFotoAuswahl = { blob: Blob; breite: number; hoehe: number };
+
+// Die Zeit rechts in der Unterhaltungsliste: heute die Uhrzeit, gestern „gestern“, sonst das Datum.
+export function listenZeit(iso: string | null, jetzt: Date = new Date()): string {
+  if (!iso) return "";
+  const l = tagLabel(iso, jetzt);
+  if (l === "HEUTE") return uhrzeit(iso);
+  if (l === "GESTERN") return "gestern";
+  const d = new Date(iso);
+  return `${d.getDate()}.${d.getMonth() + 1}.`;
+}
+
+export type ChatListenEintrag = { partner: string | null; name: string; vorschau: string; am: string | null; ungelesen: number; neu: boolean };
+
+// Die Liste: Team-Chat oben, dann die Einzelchats nach der letzten Nachricht, dann alle anderen
+// Personen mit Zugang (für eine neue Unterhaltung), nach Namen. Ohne mich selbst.
+export function chatListe(unterhaltungen: ChatUnterhaltung[], personen: ChatPerson[], ichId: string | null): ChatListenEintrag[] {
+  const nameNach = new Map(personen.map((p) => [p.id, p.name]));
+  const nameVon = (id: string) => nameNach.get(id) ?? "Ehemaliger Zugang";
+  const team = unterhaltungen.find((u) => u.partner === null);
+  const direkt = unterhaltungen
+    .filter((u): u is ChatUnterhaltung & { partner: string } => !!u.partner && u.partner !== ichId)
+    .sort((a, b) => (b.letzte_am || "").localeCompare(a.letzte_am || ""));
+  const mit = new Set(direkt.map((u) => u.partner));
+  return [
+    {
+      partner: null, name: "Team-Chat", am: team?.letzte_am ?? null, ungelesen: team?.ungelesen ?? 0, neu: false,
+      vorschau: team ? unterhaltungVorschau(team, ichId, nameVon) : "Alle mit Zugang",
+    },
+    ...direkt.map((u) => ({ partner: u.partner, name: nameVon(u.partner), vorschau: unterhaltungVorschau(u, ichId, nameVon), am: u.letzte_am, ungelesen: u.ungelesen, neu: false })),
+    ...personen
+      .filter((p) => p.id !== ichId && !mit.has(p.id))
+      .sort((a, b) => a.name.localeCompare(b.name, "de"))
+      .map((p) => ({ partner: p.id, name: p.name, vorschau: "Neue Unterhaltung", am: null, ungelesen: 0, neu: true })),
+  ];
+}
+
+// Ungelesen in den ANDEREN Unterhaltungen – die Zahl am Knopf „Chats“ im Kopf.
+export function ungelesenAnderswo(unterhaltungen: ChatUnterhaltung[], partner: string | null): number {
+  return unterhaltungen.filter((u) => u.partner !== partner).reduce((s, u) => s + (u.ungelesen || 0), 0);
 }
 
 // Die Trennlinie zwischen den Tagen: HEUTE, GESTERN, sonst „Mi 7.10.2026“.
@@ -299,12 +412,18 @@ export function chatPushInhalt(a: {
   id: string; autorName: string; text: string; bezugTitel: string | null; erwaehnt: boolean; zahl: number;
   // Der Empfänger hat die Nachricht geschrieben, auf die hier geantwortet wird (Migration 81).
   geantwortet?: boolean;
+  // Einzelchat (Migration 84): die Kennung des Schreibers – Antippen öffnet genau diese Unterhaltung.
+  direktVon?: string | null;
+  foto?: boolean;
 }): PushInhalt {
+  const inhalt = a.text.trim() ? a.text : a.foto ? "📷 Foto" : "";
   return {
-    titel: a.erwaehnt ? `${a.autorName} hat dich erwähnt` : a.geantwortet ? `${a.autorName} hat dir geantwortet` : `${a.autorName} im Team-Chat`,
-    text: kuerzen(a.bezugTitel ? `${a.text} · ${a.bezugTitel}` : a.text, CHAT_PUSH_TEXT_MAX),
+    titel: a.direktVon
+      ? (a.geantwortet ? `${a.autorName} hat dir geantwortet` : `${a.autorName} an dich`)
+      : a.erwaehnt ? `${a.autorName} hat dich erwähnt` : a.geantwortet ? `${a.autorName} hat dir geantwortet` : `${a.autorName} im Team-Chat`,
+    text: kuerzen(a.bezugTitel ? `${inhalt} · ${a.bezugTitel}` : inhalt, CHAT_PUSH_TEXT_MAX),
     // Antippen öffnet den Chat, nicht die Karte: Erst lesen, was dazu geschrieben wurde.
-    url: `/?${CHAT_PARAMETER}=1`,
+    url: `/?${CHAT_PARAMETER}=${a.direktVon ?? "1"}`,
     kennung: `chat-${a.id}`,
     zahl: a.zahl,
   };
@@ -347,11 +466,13 @@ export function bezugVorschlaege(
 // Die Meldung zu einer Reaktion – nur an den Verfasser der Nachricht (Migration 81).
 export function chatReaktionPushInhalt(a: {
   nachrichtId: string; vonId: string; vonName: string; emoji: string; text: string; zahl: number;
+  // Reaktion im Einzelchat (Migration 84): Antippen öffnet die Unterhaltung mit dieser Person.
+  direkt?: boolean;
 }): PushInhalt {
   return {
     titel: `${a.vonName} hat reagiert`,
     text: kuerzen(`${a.emoji} zu „${a.text}“`, CHAT_PUSH_TEXT_MAX),
-    url: `/?${CHAT_PARAMETER}=1`,
+    url: `/?${CHAT_PARAMETER}=${a.direkt ? a.vonId : "1"}`,
     // Eine geänderte Reaktion ersetzt die offene Meldung, statt eine zweite daneben zu legen.
     kennung: `chat-reaktion-${a.nachrichtId}-${a.vonId}`,
     zahl: a.zahl,

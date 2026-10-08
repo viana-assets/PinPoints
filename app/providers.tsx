@@ -91,7 +91,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           // nächsten Start als Zustand wiederherzustellen hilft niemandem.
           // Die Anzeige-Links der Fotos (E3, v105) ebenfalls nicht: Sie verfallen nach einer
           // Stunde, und ein Link mit Zugangsschlüssel gehört nicht dauerhaft aufs Gerät.
-          shouldDehydrateQuery: (abfrage) => abfrage.state.status === "success" && abfrage.queryKey[0] !== "beleglinks",
+          shouldDehydrateQuery: (abfrage) => abfrage.state.status === "success" && abfrage.queryKey[0] !== "beleglinks" && abfrage.queryKey[0] !== "chatfotolinks",
         },
       }}
     >

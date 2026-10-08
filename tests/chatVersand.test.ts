@@ -15,11 +15,15 @@ vi.mock("web-push", () => ({
   },
 }));
 
-import { chatNachrichtenVersenden } from "@/lib/chatVersand";
+import { chatFotosAufraeumen, chatNachrichtenVersenden } from "@/lib/chatVersand";
 
 type Zeile = Record<string, unknown>;
 
-function falscheDatenbank(tabellen: Record<string, Zeile[]>) {
+type Rpc = (name: string, args: Record<string, unknown>) => { data: unknown; error: { code: string; message: string } | null };
+// Ohne `rpc`-Antwort fehlen die Funktionen – wie vor Migration 84.
+const fehlt: Rpc = () => ({ data: null, error: { code: "PGRST202", message: "fehlt" } });
+
+function falscheDatenbank(tabellen: Record<string, Zeile[]>, rpc: Rpc = fehlt, entfernt: string[] = []) {
   function abfrage(name: string) {
     const filter: ((z: Zeile) => boolean)[] = [];
     let modus: "select" | "update" | "delete" | "zaehlen" = "select";
@@ -47,7 +51,11 @@ function falscheDatenbank(tabellen: Record<string, Zeile[]>) {
     };
     return builder;
   }
-  return { from: abfrage } as never;
+  return {
+    from: abfrage,
+    rpc: (name: string, args: Record<string, unknown>) => Promise.resolve(rpc(name, args)),
+    storage: { from: () => ({ remove: (pfade: string[]) => { entfernt.push(...pfade); return Promise.resolve({ data: [], error: null }); } }) },
+  } as never;
 }
 
 const vor = (min: number) => new Date(Date.now() - min * 60_000).toISOString();
@@ -163,5 +171,48 @@ describe("Team-Chat: Push je Nachricht", () => {
     gesendet.length = 0;
     await chatNachrichtenVersenden(supabase);
     expect(gesendet).toHaveLength(0);
+  });
+
+  // Einzelchats, Löschen, Fotos (Migration 84)
+  it("Einzelchat: nur der Empfänger, Titel „… an dich“, Antippen öffnet die Unterhaltung", async () => {
+    db.chat_nachrichten.push(nachricht("d1", "jan", { kanal: "direkt", an: "chef", text: "Hast du kurz Zeit?" }));
+    await chatNachrichtenVersenden(falscheDatenbank(db));
+    expect(gesendet).toHaveLength(1);
+    expect(gesendet[0].endpoint).toBe("handy-chef");
+    expect(gesendet[0].inhalt.titel).toBe("Jan an dich");
+    expect(gesendet[0].inhalt.url).toBe("/?chat=jan");
+  });
+
+  it("gelöscht vor dem Versand: keine Meldung; ein Foto ohne Text meldet sich als „📷 Foto“", async () => {
+    db.chat_nachrichten.push(
+      nachricht("g1", "jan", { text: "", geloescht_am: vor(0) }),
+      nachricht("f1", "jan", { text: "", foto_pfad: "jan/x.jpg" }),
+    );
+    const erg = await chatNachrichtenVersenden(falscheDatenbank(db));
+    expect(erg.nachrichten).toBe(1);
+    expect(gesendet.every((g) => g.inhalt.kennung === "chat-f1")).toBe(true);
+    expect(gesendet[0].inhalt.text).toBe("📷 Foto");
+  });
+
+  it("die Zahl kommt aus der Datenbank (Team und Einzelchats), wenn es die Funktion gibt", async () => {
+    db.chat_nachrichten.push(nachricht("n6", "jan"));
+    const rpc: Rpc = (name, args) => (name === "chat_ungelesen_von" ? { data: args.p_profile === "chef" ? 7 : 3, error: null } : fehlt(name, args));
+    await chatNachrichtenVersenden(falscheDatenbank(db, rpc));
+    expect(gesendet.find((g) => g.endpoint === "handy-chef")!.inhalt.zahl).toBe(7);
+    expect(gesendet.find((g) => g.endpoint === "handy-super")!.inhalt.zahl).toBe(3);
+  });
+
+  it("Fotodateien: vorgemerkte Pfade werden entfernt und abgehakt; vor Migration 84 nichts", async () => {
+    const entfernt: string[] = [];
+    let abgehakt: unknown = null;
+    const rpc: Rpc = (name, args) => {
+      if (name === "chat_fotos_weg_liste") return { data: ["jan/a.jpg", "chef/b.jpg"], error: null };
+      if (name === "chat_fotos_weg_erledigt") { abgehakt = args.p_pfade; return { data: 2, error: null }; }
+      return fehlt(name, args);
+    };
+    expect(await chatFotosAufraeumen(falscheDatenbank(db, rpc, entfernt))).toEqual({ entfernt: 2 });
+    expect(entfernt).toEqual(["jan/a.jpg", "chef/b.jpg"]);
+    expect(abgehakt).toEqual(["jan/a.jpg", "chef/b.jpg"]);
+    expect(await chatFotosAufraeumen(falscheDatenbank(db))).toEqual({ entfernt: 0 });
   });
 });

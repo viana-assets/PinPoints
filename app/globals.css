@@ -3999,6 +3999,53 @@ button.ch-bezug:hover{background:#efe8da;}
 .ch-aktion-knoepfe button{flex:1;border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px;
   font-weight:700;color:var(--text);cursor:pointer;}
 
+/* Einzelchats, Bearbeiten/Löschen, Fotos, Ältere laden (Migration 84, v137) */
+.ch-chats{position:relative;width:38px;height:38px;border-radius:50%;border:none;background:var(--bg);color:var(--marke);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
+.ch-chats svg{width:20px;height:20px;fill:currentColor;}
+.ch-chats.an{background:var(--marke);color:#fff;}
+.ch-chats .ch-zahl{top:-3px;right:-3px;}
+.ch-unterhaltungen{gap:2px;padding:6px 8px;}
+.ch-unterhaltung-zeile .ch-liste-titel{padding:12px 8px 4px;}
+.ch-unterhaltung{display:flex;align-items:center;gap:11px;width:100%;min-height:60px;padding:8px 8px;border:none;border-radius:12px;
+  background:transparent;text-align:left;font:inherit;color:inherit;cursor:pointer;}
+.ch-unterhaltung:hover{background:var(--hover);}
+.ch-unterhaltung.aktiv{background:var(--panel);box-shadow:inset 0 0 0 1px var(--border);}
+.ch-av.gross{width:36px;height:36px;font-size:13px;}
+.ch-unterhaltung-text{flex:1;min-width:0;}
+.ch-unterhaltung-text b{display:block;font-size:14.5px;}
+.ch-unterhaltung-text span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ch-unterhaltung.ungelesen .ch-unterhaltung-text span{color:var(--text);font-weight:600;}
+.ch-unterhaltung-rand{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;}
+.ch-unterhaltung-zeit{font-size:11.5px;color:var(--muted);}
+.ch-unterhaltung.ungelesen .ch-unterhaltung-zeit{color:var(--accent);font-weight:700;}
+.ch-zahl.innen{position:static;}
+.ch-mehr-laden{align-self:center;border:1px solid var(--border);background:var(--panel);border-radius:16px;padding:6px 14px;font:inherit;
+  font-size:12.5px;font-weight:700;color:var(--marke);cursor:pointer;}
+.ch-mehr-laden:disabled{opacity:.6;cursor:default;}
+.ch-nachricht.geloescht{background:transparent;box-shadow:inset 0 0 0 1px var(--border);}
+.ch-weg-text{font-style:italic;color:var(--muted);}
+.ch-nachricht.in-arbeit{box-shadow:0 0 0 2px var(--accent),0 1px 1px rgba(0,0,0,.06);}
+.ch-zitat.eingabe.bearbeiten{border-left-color:var(--accent);}
+.ch-zitat.eingabe.bearbeiten b{color:#b33d0d;}
+.ch-aktion-knoepfe button.gefahr{color:#b3261e;border-color:#f0c4bf;}
+.ch-loeschfrage{display:flex;flex-direction:column;gap:8px;max-width:280px;}
+.ch-loeschfrage > span{font-size:13px;font-weight:600;padding:2px 4px;}
+.ch-foto{display:block;width:240px;max-width:100%;padding:0;border:none;border-radius:10px;overflow:hidden;background:#e9e3d8;cursor:zoom-in;
+  margin:2px 0 4px;}
+.ch-foto img{display:block;width:100%;height:100%;object-fit:cover;}
+.ch-foto:disabled{cursor:default;}
+.ch-foto-laedt{display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:12px;color:var(--muted);}
+.ch-foto-vorschau{display:flex;align-items:center;gap:10px;margin-bottom:7px;background:var(--bg);border-radius:10px;padding:6px 8px;}
+.ch-foto-vorschau img{width:48px;height:48px;object-fit:cover;border-radius:8px;flex:0 0 auto;}
+.ch-foto-vorschau span{flex:1;min-width:0;font-size:12.5px;color:var(--muted);}
+.ch-kamera svg{width:19px;height:19px;fill:currentColor;}
+.ch-plus-knopf:disabled{opacity:.45;cursor:default;}
+/* Groß: Ebene 10004 wie Foto/Unterschrift am Auftrag */
+.ch-gross{z-index:10004;background:rgba(0,0,0,.88);align-items:center;justify-content:center;padding:16px;}
+.ch-gross img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;}
+.ch-gross-zu{position:absolute;top:calc(12px + env(safe-area-inset-top, 0px));right:12px;background:rgba(255,255,255,.92);}
+
 /* ===========================================================================
    Zeiterfassung / Stempeluhr (Migration 82, v131, Entwurf „Stempeluhr“ vom 08.10.2026)
    =========================================================================== */
@@ -4270,3 +4317,51 @@ button.zt-tag{cursor:pointer;}
 .btn-primary:hover{background:color-mix(in srgb, var(--accent) 88%, black);}
 .btn-danger:hover{background:color-mix(in srgb, var(--red) 88%, black);}
 .am-mini{border-radius:10px;}
+
+/* ---------------------------------------------------------------- Zeiterfassung: Monat, Urlaub, Export (v136, E20) */
+.zt-marke.urlaub{background:#e8f0fb;color:#1d5c86;}
+.zt-zelle.urlaub{color:#1d5c86;font-weight:800;}
+.zt-alle-sicht{margin:0;}
+.zt-summen-monat{flex-wrap:wrap;}
+.zt-summen-monat > div{flex:1 1 120px;}
+.zt-export{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;}
+.zt-warn-text{color:#7a4c00;font-weight:700;}
+/* Monatstabelle aller: Person, Tage, Arbeit, Pausen, Urlaub, Summe, Hinweise. */
+.zt-m{display:grid;grid-template-columns:minmax(130px,2fr) minmax(0,.7fr) repeat(4,minmax(0,1fr)) minmax(0,1.1fr);align-items:center;
+  border-bottom:1px solid #f1ece2;width:100%;}
+.zt-m:last-child{border-bottom:none;}
+.zt-m > *{padding:9px 4px;text-align:center;font-variant-numeric:tabular-nums;min-width:0;}
+.zt-m > :first-child{text-align:left;padding-left:10px;font-weight:700;}
+.zt-m.kopf{background:#faf7f1;font-size:11px;font-weight:800;color:var(--muted);}
+button.zt-m-zeile{border:none;border-radius:0;background:none;font:inherit;font-size:12.5px;color:var(--text);cursor:pointer;padding:0;}
+button.zt-m-zeile:hover{background:var(--hover);}
+@media (max-width: 700px){
+  .zt-m{grid-template-columns:minmax(70px,1.6fr) minmax(0,.6fr) repeat(2,minmax(0,1fr)) minmax(0,1fr);}
+  .zt-m > .zt-breit{display:none;}
+  .zt-m > *{padding:8px 2px;font-size:11.5px;}
+  .zt-m .ch-av{display:none;}
+}
+.zt-korrekturen{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+.zt-korrektur{display:flex;flex-direction:column;gap:2px;background:var(--bg);border-radius:12px;padding:9px 12px;font-size:13px;}
+.zt-blatt .zt-korrektur{background:var(--bg);}
+
+/* Arbeitszeitnachweis zum Drucken (components/zeit/ZeitNachweis.tsx): eine A4-Seite je Person. */
+.druckbogen.zn-dokument{display:block;max-height:none;overflow:visible;background:#ffffff;color:#000000;padding:18px 20px;}
+.zn-seite h1{font-size:17px;margin:0 0 4px;}
+.zn-seite p{margin:4px 0;}
+.zn-umbruch{break-before:page;page-break-before:always;margin-top:28px;}
+.zn-tabelle{width:100%;border-collapse:collapse;font-size:11.5px;margin:8px 0;}
+.zn-tabelle th,.zn-tabelle td{border-bottom:1px solid #d8d8d8;padding:3px 6px;text-align:left;font-variant-numeric:tabular-nums;}
+.zn-tabelle th{font-size:10.5px;color:#444444;}
+.zn-tabelle tr{break-inside:avoid;page-break-inside:avoid;}
+.zn-tabelle tr.zn-we td{color:#777777;background:#f6f6f6;}
+.zn-tabelle tfoot td{font-weight:700;border-top:2px solid #000000;border-bottom:none;}
+.zn-klein{font-size:10px;color:#555555;}
+.zn-unterschriften{display:flex;gap:28px;margin-top:34px;font-size:10.5px;color:#444444;}
+.zn-unterschriften > div{flex:1;}
+.zn-unterschriften span{display:block;border-bottom:1px solid #000000;height:26px;margin-bottom:4px;}
+@media print{
+  .zn-umbruch{margin-top:0;}
+  .zn-tabelle{font-size:10px;}
+  .zn-tabelle th,.zn-tabelle td{padding:2px 5px;}
+}

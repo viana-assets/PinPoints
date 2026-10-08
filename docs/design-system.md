@@ -239,7 +239,8 @@ darunter auf (bei einer freien Position ohne Text von selbst, mit orangem Rand).
 
 **Ebenen über dem Auftragsfenster** (`.modal-auftrag`, 10001): Bestätigung, Stapel-Auslagern und
 Auslagern-Dialog 10002, Rechnung und die Blätter im Auftrag (`.ao-blatt-overlay`, `.ls-overlay`)
-10003, Fotos, Unterschrift und Satz-Etikett (`.modal-etikett`, seit v108) 10004. Wer ein neues
+10003 (ebenso der Team-Chat, `.ch-overlay`), Fotos, Unterschrift und Satz-Etikett (`.modal-etikett`, seit v108)
+und das große Chatfoto (`.ch-gross`, v137) 10004. Wer ein neues
 Fenster in `app/page.tsx` anlegt, das auch aus dem Auftrag heraus aufgeht, ordnet es hier ein.
 
 Kein Kind eines `.auswahl-blatt` darf schrumpfen (`flex-shrink:0`): Das Blatt scrollt, und ein

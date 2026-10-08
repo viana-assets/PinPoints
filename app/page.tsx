@@ -57,7 +57,7 @@ import { NeuigkeitenBlatt } from "@/components/NeuigkeitenBlatt";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 import { ChatBlase } from "@/components/chat/ChatBlase";
 import { ChatFenster } from "@/components/chat/ChatFenster";
-import { bezugAuftrag, bezugKunde, bezugVorschlaege, type ChatBezug } from "@/lib/chat";
+import { bezugAuftrag, bezugKunde, bezugVorschlaege, chatZielAus, type ChatBezug } from "@/lib/chat";
 import { useChat } from "./_seite/useChat";
 import { useZeiterfassung } from "./_seite/useZeiterfassung";
 import { StempelKarte } from "@/components/zeit/StempelKarte";
@@ -2059,9 +2059,10 @@ export default function HomePage() {
   function zielOeffnen(parameter: URLSearchParams): void {
     // „Anrufen" zuerst: Diese Meldung hat genau einen Zweck, und wer sie antippt, hat das Handy
     // schon am Ohr im Sinn – da ist jedes andere Fenster im Weg.
-    // Team-Chat (Migration 80): Die Meldung zu einer neuen Nachricht öffnet den Chat.
+    // Team-Chat (Migration 80): Die Meldung zu einer neuen Nachricht öffnet den Chat – seit
+    // Migration 84 mit `?chat=<Kennung>` gleich den Einzelchat mit dieser Person.
     if (parameter.get(CHAT_PARAMETER)) {
-      chat.oeffnen();
+      chat.oeffnen(chatZielAus(parameter.get(CHAT_PARAMETER)));
       return;
     }
     const anrufId = parameter.get(ANRUF_PARAMETER);
@@ -2964,7 +2965,7 @@ export default function HomePage() {
         <ChatBlase
           zahl={chat.ungelesen}
           lage={!fullPageTabs ? (mobileMapVisible ? "karte-offen" : "bei-karte") : null}
-          onClick={chat.oeffnen}
+          onClick={() => chat.oeffnen()}
         />
       )}
       {chat.offen && (
@@ -2981,6 +2982,15 @@ export default function HomePage() {
           vorschlaege={(suche) => bezugVorschlaege(suche, orders, customers, todayStr())}
           onSenden={chat.senden}
           onReagieren={darfChatSchreiben ? chat.reagieren : undefined}
+          onBearbeiten={darfChatSchreiben ? chat.bearbeiten : undefined}
+          onLoeschen={darfChatSchreiben ? chat.loeschen : undefined}
+          partner={chat.partner}
+          unterhaltungen={chat.unterhaltungen}
+          onWechseln={chat.wechseln}
+          fotoLinks={chat.fotoLinks}
+          hatMehr={chat.hatMehr}
+          laedtMehr={chat.laedtMehr}
+          onMehrLaden={chat.mehrLaden}
           kannOeffnen={chatBezugKannOeffnen}
           onBezugOeffnen={chatBezugOeffnen}
           onClose={chat.schliessen}

@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: nichts.** **Stand 08.10.2026: Alle Migrationen 01–82 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb) –
+**Noch auszuführen: 83, 84** (siehe ganz unten). **Stand 08.10.2026: Die Migrationen 01–82 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1101,4 +1101,50 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 
 ## Noch auszuführen
 
-(nichts)
+- `83_zeit_urlaub.sql` – **noch auszuführen, vor dem Hochladen von v136.** Wunsch Vitali 08.10.2026
+  (Fahrplan E20, Auswahl „Urlaub als Eintrag“): Tabelle `zeit_abwesenheiten` (je Person und Tag eine
+  Zeile, nur `art = 'urlaub'` – Krankheit wären Gesundheitsdaten nach Art. 9 DSGVO und kommen erst nach
+  Rücksprache mit dem Datenschutz), Minuten 1–720; nur Leserichtlinie wie bei den Schichten;
+  `zeit_urlaub_setzen(person, von, bis, minuten, grund)` (Werktage Mo–Fr, überschreibt, unverändert wird
+  übersprungen) und `zeit_urlaub_loeschen(person, von, bis, grund)` – beide nur mit „Zeiten aller ·
+  schreiben“ und Grund, jede Änderung mit Vorher/Nachher in `zeit_korrekturen`; `zeit_aufraeumen()` räumt
+  Urlaub nach 2 Jahren mit ab. Wache: bricht ohne 82 ab. Ergebnistabelle mit drei Zeilen. Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/83_rollback.sql` (löscht den eingetragenen Urlaub, stellt das Aufräumen
+  von 82 wieder her; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 82, `pgtest/t83.sql`): Benutzer
+  darf nicht eintragen und nicht direkt schreiben; Admin Mo–So → 5 Werktage, gleicher Lauf → 0, halber Tag
+  überschreibt; ohne Grund, „bis“ vor „von“, über zwei Monate, 0 Minuten, unbekannte Person abgewiesen;
+  sechs Korrekturen mit Vorher/Nachher; Benutzer sieht seine, Techniker ohne Haken keine; Entfernen mit
+  leerem Nachher; Aufräumen nach 2 Jahren. `t82.sql` gegen 82 und 82+83: gleiche Ausgabe. Ausgeführt,
+  zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `84_chat_einzel_bearbeiten_fotos.sql` – **noch auszuführen, nach 83 und vor dem Hochladen von v137.**
+  Wunsch Vitali 08.10.2026 (Fahrplan E19, Auswahl „Bearbeiten/Löschen, Fotos, Einzelchats, Ältere
+  nachladen“): `chat_nachrichten` bekommt `an`, `bearbeitet_am`, `geloescht_am`, `foto_pfad`/`_breite`/`_hoehe`;
+  Prüfregeln `chat_kanal_bekannt` (team oder direkt mit Empfänger, nie an sich selbst), `chat_text_laenge`
+  (mit Foto darf der Text leer sein, gelöscht ist er leer), `chat_foto_passt` (erster Ordner = Schreiber,
+  Maße Pflicht). Richtlinie „Chat lesen“ neu: Einzelchats nur für die beiden Beteiligten – kein Admin,
+  kein Superadmin. „Eigene Nachricht ändern“ (UPDATE, nur Verfasser mit S) plus Trigger
+  `chat_nachricht_aendern()`: nur der Text, nur 24 Stunden; Löschen leert die Zeile (bleibt als „Nachricht
+  gelöscht“). `chat_nachricht_pruefen()`: Empfänger braucht Chat-Leserecht, Antwort in derselben
+  Unterhaltung. Reaktionen nur an sichtbaren, nicht gelöschten Nachrichten. `chat_gelesen_direkt`,
+  `chat_ungelesen()` zählt Team und Einzelchats (über `chat_ungelesen_von()`, nur Dienstschlüssel),
+  `chat_unterhaltungen()`. Privater Bucket `chat-fotos` (3 MB) mit drei Speicher-Richtlinien; Fotopfade
+  gelöschter/aufgeräumter Nachrichten (auch vor TRUNCATE durch „Alle Daten löschen“) landen in
+  `private.chat_fotos_weg`, der Minutentakt entfernt die Dateien (`chat_fotos_weg_liste()`/`_erledigt()`,
+  nur Dienstschlüssel). Wache: bricht ohne 81, ohne Storage oder ohne Schema private ab. Ergebnistabelle
+  mit vier Zeilen plus allen Richtlinien auf `chat_nachrichten`, `chat_reaktionen`, `chat_gelesen_direkt`
+  und den Chatfoto-Richtlinien (zum Gegenlesen: keine alte Richtlinie übrig). Zweiter Lauf folgenlos.
+  Rücknahme: `rollback/84_rollback.sql` (**löscht alle Einzelchats** und gelöschten Nachrichten, reine
+  Fotonachrichten heißen danach „[Foto]“, die Dateien im Bucket bleiben und sind unter Storage von Hand
+  zu entfernen; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 83, `pgtest/t84.sql`): Team und direkt
+  schreiben; direkt ohne Empfänger, Team mit Empfänger, an sich selbst, an jemanden ohne Zugang
+  abgewiesen; Admin sieht 2, Benutzer und Superadmin nur das Team; Ungelesen 2 → nach Lesen 1;
+  Antwort aus einem fremden oder anderen Chat abgewiesen; fremder Lesestand abgewiesen; Reaktion am
+  Einzelchat für Dritte unsichtbar und nicht setzbar; Bearbeiten setzt „bearbeitet“, Verfasser/Zeit/Kanal/
+  Versand bleiben; fremde Nachricht 0 Zeilen, kein DELETE; nach 25 h kein Bearbeiten; Löschen leert Text
+  und Reaktionen, danach kein Bearbeiten, Zurückholen, Reagieren; Foto nur im eigenen Ordner, ohne Maße
+  abgewiesen; Datei sehen nur die Beteiligten; Löschen, Aufräumen nach 12 Monaten und TRUNCATE merken
+  die Pfade vor; Liste und Zähler für Nutzer gesperrt, für den Dienst offen. `t80`–`t83` gegen 83 und 84:
+  gleiche Ausgabe bis auf zwei gewollte Stellen (`t80` C4: eigene Nachricht ändern geht jetzt; `t81` R2:
+  eigene Meldung statt Fremdschlüssel-Fehler). Ausgeführt, zweimal, zurückgenommen, zweimal (danach
+  `t80`/`t81` wie auf 83), erneut ausgeführt, `t84` gleich.

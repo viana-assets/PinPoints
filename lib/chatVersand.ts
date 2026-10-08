@@ -2,7 +2,7 @@ import "server-only";
 import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RECHTE_VORGABE } from "./constants";
-import { chatPushInhalt, chatReaktionPushInhalt, kuerzen } from "./chat";
+import { CHAT_FOTO_BUCKET, chatPushInhalt, chatReaktionPushInhalt, kuerzen } from "./chat";
 import { pushNutzlast } from "./pushInhalt";
 
 // Push-Meldung bei jeder neuen Nachricht im Team-Chat (Migration 80, v129).
@@ -26,6 +26,13 @@ import { pushNutzlast } from "./pushInhalt";
 // die Ursprungsnachricht geschrieben hat, sieht „… hat dir geantwortet“ (eine Erwähnung geht vor).
 // Eine Reaktion meldet sich NUR beim Verfasser der Nachricht – nach demselben „erst eintragen, dann
 // senden“ über `chat_reaktionen.push_gesendet_am` – und nicht bei einer Reaktion auf die eigene.
+//
+// SEIT MIGRATION 84 (v137): Einzelchats – die Meldung geht NUR an den Empfänger (`an`), Titel
+// „… an dich“, Antippen öffnet genau diese Unterhaltung. Eine gelöschte Nachricht meldet sich nicht
+// (auch nicht, wenn sie in den Sekunden vor dem Versand gelöscht wurde); eine Bearbeitung löst keine
+// zweite Meldung aus (`push_gesendet_am` bleibt gesetzt). Die Zahl der Ungelesenen zählt die
+// Datenbank (`chat_ungelesen_von()`, Team und Einzelchats). Dazu räumt `chatFotosAufraeumen()` die
+// Fotodateien gelöschter oder aufgeräumter Nachrichten weg.
 
 const NACHHOLEN_MS = 60 * 60_000;
 
@@ -48,7 +55,7 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
     .from("chat_nachrichten")
     .update({ push_gesendet_am: new Date(jetzt).toISOString() })
     .is("push_gesendet_am", null)
-    .select("id,autor,text,bezug_titel,erwaehnt,created_at");
+    .select("id,autor,text,bezug_titel,erwaehnt,created_at,kanal,an,geloescht_am,foto_pfad");
   if (error) {
     // Vor Migration 80 gibt es die Tabelle nicht – das ist kein Fehler des Minutenlaufs.
     if (tabelleFehlt(error.code)) return leer;
@@ -61,7 +68,7 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
     .select("nachricht_id,profile_id,emoji,created_at");
   if (reaktionsFehler && !tabelleFehlt(reaktionsFehler.code)) throw new Error(reaktionsFehler.message);
   const istFrisch = (z: Zeile) => jetzt - new Date(z.created_at as string).getTime() <= NACHHOLEN_MS;
-  const frisch = (neu || []).filter(istFrisch);
+  const frisch = (neu || []).filter((n) => istFrisch(n) && !n.geloescht_am);
   const frischeReaktionen = ((reaktionsFehler ? [] : neueReaktionen) || []).filter(istFrisch);
   if (frisch.length === 0 && frischeReaktionen.length === 0) return { ...leer, nachrichten: (neu || []).length };
 
@@ -71,7 +78,7 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
   const antwortAuf = new Map((mitAntwort || []).filter((z) => z.antwort_auf).map((z) => [z.id as string, z.antwort_auf as string]));
   const ursprungIds = Array.from(new Set([...antwortAuf.values(), ...frischeReaktionen.map((r) => r.nachricht_id as string)]));
   const { data: urspruenge } = ursprungIds.length
-    ? await supabase.from("chat_nachrichten").select("id,autor,text,bezug_titel").in("id", ursprungIds)
+    ? await supabase.from("chat_nachrichten").select("id,autor,text,bezug_titel,kanal,foto_pfad,geloescht_am").in("id", ursprungIds)
     : { data: [] as Zeile[] };
   const ursprungNach = new Map((urspruenge || []).map((u) => [u.id as string, u]));
 
@@ -100,12 +107,15 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
   const emailNach = new Map((profile || []).map((p) => [p.id as string, (p.email as string | null) || ""]));
   const autorName = (id: string) => nameNach.get(id) || emailNach.get(id)?.split("@")[0] || "Jemand";
 
-  // Ungelesene je Empfänger mit Gerät: nach dem eigenen „gelesen bis“, ohne eigene Nachrichten.
+  // Ungelesene je Empfänger mit Gerät. Seit Migration 84 zählt die Datenbank (Team nach dem
+  // eigenen „gelesen bis“, Einzelchats je Partner); fehlt die Funktion, wie bisher nur das Team.
   const mitGeraet = empfaengerIds.filter((id) => geraeteNach.has(id));
+  const zahlNach = new Map<string, number>();
   const { data: gelesen } = await supabase.from("chat_gelesen").select("profile_id,gelesen_bis").in("profile_id", mitGeraet);
   const gelesenNach = new Map((gelesen || []).map((g) => [g.profile_id as string, g.gelesen_bis as string]));
-  const zahlNach = new Map<string, number>();
   await Promise.all(mitGeraet.map(async (id) => {
+    const { data: zahl, error: zahlFehler } = await supabase.rpc("chat_ungelesen_von", { p_profile: id });
+    if (!zahlFehler && typeof zahl === "number") { zahlNach.set(id, zahl); return; }
     let abfrage = supabase.from("chat_nachrichten").select("id", { count: "exact", head: true }).neq("autor", id);
     const bis = gelesenNach.get(id);
     if (bis) abfrage = abfrage.gt("created_at", bis);
@@ -127,17 +137,20 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
     }));
   }
   await Promise.all(frisch.flatMap((n) => mitGeraet
-    .filter((id) => id !== n.autor)
+    // Einzelchat: nur der Empfänger. Team: alle außer dem Schreiber.
+    .filter((id) => id !== n.autor && (n.kanal !== "direkt" || id === n.an))
     .map((id) => {
       const ursprung = ursprungNach.get(antwortAuf.get(n.id as string) ?? "");
       return zustellen(id, pushNutzlast(chatPushInhalt({
         id: n.id as string,
         autorName: autorName(n.autor as string),
-        text: n.text as string,
+        text: (n.text as string | null) || "",
         bezugTitel: (n.bezug_titel as string | null) ?? null,
         erwaehnt: ((n.erwaehnt as string[] | null) || []).includes(id),
         geantwortet: !!ursprung && ursprung.autor === id,
         zahl: zahlNach.get(id) ?? 0,
+        direktVon: n.kanal === "direkt" ? (n.autor as string) : null,
+        foto: !!n.foto_pfad,
       })));
     })));
 
@@ -145,17 +158,38 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
   await Promise.all(frischeReaktionen.map((r) => {
     const ursprung = ursprungNach.get(r.nachricht_id as string);
     const an = ursprung?.autor as string | undefined;
-    if (!ursprung || !an || an === r.profile_id || !geraeteNach.has(an)) return Promise.resolve();
+    if (!ursprung || !an || an === r.profile_id || ursprung.geloescht_am || !geraeteNach.has(an)) return Promise.resolve();
     return zustellen(an, pushNutzlast(chatReaktionPushInhalt({
       nachrichtId: r.nachricht_id as string,
       vonId: r.profile_id as string,
       vonName: autorName(r.profile_id as string),
       emoji: r.emoji as string,
-      text: kuerzen((ursprung.text as string) || (ursprung.bezug_titel as string) || "", 80),
+      text: kuerzen((ursprung.text as string) || (ursprung.bezug_titel as string) || (ursprung.foto_pfad ? "📷 Foto" : ""), 80),
       zahl: zahlNach.get(an) ?? 0,
+      direkt: ursprung.kanal === "direkt",
     })));
   }));
 
   if (verwaist.length > 0) await supabase.from("push_geraete").delete().in("endpoint", verwaist);
   return { nachrichten: frisch.length, gesendet, reaktionen: frischeReaktionen.length };
+}
+
+// Fotodateien gelöschter oder aufgeräumter Nachrichten entfernen (Migration 84). Die Datenbank merkt
+// die Pfade vor (`private.chat_fotos_weg`); SQL darf in Supabase keine Dateien löschen, die
+// Storage-Schnittstelle mit dem Dienstschlüssel schon. Je Lauf höchstens 200 – was übrig bleibt,
+// nimmt der nächste Minutenlauf. Abgehakt wird nur, was wirklich weg ist (oder schon fehlte).
+export async function chatFotosAufraeumen(supabase: SupabaseClient): Promise<{ entfernt: number }> {
+  const { data, error } = await supabase.rpc("chat_fotos_weg_liste", { p_anzahl: 200 });
+  if (error) {
+    // Vor Migration 84 gibt es die Funktion nicht.
+    if (error.code === "PGRST202" || error.code === "42883") return { entfernt: 0 };
+    throw new Error(error.message);
+  }
+  const pfade = ((data as string[] | null) || []).filter(Boolean);
+  if (pfade.length === 0) return { entfernt: 0 };
+  const { error: speicherFehler } = await supabase.storage.from(CHAT_FOTO_BUCKET).remove(pfade);
+  if (speicherFehler) throw new Error(speicherFehler.message);
+  const { error: hakenFehler } = await supabase.rpc("chat_fotos_weg_erledigt", { p_pfade: pfade });
+  if (hakenFehler) throw new Error(hakenFehler.message);
+  return { entfernt: pfade.length };
 }

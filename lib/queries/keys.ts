@@ -61,6 +61,13 @@ export const qk = {
   // Nachricht ändert Verlauf und Zahl auf einmal.
   chat: () => ["chat"] as const,
   chatNachrichten: () => ["chat", "nachrichten"] as const,
+  // Eine Unterhaltung (Migration 84): Team (`null`) oder Einzelchat mit `partner`, `anzahl` wächst mit
+  // „Ältere laden“. Liegt unter chatNachrichten – dessen Ungültigmachen trifft alle Unterhaltungen.
+  chatVerlauf: (partner: string | null, anzahl: number) => ["chat", "nachrichten", partner ?? "team", anzahl] as const,
+  chatUnterhaltungen: () => ["chat", "unterhaltungen"] as const,
+  // Anzeige-Links der Chatfotos. Bewusst NICHT unter „chat“: Jede neue Nachricht macht „chat“
+  // ungültig, die Links sollen aber eine Stunde halten (sonst lädt jedes Bild neu).
+  chatFotoLinks: (pfade: string[]) => ["chatfotolinks", ...pfade] as const,
   chatUngelesen: () => ["chat", "ungelesen"] as const,
   chatPersonen: () => ["chat", "personen"] as const,
 
@@ -71,6 +78,10 @@ export const qk = {
   zeitSchichten: (montag: string) => ["zeit", "schichten", montag] as const,
   zeitOffene: () => ["zeit", "offene"] as const,
   zeitPersonen: () => ["zeit", "personen"] as const,
+  // Migration 83 (v136): der Monat, Urlaub je Zeitraum, Korrekturen je Person.
+  zeitMonat: (monat: string) => ["zeit", "monat", monat] as const,
+  zeitUrlaub: (vonTag: string, bisTag: string) => ["zeit", "urlaub", vonTag, bisTag] as const,
+  zeitKorrekturen: (profileId: string, ab: string) => ["zeit", "korrekturen", profileId, ab] as const,
 
   // Haken bei „Reifen mitnehmen" (Migration 58), je Liste von Einsatztagen.
   gepackt: (daten: string[]) => ["mitnehmen-gepackt", ...daten] as const,

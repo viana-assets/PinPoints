@@ -125,3 +125,32 @@ describe("Tag einer Person (Zeiten aller)", () => {
     await waitFor(() => expect(onLoeschen).toHaveBeenCalledWith("s2", "doppelt gestempelt"));
   });
 });
+
+describe("Urlaub eintragen (v136)", () => {
+  it("Grund ist Pflicht; ganzer Tag als Vorgabe; eigene Stunden 6:30 = 390 Minuten", async () => {
+    const { UrlaubBlatt } = await import("@/components/zeit/UrlaubBlatt");
+    const onSetzen = vi.fn(async () => 3);
+    render(<UrlaubBlatt personen={[{ id: "mira", name: "Mira", rolle: "user" }]} vorgabe={{ tag: "2026-10-12" }}
+      onSetzen={onSetzen} onLoeschen={vi.fn(async () => 0)} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Urlaub eintragen" }));
+    expect(screen.getByRole("alert").textContent).toMatch(/Grund/);
+    fireEvent.change(screen.getByLabelText("bis"), { target: { value: "2026-10-14" } });
+    fireEvent.change(screen.getByLabelText("Grund"), { target: { value: "Urlaubsantrag" } });
+    fireEvent.click(screen.getByRole("button", { name: "Urlaub eintragen" }));
+    await waitFor(() => expect(onSetzen).toHaveBeenCalledWith({ profileId: "mira", von: "2026-10-12", bis: "2026-10-14", minuten: 480, grund: "Urlaubsantrag" }));
+    expect(await screen.findByText("3 Tage eingetragen.")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Eigene Stunden je Tag"), { target: { value: "6:30" } });
+    fireEvent.click(screen.getByRole("button", { name: "Urlaub eintragen" }));
+    await waitFor(() => expect(onSetzen).toHaveBeenLastCalledWith(expect.objectContaining({ minuten: 390 })));
+  });
+
+  it("Tag einer Person zeigt Urlaub und die Korrekturen des Tages", () => {
+    const k = { id: "k1", schicht_id: null, profile_id: "mira", vorher: null, nachher: { art: "urlaub" as const, tag, minuten: 480 }, grund: "Antrag", von: "jan", am: new Date().toISOString() };
+    render(<ZeitTagBlatt person={{ id: "mira", name: "Mira", rolle: "user" }} tag={tag} schichten={[]} urlaubMs={480 * 60_000} korrekturen={[k]}
+      nameVon={(id) => (id === "jan" ? "Jan" : "?")} heute={tag} jetzt={Date.now()} darfKorrigieren={false} onSpeichern={async () => {}} onLoeschen={async () => {}} onClose={() => {}} />);
+    expect(screen.getByText(/Urlaub 8:00 h$/)).toBeTruthy();
+    expect(screen.getByText("Urlaub 8:00 h eingetragen")).toBeTruthy();
+    expect(screen.getByText("Grund: Antrag")).toBeTruthy();
+    expect(screen.getByText(/· Jan$/)).toBeTruthy();
+  });
+});

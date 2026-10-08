@@ -1,10 +1,10 @@
 # Team-Chat
 
-**Stand: 08.10.2026 (Migrationen 80 und 81, Service Worker v130).** Ein gemeinsamer Chat für alle mit dem
+**Stand: 08.10.2026 (Migrationen 80, 81 und 84, Service Worker v137).** Ein gemeinsamer Chat für alle mit dem
 Recht `chat · lesen` – Wunsch Vitali vom 08.10.2026, Entwurf `entwurf_chat.html` (Claude outputs).
-Reaktionen und Antworten kamen mit Migration 81 (v130). Einzelchats, eigene Nachrichten ändern oder
-löschen und Fotos im Chat sind nicht gebaut; das steht
-in `fahrplan.md`.
+Reaktionen und Antworten kamen mit Migration 81 (v130). Mit Migration 84 (v137, Fahrplan E19):
+Einzelchats, die eigene Nachricht bearbeiten und löschen, Fotos im Chat und „Ältere Nachrichten
+laden“ – Abschnitt „Einzelchats, Bearbeiten, Fotos“ unten.
 
 ## Was man sieht
 
@@ -48,6 +48,37 @@ in `fahrplan.md`.
   kurz hervor. Ist sie nicht mehr geladen oder aufgeräumt, steht „frühere Nachricht“ da. Beides
   nur mit `chat · schreiben`.
 
+## Einzelchats, Bearbeiten, Fotos (Migration 84, v137)
+
+- **Einzelchats.** Der Knopf rechts im Kopf (☰, mit der Zahl der Ungelesenen in den *anderen*
+  Unterhaltungen) öffnet die Liste: oben der Team-Chat, darunter die Einzelchats nach der letzten
+  Nachricht (mit Vorschau, Zeit und Zahl), darunter unter „NEUE UNTERHALTUNG“ alle anderen mit
+  Zugang (`chatListe()`). Ein Tipp öffnet die Unterhaltung; im Kopf stehen dann Name und „Einzelchat ·
+  nur ihr beide seht das“. Einen Einzelchat lesen **nur die beiden Beteiligten** – auch Admin und
+  Superadmin nicht. Kein Name über den Nachrichten, keine @-Erwähnungen (es liest ja nur die eine
+  Person); Karten, Antworten, Reaktionen und Fotos gehen wie im Team. Hat die Person keinen Zugang
+  mehr, ist der Verlauf noch zu lesen, schreiben geht nicht mehr. Die Zahl an der Blase zählt Team und
+  Einzelchats zusammen; je Unterhaltung gibt es einen eigenen Lesestand.
+- **Bearbeiten.** Eigene Nachricht → Leiste → „Bearbeiten“: Der Text steht in der Eingabe („Nachricht
+  bearbeiten“, ✕ bricht ab), ✓ speichert. Nur der Text, nur in den ersten **24 Stunden**
+  (`CHAT_BEARBEITEN_STUNDEN`, dieselbe Frist prüft die Datenbank). An der Uhrzeit steht dann
+  „bearbeitet“. Keine zweite Push-Meldung.
+- **Löschen.** Eigene Nachricht → „Löschen“ → Rückfrage „Nachricht für alle löschen?“. Jederzeit. Die
+  Nachricht bleibt als „Nachricht gelöscht“ im Verlauf stehen (Antworten darauf hängen sonst in der
+  Luft); Text, Karte, Erwähnungen, Foto und Reaktionen sind weg. Zurückholen geht nicht. Fremde
+  Nachrichten löscht niemand – auch kein Admin.
+- **Fotos.** Kamera-Knopf neben „+“: Foto wählen oder aufnehmen, die App verkleinert es auf 1600 Pixel
+  (wie die Auftragsfotos, `lib/belegBild.ts`), die Vorschau hängt an der Eingabe (✕ nimmt es ab), ein
+  Text dazu ist freiwillig. Im Verlauf steht das Bild in seinem Seitenverhältnis (der Platz ist schon
+  da, bevor es geladen ist); ein Tipp öffnet es groß (Ebene 10004), Escape oder ✕ schließt.
+  Push-Text eines Fotos ohne Text: „📷 Foto“.
+- **Ältere Nachrichten laden.** Beim Öffnen einer Unterhaltung die letzten 300 (`CHAT_LADEN_ANZAHL`);
+  sind es so viele, steht oben „Ältere Nachrichten laden“ und holt 300 weitere
+  (`CHAT_NACHLADEN_ANZAHL`). Die Stelle, an der man liest, bleibt stehen.
+- **Push.** Eine Einzelnachricht geht nur an den Empfänger: „Jan an dich“, Antippen öffnet
+  `/?chat=<Kennung des Schreibers>`, also genau diese Unterhaltung (`chatZielAus()`). Eine Nachricht,
+  die vor dem Versand gelöscht wurde, meldet sich nicht.
+
 ## Push und Zahl am App-Symbol
 
 Bei **jeder** neuen Nachricht bekommen alle anderen mit Leserecht eine Push-Meldung, so wie die
@@ -87,21 +118,61 @@ eigene Nachricht, und zählt nicht als ungelesen.
   neue Zeilen (`app/_seite/useChat.ts`) und fragt zusätzlich alle 20 s nach, falls die Verbindung
   nicht steht (`CHAT_ABFRAGE_MS`).
 
+## Datenbank (Migration 84)
+
+- `chat_nachrichten` neu: `an` (Empfänger; `kanal = 'direkt'` genau dann, wenn `an` gesetzt, nie an sich
+  selbst – Prüfregel `chat_kanal_bekannt`), `bearbeitet_am`, `geloescht_am`, `foto_pfad`, `foto_breite`,
+  `foto_hoehe` (erster Ordner = Schreiber, Maße Pflicht – `chat_foto_passt`). Text: 1–4000 Zeichen,
+  mit Foto darf er leer sein, gelöscht ist er leer (`chat_text_laenge`).
+- Richtlinie **„Chat lesen“** neu: `darf('chat','lesen') and (kanal = 'team' or autor = ich or an = ich)`.
+  **„Eigene Nachricht ändern“** (UPDATE): nur der Verfasser, mit `chat · schreiben`. Was sich ändern
+  darf, regelt `chat_nachricht_aendern()` (BEFORE UPDATE, ohne `security definer`, fragt
+  `current_user` wie Migration 78/81): alles außer dem Text bleibt; Text nur 24 Stunden, setzt
+  `bearbeitet_am`; `geloescht_am` setzen leert die Zeile; eine gelöschte lässt sich nicht mehr ändern.
+  Versand (Dienstschlüssel) und `chat_bezug_vergessen()` sind davon nicht betroffen. Kein DELETE.
+- `chat_nachricht_pruefen()` (BEFORE INSERT) zusätzlich: Empfänger muss den Chat lesen dürfen
+  (`chat_kann_mitlesen()`), eine Antwort bleibt in ihrer Unterhaltung (die Ursprungsnachricht wird mit
+  den Zeilenrechten des Schreibers gesucht).
+- Reaktionen nur an Nachrichten, die man sieht und die nicht gelöscht sind (Richtlinien „Reaktionen
+  lesen“, „Eigene Reaktion setzen/ändern“ neu).
+- `chat_gelesen_direkt` – je Zugang und Partner „gelesen bis“. `chat_ungelesen()` zählt jetzt über
+  `chat_ungelesen_von(person)` (nur Dienstschlüssel) Team und Einzelchats, ohne gelöschte.
+  `chat_unterhaltungen()` – eine Zeile Team, je Einzelchat eine Zeile mit letzter Nachricht und Zahl.
+- Fotos: privater Bucket **`chat-fotos`** (3 MB, JPEG/PNG/WebP). Speicher-Richtlinien „MR Chatfotos
+  lesen“ (wer die Nachricht dazu sieht, und eigene Dateien), „… hochladen“ (mit S, nur in den eigenen
+  Ordner), „… loeschen“ (nur eigene). Wird eine Nachricht mit Foto gelöscht oder aufgeräumt,
+  merkt `chat_nachricht_nachlauf()` den Pfad in `private.chat_fotos_weg` vor (und entfernt beim Löschen
+  die Reaktionen); vor einem TRUNCATE („Alle Daten löschen“) tut es `chat_fotos_vor_leeren()` für alle.
+  Der Minutentakt (`app/api/push/senden` → `chatFotosAufraeumen()`) löscht die Dateien mit dem
+  Dienstschlüssel und hakt sie ab (`chat_fotos_weg_liste()`, `chat_fotos_weg_erledigt()`, nur
+  Dienstschlüssel). Die Liste liegt im Schema `private`, damit „Alle Daten löschen“ sie nicht vor
+  den Dateien leert.
+- Rücknahme `rollback/84_rollback.sql`: löscht alle Einzelchats und gelöschten Nachrichten, reine
+  Fotonachrichten heißen „[Foto]“; die Dateien im Bucket bleiben und sind von Hand zu entfernen.
+
 ## Code
 
 | Datei | Was |
 |---|---|
-| `lib/chat.ts` | Karten (`bezugAuftrag` …), @-Erwähnungen, Tagestrenner, Push-Inhalt, Vorschläge für „+“ – rein, `tests/chat.test.ts` |
-| `lib/api/chat.ts` | Verlauf laden, senden, Lesestand, Ungelesene, Personen |
-| `lib/chatVersand.ts` | Push je Nachricht (server-only), `tests/chatVersand.test.ts` |
-| `app/_seite/useChat.ts` | Zustand auf der Startseite, Live-Verbindung, Lesestand, Abzeichen |
-| `components/chat/` | Blase und Fenster, `tests/chatFenster.test.tsx` |
-| `app/page.tsx` | `chatBezugOeffnen()`, „In den Chat“ an Auftrag, Kunde, Lager; `?chat=1` in `zielOeffnen()` |
+| `lib/chat.ts` | Karten (`bezugAuftrag` …), @-Erwähnungen, Tagestrenner, Push-Inhalt, Vorschläge für „+“; seit 84 `darfBearbeiten`, `darfLoeschen`, `chatFotoPfad`, `chatZielAus`, `chatListe`, `ungelesenAnderswo`, `listenZeit` – rein, `tests/chat.test.ts` |
+| `lib/api/chat.ts` | Verlauf je Unterhaltung laden, senden (Team/Einzel, mit Foto), bearbeiten, löschen, Foto hochladen/verwerfen/Links, Lesestand (Team/Einzel), Ungelesene, Personen, Unterhaltungen |
+| `lib/chatVersand.ts` | Push je Nachricht (server-only), Fotodateien aufräumen, `tests/chatVersand.test.ts` |
+| `app/_seite/useChat.ts` | Zustand auf der Startseite (gewählte Unterhaltung, Anzahl), Live-Verbindung (auch Änderungen), Lesestand, Abzeichen, Fotolinks |
+| `components/chat/` | Blase, Fenster, Unterhaltungsliste (`ChatListe.tsx`), Foto im Verlauf und groß (`ChatFoto.tsx`), `tests/chatFenster.test.tsx` |
+| `app/page.tsx` | `chatBezugOeffnen()`, „In den Chat“ an Auftrag, Kunde, Lager; `?chat=1` bzw. `?chat=<Kennung>` in `zielOeffnen()` |
 
 ## Datenschutz
 
 Was im Chat steht, steht auch auf dem Sperrbildschirm der Kollegen (gekürzt auf 140 Zeichen). Die
 Karte selbst zeigt bewusst wenig: Name und Ort, keine Straße, keine Telefonnummer – sie ist für
 jeden mit Leserecht sichtbar, auch für Rollen, die den Kunden selbst nicht öffnen dürfen.
-Besondere Kategorien (Art. 9 DSGVO) gehören nicht in den Chat. Die Aufbewahrung von 12 Monaten
-ist mit dem Datenschutz abzustimmen.
+Besondere Kategorien (Art. 9 DSGVO) gehören nicht in den Chat – auch nicht in einen Einzelchat und
+nicht als Foto (Krankmeldung, Attest). Die Aufbewahrung von 12 Monaten ist mit dem Datenschutz
+abzustimmen; sie gilt für Einzelchats und Fotos genauso.
+
+Einzelchats (Migration 84) sind private Nachrichten zwischen zwei Beschäftigten: Die Rechte lassen
+**niemanden** sonst mitlesen, auch keinen Admin. Ausnahmen, die man kennen muss: Die „Sicherung aller
+Daten“ des Superadmins (Migration 72) enthält alle Tabellen, also auch die Einzelchats; und wer die
+Datenbank direkt (SQL-Editor, Dienstschlüssel) öffnet, sieht alles. Eine Auswertung von Einzelchats ist
+nicht vorgesehen und wäre vorher mit Datenschutz und Betriebsrat abzustimmen. Fotos von Kunden oder
+Kennzeichen sind personenbezogene Daten – nur, was für die Arbeit nötig ist.

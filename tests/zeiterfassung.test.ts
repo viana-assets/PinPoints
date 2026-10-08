@@ -114,3 +114,70 @@ describe("Korrektur-Formular", () => {
     expect(formularAusSchicht(null, "2026-10-07")).toEqual({ tag: "2026-10-07", beginn: "", ende: "", pausen: [] });
   });
 });
+
+// Monat, Urlaub, Korrekturen, Export (Migration 83, v136, E20).
+import {
+  exportDateiname, korrekturTag, korrekturText, monatAuswerten, monatCsv, monatPlus, monatTage, monatTitel, personenMonat,
+  stundenDezimal, type ZeitAbwesenheit, type ZeitKorrektur,
+} from "@/lib/zeiterfassung";
+
+describe("Monat und Urlaub (v136)", () => {
+  const urlaub = (tag: string, minuten = 480, wer = "jan"): ZeitAbwesenheit => ({ id: tag + wer, profile_id: wer, tag, art: "urlaub", minuten, notiz: null });
+
+  it("Monatstage, Blättern über das Jahresende, Titel", () => {
+    expect(monatTage("2026-02")).toHaveLength(28);
+    expect(monatTage("2026-10")[30]).toBe("2026-10-31");
+    expect(monatPlus("2026-12", 1)).toBe("2027-01");
+    expect(monatPlus("2026-01", -1)).toBe("2025-12");
+    expect(monatTitel("2026-03")).toBe("März 2026");
+  });
+
+  it("zählt Arbeit, Pausen und Urlaub; Hinweis-Tage ohne „korrigiert“", () => {
+    const s = [
+      schicht("a", "2026-10-05", "07:00", "15:00", [["12:00", "12:30"]]),
+      schicht("b", "2026-10-06", "07:00", "17:30"),
+      schicht("c", "2026-10-07", "08:00", "12:00", [], { korrigiert_am: "x", korrektur_grund: "vergessen" }),
+    ];
+    const m = monatAuswerten(s, [urlaub("2026-10-12"), urlaub("2026-10-13", 240)], "2026-10", "2026-10-31", 0);
+    expect(dauerText(m.arbeitMs)).toBe("22:00");
+    expect(dauerText(m.pauseMs)).toBe("0:30");
+    expect(dauerText(m.urlaubMs)).toBe("12:00");
+    expect([m.arbeitstage, m.urlaubstage, m.hinweise]).toEqual([3, 2, 1]);
+    expect(stundenDezimal(m.arbeitMs + m.urlaubMs)).toBe("34,00");
+    expect(stundenDezimal(7.5 * 3_600_000 + 20_000)).toBe("7,51");
+  });
+
+  it("Monatstabelle aller: auch wer nur Urlaub hat; alphabetisch", () => {
+    const z = personenMonat([schicht("a", "2026-10-05", "07:00", "15:00")], [urlaub("2026-10-12", 480, "mira")],
+      [{ id: "jan", name: "Jan", rolle: "admin" }], "2026-10", "2026-10-31", 0);
+    expect(z.map((x) => x.person.name)).toEqual(["Ehemaliger Zugang", "Jan"]);
+    expect(dauerText(z[0].monat.urlaubMs)).toBe("8:00");
+  });
+
+  it("CSV: BOM, Semikolon, Dezimalkomma, eine Zeile je Tag mit Eintrag, Summe je Person", () => {
+    const m = monatAuswerten([schicht("a", "2026-10-05", "07:00", "15:30", [["12:00", "12:30"]])], [urlaub("2026-10-12")], "2026-10", "2026-10-31", 0);
+    const csv = monatCsv([{ person: { id: "jan", name: "Jan; Beispiel", rolle: "" }, monat: m }]);
+    expect(csv.startsWith("﻿Person;Datum;")).toBe(true);
+    const zeilen = csv.trim().split("\r\n");
+    expect(zeilen).toHaveLength(4);
+    expect(zeilen[1]).toBe('"Jan; Beispiel";05.10.2026;Mo;07:00;15:30;0:30;8:00;8,00;;');
+    expect(zeilen[2]).toBe('"Jan; Beispiel";12.10.2026;Mo;;;;;;8,00;');
+    expect(zeilen[3]).toContain(";Summe;");
+    expect(zeilen[3]).toContain("1 Arbeitstage, 1 Urlaubstage");
+    expect(exportDateiname("2026-10", "Jürgen Weiß")).toBe("arbeitszeiten-2026-10-juergen-weiss");
+  });
+
+  it("Korrekturen: Text und Tag für Schicht und Urlaub", () => {
+    const k = (vorher: ZeitKorrektur["vorher"], nachher: ZeitKorrektur["nachher"]): ZeitKorrektur =>
+      ({ id: "k", schicht_id: null, profile_id: "jan", vorher, nachher, grund: "g", von: null, am: "2026-10-09T10:00:00Z" });
+    const v = { beginn: ort("2026-10-08", "08:00"), ende: null, pausen: [] };
+    const n = { beginn: ort("2026-10-08", "08:00"), ende: ort("2026-10-08", "14:30"), pausen: [{ beginn: ort("2026-10-08", "12:00"), ende: ort("2026-10-08", "12:30") }] };
+    expect(korrekturText(k(v, n))).toBe("Schicht 08:00 – jetzt → 08:00 – 14:30, Pause 0:30");
+    expect(korrekturTag(k(v, n))).toBe("2026-10-08");
+    expect(korrekturText(k(null, n))).toMatch(/^Schicht nachgetragen/);
+    expect(korrekturText(k(v, null))).toMatch(/^Schicht gelöscht/);
+    expect(korrekturText(k(null, { art: "urlaub", tag: "2026-10-12", minuten: 480 }))).toBe("Urlaub 8:00 h eingetragen");
+    expect(korrekturText(k({ art: "urlaub", tag: "2026-10-12", minuten: 480 }, { art: "urlaub", tag: "2026-10-12", minuten: 240 }))).toBe("Urlaub 8:00 h → 4:00 h");
+    expect(korrekturTag(k({ art: "urlaub", tag: "2026-10-12", minuten: 480 }, null))).toBe("2026-10-12");
+  });
+});

@@ -5,7 +5,7 @@ import { erinnerungFaellig, minutenAusUhrzeit } from "@/lib/helpers";
 import { AUFTRAG_PARAMETER, VORLAUF_MINUTEN, ZEITZONE } from "@/lib/constants";
 import { pushNutzlast } from "@/lib/pushInhalt";
 import { abendhinweiseVersenden, type AbendhinweisErgebnis } from "@/lib/abendhinweisVersand";
-import { chatNachrichtenVersenden, type ChatVersandErgebnis } from "@/lib/chatVersand";
+import { chatFotosAufraeumen, chatNachrichtenVersenden, type ChatVersandErgebnis } from "@/lib/chatVersand";
 
 // Terminerinnerung: verschickt die Meldung „Termin in 5 Minuten" an die zugeordneten
 // Techniker (docs/benachrichtigungen-plan.md, Teile 3 bis 5).
@@ -87,6 +87,14 @@ export async function POST(request: Request) {
   const rumpf = await request.json().catch(() => null) as { anlass?: unknown } | null;
   if (rumpf?.anlass === "chat") return NextResponse.json({ chat });
 
+  // Fotodateien gelöschter Chatnachrichten (Migration 84) – nur im Minutentakt, für sich.
+  let chatFotos: { entfernt: number } | { fehler: string };
+  try {
+    chatFotos = await chatFotosAufraeumen(supabase);
+  } catch (e) {
+    chatFotos = { fehler: e instanceof Error ? e.message : String(e) };
+  }
+
   // Der Abendhinweis zuerst und für sich: Ein Fehler darin darf die Terminerinnerung nicht
   // mitreißen, und umgekehrt. Sein Ergebnis steht in jeder Antwort mit dabei – so sieht man es
   // in `net._http_response`, ohne eine zweite Stelle abfragen zu müssen.
@@ -97,7 +105,7 @@ export async function POST(request: Request) {
     abendhinweis = { fehler: e instanceof Error ? e.message : String(e) };
   }
   const antwort = (daten: Record<string, unknown>, init?: ResponseInit) =>
-    NextResponse.json({ ...daten, abendhinweis, chat }, init);
+    NextResponse.json({ ...daten, abendhinweis, chat, chatFotos }, init);
 
   // Nur der heutige Tag: ein Termin um 00:02 würde eine Erinnerung um 23:57 des Vortages
   // brauchen und fiele durch dieses Raster. Für einen Reifenwechsel-Betrieb ist das kein

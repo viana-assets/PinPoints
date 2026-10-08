@@ -4,6 +4,8 @@ import {
   CHAT_PUSH_TEXT_MAX, erwaehnteIds, erwaehnungEinsetzen, erwaehnungsAnfrage, erwaehnungsVorschlaege, initialen, kuerzen,
   nachTagen, personenFarbe, tagLabel, textTeile, zahlText, type ChatPerson,
   antwortVorschau, chatReaktionPushInhalt, meineReaktion, reaktionenZaehlen, reaktionNachTipp, CHAT_REAKTIONEN,
+  chatFotoPfad, chatListe, chatZielAus, darfBearbeiten, darfLoeschen, listenZeit, ungelesenAnderswo, unterhaltungVorschau,
+  CHAT_BEARBEITEN_STUNDEN, type ChatUnterhaltung,
 } from "@/lib/chat";
 
 // Die Regeln hinter dem Team-Chat (lib/chat.ts, Migration 80, v129).
@@ -169,5 +171,70 @@ describe("Reaktionen und Antworten (Migration 81)", () => {
     expect(chatPushInhalt({ id: "n", autorName: "Jan", text: "ok", bezugTitel: null, erwaehnt: true, geantwortet: true, zahl: 1 }).titel).toBe("Jan hat dich erwähnt");
     const r = chatReaktionPushInhalt({ nachrichtId: "n1", vonId: "a", vonName: "Jan", emoji: "👍", text: "Bitte mitnehmen", zahl: 0 });
     expect(r).toMatchObject({ titel: "Jan hat reagiert", text: "👍 zu „Bitte mitnehmen“", url: "/?chat=1", kennung: "chat-reaktion-n1-a", zahl: 0 });
+  });
+});
+
+describe("Einzelchats, Bearbeiten, Fotos (Migration 84)", () => {
+  const jetzt = new Date("2026-10-08T12:00:00");
+  const vor = (h: number) => new Date(jetzt.getTime() - h * 3_600_000).toISOString();
+
+  it("bearbeiten nur eigene, nicht gelöschte, innerhalb der Frist; löschen jederzeit", () => {
+    expect(CHAT_BEARBEITEN_STUNDEN).toBe(24);
+    expect(darfBearbeiten({ autor: "v", created_at: vor(23.9), geloescht_am: null }, "v", jetzt)).toBe(true);
+    expect(darfBearbeiten({ autor: "v", created_at: vor(24.1), geloescht_am: null }, "v", jetzt)).toBe(false);
+    expect(darfBearbeiten({ autor: "j", created_at: vor(1), geloescht_am: null }, "v", jetzt)).toBe(false);
+    expect(darfBearbeiten({ autor: "v", created_at: vor(1), geloescht_am: vor(0) }, "v", jetzt)).toBe(false);
+    expect(darfLoeschen({ autor: "v", geloescht_am: null }, "v")).toBe(true);
+    expect(darfLoeschen({ autor: "v", geloescht_am: vor(0) }, "v")).toBe(false);
+    expect(darfLoeschen({ autor: "j", geloescht_am: null }, "v")).toBe(false);
+    expect(darfLoeschen({ autor: "v", geloescht_am: null }, null)).toBe(false);
+  });
+
+  it("Fotopfad beginnt mit dem Schreiber; Ziel aus dem Link", () => {
+    expect(chatFotoPfad("v-id", "ab12", new Date("2026-10-08T10:11:12.345Z"))).toBe("v-id/20261008T101112-ab12.jpg");
+    expect(chatZielAus("1")).toBeNull();
+    expect(chatZielAus(null)).toBeNull();
+    expect(chatZielAus("00000000-0000-0000-0000-00000000000A")).toBe("00000000-0000-0000-0000-00000000000a");
+    expect(chatZielAus("../x")).toBeNull();
+  });
+
+  it("Zitat einer gelöschten oder reinen Fotonachricht", () => {
+    const nameVon = () => "Jan";
+    expect(antwortVorschau({ autor: "j", text: "", bezug_titel: null, geloescht_am: "x" }, nameVon).text).toBe("Nachricht gelöscht");
+    expect(antwortVorschau({ autor: "j", text: "", bezug_titel: null, foto_pfad: "j/a.jpg" }, nameVon).text).toBe("📷 Foto");
+  });
+
+  it("Liste: Team oben, Einzelchats nach Zeit, dann neue Unterhaltungen nach Namen – ohne mich", () => {
+    const u: ChatUnterhaltung[] = [
+      { partner: null, letzte_am: vor(5), letzte_von: "j", letzte_text: "Moin", letzte_foto: false, ungelesen: 1 },
+      { partner: "j", letzte_am: vor(3), letzte_von: "v", letzte_text: "", letzte_foto: true, ungelesen: 0 },
+      { partner: "ja", letzte_am: vor(1), letzte_von: "ja", letzte_text: "Ok", letzte_foto: false, ungelesen: 2 },
+    ];
+    const zoe: ChatPerson = { id: "z", name: "Zoe", rolle: "user" };
+    const anna: ChatPerson = { id: "a", name: "Anna", rolle: "user" };
+    const liste = chatListe(u, [vitali, jan, ja, zoe, anna], "v");
+    expect(liste.map((e) => e.name)).toEqual(["Team-Chat", "Jan", "Jan Becker", "Anna", "Zoe"]);
+    expect(liste.map((e) => e.vorschau)).toEqual(["Jan Becker: Moin", "Ok", "Du: 📷 Foto", "Neue Unterhaltung", "Neue Unterhaltung"]);
+    expect(liste.filter((e) => e.neu).map((e) => e.partner)).toEqual(["a", "z"]);
+    expect(ungelesenAnderswo(u, null)).toBe(2);
+    expect(ungelesenAnderswo(u, "ja")).toBe(1);
+    expect(unterhaltungVorschau({ partner: "j", letzte_am: vor(1), letzte_von: "j", letzte_text: "", letzte_foto: false, ungelesen: 0 }, "v", () => "")).toBe("Nachricht gelöscht");
+    expect(chatListe([], [vitali], "v")).toEqual([{ partner: null, name: "Team-Chat", am: null, ungelesen: 0, neu: false, vorschau: "Alle mit Zugang" }]);
+  });
+
+  it("Zeit in der Liste: heute Uhrzeit, gestern, sonst Datum", () => {
+    expect(listenZeit("2026-10-08T09:05:00", jetzt)).toBe("09:05");
+    expect(listenZeit("2026-10-07T09:05:00", jetzt)).toBe("gestern");
+    expect(listenZeit("2026-10-01T09:05:00", jetzt)).toBe("1.10.");
+    expect(listenZeit(null, jetzt)).toBe("");
+  });
+
+  it("Push im Einzelchat: „… an dich“, Link auf die Unterhaltung; Foto ohne Text", () => {
+    const m = chatPushInhalt({ id: "d1", autorName: "Jan", text: "", bezugTitel: null, erwaehnt: false, zahl: 1, direktVon: "j-id", foto: true });
+    expect(m.titel).toBe("Jan an dich");
+    expect(m.text).toBe("📷 Foto");
+    expect(m.url).toBe("/?chat=j-id");
+    expect(chatPushInhalt({ id: "d2", autorName: "Jan", text: "Ja", bezugTitel: null, erwaehnt: false, zahl: 1, direktVon: "j-id", geantwortet: true }).titel).toBe("Jan hat dir geantwortet");
+    expect(chatReaktionPushInhalt({ nachrichtId: "n", vonId: "j-id", vonName: "Jan", emoji: "👍", text: "x", zahl: 0, direkt: true }).url).toBe("/?chat=j-id");
   });
 });

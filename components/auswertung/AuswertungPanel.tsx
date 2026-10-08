@@ -15,6 +15,7 @@ import { employeeColorFor } from "@/lib/calendar";
 import { langlieger } from "@/lib/langlieger";
 import { auftragsNr } from "@/lib/testkunde";
 import { lagerwertVerlauf, reifenAuswertung, VERKAUF_LANGE_LIEGEND_MONATE } from "@/lib/reifenverkauf";
+import { dateiHerunterladen } from "@/lib/download";
 
 // Register „Auswertungen" – neu gestaltet am 26.09.2026 (Entwurf „M · Auswertungen", Fahrplan
 // E13). Vorher eine starre Seite: drei Zeiträume, sechs Kacheln, ein Balkendiagramm, zwei
@@ -44,16 +45,8 @@ const eur0 = (n: number) => n.toLocaleString("de-DE", { style: "currency", curre
 const stunden = (min: number) => `${Math.floor(min / 60)}:${String(Math.round(min % 60)).padStart(2, "0")}`;
 const LEER_ABZUG: AuswertungsAbzug = { orders: [], orderArticles: [], orderEmployees: {}, einlagerungen: [], auftragFahrzeuge: [], rechnungen: [], offeneRechnungsauftraege: [], lagerplaetze: 0, betrieb: null, reifenVerkauf: null };
 
-function herunterladen(name: string, inhalt: BlobPart, typ: string) {
-  const url = URL.createObjectURL(new Blob([inhalt], { type: typ }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  // Erst freigeben, wenn der Browser den Download angenommen hat – Safari liefert sonst eine
-  // leere Datei (wie in components/lager/ReifensatzEtikett.tsx).
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
+// Gespeichert wird über lib/download.ts (seit v136 eine Funktion für alle Exporte).
+const herunterladen = dateiHerunterladen;
 
 function Delta({ jetzt, vorher, dunkel, einheit }: { jetzt: number; vorher: number; dunkel?: boolean; einheit?: string }) {
   const p = veraenderung(jetzt, vorher);

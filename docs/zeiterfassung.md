@@ -1,9 +1,9 @@
 # Zeiterfassung (Stempeluhr)
 
-**Stand: 08.10.2026 (Migration 82, Service Worker v133).** Wunsch Vitali vom 08.10.2026, Entwurf
+**Stand: 08.10.2026 (Migration 83, Service Worker v136).** Wunsch Vitali vom 08.10.2026, Entwurf
 `entwurf_stempeluhr.html` (Claude outputs) abgenickt. Entschieden per Auswahl: Pause-Knopf, nur
-„Zeiten aller“ korrigiert, 2 Jahre Aufbewahrung. Ein Export (Lohn, Steuerberater) ist nicht gebaut –
-siehe `fahrplan.md`, E20.
+„Zeiten aller“ korrigiert, 2 Jahre Aufbewahrung. Seit v136 (Fahrplan E20, Auswahl Vitali): Monat,
+Urlaub als Eintrag, Korrekturen sichtbar, Export als CSV und Arbeitszeitnachweis zum Drucken.
 
 ## Was man sieht
 
@@ -33,6 +33,27 @@ siehe `fahrplan.md`, E20.
     Wochensummen (am Rechner zusätzlich Pausen), oben rot die offenen Stempelungen. Ein Tipp auf eine
     Zelle öffnet den Tag der Person (`ZeitTagBlatt`); mit „Zeiten aller · schreiben“ dort ändern,
     nachtragen, löschen – immer mit Grund.
+- **Monat** (v136): Summen (Arbeit, Pausen, Urlaub, Arbeitstage), die Tage mit Eintrag, „CSV (Excel)“
+  und „Nachweis drucken / PDF“. In *Alle* schaltet „Woche | Monat“ um; der Monat zeigt je Person Tage,
+  Arbeit, Pausen, Urlaub, Summe und die Zahl der Tage mit Hinweis; ein Tipp öffnet den Monat der Person
+  (Blatt) mit eigenem Export, ein Tipp auf einen Tag dort den Tag. Oben „CSV“ und „Nachweise drucken“
+  für alle auf einmal und – mit „Zeiten aller · schreiben“ – „Urlaub eintragen“.
+- **Urlaub** (Migration 83, v136): eintragen und entfernen nur mit „Zeiten aller · schreiben“, immer
+  mit Grund (`UrlaubBlatt`, aus *Alle › Monat*, dem Monat der Person oder dem Tag einer Person).
+  Eingetragen werden die Werktage Mo–Fr im Zeitraum; ganzer Tag 8 h, halber 4 h oder eigene Stunden.
+  Feiertage kennt die App nicht – liegt einer im Zeitraum, nimmt man ihn danach mit „Entfernen“ heraus.
+  Urlaub zählt in Monat, Export und Nachweis mit, in der Woche als eigene Summe, in der Wochentabelle
+  aller als „U“. **Krankheit gibt es bewusst nicht**: Das wären Gesundheitsdaten (Art. 9 DSGVO), erst
+  nach Rücksprache mit dem Datenschutz.
+- **Korrekturen** (v136): Im eigenen Tag und im Tag einer Person steht unter „Korrekturen“, wer wann
+  was geändert hat und warum (Vorher → Nachher, auch Urlaub). Gelesen wird nach derselben Regel wie die
+  Zeiten: die eigenen oder, mit „Zeiten aller“, alle.
+- **Export** (v136): *CSV* – eine Zeile je Person und Tag mit Eintrag (Datum, Wochentag, Beginn, Ende,
+  Pausen, Arbeitszeit als h:mm und als Dezimalstunden mit Komma, Urlaub, Hinweise), danach eine
+  Summenzeile; Semikolon, UTF-8 mit BOM – Excel öffnet sie richtig (`monatCsv()`). *Nachweis* – eine
+  A4-Seite je Person mit allen Tagen des Monats, Summen und zwei Unterschriftszeilen (`ZeitNachweis`),
+  gedruckt aus dem Fenster wie die Rechnung; am iPhone über Teilen → als PDF sichern. Offene Schichten
+  vergangener Tage zählen auch hier erst nach der Korrektur.
 - **Hinweise, keine Entscheidungen** (`tagAuswerten()`): „Pause zu kurz“ (mehr als 6 h → 30 Min., mehr
   als 9 h → 45 Min., § 4 ArbZG – gerechnet je Tag, erst nach dem Ausstempeln), „über 10 h“ (§ 3 ArbZG),
   „offen“ (an einem früheren Tag nicht ausgestempelt), „korrigiert“. Eine offene Schicht von einem
@@ -73,6 +94,15 @@ Fassung. Die eigenen Zeiten kann niemand selbst ändern.
   älter als 2 Jahre werden gelöscht.
 - „Alle Daten löschen“ (Migration 72) leert die Tabellen mit.
 
+## Datenbank (Migration 83)
+
+- `zeit_abwesenheiten` (Person, Tag, `art` – heute nur `urlaub`, Minuten 1–720, Notiz = Grund, wer); je
+  Person und Tag höchstens eine Zeile. Lesen wie die Schichten, Schreiben nur über
+  `zeit_urlaub_setzen(person, von, bis, minuten, grund)` und `zeit_urlaub_loeschen(person, von, bis, grund)`
+  (höchstens zwei Monate auf einmal). Jede Änderung steht mit Vorher/Nachher in `zeit_korrekturen`
+  (`schicht_id` leer, `{"art": "urlaub", "tag", "minuten"}`).
+- `zeit_aufraeumen()` löscht auch den Urlaub nach 2 Jahren.
+
 ## Code
 
 | Datei | Was |
@@ -81,6 +111,8 @@ Fassung. Die eigenen Zeiten kann niemand selbst ändern.
 | `lib/api/zeiterfassung.ts` | Stand, Schichten der Woche, offene, Personen, Stempeln, Korrigieren |
 | `app/_seite/useZeiterfassung.ts` | Stand, Versatz zur Datenbankuhr, Stempeln, Blatt |
 | `components/zeit/` | Karte, Anzeige, Blatt, Bereich – `tests/zeitOberflaeche.test.tsx` |
+| `components/zeit/ZeitMonat.tsx`, `ZeitNachweis.tsx`, `UrlaubBlatt.tsx` | Monat, Nachweis zum Drucken, Urlaub (v136) |
+| `lib/download.ts` | Datei speichern (CSV) |
 
 ## Datenschutz
 
@@ -88,4 +120,6 @@ Arbeitszeiten sind personenbezogene Daten der Mitarbeiter. Vor dem Start die Mit
 wozu die Zeiten erfasst werden und wer sie sieht; die Aufbewahrung (2 Jahre, § 16 Abs. 2 ArbZG) mit
 dem Datenschutz bzw. Steuerberater abstimmen. Erfasst werden nur Zeiten – kein Standort, keine Fotos.
 Die Hinweise zur Pause und zu 10 Stunden sind Hinweise für Menschen; die App entscheidet nichts über
-Personen.
+Personen. Urlaub ist ein personenbezogenes Datum wie die Zeiten (gleiche Regeln, gleiche 2 Jahre);
+Krankheit wird bewusst nicht erfasst (Art. 9 DSGVO). Der Export enthält Namen und Zeiten – nur an
+Lohnbüro oder Steuerberater weitergeben, nicht offen ablegen.

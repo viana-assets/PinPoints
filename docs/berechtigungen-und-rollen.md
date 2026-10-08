@@ -1,6 +1,6 @@
 # Berechtigungen und Rollen
 
-**Stand: 19.09.2026, ergänzt bis 08.10.2026 (`lager.verkauf`, Migration 61; Funktionen aus Migration 64; fünf Unterrechte, Migration 77; zehn weitere, Migration 78; Team-Chat, Migration 80; Zeiterfassung, Migration 82).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
+**Stand: 19.09.2026, ergänzt bis 08.10.2026 (`lager.verkauf`, Migration 61; Funktionen aus Migration 64; fünf Unterrechte, Migration 77; zehn weitere, Migration 78; Team-Chat, Migration 80 und 84; Zeiterfassung, Migration 82).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
 Entscheidung tatsächlich fällt, und welche Irrtümer das Projekt dabei schon gemacht hat –
 damit sie kein zweites Mal gemacht werden.
 
@@ -264,6 +264,11 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   (`chat_aufraeumen()`). Eine Karte im Chat öffnet nur, was die Rolle ohnehin sehen darf – die
   Schnappschuss-Zeile (Titel, Unterzeile) liest aber jeder mit L; deshalb steht auf der Kundenkarte
   nur Name und Ort, keine Anschrift und keine Nummer.
+  **Seit Migration 84 (v137):** Einzelchats lesen nur die beiden Beteiligten (Richtlinie „Chat lesen“
+  mit `kanal = 'team' or autor = ich or an = ich`) – das Recht L öffnet sie für niemanden sonst, auch
+  nicht für Admin oder Superadmin. Empfänger kann nur sein, wer L hat (`chat_kann_mitlesen()`). Mit S
+  die eigene Nachricht bearbeiten (24 Stunden) und löschen (Richtlinie „Eigene Nachricht ändern“) und
+  Fotos senden (Bucket `chat-fotos`, nur in den eigenen Ordner); eine fremde Nachricht löscht niemand.
 - **Die zehn Zeilen aus Migration 78:**
   - `auftraege.anlegen` – Richtlinie „Bereich auftraege schreiben“ (INSERT). Legt ein Techniker an,
     trägt ihn `auftrag_techniker_einteilen()` selbst ein (sonst sähe er den Auftrag nicht); ohne

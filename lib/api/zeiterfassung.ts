@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { StempelArt, ZeitPerson, ZeitSchicht, ZeitStatus } from "@/lib/zeiterfassung";
+import type { StempelArt, ZeitAbwesenheit, ZeitKorrektur, ZeitPerson, ZeitSchicht, ZeitStatus } from "@/lib/zeiterfassung";
 import { fetchPaged, q } from "./client";
 
 // Datenzugriff für die Stempeluhr (Migration 82, v131). Geschrieben wird ausschließlich über die
@@ -63,4 +63,37 @@ export async function zeitSchichtSpeichern(supabase: SupabaseClient, s: {
 
 export async function zeitSchichtLoeschen(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
   await q("Die Schicht konnte nicht gelöscht werden", supabase.rpc("zeit_schicht_loeschen", { p_id: id, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------------------------------------
+// Urlaub und Korrekturen (Migration 83, v136)
+// ---------------------------------------------------------------------------------------------
+
+// Eingetragene Urlaubstage im Zeitraum (Tage JJJJ-MM-TT, beide einschließlich).
+export async function fetchZeitAbwesenheiten(supabase: SupabaseClient, vonTag: string, bisTag: string): Promise<ZeitAbwesenheit[]> {
+  return fetchPaged<ZeitAbwesenheit>("Der Urlaub konnte nicht geladen werden", (a, b) =>
+    supabase.from("zeit_abwesenheiten").select("id,profile_id,tag,art,minuten,notiz").gte("tag", vonTag).lte("tag", bisTag)
+      .order("tag").order("id").range(a, b)
+  );
+}
+
+// Die Korrekturen einer Person, die seit `ab` gemacht wurden. Zu welchem Tag sie gehören, sagt
+// `korrekturTag()` – eine Korrektur an einer Schicht vom Montag kann am Freitag passiert sein.
+export async function fetchZeitKorrekturen(supabase: SupabaseClient, profileId: string, ab: string): Promise<ZeitKorrektur[]> {
+  return (await q<ZeitKorrektur[]>("Die Korrekturen konnten nicht geladen werden",
+    supabase.from("zeit_korrekturen").select("id,schicht_id,profile_id,vorher,nachher,grund,von,am")
+      .eq("profile_id", profileId).gte("am", ab).order("am", { ascending: false }).limit(500))) || [];
+}
+
+// Urlaub eintragen (Werktage im Zeitraum) bzw. entfernen – Grund ist Pflicht, Recht „Zeiten aller“.
+export async function zeitUrlaubSetzen(supabase: SupabaseClient, u: { profileId: string; von: string; bis: string; minuten: number; grund: string }): Promise<number> {
+  return (await q<number>("Der Urlaub konnte nicht eingetragen werden", supabase.rpc("zeit_urlaub_setzen", {
+    p_profile: u.profileId, p_von: u.von, p_bis: u.bis, p_minuten: u.minuten, p_grund: u.grund,
+  }))) ?? 0;
+}
+
+export async function zeitUrlaubLoeschen(supabase: SupabaseClient, u: { profileId: string; von: string; bis: string; grund: string }): Promise<number> {
+  return (await q<number>("Der Urlaub konnte nicht entfernt werden", supabase.rpc("zeit_urlaub_loeschen", {
+    p_profile: u.profileId, p_von: u.von, p_bis: u.bis, p_grund: u.grund,
+  }))) ?? 0;
 }

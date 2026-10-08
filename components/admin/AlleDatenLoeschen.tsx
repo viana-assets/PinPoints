@@ -7,6 +7,7 @@ import { alleDatenLoeschen, alleDatenSicherung, alleDatenUmfang, type AlleDatenU
 import { datenSpeicherLeeren } from "@/app/providers";
 import { ausgangLeeren } from "@/lib/offline/speicher";
 import { todayStr } from "@/lib/format";
+import { dateiHerunterladen } from "@/lib/download";
 
 // „Alle Daten löschen“ (Migration 72, v117) – nur für den Superadmin, unter Admin › Wartung.
 //
@@ -27,14 +28,8 @@ const BEREICHE: [string, string][] = [
   ["audit_log", "Protokolleinträge"],
 ];
 
-function herunterladen(name: string, inhalt: string) {
-  const url = URL.createObjectURL(new Blob([inhalt], { type: "application/json;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
+// Gespeichert wird über lib/download.ts (seit v136 eine Funktion für alle Exporte).
+const herunterladen = (name: string, inhalt: string) => dateiHerunterladen(name, inhalt, "application/json;charset=utf-8");
 
 export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
   const [offen, setOffen] = useState(false);

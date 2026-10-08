@@ -127,12 +127,18 @@ viana-pinpoints/
     zeit/
       StempelKarte.tsx / StempelBlatt.tsx / UhrPille.tsx   Stempeluhr, Blatt, laufende Anzeige (Migration 82, v131)
       ZeitBlase.tsx                  Schwebende Stoppuhr über der Chat-Blase → Zeiterfassung (v132)
-      ZeitPanel.tsx                  Bereich „Zeiterfassung“: Tag, Woche, Alle, Tag einer Person mit Korrektur
+      ZeitPanel.tsx                  Bereich „Zeiterfassung“: Tag, Woche, Monat, Alle, Tag einer Person mit Korrektur
+      ZeitMonat.tsx                  Monatssummen, Tagesliste, Monatstabelle aller, Korrekturen, Export-Knöpfe (v136)
+      ZeitNachweis.tsx               Arbeitszeitnachweis zum Drucken/PDF, eine A4-Seite je Person (v136)
+      UrlaubBlatt.tsx                Urlaub eintragen/entfernen, Werktage im Zeitraum (Migration 83, v136)
       useJetzt.ts                    „Jetzt“ im Takt, mit Versatz zur Datenbankuhr
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
       ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
-                                     Reaktionen und Antworten (lange drücken / ☺-Knopf, Migration 81)
+                                     Reaktionen und Antworten (lange drücken / ☺-Knopf, Migration 81);
+                                     Einzelchats, Bearbeiten/Löschen, Fotos, Ältere laden (Migration 84, v137)
+      ChatListe.tsx                  Liste der Unterhaltungen: Team, Einzelchats, neue Unterhaltung (v137)
+      ChatFoto.tsx                   Foto im Verlauf (Seitenverhältnis vorab) und groß (Ebene 10004, v137)
     termine/
       TerminePanel.tsx               Reiter „Termine" als Zeitleiste je Tag (Entwurf L)
     WeiterePanel.tsx                Handy-Seite „Weitere": Kacheln nach `WEITERE_GRUPPEN`, je
@@ -292,9 +298,13 @@ viana-pinpoints/
     abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
     pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
     chat.ts                       Regeln des Team-Chats: Karten, @-Erwähnungen, Tagestrenner, Push-Inhalt,
-                                  Vorschläge für „+“ (Migration 80, v129; tests/chat.test.ts)
-    zeiterfassung.ts              Regeln der Stempeluhr: zählen, Woche, Hinweise (ArbZG), Formular (Migration 82, v131)
-    chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden)
+                                  Vorschläge für „+“ (Migration 80, v129; tests/chat.test.ts); Einzelchat-Liste,
+                                  Bearbeiten-Frist, Fotopfad (Migration 84, v137)
+    zeiterfassung.ts              Regeln der Stempeluhr: zählen, Woche, Monat, Urlaub, Hinweise (ArbZG), Formular,
+                                  Korrekturtexte, CSV-Export (Migration 82/83, v131/v136)
+    download.ts                   Eine Datei aus dem Browser speichern – für alle Exporte (v136)
+    chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
+                                  Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
     reifenverkauf.ts              Reifenverkauf: Größe lesen, Hinweise, Lagerwert (Migration 61);
                                   seit v103 Übernahme aus der Einlagerung, Etikett, Auswertung (E17/E18)
@@ -340,8 +350,10 @@ viana-pinpoints/
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
-      zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82)
-      chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80)
+      zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
+                                   Urlaub, Korrekturen (Migration 83)
+      chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
+                                   Einzelchats, Bearbeiten/Löschen, Fotos, Unterhaltungen (Migration 84)
       permissions.ts                Modul-Berechtigungen (module_permissions, `darf()`)
       audit.ts                      Lesezugriff auf das Änderungsprotokoll (audit_log)
       protokoll.ts                   Namensauflösung/Aufbereitung fürs Protokoll
@@ -358,7 +370,7 @@ viana-pinpoints/
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
       alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–82
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–83
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -692,7 +704,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 82** (08.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 84** (08.10.2026; 01–82 ausgeführt, 83 und 84 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -808,6 +820,13 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **82** – Zeiterfassung: `zeit_schichten`, `zeit_pausen`, `zeit_korrekturen`, Rechte `zeiterfassung` und
   `zeiterfassung.alle` (Techniker aus), Stempeln und Korrigieren nur über Funktionen mit `now()`,
   Aufbewahrung 2 Jahre. Siehe `docs/zeiterfassung.md`.
+- **83** – Zeiterfassung: Urlaub als Eintrag (`zeit_abwesenheiten`, nur `art = 'urlaub'` – Krankheit wäre
+  Art. 9 DSGVO), `zeit_urlaub_setzen()`/`zeit_urlaub_loeschen()` mit Grund, Werktage Mo–Fr, Protokoll in
+  `zeit_korrekturen`; Aufräumen nach 2 Jahren schließt den Urlaub ein.
+- **84** – Team-Chat: Einzelchats (`kanal = 'direkt'`, `an`; lesen nur die beiden), eigene Nachricht
+  bearbeiten (24 h) und löschen (`chat_nachricht_aendern()`), Fotos (privater Bucket `chat-fotos`, Dateien
+  über `private.chat_fotos_weg` und den Minutentakt entfernt), `chat_gelesen_direkt`,
+  `chat_unterhaltungen()`, `chat_ungelesen()` zählt Team und Einzelchats. Siehe `docs/team-chat.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

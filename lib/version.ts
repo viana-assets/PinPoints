@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v135";
+export const APP_VERSION = "v137";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,24 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v137", datum: "2026-10-08", titel: "Chat: Einzelchats, Bearbeiten, Fotos",
+    punkte: [
+      "Im Chat führt der Knopf oben rechts zu allen Unterhaltungen: Team-Chat und Einzelchats. Einen Einzelchat lesen nur ihr beide – auch kein Admin.",
+      "Eigene Nachricht lange drücken (am Rechner ☺): „Bearbeiten“ geht in den ersten 24 Stunden, „Löschen“ jederzeit. Dann steht dort „Nachricht gelöscht“.",
+      "Fotos im Chat: der Kamera-Knopf neben „+“. Antippen zeigt das Foto groß.",
+      "Ganz oben im Verlauf holt „Ältere Nachrichten laden“ weiter zurückliegende Nachrichten.",
+    ],
+  },
+  {
+    version: "v136", datum: "2026-10-08", titel: "Zeiterfassung: Monat, Urlaub, Export",
+    punkte: [
+      "Unter „Zeiterfassung“ gibt es jetzt „Monat“: deine Arbeitszeit, Pausen und Urlaub im ganzen Monat.",
+      "Wer „Zeiten aller“ sieht, schaltet unter „Alle“ zwischen Woche und Monat um und kann Urlaub eintragen – ganzer Tag, halber Tag oder eigene Stunden, immer mit Grund.",
+      "Export für Lohn oder Steuerberater: „CSV (Excel)“ und ein Arbeitszeitnachweis zum Drucken oder als PDF, eine Seite je Person mit Unterschriftszeilen.",
+      "Im Tag steht jetzt, wer eine Zeit korrigiert hat, wann und warum.",
+    ],
+  },
   {
     version: "v135", datum: "2026-10-08", titel: "Einheitliches Aussehen",
     punkte: [

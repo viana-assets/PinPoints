@@ -16,6 +16,16 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Team-Chat: Einzelchats, Bearbeiten/Löschen, Fotos (Migration 84, Service Worker
+  v137).** Fahrplan E19, Auswahl Vitali: Einzelchats (lesen nur die beiden, auch kein Admin), eigene
+  Nachricht 24 Stunden bearbeiten und jederzeit löschen, Fotos im Chat, ältere Nachrichten
+  nachladen. `docs/team-chat.md`.
+
+* **08.10.2026 – Zeiterfassung: Monat, Urlaub, Export (Migration 83, Service Worker v136).** Fahrplan
+  E20, Auswahl Vitali: Monatsblick für sich und für alle, Urlaub eintragen (nur „Zeiten aller“, mit
+  Grund; Krankheit bewusst nicht – Art. 9 DSGVO), Korrekturen im Tag sichtbar, CSV für Lohn und
+  Steuerberater, Arbeitszeitnachweis je Person zum Drucken. `docs/zeiterfassung.md`.
+
 * **08.10.2026 – Designprüfung abgeschlossen: Runden 3 bis 5 (Service Worker v135, ohne
   Migration).** Wunsch Vitali „mach alles auf einmal“. Runde 3: Rechnung, Auskunft und die drei
   Etikettenfenster als `Blatt` (Breite „dokument“), Rechnungsfenster am Auftrag und im
@@ -778,19 +788,18 @@ Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Ve
 
 ### E19. Team-Chat: Einzelchats, Bearbeiten, Fotos
 
-Der Team-Chat (Migration 80, v129; Reaktionen und Antworten seit Migration 81, v130) ist ein
-gemeinsamer Kanal. Offen, auf Wunsch:
-Einzelchats (`kanal` ist dafür vorbereitet, die Prüfregel erlaubt heute nur `team`), eigene
-Nachricht ändern oder löschen, Fotos im Chat (Speicher wie bei den Belegen, E3), älter als die
-letzten 300 Nachrichten zurückblättern. Die Aufbewahrung (12 Monate) mit dem Datenschutz abstimmen.
-*Aufwand: je mittel.*
+**Erledigt 08.10.2026 (Migration 84, v137):** Einzelchats (nur die beiden lesen), eigene Nachricht
+bearbeiten (24 Stunden) und löschen, Fotos im Chat (privater Bucket `chat-fotos`, Dateien gelöschter
+Nachrichten räumt der Minutentakt weg), „Ältere Nachrichten laden“ – `docs/team-chat.md`. Offen: die
+Aufbewahrung (12 Monate) mit dem Datenschutz abstimmen; Gruppen mit mehr als zwei Personen außer dem
+Team-Chat gibt es nicht.
 
 ### E20. Zeiterfassung: Export und Monatsblick
 
-Die Stempeluhr (Migration 82, v131) hat Tag, Woche und die Wochentabelle aller. Offen, auf Wunsch:
-Monatsübersicht und Export (CSV/PDF) für Lohn oder Steuerberater; Urlaub/Krank als eigene Einträge;
-die Korrekturen (`zeit_korrekturen`) in der Oberfläche anzeigen (heute nur der Vermerk an der Schicht).
-*Aufwand: je klein bis mittel.*
+**Erledigt 08.10.2026 (Migration 83, v136):** Monat (eigener und aller), Urlaub als Eintrag,
+Korrekturen sichtbar, Export als CSV und Arbeitszeitnachweis zum Drucken – `docs/zeiterfassung.md`.
+Offen, nur nach Rücksprache mit dem Datenschutz: Krankheit als Eintrag (Art. 9 DSGVO). Feiertage
+kennt die App nicht (Urlaub über einen Feiertag danach für diesen Tag entfernen).
 
 ---
 

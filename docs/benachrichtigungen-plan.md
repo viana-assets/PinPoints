@@ -533,3 +533,12 @@ vor). Eine Reaktion geht nur an den Verfasser der Nachricht – „Jan hat reagi
 mitnehmen““, Kennung je Nachricht und Person, damit eine geänderte Reaktion die offene Meldung
 ersetzt. Sie wird über `chat_reaktionen.push_gesendet_am` genauso „erst eingetragen, dann
 gesendet“; der Anstoß ist derselbe Trigger. Keine Meldung für Reaktionen auf die eigene Nachricht.
+
+**Seit Migration 84 (v137): Einzelchats, Bearbeiten, Fotos.** Eine Einzelnachricht geht nur an den
+Empfänger („Jan an dich“), Antippen öffnet `/?chat=<Kennung des Schreibers>` – genau diese
+Unterhaltung. Eine Reaktion im Einzelchat öffnet ebenso die Unterhaltung. Eine Nachricht, die vor dem
+Versand gelöscht wurde, wird abgehakt, aber nicht gemeldet; eine Bearbeitung meldet sich nicht ein
+zweites Mal. Ein Foto ohne Text heißt in der Meldung „📷 Foto“ – das Bild selbst reist nicht mit. Die
+Zahl am Symbol zählt die Datenbank (`chat_ungelesen_von()`, Team und Einzelchats). Im selben
+Minutenlauf, aber nicht beim sofortigen Anstoß, entfernt `chatFotosAufraeumen()` die Dateien gelöschter
+oder aufgeräumter Fotonachrichten (`chatFotos` in der Antwort der Route).

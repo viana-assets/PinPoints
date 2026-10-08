@@ -6,6 +6,7 @@ import { formatEUR } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { PROTOKOLL_SCHWAERZEN_MONATE, RECHNUNG_SEITE_CSS } from "@/lib/constants";
 import { Blatt } from "@/components/Blatt";
+import { dateiHerunterladen } from "@/lib/download";
 
 // Auskunftsauszug je Kunde (Fahrplan E10, v103): alles, was zu diesem Kunden gespeichert ist, als
 // Schriftstück zum Ausdrucken oder „Als PDF sichern", und als Datei (JSON) für eine elektronische
@@ -23,14 +24,8 @@ function datum(iso: string | null | undefined): string {
   return `${t}.${m}.${j}`;
 }
 
-function herunterladen(name: string, inhalt: string) {
-  const url = URL.createObjectURL(new Blob([inhalt], { type: "application/json;charset=utf-8" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 10000);
-}
+// Gespeichert wird über lib/download.ts (seit v136 eine Funktion für alle Exporte).
+const herunterladen = (name: string, inhalt: string) => dateiHerunterladen(name, inhalt, "application/json;charset=utf-8");
 
 function Tabelle({ zeilen }: { zeilen: Zeile[] }) {
   return (

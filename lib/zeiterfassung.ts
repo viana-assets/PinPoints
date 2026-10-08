@@ -235,3 +235,174 @@ export function formularAusSchicht(s: ZeitSchicht | null, tag: string): SchichtF
 export function schichtSpanne(s: Pick<ZeitSchicht, "beginn" | "ende">): string {
   return `${uhrzeitVon(s.beginn)} – ${s.ende ? uhrzeitVon(s.ende) : "jetzt"}`;
 }
+
+// ---------------------------------------------------------------------------------------------
+// Monat, Urlaub, Korrekturen, Export (Migration 83, v136, Fahrplan E20)
+// ---------------------------------------------------------------------------------------------
+
+// Ein eingetragener Urlaubstag (`zeit_abwesenheiten`). Nur Urlaub – Krankheit wären
+// Gesundheitsdaten (Art. 9 DSGVO), siehe Migration 83.
+export type ZeitAbwesenheit = { id: string; profile_id: string; tag: string; art: "urlaub"; minuten: number; notiz: string | null };
+
+// Wie viel ein Urlaubstag zählt. Die Datenbank nimmt 1 bis 720 Minuten.
+export const ZEIT_URLAUB_VORGABEN = [
+  { minuten: 480, text: "Ganzer Tag (8 h)" },
+  { minuten: 240, text: "Halber Tag (4 h)" },
+] as const;
+
+// Eine Korrektur, wie sie `zeit_korrekturen` festhält: Schicht (vorher/nachher als Schicht-JSON)
+// oder Urlaub (`art: "urlaub"`, Tag und Minuten). Leeres `vorher` = neu, leeres `nachher` = gelöscht.
+type KorrekturSchicht = { beginn: string; ende: string | null; pausen: { beginn: string; ende: string | null }[] };
+type KorrekturUrlaub = { art: "urlaub"; tag: string; minuten: number };
+export type ZeitKorrektur = {
+  id: string;
+  schicht_id: string | null;
+  profile_id: string;
+  vorher: KorrekturSchicht | KorrekturUrlaub | null;
+  nachher: KorrekturSchicht | KorrekturUrlaub | null;
+  grund: string;
+  von: string | null;
+  am: string;
+};
+
+function istUrlaub(x: KorrekturSchicht | KorrekturUrlaub | null): x is KorrekturUrlaub {
+  return !!x && (x as KorrekturUrlaub).art === "urlaub";
+}
+
+// Zu welchem Tag eine Korrektur gehört: der Tag der Schicht (vorher oder nachher) bzw. des Urlaubs.
+export function korrekturTag(k: ZeitKorrektur): string | null {
+  const x = k.nachher ?? k.vorher;
+  if (!x) return null;
+  return istUrlaub(x) ? x.tag.slice(0, 10) : tagSchluessel(x.beginn);
+}
+
+function schichtKurz(x: KorrekturSchicht): string {
+  const p = x.pausen.filter((y) => y.ende).reduce((s, y) => s + (t(y.ende as string) - t(y.beginn)), 0);
+  return `${schichtSpanne(x)}${p ? `, Pause ${dauerText(p)}` : ""}`;
+}
+
+// „Schicht 08:00 – jetzt → 08:00 – 14:30, Pause 0:30“, „Urlaub 8:00 h eingetragen“ …
+export function korrekturText(k: ZeitKorrektur): string {
+  const { vorher: v, nachher: n } = k;
+  if (istUrlaub(v) || istUrlaub(n)) {
+    if (!v) return `Urlaub ${dauerText((n as KorrekturUrlaub).minuten * MIN)} h eingetragen`;
+    if (!n) return `Urlaub ${dauerText((v as KorrekturUrlaub).minuten * MIN)} h entfernt`;
+    return `Urlaub ${dauerText((v as KorrekturUrlaub).minuten * MIN)} h → ${dauerText((n as KorrekturUrlaub).minuten * MIN)} h`;
+  }
+  if (!v && n) return `Schicht nachgetragen: ${schichtKurz(n as KorrekturSchicht)}`;
+  if (v && !n) return `Schicht gelöscht: ${schichtKurz(v as KorrekturSchicht)}`;
+  if (v && n) return `Schicht ${schichtKurz(v as KorrekturSchicht)} → ${schichtKurz(n as KorrekturSchicht)}`;
+  return "Korrektur";
+}
+
+// Der Monat als „JJJJ-MM“.
+export function monatVon(tag: string): string { return tag.slice(0, 7); }
+export function monatPlus(monat: string, n: number): string {
+  const d = new Date(`${monat}-01T12:00:00`);
+  d.setMonth(d.getMonth() + n);
+  return tagVon(d).slice(0, 7);
+}
+export function monatTage(monat: string): string[] {
+  const tage: string[] = [];
+  for (let tag = `${monat}-01`; tag.startsWith(monat); tag = tagPlus(tag, 1)) tage.push(tag);
+  return tage;
+}
+// Grenzen für die Abfrage: 1. des Monats 00:00 bis 1. des Folgemonats 00:00 (Uhr des Geräts).
+export function monatVonBis(monat: string): { von: string; bis: string; vonTag: string; bisTag: string } {
+  const folge = monatPlus(monat, 1);
+  return {
+    von: new Date(`${monat}-01T00:00:00`).toISOString(), bis: new Date(`${folge}-01T00:00:00`).toISOString(),
+    vonTag: `${monat}-01`, bisTag: tagPlus(`${folge}-01`, -1),
+  };
+}
+const MONATSNAMEN = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+export function monatTitel(monat: string): string {
+  return `${MONATSNAMEN[Number(monat.slice(5, 7)) - 1]} ${monat.slice(0, 4)}`;
+}
+const WOCHENTAG_KURZ = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+export function wochentagKurz(tag: string): string { return WOCHENTAG_KURZ[new Date(`${tag}T12:00:00`).getDay()]; }
+
+export type MonatsTag = TagAuswertung & { urlaubMs: number };
+export type MonatsAuswertung = {
+  monat: string;
+  tage: MonatsTag[];
+  arbeitMs: number;
+  pauseMs: number;
+  urlaubMs: number;
+  arbeitstage: number;
+  urlaubstage: number;
+  hinweise: number;
+};
+
+export function monatAuswerten(schichten: ZeitSchicht[], urlaub: ZeitAbwesenheit[], monat: string, heute: string, jetzt: number): MonatsAuswertung {
+  const tage = monatTage(monat).map((tag) => ({
+    ...tagAuswerten(schichten, tag, heute, jetzt),
+    urlaubMs: urlaub.filter((u) => u.tag.slice(0, 10) === tag).reduce((s, u) => s + u.minuten * MIN, 0),
+  }));
+  return {
+    monat, tage,
+    arbeitMs: tage.reduce((s, x) => s + x.arbeitMs, 0),
+    pauseMs: tage.reduce((s, x) => s + x.pauseMs, 0),
+    urlaubMs: tage.reduce((s, x) => s + x.urlaubMs, 0),
+    arbeitstage: tage.filter((x) => x.schichten.length > 0).length,
+    urlaubstage: tage.filter((x) => x.urlaubMs > 0).length,
+    hinweise: tage.filter((x) => x.hinweise.some((h) => h !== "korrigiert")).length,
+  };
+}
+
+// Die Monatstabelle aller – wie `personenWoche`, auch für Zugänge, die nur noch Einträge haben.
+export function personenMonat(
+  schichten: ZeitSchicht[], urlaub: ZeitAbwesenheit[], personen: ZeitPerson[], monat: string, heute: string, jetzt: number
+): { person: ZeitPerson; monat: MonatsAuswertung }[] {
+  const bekannt = new Map(personen.map((p) => [p.id, p]));
+  for (const id of [...schichten.map((s) => s.profile_id), ...urlaub.map((u) => u.profile_id)]) {
+    if (!bekannt.has(id)) bekannt.set(id, { id, name: "Ehemaliger Zugang", rolle: "" });
+  }
+  return Array.from(bekannt.values())
+    .map((person) => ({
+      person,
+      monat: monatAuswerten(schichten.filter((s) => s.profile_id === person.id), urlaub.filter((u) => u.profile_id === person.id), monat, heute, jetzt),
+    }))
+    .sort((a, b) => a.person.name.localeCompare(b.person.name, "de"));
+}
+
+// Stunden als Dezimalzahl mit Komma („7,50“) – so rechnet die Lohnabrechnung.
+export function stundenDezimal(ms: number): string {
+  return (Math.round((Math.max(0, ms) / 3_600_000) * 100) / 100).toFixed(2).replace(".", ",");
+}
+
+function csvFeld(wert: string): string {
+  return /[;"\r\n]/.test(wert) ? `"${wert.replace(/"/g, '""')}"` : wert;
+}
+
+// Der Export für Lohn oder Steuerberater: eine Zeile je Person und Tag mit Eintrag, danach eine
+// Summenzeile je Person. Semikolon, Dezimalkomma, UTF-8 mit BOM – so öffnet Excel die Datei richtig.
+// Offene Schichten vergangener Tage zählen wie überall erst nach der Korrektur.
+export function monatCsv(zeilen: { person: ZeitPerson; monat: MonatsAuswertung }[]): string {
+  const kopf = ["Person", "Datum", "Wochentag", "Beginn", "Ende", "Pausen (h:mm)", "Arbeitszeit (h:mm)", "Arbeitszeit (Std.)", "Urlaub (Std.)", "Hinweise"];
+  const out: string[][] = [kopf];
+  for (const { person, monat } of zeilen) {
+    for (const x of monat.tage) {
+      if (x.schichten.length === 0 && x.urlaubMs === 0) continue;
+      const datum = `${x.tag.slice(8, 10)}.${x.tag.slice(5, 7)}.${x.tag.slice(0, 4)}`;
+      out.push([
+        person.name, datum, wochentagKurz(x.tag),
+        x.schichten.map((s) => uhrzeitVon(s.beginn)).join(" / "),
+        x.schichten.map((s) => (s.ende ? uhrzeitVon(s.ende) : "offen")).join(" / "),
+        x.schichten.length ? dauerText(x.pauseMs) : "",
+        x.schichten.length ? dauerText(x.arbeitMs) : "",
+        x.schichten.length ? stundenDezimal(x.arbeitMs) : "",
+        x.urlaubMs ? stundenDezimal(x.urlaubMs) : "",
+        x.hinweise.map((h) => ZEIT_HINWEIS_TEXT[h]).join(", "),
+      ]);
+    }
+    out.push([person.name, "Summe", "", "", "", dauerText(monat.pauseMs), dauerText(monat.arbeitMs), stundenDezimal(monat.arbeitMs),
+      stundenDezimal(monat.urlaubMs), `${monat.arbeitstage} Arbeitstage, ${monat.urlaubstage} Urlaubstage`]);
+  }
+  return "﻿" + out.map((z) => z.map(csvFeld).join(";")).join("\r\n") + "\r\n";
+}
+
+export function exportDateiname(monat: string, wer: string): string {
+  const name = wer.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `arbeitszeiten-${monat}-${name || "export"}`;
+}

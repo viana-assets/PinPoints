@@ -1,5 +1,6 @@
 "use client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { qk } from "./keys";
 import { fetchCustomers, fetchContactHistory } from "@/lib/api/customers";
@@ -8,10 +9,10 @@ import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsd
 import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVerfuegbarkeiten } from "@/lib/api/verfuegbarkeit";
-import { fetchChatNachrichten, fetchChatPersonen, fetchChatUngelesen } from "@/lib/api/chat";
+import { chatFotoLinks, fetchChatNachrichten, fetchChatPersonen, fetchChatUngelesen, fetchChatUnterhaltungen } from "@/lib/api/chat";
 import { CHAT_ABFRAGE_MS } from "@/lib/chat";
-import { fetchZeitOffene, fetchZeitPersonen, fetchZeitSchichten, fetchZeitStatus } from "@/lib/api/zeiterfassung";
-import { wocheVonBis, ZEIT_STATUS_ABFRAGE_MS } from "@/lib/zeiterfassung";
+import { fetchZeitAbwesenheiten, fetchZeitKorrekturen, fetchZeitOffene, fetchZeitPersonen, fetchZeitSchichten, fetchZeitStatus } from "@/lib/api/zeiterfassung";
+import { monatVonBis, wocheVonBis, ZEIT_STATUS_ABFRAGE_MS } from "@/lib/zeiterfassung";
 import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 import { fetchVehiclesFuerKunden } from "@/lib/api/vehicles";
 import type { Order } from "@/lib/types";
@@ -362,13 +363,67 @@ export function useBelegLinks(supabase: SupabaseClient, pfade: string[], aktiv: 
 // Supabase Realtime und erklärt `qk.chat()` für ungültig); die Abfrage im Takt ist nur der
 // Rückfall, falls die Live-Verbindung nicht steht. Der Verlauf wird nur geladen, solange der Chat
 // offen ist – die Zahl an der Blase immer.
-export function useChatNachrichten(supabase: SupabaseClient, aktiv: boolean) {
+//
+// Seit Migration 84 je Unterhaltung (Team oder Einzelchat) und mit wachsender Anzahl („Ältere
+// laden“). Beim Nachladen bleibt der bisherige Verlauf stehen, bis der längere da ist – beim
+// Wechsel in eine andere Unterhaltung nicht (sonst stünde kurz der falsche Chat da).
+export function useChatNachrichten(
+  supabase: SupabaseClient,
+  aktiv: boolean,
+  ziel: { partner: string | null; ichId: string | null; anzahl: number }
+) {
   return useQuery({
-    queryKey: qk.chatNachrichten(),
-    queryFn: () => fetchChatNachrichten(supabase),
+    queryKey: qk.chatVerlauf(ziel.partner, ziel.anzahl),
+    queryFn: () => fetchChatNachrichten(supabase, ziel),
     enabled: aktiv,
     refetchInterval: aktiv ? CHAT_ABFRAGE_MS : false,
+    placeholderData: (vorher, vorherAbfrage) => (vorherAbfrage?.queryKey[2] === (ziel.partner ?? "team") ? vorher : undefined),
   });
+}
+
+export function useChatUnterhaltungen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.chatUnterhaltungen(),
+    queryFn: () => fetchChatUnterhaltungen(supabase),
+    enabled: aktiv,
+    refetchInterval: aktiv ? 3 * CHAT_ABFRAGE_MS : false,
+  });
+}
+
+// Anzeige-Links der Fotos im geladenen Verlauf – wie bei den Auftragsfotos 45 Minuten frisch.
+// Kommt ein Foto dazu, ändert sich der Satz Pfade; geholt werden dann nur die Links, die noch
+// fehlen oder älter als 45 Minuten sind. Sonst bekäme jedes Bild einen neuen Link und lüde neu.
+type ChatFotoLink = { url: string; am: number };
+export function useChatFotoLinks(supabase: SupabaseClient, pfade: string[], aktiv: boolean) {
+  const queryClient = useQueryClient();
+  const abfrage = useQuery({
+    queryKey: qk.chatFotoLinks(pfade),
+    queryFn: async () => {
+      const jetzt = Date.now();
+      const bekannt: Record<string, ChatFotoLink> = {};
+      for (const [, daten] of queryClient.getQueriesData<Record<string, ChatFotoLink>>({ queryKey: ["chatfotolinks"] })) {
+        for (const [pfad, l] of Object.entries(daten ?? {})) if (jetzt - l.am < BELEG_LINK_FRISCH_MS && (!bekannt[pfad] || bekannt[pfad].am < l.am)) bekannt[pfad] = l;
+      }
+      const neu = await chatFotoLinks(supabase, pfade.filter((p) => !bekannt[p]));
+      const ergebnis: Record<string, ChatFotoLink> = {};
+      for (const p of pfade) {
+        if (bekannt[p]) ergebnis[p] = bekannt[p];
+        else if (neu[p]) ergebnis[p] = { url: neu[p], am: jetzt };
+      }
+      return ergebnis;
+    },
+    enabled: aktiv && pfade.length > 0,
+    staleTime: BELEG_LINK_FRISCH_MS,
+    gcTime: BELEG_LINK_FRISCH_MS + 5 * 60_000,
+    placeholderData: (vorher) => vorher,
+  });
+  const daten = abfrage.data;
+  const links = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const [p, l] of Object.entries(daten ?? {})) m[p] = l.url;
+    return m;
+  }, [daten]);
+  return links;
 }
 
 export function useChatUngelesen(supabase: SupabaseClient, aktiv: boolean) {
@@ -417,4 +472,27 @@ export function useZeitOffene(supabase: SupabaseClient, aktiv: boolean) {
 
 export function useZeitPersonen(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({ queryKey: qk.zeitPersonen(), queryFn: () => fetchZeitPersonen(supabase), enabled: aktiv, staleTime: 10 * FRISCH_MS });
+}
+
+// Monat (JJJJ-MM), Urlaub und Korrekturen (Migration 83, v136). Nur, solange die Zeiterfassung offen ist.
+export function useZeitMonat(supabase: SupabaseClient, monat: string, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.zeitMonat(monat),
+    queryFn: () => { const { von, bis } = monatVonBis(monat); return fetchZeitSchichten(supabase, von, bis); },
+    enabled: aktiv, staleTime: FRISCH_MS, placeholderData: (alt) => alt,
+  });
+}
+export function useZeitUrlaub(supabase: SupabaseClient, vonTag: string, bisTag: string, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.zeitUrlaub(vonTag, bisTag),
+    queryFn: () => fetchZeitAbwesenheiten(supabase, vonTag, bisTag),
+    enabled: aktiv, staleTime: FRISCH_MS, placeholderData: (alt) => alt,
+  });
+}
+export function useZeitKorrekturen(supabase: SupabaseClient, profileId: string | null, ab: string, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.zeitKorrekturen(profileId ?? "", ab),
+    queryFn: () => fetchZeitKorrekturen(supabase, profileId as string, ab),
+    enabled: aktiv && !!profileId, staleTime: FRISCH_MS,
+  });
 }
