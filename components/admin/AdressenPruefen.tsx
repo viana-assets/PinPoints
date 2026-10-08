@@ -92,9 +92,9 @@ export function AdressenPruefen({ supabase, onFertig, onKundeOeffnen }: {
   const offenAnzahl = zeilen.filter((z) => z.zustand !== "uebernommen").length;
 
   return (
-    <div style={{ maxWidth: 760 }}>
-      <h4 style={{ marginTop: 0 }}>Adressen prüfen</h4>
-      <p className="small" style={{ marginTop: 0 }}>
+    <div className="ad-lauf">
+      <h4>Adressen prüfen</h4>
+      <p className="small ad-lauf-text">
         Kunden, für die der Kartendienst keine Position gefunden hat – meist ein Tippfehler oder
         eine fehlende Hausnummer. Der Vorschlag daneben ist ein Angebot: erst ein Klick auf
         &bdquo;Übernehmen&ldquo; ändert die Adresse und setzt die Kartenposition.
@@ -103,7 +103,7 @@ export function AdressenPruefen({ supabase, onFertig, onKundeOeffnen }: {
       {laedt && <div className="small">Liste wird geladen …</div>}
       {meldung && <div className="small">{meldung}</div>}
       {!laedt && zeilen.length > 0 && (
-        <div className="small" style={{ marginBottom: 8 }}>Noch offen: {offenAnzahl} von {zeilen.length}</div>
+        <div className="small">Noch offen: {offenAnzahl} von {zeilen.length}</div>
       )}
 
       {zeilen.map((z) => (

@@ -9,6 +9,7 @@ import { formatDate, profilText, satzProfilMm } from "@/lib/helpers";
 import { satzUrl } from "@/lib/aufkleberCode";
 import { notizenText, radNotiz, satzPositionen } from "@/lib/lagerNotizen";
 import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, teilenOderSpeichern, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
+import { Blatt } from "@/components/Blatt";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
 //
@@ -272,32 +273,42 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   }
 
   return (
-    <div className="modal-overlay druck-fenster modal-etikett" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box druck-modal" style={{ position: "relative" }}>
-        <button className="modal-close druck-weg" onClick={onClose}>✕</button>
-        <h2 className="druck-weg">
-          {saetze.length === 1 ? "Etikett für den Reifensatz" : `${saetze.length} Etiketten`}
-        </h2>
-        <p className="small druck-weg">
-          Kommt auf die Reifen, nicht ins Regal. Beim Scannen mit der Handy-Kamera öffnet sich die
-          App beim Lagerplatz, auf dem dieser Satz gerade liegt – auch wenn er inzwischen
-          umgeräumt wurde. Alle Etiketten eines Satzes tragen denselben Code; sie unterscheiden
-          sich in dem, was darauf steht.
-        </p>
+    // Seit v135 ein Blatt wie alle Fenster (components/Blatt.tsx); Ebene 10004 über dem Auftrag.
+    <Blatt titel={saetze.length === 1 ? "Etikett für den Reifensatz" : `${saetze.length} Etiketten`} breite="breit"
+      ebene="druck-fenster modal-etikett" className="druck-modal" onClose={onClose}
+      fuss={<>
+        <button type="button" className="btn-secondary" disabled={teilenLaeuft || !basis || etiketten.length === 0}
+          onClick={() => void alsBildTeilen()}>
+          {teilenLaeuft
+            ? "einen Moment …"
+            : etiketten.length > 1 ? `${etiketten.length} Bilder teilen` : "Als Bild teilen"}
+        </button>
+        <button type="button" className="btn-primary" disabled={teilenLaeuft || !basis || etiketten.length === 0}
+          onClick={() => void alsPdfDrucken()}>
+          {teilenLaeuft ? "einen Moment …" : "Drucken"}
+        </button>
+      </>}>
+      <p className="bl-hilfe druck-weg">
+        Kommt auf die Reifen, nicht ins Regal. Beim Scannen mit der Handy-Kamera öffnet sich die
+        App beim Lagerplatz, auf dem dieser Satz gerade liegt – auch wenn er inzwischen
+        umgeräumt wurde. Alle Etiketten eines Satzes tragen denselben Code; sie unterscheiden
+        sich in dem, was darauf steht.
+      </p>
 
-        {/* Das Seitenformat lässt sich nicht je Element umstellen, `@page` gilt für das ganze
-            Dokument. Deshalb wird die Regel hier erzeugt, statt sie im Stilblatt zu hinterlegen.
-            Gedruckt wird über das PDF; die Regel greift nur, wenn jemand am Rechner die
-            Druckfunktion des Browsers nimmt (Strg+P) – dann wenigstens in Etikettengröße. */}
-        <style>{`@page { size: ${gewaehlt.breiteMm}mm ${gewaehlt.hoeheMm}mm; margin: 0; }`}</style>
+      {/* Das Seitenformat lässt sich nicht je Element umstellen, `@page` gilt für das ganze
+          Dokument. Deshalb wird die Regel hier erzeugt, statt sie im Stilblatt zu hinterlegen.
+          Gedruckt wird über das PDF; die Regel greift nur, wenn jemand am Rechner die
+          Druckfunktion des Browsers nimmt (Strg+P) – dann wenigstens in Etikettengröße. */}
+      <style>{`@page { size: ${gewaehlt.breiteMm}mm ${gewaehlt.hoeheMm}mm; margin: 0; }`}</style>
 
-        <div className="field druck-weg" style={{ maxWidth: 340 }}>
-          <label htmlFor="etikett-art">Was wird gedruckt?</label>
+      <div className="ar-karte-feld druck-weg ek-wahl">
+        <div className="nk-feld">
+          <label htmlFor="etikett-art" className="kp-label">Was wird gedruckt?</label>
           <select id="etikett-art" value={art} onChange={(e) => setArt(e.target.value as EtikettArt)}>
             <option value="raeder">Ein Etikett je Rad (VL, VR, HL, HR)</option>
             <option value="satz">Ein Etikett je Satz</option>
           </select>
-          <span className="small">
+          <span className="bl-hilfe">
             {art === "satz"
               ? "Kommt auf den Satz – Kunde, Fahrzeug, Saison, Profil."
               : "Kommt auf jedes einzelne Rad – Position und dessen Profiltiefe. Beim Wiederaufziehen ist damit klar, welches Rad wohin gehört."}
@@ -306,86 +317,69 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
 
         {/* Die Schritte stehen hier, weil sie in der Sekunde gebraucht werden, in der jemand vor
             dem Druckdialog steht. */}
-        <div className="field druck-weg" style={{ maxWidth: 340 }}>
-          <label htmlFor="etikett-format">Format</label>
+        <div className="nk-feld">
+          <label htmlFor="etikett-format" className="kp-label">Format</label>
           <select id="etikett-format" value={format} onChange={(e) => setFormat(e.target.value)}>
             {ETIKETT_FORMATE.map((f) => <option key={f.schluessel} value={f.schluessel}>{f.text}</option>)}
           </select>
-          <span className="small ek-schritte">
-            <b>So druckst du:</b> iPhone mit dem WLAN des Druckers verbinden (Wireless Direct) ·
-            &bdquo;Drucken&ldquo; tippen · im Teilen-Menü <b>&bdquo;Drucken&ldquo;</b> · Drucker
-            QL-820NWB · Papierformat <b>{gewaehlt.papier}</b>. Für Etiketten direkt auf dem
-            Reifen die Folienrolle DK-22212 statt Papier einlegen.
-          </span>
         </div>
-
-        <div
-          className="druckbogen rolle"
-          style={{
-            "--etikett-b": `${gewaehlt.breiteMm}mm`,
-            "--etikett-h": `${gewaehlt.hoeheMm}mm`,
-            "--etikett-qr": `${gewaehlt.qrMm}mm`,
-            "--etikett-rand": `${gewaehlt.randMm ?? 1.5}mm`,
-            "--etikett-s": String(gewaehlt.schrift ?? 1),
-          } as React.CSSProperties}
-        >
-          {basis && etiketten.map((e) => (
-            <div key={e.schluessel} className={"etikett" + (e.rad ? " etikett-rad" : "") + (hochformat ? " hoch" : "")}>
-              <QrBild text={satzUrl(e.satzId, basis)} alt="QR-Code Reifensatz" klasse="etikett-qr" />
-              <div className="etikett-text">
-                {/* Position und Profil in EINER großen Zeile: Das sind die beiden Angaben,
-                    wegen denen man das Etikett überhaupt anschaut, wenn vier gleich
-                    aussehende Räder auf dem Boden liegen. */}
-                {e.inhalt.gross && (
-                  <div className="etikett-rad-kopf">
-                    <span className="etikett-pos">{e.inhalt.gross.links}</span>
-                    <span className="etikett-profil">{e.inhalt.gross.rechts}</span>
-                  </div>
-                )}
-                {/* Der Kundenname steht oben und fett: Er ist die Antwort auf die Frage, die
-                    dieses Etikett stellt. Alles andere ist Beleg. */}
-                {e.inhalt.kopf && <div className="etikett-kunde">{e.inhalt.kopf}</div>}
-                {e.inhalt.zeilen.map((zeile, i) => (
-                  <div key={i} className="etikett-zeile">{zeile}</div>
-                ))}
-                {e.inhalt.notiz && <div className="etikett-notiz">{e.inhalt.notiz}</div>}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Der Hinweis steht über den Knöpfen und nicht in einer Anleitung: Gelesen wird er in
-            der Sekunde, in der jemand vor dem Drucker steht. */}
-        <div className="small druck-weg" style={{ marginTop: 12 }}>
-          <b>Drucken</b> erzeugt ein PDF in genau dieser Größe – ohne Fußzeile, ohne Verkleinern.
-          <b> Als Bild teilen</b> ist der Umweg über Bluetooth: im Teilen-Menü &bdquo;Bild
-          sichern&ldquo;, dann in iPrint&amp;Label unter &bdquo;Erstellen&ldquo; das Bild wählen.
-        </div>
-
-        <div className="row druck-weg" style={{ marginTop: 8 }}>
-          <button className="btn-primary" style={{ flex: 1 }} disabled={teilenLaeuft || !basis || etiketten.length === 0}
-            onClick={() => void alsPdfDrucken()}>
-            {teilenLaeuft ? "einen Moment …" : "Drucken"}
-          </button>
-          <button
-            className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }}
-            disabled={teilenLaeuft || !basis || etiketten.length === 0}
-            onClick={() => void alsBildTeilen()}
-          >
-            {teilenLaeuft
-              ? "einen Moment …"
-              : etiketten.length > 1 ? `${etiketten.length} Bilder teilen` : "Als Bild teilen"}
-          </button>
-          <button className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={onClose}>Schließen</button>
-        </div>
-
-        {teilenHinweis && (
-          <div className="fehler-hinweis druck-weg" role="status" style={{ marginTop: 8 }}>
-            <span>{teilenHinweis}</span>
-            <button type="button" onClick={() => setTeilenHinweis(null)} aria-label="Meldung schließen">×</button>
-          </div>
-        )}
+        <span className="small ek-schritte">
+          <b>So druckst du:</b> iPhone mit dem WLAN des Druckers verbinden (Wireless Direct) ·
+          &bdquo;Drucken&ldquo; tippen · im Teilen-Menü <b>&bdquo;Drucken&ldquo;</b> · Drucker
+          QL-820NWB · Papierformat <b>{gewaehlt.papier}</b>. Für Etiketten direkt auf dem
+          Reifen die Folienrolle DK-22212 statt Papier einlegen.
+        </span>
       </div>
-    </div>
+
+      <div
+        className="druckbogen rolle"
+        style={{
+          "--etikett-b": `${gewaehlt.breiteMm}mm`,
+          "--etikett-h": `${gewaehlt.hoeheMm}mm`,
+          "--etikett-qr": `${gewaehlt.qrMm}mm`,
+          "--etikett-rand": `${gewaehlt.randMm ?? 1.5}mm`,
+          "--etikett-s": String(gewaehlt.schrift ?? 1),
+        } as React.CSSProperties}
+      >
+        {basis && etiketten.map((e) => (
+          <div key={e.schluessel} className={"etikett" + (e.rad ? " etikett-rad" : "") + (hochformat ? " hoch" : "")}>
+            <QrBild text={satzUrl(e.satzId, basis)} alt="QR-Code Reifensatz" klasse="etikett-qr" />
+            <div className="etikett-text">
+              {/* Position und Profil in EINER großen Zeile: Das sind die beiden Angaben,
+                  wegen denen man das Etikett überhaupt anschaut, wenn vier gleich
+                  aussehende Räder auf dem Boden liegen. */}
+              {e.inhalt.gross && (
+                <div className="etikett-rad-kopf">
+                  <span className="etikett-pos">{e.inhalt.gross.links}</span>
+                  <span className="etikett-profil">{e.inhalt.gross.rechts}</span>
+                </div>
+              )}
+              {/* Der Kundenname steht oben und fett: Er ist die Antwort auf die Frage, die
+                  dieses Etikett stellt. Alles andere ist Beleg. */}
+              {e.inhalt.kopf && <div className="etikett-kunde">{e.inhalt.kopf}</div>}
+              {e.inhalt.zeilen.map((zeile, i) => (
+                <div key={i} className="etikett-zeile">{zeile}</div>
+              ))}
+              {e.inhalt.notiz && <div className="etikett-notiz">{e.inhalt.notiz}</div>}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Der Hinweis steht über den Knöpfen und nicht in einer Anleitung: Gelesen wird er in
+          der Sekunde, in der jemand vor dem Drucker steht. */}
+      <div className="bl-hilfe druck-weg">
+        <b>Drucken</b> erzeugt ein PDF in genau dieser Größe – ohne Fußzeile, ohne Verkleinern.
+        <b> Als Bild teilen</b> ist der Umweg über Bluetooth: im Teilen-Menü &bdquo;Bild
+        sichern&ldquo;, dann in iPrint&amp;Label unter &bdquo;Erstellen&ldquo; das Bild wählen.
+      </div>
+
+      {teilenHinweis && (
+        <div className="fehler-hinweis druck-weg" role="status">
+          <span>{teilenHinweis}</span>
+          <button type="button" onClick={() => setTeilenHinweis(null)} aria-label="Meldung schließen">×</button>
+        </div>
+      )}
+    </Blatt>
   );
 }

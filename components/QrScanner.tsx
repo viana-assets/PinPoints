@@ -139,7 +139,7 @@ export function QrScanner({ titel = "Code scannen", onErkannt, onClose }: {
     <Blatt titel={titel} className="scanner-box" onClose={onClose}
       fuss={<button type="button" className="btn-secondary" onClick={onClose}>Abbrechen</button>}>
       {fehler ? (
-        <div className="fehler-hinweis scanner-fehler">{fehler}</div>
+        <div className="fehler-hinweis">{fehler}</div>
       ) : (
         <>
           <div className="scanner-bild">

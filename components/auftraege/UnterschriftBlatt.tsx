@@ -2,6 +2,10 @@ import { useRef, useState } from "react";
 import { unterschriftSatz } from "@/lib/belege";
 import { formatDate } from "@/lib/helpers";
 
+// Die Tintenfarbe der Unterschrift. Eine Leinwand (canvas) kennt keine CSS-Variablen, deshalb
+// steht sie hier einmal als Wert – nah an `--navy`, damit sie wie Kugelschreiber aussieht.
+const TINTE = "#14213d";
+
 // Der Kunde unterschreibt auf dem Handy (Fahrplan E3, Migration 65, v105).
 //
 // Gezeichnet wird mit dem Finger auf einer Fläche. Gespeichert wird EIN Bild, in das der Satz
@@ -42,7 +46,7 @@ export function UnterschriftBlatt({ auftragsNr, datum, vorschlagName, onSpeicher
   }
   function stift(): CanvasRenderingContext2D | null {
     const ctx = flaeche.current?.getContext("2d") ?? null;
-    if (ctx) { ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = "#14213d"; }
+    if (ctx) { ctx.lineWidth = 4; ctx.lineCap = "round"; ctx.lineJoin = "round"; ctx.strokeStyle = TINTE; }
     return ctx;
   }
   function runter(e: React.PointerEvent<HTMLCanvasElement>) {
@@ -53,7 +57,7 @@ export function UnterschriftBlatt({ auftragsNr, datum, vorschlagName, onSpeicher
     const p = punkt(e);
     letzter.current = p;
     const ctx = stift();
-    if (ctx) { ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fillStyle = "#14213d"; ctx.fill(); }
+    if (ctx) { ctx.beginPath(); ctx.arc(p.x, p.y, 2, 0, Math.PI * 2); ctx.fillStyle = TINTE; ctx.fill(); }
   }
   function bewegen(e: React.PointerEvent<HTMLCanvasElement>) {
     if (!zeichnet.current || !letzter.current) return;
@@ -94,7 +98,7 @@ export function UnterschriftBlatt({ auftragsNr, datum, vorschlagName, onSpeicher
       if (!ctx) throw new Error("Die Unterschrift konnte nicht verarbeitet werden.");
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(0, 0, breite, hoehe);
-      ctx.fillStyle = "#14213d";
+      ctx.fillStyle = TINTE;
       ctx.font = "26px sans-serif";
       ctx.fillText(satz, rand, 44, breite - 2 * rand);
       ctx.drawImage(c, rand, 60);

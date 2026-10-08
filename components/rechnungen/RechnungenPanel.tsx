@@ -2,11 +2,13 @@ import { useMemo, useState } from "react";
 import type { Rechnung } from "@/lib/types";
 import { formatDate, formatEUR, suchtreffer, todayStr } from "@/lib/helpers";
 import { monatLang } from "@/lib/auswertungAnsicht";
-import { istGueltig, mailtoRechnung, stornoAus, type RechnungEntwurf } from "@/lib/rechnung";
+import { istGueltig, stornoAus, type RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 import { auftragsNr, istTestrechnung } from "@/lib/testkunde";
 import { SuchFeld } from "@/components/SuchFeld";
+import { Blatt } from "@/components/Blatt";
+import { BelegHinweise, BelegKnoepfe, StornoBlatt } from "./BelegTeile";
 
 // Das Rechnungsbuch. Es zeigt, was das Haus ausgestellt hat – in der Reihenfolge der Nummern,
 // absteigend, weil die letzte Rechnung die ist, nach der gefragt wird.
@@ -214,99 +216,43 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, darfStornier
       )}
 
       {beleg && (
-        // `druck-fenster` (v109): Ohne die Klasse greifen die Druckregeln aus globals.css nicht – am
-        // Rechner kam die ganze Oberfläche mit aufs Papier, am iPhone ein leeres Blatt.
-        <div className="modal-overlay druck-fenster modal-rechnung" onClick={() => setOffen(null)}>
-          <div className="modal-box rechnung-modal" onClick={(e) => e.stopPropagation()}>
-            <style>{RECHNUNG_SEITE_CSS}</style>
-            <div className="re-kopfleiste druck-weg">
-              <h3>
-                {beleg.art === "storno" ? "Stornorechnung" : "Rechnung"} {beleg.nummer_text}
-                {beleg.art === "storno" && <span className="re-pille storno">Storno</span>}
-                {beleg.storniert_durch && <span className="re-pille aufgehoben">storniert</span>}
-              </h3>
-              <button type="button" className="modal-close" onClick={() => setOffen(null)} aria-label="Schließen">×</button>
-            </div>
-            <div className="rechnung-vorschau">
-              <div className="rechnung-vorschau-rahmen">
-                <RechnungDokument daten={beleg} />
-              </div>
-            </div>
-            <div className="re-fussleiste druck-weg">
-              <button type="button" className="btn-primary" onClick={() => window.print()}>
-                Drucken / als PDF speichern
-              </button>
-              {mailtoRechnung(beleg) && (
-                <a className="btn-secondary btn-rand" href={mailtoRechnung(beleg)!}>
-                  E-Mail vorbereiten
-                </a>
-              )}
-              {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (darfStornieren ?? true) && (
-                <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
-                  onClick={() => { setStornoGrund(""); setStornoFrage(beleg); }}>
-                  Stornieren
-                </button>
-              )}
-              {beleg.storniert_durch && (
-                <span className="small">
-                  Aufgehoben am {beleg.storniert_am ? formatDate(beleg.storniert_am.slice(0, 10)) : ""} durch{" "}
-                  {rechnungen.find((r) => r.id === beleg.storniert_durch)?.nummer_text ?? "eine Stornorechnung"}.
-                </span>
-              )}
-              {beleg.art === "storno" && beleg.storno_grund && (
-                <span className="small">Grund: {beleg.storno_grund}</span>
-              )}
+        // Dasselbe Fenster wie am Auftrag (RechnungModal): Blatt „dokument“, gemeinsame Knöpfe und
+        // Storno-Rückfrage aus BelegTeile.tsx (v135). `druck-fenster` an der Ebene (v109): ohne
+        // die Klasse greifen die Druckregeln nicht – am Rechner kam die ganze Oberfläche mit aufs
+        // Papier, am iPhone ein leeres Blatt.
+        <Blatt breite="dokument" ebene="druck-fenster modal-rechnung" className="rechnung-modal" onClose={() => setOffen(null)}
+          label={`${beleg.art === "storno" ? "Stornorechnung" : "Rechnung"} ${beleg.nummer_text}`}
+          titel={<>
+            {beleg.art === "storno" ? "Stornorechnung" : "Rechnung"} {beleg.nummer_text}
+            {beleg.art === "storno" && <span className="re-pille storno">Storno</span>}
+            {beleg.storniert_durch && <span className="re-pille aufgehoben">storniert</span>}
+          </>}
+          fuss={<BelegKnoepfe beleg={beleg} darfStornieren={darfSchreiben && (darfStornieren ?? true)} laeuft={laeuft}
+            onStornoFrage={(r) => { setStornoGrund(""); setStornoFrage(r); }} />}>
+          <style>{RECHNUNG_SEITE_CSS}</style>
+          {(beleg.order_id && onAuftragOeffnen) || (beleg.customer_id && onKundeOeffnen) ? (
+            <div className="re-wege druck-weg">
               {beleg.order_id && onAuftragOeffnen && (
-                <button type="button" className="btn-secondary btn-rand"
-                  onClick={() => { setOffen(null); onAuftragOeffnen(beleg.order_id!); }}>
-                  Zum Auftrag
-                </button>
+                <button type="button" className="text-knopf" onClick={() => { setOffen(null); onAuftragOeffnen(beleg.order_id!); }}>Zum Auftrag ›</button>
               )}
               {beleg.customer_id && onKundeOeffnen && (
-                <button type="button" className="btn-secondary btn-rand"
-                  onClick={() => { setOffen(null); onKundeOeffnen(beleg.customer_id!); }}>
-                  Zum Kunden
-                </button>
+                <button type="button" className="text-knopf" onClick={() => { setOffen(null); onKundeOeffnen(beleg.customer_id!); }}>Zum Kunden ›</button>
               )}
             </div>
-            {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
+          ) : null}
+          <BelegHinweise beleg={beleg} rechnungen={rechnungen} />
+          {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
+          <div className="rechnung-vorschau">
+            <div className="rechnung-vorschau-rahmen">
+              <RechnungDokument daten={beleg} />
+            </div>
           </div>
-        </div>
+        </Blatt>
       )}
 
-      {/* Wortgleich zur Rückfrage im Auftragsfenster – dieselbe Handlung, dieselbe Erklärung.
-          Zwei verschiedene Texte für dasselbe wären zwei Gelegenheiten, es unterschiedlich zu
-          verstehen. */}
       {stornoFrage && (
-        <div className="modal-overlay modal-storno" onClick={() => setStornoFrage(null)}>
-          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ margin: "0 0 10px" }}>Rechnung {stornoFrage.nummer_text} stornieren?</h3>
-            <p>
-              Die Rechnung bleibt stehen und bekommt eine Stornorechnung mit eigener Nummer
-              daneben – so verlangt es der lückenlose Nummernkreis. Gelöscht wird nichts.
-            </p>
-            <p className="small">
-              Danach lässt sich für diesen Auftrag eine neue Rechnung ausstellen.
-            </p>
-            <div className="field">
-              <label htmlFor="stornoGrundListe">Grund der Stornierung *</label>
-              <textarea
-                id="stornoGrundListe" rows={2} value={stornoGrund} autoFocus
-                onChange={(e) => setStornoGrund(e.target.value)}
-                placeholder="z. B. falscher Kunde ausgewählt, Leistung nicht erbracht, Preis falsch"
-              />
-            </div>
-            <div className="re-fussleiste">
-              <button type="button" className="btn-primary" disabled={laeuft || !stornoGrund.trim()}
-                onClick={() => void stornieren(stornoFrage)}>
-                Stornorechnung erzeugen
-              </button>
-              <button type="button" className="btn-secondary btn-rand" onClick={() => setStornoFrage(null)}>
-                Abbrechen
-              </button>
-            </div>
-          </div>
-        </div>
+        <StornoBlatt rechnung={stornoFrage} grund={stornoGrund} onGrund={setStornoGrund} laeuft={laeuft}
+          onStornieren={() => void stornieren(stornoFrage)} onAbbrechen={() => setStornoFrage(null)} />
       )}
     </div>
   );

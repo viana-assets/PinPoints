@@ -90,8 +90,6 @@ viana-pinpoints/
       callback/page.tsx       Zwischenseite für Invite-/Recovery-Links
       HashSessionHandler.tsx    Globaler Client-Handler für Hash-Token-Login
       set-password/…            Passwort setzen nach Invite
-    admin/invite/…             Admin/Superadmin: Nutzer per E-Mail einladen (inkl. Rollenwahl)
-    admin/users/…               Nur Superadmin: Nutzerverwaltung (alle Accounts, Rolle ändern)
     api/invite/route.ts         Server-Route für den Invite-Versand (Service-Role-Key)
     api/geocode/route.ts        Server-Route für die punktgenaue Geokodierung (Drosselung,
                                 User-Agent, geocode_cache)
@@ -105,7 +103,6 @@ viana-pinpoints/
   components/
     icons.tsx                  Alle Icon-Komponenten (IconDashboard, IconKunden, …)
     NavItem.tsx                  Ein Eintrag in #iconNav
-    EmployeeCheckboxList.tsx      Mitarbeiter-Mehrfachauswahl als Chips
     Blatt.tsx                     Das gemeinsame Fenster: Kopf, ✕, Fußzeile; am Handy Blatt von unten (v134)
     CustomerPicker.tsx            Wiederverwendbare Kundensuche (Lager & Aufträge), Suchfeld + Trefferzeilen (v134)
     AdressFeld.tsx                 Adressfeld mit Vorschlägen + Genauigkeits-Kennzeichnung
@@ -232,6 +229,7 @@ viana-pinpoints/
       RechnungenPanel.tsx             Tab "Rechnungen": Monatsgruppen, Suche, Jahr, „Noch nicht
                                       ausgestellt", Beleg, Storno (Entwurf P)
       RechnungModal.tsx               Eine Rechnung ausstellen/stornieren
+      BelegTeile.tsx                  Gemeinsam für beide: Knöpfe, Hinweise, Storno-Rückfrage (v135)
       RechnungDokument.tsx            Druckansicht des Belegs (Briefkopf, Positionen, Summen)
   lib/
     types.ts                  Zentrale TypeScript-Typen (Customer, Order, Rechnung, Betrieb,

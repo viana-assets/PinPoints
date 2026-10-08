@@ -5,6 +5,7 @@ import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, reifenNoti
 import { formatEUR } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { PROTOKOLL_SCHWAERZEN_MONATE, RECHNUNG_SEITE_CSS } from "@/lib/constants";
+import { Blatt } from "@/components/Blatt";
 
 // Auskunftsauszug je Kunde (Fahrplan E10, v103): alles, was zu diesem Kunden gespeichert ist, als
 // Schriftstück zum Ausdrucken oder „Als PDF sichern", und als Datei (JSON) für eine elektronische
@@ -58,104 +59,100 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
   const verantwortlich = b ? [b.firma, b.inhaber && b.inhaber !== b.firma ? b.inhaber : null, b.strasse, [b.plz, b.ort].filter(Boolean).join(" "), b.telefon, b.email].filter((x) => !!x?.trim()).join(" · ") : "";
 
   return (
-    <div className="modal-overlay druck-fenster modal-rechnung" onClick={onClose}>
-      <div className="modal-box druck-modal ak-fenster" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Auskunftsauszug">
-        {/* A4 mit Rand – dieselbe Seite wie die Rechnung, eingehängt nur solange dieses Fenster offen ist. */}
-        <style>{RECHNUNG_SEITE_CSS}</style>
-        <div className="re-kopfleiste druck-weg">
-          <b>Auskunft über gespeicherte Daten</b>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Schließen">×</button>
-        </div>
-        {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
-        {!daten && !fehler && <div className="db-leer druck-weg">Wird zusammengestellt …</div>}
-        {daten && (
-          <>
-            <div className="hinweis-pflicht druck-weg">
-              Zwecke, Rechtsgrundlagen und Speicherdauer unten sind ein Vorschlag – vor dem Versand mit der
-              eigenen Datenschutzerklärung abgleichen. Der Auszug ist vertraulich: nur an die Person selbst.
-            </div>
-            <div className="druckbogen ak-dokument">
-              <h1>Auskunft über die zu Ihrer Person gespeicherten Daten</h1>
-              <p className="ak-klein">nach Art. 15 DSGVO · erstellt am {datum(daten.erstellt_am)}</p>
-              {verantwortlich && <p><b>Verantwortlich:</b> {verantwortlich}</p>}
+    // Seit v135 ein Blatt wie alle Fenster (components/Blatt.tsx, Breite „dokument“).
+    <Blatt titel="Auskunft über gespeicherte Daten" label="Auskunftsauszug" breite="dokument"
+      ebene="druck-fenster modal-rechnung" className="ak-fenster" onClose={onClose}
+      fuss={daten ? <>
+        <button type="button" className="btn-secondary" onClick={() => herunterladen(auskunftDateiname(daten, "json"), JSON.stringify(daten, null, 2))}>
+          Als Datei (JSON)
+        </button>
+        <button type="button" className="btn-primary" onClick={() => window.print()}>Drucken / als PDF sichern</button>
+      </> : undefined}>
+      {/* A4 mit Rand – dieselbe Seite wie die Rechnung, eingehängt nur solange dieses Fenster offen ist. */}
+      <style>{RECHNUNG_SEITE_CSS}</style>
+      {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
+      {!daten && !fehler && <div className="db-leer druck-weg">Wird zusammengestellt …</div>}
+      {daten && (
+        <>
+          <div className="hinweis-pflicht druck-weg">
+            Zwecke, Rechtsgrundlagen und Speicherdauer unten sind ein Vorschlag – vor dem Versand mit der
+            eigenen Datenschutzerklärung abgleichen. Der Auszug ist vertraulich: nur an die Person selbst.
+          </div>
+          <div className="druckbogen ak-dokument">
+            <h1>Auskunft über die zu Ihrer Person gespeicherten Daten</h1>
+            <p className="ak-klein">nach Art. 15 DSGVO · erstellt am {datum(daten.erstellt_am)}</p>
+            {verantwortlich && <p><b>Verantwortlich:</b> {verantwortlich}</p>}
 
-              <h2>Überblick</h2>
-              <Tabelle zeilen={auskunftUmfang(daten)} />
+            <h2>Überblick</h2>
+            <Tabelle zeilen={auskunftUmfang(daten)} />
 
-              <h2>Stammdaten</h2>
-              <Tabelle zeilen={stammdatenZeilen(daten.kunde)} />
+            <h2>Stammdaten</h2>
+            <Tabelle zeilen={stammdatenZeilen(daten.kunde)} />
 
-              {daten.fahrzeuge.length > 0 && (<>
-                <h2>Fahrzeuge</h2>
-                <Tabelle zeilen={daten.fahrzeuge.map((f) => [f.kennzeichen || "ohne Kennzeichen", [f.modell, f.reifengroesse, f.notiz].filter(Boolean).join(" · ") || "–"])} />
-              </>)}
+            {daten.fahrzeuge.length > 0 && (<>
+              <h2>Fahrzeuge</h2>
+              <Tabelle zeilen={daten.fahrzeuge.map((f) => [f.kennzeichen || "ohne Kennzeichen", [f.modell, f.reifengroesse, f.notiz].filter(Boolean).join(" · ") || "–"])} />
+            </>)}
 
-              {daten.auftraege.length > 0 && (<>
-                <h2>Aufträge und Termine</h2>
-                <Tabelle zeilen={daten.auftraege.map(auftragZeile)} />
-              </>)}
+            {daten.auftraege.length > 0 && (<>
+              <h2>Aufträge und Termine</h2>
+              <Tabelle zeilen={daten.auftraege.map(auftragZeile)} />
+            </>)}
 
-              {daten.reifensaetze.length > 0 && (<>
-                <h2>Eingelagerte Reifen</h2>
-                <Tabelle zeilen={daten.reifensaetze.map(satzZeile)} />
-              </>)}
+            {daten.reifensaetze.length > 0 && (<>
+              <h2>Eingelagerte Reifen</h2>
+              <Tabelle zeilen={daten.reifensaetze.map(satzZeile)} />
+            </>)}
 
-              {daten.reifen_notizen && daten.reifen_notizen.length > 0 && (<>
-                <h2>Notizen zu einzelnen Reifen</h2>
-                <Tabelle zeilen={daten.reifen_notizen.map(reifenNotizZeile)} />
-              </>)}
+            {daten.reifen_notizen && daten.reifen_notizen.length > 0 && (<>
+              <h2>Notizen zu einzelnen Reifen</h2>
+              <Tabelle zeilen={daten.reifen_notizen.map(reifenNotizZeile)} />
+            </>)}
 
-              {daten.rechnungen.length > 0 && (<>
-                <h2>Rechnungen</h2>
-                <Tabelle zeilen={daten.rechnungen.map((r) => [`${r.nummer} · ${datum(r.datum)}`, `${r.art === "storno" ? "Stornorechnung" : "Rechnung"} · ${formatEUR(r.brutto)} brutto`])} />
-              </>)}
+            {daten.rechnungen.length > 0 && (<>
+              <h2>Rechnungen</h2>
+              <Tabelle zeilen={daten.rechnungen.map((r) => [`${r.nummer} · ${datum(r.datum)}`, `${r.art === "storno" ? "Stornorechnung" : "Rechnung"} · ${formatEUR(r.brutto)} brutto`])} />
+            </>)}
 
-              {daten.belege && daten.belege.length > 0 && (<>
-                <h2>Fotos und Unterschriften</h2>
-                <Tabelle zeilen={daten.belege.map(belegZeile)} />
-                <p className="ak-klein">Die Bilder selbst geben wir Ihnen auf Wunsch als Dateien heraus.</p>
-              </>)}
+            {daten.belege && daten.belege.length > 0 && (<>
+              <h2>Fotos und Unterschriften</h2>
+              <Tabelle zeilen={daten.belege.map(belegZeile)} />
+              <p className="ak-klein">Die Bilder selbst geben wir Ihnen auf Wunsch als Dateien heraus.</p>
+            </>)}
 
-              {daten.kontakte.length > 0 && (<>
-                <h2>Kontakte</h2>
-                <Tabelle zeilen={daten.kontakte.map((k) => [datum(k.datum), k.notiz || "Kontakt"])} />
-              </>)}
+            {daten.kontakte.length > 0 && (<>
+              <h2>Kontakte</h2>
+              <Tabelle zeilen={daten.kontakte.map((k) => [datum(k.datum), k.notiz || "Kontakt"])} />
+            </>)}
 
-              <h2>Änderungsprotokoll</h2>
-              <p>
-                {daten.protokoll.eintraege === 0
-                  ? "Zu Ihren Daten gibt es keine Einträge im Änderungsprotokoll."
-                  : `Das Änderungsprotokoll hält fest, wer wann einen Datensatz angelegt oder geändert hat. Zu Ihren Daten gibt es ${daten.protokoll.eintraege} Einträge (${datum(daten.protokoll.aeltester)} bis ${datum(daten.protokoll.neuester)}). Personenbezogene Inhalte darin werden nach ${PROTOKOLL_SCHWAERZEN_MONATE} Monaten geschwärzt.`}
-              </p>
+            <h2>Änderungsprotokoll</h2>
+            <p>
+              {daten.protokoll.eintraege === 0
+                ? "Zu Ihren Daten gibt es keine Einträge im Änderungsprotokoll."
+                : `Das Änderungsprotokoll hält fest, wer wann einen Datensatz angelegt oder geändert hat. Zu Ihren Daten gibt es ${daten.protokoll.eintraege} Einträge (${datum(daten.protokoll.aeltester)} bis ${datum(daten.protokoll.neuester)}). Personenbezogene Inhalte darin werden nach ${PROTOKOLL_SCHWAERZEN_MONATE} Monaten geschwärzt.`}
+            </p>
 
-              <h2>Zwecke, Rechtsgrundlagen, Speicherdauer</h2>
-              <p>
-                Wir verarbeiten Ihre Daten, um Aufträge zu planen und auszuführen, Ihre Reifen einzulagern,
-                Termine mit Ihnen abzustimmen und Leistungen abzurechnen (Art. 6 Abs. 1 lit. b DSGVO), sowie zur
-                Erfüllung gesetzlicher Aufbewahrungspflichten für Rechnungen und Buchungsbelege (Art. 6 Abs. 1
-                lit. c DSGVO). Die Daten stammen von Ihnen selbst. Sie werden gespeichert, solange die
-                Geschäftsbeziehung besteht; Rechnungen für die Dauer der gesetzlichen Aufbewahrungsfristen.
-                {daten.belege && daten.belege.length > 0 && " Fotos und Ihre Unterschrift halten den Zustand Ihres Fahrzeugs und die ausgeführte Arbeit fest, damit sich bei einer Reklamation nachvollziehen lässt, was gemacht wurde."}
-              </p>
-              <p>
-                Empfänger: Dienstleister, die für uns Hosting und Datenbank betreiben (Auftragsverarbeitung). Zur
-                Anzeige Ihres Standorts auf der Karte wird die Anschrift an einen Kartendienst übermittelt.
-              </p>
-              <p>
-                Sie haben das Recht auf Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit
-                und Widerspruch sowie das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren.
-              </p>
-              {daten.auftraege.some((a) => a.nummer < 0) && <p className="ak-klein">Enthält Testaufträge ({daten.auftraege.filter((a) => a.nummer < 0).map((a) => auftragsNr(a.nummer)).join(", ")}).</p>}
-            </div>
-            <div className="re-fussleiste druck-weg">
-              <button type="button" className="btn-secondary btn-rand" onClick={() => herunterladen(auskunftDateiname(daten, "json"), JSON.stringify(daten, null, 2))}>
-                Als Datei (JSON)
-              </button>
-              <button type="button" className="btn-primary" onClick={() => window.print()}>Drucken / als PDF sichern</button>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
+            <h2>Zwecke, Rechtsgrundlagen, Speicherdauer</h2>
+            <p>
+              Wir verarbeiten Ihre Daten, um Aufträge zu planen und auszuführen, Ihre Reifen einzulagern,
+              Termine mit Ihnen abzustimmen und Leistungen abzurechnen (Art. 6 Abs. 1 lit. b DSGVO), sowie zur
+              Erfüllung gesetzlicher Aufbewahrungspflichten für Rechnungen und Buchungsbelege (Art. 6 Abs. 1
+              lit. c DSGVO). Die Daten stammen von Ihnen selbst. Sie werden gespeichert, solange die
+              Geschäftsbeziehung besteht; Rechnungen für die Dauer der gesetzlichen Aufbewahrungsfristen.
+              {daten.belege && daten.belege.length > 0 && " Fotos und Ihre Unterschrift halten den Zustand Ihres Fahrzeugs und die ausgeführte Arbeit fest, damit sich bei einer Reklamation nachvollziehen lässt, was gemacht wurde."}
+            </p>
+            <p>
+              Empfänger: Dienstleister, die für uns Hosting und Datenbank betreiben (Auftragsverarbeitung). Zur
+              Anzeige Ihres Standorts auf der Karte wird die Anschrift an einen Kartendienst übermittelt.
+            </p>
+            <p>
+              Sie haben das Recht auf Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit
+              und Widerspruch sowie das Recht, sich bei einer Datenschutz-Aufsichtsbehörde zu beschweren.
+            </p>
+            {daten.auftraege.some((a) => a.nummer < 0) && <p className="ak-klein">Enthält Testaufträge ({daten.auftraege.filter((a) => a.nummer < 0).map((a) => auftragsNr(a.nummer)).join(", ")}).</p>}
+          </div>
+        </>
+      )}
+    </Blatt>
   );
 }

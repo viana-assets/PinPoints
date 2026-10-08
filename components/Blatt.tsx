@@ -16,10 +16,14 @@ import type { ReactNode } from "react";
 //   Blättern im Mitnehmen-Fenster).
 // - `fuss`: die Knöpfe. Sie bleiben beim Scrollen unten stehen – bei einem langen Formular
 //   (Einlagern) muss „Speichern“ erreichbar sein, ohne erst ans Ende zu rollen.
+// - `breite="dokument"` (v135): für Fenster mit einem Blatt Papier darin (Rechnung, Auskunft,
+//   Etiketten). Am Handy bildschirmfüllend – eine A4-Vorschau in einem halben Blatt wäre zu klein.
+//   Kopf, Griff und Fuß tragen `druck-weg`: Beim Drucken (`.druck-fenster` als `ebene`) bleibt
+//   nur der Inhalt.
 export function Blatt({ titel, unter, breite = "schmal", ebene, kopf, fuss, label, className, onClose, children }: {
   titel: ReactNode;
   unter?: ReactNode;
-  breite?: "schmal" | "mittel" | "breit";
+  breite?: "schmal" | "mittel" | "breit" | "dokument";
   ebene?: string;
   kopf?: ReactNode;
   fuss?: ReactNode;
@@ -33,8 +37,8 @@ export function Blatt({ titel, unter, breite = "schmal", ebene, kopf, fuss, labe
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={"auswahl-blatt bl-blatt bl-" + breite + (className ? " " + className : "")}
         role="dialog" aria-modal="true" aria-label={label ?? (typeof titel === "string" ? titel : undefined)}>
-        <div className="ab-griff" />
-        <div className="bl-kopf">
+        <div className="ab-griff druck-weg" />
+        <div className="bl-kopf druck-weg">
           {kopf ?? (
             <div className="bl-titel">
               <h2 className="ab-titel">{titel}</h2>
@@ -44,7 +48,7 @@ export function Blatt({ titel, unter, breite = "schmal", ebene, kopf, fuss, labe
           <button type="button" className="modal-close" onClick={onClose} aria-label="Schließen">×</button>
         </div>
         {children}
-        {fuss && <div className="bl-fuss">{fuss}</div>}
+        {fuss && <div className="bl-fuss druck-weg">{fuss}</div>}
       </div>
     </div>
   );

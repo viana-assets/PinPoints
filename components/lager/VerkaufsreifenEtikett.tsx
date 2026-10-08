@@ -6,6 +6,7 @@ import { verkaufsreifenUrl } from "@/lib/aufkleberCode";
 import { dateiName, etikettenPdfDatei, mmZuPx, teilenOderSpeichern, type EtikettMasse } from "@/lib/etikettBild";
 import { etikettTexte, groesseText } from "@/lib/reifenverkauf";
 import { ETIKETT_FORMATE } from "./ReifensatzEtikett";
+import { Blatt } from "@/components/Blatt";
 
 // Etikett für einen Verkaufsreifen (Fahrplan E17, v103).
 //
@@ -52,13 +53,18 @@ export function VerkaufsreifenEtikett({ posten, onClose }: { posten: Verkaufsrei
   }
 
   return (
-    <div className="modal-overlay druck-fenster" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box druck-modal" style={{ position: "relative" }}>
-        <button className="modal-close druck-weg" onClick={onClose}>✕</button>
-        <h2 className="druck-weg">Etikett · {groesseText(posten)} {posten.hersteller}</h2>
-        <p className="small druck-weg">Eines je Reifen. Der QR-Code öffnet diesen Posten in der App – mit der Handy-Kamera oder über „Scannen“ im Lager.</p>
+    // Seit v135 ein Blatt wie alle Fenster (components/Blatt.tsx).
+    <Blatt titel={`Etikett · ${groesseText(posten)} ${posten.hersteller}`} breite="breit"
+      ebene="druck-fenster" className="druck-modal" onClose={onClose}
+      fuss={
+        <button type="button" className="btn-primary" disabled={laeuft || !basis} onClick={() => void drucken()}>
+          {laeuft ? "einen Moment …" : anzahl === 1 ? "Drucken" : `${anzahl} Etiketten drucken`}
+        </button>
+      }>
+      <p className="bl-hilfe druck-weg">Eines je Reifen. Der QR-Code öffnet diesen Posten in der App – mit der Handy-Kamera oder über „Scannen“ im Lager.</p>
 
-        <div className="nk-zeile druck-weg" style={{ maxWidth: 420 }}>
+      <div className="ar-karte-feld druck-weg ek-wahl">
+        <div className="nk-zeile">
           <label className="nk-feld">
             <span>Format</span>
             <select value={format} onChange={(e) => setFormat(e.target.value)}>
@@ -70,43 +76,37 @@ export function VerkaufsreifenEtikett({ posten, onClose }: { posten: Verkaufsrei
             <input type="number" min={1} max={20} value={anzahl} onChange={(e) => setAnzahl(Math.max(1, Math.min(20, Math.round(Number(e.target.value) || 1))))} />
           </label>
         </div>
-        <span className="small ek-schritte druck-weg">
+        <span className="small ek-schritte">
           <b>So druckst du:</b> iPhone mit dem WLAN des Druckers verbinden (Wireless Direct) · &bdquo;Drucken&ldquo; tippen ·
           im Teilen-Menü <b>&bdquo;Drucken&ldquo;</b> · Drucker QL-820NWB · Papierformat <b>{gewaehlt.papier}</b>.
         </span>
+      </div>
 
-        <div
-          className="druckbogen rolle"
-          style={{
-            "--etikett-b": `${gewaehlt.breiteMm}mm`, "--etikett-h": `${gewaehlt.hoeheMm}mm`, "--etikett-qr": `${gewaehlt.qrMm}mm`,
-            "--etikett-rand": `${gewaehlt.randMm}mm`, "--etikett-s": String(gewaehlt.schrift),
-          } as React.CSSProperties}
-        >
-          {basis && (
-            <div className="etikett etikett-rad hoch">
-              <QrBild text={verkaufsreifenUrl(posten.id, basis)} alt="QR-Code Verkaufsreifen" klasse="etikett-qr" />
-              <div className="etikett-text">
-                <div className="etikett-rad-kopf"><span className="etikett-pos">{texte.gross.links}</span><span className="etikett-profil">{texte.gross.rechts}</span></div>
-                <div className="etikett-kunde">{texte.kopf}</div>
-                {texte.zeilen.map((z) => <div key={z} className="etikett-zeile">{z}</div>)}
-              </div>
+      <div
+        className="druckbogen rolle"
+        style={{
+          "--etikett-b": `${gewaehlt.breiteMm}mm`, "--etikett-h": `${gewaehlt.hoeheMm}mm`, "--etikett-qr": `${gewaehlt.qrMm}mm`,
+          "--etikett-rand": `${gewaehlt.randMm}mm`, "--etikett-s": String(gewaehlt.schrift),
+        } as React.CSSProperties}
+      >
+        {basis && (
+          <div className="etikett etikett-rad hoch">
+            <QrBild text={verkaufsreifenUrl(posten.id, basis)} alt="QR-Code Verkaufsreifen" klasse="etikett-qr" />
+            <div className="etikett-text">
+              <div className="etikett-rad-kopf"><span className="etikett-pos">{texte.gross.links}</span><span className="etikett-profil">{texte.gross.rechts}</span></div>
+              <div className="etikett-kunde">{texte.kopf}</div>
+              {texte.zeilen.map((z) => <div key={z} className="etikett-zeile">{z}</div>)}
             </div>
-          )}
-        </div>
-
-        <div className="row druck-weg" style={{ marginTop: 12 }}>
-          <button className="btn-primary" style={{ flex: 1 }} disabled={laeuft || !basis} onClick={() => void drucken()}>
-            {laeuft ? "einen Moment …" : anzahl === 1 ? "Drucken" : `${anzahl} Etiketten drucken`}
-          </button>
-          <button className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={onClose}>Schließen</button>
-        </div>
-        {hinweis && (
-          <div className="fehler-hinweis druck-weg" role="status" style={{ marginTop: 8 }}>
-            <span>{hinweis}</span>
-            <button type="button" onClick={() => setHinweis(null)} aria-label="Meldung schließen">×</button>
           </div>
         )}
       </div>
-    </div>
+
+      {hinweis && (
+        <div className="fehler-hinweis druck-weg" role="status">
+          <span>{hinweis}</span>
+          <button type="button" onClick={() => setHinweis(null)} aria-label="Meldung schließen">×</button>
+        </div>
+      )}
+    </Blatt>
   );
 }

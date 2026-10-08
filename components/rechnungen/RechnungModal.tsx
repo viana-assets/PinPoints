@@ -1,11 +1,13 @@
 import { useMemo, useState } from "react";
 import type { Article, Betrieb, Customer, Order, OrderArticle, Rechnung } from "@/lib/types";
-import { ausstellMaengel, entwurfBauen, mailtoRechnung, stornoAus, istGueltig, voraussichtlicheNummer } from "@/lib/rechnung";
+import { ausstellMaengel, entwurfBauen, stornoAus, istGueltig, voraussichtlicheNummer } from "@/lib/rechnung";
 import type { RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
 import { formatDate, formatEUR, rechnungOhneEmail, todayStr } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
+import { Blatt } from "@/components/Blatt";
+import { BelegHinweise, BelegKnoepfe, StornoBlatt } from "./BelegTeile";
 
 // Das Rechnungsfenster am Auftrag.
 //
@@ -90,162 +92,94 @@ export function RechnungModal({
 
   const zeigbar = beleg ?? entwurf;
 
+  // Seit v135 (Runde 3 der Designprüfung) ein Blatt wie alle Fenster (components/Blatt.tsx),
+  // Breite „dokument“; Knöpfe und Storno-Rückfrage teilt es mit dem Belegfenster unter
+  // „Rechnungen“ (BelegTeile.tsx). `druck-fenster` an der Ebene: Ohne die Klasse greifen die
+  // Druckregeln aus globals.css nicht (v109).
   return (
-    <div className="modal-overlay druck-fenster modal-rechnung" onClick={onClose}>
-      <div className="modal-box rechnung-modal" onClick={(e) => e.stopPropagation()}>
-        <style>{RECHNUNG_SEITE_CSS}</style>
+    <Blatt breite="dokument" ebene="druck-fenster modal-rechnung" className="rechnung-modal" onClose={onClose}
+      label={`Rechnung zu Auftrag ${auftragsNr(auftrag.order_number)}`}
+      titel={<>
+        Rechnung zu Auftrag {auftragsNr(auftrag.order_number)}
+        {beleg && <span className={"re-pille" + (beleg.art === "storno" ? " storno" : beleg.storniert_durch ? " aufgehoben" : "")}>
+          {beleg.art === "storno" ? "Storno" : beleg.storniert_durch ? "storniert" : "ausgestellt"}
+        </span>}
+        {!beleg && <span className="re-pille entwurf">Entwurf</span>}
+      </>}
+      fuss={beleg
+        ? <BelegKnoepfe beleg={beleg} darfStornieren={darfSchreiben && (darfStornieren ?? true)} laeuft={laeuft}
+            onStornoFrage={(r) => { setStornoGrund(""); setStornoFrage(r); }} />
+        : (
+          <button
+            type="button" className="btn-primary"
+            disabled={laeuft || maengel.length > 0 || !darfSchreiben}
+            onClick={() => void ausstellen()}
+          >
+            {laeuft ? "Stellt aus …" : "Rechnung ausstellen"}
+          </button>
+        )}>
+      <style>{RECHNUNG_SEITE_CSS}</style>
 
-        <div className="re-kopfleiste druck-weg">
-          <h3>
-            Rechnung zu Auftrag {auftragsNr(auftrag.order_number)}
-            {beleg && <span className={"re-pille" + (beleg.art === "storno" ? " storno" : beleg.storniert_durch ? " aufgehoben" : "")}>
-              {beleg.art === "storno" ? "Storno" : beleg.storniert_durch ? "storniert" : "ausgestellt"}
-            </span>}
-            {!beleg && <span className="re-pille entwurf">Entwurf</span>}
-          </h3>
-          <button type="button" className="modal-close" onClick={onClose} aria-label="Schließen">×</button>
-        </div>
-
-        {/* Mehrere Belege am selben Auftrag: nach einem Storno sind es mindestens drei. Die
-            Leiste steht nur da, wenn es etwas zu wählen gibt. */}
-        {rechnungen.length > 0 && (
-          <div className="filterbar druck-weg re-auswahl">
-            {rechnungen.map((r) => (
-              <button
-                key={r.id} type="button"
-                className={`chip ${gezeigt === r.id ? "active" : ""}`}
-                onClick={() => setGezeigt(r.id)}
-              >
-                {r.nummer_text}
-                <span className="small"> · {formatDate(r.datum)} · {formatEUR(r.brutto)}</span>
-              </button>
-            ))}
-            {!gueltige && (
-              <button type="button" className={`chip ${gezeigt === null ? "active" : ""}`} onClick={() => setGezeigt(null)}>
-                Neuer Entwurf
-              </button>
-            )}
-          </div>
-        )}
-
-        {!beleg && maengel.length > 0 && (
-          <div className="hinweis-pflicht druck-weg">
-            So lässt sich noch keine Rechnung ausstellen: {maengel.join(", ")}.
-          </div>
-        )}
-        {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
-        {/* v128: Ohne E-Mail lässt sich abschließen und ausstellen (Migration 79) – nur nicht per Mail
-            schicken, und auf der Rechnung steht dann keine. Ein Hinweis, keine Sperre. */}
-        {!beleg && maengel.length === 0 && rechnungOhneEmail(kunde) && (
-          <div className="hinweis-pflicht druck-weg">
-            Beim Kunden ist keine E-Mail-Adresse hinterlegt – die Rechnung lässt sich dann nur drucken, nicht per
-            Mail schicken. Nachtragen im Auftrag unter „Rechnung nötig“.
-          </div>
-        )}
-
-        {zeigbar ? (
-          <div className="rechnung-vorschau">
-            <div className="rechnung-vorschau-rahmen">
-              <RechnungDokument
-                daten={beleg
-                  ? beleg
-                  : { ...(zeigbar as RechnungEntwurf), entwurf: true,
-                      voraussichtlich: betrieb ? voraussichtlicheNummer(betrieb) : undefined }}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="empty">Die Vorschau braucht Kunde und Betriebsdaten.</div>
-        )}
-
-        <div className="re-fussleiste druck-weg">
-          {beleg ? (
-            <>
-              <button type="button" className="btn-primary" onClick={() => window.print()}>
-                Drucken / als PDF speichern
-              </button>
-              {/* Bereitet den Entwurf vor, verschickt nichts. Das PDF hängt der Mensch an –
-                  am iPhone aus der Druckvorschau über das Teilen-Symbol. Ein Knopf, der
-                  „Senden" hieße und nur ein Fenster öffnet, wäre eine Behauptung. */}
-              {mailtoRechnung(beleg) ? (
-                <a className="btn-secondary btn-rand" href={mailtoRechnung(beleg)!}>
-                  E-Mail vorbereiten
-                </a>
-              ) : (
-                <span className="small">Für eine E-Mail fehlt die Adresse des Kunden.</span>
-              )}
-              {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (darfStornieren ?? true) && (
-                <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
-                  onClick={() => { setStornoGrund(""); setStornoFrage(beleg); }}>
-                  Stornieren
-                </button>
-              )}
-              {beleg.storniert_durch && (
-                <span className="small">
-                  Aufgehoben am {beleg.storniert_am ? formatDate(beleg.storniert_am.slice(0, 10)) : ""} durch{" "}
-                  {rechnungen.find((r) => r.id === beleg.storniert_durch)?.nummer_text ?? "eine Stornorechnung"}.
-                </span>
-              )}
-              {/* Der Grund steht in der APP, nicht auf dem gedruckten Beleg: Er ist eine interne
-                  Notiz („Kunde hat storniert", „falscher Kunde ausgewählt") und geht den
-                  Empfänger nichts an. Wer ihn auf dem Papier haben will, sagt es – dann gehört
-                  er in die Schlusstexte, nicht hierher. */}
-              {beleg.art === "storno" && beleg.storno_grund && (
-                <span className="small">Grund: {beleg.storno_grund}</span>
-              )}
-            </>
-          ) : (
-            <>
-              <button
-                type="button" className="btn-primary"
-                disabled={laeuft || maengel.length > 0 || !darfSchreiben}
-                onClick={() => void ausstellen()}
-              >
-                {laeuft ? "Stellt aus …" : "Rechnung ausstellen"}
-              </button>
-              <span className="small">
-                Danach steht die Nummer fest und der Inhalt lässt sich nicht mehr ändern –
-                eine Korrektur läuft über eine Stornorechnung.
-              </span>
-            </>
+      {/* Mehrere Belege am selben Auftrag: nach einem Storno sind es mindestens drei. Die
+          Leiste steht nur da, wenn es etwas zu wählen gibt. */}
+      {rechnungen.length > 0 && (
+        <div className="pl-filter druck-weg re-auswahl">
+          {rechnungen.map((r) => (
+            <button key={r.id} type="button" className={"pl-pille" + (gezeigt === r.id ? " aktiv" : "")} onClick={() => setGezeigt(r.id)}>
+              {r.nummer_text}
+              <span className="re-auswahl-unter">{formatDate(r.datum)} · {formatEUR(r.brutto)}</span>
+            </button>
+          ))}
+          {!gueltige && (
+            <button type="button" className={"pl-pille" + (gezeigt === null ? " aktiv" : "")} onClick={() => setGezeigt(null)}>
+              Neuer Entwurf
+            </button>
           )}
         </div>
+      )}
 
-        {stornoFrage && (
-          <div className="modal-overlay modal-storno" onClick={() => setStornoFrage(null)}>
-            <div className="modal-box" onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ margin: "0 0 10px" }}>Rechnung {stornoFrage.nummer_text} stornieren?</h3>
-              <p>
-                Die Rechnung bleibt stehen und bekommt eine Stornorechnung mit eigener Nummer
-                daneben – so verlangt es der lückenlose Nummernkreis. Gelöscht wird nichts.
-              </p>
-              <p className="small">
-                Danach lässt sich für diesen Auftrag eine neue Rechnung ausstellen.
-              </p>
-              {/* Pflichtfeld. Beim Auftrag ist der Stornogrund seit Migration 20 Pflicht – bei
-                  der Rechnung war er es bis Migration 54 nicht, und ausgerechnet der Beleg, der
-                  einen anderen aufhebt, stand ohne Begründung da. */}
-              <div className="field">
-                <label htmlFor="stornoGrund">Grund der Stornierung *</label>
-                <textarea
-                  id="stornoGrund" rows={2} value={stornoGrund} autoFocus
-                  onChange={(e) => setStornoGrund(e.target.value)}
-                  placeholder="z. B. falscher Kunde ausgewählt, Leistung nicht erbracht, Preis falsch"
-                />
-              </div>
-              <div className="re-fussleiste">
-                <button type="button" className="btn-primary" disabled={laeuft || !stornoGrund.trim()}
-                  onClick={() => void stornieren(stornoFrage)}>
-                  Stornorechnung erzeugen
-                </button>
-                <button type="button" className="btn-secondary btn-rand" onClick={() => setStornoFrage(null)}>
-                  Abbrechen
-                </button>
-              </div>
-            </div>
+      {!beleg && maengel.length > 0 && (
+        <div className="hinweis-pflicht druck-weg">
+          So lässt sich noch keine Rechnung ausstellen: {maengel.join(", ")}.
+        </div>
+      )}
+      {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
+      {/* v128: Ohne E-Mail lässt sich abschließen und ausstellen (Migration 79) – nur nicht per Mail
+          schicken, und auf der Rechnung steht dann keine. Ein Hinweis, keine Sperre. */}
+      {!beleg && maengel.length === 0 && rechnungOhneEmail(kunde) && (
+        <div className="hinweis-pflicht druck-weg">
+          Beim Kunden ist keine E-Mail-Adresse hinterlegt – die Rechnung lässt sich dann nur drucken, nicht per
+          Mail schicken. Nachtragen im Auftrag unter „Rechnung nötig“.
+        </div>
+      )}
+      {beleg
+        ? <BelegHinweise beleg={beleg} rechnungen={rechnungen} />
+        : (
+          <div className="re-notizen druck-weg">
+            <span>Mit „Rechnung ausstellen“ steht die Nummer fest und der Inhalt lässt sich nicht mehr ändern –
+              eine Korrektur läuft über eine Stornorechnung.</span>
           </div>
         )}
-      </div>
-    </div>
+
+      {zeigbar ? (
+        <div className="rechnung-vorschau">
+          <div className="rechnung-vorschau-rahmen">
+            <RechnungDokument
+              daten={beleg
+                ? beleg
+                : { ...(zeigbar as RechnungEntwurf), entwurf: true,
+                    voraussichtlich: betrieb ? voraussichtlicheNummer(betrieb) : undefined }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="empty">Die Vorschau braucht Kunde und Betriebsdaten.</div>
+      )}
+
+      {stornoFrage && (
+        <StornoBlatt rechnung={stornoFrage} grund={stornoGrund} onGrund={setStornoGrund} laeuft={laeuft}
+          onStornieren={() => void stornieren(stornoFrage)} onAbbrechen={() => setStornoFrage(null)} />
+      )}
+    </Blatt>
   );
 }

@@ -622,6 +622,9 @@ geprüft sind Aufbau, Feldzahl und Inhalt (`tests/datev.test.ts`), nicht der Imp
 - `components/rechnungen/RechnungModal.tsx` – Rechnungsfenster am Auftrag (Entwurf, Ausstellen,
   Stornieren).
 - `components/rechnungen/RechnungenPanel.tsx` – das Rechnungsbuch (Reiter „Rechnungen“).
+- `components/rechnungen/BelegTeile.tsx` – seit v135 das, was beide Fenster teilen: die Knöpfe
+  eines ausgestellten Belegs, die Hinweise darüber und die Storno-Rückfrage. Vorher stand das
+  zweimal fast wortgleich im Code.
 - `components/admin/BetriebsdatenPanel.tsx` – Briefkopf-, Bank-, Logo- und Nummernkreis-Maske.
 - `components/auftraege/ArticleAssignPanel.tsx` – Positionszuordnung inkl. Endpreis und
   Rechnungstext am Auftrag.

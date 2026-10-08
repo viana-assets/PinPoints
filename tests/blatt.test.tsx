@@ -61,3 +61,30 @@ describe("Anruf-Fenster", () => {
     expect(onKunde).toHaveBeenCalled();
   });
 });
+
+describe("Rechnung: gemeinsame Teile (v135)", () => {
+  const r = { id: "r1", nummer_text: "RE17", art: "rechnung", storniert_durch: null, storniert_am: null, storno_grund: null,
+    empfaenger: { email: null } } as unknown as import("@/lib/types").Rechnung;
+
+  it("Storno erst mit Grund; Abbrechen schließt", async () => {
+    const { StornoBlatt } = await import("@/components/rechnungen/BelegTeile");
+    const onStornieren = vi.fn(); const onAbbrechen = vi.fn();
+    const { rerender } = render(<StornoBlatt rechnung={r} grund="" onGrund={() => {}} laeuft={false} onStornieren={onStornieren} onAbbrechen={onAbbrechen} />);
+    expect(screen.getByRole("dialog", { name: "Rechnung RE17 stornieren?" })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Stornorechnung erzeugen" }) as HTMLButtonElement).disabled).toBe(true);
+    rerender(<StornoBlatt rechnung={r} grund="falscher Kunde" onGrund={() => {}} laeuft={false} onStornieren={onStornieren} onAbbrechen={onAbbrechen} />);
+    fireEvent.click(screen.getByRole("button", { name: "Stornorechnung erzeugen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abbrechen" }));
+    expect(onStornieren).toHaveBeenCalled();
+    expect(onAbbrechen).toHaveBeenCalled();
+  });
+
+  it("Knöpfe eines Belegs: ohne Recht kein Stornieren, ohne Adresse kein Mail-Knopf, dafür ein Hinweis", async () => {
+    const { BelegHinweise, BelegKnoepfe } = await import("@/components/rechnungen/BelegTeile");
+    render(<><BelegKnoepfe beleg={r} darfStornieren={false} laeuft={false} onStornoFrage={() => {}} /><BelegHinweise beleg={r} rechnungen={[r]} /></>);
+    expect(screen.getByRole("button", { name: "Drucken / als PDF speichern" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Stornieren" })).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText(/Für eine E-Mail fehlt die Adresse/)).toBeTruthy();
+  });
+});

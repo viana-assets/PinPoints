@@ -46,6 +46,12 @@ const nextConfig = {
       },
     ];
   },
+  // Die alten Seiten /admin/invite und /admin/users sind seit v135 entfallen (Runde 4 der
+  // Designprüfung): Einladen und Rollen ändern stehen im Admin-Bereich der App, Reiter „Nutzer“.
+  // Ein gespeichertes Lesezeichen landet so auf der App statt auf einer 404-Seite.
+  async redirects() {
+    return [{ source: "/admin/:pfad*", destination: "/", permanent: false }];
+  },
 };
 
 export default nextConfig;

@@ -25,7 +25,6 @@
 @media screen and (min-width:3000px) and (min-height:1500px){ :root{--z:1.6;} }
 @media screen{ html{zoom:var(--z);} }
 
-
   :root{
     /* Werkstatt Warm: warmes Papier-Beige, Sicherheits-Orange als Akzent, Navy für Marke/Icons */
     --bg:#F2EFE9; --panel:#ffffff; --border:#e2dbcd; --text:#241d13; --muted:#8a7f6b;
@@ -134,7 +133,7 @@
   .app-brand{display:flex;align-items:center;gap:10px;}
   .app-brand svg{width:30px;height:38px;flex:0 0 auto;}
   header h1{font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em;font-family:var(--font-brand);}
-  .brand-accent{color:var(--accent);}
+  
   .tabpanel{flex:1;overflow-y:auto;padding:12px 14px;display:none;}
   .tabpanel.active{display:flex;flex-direction:column;gap:10px;}
   label{font-size:12px;color:var(--muted);display:block;margin-bottom:3px;font-weight:600;}
@@ -172,8 +171,7 @@
   .btn-primary:hover{background:color-mix(in srgb, var(--accent) 85%, black);}
   .btn-secondary{background:var(--chip-bg);color:var(--text);}
   .btn-secondary:hover{background:var(--chip-hover);}
-  .btn-green{background:var(--green);color:#fff;}
-  .btn-red{background:var(--red);color:#fff;}
+
   .btn-block{width:100%;}
   .row{display:flex;gap:8px;}
   /* `min-width:0` ist hier kein Feinschliff, sondern der Grund, warum die Zeile überhaupt
@@ -185,31 +183,14 @@
      die Breite wie vorgesehen. */
   .row > *{flex:1;min-width:0;}
   hr{border:none;border-top:1px solid var(--border);margin:8px 0;}
-  .stats{display:flex;gap:8px;flex-wrap:wrap;}
-  .stat{flex:1;min-width:70px;background:var(--stat-bg);border:none;border-radius:14px;
-    padding:9px 8px;text-align:center;box-shadow:0 4px 12px -4px rgba(43,38,32,.12);}
-  .stat .num{font-size:20px;font-weight:800;font-family:var(--font-brand);}
-  .stat .lbl{font-size:10.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
-  .stat.red .num{color:var(--red);}
-  .stat.green .num{color:var(--green);}
+
   .filterbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
   .chip{font-size:11.5px;padding:5px 11px;border-radius:999px;background:var(--chip-bg);color:var(--muted);
     cursor:pointer;border:none;user-select:none;font-weight:600;box-shadow:0 2px 6px -2px rgba(43,38,32,.14);}
   .chip.active{background:var(--accent);color:#fff;font-weight:700;}
-  .plz-input{width:100%;margin-bottom:6px;padding:7px 10px;border-radius:10px;border:none;
-    background:var(--input-bg);box-shadow:0 4px 12px -4px rgba(43,38,32,.12);font-size:12.5px;
-    font-family:var(--font-body);color:var(--text);}
-  .plz-input::placeholder{color:var(--muted);}
-  .letter-strip{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:8px;}
-  .letter-chip{font-size:10.5px;padding:3px 6.5px;border-radius:7px;background:var(--chip-bg);color:var(--muted);
-    cursor:pointer;border:none;user-select:none;font-weight:600;box-shadow:0 2px 5px -2px rgba(43,38,32,.14);
-    min-width:20px;text-align:center;}
-  .letter-chip.active{background:var(--accent);color:#fff;font-weight:700;}
+
   #customerList{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;}
-  .cust-item{border:none;border-radius:14px;padding:9px 11px;cursor:pointer;
-    display:flex;align-items:flex-start;gap:8px;background:var(--panel);
-    box-shadow:0 4px 12px -4px rgba(43,38,32,.1);transition:box-shadow .12s ease,transform .12s ease;}
-  .cust-item:hover{box-shadow:0 6px 16px -4px rgba(43,38,32,.18);transform:translateY(-1px);}
+
   .dot{width:10px;height:10px;border-radius:50%;margin-top:4px;flex:0 0 auto;}
   .dot.red{background:var(--red);}
   .dot.green{background:var(--green);}
@@ -238,20 +219,13 @@
   .dot.kein-interesse::after{content:"✕";position:absolute;inset:0;display:flex;
     align-items:center;justify-content:center;color:var(--red);font-size:8px;font-weight:700;
     line-height:1;}
-  .cust-item .info{flex:1;min-width:0;}
-  .cust-item .name{font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .cust-item .addr{font-size:11.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .cust-item .meta{font-size:10.5px;color:var(--muted);margin-top:2px;}
+
   .row-pill{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-top:2px;}
   .row-pill.red{background:var(--red-bg);color:var(--red);}
   .row-pill.green{background:var(--green-bg);color:var(--green);}
   .row-pill.gray{background:var(--chip-bg);color:var(--muted);}
   .empty{text-align:center;color:var(--muted);font-size:12.5px;padding:20px 10px;}
-  .module-placeholder{border:1.5px dashed var(--border);border-radius:16px;padding:26px 18px;text-align:center;
-    color:var(--muted);background:var(--stat-bg);}
-  .module-placeholder .mp-icon{font-size:28px;margin-bottom:8px;}
-  .module-placeholder h3{margin:0 0 6px;color:var(--text);font-family:var(--font-brand);font-size:15px;}
-  .module-placeholder p{margin:0;font-size:12.5px;line-height:1.5;}
+
   /* flex:0 0 auto ist hier nicht optional: Buttons sind display:inline-flex, ein Icon darin ist
      also ein Flex-Element und darf von der Flexbox geschrumpft werden – und zwar nur entlang der
      Hauptachse, bei einer Zeile also in der BREITE. Reicht der Innenraum des Buttons nicht
@@ -269,45 +243,6 @@
      Die Breite nutzen jetzt Kartengitter (siehe „Rechner-Layout“ am Dateiende), nicht überlange Zeilen. */
   .module-page{max-width:1600px;margin:0;width:100%;}
 
-  /* Aufträge und Einsatzplanung teilen sich ein Muster: Kopf und Filter bleiben stehen, die
-     lange Tabelle darunter scrollt für sich. Dafür muss die Modulfläche genau so hoch sein
-     wie der sichtbare Bereich (flex:1 + min-height:0), damit die Tabelle den Rest bekommt.
-     Am Handy ist das genau falsch herum – dazu die Regel in der Medienabfrage unten.
-
-     Die Werte standen bis zum 09.09.2026 als style={{…}} an der Einbaustelle und waren damit
-     für keine Medienabfrage erreichbar. Derselbe Fehler wie seinerzeit bei den
-     Eingabefeldern: Layout gehört ins Stilblatt, nicht ans Element. */
-  /* „Kopf bleibt stehen, die lange Tabelle scrollt für sich".
-     Trägt nur, solange über der Tabelle NICHTS steht, das wachsen kann – Kopfzeile und
-     Filterleisten. Wer darüber einen Kalender, ein Stundenraster oder eine zweite Tabelle
-     einbaut, hebt das Muster auf: In einer Flex-Spalte schrumpfen die Kinder, wenn der Platz
-     nicht reicht, und dann ist das Untere weg, ohne dass es etwas zu scrollen gäbe.
-     Dreimal passiert (Stundenraster, Monatskalender, Tagestabellen der Einsatzplanung) –
-     deshalb steht es hier und nicht nur in einem Änderungsprotokoll. */
-  .modul-flaeche{display:flex;flex-direction:column;gap:10px;flex:1;min-height:0;}
-  .modul-tabelle{overflow-y:auto;overflow-x:auto;flex:1;}
-  /* Eine breite Tabelle auf einer Seite, die als Ganzes scrollt: nur waagrecht. Zwei
-     Rollbalken übereinander sind einer zu viel. */
-  .tabelle-breit{overflow-x:auto;}
-  .module-header{display:flex;align-items:flex-start;gap:12px;margin-bottom:4px;}
-  .module-header .mh-icon{width:42px;height:42px;border-radius:12px;background:var(--accent-bg);color:var(--accent);
-    display:flex;align-items:center;justify-content:center;flex:0 0 auto;}
-  .module-header .mh-icon svg{width:22px;height:22px;}
-  .module-header .mh-text{flex:1;min-width:0;}
-  .module-header h2{margin:0;font-size:19px;font-family:var(--font-brand);}
-  .module-header p{margin:2px 0 0;font-size:12.5px;color:var(--muted);}
-  .breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:2px;}
-  .breadcrumb button{background:none;border:none;padding:0;font:inherit;color:var(--accent);cursor:pointer;
-    font-weight:700;}
-  .breadcrumb .sep{color:var(--border);}
-  .breadcrumb .current{color:var(--text);font-weight:700;}
-  .wh-card{background:var(--panel);border-radius:16px;padding:16px;cursor:pointer;text-align:left;border:none;
-    box-shadow:0 4px 12px -4px rgba(43,38,32,.12);transition:box-shadow .12s ease,transform .12s ease;
-    display:flex;flex-direction:column;gap:8px;}
-  .wh-card:hover{box-shadow:0 8px 20px -6px rgba(43,38,32,.2);transform:translateY(-2px);}
-  .wh-card .wh-name{font-weight:700;font-size:14.5px;font-family:var(--font-brand);}
-  .wh-card .wh-sub{font-size:11.5px;color:var(--muted);}
-  .wh-card .wh-stats{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:600;}
   /* Die frühere .slot-card samt .sc-* ist entfallen: Das Kachelgitter der Lagerplätze ist
      seit Phase 4 die Regalwand, seit dem 26.09.2026 die Reihenkarten der Lagerseite. Die Regeln standen sonst noch
      hier und wären die Vorlage für das nächste Gitter gewesen, das es nicht geben soll. */
@@ -315,10 +250,7 @@
     color:var(--muted);}
   .hist-entry .he-cust{color:var(--text);font-weight:700;}
   .leaflet-tooltip.cust-tip{font-size:12px;line-height:1.4;}
-  #geoProgress{display:none;flex-direction:column;gap:6px;background:var(--accent-bg);border:1px solid var(--accent);
-    border-radius:8px;padding:10px;font-size:12px;}
-  #geoProgress .bar{height:6px;background:rgba(127,127,127,.25);border-radius:4px;overflow:hidden;}
-  #geoProgress .fill{height:100%;background:var(--accent);width:0%;transition:width .2s;}
+
   .small{font-size:11px;color:var(--muted);}
   /* Am Rechner 12 px (v133): 11 px war die kleinste Schrift der App und stand an 400 Stellen. Hier
      und nicht am Dateiende, damit spätere Regeln wie `.am-fuss` ihre eigene Größe behalten. */
@@ -370,17 +302,8 @@
     text-transform:uppercase;letter-spacing:.03em;}
   .pg-zeile button{flex:0 0 auto;padding:5px 10px;font-size:12px;}
 
-  .toast{position:fixed;bottom:18px;left:462px;background:#1f2430;color:#fff;padding:9px 16px;border-radius:8px;
-    font-size:12.5px;z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;}
-  .toast.show{opacity:1;}
-  a.filehelp{color:var(--accent);cursor:pointer;text-decoration:underline;font-size:11.5px;}
   #csvFile, #jsonFile{display:none;}
-  .drop{border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:12px;
-    color:var(--muted);cursor:pointer;}
-  .drop:hover{border-color:var(--accent);color:var(--accent);}
-  
-  #popupBox h3{margin:0 0 4px;font-size:14px;}
-  #popupBox .pline{font-size:12px;margin-bottom:2px;color:var(--text);}
+
   .badge{display:inline-block;font-size:10.5px;padding:1px 7px;border-radius:999px;font-weight:600;margin-left:6px;}
   .badge.red{background:var(--red-bg);color:var(--red);}
   .badge.green{background:var(--green-bg);color:var(--green);}
@@ -397,41 +320,17 @@
   .badge.grau{background:rgba(0,0,0,.06);color:#6b6259;}
   .modal-overlay{position:fixed;inset:0;background:var(--overlay);display:flex;align-items:center;
     justify-content:center;z-index:10000;}
-  .modal-box{background:var(--panel);color:var(--text);border-radius:18px;padding:20px 22px;width:440px;max-width:92vw;
-    max-height:calc(88vh / var(--z));overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.3);}
-  .modal-box h2{margin:0 0 14px;font-size:16px;font-family:var(--font-brand);}
-  .modal-box h4{margin:14px 0 6px;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;}
+
   .modal-close{position:absolute;top:14px;right:18px;background:none;border:none;font-size:18px;color:var(--muted);padding:0;}
-  
-  
-  
-  
-  .checkbox-row{display:flex;align-items:center;gap:7px;margin:8px 0;}
-  .checkbox-row input{width:auto;}
-  .checkbox-row label{margin:0;color:var(--text);font-size:13px;}
-  /* Ein Ankreuzfeld mit Erklärung darunter. Zwei Unterschiede zur schlichten Zeile: Das
-     Kästchen sitzt OBEN (bei einem vierzeiligen Text stünde es sonst irgendwo in der Mitte und
-     sähe aus, als gehöre es zur dritten Zeile), und der erklärende Satz erbt nicht die
-     Schriftstärke der Beschriftung – sonst liest sich die Erklärung so wichtig wie die
-     Beschriftung selbst. */
-  .checkbox-row.erklaert{align-items:flex-start;}
-  .checkbox-row.erklaert input{margin-top:2px;}
-  .checkbox-row label .small,
-  .checkbox-row span .small{font-weight:400;color:var(--muted);line-height:1.45;margin-top:2px;}
+
   /* Hier standen die Regeln für #apptFields – den aufklappbaren Terminblock im Kontaktformular.
      Entfallen am 29.08.2026: Kontakt bestätigen und Auftrag anlegen sind seither zwei getrennte
      Handlungen, der Termin hängt nicht mehr als Ankreuzfeld am Kontakt
      (siehe docs/termine-kontakt-auftrag-analyse.md). */
-  .appt-table{width:100%;border-collapse:collapse;font-size:12.5px;}
-  .appt-table th{text-align:left;font-size:10.5px;color:var(--muted);text-transform:uppercase;
-    letter-spacing:.02em;padding:4px 6px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);}
-  .appt-table td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:top;cursor:pointer;}
-  .appt-table tr:hover td{background:var(--hover);}
-  .appt-table .past{color:var(--muted);}
-  a.btn-primary, a.btn-secondary, a.btn-green, a.btn-red{display:inline-block;cursor:pointer;border:none;
+
+  a.btn-primary,a.btn-secondary {display:inline-block;cursor:pointer;border:none;
     border-radius:6px;padding:8px 12px;font-size:13px;font-weight:600;text-decoration:none;text-align:center;}
-  .call-btn{background:var(--green);color:#fff !important;}
-  .call-btn:hover{opacity:.9;}
+
   .call-icon-btn{width:30px;height:30px;border-radius:50%;background:#34c759;color:#fff;border:none;
     font-size:14px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
     box-shadow:0 1px 3px rgba(0,0,0,.25);flex:0 0 auto;line-height:1;}
@@ -453,9 +352,7 @@
   /* Handlungen am rechten Rand einer Kundenzeile (Navigation, Anrufen). Eigener Kasten,
      damit die Symbole einen gleichmäßigen Abstand haben und oben ausgerichtet stehen wie der
      Farbpunkt links – unabhängig davon, wie viele Zeilen die Kundenangaben brauchen. */
-  .zeilen-aktionen{display:flex;align-items:center;gap:6px;flex:0 0 auto;align-self:flex-start;
-    margin-top:1px;}
-  .zeilen-aktionen .nav-icon-btn{margin-right:0;}
+
   .call-menu{position:fixed;z-index:20000;background:var(--panel);border:1px solid var(--border);border-radius:10px;
     box-shadow:0 8px 24px rgba(0,0,0,.22);padding:6px;min-width:170px;
     max-height:min(360px, calc(100vh / var(--z) - 24px));overflow-y:auto;}
@@ -475,11 +372,6 @@
   .anruf-knopf{display:block;text-align:center;text-decoration:none;padding:12px 14px;border-radius:14px;}
   .anruf-knopf .ak-label{display:block;font-size:15px;font-weight:700;}
   .anruf-knopf .ak-nummer{display:block;font-size:12.5px;opacity:.85;font-variant-numeric:tabular-nums;}
-
-  /* Seit v134 ist das Anruf-Fenster ein Blatt (components/Blatt.tsx) und liegt damit am Handy
-     ohnehin unten, wo der Daumen ist – die eigene Handy-Regel dafür ist entfallen. */
-  .header-row{display:flex;align-items:center;gap:8px;}
-  .header-row h3{margin:0;flex:1;min-width:0;}
 
   /* ---------------- Responsive: schmales Fenster / Tablet ---------------- */
   @media (max-width: 1050px) and (min-width: 701px){
@@ -534,7 +426,7 @@
     /* Ist die Karte offen, führt „Liste" oben auf der Karte zurück – der runde Knopf wäre ein
        zweiter Weg an einer Stelle, an der das Kundenblatt aufgeht. */
     #mapToggleBtn.karte-offen{display:none;}
-    .modal-box{width:100%;max-width:100%;height:100%;max-height:100%;border-radius:0;}
+    
     .modal-overlay{align-items:stretch;}
     .call-menu{min-width:min(220px, 90vw);}
     /* Am Handy scrollt die GANZE Modulseite, nicht die Tabelle darin.
@@ -543,93 +435,42 @@
        war als der Bildschirm, gab es auch nichts zu scrollen. Der Kalender war dadurch ab
        der dritten Woche abgeschnitten und nicht erreichbar.
        Das seitliche Scrollen der Tabelle bleibt: breite Tabellen brauchen es weiterhin. */
-    .modul-flaeche{flex:0 0 auto;min-height:auto;}
-    .modul-tabelle{overflow-y:visible;flex:none;}
 
     #app{padding-bottom:0;}
-    .toast{left:16px;right:16px;bottom:calc(74px + env(safe-area-inset-bottom, 0px));text-align:center;}
+    
     .pwa-hinweis{left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom, 0px));}
     /* Über der Navigationsleiste, nicht darunter. */
     .offline-hinweis{bottom:calc(58px + env(safe-area-inset-bottom, 0px));}
   }
 
-/* ---------------- Login-Seite ---------------- */
+/* ---------------- Login-Seite ----------------
+   Seit v135 (Runde 4 der Designprüfung) im Stil der App statt eigener Glasoptik: Papier-Beige,
+   eine weiße Karte (Radius 20 wie `.db-karte`), Felder wie `.nk-feld` (44 px, Radius 12), der
+   Knopf orange und flach wie jeder Hauptknopf. Gilt auch für „Passwort setzen“. */
 .login-page{
-  min-height:calc(100vh / var(--z));display:flex;align-items:center;justify-content:center;padding:24px;position:relative;
-  overflow:hidden;
-  background:
-    radial-gradient(1100px 560px at 12% -8%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 60%),
-    radial-gradient(900px 520px at 108% 112%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 55%),
-    var(--bg);
+  min-height:calc(100vh / var(--z));display:flex;align-items:center;justify-content:center;padding:24px 16px;
+  background:var(--bg);
 }
 .login-box{
-  position:relative;background:color-mix(in srgb, var(--panel) 90%, transparent);
-  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
-  border:1px solid color-mix(in srgb, var(--border) 65%, transparent);
-  border-radius:22px;padding:38px 32px 32px;
-  width:380px;max-width:92vw;
-  box-shadow:0 30px 70px -24px rgba(15,23,42,.35), 0 2px 10px rgba(15,23,42,.06);
-  animation:loginCardIn .5s cubic-bezier(.16,1,.3,1);
+  background:var(--panel);border-radius:20px;padding:30px 26px 26px;
+  width:400px;max-width:100%;box-sizing:border-box;
+  box-shadow:0 1px 3px rgba(36,29,19,.06), 0 12px 32px -12px rgba(36,29,19,.18);
 }
-@keyframes loginCardIn{from{opacity:0;transform:translateY(16px) scale(.97);}to{opacity:1;transform:none;}}
-.login-box .login-brand{display:flex;flex-direction:column;align-items:center;gap:14px;margin-bottom:8px;}
+.login-box .login-brand{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:18px;}
 .login-box .login-brand svg{width:51px;height:64px;flex:0 0 auto;}
 .login-box h1{font-size:22px;font-weight:700;margin:0;text-align:center;letter-spacing:-.01em;font-family:var(--font-brand);}
-.login-box h1 .brand-accent{color:var(--accent);}
-.login-box p.subtitle{margin:6px 0 22px;font-size:13px;color:var(--muted);text-align:center;line-height:1.5;}
-.login-box .field{margin-bottom:16px;}
-.login-box label{font-size:11.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:7px;}
-.login-box input{
-  padding:12px 14px;border-radius:12px;border:1.5px solid var(--border);font-size:14.5px;
-  transition:border-color .15s ease, box-shadow .15s ease;
-}
-.login-box input:focus{
-  outline:none;border-color:var(--accent);
-  box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent);
-}
-.login-box .btn-primary{
-  border-radius:12px;padding:13px;font-size:14.5px;font-weight:700;letter-spacing:.01em;
-  background:linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 70%, var(--navy)));
-  box-shadow:0 14px 26px -12px color-mix(in srgb, var(--accent) 70%, transparent);
-  transition:transform .15s ease, filter .15s ease, box-shadow .15s ease;
-}
-.login-box .btn-primary:hover{transform:translateY(-1px);filter:brightness(1.05);}
-.login-box .btn-primary:active{transform:translateY(0);}
-.login-box .btn-primary:disabled{opacity:.6;cursor:default;transform:none;filter:none;}
-.login-error{background:var(--red-bg);color:var(--red);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:16px;font-weight:500;}
-.login-info{background:var(--accent-bg);color:var(--accent);border-radius:10px;padding:10px 12px;font-size:12.5px;margin-bottom:16px;font-weight:500;}
 
-/* ---------------- Einsatzplanung: Monats-Kalender ---------------- */
-.emp-chip{display:inline-flex;align-items:center;gap:6px;}
-.emp-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;}
-.calendar-grid{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--panel);}
-.calendar-row{display:grid;grid-template-columns:52px repeat(7, 1fr);}
-.calendar-row + .calendar-row{border-top:1px solid var(--border);}
-.calendar-head{background:var(--bg);}
-.calendar-kw{display:flex;align-items:center;justify-content:center;font-size:10.5px;color:var(--muted);
-  font-weight:700;padding:6px 2px;border-right:1px solid var(--border);}
-/* Die Kalenderwoche ist seit dem 16.09. ein Knopf: ein Klick öffnet diese Woche im
-   Stundenraster. Sie sieht weiter aus wie eine Beschriftung und verrät sich erst beim
-   Darüberfahren – eine Zahl am Zeilenrand soll nicht wie eine Schaltfläche aussehen, sonst
-   konkurriert sie mit den Tagen daneben. */
-.calendar-kw-knopf{border:0;background:none;cursor:pointer;padding:0;font:inherit;
-  color:var(--muted);border-radius:6px;}
-.calendar-kw-knopf:hover{background:var(--accent-bg);color:var(--accent);}
-.calendar-kw-knopf:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;}
-.calendar-daylabel{text-align:center;font-size:10.5px;color:var(--muted);font-weight:700;
-  text-transform:uppercase;letter-spacing:.03em;padding:8px 2px;}
-.calendar-day{border:none;border-left:1px solid var(--border);background:var(--panel);cursor:pointer;
-  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:4px;
-  padding:6px 2px 8px;min-height:56px;font-family:inherit;}
-.calendar-day:hover{background:var(--hover);}
-.calendar-day.outside{background:var(--bg);color:var(--muted);}
-.calendar-day.today .calendar-daynum{background:var(--accent);color:#fff;}
-.calendar-day.selected{background:var(--accent-bg);}
-.calendar-daynum{font-size:12.5px;font-weight:700;width:22px;height:22px;border-radius:50%;
-  display:flex;align-items:center;justify-content:center;}
-.calendar-dots{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;max-width:44px;}
-.calendar-dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
-.calendar-dot-unassigned{background:var(--muted);opacity:.5;}
+.login-box p.subtitle{margin:-8px 0 18px;font-size:13.5px;color:var(--muted);text-align:center;line-height:1.5;}
+.login-box form{display:flex;flex-direction:column;gap:12px;}
+.login-box .field{margin:0;display:flex;flex-direction:column;gap:4px;}
+.login-box label{font-size:12px;font-weight:700;color:var(--muted);margin:0;}
+.login-box input{min-height:46px;padding:0 12px;border-radius:12px;border:1px solid var(--border);font-size:15px;background:var(--panel);}
+.login-box input:focus{outline:none;border-color:var(--accent);
+  box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);}
+.login-box .btn-primary{min-height:48px;border-radius:12px;font-size:15px;margin-top:4px;}
+.login-box .btn-primary:disabled{opacity:.6;cursor:default;}
+.login-error{background:var(--red-bg);color:var(--red);border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:14px;font-weight:600;}
+.login-info{background:var(--accent-bg);color:#9a3412;border-radius:12px;padding:10px 12px;font-size:13px;margin-bottom:14px;font-weight:600;}
 
 /* Zentrale Fehlermeldung (Roadmap Phase 9): eine nicht blockierende Einblendung unten rechts,
    damit ein fehlgeschlagener Speichervorgang sichtbar wird, ohne den Arbeitsfluss zu stoppen.
@@ -771,9 +612,6 @@
    statt eines <label>. Sie ist eine Frage, keine Warnung: kein Rot, kein Ausrufezeichen.
    Farbe hätte hier behauptet, es sei etwas schiefgegangen. */
 
-/* Auftragszeilen sind anklickbar – das muss man ihnen ansehen. */
-tr.klickbar { cursor: pointer; }
-tr.klickbar:hover { background: var(--hover); }
 /* Dasselbe für die Auftragskarten im Kundenfenster, die seit dem 12.09.2026 das
    Auftragsfenster öffnen. */
 
@@ -895,7 +733,7 @@ tr.klickbar:hover { background: var(--hover); }
 
 /* ---------------- Kamera-Scanner ---------------- */
 .scanner-box{max-width:none;}
-.scanner-fehler{position:static !important;margin:0;}
+
 .scanner-hinweis{font-size:13px;color:var(--muted);text-align:center;}
 .scanner-bild{position:relative;width:100%;aspect-ratio:1;background:#000000;border-radius:12px;
   overflow:hidden;}
@@ -956,13 +794,13 @@ tr.klickbar:hover { background: var(--hover); }
 .av-zeile2{font-size:11.5px;font-weight:500;color:var(--muted);}
 
 /* ---------------- Adressen prüfen (Admin → Wartung) ---------------- */
-.adr-pruef{border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:8px;
-  background:var(--panel);}
+/* Seit v135 (Runde 4) Zeilen mit Trennlinie wie in den Listen, nicht Kästen im Kasten. */
+.adr-pruef{border-top:1px solid #f1ece2;padding:10px 0;background:none;}
 .adr-pruef.erledigt{opacity:.55;}
 .adr-pruef-kopf{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
 .adr-pruef-liste{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;}
 .adr-pruef-liste li{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  font-size:13px;padding:5px 8px;border-radius:8px;background:var(--hover);}
+  font-size:13px;padding:7px 10px;border-radius:10px;background:var(--bg);}
 .adr-pruef-liste button{flex:0 0 auto;padding:4px 10px;font-size:12px;}
 
 /* Der Kundenname ist der Weg ins Kundenfenster – für die Fälle, die kein Vorschlag löst.
@@ -975,7 +813,7 @@ tr.klickbar:hover { background: var(--hover); }
   text-underline-offset:3px;}
 .adr-pruef-kunde:hover b{text-decoration-color:var(--accent);}
 .adr-pruef-kunde:focus-visible{outline:2px solid var(--accent);outline-offset:3px;}
-.adr-pruef-hand{margin-top:8px;padding:4px 10px;font-size:12px;}
+.adr-pruef-hand{margin-top:4px;padding:4px 0 !important;font-size:13px;border:none !important;background:none !important;color:#b33d0d;font-weight:700;}
 
 /* Ein Vorschlag, der die Hausnummer verliert, ist ärmer als das, was schon dasteht. Er
    verschwindet nicht – manchmal ist die Straße allein richtig –, aber er sagt es. */
@@ -1589,14 +1427,6 @@ input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
    an der Seite. `clip` schneidet ab, ohne einen Scrollbereich zu bilden. */
 .raster{border:1px solid var(--border);border-radius:12px;background:var(--panel);
   overflow:hidden;overflow:clip;flex:0 0 auto;}
-/* ---- Sortierbare Spaltenköpfe ----
-   Der Pfeil bekommt festen Platz, auch wenn er leer ist: Sonst rückt die Überschrift beim
-   Sortieren um ein Zeichen zur Seite, und die ganze Kopfzeile zuckt. */
-.appt-table th.sortierbar{cursor:pointer;user-select:none;white-space:nowrap;}
-.appt-table th.sortierbar:hover{color:var(--accent);}
-.appt-table th.sortierbar.aktiv{color:var(--accent);}
-.appt-table th .sort-pfeil{display:inline-block;width:12px;font-size:9px;margin-left:3px;
-  vertical-align:middle;}
 
 /* Die Zeile zum Hinzufügen einer Leistung: Artikel, Menge, Endpreis, Summe, Plus.
    Sie trägt dieselben Spalten wie die Tabelle darüber – auch „Summe netto". Ohne die stand
@@ -1780,8 +1610,6 @@ input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
   .verschoben-hinweis{bottom:calc(74px + env(safe-area-inset-bottom, 0px));width:calc(100vw - 24px);}
 }
 
-.kal-blaettern{padding:4px 10px;font-size:12px;border:1px solid var(--border);}
-
 /* Kundenfenster: „Eingelagerte Reifen" (25.09.2026). Die Platznummer groß vorn – sie ist das,
    was man im Regal sucht. */
 .eingelagert-liste{display:flex;flex-direction:column;gap:6px;margin-bottom:6px;}
@@ -1861,7 +1689,7 @@ button.el-zeile:hover{border-color:var(--accent);}
 .pl-heute{height:38px;flex:0 0 auto;padding:0 14px;border-radius:19px;border:none;background:var(--text);
   color:#fff;font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;}
 .pl-segment{display:flex;background:#e6e0d4;border-radius:12px;padding:3px;max-width:560px;}
-.pl-segment button{flex:1;height:34px;border:none;border-radius:10px;background:transparent;
+.pl-segment button{flex:1;height:36px;border:none;border-radius:10px;background:transparent;
   color:var(--muted);font-weight:700;font-size:14px;font-family:inherit;cursor:pointer;}
 .pl-segment button.aktiv{background:var(--panel);color:var(--text);box-shadow:0 1px 3px rgba(36,29,19,.12);}
 .pl-filter{display:flex;gap:6px;flex-wrap:wrap;}
@@ -2237,11 +2065,12 @@ button.el-zeile:hover{border-color:var(--accent);}
 /* ---------------- Rechnungsfenster (18.09.2026) ---------------- */
 /* Breiter als jeder andere Dialog, weil darin ein A4-Blatt steht. 210 mm mal der
    Vorschaufaktor sind etwa 500 Pixel – dazu Rand und Rollbalken. */
-.modal-box.rechnung-modal{width:760px;max-width:96vw;max-height:calc(94vh / var(--z));
-  display:flex;flex-direction:column;gap:10px;padding:18px 20px;}
-.re-kopfleiste{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
-.re-kopfleiste h3{margin:0;font-family:var(--font-brand);font-size:17px;
-  display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+/* Seit v135 ein Blatt (components/Blatt.tsx, Breite „dokument“). */
+.bl-blatt.rechnung-modal .ab-titel,.bl-blatt.ak-fenster .ab-titel{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.re-auswahl-unter{font-size:12px;font-weight:600;color:var(--muted);margin-left:2px;}
+.re-notizen{display:flex;flex-direction:column;gap:2px;font-size:13px;color:var(--muted);line-height:1.45;padding:0 2px;}
+.re-wege{display:flex;gap:18px;flex-wrap:wrap;padding:0 2px;}
+
 .re-pille{font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;
   background:var(--chip-bg, #e7e2d8);color:var(--muted);letter-spacing:.02em;}
 .re-pille.entwurf{background:#e4ecf5;color:#1E3A5F;}
@@ -2249,18 +2078,7 @@ button.el-zeile:hover{border-color:var(--accent);}
 .re-pille.storno{background:#f0e2c8;color:#7a5a12;}
 .re-auswahl{flex-wrap:wrap;}
 .rechnung-modal .rechnung-vorschau{flex:1 1 auto;min-height:0;}
-.re-fussleiste{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-/* Der Mail-Knopf ist ein `a` und kein `button`: `mailto:` gehört dem Browser, nicht dem
-   Programm – ein Klickzähler dazwischen brächte nichts und würde Tastaturbedienung und
-   „Link in neuem Tab" kaputtmachen.
 
-   Den Rand muss diese Regel ausdrücklich setzen: Weiter oben steht `a.btn-secondary{border:none}`,
-   und das schlägt `.btn-rand` – ein Element-plus-Klasse-Selektor wiegt schwerer als eine Klasse
-   allein. Ohne diese Zeile stünde der Mail-Knopf randlos neben einem umrandeten „Stornieren". */
-.re-fussleiste a.btn-secondary{text-decoration:none;display:inline-flex;align-items:center;
-  line-height:1.2;}
-.re-fussleiste a.btn-rand{border:1px solid var(--border);}
-.re-fussleiste .small{color:var(--muted);flex:1 1 200px;}
 /* Der Vergrößerungsfaktor der Vorschau IM FENSTER. 210 mm sind bei 96 dpi rund 794 px; was
    davon übrig bleibt, hängt an der Fensterbreite – deshalb drei Stufen, alle mit derselben
    Genauigkeit angeschrieben, damit die Reihenfolge im Stilblatt entscheidet und nicht die
@@ -2316,7 +2134,6 @@ button.el-zeile:hover{border-color:var(--accent);}
    genau das Feld, das man gerade bearbeitet hat – im Browser nachgesehen, er lag mitten auf
    dem Logo-Block und schnitt dessen zweiten Knopf ab. Die Maske ist kurz genug, dass man zum
    Speichern nicht weit scrollt. */
-.bd-speichern{display:flex;align-items:center;gap:10px;padding:4px 0 2px;}
 
 @media (max-width: 720px){
   .bd-raster{grid-template-columns:1fr;}
@@ -2336,29 +2153,6 @@ button.el-zeile:hover{border-color:var(--accent);}
 
 /* Fehlt bei einem Freitext-Artikel die Bezeichnung, steht auf der Rechnung „Sonstiges" – das
    ist kein Fehler, aber es ist nicht gemeint. Ein farbiger Rand fragt danach, ohne zu sperren. */
-
-/* ---------------- Tagestabellen der Einsatzplanung (19.09.2026) ---------------- */
-/* Untereinander stehen mehrere dieser Tabellen – eine je Mitarbeiter. Ohne feste Breiten
-   rechnet jede ihr Raster aus dem EIGENEN Inhalt aus: „Paul" hat einen kurzen Kundennamen,
-   „Vitali" einen langen, und die Spalten springen von Block zu Block. Das Auge sucht dann in
-   jeder Tabelle neu, wo die Uhrzeit steht.
-
-   `table-layout:fixed` heißt: Die Breiten stehen VOR dem Inhalt fest – aus der colgroup. Damit
-   liegen alle Blöcke im selben Raster, egal was darin steht. */
-.tages-tabelle{table-layout:fixed;width:100%;}
-.tages-tabelle col.tt-zeit{width:132px;}
-.tages-tabelle col.tt-fahrzeug{width:120px;}
-.tages-tabelle col.tt-status{width:104px;}
-/* Was nicht passt, bekommt Pünktchen statt die Spalte zu sprengen – bei fester Breite ist
-   das kein Feinschliff, sondern die Bedingung dafür, dass die Breite hält. */
-.tages-tabelle td, .tages-tabelle th{overflow:hidden;text-overflow:ellipsis;}
-.tages-tabelle .date-cell{white-space:nowrap;}
-
-@media (max-width: 760px){
-  /* Am Handy ist für vier feste Spalten kein Platz. Die Tabelle scrollt dann waagrecht –
-     deshalb eine Mindestbreite, damit die Spalten nicht ineinanderlaufen. */
-  .tages-tabelle{min-width:560px;}
-}
 
 /* ---------------- Drucken aus einem Fenster (21.09.2026) ---------------- */
 /*
@@ -2415,7 +2209,7 @@ button.el-zeile:hover{border-color:var(--accent);}
      Beschnitt, ohne Bezugsrahmen. `!important`, weil darunter unter anderem `#app` liegt
      (ID-Regel) und die Aufkleber-Fenster `position:relative` als Attribut am Element setzen;
      ein Attribut schlägt jede gewöhnliche Regel im Stilblatt. */
-  body:has(.druck-fenster) *:has(.druck-fenster), .druck-fenster, .druck-fenster .modal-box{
+  body:has(.druck-fenster) *:has(.druck-fenster),.druck-fenster,.druck-fenster .bl-blatt {
     display:block !important;position:static !important;
     width:auto !important;max-width:none !important;height:auto !important;max-height:none !important;
     overflow:visible !important;inset:auto !important;z-index:auto !important;
@@ -3214,7 +3008,14 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .es-konto b{font-size:15px;overflow:hidden;text-overflow:ellipsis;}
 .es-karte{gap:8px;}
 .es-karte .pwa-block{margin:0;padding:0;border:none;}
-.es-karte .pwa-block h4{margin:0 0 6px;font-family:var(--font-brand);font-size:16px;font-weight:700;}
+.es-karte .pwa-block h4{margin:0 0 4px;font-family:var(--font-body);font-size:14.5px;font-weight:700;color:var(--text);}
+/* v135 (Runde 4): Die Blöcke aus PushEinstellung, PwaInstallieren und PwaFassung sprechen jetzt
+   dieselbe Sprache wie die Zeilen darüber – Titel 14,5 px fett statt 16 px Markenschrift,
+   Erklärtext 12,5 px grau. Eine Karte, deren Baustein (noch) nichts zeigt, verschwindet. */
+.es-karte .pwa-block .small{font-size:12.5px;color:var(--muted);line-height:1.45;}
+.es-karte:empty{display:none;}
+.es-karte .pg-zeile{border:none;background:var(--bg);border-radius:12px;padding:9px 12px;}
+.es-karte .pg-zeile.pg-eigenes{background:var(--accent-bg);}
 .es-karte .btn-block{border-radius:12px;min-height:44px;}
 .es-zeile{display:flex;align-items:center;gap:10px;border:none;background:none;padding:4px 0;font:inherit;color:var(--text);
   text-align:left;width:100%;cursor:pointer;}
@@ -3376,7 +3177,7 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
   font-family:var(--font-brand);font-weight:700;font-size:13px;color:#fff;background:var(--navy);}
 .ad-kreis.navy{background:var(--navy);}
 .ad-kreis.blau{background:#2F8FCB;}
-.ad-kreis.orange{background:#E8622C;}
+.ad-kreis.orange{background:var(--accent);}
 .ad-kreis.gruen{background:var(--green);}
 .ad-kreis.grau{background:#d9d1c2;color:#6f6553;}
 /* width:auto: Die allgemeine Feldregel gibt jedem select width:100% – in der Nutzerzeile schob
@@ -3403,9 +3204,10 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ad-blatt .bd-nummer{background:var(--bg);border-radius:14px;padding:10px 12px;border:none;}
 .ad-raster{flex-wrap:wrap;}
 .ad-wartung{gap:6px;}
-.ad-wartung > .wh-card{max-width:none !important;padding:0;box-shadow:none;background:none;}
+
 .ad-wartung > div{max-width:none !important;}
-.ad-wartung h4{font-family:var(--font-brand);font-size:16px;margin:0 0 4px;}
+.ad-wartung h4{font-family:var(--font-brand);font-size:17px;margin:0 0 4px;}
+.ad-wartung .btn-primary,.ad-wartung .btn-secondary,.ad-wartung .btn-danger{min-height:44px;border-radius:12px;}
 /* Alle Daten löschen (Wartung, nur Superadmin, v117). */
 .ad-alles{display:flex;flex-direction:column;gap:6px;}
 .ad-alles-frage{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
@@ -3869,7 +3671,7 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .vk-etikett{align-self:flex-start;}
 
 /* E10: Auskunftsauszug – am Bildschirm ein Blatt im Fenster, auf Papier A4 (RECHNUNG_SEITE_CSS). */
-.modal-box.ak-fenster{width:760px;max-width:96vw;max-height:calc(94vh / var(--z));display:flex;flex-direction:column;gap:10px;padding:18px 20px;overflow-y:auto;}
+/* Seit v135 ein Blatt (Breite „dokument“), siehe components/Blatt.tsx. */
 .druckbogen.ak-dokument{display:block;max-height:none;overflow:visible;background:#ffffff;color:#000000;padding:18px 20px;
   border:1px solid var(--border);border-radius:8px;font-size:13px;line-height:1.45;}
 .ak-dokument h1{font-size:18px;margin:0 0 4px;}
@@ -4401,6 +4203,7 @@ button.zt-tag{cursor:pointer;}
 .bl-schmal{width:min(440px, calc(100vw - 32px));}
 .bl-mittel{width:min(540px, calc(100vw - 32px));}
 .bl-breit{width:min(640px, calc(100vw - 32px));}
+.bl-dokument{width:min(800px, calc(100vw - 32px));max-height:calc(94vh / var(--z));}
 .bl-kopf{display:flex;align-items:flex-start;gap:10px;}
 .bl-titel{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
 .bl-titel .ab-titel,.bl-kopf .ab-titel{margin:0;padding:4px 2px 0;overflow-wrap:anywhere;}
@@ -4418,6 +4221,8 @@ button.zt-tag{cursor:pointer;}
 @media (max-width: 700px){
   .bl-blatt{--bl-unten:calc(18px + env(safe-area-inset-bottom, 0px));width:100%;max-height:calc(92vh / var(--z));padding:8px 16px var(--bl-unten);}
   .bl-fuss{margin-left:-16px;margin-right:-16px;padding-left:16px;padding-right:16px;}
+  .modal-overlay:has(> .bl-dokument){align-items:stretch !important;}
+  .bl-dokument{height:100%;max-height:100%;border-radius:0;}
 }
 /* Kundenauswahl im Fenster (components/CustomerPicker.tsx, v134). */
 .kp-feld{display:flex;flex-direction:column;gap:6px;}
@@ -4443,3 +4248,25 @@ button.zt-tag{cursor:pointer;}
 .ta-blatt .handlung-hinweis{margin:0;border-radius:12px;}
 .bl-blatt .termin-vorgabe{margin:0;border-radius:12px;padding:9px 12px;}
 .bl-fuss > .btn-secondary:not(:only-child){flex:0 1 auto;padding:0 18px;}
+/* Eine Meldung IM Fenster (Scanner, Etiketten) steht im Fluss, nicht schwebend in der Ecke. */
+.bl-blatt .fehler-hinweis{position:static;max-width:none;box-shadow:none;margin:0;}
+.ek-wahl .ek-schritte{margin-top:0;}
+/* Admin › Wartung (v135): die Läufe ohne Stil am Element. */
+.ad-lauf{display:flex;flex-direction:column;gap:6px;}
+.ad-lauf-text{margin:0;}
+.ad-lauf .btn-primary,.ad-lauf .btn-secondary{min-height:44px;border-radius:12px;}
+
+/* ---------------------------------------------------------------- Knöpfe und Umschalter (v135, Runde 5)
+   Eine Familie statt zehn Einzelstücke. Was es gibt und wofür (docs/design-system.md, „Knöpfe“):
+   - Hauptknopf einer Seite im Kopf: `.kl-neu` (orange Pille, 44 px) – „+ Auftrag“, „Export“.
+   - Knöpfe eines Fensters: `.btn-primary` / `.btn-secondary` in `.bl-fuss` (46 px, Radius 12).
+   - Knopf in einer Zeile oder Karte: `.am-mini` (orange, 34 px) oder `.es-knopf` (weiß mit Rand).
+   - Löschen und Unwiderrufliches: `.btn-danger`.
+   - Umschalter: `.lg-lagerwahl` (36 px); `.pl-segment` sieht seit v135 genauso aus, `.db-umschalter`
+     ist dieselbe Form in klein für Kartenköpfe.
+   Alle orangen Knöpfe werden beim Darüberfahren gleich dunkler, alle haben Radius 12 (Pillen 22). */
+.btn-primary,.btn-secondary,.btn-danger{border-radius:12px;}
+.am-knopf:hover,.am-mini:hover{background:color-mix(in srgb, var(--accent) 88%, black);}
+.btn-primary:hover{background:color-mix(in srgb, var(--accent) 88%, black);}
+.btn-danger:hover{background:color-mix(in srgb, var(--red) 88%, black);}
+.am-mini{border-radius:10px;}

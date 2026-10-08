@@ -6,7 +6,8 @@ import { IconMarke } from "@/components/icons";
 
 // Login-only-Seite: es gibt hier bewusst KEIN Registrierungsformular.
 // Zugang bekommt man nur über einen Einladungslink, den der Admin
-// über /admin/invite verschickt (Supabase Auth Invite-E-Mail).
+// in der App unter Admin › Nutzer verschickt (Supabase Auth Invite-E-Mail). Aussehen seit v135
+// wie die App selbst (Runde 4 der Designprüfung), siehe „Login-Seite“ in globals.css.
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();

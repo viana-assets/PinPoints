@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v134";
+export const APP_VERSION = "v135";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v135", datum: "2026-10-08", titel: "Einheitliches Aussehen",
+    punkte: [
+      "Rechnung, Auskunft (DSGVO) und die Etiketten- und Aufkleberfenster sehen jetzt aus wie alle anderen Fenster. Die Knöpfe stehen unten; gedruckt wird wie bisher nur das Blatt selbst.",
+      "Unter „Rechnungen“ führen „Zum Auftrag“ und „Zum Kunden“ jetzt oben im Fenster direkt weiter.",
+      "Die Anmeldeseite, die Einstellungen und Admin › Wartung passen sich dem übrigen Stil an.",
+      "Knöpfe und Umschalter sind überall gleich geformt. Die alten Admin-Seiten /admin/users und /admin/invite gibt es nicht mehr – Einladen und Rollen stehen unter Admin › Nutzer.",
+    ],
+  },
   {
     version: "v134", datum: "2026-10-08", titel: "Fenster im neuen Stil",
     punkte: [

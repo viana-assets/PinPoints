@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Customer } from "@/lib/types";
 import { KUNDEN_ZUSTAND_LABEL, suchtreffer, type KundenZustand } from "@/lib/helpers";
 import { MAP_STYLES, type MapStyleKey } from "@/lib/mapStyles";
+import { EMP_COLORS } from "@/lib/constants";
 import { zahlText, zustandText, type TagesStation } from "@/lib/karte";
 import { nadelHtml, stationHtml } from "./nadel";
 
@@ -32,7 +33,7 @@ const KUNDEN_LEGENDE = [
 const TAG_LEGENDE = [
   { form: stationHtml(1, "vorbei", null, ""), titel: "Vorbei", info: "erledigt oder schon zu Ende" },
   { form: stationHtml(2, "laeuft", null, ""), titel: "Läuft gerade", info: "in Arbeit oder jetzt im Zeitfenster" },
-  { form: stationHtml(3, "kommt", "#E8622C", ""), titel: "Kommt noch", info: "der Ring hat die Farbe des Mitarbeiters" },
+  { form: stationHtml(3, "kommt", EMP_COLORS[0], ""), titel: "Kommt noch", info: "der Ring hat die Farbe des Mitarbeiters" },
   { form: '<span class="kt-legende-linie"></span>', titel: "Reihenfolge", info: "je Mitarbeiter von Station zu Station – als Luftlinie, nicht als Strecke" },
 ];
 

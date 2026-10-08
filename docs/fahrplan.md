@@ -16,12 +16,19 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Designprüfung abgeschlossen: Runden 3 bis 5 (Service Worker v135, ohne
+  Migration).** Wunsch Vitali „mach alles auf einmal“. Runde 3: Rechnung, Auskunft und die drei
+  Etikettenfenster als `Blatt` (Breite „dokument“), Rechnungsfenster am Auftrag und im
+  Rechnungsbuch teilen Knöpfe und Storno-Rückfrage (`BelegTeile.tsx`); PDFs geprüft. Runde 4:
+  Admin › Wartung ohne Kästen im Kasten, Einstellungen einheitlich, Login ohne Glasoptik, alte
+  Seiten `app/admin/invite` und `app/admin/users` entfernt. Runde 5: ~110 ungenutzte CSS-Regeln
+  und `EmployeeCheckboxList` entfernt, Knöpfe und Umschalter als eine Familie. `docs/design-system.md`.
+
 * **08.10.2026 – Ein Fenster für alle (Service Worker v134, ohne Migration).** Runde 2 der
   Designprüfung: Neuer Auftrag, Einlagern, Auslagern, Anrufen, Mitnehmen, Scanner und Ausgangskorb
   nutzen das gemeinsame `components/Blatt.tsx` (Titel 18 px, rundes ✕, Felder in grauen Gruppen,
   Knöpfe unten stehend, am Handy Blatt von unten); die Kundenauswahl hat das Suchfeld der Listen.
-  `docs/design-system.md`, „Fenster: eines für alle“. Offen aus der Prüfung: Runde 3 (Rechnung,
-  Etiketten), 4 (Admin, Einstellungen, Anmeldung), 5 (Aufräumen) – nur auf Zuruf.
+  `docs/design-system.md`, „Fenster: eines für alle“.
 
 * **08.10.2026 – Rechner-Layout (Service Worker v133, ohne Migration).** Runde 1 der
   Designprüfung, Wunsch Vitali: Vollseiten linksbündig und bis 1600 px breit, Aufträge, Rechnungen

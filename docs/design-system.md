@@ -171,8 +171,44 @@ Reihe nach auslagern“ im Fuß), Scanner (`QrScanner`), Ausgangskorb (`AusgangF
 Kundenauswahl (`CustomerPicker`) hat das Suchfeld der Listen (`SuchFeld`) und zeigt Treffer erst
 mit Suchtext; der gewählte Kunde steht als graue Karte mit „Ändern“.
 
-Noch auf `.modal-box`, weil sie drucken (Runde 3): Etiketten und Aufkleber, Auskunftsauszug,
-Rechnung. **Ein neues Fenster nimmt `Blatt`** – kein neues `.modal-box`.
+Seit v135 (Runde 3) auch die Fenster, die drucken: Rechnung am Auftrag und im Rechnungsbuch,
+Auskunftsauszug (beide Breite `dokument`: 800 px, am Handy bildschirmfüllend), Satz-Etikett,
+Regal-Aufkleber und Verkaufsreifen-Etikett. Kopf, Griff und Fuß des Blatts tragen `druck-weg`;
+`.druck-fenster` steht als `ebene` am Hintergrund. `.modal-box` gibt es nicht mehr – auch nicht im
+Stilblatt. **Ein neues Fenster nimmt `Blatt`.**
+
+Geprüft mit echten PDFs am 08.10.2026: Rechnung 1 Seite A4 ohne Knöpfe, Auskunft 2 Seiten A4,
+Satz-Etikett 60 × 86 mm 1 Seite, je Rad 4 Seiten, Regal-Aufkleber A4 1 Seite.
+
+## Knöpfe und Umschalter (08.10.2026, v135)
+
+Runde 5 der Designprüfung. Es gab zehn Spielarten von Hauptknöpfen. Seitdem:
+
+| Wofür | Klasse | Aussehen |
+|---|---|---|
+| Hauptknopf einer Seite (im Kopf) | `.kl-neu` | orange Pille, 44 px – „+ Auftrag“, „+ Artikel“, „Export“ |
+| Knöpfe eines Fensters | `.btn-primary` / `.btn-secondary` in `.bl-fuss` | 46 px, Radius 12; der Zweitknopf weiß mit Rand, nur so breit wie nötig |
+| Knopf in einer Zeile oder Karte | `.am-mini` (orange, 34 px) oder `.es-knopf` (weiß mit Rand, 38 px) | |
+| Löschen, Unwiderrufliches | `.btn-danger` | rot |
+| Umschalter | `.lg-lagerwahl` | 36 px, beige Spur, aktiv weiß; `.pl-segment` sieht genauso aus, `.db-umschalter` ist dieselbe Form klein für Kartenköpfe |
+
+Alle orangen Knöpfe werden beim Darüberfahren gleich dunkler; `.btn-*` haben Radius 12.
+
+## Aufgeräumt (08.10.2026, v135)
+
+- Rund 110 Regeln für Klassen, die kein Bauteil mehr verwendet (alter Monatskalender
+  `.calendar-*`, alte Termintabelle `.appt-table`, `.cust-item`, `.wh-card`, `.module-header`,
+  `.breadcrumb`, `.toast`, `.checkbox-row`, `.modal-box` …), samt der Kommentare, die nur sie
+  erklärten. Gesucht per Abgleich aller Klassen im Stilblatt mit dem Quelltext; Klassen, die
+  zusammengesetzt werden (`"bl-" + breite`, `"p-" + phase`, `"s" + stufe` …), bleiben.
+- `components/EmployeeCheckboxList.tsx` (seit Langem ungenutzt) und die Seiten
+  `app/admin/invite` und `app/admin/users` (doppelt zum Admin-Bereich, Reiter „Nutzer“) sind
+  entfernt; `/admin/…` leitet auf die App um (`next.config.mjs`).
+- Feste Farbwerte: Die Legende der Tageskarte nimmt die erste Mitarbeiterfarbe (`EMP_COLORS`),
+  `.ad-kreis.orange` die Akzentfarbe; die Tinte der Unterschrift steht einmal als `TINTE`
+  (eine Leinwand kennt keine CSS-Variablen).
+- Login und „Passwort setzen“ (Runde 4) ohne eigene Glasoptik: weiße Karte auf Beige, Felder
+  und Knopf wie in der App.
 
 Geprüft am 08.10.2026 bei 1280×800 und 390×844: kein seitlicher Überlauf, Auslagern liegt über
 dem Auftrag (`elementFromPoint` in der Mitte des Blatts).
@@ -684,8 +720,9 @@ muss es für den Druck zu einem gewöhnlichen Block im Textfluss werden.
    sein Inhalt bleiben, alles andere fällt weg – unabhängig davon, wie tief das Fenster hängt.
    Fehlt einem Browser `:has()`, wird die Regel als Ganzes verworfen und die Oberfläche druckt
    mit; unschön, aber lesbar. Ein leeres Blatt wäre die schlechtere Rückfallebene.
-2. **Jeder Vorfahre des Fensters, das Fenster selbst und `.modal-box` werden zu gewöhnlichen
-   Blöcken** (`body *:has(.druck-fenster), .druck-fenster, .druck-fenster .modal-box`):
+2. **Jeder Vorfahre des Fensters, das Fenster selbst und sein Rahmen werden zu gewöhnlichen
+   Blöcken** (`body *:has(.druck-fenster), .druck-fenster, .druck-fenster .bl-blatt` – bis v134
+   `.modal-box`, seit v135 ist jedes Druckfenster ein `Blatt`):
    `position:static`, keine feste Höhe, kein `overflow`, kein Hintergrund, kein `transform`.
    Das behebt beides auf einmal – die `overflow:hidden`-Falle und das `position:fixed`-Problem
    auf iOS – und zwar auf der ganzen Kette, nicht nur an einer vermuteten Stelle. `!important`

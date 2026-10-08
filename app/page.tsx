@@ -72,7 +72,6 @@ import { arbeitMs, uhrzeitVon } from "@/lib/zeiterfassung";
 import { IconKunden, IconMap, IconMore, IconMarke } from "@/components/icons";
 import { NavItem } from "@/components/NavItem";
 import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
-import { EmployeeCheckboxList } from "@/components/EmployeeCheckboxList";
 import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
 import { OfflineHinweis, useIstOffline } from "@/components/OfflineHinweis";
 import { datenSpeicherLeeren } from "@/app/providers";

@@ -40,7 +40,7 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
-| `ROLE_LABEL` | `lib/constants.ts` | `Record<Role, string>` | Anzeigename je Rolle (Superadmin/Admin/Techniker/Nutzer) | `PermissionMatrix`, `AdminPanel`, `app/admin/users/page.tsx`; Grundlage von `ALL_ROLES` |
+| `ROLE_LABEL` | `lib/constants.ts` | `Record<Role, string>` | Anzeigename je Rolle (Superadmin/Admin/Techniker/Nutzer) | `PermissionMatrix`, `AdminPanel`; Grundlage von `ALL_ROLES` |
 | `ALL_ROLES` | `lib/constants.ts` | `Role[]` (aus `ROLE_LABEL` abgeleitet) | Alle existierenden Rollen, ohne zweite Aufzählung | `app/api/invite/route.ts` (`ASSIGNABLE_ROLES`) |
 | `VERBEN` | `lib/constants.ts` | `Verb[]` | Die drei Rechte-Verben: lesen/schreiben/löschen (seit 17.09.2026) | `PermissionMatrix`, `tests/navigation.test.ts`, `tests/rechte.test.ts` |
 | `VERB_LABEL` | `lib/constants.ts` | `Record<Verb, string>` | Beschriftung der drei Verben | `PermissionMatrix` |

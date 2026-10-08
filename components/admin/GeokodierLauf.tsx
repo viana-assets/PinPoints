@@ -91,9 +91,9 @@ export function GeokodierLauf({ supabase }: { supabase: SupabaseClient }) {
   const anteil = stand && stand.gesamt > 0 ? Math.round((stand.erledigt / stand.gesamt) * 100) : 0;
 
   return (
-    <div className="wh-card" style={{ cursor: "default", maxWidth: 520 }}>
-      <h4 style={{ marginTop: 0 }}>Adressen geokodieren</h4>
-      <p className="small" style={{ marginTop: 0 }}>
+    <div className="ad-lauf">
+      <h4>Adressen geokodieren</h4>
+      <p className="small ad-lauf-text">
         Trägt für alle Kunden ohne Kartenposition die Koordinaten nach. Läuft mit einer Adresse
         pro Sekunde über die eigene, gedrosselte Route – für einige hundert Kunden also einige
         Minuten. Das Fenster muss dabei offen bleiben; ein Abbruch verliert nichts, ein erneuter
@@ -103,14 +103,14 @@ export function GeokodierLauf({ supabase }: { supabase: SupabaseClient }) {
       {stand && (
         <>
           <div className="fortschritt"><div className="fortschritt-balken" style={{ width: `${anteil}%` }} /></div>
-          <div className="small" style={{ marginBottom: 8 }}>
+          <div className="small">
             {stand.erledigt} von {stand.gesamt} · {stand.treffer} gefunden
             {stand.ohneTreffer > 0 && ` · ${stand.ohneTreffer} ohne Treffer`}
             {stand.fehler > 0 && ` · ${stand.fehler} Fehler`}
           </div>
         </>
       )}
-      {meldung && <div className="small" style={{ marginBottom: 8 }}>{meldung}</div>}
+      {meldung && <div className="small">{meldung}</div>}
 
       {laeuft ? (
         <button type="button" className="btn-secondary btn-rand" onClick={() => { abbruch.current = true; }}>Abbrechen</button>
