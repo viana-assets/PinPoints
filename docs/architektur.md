@@ -71,10 +71,12 @@ viana-pinpoints/
   app/
     layout.tsx              Root-Layout, lädt Google Fonts + Leaflet CSS/JS
     globals.css              Design-Tokens + alle Styles (ein einziges CSS-File)
-    page.tsx                 Hauptanwendung, ~3.550 Zeilen – siehe "app/page.tsx heute" unten
+    page.tsx                 Hauptanwendung, ~3.300 Zeilen – siehe "app/page.tsx heute" unten
     _seite/                   Handlungs-Hooks der Startseite, aus page.tsx herausgelöst (v113, C5);
                               der Unterstrich hält den Ordner aus dem Routing heraus
-      typen.ts                Gemeinsame Typen (NeuLaden, OfflineOderDirekt, AuftragAnlegen …)
+      typen.ts                Gemeinsame Typen (NeuLaden, OfflineOderDirekt, AuftragAnlegen, NeuerTermin …)
+      useAuftragAktionen.ts   Aufträge anlegen/ändern/Termin/Status/Notiz/Transporter/löschen, Leistungen (v127)
+      useKundenAktionen.ts    Kontakt festhalten, offen/aktiv, Stammdaten, Position, anlegen, löschen (v127)
       useLagerAktionen.ts     Lager, Plätze, Einlagerung am Auftrag, Auslagern/Vormerken, Tausch, Räder
       useFahrzeugAktionen.ts  Kartei der Fahrzeuge, Fahrzeuge am Auftrag, Kilometerstand (offline-fähig)
     manifest.ts               Erzeugt das PWA-Manifest aus lib/erscheinung.ts (kein statisches
@@ -483,7 +485,10 @@ aktualisieren bzw. über `qk.*` einen Query-Schlüssel für ungültig erklären.
 `useLagerAktionen` und `useFahrzeugAktionen` bekommen von `HomePage` einen Kontext (Daten,
 `neuLaden`, `offlineOderDirekt`, `refreshX`) und geben die Funktionen zurück, die vorher in
 `HomePage` standen – Namen und Verhalten unverändert, die Props der Panels bleiben gleich. Damit
-ist die Datei von ~3.950 auf ~3.550 Zeilen geschrumpft. Der Hook wird vor dem ersten `return`
+ist die Datei von ~3.950 auf ~3.550 Zeilen geschrumpft; **v127** hat `useAuftragAktionen` und
+`useKundenAktionen` dazugenommen (~3.580 → ~3.300 Zeilen). `useAuftragAktionen` steht dabei VOR
+`useLagerAktionen`, weil dieser `addOrder` braucht, und `useKundenAktionen` danach, weil er
+`neuenAuftragAnlegen` braucht. Der Hook wird vor dem ersten `return`
 aufgerufen (Regel der Hooks); was er zurückgibt, ist erst ab dieser Zeile da – Funktionen weiter
 oben dürfen es nur in Rückrufen benutzen, nicht beim Rendern.
 
@@ -669,7 +674,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 78** (08.10.2026; 73–78 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 78** (08.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).

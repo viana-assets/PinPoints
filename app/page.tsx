@@ -4,16 +4,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
 import type {
-  Customer, ContactHistoryEntry, UserSettings, Warehouse, StorageSlot, TireStorage, Order, OrderStatus,
-  Vehicle, Role, Employee, Article, ArticlePrice, ArtikelFelder, OrderArticle, KontaktErgebnis, Saison,
+  Customer, ContactHistoryEntry, UserSettings, Warehouse, StorageSlot, TireStorage, Order,
+  Vehicle, Role, Employee, Article, ArticlePrice, ArtikelFelder, OrderArticle, Saison,
   Firmenfahrzeug, EingelagertesRad, Rechnung, Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
   AuftragBeleg,
 } from "@/lib/types";
 import {
-  todayStr, formatDate, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
+  todayStr, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
   KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref, plzAus, naechsteSaison, raederNachSatz,
   satzProfilMm, geocodeAddress, getPhoneNumbers, navigationUrls, istHandy, menuLage, seitenZoom, formatEUR,
-  letzterSatzFuer, orderArticleTotals, terminTitel, currentArticlePrice, rechnungOffen, DEFAULT_VAT_RATE,
+  letzterSatzFuer, orderArticleTotals, currentArticlePrice, rechnungOffen,
 } from "@/lib/helpers";
 import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
 import {
@@ -44,8 +44,8 @@ import { kundeZumAuftrag, kundeFuerAuftrag } from "@/lib/laufkunde";
 import { auftragsNr, ohneTestkunden } from "@/lib/testkunde";
 import { telefonPasst } from "@/lib/telefon";
 import {
-  aenderungen, AUFTRAG_OFFLINE_FELDER, auftragsdatenAnwenden, ausgangStand, istNetzfehler, raederAnwenden,
-  saetzeAnwenden, fahrzeugeAnwenden, type AbsichtInhalt, type AuftragFeld,
+  auftragsdatenAnwenden, ausgangStand, istNetzfehler, raederAnwenden,
+  saetzeAnwenden, fahrzeugeAnwenden, type AbsichtInhalt,
 } from "@/lib/offline/ausgang";
 import { ausgangAufnehmen, useAusgang } from "@/lib/offline/speicher";
 import { ausgangSenden } from "@/lib/offline/senden";
@@ -98,18 +98,11 @@ import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/l
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
   updateArticlePrice as updateArticlePriceApi, deleteArticlePrice as deleteArticlePriceApi,
-  insertOrderArticle, updateOrderArticleQtyById, updateOrderArticleEndpreisById, updateOrderArticleTextById,
-  deleteOrderArticleById,
 } from "@/lib/api/articles";
 import {
-  replaceOrderEmployees, insertOrder, updateOrderById, updateOrderTermin, updateOrderStatusById,
-  updateOrderTechnikerNotiz, deleteOrderById, updateOrderFirmenfahrzeug, rechnungAnderswoVermerken,
-  rechnungAnderswoZuruecknehmen, type AuftragsFenster,
+  replaceOrderEmployees, rechnungAnderswoVermerken, rechnungAnderswoZuruecknehmen, type AuftragsFenster,
 } from "@/lib/api/orders";
-import {
-  markCustomerContacted, markCustomerOpen, setWiedervorlageBulk, setCustomerActive, deleteCustomerRow,
-  updateCustomerFieldsById, kundeEmailErgaenzen, insertCustomer, setzePositionVonHand, positionNeuSuchen, testkundeLoeschen,
-} from "@/lib/api/customers";
+import { setWiedervorlageBulk, setzePositionVonHand } from "@/lib/api/customers";
 import { upsertModulePermissions, type Bereichsrechte } from "@/lib/api/permissions";
 import {
   insertFirmenfahrzeug, updateFirmenfahrzeugById, firmenfahrzeugAusmustern, type FirmenfahrzeugFelder,
@@ -127,6 +120,9 @@ import { verfuegbarkeitAustragen, verfuegbarkeitSetzen, verfuegbarkeitVorlage } 
 import type { VerfuegbarkeitImPlan } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { useLagerAktionen } from "./_seite/useLagerAktionen";
 import { useFahrzeugAktionen } from "./_seite/useFahrzeugAktionen";
+import { useAuftragAktionen } from "./_seite/useAuftragAktionen";
+import { useKundenAktionen } from "./_seite/useKundenAktionen";
+import type { NeuerTermin } from "./_seite/typen";
 import { belegHochladen, belegLoeschen } from "@/lib/api/belege";
 import {
   insertVerkaufsreifen, updateVerkaufsreifen, deleteVerkaufsreifen, reifenAufAuftrag, satzZumVerkauf,
@@ -177,7 +173,6 @@ const LISTEN_SCHRITT = 200;
 
 // Ein aus dem Kalender angeklickter Zeitpunkt. `von`/`bis` sind null, wenn in die Leiste
 // „ohne Uhrzeit" geklickt wurde – dann steht nur der Tag fest.
-type NeuerTermin = { datum: string; von: string | null; bis: string | null };
 
 // Beschriftung eines gemerkten Termins. Steht hier und nicht in der Komponente, weil sie an
 // zwei Stellen gebraucht wird und beide dasselbe sagen müssen.
@@ -858,19 +853,6 @@ export default function HomePage() {
     const o = auftragFinden(id);
     return `Auftrag ${o ? auftragsNr(o.order_number) : "?"} · ${was}`;
   };
-  // Eine Änderung an Feldern des Auftrags als Absicht – nur die wirklich geänderten Felder.
-  function auftragsAbsicht(id: string, nachher: Partial<Record<AuftragFeld, unknown>>, was: string) {
-    const vorher = auftragFinden(id) as unknown as Partial<Record<AuftragFeld, unknown>> | undefined;
-    if (!vorher) throw new Error("Ohne Netz lässt sich nur ein Auftrag ändern, der auf diesem Gerät gespeichert ist.");
-    const diff = aenderungen(vorher, nachher, AUFTRAG_OFFLINE_FELDER);
-    return diff ? { inhalt: { art: "auftrag" as const, auftragId: id, ...diff }, titel: auftragTitel(id, was) } : null;
-  }
-  function positionsAbsicht(id: string, felder: Record<string, unknown>, was: string) {
-    const pos = orderArticles.find((p) => p.id === id);
-    if (!pos) throw new Error("Diese Leistung ist auf diesem Gerät nicht gespeichert.");
-    const basis = Object.fromEntries(Object.keys(felder).map((k) => [k, (pos as unknown as Record<string, unknown>)[k] ?? null]));
-    return { inhalt: { art: "position" as const, auftragId: pos.order_id, positionId: id, felder, basis }, titel: auftragTitel(pos.order_id, was) };
-  }
 
   // Übertragen, sobald Netz da ist: beim Start, wenn das Netz wiederkommt, wenn eine neue
   // Absicht dazukommt, und alle 30 Sekunden, solange etwas wartet. Danach alles neu laden, was
@@ -891,42 +873,18 @@ export default function HomePage() {
     return () => clearInterval(t);
   }, [sitzungBereit, istOffline, wartendeAbsichten]);
 
-  async function addOrderArticle(orderId: string, articleId: string, quantity: number, endpreisNetto: number | null, text: string | null) {
-    await offlineOderDirekt(
-      () => insertOrderArticle(supabase, articlePrices, orderId, articleId, quantity, endpreisNetto, text),
-      () => {
-        // Die Kennung entsteht auf dem Gerät: So lässt sich die neue Position offline auch gleich
-        // wieder ändern, und ein doppelter Versand legt sie nicht zweimal an.
-        const preis = currentArticlePrice(articlePrices.filter((p) => p.article_id === articleId));
-        const name = articles.find((a) => a.id === articleId)?.short_name ?? "Leistung";
-        return {
-          inhalt: { art: "position_neu", auftragId: orderId, zeile: {
-            id: crypto.randomUUID(), order_id: orderId, article_id: articleId, quantity,
-            net_price: preis ? preis.net_price : 0, vat_rate: preis ? preis.vat_rate : DEFAULT_VAT_RATE,
-            endpreis_netto: endpreisNetto, note: text,
-          } },
-          titel: auftragTitel(orderId, `${name} eingetragen`),
-        };
-      }
-    );
-    await refreshOrderArticles();
-  }
-  async function updateOrderArticleQty(id: string, quantity: number) {
-    await offlineOderDirekt(() => updateOrderArticleQtyById(supabase, id, quantity), () => positionsAbsicht(id, { quantity }, "Menge"));
-    await refreshOrderArticles();
-  }
-  async function updateOrderArticleEndpreis(id: string, endpreisNetto: number | null) {
-    await offlineOderDirekt(() => updateOrderArticleEndpreisById(supabase, id, endpreisNetto), () => positionsAbsicht(id, { endpreis_netto: endpreisNetto }, "Endpreis"));
-    await refreshOrderArticles();
-  }
-  async function updateOrderArticleText(id: string, text: string | null) {
-    await offlineOderDirekt(() => updateOrderArticleTextById(supabase, id, text), () => positionsAbsicht(id, { note: text?.trim() || null }, "Text der Leistung"));
-    await refreshOrderArticles();
-  }
-  async function removeOrderArticle(id: string) {
-    await offlineOderDirekt(() => deleteOrderArticleById(supabase, id), () => positionsAbsicht(id, { deleted_at: new Date().toISOString() }, "Leistung entfernt"));
-    await refreshOrderArticles();
-  }
+  // ---------------------------------------------------------------- Aufträge (app/_seite/useAuftragAktionen.ts)
+  // Seit v127 (Fahrplan C5) ein eigener Baustein: anlegen, ändern, Termin, Status, Notiz, Transporter,
+  // löschen und die Leistungen am Auftrag. Steht VOR `useLagerAktionen`, das `addOrder` braucht.
+  const {
+    addOrder, addOrderArticle, deleteOrder, neuenAuftragAnlegen, removeOrderArticle, setOrderFirmenfahrzeug,
+    terminVerschieben, updateOrder, updateOrderArticleEndpreis, updateOrderArticleQty, updateOrderArticleText,
+    updateOrderStatus, updateTechnikerNotiz,
+  } = useAuftragAktionen({
+    supabase, customers, orders, orderArticles, articles, articlePrices, orderEmployees, tireStorages, selectedId,
+    netzLos, auftragFinden, auftragTitel, offlineOderDirekt, setOrderEmployees, refreshOrders, refreshOrderArticles,
+    refreshTireStorages, refreshCustomers, loadHistory, setFrischerAuftragId, setOffenerAuftragId,
+  });
   function orderArticlesFor(orderId: string): OrderArticle[] {
     return orderArticles.filter((oa) => oa.order_id === orderId);
   }
@@ -1516,98 +1474,16 @@ export default function HomePage() {
     );
   }
 
-  // ---------------------------------------------------------------- CRUD
-  // Kontakt bestätigen – und sonst nichts. Bis zum 29.08.2026 hing an dieser Funktion noch ein
-  // Ankreuzfeld "Termin dabei vereinbart", das im selben Zug einen Auftrag anlegte. Das hat zwei
-  // Dinge verbunden, die nicht zusammengehören: ein Auftrag entsteht auch ohne Anruf (Kunde
-  // steht vor Ort, Anschlussauftrag), und ein Anruf führt oft zu keinem Auftrag. Vor allem aber
-  // setzte jede Auftragsanlage `last_contact` – und daran hängt die Wiedervorlage-Uhr. Auftrag
-  // anlegen geht jetzt über denselben Weg wie überall: das Auftragsformular.
-  // Siehe docs/termine-kontakt-auftrag-analyse.md.
-  // Kunde, für den gerade der Kontaktdialog offen ist (Migration 23). Der Dialog ersetzt das
-  // frühere „Kontaktiert speichern", das nur festhielt, DASS telefoniert wurde.
-  // Siehe docs/kunden-und-karte.md.
-  async function kontaktFesthalten(id: string, ergebnis: KontaktErgebnis, contactDate: string, wiedervorlageAm: string | null) {
-    const notiz =
-      ergebnis === "auftrag" ? "Kontaktiert – Auftrag vereinbart"
-      : ergebnis === "wiedervorlage" ? `Kontaktiert – Wiedervorlage am ${formatDate(wiedervorlageAm || contactDate)}`
-      : "Kontaktiert – kein Interesse";
-    await markCustomerContacted(supabase, id, contactDate, notiz, ergebnis, wiedervorlageAm);
-    await refreshCustomers();
-    if (selectedId === id) loadHistory(id);
-    setKontaktKundeId(null);
-    // „Auftrag anlegen" führt direkt weiter ins Auftragsfenster – der Kontakt ist zu diesem
-    // Zeitpunkt bereits geschrieben, es geht also nichts verloren, falls dort abgebrochen wird.
-    if (ergebnis === "auftrag" && darf("auftraege.anlegen", "schreiben")) await neuenAuftragAnlegen(id);
-  }
-  async function markOpen(id: string) {
-    await markCustomerOpen(supabase, id);
-    await refreshCustomers();
-  }
-  async function setActive(id: string, active: boolean) {
-    await setCustomerActive(supabase, id, active);
-    await refreshCustomers();
-  }
-  async function deleteCustomerById(id: string) {
-    await deleteCustomerRow(supabase, id);
-    // Erst das Fenster schließen, DANN neu laden. Umgekehrt stand der Kunde nach dem Neuladen
-    // nicht mehr in der Liste, das Fenster war aber noch offen und griff ins Leere – die ganze
-    // Seite brach mit „This page couldn't load" ab (24.09.2026, beim Löschen der Laufkundschaft).
-    setSelectedId(null);
-    await refreshCustomers();
-    await refreshOrders();
-  }
-  // Testkunde restlos löschen (Migration 60). Wie oben: erst das Fenster zu, dann neu laden –
-  // und diesmal alles, woran der Kunde hing: Aufträge, Rechnungen, Lager, Fahrzeuge.
-  async function testkundeRestlosLoeschen(id: string) {
-    await testkundeLoeschen(supabase, id);
-    setSelectedId(null);
-    await refreshCustomers();
-    await refreshOrders();
-    await refreshTireStorages();
-    neuLaden(qk.rechnungen(), qk.fahrzeuge());
-  }
-  async function updateCustomerFields(id: string, fields: Partial<Customer>) {
-    const cust = customers.find((c) => c.id === id);
-    await updateCustomerFieldsById(supabase, id, fields, cust?.address);
-    await refreshCustomers();
-  }
+  // ---------------------------------------------------------------- Kunden (app/_seite/useKundenAktionen.ts)
+  // Seit v127 (Fahrplan C5): Kontakt festhalten, offen/aktiv setzen, ändern, anlegen, löschen.
+  const {
+    addCustomer, deleteCustomerById, kontaktFesthalten, kundenEmailSpeichern, markOpen, positionSuchen, setActive,
+    testkundeRestlosLoeschen, updateCustomerFields,
+  } = useKundenAktionen({
+    supabase, customers, selectedId, setSelectedId, setKontaktKundeId, terminFuerNeuenKunden, setTerminFuerNeuenKunden,
+    darf, neuenAuftragAnlegen, refreshCustomers, refreshOrders, refreshTireStorages, loadHistory, neuLaden,
+  });
 
-  // Die Adresse eines einzelnen Kunden neu suchen lassen. Der Rückgabewert sagt, ob etwas
-  // gefunden wurde – das Kundenfenster zeigt den Befund selbst an, damit „nichts gefunden"
-  // nicht als Fehler im roten Band erscheint. Ein Fehler ist es nämlich nicht.
-  async function positionSuchen(id: string): Promise<boolean> {
-    const cust = customers.find((c) => c.id === id);
-    if (!cust?.address) return false;
-    const gefunden = await positionNeuSuchen(supabase, id, cust.address);
-    if (gefunden) await refreshCustomers();
-    return gefunden;
-  }
-  async function addCustomer(fields: {
-    name: string; address: string; phone_mobile: string; phone_landline: string; note: string;
-    company: string; email: string; anrede: "" | "Herr" | "Frau";
-    koordinate: { lat: number; lng: number } | null;
-    auftragAnlegen: boolean;
-    laufkundschaft: boolean;
-    einmalkunde: boolean;
-    testkunde: boolean;
-  }) {
-    const { id: createdId, lat } = await insertCustomer(supabase, fields);
-    await refreshCustomers();
-    // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist meist auch schon klar, worum es
-    // geht. Statt eines eigenen kleinen Auftragsformulars hier führt der Weg über dieselbe
-    // Maske wie überall: Zeile anlegen, vollständiges Auftragsfenster öffnen.
-    if (createdId && fields.auftragAnlegen && darf("auftraege.anlegen", "schreiben")) {
-      // Kam der Weg über einen Klick in den Kalender, ist der Termin schon gewählt – er wartet
-      // seit dem Klick in `terminFuerNeuenKunden` und wird jetzt eingesetzt. Danach wird er
-      // gelöscht: Der nächste Kunde, der ohne Kalender angelegt wird, soll nicht die Uhrzeit
-      // von vorgestern erben.
-      const termin = terminFuerNeuenKunden;
-      setTerminFuerNeuenKunden(null);
-      await neuenAuftragAnlegen(createdId, termin);
-    }
-    return lat != null;
-  }
   // ---------------------------------------------------------------- Lager-Modul
   // Die Handlungen stehen seit v113 in app/_seite/useLagerAktionen.ts (Fahrplan C5).
   const {
@@ -1618,119 +1494,6 @@ export default function HomePage() {
     offlineOderDirekt, refreshWarehouses, refreshStorageSlots, refreshTireStorages, refreshOrderArticles,
   });
 
-  // ---------------------------------------------------------------- Aufträge-Modul (Termine inklusive)
-  // Mitarbeiter-Zuordnung läuft komplett über `order_employees` (Migration 11) – ein Auftrag kann
-  // mehreren Mitarbeitern zugeordnet sein (z. B. bei umfangreichen Aufträgen). `assignedEmployeeIds`
-  // ist deshalb überall eine Liste, auch wenn sie in vielen Fällen nur ein Element hat.
-  async function addOrder(fields: { customerId: string; title: string; description: string; orderDate: string; time: string; endTime?: string; status: OrderStatus; assignedEmployeeIds: string[] }) {
-    // Rückfallebene für alle Anlagemasken: bleibt der Titel leer, wird "Termin – ‹Kunde›"
-    // eingesetzt. Die Masken belegen ihn zwar vor, aber so hängt es nicht daran, dass jede
-    // einzelne daran denkt.
-    const kunde = customers.find((c) => c.id === fields.customerId);
-    const id = await insertOrder(supabase, { ...fields, title: fields.title.trim() || terminTitel(kunde?.name) });
-    // Nur mit Auswahl: Ein Techniker, der anlegt (Migration 78), steht danach schon selbst darauf
-    // (`auftrag_techniker_einteilen()`), und das Einteilen anderer ist nicht sein Recht.
-    if (id && fields.assignedEmployeeIds.length > 0) await setOrderEmployees(id, fields.assignedEmployeeIds);
-    await refreshOrders();
-    // Die Id geht an den Aufrufer zurück, damit er den frisch angelegten Auftrag sofort öffnen
-    // kann – ohne sie müsste er ihn in der Liste wiederfinden, was bei gleichnamigen Aufträgen
-    // am selben Tag nicht eindeutig ist.
-    return id;
-  }
-  // Ein Klick, ein Auftrag, ein Fenster: aus dem Karten-Popup heraus wird die Zeile mit
-  // sinnvollen Vorgaben sofort angelegt (Titel "Termin – ‹Kunde›", heutiges Datum, Zustand
-  // offen) und dann das vollständige Auftragsfenster geöffnet. Titel, Termin, Fahrzeug,
-  // Mitarbeiter und Leistungen werden dort geändert – alles an einer Stelle, dieselbe Maske
-  // wie bei jedem anderen Auftrag.
-  //
-  // `addOrder` wartet das Neuladen inzwischen wirklich ab (siehe `neuLaden`), sonst wäre die
-  // frische Zeile im Zwischenspeicher noch nicht vorhanden und das Fenster bliebe zu.
-  async function neuenAuftragAnlegen(kundenId: string, termin?: NeuerTermin | null) {
-    const kunde = customers.find((c) => c.id === kundenId);
-    const id = await addOrder({
-      customerId: kundenId, title: terminTitel(kunde?.name), description: "",
-      // Ohne Vorgabe wie bisher: heute, ohne Uhrzeit. Kommt der Auftrag aus dem Kalender, steht
-      // der angeklickte Zeitpunkt schon drin – und der Block sitzt sofort dort, wohin geklickt
-      // wurde, statt in der Leiste „ohne Uhrzeit" zu landen.
-      orderDate: termin?.datum || todayStr(),
-      time: termin?.von || "",
-      // Ein Ende nur ZUSAMMEN mit einem Beginn: Die Datenbank lässt seit Migration 37 nichts
-      // anderes zu, und ohne Beginn wäre es auch keine Aussage.
-      endTime: termin?.von ? (termin.bis || "") : "",
-      status: "offen", assignedEmployeeIds: [],
-    });
-    if (!id) return;
-    setFrischerAuftragId(id);
-    setOffenerAuftragId(id);
-  }
-
-  async function updateOrder(id: string, fields: {
-    title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean;
-    status: OrderStatus; assignedEmployeeIds: string[]; laufkunde?: { name: string; telefon: string; ort: string };
-  }) {
-    if (netzLos()) {
-      // Ohne Netz (F1): Titel, Beschreibung, Termin, „Rechnung benötigt" und die Angaben zum
-      // Laufkunden gehen in den Ausgangskorb. Mitarbeiter und Status nicht – das Konzept nimmt
-      // sie bewusst aus (Einteilen ist nicht Sache vor Ort, ein Statuswechsel friert ein).
-      const vorher = auftragFinden(id);
-      const mitarbeiterVorher = [...(orderEmployees[id] ?? [])].sort().join(",");
-      if (vorher && (vorher.status !== fields.status || mitarbeiterVorher !== [...fields.assignedEmployeeIds].sort().join(","))) {
-        throw new Error("Ohne Netz lassen sich Mitarbeiter und Status nicht ändern. Titel, Beschreibung, Termin und Leistungen gehen offline.");
-      }
-      const a = auftragsAbsicht(id, {
-        title: fields.title, description: fields.description || null, order_date: fields.orderDate,
-        time: fields.time || null, end_time: fields.endTime || null,
-        ...(fields.rechnungNoetig === undefined ? {} : { rechnung_noetig: fields.rechnungNoetig }),
-        ...(fields.laufkunde === undefined ? {} : {
-          laufkunde_name: fields.laufkunde.name.trim() || null,
-          laufkunde_telefon: fields.laufkunde.telefon.trim() || null,
-          laufkunde_ort: fields.laufkunde.ort.trim() || null,
-        }),
-      }, "Angaben");
-      if (a) await ausgangAufnehmen(a.inhalt, a.titel);
-      return;
-    }
-    await updateOrderById(supabase, id, fields);
-    // Die Einteilung nur anfassen, wenn sie sich wirklich geändert hat. Zwei Gründe, und der
-    // zweite ist der wichtigere:
-    //
-    // 1. `setOrderEmployees` löscht und schreibt neu – bei jedem Speichern ein Ab- und Anmelden
-    //    derselben Personen, das jedes Mal im Protokoll landet.
-    // 2. Seit Migration 41 darf ein TECHNIKER den Auftrag bearbeiten, aber weiterhin nicht die
-    //    Einteilung (`order_employees`, Migration 15). Ohne diesen Vergleich wäre jedes
-    //    Speichern durch einen Techniker an der Rechteprüfung gescheitert – obwohl er die
-    //    Einteilung gar nicht angefasst hat.
-    const vorher = [...(orderEmployees[id] ?? [])].sort();
-    const nachher = [...fields.assignedEmployeeIds].sort();
-    if (vorher.join(",") !== nachher.join(",")) await setOrderEmployees(id, fields.assignedEmployeeIds);
-    await refreshOrders();
-  }
-  // Ein Termin wurde im Kalender gezogen (25.09.2026): nur Tag, Beginn und Ende.
-  async function terminVerschieben(id: string, datum: string, von: string | null, bis: string | null) {
-    await offlineOderDirekt(
-      () => updateOrderTermin(supabase, id, { orderDate: datum, time: von, endTime: bis }),
-      () => auftragsAbsicht(id, { order_date: datum, time: von || null, end_time: bis || null }, "Termin")
-    );
-    await refreshOrders();
-  }
-  // Zustandswechsel eines Auftrags. Welche Übergänge erlaubt sind, entscheidet der Trigger aus
-  // Migration 20 – lehnt er ab, kommt der Grund als Fehlermeldung zurück und wird über die
-  // zentrale Anzeige sichtbar (siehe lib/api/client.ts).
-  async function updateOrderStatus(id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
-    await updateOrderStatusById(supabase, id, status, grund);
-    await refreshOrders();
-    // Abschließen lagert vorgemerkte Reifen aus, Wiedereröffnen holt sie zurück, Stornieren hebt
-    // die Vormerkung auf – das tut die Datenbank (Migration 67). Hier nur nachladen.
-    if (tireStorages.some((t) => t.entnahme_order_id === id)) await refreshTireStorages();
-    // Beim Abschließen schreibt die Datenbank den Kontaktstand des Kunden fort (Migration 47).
-    // Ohne dieses Nachladen stünde die Nadel bis zum nächsten Seitenaufruf noch auf dem alten
-    // Zustand – die Änderung ist echt, nur nicht zu sehen, und das ist schlimmer als keine.
-    if (status === "erledigt") {
-      await refreshCustomers();
-      const auftrag = orders.find((o) => o.id === id);
-      if (auftrag && selectedId === auftrag.customer_id) loadHistory(auftrag.customer_id);
-    }
-  }
   // Stammdaten der eigenen Transporter. Ein doppeltes Kennzeichen ist ein Bedienfehler und
   // kommt als Text zurück in die Maske – nicht als Störungsmeldung über den ganzen Bildschirm.
   async function firmenfahrzeugAnlegen(felder: FirmenfahrzeugFelder): Promise<string | null> {
@@ -1750,17 +1513,6 @@ export default function HomePage() {
     await neuLaden(qk.firmenfahrzeuge());
   }
 
-  async function setOrderFirmenfahrzeug(id: string, firmenfahrzeugId: string | null) {
-    await updateOrderFirmenfahrzeug(supabase, id, firmenfahrzeugId);
-    await refreshOrders();
-  }
-  async function updateTechnikerNotiz(id: string, notiz: string) {
-    await offlineOderDirekt(
-      () => updateOrderTechnikerNotiz(supabase, id, notiz),
-      () => auftragsAbsicht(id, { techniker_notiz: notiz || null }, "Notiz")
-    );
-    await refreshOrders();
-  }
   // „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
   // ---------------------------------------------------------------- Fahrzeuge (app/_seite/useFahrzeugAktionen.ts)
   const {
@@ -1770,14 +1522,6 @@ export default function HomePage() {
     supabase, queryClient, orders, offenerAuftragId, sitzungBereit, istOffline, netzLos, ausgang, auftragTitel,
     neuLaden, offlineOderDirekt, refreshTireStorages,
   });
-  // Die E-Mail-Adresse aus der Rechnungs-Abhakliste landet beim KUNDEN, nicht am Auftrag.
-  // Seit v119 über `kunde_email_ergaenzen()` (Migration 74): So darf auch der Techniker eine
-  // fehlende Adresse eintragen – sonst ließe sich sein Auftrag mit „Rechnung nötig“ nicht
-  // abschließen. Die Funktion ändert nur dieses eine Feld; eine Geokodierung entfällt damit.
-  async function kundenEmailSpeichern(kundeId: string, email: string) {
-    await kundeEmailErgaenzen(supabase, kundeId, email);
-    neuLaden(qk.kunden());
-  }
 
   // Eine Rechnung ausstellen. Danach werden DREI Bestände nachgezogen: die Belege dieses
   // Auftrags (das Fenster zeigt sie), die Auftragsliste (der Trigger aus Migration 49 hat den
@@ -1808,11 +1552,6 @@ export default function HomePage() {
     await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen());
     await refreshOrders();
     return neu;
-  }
-  async function deleteOrder(id: string) {
-    await deleteOrderById(supabase, id);
-    await refreshOrders();
-    if (tireStorages.some((t) => t.entnahme_order_id === id)) await refreshTireStorages();
   }
 
   // ---------------------------------------------------------------- Mitarbeiter (Einsatzplanung)

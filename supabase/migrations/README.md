@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 73, 74, 75, 76, 77 und 78** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
+**Noch auszuführen: keine.** **Stand 08.10.2026: Alle Migrationen 01–78 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -899,7 +899,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   danach ein neuer Kunde mit Nummer 10000 und ein Auftrag mit Nummer 1; zurückgenommen, zweimal,
   erneut ausgeführt.
 
-## Noch auszuführen
+## 08.10.2026 – ausgeführt (Vitali, 73 bis 78)
 
 - `73_techniker_kennzeichen.sql` – **nach `72`, SQL zuerst, dann die Dateien von v118.** Befund aus
   dem Test 07.10.2026: Der Techniker konnte am Auftrag kein neues Kennzeichen anlegen (und ohne

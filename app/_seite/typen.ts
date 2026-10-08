@@ -22,3 +22,6 @@ export type AuftragAnlegen = (fields: {
 }) => Promise<string>;
 
 export type Nachladen = () => Promise<void>;
+
+// Ein im Kalender angeklickter Termin für einen neuen Auftrag (Tag, Beginn, Ende).
+export type NeuerTermin = { datum: string; von: string | null; bis: string | null };

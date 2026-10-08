@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Aufräumen: Aufträge und Kunden als eigene Bausteine (Service Worker v127, ohne
+  Migration).** Fahrplan C5: `app/_seite/useAuftragAktionen.ts` und `useKundenAktionen.ts`, Verhalten
+  unverändert (Probe: Leistung eintragen, Menge, Kontakt mit „Auftrag anlegen“). Dazu nachgetragen:
+  Migrationen 73–78 sind ausgeführt (Vitali, 08.10.2026).
+
 * **08.10.2026 – Rechtematrix, Schritt 3: zehn weitere Unterrechte (Migration 78, Service Worker
   v126).** Ausgewählt von Vitali, alles in einer Runde: Aufträge anlegen, Wiedereröffnen,
   Transporter, Fotos/Unterschrift löschen, Auslagern, Lagergebühr anpassen, Reifentausch, Rechnung
@@ -538,6 +543,10 @@ weiter), zentrale Fehlermeldung als `components/FehlerHinweis.tsx`. `app/page.ts
 `app/_seite/` (`useLagerAktionen`, `useFahrzeugAktionen`), `app/page.tsx` von ~3.950 auf ~3.550
 Zeilen. Nächste Kandidaten nach demselben Muster: Aufträge (~270 Zeilen), Karte und Nadeln
 (~450 Zeilen, hängt an vielen Refs – erst mit Browser-Prüfung).
+
+**Weiter am 08.10.2026 (v127):** Aufträge (`useAuftragAktionen`) und Kunden (`useKundenAktionen`)
+als Hooks, `app/page.tsx` von ~3.580 auf ~3.300 Zeilen. Offen bleibt nur noch die Karte (Nadeln,
+Popups, Refs) – erst mit Browser-Prüfung.
 
 `app/page.tsx` ist wieder auf rund 3.550 Zeilen gewachsen (nach der Sanierung waren es
 1.290). `components/auftraege/AuftragModal.tsx` liegt bei knapp 1.200, `components/lager/
