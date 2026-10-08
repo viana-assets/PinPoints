@@ -48,6 +48,8 @@ export function ZeitPanel(p: {
   schicht: ZeitSchicht | null;
   versatzMs: number;
   onStempeluhr: () => void;
+  // Die Stempeluhr selbst (v132): steht über Tag und Woche, damit man hier auch ein- und ausstempeln kann.
+  stempeluhr?: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
   const [ansicht, setAnsicht] = useState<Ansicht>("woche");
@@ -105,6 +107,8 @@ export function ZeitPanel(p: {
             <button type="button" onClick={() => wocheSchieben(1)} aria-label="Woche vor">›</button>
           </div>
         )}
+
+        {ansicht !== "alle" && p.stempeluhr}
 
         {schichtenQuery.isError && <div className="zt-hinweis fehler" role="alert">{(schichtenQuery.error as Error).message}</div>}
 

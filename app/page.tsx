@@ -64,6 +64,7 @@ import { StempelKarte } from "@/components/zeit/StempelKarte";
 import { StempelBlatt } from "@/components/zeit/StempelBlatt";
 import { UhrPille } from "@/components/zeit/UhrPille";
 import { ZeitPanel } from "@/components/zeit/ZeitPanel";
+import { ZeitBlase } from "@/components/zeit/ZeitBlase";
 import { arbeitMs, uhrzeitVon } from "@/lib/zeiterfassung";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
@@ -2721,6 +2722,7 @@ export default function HomePage() {
             schicht={zeit.schicht}
             versatzMs={zeit.versatzMs}
             onStempeluhr={() => zeit.setBlattOffen(true)}
+            stempeluhr={<StempelKarte {...stempelKarteProps} />}
           />
         )}
 
@@ -2945,6 +2947,17 @@ export default function HomePage() {
         <StempelBlatt {...stempelKarteProps}
           onZurUebersicht={canView("zeiterfassung") ? () => { zeit.setBlattOffen(false); setTab("zeit"); } : undefined}
           onClose={() => zeit.setBlattOffen(false)} />
+      )}
+
+      {/* Die Stoppuhr über der Chat-Blase (v132): führt in die Zeiterfassung. Im Bereich selbst nicht. */}
+      {sitzungBereit && darfZeit && canView("zeiterfassung") && tab !== "zeit" && !chat.offen && !positionSetzenFuer && (
+        <ZeitBlase
+          schicht={zeit.schicht}
+          versatzMs={zeit.versatzMs}
+          lage={!fullPageTabs ? (mobileMapVisible ? "karte-offen" : "bei-karte") : null}
+          allein={!darf("chat", "lesen")}
+          onClick={() => { setKarteOffenIn(null); setTab("zeit"); }}
+        />
       )}
 
       {/* Team-Chat (Migration 80, v129): die Blase auf jeder Seite, das Fenster darüber. */}

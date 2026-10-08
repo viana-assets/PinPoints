@@ -128,6 +128,7 @@ viana-pinpoints/
       nadel.ts                       Nadeln als HTML – eine Quelle für Karte und Legende
     zeit/
       StempelKarte.tsx / StempelBlatt.tsx / UhrPille.tsx   Stempeluhr, Blatt, laufende Anzeige (Migration 82, v131)
+      ZeitBlase.tsx                  Schwebende Stoppuhr über der Chat-Blase → Zeiterfassung (v132)
       ZeitPanel.tsx                  Bereich „Zeiterfassung“: Tag, Woche, Alle, Tag einer Person mit Korrektur
       useJetzt.ts                    „Jetzt“ im Takt, mit Versatz zur Datenbankuhr
     chat/
@@ -692,7 +693,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 82** (08.10.2026; 81, falls noch nicht geschehen, und 82 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 82** (08.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).

@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Stempeluhr leichter zu finden (Service Worker v132, ohne Migration).** Frage
+  Vitali: „Kann ich mich als Superadmin gar nicht einstempeln?“ – die Stempeluhr stand nur im
+  Dashboard. Jetzt auch oben im Bereich „Zeiterfassung“, und eine Stoppuhr über der Chat-Blase führt
+  von jeder Seite dorthin (grün mit der Zeit, solange sie läuft).
+
 * **08.10.2026 – Zeiterfassung: Stempeluhr (Migration 82, Service Worker v131).** Wunsch Vitali,
   Entwurf abgenickt. Einstempeln, Pause, Ausstempeln im Dashboard; laufende Anzeige auf jeder Seite;
   Bereich „Zeiterfassung“ mit Tag, Woche und – mit Recht – allen Mitarbeitern; Korrektur nur mit Recht

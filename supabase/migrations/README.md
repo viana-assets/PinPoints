@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 81 (falls noch nicht geschehen), dann 82** (Abschnitt „Noch auszuführen“ ganz unten). **Stand 08.10.2026: Alle Migrationen 01–80 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79 und 80 am selben Tag – der Team-Chat lief danach im Betrieb) –
+**Noch auszuführen: nichts.** **Stand 08.10.2026: Alle Migrationen 01–82 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1066,9 +1066,9 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   nur, was älter als 12 Monate ist; ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
   `PRUEFUNG_welche_migrationen_liefen.sql` hat Zeile 80.
 
-## Noch auszuführen
+## 08.10.2026 – ausgeführt (Vitali, 81 und 82)
 
-- `81_chat_reaktionen_antworten.sql` – **nach `80`, SQL zuerst, dann die Dateien von v130.** Wunsch
+- `81_chat_reaktionen_antworten.sql` – **ausgeführt.** Wunsch
   Vitali 08.10.2026: im Chat reagieren und direkt antworten. `chat_nachrichten.antwort_auf` (on delete
   set null); `chat_reaktionen` (Nachricht + Zugang als Schlüssel, sechs Emojis per Prüfregel, Richtlinien
   „Reaktionen lesen“ / „Eigene Reaktion setzen/ändern/zurücknehmen“), `chat_reaktion_pruefen()` (Zeitpunkt
@@ -1082,7 +1082,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   keine sichtbar; Aufräumen nimmt Reaktionen mit, die Antwort bleibt ohne Verweis. `t80.sql` gegen 80
   und 80+81: gleiche Ausgabe. Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `82_zeiterfassung.sql` – **nach `81`, SQL zuerst, dann die Dateien von v131.** Wunsch Vitali 08.10.2026:
+- `82_zeiterfassung.sql` – **ausgeführt.** Wunsch Vitali 08.10.2026:
   Stempeluhr. Rechte `zeiterfassung` (L/S Admin, Benutzer – Techniker aus) und `zeiterfassung.alle` (L/S
   Admin); Tabellen `zeit_schichten` (eine offene je Zugang), `zeit_pausen` (eine offene je Schicht),
   `zeit_korrekturen`; nur Leserichtlinien – geschrieben wird ausschließlich über `zeit_einstempeln()`,
@@ -1098,3 +1098,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Korrektur hält Vorher/Nachher fest, die Person sieht sie; Löschen mit Grund; Techniker-Haken an →
   stempelt; Aufräumen nach 2 Jahren. `t80.sql`/`t81.sql` gegen 81 und 81+82: gleiche Ausgabe. Ausgeführt,
   zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+## Noch auszuführen
+
+(nichts)

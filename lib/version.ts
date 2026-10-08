@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v131";
+export const APP_VERSION = "v132";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v132", datum: "2026-10-08", titel: "Stoppuhr über dem Chat",
+    punkte: [
+      "Über der Chat-Blase unten rechts sitzt jetzt eine Stoppuhr. Ein Tipp darauf führt in die Zeiterfassung. Läuft deine Zeit, ist sie grün und zeigt die Stunden.",
+      "In der Zeiterfassung steht die Stempeluhr jetzt ganz oben – ein- und ausstempeln geht dort genauso wie im Dashboard.",
+    ],
+  },
   {
     version: "v131", datum: "2026-10-08", titel: "Stempeluhr",
     punkte: [

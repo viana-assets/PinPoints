@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StempelKarte } from "@/components/zeit/StempelKarte";
 import { UhrPille } from "@/components/zeit/UhrPille";
+import { ZeitBlase } from "@/components/zeit/ZeitBlase";
 import { ZeitTagBlatt } from "@/components/zeit/ZeitPanel";
 import type { ZeitSchicht } from "@/lib/zeiterfassung";
 
@@ -62,6 +63,22 @@ describe("Stempeluhr", () => {
     cleanup();
     render(<UhrPille schicht={{ ...offen, pausen: [{ beginn: new Date(Date.now() - 6 * 60_000).toISOString(), ende: null }] }} versatzMs={0} />);
     expect(screen.getByRole("button").textContent).toBe("Pause 0:06");
+  });
+});
+
+describe("Stoppuhr über der Chat-Blase (v132)", () => {
+  it("weiß ohne Stempelung, grün mit Zeit, wenn sie läuft; Tipp führt in die Zeiterfassung", () => {
+    const onClick = vi.fn();
+    render(<ZeitBlase schicht={null} versatzMs={0} onClick={onClick} />);
+    const knopf = screen.getByRole("button", { name: "Zeiterfassung – einstempeln" });
+    expect(knopf.className).toContain("aus");
+    fireEvent.click(knopf);
+    expect(onClick).toHaveBeenCalled();
+    cleanup();
+    render(<ZeitBlase schicht={offen} versatzMs={0} lage="bei-karte" allein onClick={() => {}} />);
+    const b = screen.getByRole("button");
+    expect(b.className).toBe("zt-blase laeuft bei-karte allein");
+    expect(b.textContent).toMatch(/^3:0\d$/);
   });
 });
 
