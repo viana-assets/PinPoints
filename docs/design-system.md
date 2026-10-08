@@ -99,6 +99,44 @@ Klicks und Ziehen um (geprüft: 200 Bildschirmpunkte Ziehen = 148 CSS-Punkte bei
 Gemessen am 26.09.2026 bei 1280×720, 1680×1050, 1920×1080 und 2560×1440: Kundenkarte sitzt an
 der Nadel, Menü am Knopf, Klick auf 10:00 ergibt 10:00, Fenster passen in die Höhe.
 
+## Rechner-Layout: linksbündig, Kartengitter (08.10.2026, v133)
+
+Runde 1 der Designprüfung, Wunsch Vitali (Bildschirmfoto 27 Zoll bei 100 %): Der Zoom oben machte
+die Schrift groß genug, aber jede Vollseite stand **mittig in 1100 px**, die Listen darin in 760 px
+(Zeiterfassung 880 px) – auf 24 und 27 Zoll ein schmaler Streifen mit viel Leere links und rechts.
+
+Seitdem gilt für die Vollseiten (`#app.vollseite`) am Rechner und Tablet (ab 701 px):
+
+| Was | Regel |
+|---|---|
+| Seite | `.module-page` linksbündig, bis 1600 px; Rand 28 px statt 14 |
+| Aufträge, Rechnungen, Einsatzplanung „Offene Aufträge“ | Gruppen als Gitter `repeat(auto-fill, minmax(min(440px, 100%), 1fr))`, Gruppenkopf über alle Spalten |
+| Artikel | `.ar-liste` als dasselbe Gitter |
+| Auswertungen | Kopf, Antwort, Kacheln, Hinweise über die ganze Breite; `.db-karte` ab 2 × 520 px nebeneinander |
+| Einsatzplanung, Monat | ab 1500 px Kalender links, gewählter Tag rechts (`:has(> .tag-liste)`); Kalender und Listen bis 1100 px |
+| Zeiterfassung | ab 1000 px links die Stempeluhr (300–380 px), rechts Tag bzw. Woche; Seite bis 1200 px |
+| Admin | Inhalt bis 1100 px (Tabellen, Formulare) |
+| Suchfelder, Umschalter, Hinweiszeilen | bleiben bei 640 px, links |
+
+Grundsatz: **Breite durch mehr Spalten nutzen, nicht durch längere Zeilen.** Eine Karte mit Name
+links und Betrag rechts wird über 1600 px unlesbar; zwei oder drei Karten nebeneinander nicht.
+`auto-fill` entscheidet selbst – am 13-Zoll-Notebook (1280) zwei Spalten, auf 27 Zoll drei.
+`min(…, 100%)` verhindert, dass ein Gitter in einer schmaleren Fläche seitlich überläuft.
+
+Dazu am Rechner (nicht am Handy): `.small` 12 statt 11 px, Eingabefelder und Knöpfe 14 statt
+13 px. Diese drei Regeln stehen **direkt hinter** ihrer Grundregel, nicht am Dateiende – sonst
+überschrieben sie spätere Einzelregeln wie `.am-fuss` mit gleicher Spezifität.
+
+Die Titel folgen jetzt überall `lg-leiste` › `lg-kopf` › `lg-titel` (h2 24 px): Einsatzplanung hat
+ihren alten Modulkopf mit Symbol (19 px) verloren, die Zeiterfassung ihren eigenen (22 px).
+
+Nebenbei behoben: Zwischen 701 und 1050 px stand die Seitenleiste auch auf Vollseiten fest
+300 px breit, rechts daneben blieb die leere Kartenspalte. `#app.vollseite #sidebar` füllt jetzt
+die Spalte.
+
+Gemessen am 08.10.2026 bei 2560×1300, 1920×1080, 1280×800, 1100×800, 800×900 und 390×844: kein
+seitlicher Überlauf, Fenster (Neuer Auftrag, Auftrag, Rechnung) unverändert ohne Überlauf.
+
 ## Status-Kennzeichen und anklickbare Zeilen
 
 `.badge` in vier Farben, zentral zugeordnet über `ORDER_STATUS_FARBE` (`lib/constants.ts`):

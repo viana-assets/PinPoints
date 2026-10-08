@@ -16,6 +16,14 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Rechner-Layout (Service Worker v133, ohne Migration).** Runde 1 der
+  Designprüfung, Wunsch Vitali: Vollseiten linksbündig und bis 1600 px breit, Aufträge, Rechnungen
+  und Artikel als Kartengitter, Einsatzplanung (Monat) Kalender und Tag nebeneinander,
+  Zeiterfassung Stempeluhr links, Auswertungen zweispaltig; kleine Schrift, Felder und Knöpfe am
+  Rechner eine Stufe größer. `docs/design-system.md`, Abschnitt „Rechner-Layout“. Offen aus der
+  Prüfung: Runde 2 (alte Fenster), 3 (Rechnung, Etiketten), 4 (Admin, Einstellungen, Anmeldung),
+  5 (Aufräumen) – nur auf Zuruf.
+
 * **08.10.2026 – Stempeluhr leichter zu finden (Service Worker v132, ohne Migration).** Frage
   Vitali: „Kann ich mich als Superadmin gar nicht einstempeln?“ – die Stempeluhr stand nur im
   Dashboard. Jetzt auch oben im Bereich „Zeiterfassung“, und eine Stoppuhr über der Chat-Blase führt

@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v132";
+export const APP_VERSION = "v133";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v133", datum: "2026-10-08", titel: "Mehr Platz am Rechner",
+    punkte: [
+      "Am Rechner stehen Aufträge, Rechnungen, Artikel, Lager, Einsatzplanung, Auswertungen, Zeiterfassung und Admin jetzt linksbündig und nutzen die ganze Breite des Bildschirms.",
+      "Aufträge, Rechnungen und Artikel stehen als Karten nebeneinander – auf einem großen Monitor zwei oder drei pro Zeile.",
+      "Einsatzplanung (Monat): Auf breiten Bildschirmen steht der gewählte Tag rechts neben dem Kalender. Zeiterfassung: links die Stempeluhr, rechts Tag oder Woche.",
+      "Kleine Schrift, Eingabefelder und Knöpfe sind am Rechner etwas größer. Am Handy bleibt alles wie bisher.",
+    ],
+  },
   {
     version: "v132", datum: "2026-10-08", titel: "Stoppuhr über dem Chat",
     punkte: [

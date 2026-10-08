@@ -80,85 +80,91 @@ export function ZeitPanel(p: {
   return (
     <div className="tabpanel active">
       <div className="module-page zt-seite">
-        <div className="zt-seitenkopf">
-          <div>
-            <h2>Zeiterfassung</h2>
-            <span className="small">{ansicht === "alle" ? "alle Mitarbeiter" : p.meinName}</span>
-          </div>
-          <UhrPille schicht={p.schicht} versatzMs={p.versatzMs} onClick={p.onStempeluhr} eingebettet />
-        </div>
-
-        <div className="lg-lagerwahl ar-segment zt-segment" role="group" aria-label="Ansicht">
-          <button type="button" className={ansicht === "tag" ? "aktiv" : ""} aria-pressed={ansicht === "tag"} onClick={() => setAnsicht("tag")}>Tag</button>
-          <button type="button" className={ansicht === "woche" ? "aktiv" : ""} aria-pressed={ansicht === "woche"} onClick={() => setAnsicht("woche")}>Woche</button>
-          {p.darfAlle && <button type="button" className={ansicht === "alle" ? "aktiv" : ""} aria-pressed={ansicht === "alle"} onClick={() => setAnsicht("alle")}>Alle</button>}
-        </div>
-
-        {ansicht === "tag" ? (
-          <div className="zt-nav">
-            <button type="button" onClick={() => tagSchieben(-1)} aria-label="Tag zurück">‹</button>
-            <span>{tagTitel(tag)}{tag === heute ? " · heute" : ""}</span>
-            <button type="button" onClick={() => tagSchieben(1)} aria-label="Tag vor">›</button>
-          </div>
-        ) : (
-          <div className="zt-nav">
-            <button type="button" onClick={() => wocheSchieben(-1)} aria-label="Woche zurück">‹</button>
-            <span>{wochenTitel(montag)}</span>
-            <button type="button" onClick={() => wocheSchieben(1)} aria-label="Woche vor">›</button>
-          </div>
-        )}
-
-        {ansicht !== "alle" && p.stempeluhr}
-
-        {schichtenQuery.isError && <div className="zt-hinweis fehler" role="alert">{(schichtenQuery.error as Error).message}</div>}
-
-        {ansicht === "tag" && <TagListe daten={tagDaten} jetzt={jetzt} leer="An diesem Tag ist nichts gestempelt." />}
-
-        {ansicht === "woche" && (
-          <>
-            <div className="zt-summen">
-              <div><b>{dauerText(woche.arbeitMs)} h</b><span>Arbeitszeit</span></div>
-              <div><b>{dauerText(woche.pauseMs)} h</b><span>Pausen</span></div>
-              <div><b>{woche.arbeitstage}</b><span>{woche.arbeitstage === 1 ? "Tag" : "Tage"}</span></div>
+        <div className="lg-leiste zt-leiste">
+          <div className="lg-kopf">
+            <div className="lg-titel">
+              <h2>Zeiterfassung</h2>
+              <span className="lg-unter">{ansicht === "alle" ? "alle Mitarbeiter" : p.meinName}</span>
             </div>
-            <div className="zt-balken" aria-hidden="true">
-              {woche.tage.map((x, i) => (
-                <div key={x.tag} className={(x.tag === heute ? "heute" : "") + (x.arbeitMs === 0 ? " leer" : "")}>
-                  <i style={{ height: x.arbeitMs ? `${Math.max(4, Math.round((x.arbeitMs / maxStunden) * 100))}%` : undefined }} />
-                  {WT[i]}
+            <UhrPille schicht={p.schicht} versatzMs={p.versatzMs} onClick={p.onStempeluhr} eingebettet />
+          </div>
+
+          <div className="lg-lagerwahl ar-segment zt-segment" role="group" aria-label="Ansicht">
+            <button type="button" className={ansicht === "tag" ? "aktiv" : ""} aria-pressed={ansicht === "tag"} onClick={() => setAnsicht("tag")}>Tag</button>
+            <button type="button" className={ansicht === "woche" ? "aktiv" : ""} aria-pressed={ansicht === "woche"} onClick={() => setAnsicht("woche")}>Woche</button>
+            {p.darfAlle && <button type="button" className={ansicht === "alle" ? "aktiv" : ""} aria-pressed={ansicht === "alle"} onClick={() => setAnsicht("alle")}>Alle</button>}
+          </div>
+
+          {ansicht === "tag" ? (
+            <div className="zt-nav">
+              <button type="button" onClick={() => tagSchieben(-1)} aria-label="Tag zurück">‹</button>
+              <span>{tagTitel(tag)}{tag === heute ? " · heute" : ""}</span>
+              <button type="button" onClick={() => tagSchieben(1)} aria-label="Tag vor">›</button>
+            </div>
+          ) : (
+            <div className="zt-nav">
+              <button type="button" onClick={() => wocheSchieben(-1)} aria-label="Woche zurück">‹</button>
+              <span>{wochenTitel(montag)}</span>
+              <button type="button" onClick={() => wocheSchieben(1)} aria-label="Woche vor">›</button>
+            </div>
+          )}
+        </div>
+
+        {/* Am Rechner links die Stempeluhr, rechts Tag bzw. Woche (v133); am Handy untereinander. */}
+        <div className={"zt-raster" + (ansicht !== "alle" && p.stempeluhr ? " mit-uhr" : "")}>
+          {ansicht !== "alle" && p.stempeluhr && <div className="zt-links">{p.stempeluhr}</div>}
+          <div className="zt-rechts">
+            {schichtenQuery.isError && <div className="zt-hinweis fehler" role="alert">{(schichtenQuery.error as Error).message}</div>}
+
+            {ansicht === "tag" && <TagListe daten={tagDaten} jetzt={jetzt} leer="An diesem Tag ist nichts gestempelt." />}
+
+            {ansicht === "woche" && (
+              <>
+                <div className="zt-summen">
+                  <div><b>{dauerText(woche.arbeitMs)} h</b><span>Arbeitszeit</span></div>
+                  <div><b>{dauerText(woche.pauseMs)} h</b><span>Pausen</span></div>
+                  <div><b>{woche.arbeitstage}</b><span>{woche.arbeitstage === 1 ? "Tag" : "Tage"}</span></div>
                 </div>
-              ))}
-            </div>
-            {woche.tage.filter((x) => x.schichten.length > 0).reverse().map((x) => (
-              <button key={x.tag} type="button" className="zt-tag" onClick={() => zuTag(x.tag)}>
-                <span className="zt-tag-kopf"><span>{tagTitel(x.tag)} <Marken hinweise={x.hinweise} laeuft={x.laeuft} /></span><em>{dauerText(x.arbeitMs)} h</em></span>
-                <span className="zt-tag-unter">{x.schichten.map(schichtSpanne).join(" · ")} · Pause {dauerText(x.pauseMs)}</span>
-              </button>
-            ))}
-            {woche.arbeitstage === 0 && !schichtenQuery.isPending && <div className="zt-hinweis info">In dieser Woche ist nichts gestempelt.</div>}
-          </>
-        )}
-
-        {ansicht === "alle" && p.darfAlle && (
-          <>
-            {offene.length > 0 && (
-              <div className="zt-hinweis fehler">
-                {offene.length === 1 ? "1 Stempelung ist offen" : `${offene.length} Stempelungen sind offen`} (nicht ausgestempelt):
-                {offene.map((s) => (
-                  <button key={s.id} type="button" className="zt-link" onClick={() => { const t = tagSchluessel(s.beginn); setMontag(wochenMontag(t)); setDetail({ person: { id: s.profile_id, name: nameVon(s.profile_id), rolle: "" }, tag: t }); }}>
-                    {nameVon(s.profile_id)} · {tagTitel(tagSchluessel(s.beginn))} ›
+                <div className="zt-balken" aria-hidden="true">
+                  {woche.tage.map((x, i) => (
+                    <div key={x.tag} className={(x.tag === heute ? "heute" : "") + (x.arbeitMs === 0 ? " leer" : "")}>
+                      <i style={{ height: x.arbeitMs ? `${Math.max(4, Math.round((x.arbeitMs / maxStunden) * 100))}%` : undefined }} />
+                      {WT[i]}
+                    </div>
+                  ))}
+                </div>
+                {woche.tage.filter((x) => x.schichten.length > 0).reverse().map((x) => (
+                  <button key={x.tag} type="button" className="zt-tag" onClick={() => zuTag(x.tag)}>
+                    <span className="zt-tag-kopf"><span>{tagTitel(x.tag)} <Marken hinweise={x.hinweise} laeuft={x.laeuft} /></span><em>{dauerText(x.arbeitMs)} h</em></span>
+                    <span className="zt-tag-unter">{x.schichten.map(schichtSpanne).join(" · ")} · Pause {dauerText(x.pauseMs)}</span>
                   </button>
                 ))}
-              </div>
+                {woche.arbeitstage === 0 && !schichtenQuery.isPending && <div className="zt-hinweis info">In dieser Woche ist nichts gestempelt.</div>}
+              </>
             )}
-            <AlleTabelle zeilen={personenWoche(schichten, personen, montag, heute, jetzt)} montag={montag} heute={heute}
-              onZelle={(person, t) => setDetail({ person, tag: t })} />
-            <div className="zt-hinweis info">
-              Antippen einer Zelle öffnet den Tag der Person{p.darfKorrigieren ? " – dort nachtragen, ändern oder löschen, jeweils mit Grund" : ""}.
-              Markiert ist, was unter der Mindestpause liegt (§ 4 ArbZG) oder über 10 Stunden (§ 3 ArbZG) – nur als Hinweis.
-            </div>
-          </>
-        )}
+
+            {ansicht === "alle" && p.darfAlle && (
+              <>
+                {offene.length > 0 && (
+                  <div className="zt-hinweis fehler">
+                    {offene.length === 1 ? "1 Stempelung ist offen" : `${offene.length} Stempelungen sind offen`} (nicht ausgestempelt):
+                    {offene.map((s) => (
+                      <button key={s.id} type="button" className="zt-link" onClick={() => { const t = tagSchluessel(s.beginn); setMontag(wochenMontag(t)); setDetail({ person: { id: s.profile_id, name: nameVon(s.profile_id), rolle: "" }, tag: t }); }}>
+                        {nameVon(s.profile_id)} · {tagTitel(tagSchluessel(s.beginn))} ›
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <AlleTabelle zeilen={personenWoche(schichten, personen, montag, heute, jetzt)} montag={montag} heute={heute}
+                  onZelle={(person, t) => setDetail({ person, tag: t })} />
+                <div className="zt-hinweis info">
+                  Antippen einer Zelle öffnet den Tag der Person{p.darfKorrigieren ? " – dort nachtragen, ändern oder löschen, jeweils mit Grund" : ""}.
+                  Markiert ist, was unter der Mindestpause liegt (§ 4 ArbZG) oder über 10 Stunden (§ 3 ArbZG) – nur als Hinweis.
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
       {detail && (

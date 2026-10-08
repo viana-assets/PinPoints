@@ -6,7 +6,7 @@ import { employeeColorFor, startOfWeekMonday, addDays, toDateStr, isoWeekNumber,
 import { AUFTRAGSFENSTER_LABEL, type AuftragsFenster } from "@/lib/api/orders";
 import { RasterLegende, Stundenraster } from "./Stundenraster";
 import { OrderModal } from "@/components/auftraege/OrderModal";
-import { IconEinsatzplanung, IconTrash, IconNavPin } from "@/components/icons";
+import { IconTrash, IconNavPin } from "@/components/icons";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { terminUeberschneidungen } from "@/lib/ueberschneidung";
 import { auftragsNr } from "@/lib/testkunde";
@@ -453,11 +453,11 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     <div className="tabpanel active" ref={flaecheRef} onClick={() => { if (menuFuer) setMenuFuer(null); }}>
       <div className="module-page planung-neu">
         {/* Der Modulkopf nur am Rechner – am Handy sagt die Bedienleiste schon, wo man ist. */}
-        <div className="module-header planung-modulkopf">
-          <div className="mh-icon"><IconEinsatzplanung /></div>
-          <div className="mh-text">
+        {/* Seit v133 wie Lager, Aufträge und Dashboard: Titel 24 px ohne Symbol (`lg-kopf`). */}
+        <div className="lg-kopf planung-modulkopf">
+          <div className="lg-titel">
             <h2>Einsatzplanung</h2>
-            <p>{titel}</p>
+            <span className="lg-unter">{titel}</span>
           </div>
         </div>
 

@@ -141,6 +141,10 @@
   input[type=text], input[type=number], input[type=date], input[type=time], input[type=email], input[type=tel], input[type=password], textarea, select{
     width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:10px;font-size:13px;
     font-family:var(--font-body);background:var(--input-bg);color:var(--text);}
+  /* Am Rechner 14 px statt 13 (v133). Am Handy gilt ohnehin 16 px (Regel am Dateiende, iOS-Zoom). */
+  @media (min-width: 701px){
+    input[type=text], input[type=number], input[type=date], input[type=time], input[type=email], input[type=tel], input[type=password], textarea, select{font-size:14px;}
+  }
   /* Safari gibt Datums- und Uhrzeitfeldern eine eigene, großzügige Mindestbreite mit. In
      einer zweispaltigen Zeile drückt die das rechte Feld über den Rand hinaus, obwohl
      `width:100%` dasteht. Zusammen mit `min-width:0` an `.row > *` weiter unten darf das Feld
@@ -163,6 +167,7 @@
   .field{margin-bottom:8px;}
   button{cursor:pointer;border:none;border-radius:10px;padding:8px 12px;font-size:13px;font-weight:700;
     font-family:var(--font-body);}
+  @media (min-width: 701px){ button{font-size:14px;} }
   .btn-primary{background:var(--accent);color:#fff;}
   .btn-primary:hover{background:color-mix(in srgb, var(--accent) 85%, black);}
   .btn-secondary{background:var(--chip-bg);color:var(--text);}
@@ -259,7 +264,10 @@
   button svg{width:16px;height:16px;display:block;flex:0 0 auto;}
 
   /* ---------------- Vollseiten-Module: Lager, Aufträge, Nutzerverwaltung ---------------- */
-  .module-page{max-width:1100px;margin:0 auto;width:100%;}
+  /* Linksbündig und bis 1600 px breit (v133, Wunsch Vitali): Bis dahin stand jede Vollseite mittig in
+     1100 px, die Listen darin in 760 px – auf 24 und 27 Zoll ein schmaler Streifen in viel Leere.
+     Die Breite nutzen jetzt Kartengitter (siehe „Rechner-Layout“ am Dateiende), nicht überlange Zeilen. */
+  .module-page{max-width:1600px;margin:0;width:100%;}
 
   /* Aufträge und Einsatzplanung teilen sich ein Muster: Kopf und Filter bleiben stehen, die
      lange Tabelle darunter scrollt für sich. Dafür muss die Modulfläche genau so hoch sein
@@ -312,6 +320,9 @@
   #geoProgress .bar{height:6px;background:rgba(127,127,127,.25);border-radius:4px;overflow:hidden;}
   #geoProgress .fill{height:100%;background:var(--accent);width:0%;transition:width .2s;}
   .small{font-size:11px;color:var(--muted);}
+  /* Am Rechner 12 px (v133): 11 px war die kleinste Schrift der App und stand an 400 Stellen. Hier
+     und nicht am Dateiende, damit spätere Regeln wie `.am-fuss` ihre eigene Größe behalten. */
+  @media (min-width: 701px){ .small{font-size:12px;} }
   /* Offline-Balken (components/OfflineHinweis.tsx). Liegt über der Karte (z-index 400), aber
      unter Dialogen und Menüs – immer sichtbar, aber nie ein offenes Fenster verdeckend.
      Unten und nicht oben: oben steht der Markenkopf, und ein Balken darüber sähe aus wie ein
@@ -480,6 +491,9 @@
   /* ---------------- Responsive: schmales Fenster / Tablet ---------------- */
   @media (max-width: 1050px) and (min-width: 701px){
     #sidebar{width:300px;min-width:300px;}
+    /* Vollseiten füllen die Spalte (v133): Die feste Breite oben ist für die Spalte neben der
+       Karte gedacht; auf Lager, Aufträge usw. blieb sonst rechts eine leere Fläche stehen. */
+    #app.vollseite #sidebar{width:auto;min-width:0;}
   }
 
   /* ---------------- Responsive: Smartphone / sehr schmales Fenster ---------------- */
@@ -1863,14 +1877,14 @@ button.el-zeile:hover{border-color:var(--accent);}
 .pl-punkt{width:9px;height:9px;border-radius:50%;flex:0 0 auto;display:inline-block;}
 @media (max-width: 700px){
   /* Am Handy sagt die Bedienleiste schon, wo man ist – der Modulkopf wäre doppelt. */
-  .planung-modulkopf{display:none;}
+  .lg-kopf.planung-modulkopf{display:none;}
   .pl-kopf,.pl-segment{max-width:none;}
   .pl-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
   .pl-filter::-webkit-scrollbar{display:none;}
 }
 
 /* Monat: keine Rahmen um jeden Tag. Heute = Ring, gewählt = gefüllt, Wochenende heller. */
-.monat-karte{background:var(--panel);border-radius:20px;padding:8px 6px 6px;max-width:720px;
+.monat-karte{background:var(--panel);border-radius:20px;padding:8px 6px 6px;max-width:1100px;
   box-shadow:0 1px 3px rgba(36,29,19,.06);}
 .monat-reihe{display:grid;grid-template-columns:28px repeat(7, minmax(0,1fr));align-items:center;}
 .monat-kopf{padding-bottom:2px;}
@@ -1897,7 +1911,7 @@ button.el-zeile:hover{border-color:var(--accent);}
 .monat-tag.ohne-eintrag .monat-zahl{background:repeating-linear-gradient(135deg,#efeae0 0 4px,transparent 4px 8px);color:var(--muted);}
 
 /* Tagesansicht: die Woche als Leiste zum Wechseln. */
-.wochen-leiste{display:grid;grid-template-columns:repeat(7, minmax(0,1fr));gap:4px;max-width:720px;}
+.wochen-leiste{display:grid;grid-template-columns:repeat(7, minmax(0,1fr));gap:4px;max-width:1100px;}
 .wl-tag{height:58px;border:none;border-radius:14px;background:var(--panel);font:inherit;color:var(--text);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:pointer;padding:0;}
 .wl-tag.heute{box-shadow:inset 0 0 0 1.5px var(--accent);}
@@ -1909,7 +1923,7 @@ button.el-zeile:hover{border-color:var(--accent);}
 .wl-tag.gewaehlt .wl-punkt.voll{background:#fff;}
 
 /* Aufträge am gewählten Tag (unter dem Monat), als Karten je Mitarbeiter. */
-.tag-liste{display:flex;flex-direction:column;gap:8px;max-width:720px;}
+.tag-liste{display:flex;flex-direction:column;gap:8px;max-width:1100px;}
 .tag-kopf{display:flex;justify-content:space-between;align-items:baseline;padding:2px 2px 0;}
 .tag-titel{font-family:var(--font-brand);font-size:18px;font-weight:700;}
 .text-knopf{border:none;background:none;font:inherit;font-size:13px;font-weight:700;color:#c2410c;
@@ -1931,7 +1945,7 @@ button.el-zeile:hover{border-color:var(--accent);}
 .tag-karte .badge,.op-karte .badge{margin-left:0;flex:0 0 auto;}
 
 /* Offene Aufträge als Karten, nach Tagen gruppiert. */
-.op-bereich{display:flex;flex-direction:column;gap:8px;padding-top:6px;border-top:1px solid var(--border);max-width:720px;}
+.op-bereich{display:flex;flex-direction:column;gap:8px;padding-top:6px;border-top:1px solid var(--border);max-width:1100px;}
 .op-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 2px 0;}
 .op-kopf h4{margin:0;font-family:var(--font-brand);font-size:18px;}
 .op-status{display:flex;gap:6px;flex-wrap:wrap;}
@@ -2889,8 +2903,6 @@ span.db-link{cursor:inherit;}
    abgeschlossene Aufträge nur auf Knopfdruck und leicht zurückgenommen. Regeln:
    lib/auftragsAnsicht.ts. Komponente: components/auftraege/AuftraegePanel.tsx. */
 .au-seite{display:flex;flex-direction:column;gap:10px;padding-bottom:12px;}
-.au-seite > *{max-width:760px;}
-.au-seite > .lg-leiste{max-width:none;}
 .au-suche{max-width:640px;}
 .au-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .au-filter::-webkit-scrollbar{display:none;}
@@ -2989,8 +3001,6 @@ span.db-link{cursor:inherit;}
    lib/datev.ts. Komponente: components/auswertung/AuswertungPanel.tsx. Klassen `am-*`
    (die alten `aw-*` sind entfallen). */
 .am-seite{display:flex;flex-direction:column;gap:12px;padding-bottom:16px;}
-.am-seite > *{max-width:760px;}
-.am-seite > .lg-leiste{max-width:none;}
 .am-export{height:40px;}
 .am-reiter{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--border);margin:0 0 -2px;}
 .am-reiter::-webkit-scrollbar{display:none;}
@@ -3235,8 +3245,6 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
    bleiben stehen und werden durchgestrichen – eine Liste, die sie wegblendet, hätte Lücken im
    Nummernkreis, und genau die sind bei einer Prüfung die Frage. */
 .re-seite{display:flex;flex-direction:column;gap:10px;padding-bottom:12px;}
-.re-seite > *{max-width:760px;}
-.re-seite > .lg-leiste{max-width:none;}
 .re-suche{max-width:640px;}
 .re-trenner{width:1px;align-self:stretch;margin:6px 2px;background:var(--border);flex:0 0 auto;}
 .re-karte{background:var(--panel);border:none;border-radius:16px;padding:10px 12px;display:flex;align-items:center;gap:12px;
@@ -3266,8 +3274,6 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
    components/admin/artikel/: Karten mit Nummer, Bezeichnung, Marken und aktuellem Preis;
    bearbeitet wird im Blatt (`.ar-blatt`) mit der Preis-Historie als Zeitleiste. */
 .ar-seite{display:flex;flex-direction:column;gap:10px;padding-bottom:12px;}
-.ar-seite > *{max-width:760px;}
-.ar-seite > .lg-leiste{max-width:none;}
 .ar-suche{max-width:640px;}
 .ar-hilfe{padding:0 2px;}
 .ar-liste{display:flex;flex-direction:column;gap:8px;}
@@ -3328,7 +3334,7 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
    Anlegen oben als Karte (`.ad-aktion`), darunter Karten je Eintrag (`.ad-karte`).
    Betrieb als Zeilenliste, jede Zeile öffnet ein Blatt mit eigenem „Speichern". */
 .ad-seite{display:flex;flex-direction:column;gap:10px;padding-bottom:12px;}
-.ad-seite > *{max-width:760px;}
+.ad-seite > *{max-width:1100px;}
 .ad-seite > .lg-leiste{max-width:none;padding-bottom:0;}
 .ad-reiter{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;
   border-bottom:1px solid var(--border);margin:0 -2px;}
@@ -4240,11 +4246,11 @@ button.ch-bezug:hover{background:#efe8da;}
 .zt-blatt .zt-karte{margin:0;}
 
 /* Bereich */
-.zt-seite{max-width:880px;}
-.zt-seitenkopf{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
-.zt-seitenkopf h2{font-family:var(--font-brand);font-size:22px;margin:0;}
-.zt-segment{margin-bottom:8px;max-width:420px;}
-.zt-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 8px;font-weight:800;font-size:14px;max-width:420px;}
+.zt-seite{max-width:1100px;}
+/* Kopf wie Lager, Aufträge und Dashboard (v133): `lg-leiste` mit Titel 24 px, bleibt beim Scrollen stehen. */
+.zt-leiste{margin-bottom:12px;}
+.zt-segment{max-width:420px;}
+.zt-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0;font-weight:800;font-size:14px;max-width:420px;}
 .zt-nav button{width:34px;height:34px;border-radius:50%;background:var(--panel);color:var(--muted);font-size:18px;padding:0;border:1px solid var(--border);}
 .zt-summen{display:flex;gap:8px;margin:0 0 8px;}
 .zt-summen > div{flex:1;background:var(--panel);border-radius:12px;padding:8px 11px;min-width:0;}
@@ -4327,4 +4333,61 @@ button.zt-tag{cursor:pointer;}
   .zt-blase.bei-karte{right:17px;bottom:calc(206px + env(safe-area-inset-bottom, 0px));}
   .zt-blase.allein.bei-karte{right:17px;bottom:calc(141px + env(safe-area-inset-bottom, 0px));}
   .zt-blase.karte-offen{display:none;}
+}
+
+/* ---------------------------------------------------------------- Rechner-Layout (v133, Runde 1 der Designprüfung)
+   Wunsch Vitali vom 08.10.2026 (Bildschirmfoto 27 Zoll): Die Vollseiten standen mittig und schmal.
+   Jetzt am Rechner und Tablet (ab 701 px):
+   - Die Vollseiten (`#app.vollseite`: Lager, Einsatzplanung, Aufträge, Artikel, Rechnungen,
+     Auswertungen, Zeiterfassung, Admin) stehen linksbündig, bis 1600 px breit (`.module-page`),
+     mit 28 px Rand statt 14.
+   - Karten in Gittern statt in einer 760 px schmalen Spalte: so viele Spalten, wie mit
+     mindestens 440 px nebeneinander passen (`auto-fill`) – am Notebook eine oder zwei, am
+     27-Zoll-Monitor drei. Die Gruppenköpfe („HEUTE · DO 8.10.“) gehen über alle Spalten.
+   - Was keine Karte ist (Suchfeld, Umschalter, Hinweis), behält seine Höchstbreite (640 px)
+     und steht links.
+   Die Spalte neben der Karte (Dashboard, Kunden, Termine …) ist davon nicht betroffen, das Handy
+   (bis 700 px) auch nicht. Nach dem Zoom (`--z`, Dateianfang) rechnen alle Breiten hier in
+   CSS-Pixeln: 1600 px sind auf 27 Zoll (Zoom 1,35) die volle Breite neben der Leiste. */
+@media (min-width: 701px){
+  #app.vollseite .tabpanel{padding-left:28px;padding-right:28px;}
+
+  /* Aufträge und Rechnungen: Tagesgruppen bzw. Monatsgruppen als Gitter. */
+  .au-seite .op-gruppe,.re-seite .op-gruppe{display:grid;grid-template-columns:repeat(auto-fill, minmax(min(440px, 100%), 1fr));
+    gap:8px;align-items:stretch;}
+  .au-seite .op-gruppe > .au-gruppe-kopf,.re-seite .op-gruppe > .au-gruppe-kopf{grid-column:1 / -1;}
+  .au-rechnungen,.au-vergangene{max-width:640px;}
+
+  /* Artikel: die Karten als Gitter, die Vorlagen darunter über die ganze Breite. */
+  .ar-liste{display:grid;grid-template-columns:repeat(auto-fill, minmax(min(440px, 100%), 1fr));gap:8px;}
+  .ar-hilfe{max-width:900px;}
+  #app.vollseite .sl-fuss{text-align:left;}
+
+  /* Einsatzplanung: die offenen Aufträge unten als Gitter wie unter „Aufträge“. */
+  .planung-neu .op-bereich{max-width:none;}
+  .planung-neu .op-suche,.planung-neu .op-status{max-width:640px;}
+  .planung-neu .op-gruppe{display:grid;grid-template-columns:repeat(auto-fill, minmax(min(440px, 100%), 1fr));gap:6px 8px;}
+  .planung-neu .op-gruppe > .op-gruppe-titel{grid-column:1 / -1;}
+
+  /* Auswertungen: Kopf, Antwort, Kacheln und Hinweise über die ganze Breite, die Diagramm-Karten
+     zu zweit nebeneinander, sobald je 520 px Platz sind. */
+  .am-seite{display:grid;grid-template-columns:repeat(auto-fill, minmax(min(520px, 100%), 1fr));align-items:start;}
+  .am-seite > *{grid-column:1 / -1;}
+  .am-seite > .db-karte{grid-column:auto;}
+}
+/* Zeiterfassung am Rechner: links die Stempeluhr (so breit wie am Handy), rechts Tag bzw. Woche.
+   Erst ab 1000 px, darunter stünden zwei zu schmale Spalten nebeneinander. */
+@media (min-width: 1000px){
+  .zt-seite{max-width:1200px;}
+  .zt-raster.mit-uhr{display:grid;grid-template-columns:minmax(300px, 380px) minmax(0, 1fr);gap:16px;align-items:start;}
+  .zt-raster.mit-uhr .zt-links > *{margin-top:0;}
+}
+/* Einsatzplanung, Monat: ab 1500 px der Kalender links und der gewählte Tag rechts daneben statt
+   darunter – sonst stünde die Tagesliste erst unterhalb des Bildschirms. `:has` erkennt die
+   Monatsansicht an der Tagesliste (nur sie hat eine). */
+@media (min-width: 1500px){
+  .planung-neu:has(> .tag-liste){display:grid;grid-template-columns:minmax(0, 1.3fr) minmax(380px, 1fr);gap:12px 20px;align-items:start;}
+  .planung-neu:has(> .tag-liste) > *{grid-column:1 / -1;}
+  .planung-neu:has(> .tag-liste) > .planung-wisch{grid-column:1;}
+  .planung-neu:has(> .tag-liste) > .tag-liste{grid-column:2;}
 }

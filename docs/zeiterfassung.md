@@ -1,6 +1,6 @@
 # Zeiterfassung (Stempeluhr)
 
-**Stand: 08.10.2026 (Migration 82, Service Worker v132).** Wunsch Vitali vom 08.10.2026, Entwurf
+**Stand: 08.10.2026 (Migration 82, Service Worker v133).** Wunsch Vitali vom 08.10.2026, Entwurf
 `entwurf_stempeluhr.html` (Claude outputs) abgenickt. Entschieden per Auswahl: Pause-Knopf, nur
 „Zeiten aller“ korrigiert, 2 Jahre Aufbewahrung. Ein Export (Lohn, Steuerberater) ist nicht gebaut –
 siehe `fahrplan.md`, E20.
@@ -25,7 +25,8 @@ siehe `fahrplan.md`, E20.
   10003.
 - **Bereich „Zeiterfassung“** (`components/zeit/ZeitPanel.tsx`, Reiter `zeit`; am Handy unter
   „Weitere“, Gruppe „Team“, oder über die Stoppuhr). Oben in „Tag“ und „Woche“ steht die Stempeluhr
-  selbst (seit v132) – ein- und ausstempeln geht also auch hier, nicht nur im Dashboard:
+  selbst (seit v132) – ein- und ausstempeln geht also auch hier, nicht nur im Dashboard. Am
+  Rechner steht sie seit v133 links, Tag bzw. Woche rechts daneben:
   - *Tag*: die eigenen Schichten eines Tages mit Pausen und Vermerk „korrigiert: Grund“.
   - *Woche*: Summen (Arbeit, Pausen, Tage), Balken Mo–So, Tage mit Hinweisen; ein Tipp öffnet den Tag.
   - *Alle* (nur mit „Zeiten aller · lesen“): Wochentabelle aller Mitarbeiter mit Tages- und
