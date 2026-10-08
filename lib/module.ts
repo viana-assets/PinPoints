@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import {
   IconDashboard, IconKunden, IconAuftraege, IconTermine, IconLager, IconSaison,
-  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconRechnung, IconAdmin, IconSettings,
+  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconRechnung, IconAdmin, IconSettings, IconZeit,
 } from "@/components/icons";
 
 // Die Module der Anwendung – EINE Liste für beide Navigationen.
@@ -17,7 +17,7 @@ import {
 
 export type TabKey =
   | "dashboard" | "list" | "termine" | "lager" | "saison" | "einsatzplanung"
-  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "rechnungen" | "more";
+  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "rechnungen" | "zeit" | "more";
 
 export type ModulEintrag = {
   tab: TabKey;
@@ -53,6 +53,9 @@ export const MODULE: ModulEintrag[] = [
   { tab: "termine",        label: "Termine",          beschreibung: "Chronologische Terminübersicht (Aufträge mit Uhrzeit)",     Icon: IconTermine,        sichtbar: "termine",           trennerDavor: "linie" },
   { tab: "lager",          label: "Lager",            beschreibung: "Lager & Lagerplätze verwalten, Reifen zuordnen",            Icon: IconLager,          sichtbar: "lager" },
   { tab: "saison",         label: "Saisonliste",      beschreibung: "Wer hat welche Reifen bei uns liegen – die Anrufliste",     Icon: IconSaison,         sichtbar: "saison" },
+  // Stempeluhr (Migration 82, v131). Ohne „Zeiterfassung · lesen“ unsichtbar – so sind die
+  // Techniker ab Werk eingestellt.
+  { tab: "zeit",           label: "Zeiterfassung",    beschreibung: "Stempeluhr, Tag und Woche – für dich und das Team",         Icon: IconZeit,           sichtbar: "zeiterfassung" },
   { tab: "add",            label: "Neuer Kunde",      beschreibung: "Kunden anlegen, optional gleich mit Auftrag",               Icon: IconNeu,            sichtbar: "kunden.schreiben" },
   { tab: "inactive",       label: "Inaktive Kunden",  beschreibung: "Deaktivierte Kunden ansehen & reaktivieren",                Icon: IconInaktiv,        sichtbar: "kunden.lesen" },
   { tab: "artikel",        label: "Artikel",          beschreibung: "Artikelstamm und Preis-Historie",                           Icon: IconArtikel,        sichtbar: "artikel" },
@@ -79,6 +82,7 @@ export const SEKUNDAERE_TABS: TabKey[] = MODULE.filter((m) => !m.primaer).map((m
 // und diese Liste vergisst (`weitereGruppen`).
 export const WEITERE_GRUPPEN: { titel: string; tabs: TabKey[] }[] = [
   { titel: "Unterwegs", tabs: ["termine", "saison"] },
+  { titel: "Team", tabs: ["zeit"] },
   { titel: "Lager", tabs: ["lager"] },
   { titel: "Kunden", tabs: ["add", "inactive"] },
   { titel: "Büro", tabs: ["rechnungen", "auswertung", "artikel"] },

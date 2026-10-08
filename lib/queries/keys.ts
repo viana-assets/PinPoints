@@ -64,6 +64,14 @@ export const qk = {
   chatUngelesen: () => ["chat", "ungelesen"] as const,
   chatPersonen: () => ["chat", "personen"] as const,
 
+  // Zeiterfassung (Migration 82). Der Oberbegriff trifft Stempeluhr, Wochen und Personen zugleich –
+  // eine Stempelung ändert alles davon.
+  zeit: () => ["zeit"] as const,
+  zeitStatus: () => ["zeit", "status"] as const,
+  zeitSchichten: (montag: string) => ["zeit", "schichten", montag] as const,
+  zeitOffene: () => ["zeit", "offene"] as const,
+  zeitPersonen: () => ["zeit", "personen"] as const,
+
   // Haken bei „Reifen mitnehmen" (Migration 58), je Liste von Einsatztagen.
   gepackt: (daten: string[]) => ["mitnehmen-gepackt", ...daten] as const,
   gepacktAlle: () => ["mitnehmen-gepackt"] as const,

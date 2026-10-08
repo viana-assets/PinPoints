@@ -69,6 +69,8 @@ export function DashboardPanel(p: {
   // Nur die fälligen Rückrufe in der Kundenliste (Filter „rueckruf", 26.09.2026).
   onZuRueckrufe?: () => void;
   onZuRechnungen?: () => void;
+  // Die Stempeluhr (Migration 82, v131) – ganz oben, nur mit dem Recht „Zeiterfassung“.
+  stempeluhr?: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
   const jetzt = new Date();
@@ -179,6 +181,8 @@ export function DashboardPanel(p: {
           <span className="db-datum">{WT[jetzt.getDay()].toUpperCase()}, {jetzt.getDate()}. {MON[jetzt.getMonth()].toUpperCase()}</span>
           <h2 className="db-gruss">{gruss}</h2>
         </div>
+
+        {p.stempeluhr}
 
         <div className="db-kacheln">
           <button type="button" className="db-kachel" onClick={p.darfPlanung ? p.onZuPlanung : undefined}>

@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
-  bezugAus, bezugGeloescht, CHAT_BEZUG_ANSICHT, CHAT_TEXT_MAX, erwaehnteIds, erwaehnungEinsetzen,
+  antwortVorschau, bezugAus, bezugGeloescht, CHAT_REAKTIONEN, meineReaktion, reaktionenZaehlen, reaktionNachTipp, CHAT_BEZUG_ANSICHT, CHAT_TEXT_MAX, erwaehnteIds, erwaehnungEinsetzen,
   erwaehnungsAnfrage, erwaehnungsVorschlaege, initialen, nachTagen, personenFarbe, textTeile, uhrzeit,
   type ChatBezug, type ChatNachricht, type ChatPerson,
 } from "@/lib/chat";
@@ -9,6 +9,10 @@ import { ROLE_LABEL } from "@/lib/constants";
 // Der Team-Chat (Migration 80, v129, Entwurf „Team-Chat“ vom 08.10.2026). Am Handy über den
 // ganzen Bildschirm, am Rechner als Fenster rechts. Ebene 10003 (`.ch-overlay`): Er geht auch
 // aus dem Auftrags- oder Kundenfenster heraus auf („In den Chat“) und liegt dann darüber.
+//
+// Reaktionen und Antworten (Migration 81, v130): lange drücken (Handy) oder der kleine Knopf neben
+// der Nachricht (Rechner, beim Darüberfahren) öffnet die Leiste mit sechs Reaktionen, „Antworten“
+// und „Kopieren“. Ein Tipp auf eine Reaktion unter der Nachricht setzt oder nimmt die eigene.
 //
 // Nur mit Netz: Ohne Verbindung steht ein Hinweis da, und Senden ist gesperrt. Eine Nachricht,
 // die erst Stunden später ankommt, wäre im Chat irreführender als eine, die gar nicht abgeht.
@@ -25,7 +29,9 @@ type Props = {
   bezug: ChatBezug | null;
   onBezug: (b: ChatBezug | null) => void;
   vorschlaege: (suche: string) => ChatBezug[];
-  onSenden: (n: { text: string; bezug: ChatBezug | null; erwaehnt: string[] }) => Promise<void>;
+  onSenden: (n: { text: string; bezug: ChatBezug | null; erwaehnt: string[]; antwortAuf: string | null }) => Promise<void>;
+  // Reaktion setzen/ersetzen, `null` nimmt sie zurück. Fehlt ohne „Chat schreiben“.
+  onReagieren?: (nachrichtId: string, emoji: string | null) => Promise<void>;
   // Kann diese Rolle die Karte öffnen? Sonst ist sie nur zu lesen.
   kannOeffnen: (b: ChatBezug) => boolean;
   onBezugOeffnen: (b: ChatBezug) => void;
@@ -67,10 +73,17 @@ export function ChatFenster(p: Props) {
   const [sendeFehler, setSendeFehler] = useState<string | null>(null);
   const [plusOffen, setPlusOffen] = useState(false);
   const [plusSuche, setPlusSuche] = useState("");
+  const [aktionenFuer, setAktionenFuer] = useState<string | null>(null);
+  const [antwortAuf, setAntwortAuf] = useState<ChatNachricht | null>(null);
+  const [hervor, setHervor] = useState<string | null>(null);
   const verlaufRef = useRef<HTMLDivElement>(null);
   const feldRef = useRef<HTMLTextAreaElement>(null);
+  // Langes Drücken: Zeitgeber und Startpunkt. Wer dabei wischt, scrollt – dann keine Leiste.
+  const druck = useRef<{ zeit: ReturnType<typeof setTimeout>; x: number; y: number } | null>(null);
 
   const nameNach = useMemo(() => new Map(p.personen.map((x) => [x.id, x.name])), [p.personen]);
+  const nachrichtNach = useMemo(() => new Map(p.nachrichten.map((x) => [x.id, x])), [p.nachrichten]);
+  const nameVon = (id: string) => (id === p.ichId ? "Du" : nameNach.get(id) ?? "Ehemaliger Zugang");
   const gruppen = useMemo(() => nachTagen(p.nachrichten), [p.nachrichten]);
   const vorschlaege = anfrage === null ? [] : erwaehnungsVorschlaege(p.personen, anfrage, p.ichId).slice(0, 6);
   const andere = p.personen.filter((x) => x.id !== p.ichId).map((x) => x.name);
@@ -88,6 +101,8 @@ export function ChatFenster(p: Props) {
       if (e.key !== "Escape") return;
       if (plusOffen) setPlusOffen(false);
       else if (anfrage !== null) setAnfrage(null);
+      else if (aktionenFuer) setAktionenFuer(null);
+      else if (antwortAuf) setAntwortAuf(null);
       else p.onClose();
     }
     window.addEventListener("keydown", taste);
@@ -121,8 +136,9 @@ export function ChatFenster(p: Props) {
     setSendeFehler(null);
     try {
       const t = text.trim();
-      await p.onSenden({ text: t, bezug: p.bezug, erwaehnt: erwaehnteIds(t, ausgewaehlt) });
+      await p.onSenden({ text: t, bezug: p.bezug, erwaehnt: erwaehnteIds(t, ausgewaehlt), antwortAuf: antwortAuf?.id ?? null });
       setText("");
+      setAntwortAuf(null);
       setAusgewaehlt([]);
       setAnfrage(null);
     } catch (e) {
@@ -144,6 +160,47 @@ export function ChatFenster(p: Props) {
   }
 
   const plusTreffer = plusOffen ? p.vorschlaege(plusSuche) : [];
+  const kannReagieren = p.darfSchreiben && !!p.onReagieren;
+
+  function druckStart(e: React.PointerEvent, id: string) {
+    if (!kannReagieren || e.pointerType === "mouse") return;
+    const x = e.clientX, y = e.clientY;
+    druckEnde();
+    druck.current = { x, y, zeit: setTimeout(() => { druck.current = null; setAktionenFuer(id); }, 450) };
+  }
+  function druckBewegt(e: React.PointerEvent) {
+    const d = druck.current;
+    if (d && (Math.abs(e.clientX - d.x) > 8 || Math.abs(e.clientY - d.y) > 8)) druckEnde();
+  }
+  function druckEnde() {
+    if (druck.current) clearTimeout(druck.current.zeit);
+    druck.current = null;
+  }
+
+  async function reagieren(n: ChatNachricht, emoji: string) {
+    if (!p.onReagieren) return;
+    setAktionenFuer(null);
+    try {
+      await p.onReagieren(n.id, reaktionNachTipp(meineReaktion(n.reaktionen, p.ichId), emoji));
+    } catch (e) {
+      setSendeFehler(e instanceof Error ? e.message : "Die Reaktion konnte nicht gespeichert werden.");
+    }
+  }
+
+  function antworten(n: ChatNachricht) {
+    setAktionenFuer(null);
+    setAntwortAuf(n);
+    requestAnimationFrame(() => feldRef.current?.focus());
+  }
+
+  // Zum Zitat springen: die Ursprungsnachricht in die Mitte holen und kurz hervorheben.
+  function zuNachricht(id: string) {
+    const el = verlaufRef.current?.querySelector(`[data-nachricht="${id}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHervor(id);
+    setTimeout(() => setHervor((h) => (h === id ? null : h)), 1600);
+  }
 
   return (
     <div className="modal-overlay ch-overlay" onClick={p.onClose}>
@@ -171,14 +228,57 @@ export function ChatFenster(p: Props) {
                 const b = bezugAus(n);
                 const namen = n.erwaehnt.map((id) => nameNach.get(id)).filter((x): x is string => !!x);
                 const michGemeint = !!p.ichId && n.erwaehnt.includes(p.ichId);
+                const zitat = n.antwort_auf !== undefined && n.antwort_auf !== null ? antwortVorschau(nachrichtNach.get(n.antwort_auf), nameVon) : null;
+                const zaehlung = reaktionenZaehlen(n.reaktionen, p.ichId, nameVon);
+                const offen = aktionenFuer === n.id;
                 return (
-                  <div key={n.id} className={"ch-nachricht " + (eigen ? "eigen" : "fremd") + (michGemeint ? " mich" : "")}>
-                    {!eigen && <div className="ch-wer" style={{ color: personenFarbe(n.autor) }}>{nameNach.get(n.autor) ?? "Ehemaliger Zugang"}</div>}
-                    {b && <BezugKarte b={b} onOeffnen={p.kannOeffnen(b) ? () => p.onBezugOeffnen(b) : undefined} />}
-                    <div className="ch-text">
-                      {textTeile(n.text, namen).map((t, i) => t.erwaehnung ? <span key={i} className="ch-at">{t.text}</span> : <span key={i}>{t.text}</span>)}
+                  <div key={n.id} data-nachricht={n.id} className={"ch-zeile " + (eigen ? "eigen" : "fremd")}>
+                    <div
+                      className={"ch-nachricht " + (eigen ? "eigen" : "fremd") + (michGemeint ? " mich" : "") + (hervor === n.id ? " hervor" : "")}
+                      onPointerDown={(e) => druckStart(e, n.id)} onPointerMove={druckBewegt} onPointerUp={druckEnde} onPointerCancel={druckEnde}
+                      onContextMenu={kannReagieren ? (e) => { e.preventDefault(); setAktionenFuer(n.id); } : undefined}
+                    >
+                      {!eigen && <div className="ch-wer" style={{ color: personenFarbe(n.autor) }}>{nameNach.get(n.autor) ?? "Ehemaliger Zugang"}</div>}
+                      {zitat && (
+                        <button type="button" className="ch-zitat" onClick={() => n.antwort_auf && zuNachricht(n.antwort_auf)} aria-label={`Antwort auf ${zitat.wer || "eine frühere Nachricht"}`}>
+                          {zitat.wer && <b>{zitat.wer}</b>}
+                          <span>{zitat.text}</span>
+                        </button>
+                      )}
+                      {b && <BezugKarte b={b} onOeffnen={p.kannOeffnen(b) ? () => p.onBezugOeffnen(b) : undefined} />}
+                      <div className="ch-text">
+                        {textTeile(n.text, namen).map((t, i) => t.erwaehnung ? <span key={i} className="ch-at">{t.text}</span> : <span key={i}>{t.text}</span>)}
+                      </div>
+                      <div className="ch-zeit">{uhrzeit(n.created_at)}</div>
+                      {kannReagieren && (
+                        <button type="button" className={"ch-mehr" + (offen ? " an" : "")} onClick={() => setAktionenFuer(offen ? null : n.id)}
+                          aria-label="Reagieren oder antworten" aria-expanded={offen}>☺</button>
+                      )}
                     </div>
-                    <div className="ch-zeit">{uhrzeit(n.created_at)}</div>
+                    {zaehlung.length > 0 && (
+                      <div className="ch-reaktionen">
+                        {zaehlung.map((z) => (
+                          <button key={z.emoji} type="button" className={"ch-reaktion" + (z.ich ? " ich" : "")} disabled={!kannReagieren}
+                            title={z.namen.join(", ")} aria-label={`${z.emoji} ${z.anzahl}: ${z.namen.join(", ")}`} onClick={() => void reagieren(n, z.emoji)}>
+                            {z.emoji}{z.anzahl > 1 && <span>{z.anzahl}</span>}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {offen && (
+                      <div className="ch-aktionen" role="toolbar" aria-label="Reaktion oder Antwort">
+                        <div className="ch-emojis">
+                          {CHAT_REAKTIONEN.map((e) => (
+                            <button key={e} type="button" className={"ch-emoji" + (meineReaktion(n.reaktionen, p.ichId) === e ? " ich" : "")}
+                              aria-pressed={meineReaktion(n.reaktionen, p.ichId) === e} aria-label={`Reaktion ${e}`} onClick={() => void reagieren(n, e)}>{e}</button>
+                          ))}
+                        </div>
+                        <div className="ch-aktion-knoepfe">
+                          <button type="button" onClick={() => antworten(n)}>↩ Antworten</button>
+                          <button type="button" onClick={() => { void navigator.clipboard?.writeText(n.text).catch(() => {}); setAktionenFuer(null); }}>Kopieren</button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -221,6 +321,15 @@ export function ChatFenster(p: Props) {
           <div className="ch-eingabe">
             {!p.online && <div className="ch-hinweis warn">Ohne Netz – Senden geht erst wieder mit Verbindung.</div>}
             {sendeFehler && <div className="ch-hinweis fehler" role="alert">{sendeFehler}</div>}
+            {antwortAuf && (() => {
+              const z = antwortVorschau(antwortAuf, nameVon);
+              return (
+                <div className="ch-zitat eingabe">
+                  <span><b>{antwortAuf.autor === p.ichId ? "Antwort auf deine Nachricht" : `Antwort an ${z.wer}`}</b><span>{z.text}</span></span>
+                  <button type="button" className="ch-weg" onClick={() => setAntwortAuf(null)} aria-label="Antwort abbrechen">✕</button>
+                </div>
+              );
+            })()}
             {p.bezug && <BezugKarte b={p.bezug} klein onWeg={() => p.onBezug(null)} />}
             <div className="ch-feld">
               <button type="button" className={"ch-plus-knopf" + (plusOffen ? " an" : "")} onClick={() => setPlusOffen(!plusOffen)}

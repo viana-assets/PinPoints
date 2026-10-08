@@ -16,6 +16,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Zeiterfassung: Stempeluhr (Migration 82, Service Worker v131).** Wunsch Vitali,
+  Entwurf abgenickt. Einstempeln, Pause, Ausstempeln im Dashboard; laufende Anzeige auf jeder Seite;
+  Bereich „Zeiterfassung“ mit Tag, Woche und – mit Recht – allen Mitarbeitern; Korrektur nur mit Recht
+  und Grund; Hinweise nach ArbZG; 2 Jahre Aufbewahrung. Techniker ab Werk ohne Haken.
+  `docs/zeiterfassung.md`.
+
+* **08.10.2026 – Team-Chat: Reaktionen und Antworten (Migration 81, Service Worker v130).** Wunsch
+  Vitali nach den ersten Nachrichten. Lange drücken bzw. ☺: 👍 👎 ❤️ 😂 😮 ✅, „Antworten“ mit Zitat,
+  „Kopieren“. Antwort-Push an alle („… hat dir geantwortet“ für den Verfasser), Reaktions-Push nur an
+  den Verfasser. `docs/team-chat.md`.
+
 * **08.10.2026 – Team-Chat (Migration 80, Service Worker v129).** Wunsch Vitali: ein gemeinsamer
   Chat wie WhatsApp. Schwebende Blase mit roter Zahl, Karten für Auftrag, Kunde, Lagerplatz und
   Verkaufsreifen („In den Chat“ im ⋯-Menü bzw. Blatt, „+“ an der Eingabe), Antippen öffnet die
@@ -742,11 +753,19 @@ Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Ve
 
 ### E19. Team-Chat: Einzelchats, Bearbeiten, Fotos
 
-Der Team-Chat (Migration 80, v129) ist ein gemeinsamer Kanal. Offen, auf Wunsch:
+Der Team-Chat (Migration 80, v129; Reaktionen und Antworten seit Migration 81, v130) ist ein
+gemeinsamer Kanal. Offen, auf Wunsch:
 Einzelchats (`kanal` ist dafür vorbereitet, die Prüfregel erlaubt heute nur `team`), eigene
 Nachricht ändern oder löschen, Fotos im Chat (Speicher wie bei den Belegen, E3), älter als die
 letzten 300 Nachrichten zurückblättern. Die Aufbewahrung (12 Monate) mit dem Datenschutz abstimmen.
 *Aufwand: je mittel.*
+
+### E20. Zeiterfassung: Export und Monatsblick
+
+Die Stempeluhr (Migration 82, v131) hat Tag, Woche und die Wochentabelle aller. Offen, auf Wunsch:
+Monatsübersicht und Export (CSV/PDF) für Lohn oder Steuerberater; Urlaub/Krank als eigene Einträge;
+die Korrekturen (`zeit_korrekturen`) in der Oberfläche anzeigen (heute nur der Vermerk an der Schicht).
+*Aufwand: je klein bis mittel.*
 
 ---
 

@@ -28,7 +28,7 @@ function fenster(teil: Partial<Parameters<typeof ChatFenster>[0]> = {}) {
   const props = {
     nachrichten, laedt: false, fehler: null, personen, ichId: "ich", darfSchreiben: true, online: true,
     bezug: null, onBezug: vi.fn(), vorschlaege: () => [auftrag],
-    onSenden: vi.fn(async () => {}), kannOeffnen: () => true, onBezugOeffnen: vi.fn(), onClose: vi.fn(),
+    onSenden: vi.fn(async () => {}), onReagieren: vi.fn(async () => {}), kannOeffnen: () => true, onBezugOeffnen: vi.fn(), onClose: vi.fn(),
     ...teil,
   };
   render(<ChatFenster {...props} />);
@@ -53,7 +53,7 @@ describe("Team-Chat", () => {
     expect(feld.value).toBe("Danke @Jan ");
     fireEvent.change(feld, { target: { value: "Danke @Jan erledigt", selectionStart: 19 } });
     fireEvent.click(screen.getByRole("button", { name: "Senden" }));
-    await waitFor(() => expect(p.onSenden).toHaveBeenCalledWith({ text: "Danke @Jan erledigt", bezug: null, erwaehnt: ["jan"] }));
+    await waitFor(() => expect(p.onSenden).toHaveBeenCalledWith({ text: "Danke @Jan erledigt", bezug: null, erwaehnt: ["jan"], antwortAuf: null }));
   });
 
   it("die angehängte Karte geht mit und lässt sich entfernen; „+“ hängt eine an", () => {
@@ -86,6 +86,35 @@ describe("Team-Chat", () => {
     cleanup();
     render(<ChatBlase zahl={150} onClick={() => {}} />);
     expect(screen.getByText("99+")).toBeTruthy();
+  });
+
+  it("Reaktion: Leiste öffnen, 👍 setzen; meine ❤️ unter der Nachricht nimmt sie zurück (Migration 81)", async () => {
+    const mitReaktion = [{ ...nachrichten[0], reaktionen: [{ profile_id: "ich", emoji: "❤️" }, { profile_id: "jan", emoji: "❤️" }] }, nachrichten[1]];
+    const p = fenster({ nachrichten: mitReaktion });
+    const chip = screen.getByRole("button", { name: "❤️ 2: Du, Jan" });
+    fireEvent.click(chip);
+    await waitFor(() => expect(p.onReagieren).toHaveBeenCalledWith("n1", null));
+    fireEvent.click(screen.getAllByRole("button", { name: "Reagieren oder antworten" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Reaktion 👍" }));
+    await waitFor(() => expect(p.onReagieren).toHaveBeenCalledWith("n1", "👍"));
+  });
+
+  it("Antworten: Zitat an der Eingabe, geht mit; im Verlauf steht das Zitat über der Antwort", async () => {
+    const mitAntwort = [...nachrichten, { ...nachrichten[1], id: "n3", text: "Mach ich", antwort_auf: "n1", bezug_art: null, bezug_id: null, bezug_titel: null }];
+    const p = fenster({ nachrichten: mitAntwort });
+    expect(screen.getByRole("button", { name: "Antwort auf Jan" }).textContent).toContain("was soll ich berechnen?");
+    fireEvent.click(screen.getAllByRole("button", { name: "Reagieren oder antworten" })[0]);
+    fireEvent.click(screen.getByRole("button", { name: "↩ Antworten" }));
+    expect(screen.getByText("Antwort an Jan")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Nachricht"), { target: { value: "ok", selectionStart: 2 } });
+    fireEvent.click(screen.getByRole("button", { name: "Senden" }));
+    await waitFor(() => expect(p.onSenden).toHaveBeenCalledWith(expect.objectContaining({ text: "ok", antwortAuf: "n1" })));
+    await waitFor(() => expect(screen.queryByText("Antwort an Jan")).toBeNull());
+  });
+
+  it("ohne Schreibrecht keine Reaktionsknöpfe", () => {
+    fenster({ darfSchreiben: false, onReagieren: undefined });
+    expect(screen.queryByRole("button", { name: "Reagieren oder antworten" })).toBeNull();
   });
 
   it("Lagerplatz: „In den Chat“ nur mit dem Recht", () => {

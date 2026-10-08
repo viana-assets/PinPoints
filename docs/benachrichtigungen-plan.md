@@ -526,3 +526,10 @@ und Anschrift in der Terminerinnerung. Er reist verschlüsselt über Apple/Googl
 Datenschutzfrage“). Wer im Chat Kundendaten schreibt, schreibt sie also auch auf den
 Sperrbildschirm der Kollegen – das gehört in die Einweisung. Aufbewahrung 12 Monate
 (`chat_aufraeumen()`, nächtlich 03:25 UTC); mit dem Datenschutz abzustimmen.
+
+**Seit Migration 81 (v130): Antworten und Reaktionen.** Eine Antwort ist eine normale Nachricht; der
+Verfasser der Ursprungsnachricht bekommt den Titel „… hat dir geantwortet“ (eine Erwähnung geht
+vor). Eine Reaktion geht nur an den Verfasser der Nachricht – „Jan hat reagiert / 👍 zu „Bitte A1
+mitnehmen““, Kennung je Nachricht und Person, damit eine geänderte Reaktion die offene Meldung
+ersetzt. Sie wird über `chat_reaktionen.push_gesendet_am` genauso „erst eingetragen, dann
+gesendet“; der Anstoß ist derselbe Trigger. Keine Meldung für Reaktionen auf die eigene Nachricht.

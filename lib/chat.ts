@@ -33,10 +33,20 @@ export type ChatBezugArt = "auftrag" | "kunde" | "platz" | "verkaufsreifen";
 
 export type ChatBezug = { art: ChatBezugArt; id: string; titel: string; unter: string | null };
 
+// Die Reaktionen (Migration 81, v130). Dieselbe Liste prüft die Datenbank (`chat_reaktion_bekannt`).
+// Wer eine Stelle ändert, ändert beide.
+export const CHAT_REAKTIONEN = ["👍", "👎", "❤️", "😂", "😮", "✅"] as const;
+export type ChatReaktionEmoji = (typeof CHAT_REAKTIONEN)[number];
+export type ChatReaktion = { profile_id: string; emoji: string };
+
 export type ChatNachricht = {
   id: string;
   autor: string;
   text: string;
+  // Worauf die Nachricht antwortet (Migration 81). Leer, wenn keine Antwort oder die
+  // Ursprungsnachricht aufgeräumt ist.
+  antwort_auf?: string | null;
+  reaktionen?: ChatReaktion[];
   bezug_art: ChatBezugArt | null;
   bezug_id: string | null;
   bezug_titel: string | null;
@@ -193,6 +203,46 @@ function tagSchluessel(d: Date): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+// ---------------------------------------------------------------------------------------------
+// Reaktionen und Antworten (Migration 81, v130)
+// ---------------------------------------------------------------------------------------------
+
+export type ReaktionsZaehlung = { emoji: string; anzahl: number; ich: boolean; namen: string[] };
+
+// Die Reaktionen unter einer Nachricht: je Emoji die Zahl, ob ich dabei bin, und wer – in der
+// festen Reihenfolge von CHAT_REAKTIONEN, nicht in der Reihenfolge des Eintreffens (sonst springen
+// die Knöpfe herum, während man tippt).
+export function reaktionenZaehlen(reaktionen: ChatReaktion[] | undefined, ichId: string | null, nameVon: (id: string) => string): ReaktionsZaehlung[] {
+  const liste = reaktionen || [];
+  return CHAT_REAKTIONEN
+    .map((emoji) => {
+      const wer = liste.filter((r) => r.emoji === emoji);
+      return { emoji, anzahl: wer.length, ich: wer.some((r) => r.profile_id === ichId), namen: wer.map((r) => nameVon(r.profile_id)) };
+    })
+    .filter((z) => z.anzahl > 0);
+}
+
+// Ein Tipp auf ein Emoji: dasselbe noch einmal nimmt die Reaktion zurück, ein anderes ersetzt sie
+// (je Person eine Reaktion je Nachricht, wie bei WhatsApp).
+export function reaktionNachTipp(meine: string | null, getippt: string): string | null {
+  return meine === getippt ? null : getippt;
+}
+
+export function meineReaktion(reaktionen: ChatReaktion[] | undefined, ichId: string | null): string | null {
+  return (reaktionen || []).find((r) => r.profile_id === ichId)?.emoji ?? null;
+}
+
+// Das Zitat über einer Antwort: wer, und der Anfang des Textes. Ist die Ursprungsnachricht nicht
+// (mehr) geladen, steht „frühere Nachricht“ da.
+export const CHAT_ZITAT_MAX = 90;
+export function antwortVorschau(
+  ursprung: Pick<ChatNachricht, "autor" | "text" | "bezug_titel"> | null | undefined,
+  nameVon: (id: string) => string
+): { wer: string; text: string } {
+  if (!ursprung) return { wer: "", text: "frühere Nachricht" };
+  return { wer: nameVon(ursprung.autor), text: kuerzen(ursprung.text || ursprung.bezug_titel || "", CHAT_ZITAT_MAX) };
+}
+
 // Die Trennlinie zwischen den Tagen: HEUTE, GESTERN, sonst „Mi 7.10.2026“.
 export function tagLabel(iso: string, jetzt: Date = new Date()): string {
   const d = new Date(iso);
@@ -247,9 +297,11 @@ export function zahlText(n: number): string {
 
 export function chatPushInhalt(a: {
   id: string; autorName: string; text: string; bezugTitel: string | null; erwaehnt: boolean; zahl: number;
+  // Der Empfänger hat die Nachricht geschrieben, auf die hier geantwortet wird (Migration 81).
+  geantwortet?: boolean;
 }): PushInhalt {
   return {
-    titel: a.erwaehnt ? `${a.autorName} hat dich erwähnt` : `${a.autorName} im Team-Chat`,
+    titel: a.erwaehnt ? `${a.autorName} hat dich erwähnt` : a.geantwortet ? `${a.autorName} hat dir geantwortet` : `${a.autorName} im Team-Chat`,
     text: kuerzen(a.bezugTitel ? `${a.text} · ${a.bezugTitel}` : a.text, CHAT_PUSH_TEXT_MAX),
     // Antippen öffnet den Chat, nicht die Karte: Erst lesen, was dazu geschrieben wurde.
     url: `/?${CHAT_PARAMETER}=1`,
@@ -290,4 +342,18 @@ export function bezugVorschlaege(
     ? kunden.filter((k) => passt(k.name, k.company)).sort((a, b) => anzeigeName(a).localeCompare(anzeigeName(b), "de")).slice(0, CHAT_VORSCHLAEGE_MAX).map(bezugKunde)
     : [];
   return [...auftragsTreffer, ...kundenTreffer];
+}
+
+// Die Meldung zu einer Reaktion – nur an den Verfasser der Nachricht (Migration 81).
+export function chatReaktionPushInhalt(a: {
+  nachrichtId: string; vonId: string; vonName: string; emoji: string; text: string; zahl: number;
+}): PushInhalt {
+  return {
+    titel: `${a.vonName} hat reagiert`,
+    text: kuerzen(`${a.emoji} zu „${a.text}“`, CHAT_PUSH_TEXT_MAX),
+    url: `/?${CHAT_PARAMETER}=1`,
+    // Eine geänderte Reaktion ersetzt die offene Meldung, statt eine zweite daneben zu legen.
+    kennung: `chat-reaktion-${a.nachrichtId}-${a.vonId}`,
+    zahl: a.zahl,
+  };
 }

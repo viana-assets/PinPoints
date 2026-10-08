@@ -8,7 +8,8 @@ import { q, qOne, qWrite } from "./client";
 // Nur mit Netz: Eine Chatnachricht, die erst Stunden später ankommt, wäre schlimmer als eine, die
 // gar nicht abgeht – wer offline schreibt, sieht eine Fehlermeldung und kann es noch einmal versuchen.
 
-const SPALTEN = "id,autor,text,bezug_art,bezug_id,bezug_titel,bezug_unter,erwaehnt,created_at";
+// Seit Migration 81 mit `antwort_auf` und den Reaktionen (über den Fremdschlüssel eingebettet).
+const SPALTEN = "id,autor,text,bezug_art,bezug_id,bezug_titel,bezug_unter,erwaehnt,created_at,antwort_auf,reaktionen:chat_reaktionen(profile_id,emoji)";
 
 // Die letzten Nachrichten, älteste zuerst.
 export async function fetchChatNachrichten(supabase: SupabaseClient): Promise<ChatNachricht[]> {
@@ -22,7 +23,7 @@ export async function fetchChatNachrichten(supabase: SupabaseClient): Promise<Ch
 
 export async function sendeChatNachricht(
   supabase: SupabaseClient,
-  n: { text: string; bezug: ChatBezug | null; erwaehnt: string[] }
+  n: { text: string; bezug: ChatBezug | null; erwaehnt: string[]; antwortAuf?: string | null }
 ): Promise<ChatNachricht> {
   return qOne<ChatNachricht>(
     "Die Nachricht konnte nicht gesendet werden",
@@ -33,6 +34,7 @@ export async function sendeChatNachricht(
       bezug_titel: n.bezug?.titel ?? null,
       bezug_unter: n.bezug?.unter ?? null,
       erwaehnt: n.erwaehnt,
+      antwort_auf: n.antwortAuf ?? null,
     }).select(SPALTEN).single()
   );
 }
@@ -53,4 +55,20 @@ export async function fetchChatUngelesen(supabase: SupabaseClient): Promise<numb
 
 export async function fetchChatPersonen(supabase: SupabaseClient): Promise<ChatPerson[]> {
   return (await q<ChatPerson[]>("Die Personen im Chat konnten nicht geladen werden", supabase.rpc("chat_personen"))) || [];
+}
+
+// Reaktion setzen oder ersetzen (Migration 81): je Nachricht und Zugang höchstens eine. `null`
+// nimmt sie zurück.
+export async function chatReaktionSetzen(supabase: SupabaseClient, profileId: string, nachrichtId: string, emoji: string | null): Promise<void> {
+  if (emoji === null) {
+    await qWrite(
+      "Die Reaktion konnte nicht zurückgenommen werden",
+      supabase.from("chat_reaktionen").delete().eq("nachricht_id", nachrichtId).eq("profile_id", profileId)
+    );
+    return;
+  }
+  await qWrite(
+    "Die Reaktion konnte nicht gespeichert werden",
+    supabase.from("chat_reaktionen").upsert({ nachricht_id: nachrichtId, profile_id: profileId, emoji }, { onConflict: "nachricht_id,profile_id" })
+  );
 }

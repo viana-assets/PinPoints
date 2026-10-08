@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 79, dann 80** (Abschnitt „Noch auszuführen“ ganz unten). **Stand 08.10.2026: Alle Migrationen 01–78 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026) –
+**Noch auszuführen: 81 (falls noch nicht geschehen), dann 82** (Abschnitt „Noch auszuführen“ ganz unten). **Stand 08.10.2026: Alle Migrationen 01–80 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79 und 80 am selben Tag – der Team-Chat lief danach im Betrieb) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1037,9 +1037,9 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   76 + 77 und 76 + 77 + 78 verglichen: nur die neuen Meldungstexte unterscheiden sich. Zurückgenommen,
   zweimal – Richtlinien, Funktionen, Trigger und Matrix identisch mit 76 + 77 –, erneut ausgeführt.
 
-## Noch auszuführen
+## 08.10.2026 – ausgeführt (Vitali, 79 und 80)
 
-- `79_rechnung_ohne_email.sql` – **nach `78`, SQL zuerst, dann die Dateien von v128.** Wunsch Vitali
+- `79_rechnung_ohne_email.sql` – **ausgeführt.** Wunsch Vitali
   08.10.2026: Ohne E-Mail-Adresse beim Kunden ließ sich ein Auftrag mit „Rechnung nötig“ nicht
   abschließen. `pruefe_rechnungsdaten()` verlangt die E-Mail nicht mehr (Name, Anschrift, Fahrzeug,
   Kennzeichen, Kilometerstand bleiben). Die App erinnert in „Rechnungen noch nicht ausgestellt“ mit
@@ -1049,7 +1049,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Meldung nennt nur die Anschrift; E-Mail am erledigten Auftrag über `kunde_email_ergaenzen()`
   nachgetragen; ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `80_team_chat.sql` – **nach `79`, SQL zuerst, dann die Dateien von v129.** Wunsch Vitali
+- `80_team_chat.sql` – **ausgeführt.** Wunsch Vitali
   08.10.2026: Team-Chat. Neue Tabellen `chat_nachrichten` (Text, Karte als Schnappschuss,
   Erwähnungen, `push_gesendet_am`) und `chat_gelesen`; neues Recht `chat` (lesen/schreiben,
   Vorgabe Admin, Techniker, Benutzer); `chat_ungelesen()`, `chat_personen()`; Trigger
@@ -1065,3 +1065,36 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Schreiben, 0 Ungelesene, 0 Personen; Kunde gelöscht → Karte „Kunde gelöscht“; Aufräumen löscht
   nur, was älter als 12 Monate ist; ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
   `PRUEFUNG_welche_migrationen_liefen.sql` hat Zeile 80.
+
+## Noch auszuführen
+
+- `81_chat_reaktionen_antworten.sql` – **nach `80`, SQL zuerst, dann die Dateien von v130.** Wunsch
+  Vitali 08.10.2026: im Chat reagieren und direkt antworten. `chat_nachrichten.antwort_auf` (on delete
+  set null); `chat_reaktionen` (Nachricht + Zugang als Schlüssel, sechs Emojis per Prüfregel, Richtlinien
+  „Reaktionen lesen“ / „Eigene Reaktion setzen/ändern/zurücknehmen“), `chat_reaktion_pruefen()` (Zeitpunkt
+  aus der Datenbank, `push_gesendet_am` nur für den Versand), Push-Anstoß wie bei Nachrichten, Realtime.
+  Wache: bricht ohne 80 ab. Ergebnistabelle mit drei Zeilen. Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/81_rollback.sql` (entfernt alle Reaktionen und den Verweis, die Nachrichten bleiben; zweimal
+  lauffähig). Geprüft gegen Postgres 16 (Stand 80, `pgtest/t81.sql`): Antwort ok, auf Unbekanntes
+  abgewiesen; Reaktion setzen (mitgeschicktes „gesendet“ bleibt leer), zweite derselben Person, fremdes
+  Emoji, für andere abgewiesen; Upsert ändert; Nutzer kann „gesendet“ nicht leeren; Admin sieht, ändert
+  und löscht fremde nicht; Reaktion zählt nicht als ungelesen; ohne Schreibrecht keine, ohne Leserecht
+  keine sichtbar; Aufräumen nimmt Reaktionen mit, die Antwort bleibt ohne Verweis. `t80.sql` gegen 80
+  und 80+81: gleiche Ausgabe. Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `82_zeiterfassung.sql` – **nach `81`, SQL zuerst, dann die Dateien von v131.** Wunsch Vitali 08.10.2026:
+  Stempeluhr. Rechte `zeiterfassung` (L/S Admin, Benutzer – Techniker aus) und `zeiterfassung.alle` (L/S
+  Admin); Tabellen `zeit_schichten` (eine offene je Zugang), `zeit_pausen` (eine offene je Schicht),
+  `zeit_korrekturen`; nur Leserichtlinien – geschrieben wird ausschließlich über `zeit_einstempeln()`,
+  `zeit_pause_beginnen()`, `zeit_pause_beenden()`, `zeit_ausstempeln()`, `zeit_schicht_speichern()`,
+  `zeit_schicht_loeschen()` (Uhrzeit `now()`, Grund Pflicht); `zeit_status()`, `zeit_personen()`; Zeitplan
+  `pinpoints-zeit-aufraeumen` (03:35 UTC, älter als 2 Jahre löschen). Ergebnistabelle mit vier Zeilen
+  (der Editor zeigt nur die letzte Ausgabe). Zweiter Lauf folgenlos. Rücknahme: `rollback/82_rollback.sql`
+  (**löscht alle Stempelungen**; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 81, `pgtest/t82.sql`):
+  Benutzer stempelt ein, zweites Einstempeln abgewiesen; Pause doppelt / Weiter ohne Pause abgewiesen;
+  Ausstempeln schließt die Pause; direktes Schreiben, Ändern, Löschen abgewiesen bzw. 0 Zeilen; Benutzer
+  darf nicht korrigieren, sieht nur sich; Techniker ohne Haken: kein Stempeln, nichts sichtbar; Admin sieht
+  alle, trägt mit Pause nach; ohne Grund, Überschneidung, Pause außerhalb, Zukunft, über 24 h abgewiesen;
+  Korrektur hält Vorher/Nachher fest, die Person sieht sie; Löschen mit Grund; Techniker-Haken an →
+  stempelt; Aufräumen nach 2 Jahren. `t80.sql`/`t81.sql` gegen 81 und 81+82: gleiche Ausgabe. Ausgeführt,
+  zweimal, zurückgenommen, zweimal, erneut ausgeführt.

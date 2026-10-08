@@ -1,8 +1,9 @@
 # Team-Chat
 
-**Stand: 08.10.2026 (Migration 80, Service Worker v129).** Ein gemeinsamer Chat für alle mit dem
+**Stand: 08.10.2026 (Migrationen 80 und 81, Service Worker v130).** Ein gemeinsamer Chat für alle mit dem
 Recht `chat · lesen` – Wunsch Vitali vom 08.10.2026, Entwurf `entwurf_chat.html` (Claude outputs).
-Einzelchats, eigene Nachrichten ändern oder löschen und Fotos im Chat sind nicht gebaut; das steht
+Reaktionen und Antworten kamen mit Migration 81 (v130). Einzelchats, eigene Nachrichten ändern oder
+löschen und Fotos im Chat sind nicht gebaut; das steht
 in `fahrplan.md`.
 
 ## Was man sieht
@@ -37,6 +38,15 @@ in `fahrplan.md`.
   Ausgangskorb (`claude/offline-schreiben.md`). Eine Chatnachricht, die Stunden später ankommt, wäre
   irreführender als eine, die gar nicht abgeht.
 - Am Rechner schickt Enter ab (Umschalt+Enter: neue Zeile), am Handy nur der Knopf.
+- **Reaktionen und Antworten (Migration 81, v130).** Lange drücken auf eine Nachricht (Handy) oder
+  der kleine ☺-Knopf daneben (Rechner, beim Darüberfahren; am Handy unsichtbar, aber antippbar)
+  öffnet die Leiste: 👍 👎 ❤️ 😂 😮 ✅, „↩ Antworten“, „Kopieren“. Je Person eine Reaktion je
+  Nachricht; dieselbe noch einmal nimmt sie zurück, eine andere ersetzt sie. Unter der Nachricht
+  stehen die Reaktionen gezählt (in fester Reihenfolge, die eigene blau, Namen im Tooltip) – ein
+  Tipp darauf setzt oder nimmt die eigene. „Antworten“ hängt ein Zitat an die Eingabe (✕ bricht
+  ab); im Verlauf steht es über der Antwort, ein Tipp springt zur Ursprungsnachricht und hebt sie
+  kurz hervor. Ist sie nicht mehr geladen oder aufgeräumt, steht „frühere Nachricht“ da. Beides
+  nur mit `chat · schreiben`.
 
 ## Push und Zahl am App-Symbol
 
@@ -44,7 +54,10 @@ Bei **jeder** neuen Nachricht bekommen alle anderen mit Leserecht eine Push-Meld
 Terminerinnerung; Antippen öffnet `/?chat=1`. Die Meldung trägt die Zahl der Ungelesenen, der
 Service Worker setzt daraus das rote Abzeichen am App-Symbol (`setAppBadge`). Einzelheiten –
 sofortiger Anstoß per Trigger, Nachholen im Minutentakt, „einmal je Nachricht“ – in
-`benachrichtigungen-plan.md`, „Vierte Nutzung“.
+`benachrichtigungen-plan.md`, „Vierte Nutzung“. Seit Migration 81: Eine Antwort geht wie jede
+Nachricht an alle; wer die Ursprungsnachricht schrieb, liest „… hat dir geantwortet“. Eine Reaktion
+meldet sich nur beim Verfasser („… hat reagiert – 👍 zu „…““), nicht bei einer Reaktion auf die
+eigene Nachricht, und zählt nicht als ungelesen.
 
 ## Datenbank (Migration 80)
 
@@ -54,6 +67,13 @@ sofortiger Anstoß per Trigger, Nachholen im Minutentakt, „einmal je Nachricht
   `created_at` (setzt die Datenbank), `push_gesendet_am`. Lesen: Richtlinie „Chat lesen“
   (`darf('chat','lesen')`); schreiben nur als man selbst und ohne `push_gesendet_am`; kein Ändern,
   kein Löschen. Nicht im Änderungsprotokoll (`audit_row`): das hielte den Text 36 Monate fest.
+- `chat_nachrichten.antwort_auf` (Migration 81) – worauf geantwortet wird; `on delete set null`.
+- `chat_reaktionen` (Migration 81) – Schlüssel (Nachricht, Zugang), `emoji` aus der festen Liste
+  (`CHAT_REAKTIONEN`, Prüfregel `chat_reaktion_bekannt`), `push_gesendet_am`. Lesen mit L, setzen,
+  ändern, zurücknehmen nur die eigene und mit S. `chat_reaktion_pruefen()` (ohne `security definer`,
+  fragt `current_user`) setzt den Zeitpunkt und hält `push_gesendet_am` aus der Hand der Nutzer – eine
+  geänderte Reaktion meldet sich nicht ein zweites Mal. Push-Anstoß wie bei Nachrichten. In
+  `supabase_realtime`.
 - `chat_gelesen` – je Zugang „gelesen bis“. Gesetzt auf den Zeitstempel der neuesten geladenen
   Nachricht (die Uhr der Datenbank, nicht die des Geräts).
 - `chat_ungelesen()`, `chat_personen()` – beide `security definer`, beide nur mit `chat · lesen`.

@@ -59,6 +59,12 @@ import { ChatBlase } from "@/components/chat/ChatBlase";
 import { ChatFenster } from "@/components/chat/ChatFenster";
 import { bezugAuftrag, bezugKunde, bezugVorschlaege, type ChatBezug } from "@/lib/chat";
 import { useChat } from "./_seite/useChat";
+import { useZeiterfassung } from "./_seite/useZeiterfassung";
+import { StempelKarte } from "@/components/zeit/StempelKarte";
+import { StempelBlatt } from "@/components/zeit/StempelBlatt";
+import { UhrPille } from "@/components/zeit/UhrPille";
+import { ZeitPanel } from "@/components/zeit/ZeitPanel";
+import { arbeitMs, uhrzeitVon } from "@/lib/zeiterfassung";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
 // Marke.
@@ -216,7 +222,7 @@ export default function HomePage() {
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
   // darauf verlassen kann (Hooks dürfen nicht erst nach einem bedingten Return kommen).
-  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung" || tab === "rechnungen";
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung" || tab === "rechnungen" || tab === "zeit";
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), die
   // Oberfläche blendet zusätzlich Anlegen/Löschen/Mitarbeiter- und Leistungen-Zuordnung aus –
   // siehe AuftraegePanel/EinsatzplanungPanel.
@@ -1528,6 +1534,19 @@ export default function HomePage() {
     setTab("lager");
   }
 
+  // ---------------------------------------------------------------- Zeiterfassung (Migration 82, v131)
+  // Ohne „Zeiterfassung · lesen“ (Techniker ab Werk) gibt es nichts davon: keine Karte im Dashboard,
+  // keine Anzeige oben rechts, keinen Reiter.
+  const darfZeit = darf("zeiterfassung", "lesen");
+  const zeit = useZeiterfassung({ supabase, aktiv: sitzungBereit && darfZeit, meineId });
+  const darfStempeln = darf("zeiterfassung", "schreiben");
+  // Die abgeschlossenen Schichten dieser Woche; die laufende zählt die Stempeluhr selbst dazu.
+  const zeitWocheAbgeschlossenMs = zeit.wocheSchichten.filter((s) => s.ende).reduce((summe, s) => summe + arbeitMs(s, 0), 0);
+  const stempelKarteProps = {
+    schicht: zeit.schicht, versatzMs: zeit.versatzMs, wocheAbgeschlossenMs: zeitWocheAbgeschlossenMs,
+    darfStempeln, online: !istOffline, laeuft: zeit.laeuft, fehler: zeit.fehler, onStempeln: (art: Parameters<typeof zeit.stempeln>[0]) => void zeit.stempeln(art),
+  };
+
   // ---------------------------------------------------------------- Lager-Modul
   // Die Handlungen stehen seit v113 in app/_seite/useLagerAktionen.ts (Fahrplan C5).
   const {
@@ -2353,6 +2372,7 @@ export default function HomePage() {
     if (ohnePreis > 0) h.artikel = { text: `${ohnePreis} ohne Preis`, dringend: true };
     const k = lagerKennzahlenQuery.data;
     if (k && k.gesamt > 0) h.lager = { text: `${k.belegt} von ${k.gesamt} belegt`, dringend: k.gesamt - k.belegt < LAGER_ENGPASS_AB };
+    if (zeit.schicht && zeit.zustand !== "aus") h.zeit = { text: zeit.zustand === "pause" ? "Pause läuft" : `eingestempelt seit ${uhrzeitVon(zeit.schicht.beginn)}` };
     return h;
   })();
 
@@ -2410,6 +2430,7 @@ export default function HomePage() {
                 onClick={() => { setKarteOffenIn(null); setTab(m.tab); }}
                 icon={<m.Icon />}
                 label={m.label}
+                zusatz={m.tab === "zeit" ? <UhrPille schicht={zeit.schicht} versatzMs={zeit.versatzMs} eingebettet /> : undefined}
               />
             </Fragment>
           );
@@ -2447,6 +2468,7 @@ export default function HomePage() {
             und was noch zu tun ist. Die Rechnungen dahinter stehen in lib/dashboard.ts. */}
         {tab === "dashboard" && (
           <DashboardPanel
+            stempeluhr={darfZeit ? <StempelKarte {...stempelKarteProps} /> : undefined}
             supabase={supabase}
             neuigkeit={isAdmin ? neuigkeitenUngelesen(settings.neuigkeiten_gesehen)[0] ?? null : null}
             onNeuigkeiten={isAdmin ? neuigkeitenOeffnen : undefined}
@@ -2689,6 +2711,19 @@ export default function HomePage() {
 
         {/* „Weitere" am Handy (26.09.2026, Entwurf V): Kacheln nach Gruppen, jede mit einem
             Hinweis, ob dort etwas wartet. Das Dashboard fehlt bewusst – es steht unten in der Leiste. */}
+        {tab === "zeit" && canView("zeiterfassung") && (
+          <ZeitPanel
+            supabase={supabase}
+            meineId={meineId}
+            meinName={employees.find((e) => e.profile_id === meineId)?.name || userEmail.split("@")[0] || "Ich"}
+            darfAlle={darf("zeiterfassung.alle", "lesen")}
+            darfKorrigieren={darf("zeiterfassung.alle", "schreiben")}
+            schicht={zeit.schicht}
+            versatzMs={zeit.versatzMs}
+            onStempeluhr={() => zeit.setBlattOffen(true)}
+          />
+        )}
+
         {tab === "more" && (
           <WeiterePanel
             module={MODULE.filter((m) => !m.primaer && modulSichtbar(m.sichtbar))}
@@ -2902,6 +2937,16 @@ export default function HomePage() {
           geladenen Bestand, wartet das Fenster – der Abruf läuft bereits (siehe zielOeffnen). */}
       {auskunftKundeId && <AuskunftFenster kundeId={auskunftKundeId} onClose={() => setAuskunftKundeId(null)} />}
 
+      {/* Stempeluhr (Migration 82, v131): die laufende Uhr oben rechts (am Handy) und ihr Blatt. */}
+      {sitzungBereit && darfZeit && tab !== "zeit" && !positionSetzenFuer && (
+        <div className="zt-schwebend"><UhrPille schicht={zeit.schicht} versatzMs={zeit.versatzMs} onClick={() => zeit.setBlattOffen(true)} /></div>
+      )}
+      {zeit.blattOffen && (
+        <StempelBlatt {...stempelKarteProps}
+          onZurUebersicht={canView("zeiterfassung") ? () => { zeit.setBlattOffen(false); setTab("zeit"); } : undefined}
+          onClose={() => zeit.setBlattOffen(false)} />
+      )}
+
       {/* Team-Chat (Migration 80, v129): die Blase auf jeder Seite, das Fenster darüber. */}
       {sitzungBereit && darf("chat", "lesen") && !chat.offen && (
         <ChatBlase
@@ -2923,6 +2968,7 @@ export default function HomePage() {
           onBezug={chat.setBezug}
           vorschlaege={(suche) => bezugVorschlaege(suche, orders, customers, todayStr())}
           onSenden={chat.senden}
+          onReagieren={darfChatSchreiben ? chat.reagieren : undefined}
           kannOeffnen={chatBezugKannOeffnen}
           onBezugOeffnen={chatBezugOeffnen}
           onClose={chat.schliessen}

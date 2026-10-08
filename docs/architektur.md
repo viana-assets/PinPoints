@@ -79,6 +79,7 @@ viana-pinpoints/
       useKundenAktionen.ts    Kontakt festhalten, offen/aktiv, Stammdaten, Position, anlegen, löschen (v127)
       useLagerAktionen.ts     Lager, Plätze, Einlagerung am Auftrag, Auslagern/Vormerken, Tausch, Räder
       useFahrzeugAktionen.ts  Kartei der Fahrzeuge, Fahrzeuge am Auftrag, Kilometerstand (offline-fähig)
+      useZeiterfassung.ts     Stempeluhr: eigener Stand, Versatz zur Datenbankuhr, Stempeln, Blatt (Migration 82, v131)
       useChat.ts              Team-Chat: offen/zu, Karte an der Eingabe, Ungelesene, Live-Verbindung,
                               Lesestand, Abzeichen am App-Symbol (Migration 80, v129)
     manifest.ts               Erzeugt das PWA-Manifest aus lib/erscheinung.ts (kein statisches
@@ -125,9 +126,14 @@ viana-pinpoints/
                                      Ebenen, Standort, Zoom, Legende, Tagesstreifen (Entwurf W)
       KartenKundeKarte.tsx           Die Kundenkarte an der Nadel (ersetzt das Leaflet-Popup)
       nadel.ts                       Nadeln als HTML – eine Quelle für Karte und Legende
+    zeit/
+      StempelKarte.tsx / StempelBlatt.tsx / UhrPille.tsx   Stempeluhr, Blatt, laufende Anzeige (Migration 82, v131)
+      ZeitPanel.tsx                  Bereich „Zeiterfassung“: Tag, Woche, Alle, Tag einer Person mit Korrektur
+      useJetzt.ts                    „Jetzt“ im Takt, mit Versatz zur Datenbankuhr
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
-      ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen)
+      ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
+                                     Reaktionen und Antworten (lange drücken / ☺-Knopf, Migration 81)
     termine/
       TerminePanel.tsx               Reiter „Termine" als Zeitleiste je Tag (Entwurf L)
     WeiterePanel.tsx                Handy-Seite „Weitere": Kacheln nach `WEITERE_GRUPPEN`, je
@@ -287,6 +293,7 @@ viana-pinpoints/
     pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
     chat.ts                       Regeln des Team-Chats: Karten, @-Erwähnungen, Tagestrenner, Push-Inhalt,
                                   Vorschläge für „+“ (Migration 80, v129; tests/chat.test.ts)
+    zeiterfassung.ts              Regeln der Stempeluhr: zählen, Woche, Hinweise (ArbZG), Formular (Migration 82, v131)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
     reifenverkauf.ts              Reifenverkauf: Größe lesen, Hinweise, Lagerwert (Migration 61);
@@ -333,6 +340,7 @@ viana-pinpoints/
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
+      zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80)
       permissions.ts                Modul-Berechtigungen (module_permissions, `darf()`)
       audit.ts                      Lesezugriff auf das Änderungsprotokoll (audit_log)
@@ -350,7 +358,7 @@ viana-pinpoints/
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
       alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–80
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–82
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -496,7 +504,7 @@ aktualisieren bzw. über `qk.*` einen Query-Schlüssel für ungültig erklären.
 `neuLaden`, `offlineOderDirekt`, `refreshX`) und geben die Funktionen zurück, die vorher in
 `HomePage` standen – Namen und Verhalten unverändert, die Props der Panels bleiben gleich. Damit
 ist die Datei von ~3.950 auf ~3.550 Zeilen geschrumpft; **v127** hat `useAuftragAktionen` und
-`useKundenAktionen` dazugenommen (~3.580 → ~3.300 Zeilen), **v129** `useChat` (Team-Chat). `useAuftragAktionen` steht dabei VOR
+`useKundenAktionen` dazugenommen (~3.580 → ~3.300 Zeilen), **v129** `useChat` (Team-Chat), **v131** `useZeiterfassung`. `useAuftragAktionen` steht dabei VOR
 `useLagerAktionen`, weil dieser `addOrder` braucht, und `useKundenAktionen` danach, weil er
 `neuenAuftragAnlegen` braucht. Der Hook wird vor dem ersten `return`
 aufgerufen (Regel der Hooks); was er zurückgibt, ist erst ab dieser Zeile da – Funktionen weiter
@@ -684,7 +692,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 80** (08.10.2026; 79 und 80 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 82** (08.10.2026; 81, falls noch nicht geschehen, und 82 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -795,6 +803,11 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **80** – Team-Chat: `chat_nachrichten` (mit Karten-Schnappschuss), `chat_gelesen`, Recht `chat`,
   `chat_ungelesen()`, `chat_personen()`, Push-Anstoß per pg_net an `/api/push/senden`, Karte vergisst
   den Inhalt beim endgültigen Löschen, Aufbewahrung 12 Monate, Realtime. Siehe `docs/team-chat.md`.
+- **81** – Team-Chat: Reaktionen (`chat_reaktionen`, sechs Emojis, je Person eine, Push nur an den
+  Verfasser) und Antworten (`chat_nachrichten.antwort_auf`).
+- **82** – Zeiterfassung: `zeit_schichten`, `zeit_pausen`, `zeit_korrekturen`, Rechte `zeiterfassung` und
+  `zeiterfassung.alle` (Techniker aus), Stempeln und Korrigieren nur über Funktionen mit `now()`,
+  Aufbewahrung 2 Jahre. Siehe `docs/zeiterfassung.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

@@ -225,3 +225,13 @@ export function IconMarke() {
 
 // Das Favicon im Browser-Reiter: dasselbe Signet als kleines Bild.
 export const MARKE_FAVICON = "/icons/mr-64.png";
+
+// Stempeluhr (Migration 82, v131): Uhr mit Zeiger.
+export function IconZeit() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <circle cx="12" cy="13" r="8" />
+      <path d="M12 9v4l3 2M9 3h6" />
+    </svg>
+  );
+}

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { chatGelesenSetzen, sendeChatNachricht } from "@/lib/api/chat";
+import { chatGelesenSetzen, chatReaktionSetzen, sendeChatNachricht } from "@/lib/api/chat";
 import type { ChatBezug, ChatNachricht, ChatPerson } from "@/lib/chat";
 import { useChatNachrichten, useChatPersonen, useChatUngelesen } from "@/lib/queries/hooks";
 import { qk } from "@/lib/queries/keys";
@@ -46,6 +46,10 @@ export function useChat({ supabase, aktiv, meineId }: ChatKontext) {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_nachrichten" }, () => {
         void queryClient.invalidateQueries({ queryKey: qk.chat() });
       })
+      // Reaktionen (Migration 81): setzen, ändern, zurücknehmen – nur der Verlauf, die Zahl nicht.
+      .on("postgres_changes", { event: "*", schema: "public", table: "chat_reaktionen" }, () => {
+        void queryClient.invalidateQueries({ queryKey: qk.chatNachrichten() });
+      })
       .subscribe();
     return () => { void supabase.removeChannel(kanal); };
   }, [aktiv, supabase, queryClient]);
@@ -75,14 +79,21 @@ export function useChat({ supabase, aktiv, meineId }: ChatKontext) {
   function schliessen() { setOffen(false); setBezug(null); }
   function inDenChat(b: ChatBezug) { setBezug(b); setOffen(true); }
 
-  async function senden(n: { text: string; bezug: ChatBezug | null; erwaehnt: string[] }) {
+  async function senden(n: { text: string; bezug: ChatBezug | null; erwaehnt: string[]; antwortAuf?: string | null }) {
     await sendeChatNachricht(supabase, n);
     setBezug(null);
     await queryClient.invalidateQueries({ queryKey: qk.chatNachrichten() });
   }
 
+  // Reaktion setzen, ersetzen oder (null) zurücknehmen (Migration 81).
+  async function reagieren(nachrichtId: string, emoji: string | null) {
+    if (!meineId) return;
+    await chatReaktionSetzen(supabase, meineId, nachrichtId, emoji);
+    await queryClient.invalidateQueries({ queryKey: qk.chatNachrichten() });
+  }
+
   return {
-    offen, oeffnen, schliessen, inDenChat, bezug, setBezug, senden, ungelesen,
+    offen, oeffnen, schliessen, inDenChat, bezug, setBezug, senden, reagieren, ungelesen,
     nachrichten: nachrichtenQuery.data ?? KEINE_NACHRICHTEN,
     laedt: nachrichtenQuery.isPending,
     fehler: nachrichtenQuery.error ? nachrichtenQuery.error.message : null,

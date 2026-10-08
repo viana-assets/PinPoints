@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **157 exportierte Konstanten** (`export const`) in 42 Dateien unter `lib/` – gezählt am
-08.10.2026 (v129: `CHAT_PARAMETER` in `lib/constants.ts`, sieben in `lib/chat.ts` (neu), siehe „Team-Chat"; v128: `KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`; v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **163 exportierte Konstanten** (`export const`) in 43 Dateien unter `lib/` – gezählt am
+08.10.2026 (v131: vier in `lib/zeiterfassung.ts` (neu), siehe „Zeiterfassung“; v130: `CHAT_REAKTIONEN`, `CHAT_ZITAT_MAX` in `lib/chat.ts`; v129: `CHAT_PARAMETER` in `lib/constants.ts`, sieben in `lib/chat.ts` (neu), siehe „Team-Chat"; v128: `KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`; v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -257,7 +257,20 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `CHAT_ABFRAGE_MS` | `lib/chat.ts` | `number` (20 000) | Rückfall-Takt, falls die Live-Verbindung nicht steht (Verlauf; die Zahl dreimal so lang) | `useChatNachrichten()`, `useChatUngelesen()` (`lib/queries/hooks.ts`) |
 | `CHAT_BEZUG_MAX` | `lib/chat.ts` | `number` (120) | Länge von Kartentitel und Unterzeile | `bezugAuftrag()` & Co. |
 | `CHAT_BEZUG_ANSICHT` | `lib/chat.ts` | `Record<ChatBezugArt, { zeichen, oeffnen, klasse }>` | Wie die Karte aussieht: Zeichen links, Text „… öffnen ›", Farbe (Auftrag orange, Kunde grün, Lager blau) | `ChatFenster` |
+| `CHAT_REAKTIONEN` | `lib/chat.ts` | `readonly ["👍", "👎", "❤️", "😂", "😮", "✅"]` | Die Reaktionen (Migration 81, v130) – dieselbe Liste prüft die Datenbank (`chat_reaktion_bekannt`) | `ChatFenster`, `reaktionenZaehlen()`; `tests/chat.test.ts` |
+| `CHAT_ZITAT_MAX` | `lib/chat.ts` | `number` (90) | Länge des Zitats über einer Antwort | `antwortVorschau()` |
 | `CHAT_VORSCHLAEGE_MAX` | `lib/chat.ts` | `number` (6) | Treffer je Art beim „+“ (Karte anhängen) | `bezugVorschlaege()`; `tests/chat.test.ts` |
+
+---
+
+## Zeiterfassung (Migration 82, v131)
+
+| Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
+|---|---|---|---|---|
+| `ZEIT_PAUSE_REGELN` | `lib/zeiterfassung.ts` | `[{ abMinuten: 540, pauseMinuten: 45 }, { abMinuten: 360, pauseMinuten: 30 }]` | Mindestpause nach § 4 ArbZG – strengere Regel zuerst | `pauseZuKurz()`; `tests/zeiterfassung.test.ts` |
+| `ZEIT_TAG_MAX_MINUTEN` | `lib/zeiterfassung.ts` | `number` (600) | Hinweis „über 10 h“ (§ 3 ArbZG) | `tagAuswerten()` |
+| `ZEIT_STATUS_ABFRAGE_MS` | `lib/zeiterfassung.ts` | `number` (60 000) | So oft fragt die Stempeluhr ihren Stand neu ab | `useZeitStatus()` (`lib/queries/hooks.ts`) |
+| `ZEIT_HINWEIS_TEXT` | `lib/zeiterfassung.ts` | `Record<TagHinweis, string>` | Beschriftung der Marken: Pause zu kurz, über 10 h, offen, korrigiert | `ZeitPanel` |
 
 ---
 

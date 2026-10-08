@@ -4158,3 +4158,152 @@ button.ch-bezug:hover{background:#efe8da;}
 .ch-plus-suche{margin:2px 4px 6px;padding:9px 12px;border:1px solid var(--border);border-radius:10px;font:inherit;font-size:16px;}
 .ch-plus-treffer{border:none;background:transparent;padding:0 4px;cursor:pointer;text-align:left;font:inherit;color:inherit;}
 .ch-plus .small{padding:4px 8px;color:var(--muted);font-size:12px;}
+
+/* Team-Chat: Reaktionen und Antworten (Migration 81, v130). */
+.ch-zeile{display:flex;flex-direction:column;align-items:flex-start;gap:2px;}
+.ch-zeile.eigen{align-items:flex-end;}
+.ch-zeile .ch-nachricht{position:relative;-webkit-touch-callout:none;}
+.ch-nachricht.hervor{box-shadow:0 0 0 3px var(--accent-bg),0 1px 1px rgba(0,0,0,.06);transition:box-shadow .2s;}
+/* Der kleine Knopf neben der Blase: am Rechner beim Darüberfahren, am Handy reicht langes Drücken. */
+.ch-mehr{position:absolute;top:4px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--panel);
+  color:var(--muted);font-size:15px;line-height:1;cursor:pointer;opacity:0;transition:opacity .15s;padding:0;}
+.ch-zeile.fremd .ch-mehr{right:-32px;}
+.ch-zeile.eigen .ch-mehr{left:-32px;}
+.ch-zeile:hover .ch-mehr,.ch-mehr:focus-visible,.ch-mehr.an{opacity:1;}
+.ch-zitat{display:flex;flex-direction:column;align-items:flex-start;width:100%;text-align:left;border:none;border-left:3px solid var(--green);
+  background:rgba(0,0,0,.04);border-radius:6px;padding:4px 8px;margin-bottom:4px;font:inherit;color:inherit;cursor:pointer;}
+.ch-zitat b{font-size:12px;color:var(--green);}
+.ch-zitat span{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.ch-zitat.eingabe{flex-direction:row;align-items:center;gap:8px;cursor:default;margin-bottom:7px;}
+.ch-zitat.eingabe > span{flex:1;min-width:0;display:flex;flex-direction:column;}
+.ch-reaktionen{display:flex;gap:4px;flex-wrap:wrap;margin-top:-6px;padding:0 8px;position:relative;z-index:1;}
+.ch-reaktion{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--border);background:var(--panel);border-radius:12px;
+  padding:1px 7px;font-size:13px;line-height:1.5;cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.08);}
+.ch-reaktion span{font-size:11.5px;font-weight:700;color:var(--muted);}
+.ch-reaktion.ich{border-color:var(--blau);background:var(--blau-bg);}
+.ch-reaktion:disabled{cursor:default;}
+.ch-aktionen{display:flex;flex-direction:column;gap:6px;background:var(--panel);border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.18);
+  padding:6px;margin:2px 0 4px;max-width:100%;}
+.ch-emojis{display:flex;gap:2px;}
+.ch-emoji{width:40px;height:40px;border:none;border-radius:50%;background:transparent;font-size:22px;cursor:pointer;padding:0;}
+.ch-emoji:hover{background:var(--hover);}
+.ch-emoji.ich{background:var(--blau-bg);}
+.ch-aktion-knoepfe{display:flex;gap:6px;}
+.ch-aktion-knoepfe button{flex:1;border:1px solid var(--border);background:var(--bg);border-radius:10px;padding:7px 10px;font:inherit;font-size:13px;
+  font-weight:700;color:var(--text);cursor:pointer;}
+
+/* ===========================================================================
+   Zeiterfassung / Stempeluhr (Migration 82, v131, Entwurf „Stempeluhr“ vom 08.10.2026)
+   =========================================================================== */
+.zt-karte{background:var(--marke);color:#fff;border-radius:16px;padding:14px;margin:0 0 12px;}
+.zt-karte.aus{background:var(--panel);color:var(--text);border:2px dashed var(--border);}
+.zt-kopf{display:flex;justify-content:space-between;gap:8px;font-size:11px;font-weight:800;letter-spacing:.05em;opacity:.85;}
+.zt-karte.aus .zt-kopf{color:var(--muted);opacity:1;}
+.zt-zeit{font:800 40px var(--font-brand);font-variant-numeric:tabular-nums;margin:6px 0 2px;line-height:1.1;}
+.zt-zeit small{font-size:15px;opacity:.7;font-weight:700;}
+.zt-zeit.leer{color:var(--muted);}
+.zt-info{font-size:12.5px;opacity:.85;}
+.zt-karte.aus .zt-info{color:var(--muted);opacity:1;}
+.zt-knoepfe{display:flex;gap:8px;margin-top:12px;}
+.zt-k{flex:1;border-radius:12px;padding:12px 8px;font-size:14.5px;font-weight:800;min-height:46px;}
+.zt-k.gruen{background:var(--green);color:#fff;}
+.zt-k.gelb{background:#ffd27a;color:#4a3000;}
+.zt-k.rot{background:#fff;color:var(--red);}
+.zt-karte.aus .zt-k.rot{border:1px solid var(--border);}
+.zt-k:disabled{opacity:.5;cursor:default;}
+.zt-hinweis{border-radius:10px;padding:8px 10px;font-size:12.5px;line-height:1.4;margin:8px 0 0;}
+.zt-karte .zt-hinweis{background:rgba(255,255,255,.14);color:inherit;}
+.zt-karte.aus .zt-hinweis{background:var(--bg);}
+.zt-hinweis.fehler{background:var(--red-bg) !important;color:#9b2318 !important;}
+.zt-hinweis.warn{background:#fff3d6;color:#7a4c00;}
+.zt-hinweis.info{background:var(--blau-bg);color:#1d5c86;}
+
+/* Die laufende Anzeige */
+.zt-pille{display:inline-flex;align-items:center;gap:6px;background:var(--green);color:#fff;border-radius:16px;padding:5px 11px;
+  font:800 13px var(--font-body);font-variant-numeric:tabular-nums;box-shadow:0 2px 8px rgba(30,155,110,.35);border:none;cursor:pointer;line-height:1.2;}
+.zt-pille i{width:8px;height:8px;border-radius:50%;background:#fff;display:block;animation:zt-puls 1.4s infinite;}
+.zt-pille.pause{background:#C77D12;box-shadow:0 2px 8px rgba(199,125,18,.35);}
+.zt-pille.pause i{animation:none;border-radius:0;width:8px;height:9px;background:none;border-left:3px solid #fff;border-right:3px solid #fff;}
+@keyframes zt-puls{50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){ .zt-pille i{animation:none;} }
+.icon-nav-item .zt-pille{margin-left:auto;padding:1px 7px;font-size:10.5px;box-shadow:none;cursor:inherit;}
+.icon-nav-item .zt-pille i{width:6px;height:6px;}
+.zt-schwebend{display:none;}
+@media (max-width: 700px){
+  /* Am Handy oben rechts auf jeder Seite; am Rechner steht sie neben „Zeiterfassung“ in der Leiste. */
+  .zt-schwebend{display:block;position:fixed;top:calc(10px + env(safe-area-inset-top, 0px));right:12px;z-index:955;}
+  .icon-nav-item .zt-pille{display:none;}
+}
+
+.zt-overlay{z-index:10003;}
+.zt-blatt{gap:8px;}
+.zt-blatt .zt-karte{margin:0;}
+
+/* Bereich */
+.zt-seite{max-width:880px;}
+.zt-seitenkopf{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px;}
+.zt-seitenkopf h2{font-family:var(--font-brand);font-size:22px;margin:0;}
+.zt-segment{margin-bottom:8px;max-width:420px;}
+.zt-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0 8px;font-weight:800;font-size:14px;max-width:420px;}
+.zt-nav button{width:34px;height:34px;border-radius:50%;background:var(--panel);color:var(--muted);font-size:18px;padding:0;border:1px solid var(--border);}
+.zt-summen{display:flex;gap:8px;margin:0 0 8px;}
+.zt-summen > div{flex:1;background:var(--panel);border-radius:12px;padding:8px 11px;min-width:0;}
+.zt-summen b{display:block;font-size:19px;font-variant-numeric:tabular-nums;}
+.zt-summen span{font-size:11.5px;color:var(--muted);font-weight:700;}
+.zt-summe-marken{display:flex;flex-wrap:wrap;gap:4px;align-items:center;}
+.zt-balken{display:flex;align-items:flex-end;gap:7px;height:110px;margin:4px 4px 10px;max-width:520px;}
+.zt-balken > div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:3px;height:100%;font-size:11px;color:var(--muted);font-weight:700;}
+.zt-balken i{display:block;width:100%;background:var(--green);border-radius:6px 6px 2px 2px;}
+.zt-balken .heute i{background:repeating-linear-gradient(45deg,var(--green),var(--green) 5px,#4cbf95 5px,#4cbf95 10px);}
+.zt-balken .heute{color:var(--text);}
+.zt-balken .leer i{background:var(--border);height:3px;}
+.zt-tag{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;background:var(--panel);border-radius:12px;padding:10px 12px;margin:0 0 6px;
+  font:inherit;font-size:13.5px;color:var(--text);border:none;}
+button.zt-tag{cursor:pointer;}
+.zt-tag-kopf{display:flex;justify-content:space-between;gap:8px;font-weight:800;align-items:center;}
+.zt-tag-kopf em{font-style:normal;color:var(--green);font-variant-numeric:tabular-nums;}
+.zt-tag-unter{color:var(--muted);font-size:12.5px;}
+.zt-korrigiert{color:#1d5c86;}
+.zt-marke{display:inline-block;font-size:11px;font-weight:800;border-radius:6px;padding:1px 6px;margin-left:4px;vertical-align:1px;}
+.zt-marke.gelb{background:#fff3d6;color:#7a4c00;}
+.zt-marke.rot{background:var(--red-bg);color:#9b2318;}
+.zt-marke.blau{background:var(--blau-bg);color:#1d5c86;}
+.zt-marke.gruen{background:var(--green-bg);color:#14684a;}
+.zt-link{background:none;border:none;padding:4px 0;color:#b33d0d;font-weight:800;font-size:13px;text-align:left;cursor:pointer;display:block;}
+.zt-link.gefahr{color:#b3261e;}
+.zt-hinweis .zt-link{color:#9b2318;}
+
+/* Tabelle „Alle“ */
+.zt-tabelle{background:var(--panel);border-radius:12px;overflow:hidden;font-size:12.5px;margin-bottom:8px;}
+.zt-r{display:grid;grid-template-columns:minmax(130px,1.8fr) repeat(7,minmax(0,1fr)) minmax(0,1.1fr) minmax(0,1fr);align-items:center;border-bottom:1px solid #f1ece2;}
+.zt-r:last-child{border-bottom:none;}
+.zt-r > *{padding:8px 3px;text-align:center;font-variant-numeric:tabular-nums;min-width:0;}
+.zt-r > :first-child{text-align:left;padding-left:10px;font-weight:700;}
+.zt-r.kopf{background:#faf7f1;font-size:11px;font-weight:800;color:var(--muted);}
+.zt-r.kopf small{display:block;font-weight:600;font-size:10px;}
+.zt-r.kopf .heute{color:var(--accent);}
+.zt-person{display:flex;align-items:center;gap:6px;overflow:hidden;}
+.zt-person > span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.zt-person .ch-av{width:22px;height:22px;font-size:9px;}
+.zt-zelle{background:none;border:none;border-radius:0;font:inherit;font-size:12.5px;color:var(--text);cursor:pointer;height:100%;}
+.zt-zelle:hover{background:var(--hover);}
+.zt-zelle.laeuft{color:var(--green);font-weight:800;}
+.zt-zelle.offen{color:#9b2318;font-weight:800;}
+.zt-zelle.warn{box-shadow:inset 0 -3px 0 #f0b340;}
+.zt-summe{font-weight:800;}
+@media (max-width: 700px){
+  .zt-r{grid-template-columns:minmax(64px,1.5fr) repeat(7,minmax(0,1fr)) minmax(0,1.2fr);}
+  .zt-r > .zt-breit{display:none;}
+  .zt-r > *{padding:8px 1px;font-size:11.5px;}
+  .zt-zelle{font-size:11.5px;}
+  .zt-person .ch-av{display:none;}
+}
+
+/* Korrektur */
+.zt-formular{display:flex;flex-direction:column;gap:8px;}
+.zt-zwei{display:flex;gap:8px;align-items:flex-end;}
+.zt-zwei > label,.zt-zwei > button{flex:1;}
+.zt-zwei > .ch-weg{flex:0 0 auto;}
+.zt-formular label{font-size:11.5px;font-weight:800;color:var(--muted);display:flex;flex-direction:column;gap:3px;}
+.zt-formular input{border:1px solid var(--border);border-radius:10px;padding:9px 11px;font:inherit;font-size:16px;color:var(--text);background:var(--input-bg);}
+.zt-zwei > button{min-height:44px;}

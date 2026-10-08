@@ -62,6 +62,7 @@ beforeEach(() => {
   db = {
     chat_nachrichten: [],
     chat_gelesen: [],
+    chat_reaktionen: [],
     module_permissions: [{ module_key: "chat", read_roles: ["admin", "techniker"] }],
     profiles: [
       { id: "jan", email: "jan@firma.example", role: "techniker" },
@@ -84,7 +85,7 @@ describe("Team-Chat: Push je Nachricht", () => {
     db.chat_nachrichten.push(nachricht("n1", "jan", { bezug_titel: "Auftrag #114 · Räderwechsel" }));
     const supabase = falscheDatenbank(db);
     const erg = await chatNachrichtenVersenden(supabase);
-    expect(erg).toEqual({ nachrichten: 1, gesendet: 2 });
+    expect(erg).toEqual({ nachrichten: 1, gesendet: 2, reaktionen: 0 });
     expect(gesendet.map((g) => g.endpoint).sort()).toEqual(["handy-chef", "handy-super"]);
     const m = gesendet[0].inhalt;
     expect(m.titel).toBe("Jan im Team-Chat");
@@ -133,5 +134,34 @@ describe("Team-Chat: Push je Nachricht", () => {
     expect(gesendet.map((g) => g.endpoint).sort()).toEqual(["handy-mira", "handy-super"]);
     expect(erg.gesendet).toBe(2);
     expect(db.push_geraete.map((g) => g.endpoint)).not.toContain("handy-chef");
+  });
+
+  it("Antwort: der Verfasser der Ursprungsnachricht sieht „… hat dir geantwortet“", async () => {
+    db.chat_nachrichten.push(
+      nachricht("u1", "jan", { text: "Reifen A1 mitnehmen?", created_at: vor(20), push_gesendet_am: vor(20) }),
+      nachricht("a1", "chef", { text: "Ja bitte", antwort_auf: "u1" }),
+    );
+    await chatNachrichtenVersenden(falscheDatenbank(db));
+    expect(gesendet.find((g) => g.endpoint === "handy-jan")!.inhalt.titel).toBe("chef hat dir geantwortet");
+    expect(gesendet.find((g) => g.endpoint === "handy-super")!.inhalt.titel).toBe("chef im Team-Chat");
+  });
+
+  it("Reaktion: nur an den Verfasser, nicht an sich selbst, einmal", async () => {
+    db.chat_nachrichten.push(nachricht("u2", "jan", { text: "Kunde will wuchten", created_at: vor(20), push_gesendet_am: vor(20) }));
+    db.chat_reaktionen.push(
+      { nachricht_id: "u2", profile_id: "chef", emoji: "👍", created_at: vor(0), push_gesendet_am: null },
+      { nachricht_id: "u2", profile_id: "jan", emoji: "✅", created_at: vor(0), push_gesendet_am: null },
+    );
+    const supabase = falscheDatenbank(db);
+    const erg = await chatNachrichtenVersenden(supabase);
+    expect(erg).toEqual({ nachrichten: 0, gesendet: 1, reaktionen: 2 });
+    expect(gesendet).toHaveLength(1);
+    expect(gesendet[0].endpoint).toBe("handy-jan");
+    expect(gesendet[0].inhalt.titel).toBe("chef hat reagiert");
+    expect(gesendet[0].inhalt.text).toBe("👍 zu „Kunde will wuchten“");
+    expect(gesendet[0].inhalt.kennung).toBe("chat-reaktion-u2-chef");
+    gesendet.length = 0;
+    await chatNachrichtenVersenden(supabase);
+    expect(gesendet).toHaveLength(0);
   });
 });

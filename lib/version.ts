@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v129";
+export const APP_VERSION = "v131";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,22 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v131", datum: "2026-10-08", titel: "Stempeluhr",
+    punkte: [
+      "Neu: die Stempeluhr ganz oben im Dashboard – einstempeln, Pause, weiter, ausstempeln. Solange sie läuft, steht oben rechts eine grüne Anzeige mit deiner Arbeitszeit; ein Tipp darauf öffnet die Stempeluhr.",
+      "Unter „Zeiterfassung“ siehst du deinen Tag und deine Woche. Wer das Recht hat, sieht unter „Alle“ die Woche aller Mitarbeiter und kann vergessene Stempelungen mit Grund korrigieren.",
+      "Wer die Stempeluhr nutzt, steht unter Admin › Rechte in der Zeile „Zeiterfassung“. Techniker sind dort noch nicht freigeschaltet.",
+    ],
+  },
+  {
+    version: "v130", datum: "2026-10-08", titel: "Chat: Reaktionen und Antworten",
+    punkte: [
+      "Im Team-Chat kannst du auf eine Nachricht reagieren: am Handy lange auf die Nachricht drücken, am Rechner auf das kleine ☺ daneben. Zur Wahl stehen 👍 👎 ❤️ 😂 😮 ✅.",
+      "Über dieselbe Leiste antwortest du direkt auf eine Nachricht – sie steht dann als Zitat über deiner Antwort. Ein Tipp auf das Zitat springt zur ursprünglichen Nachricht.",
+      "Wer eine Antwort oder Reaktion auf seine Nachricht bekommt, erhält eine Mitteilung aufs Handy.",
+    ],
+  },
   {
     version: "v129", datum: "2026-10-08", titel: "Team-Chat",
     punkte: [

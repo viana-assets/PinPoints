@@ -149,7 +149,9 @@ with pruefungen(nr, was, vorhanden) as (
     ('78', 'Zehn weitere Unterrechte', to_regprocedure('public.lager_handlungen_pruefen()') is not null
                                                   and to_regprocedure('public.kunde_kontakt_pruefen()') is not null),
     ('79', 'Rechnung nötig ohne E-Mail', position('E-Mail-Adresse des Kunden' in pg_get_functiondef('public.pruefe_rechnungsdaten()'::regprocedure)) = 0),
-    ('80', 'Team-Chat', to_regclass('public.chat_nachrichten') is not null and to_regprocedure('public.chat_ungelesen()') is not null)
+    ('80', 'Team-Chat', to_regclass('public.chat_nachrichten') is not null and to_regprocedure('public.chat_ungelesen()') is not null),
+    ('81', 'Chat: Reaktionen und Antworten', to_regclass('public.chat_reaktionen') is not null),
+    ('82', 'Zeiterfassung (Stempeluhr)', to_regclass('public.zeit_schichten') is not null and to_regprocedure('public.zeit_einstempeln()') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

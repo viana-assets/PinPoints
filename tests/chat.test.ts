@@ -3,6 +3,7 @@ import {
   bezugAuftrag, bezugAus, bezugGeloescht, bezugKunde, bezugPlatz, bezugVerkaufsreifen, bezugVorschlaege, chatPushInhalt,
   CHAT_PUSH_TEXT_MAX, erwaehnteIds, erwaehnungEinsetzen, erwaehnungsAnfrage, erwaehnungsVorschlaege, initialen, kuerzen,
   nachTagen, personenFarbe, tagLabel, textTeile, zahlText, type ChatPerson,
+  antwortVorschau, chatReaktionPushInhalt, meineReaktion, reaktionenZaehlen, reaktionNachTipp, CHAT_REAKTIONEN,
 } from "@/lib/chat";
 
 // Die Regeln hinter dem Team-Chat (lib/chat.ts, Migration 80, v129).
@@ -135,5 +136,38 @@ describe("Push-Inhalt", () => {
     expect(p.url).toBe("/?chat=1");
     expect(p.zahl).toBe(3);
     expect(chatPushInhalt({ id: "n1", autorName: "Jan", text: "hi", bezugTitel: null, erwaehnt: true, zahl: 1 }).titel).toBe("Jan hat dich erwähnt");
+  });
+});
+
+describe("Reaktionen und Antworten (Migration 81)", () => {
+  const name = (id: string) => ({ a: "Jan", b: "Vitali", c: "Mira" } as Record<string, string>)[id] ?? "?";
+  it("zählt je Emoji in fester Reihenfolge, mit mir und Namen", () => {
+    const r = [{ profile_id: "a", emoji: "✅" }, { profile_id: "b", emoji: "👍" }, { profile_id: "c", emoji: "👍" }];
+    expect(reaktionenZaehlen(r, "b", name)).toEqual([
+      { emoji: "👍", anzahl: 2, ich: true, namen: ["Vitali", "Mira"] },
+      { emoji: "✅", anzahl: 1, ich: false, namen: ["Jan"] },
+    ]);
+    expect(reaktionenZaehlen(undefined, null, name)).toEqual([]);
+    expect(meineReaktion(r, "a")).toBe("✅");
+    expect(meineReaktion(r, "x")).toBeNull();
+  });
+  it("dasselbe Emoji nimmt zurück, ein anderes ersetzt", () => {
+    expect(reaktionNachTipp("👍", "👍")).toBeNull();
+    expect(reaktionNachTipp("👍", "👎")).toBe("👎");
+    expect(reaktionNachTipp(null, "❤️")).toBe("❤️");
+  });
+  it("die Liste ist die der Datenbank (Migration 81, chat_reaktion_bekannt)", () => {
+    expect([...CHAT_REAKTIONEN]).toEqual(["👍", "👎", "❤️", "😂", "😮", "✅"]);
+  });
+  it("Zitat: wer und Anfang des Textes; fehlt die Nachricht, „frühere Nachricht“", () => {
+    expect(antwortVorschau({ autor: "a", text: "x".repeat(200), bezug_titel: null }, name)).toEqual({ wer: "Jan", text: "x".repeat(89) + "…" });
+    expect(antwortVorschau({ autor: "a", text: "", bezug_titel: "Auftrag #1" }, name).text).toBe("Auftrag #1");
+    expect(antwortVorschau(undefined, name)).toEqual({ wer: "", text: "frühere Nachricht" });
+  });
+  it("Push: „hat dir geantwortet“ und „hat reagiert“", () => {
+    expect(chatPushInhalt({ id: "n", autorName: "Jan", text: "ok", bezugTitel: null, erwaehnt: false, geantwortet: true, zahl: 1 }).titel).toBe("Jan hat dir geantwortet");
+    expect(chatPushInhalt({ id: "n", autorName: "Jan", text: "ok", bezugTitel: null, erwaehnt: true, geantwortet: true, zahl: 1 }).titel).toBe("Jan hat dich erwähnt");
+    const r = chatReaktionPushInhalt({ nachrichtId: "n1", vonId: "a", vonName: "Jan", emoji: "👍", text: "Bitte mitnehmen", zahl: 0 });
+    expect(r).toMatchObject({ titel: "Jan hat reagiert", text: "👍 zu „Bitte mitnehmen“", url: "/?chat=1", kennung: "chat-reaktion-n1-a", zahl: 0 });
   });
 });

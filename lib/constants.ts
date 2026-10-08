@@ -256,6 +256,13 @@ export const RECHTE_KATALOG: RechtBereich[] = [
   { schluessel: "chat", klartext: { lesen: "den Team-Chat lesen und dort genannt werden", schreiben: "im Team-Chat schreiben und Aufträge, Kunden oder Lagerplätze hineinstellen" }, label: "Team-Chat", verben: ["lesen", "schreiben"],
     erklaerung: "Ein gemeinsamer Chat für alle mit diesem Recht (Migration 80). Wer „Lesen“ hat, bekommt bei jeder neuen Nachricht eine Push-Meldung und erscheint in der @-Liste. Eine Karte im Chat öffnet den Auftrag oder Kunden nur, wenn man ihn ohnehin sehen darf. Nachrichten werden nach 12 Monaten gelöscht.",
     warumNicht: "Nachrichten werden nicht von Hand gelöscht, sondern nach 12 Monaten automatisch." },
+  { schluessel: "zeiterfassung", klartext: { lesen: "die eigenen Arbeitszeiten sehen (Stempeluhr und Bereich „Zeiterfassung“ erscheinen)", schreiben: "ein- und ausstempeln, Pause machen" }, label: "Zeiterfassung", verben: ["lesen", "schreiben"],
+    erklaerung: "Die Stempeluhr (Migration 82): einstempeln, Pause, ausstempeln; im Bereich „Zeiterfassung“ Tag und Woche der eigenen Zeiten. Ohne „Lesen“ ist von der Stempeluhr nichts zu sehen – so sind die Techniker ab Werk eingestellt, bis es für sie losgeht. Ändern kann man die eigenen Zeiten nicht; das geht nur über die Zeile darunter.",
+    warumNicht: "Gelöscht wird nur über „Zeiten aller korrigieren“ – und automatisch nach 2 Jahren." },
+  { schluessel: "zeiterfassung.alle", label: "– Zeiten aller", unter: true, verben: ["lesen", "schreiben"],
+    klartext: { lesen: "die Arbeitszeiten aller Mitarbeiter sehen", schreiben: "Zeiten aller korrigieren, nachtragen und löschen (immer mit Grund)" },
+    erklaerung: "Die Wochentabelle aller Mitarbeiter und deren Tage (Migration 82). „Schreiben“: vergessene Stempelungen beenden, Schichten nachtragen, ändern oder löschen – jeweils mit Pflicht-Grund; Vorher und Nachher werden festgehalten, die Person sieht den Vermerk „korrigiert“.",
+    warumNicht: "Löschen gehört hier zu „Schreiben“: Auch das Löschen einer Schicht ist eine Korrektur mit Grund." },
   { schluessel: "einstellungen", klartext: { lesen: "die eigenen Einstellungen öffnen", schreiben: "die eigenen Einstellungen ändern" }, label: "Einstellungen", verben: ["lesen", "schreiben"],
     erklaerung: "Anzeige, Wiedervorlage-Zeitraum, App. Jeder ändert ausschließlich seine eigenen.",
     warumNicht: "Jeder hat genau einen Satz Einstellungen; zu löschen gibt es dort nichts." },
@@ -314,6 +321,9 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
   "rechnungen.storno":    { schreiben: ["admin"] },
   auswertung:             { lesen: ["admin"] },
   chat:                   { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
+  // Techniker bewusst aus (Wunsch Vitali 08.10.2026): Sie bekommen die Haken, wenn es für sie losgeht.
+  zeiterfassung:          { lesen: ["admin", "user"], schreiben: ["admin", "user"] },
+  "zeiterfassung.alle":   { lesen: ["admin"], schreiben: ["admin"] },
   einstellungen:          { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
 };
 

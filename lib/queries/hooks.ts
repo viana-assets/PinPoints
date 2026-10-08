@@ -10,6 +10,8 @@ import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVerfuegbarkeiten } from "@/lib/api/verfuegbarkeit";
 import { fetchChatNachrichten, fetchChatPersonen, fetchChatUngelesen } from "@/lib/api/chat";
 import { CHAT_ABFRAGE_MS } from "@/lib/chat";
+import { fetchZeitOffene, fetchZeitPersonen, fetchZeitSchichten, fetchZeitStatus } from "@/lib/api/zeiterfassung";
+import { wocheVonBis, ZEIT_STATUS_ABFRAGE_MS } from "@/lib/zeiterfassung";
 import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 import { fetchVehiclesFuerKunden } from "@/lib/api/vehicles";
 import type { Order } from "@/lib/types";
@@ -386,4 +388,33 @@ export function useChatPersonen(supabase: SupabaseClient, aktiv: boolean) {
     enabled: aktiv,
     staleTime: 10 * FRISCH_MS,
   });
+}
+
+// Zeiterfassung (Migration 82, v131). Der eigene Stand der Stempeluhr wird im Minutentakt
+// nachgefragt (ein zweites Gerät könnte gestempelt haben); die Sekunden zählt das Gerät selbst.
+export function useZeitStatus(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.zeitStatus(),
+    queryFn: () => fetchZeitStatus(supabase),
+    enabled: aktiv,
+    refetchInterval: aktiv ? ZEIT_STATUS_ABFRAGE_MS : false,
+  });
+}
+
+// Die Schichten einer Woche (Montag JJJJ-MM-TT) – die eigenen oder, mit „Zeiten aller“, alle.
+export function useZeitSchichten(supabase: SupabaseClient, montag: string, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.zeitSchichten(montag),
+    queryFn: () => { const { von, bis } = wocheVonBis(montag); return fetchZeitSchichten(supabase, von, bis); },
+    enabled: aktiv,
+    staleTime: FRISCH_MS,
+  });
+}
+
+export function useZeitOffene(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.zeitOffene(), queryFn: () => fetchZeitOffene(supabase), enabled: aktiv, staleTime: FRISCH_MS });
+}
+
+export function useZeitPersonen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.zeitPersonen(), queryFn: () => fetchZeitPersonen(supabase), enabled: aktiv, staleTime: 10 * FRISCH_MS });
 }
