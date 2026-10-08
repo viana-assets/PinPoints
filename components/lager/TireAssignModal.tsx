@@ -5,6 +5,7 @@ import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { profilText } from "@/lib/helpers";
 import { platzZuKlein } from "@/lib/lagerAnsicht";
 import { CustomerPicker } from "@/components/CustomerPicker";
+import { Blatt } from "@/components/Blatt";
 import { ErfassungsWahl, RadBild, SatzProfil } from "./RadBild";
 import { ReifenNotizenFelder } from "./ReifenNotizen";
 import { notizAenderungen, type SatzNotizFeld, type SatzNotizen } from "@/lib/lagerNotizen";
@@ -115,102 +116,102 @@ export function TireAssignModal({ slot, customers, vehicles, assignment, gruende
     }
   }
 
-  return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box" style={{ position: "relative" }}>
-        <button className="modal-close" onClick={onClose}>✕</button>
-        <h2>{assignment ? `Lagerplatz ${slot.code} bearbeiten` : `Reifen auf ${slot.code} einlagern`}</h2>
-        {gruende.length > 0 && (
-          <div className="handlung-hinweis">
-            <b>Hier ist etwas zu tun:</b>
-            <ul>
-              {gruende.map((g) => <li key={g}>{g}</li>)}
-            </ul>
-          </div>
-        )}
-        <CustomerPicker customers={customers} value={customerId} onChange={(id) => { setCustomerId(id); setVehicleId(""); }} />
+  const fahrzeugText = (v: Vehicle) => [v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen";
+  const zuKlein = platzZuKlein(slot, kundenFahrzeuge.find((v) => v.id === vehicleId)?.tire_size);
 
-        <div className="field">
-          <label>Fahrzeug</label>
+  // Seit v134 ein Blatt (components/Blatt.tsx): Felder in grauen Gruppen wie im Artikelblatt,
+  // Saison als Umschalter, der Knopf bleibt unten stehen – das Formular ist länger als ein
+  // Handybildschirm, und vorher musste man zum Speichern erst ans Ende rollen.
+  return (
+    <Blatt titel={assignment ? `Lagerplatz ${slot.code} bearbeiten` : `Reifen auf ${slot.code} einlagern`}
+      breite="mittel" className="ta-blatt" onClose={onClose}
+      fuss={
+        <button type="button" className="btn-primary" disabled={!customerId || saving} onClick={() => void save()}>
+          {!assignment ? (einzeln ? "Reifen einlagern und Räder messen" : "Reifen einlagern") : eben ? "Fertig" : "Zuordnung speichern"}
+        </button>
+      }>
+      {gruende.length > 0 && (
+        <div className="handlung-hinweis">
+          <b>Hier ist etwas zu tun:</b>
+          <ul>
+            {gruende.map((g) => <li key={g}>{g}</li>)}
+          </ul>
+        </div>
+      )}
+      <CustomerPicker customers={customers} value={customerId} onChange={(id) => { setCustomerId(id); setVehicleId(""); }} />
+
+      <div className="ar-karte-feld">
+        <label className="nk-feld">
+          <span>Fahrzeug</span>
           {!customerId ? (
-            <div className="small">Zuerst den Kunden wählen.</div>
+            <span className="bl-hilfe">Zuerst den Kunden wählen.</span>
           ) : kundenFahrzeuge.length === 0 ? (
-            <div className="small">
+            <span className="bl-hilfe">
               Für diesen Kunden ist kein Fahrzeug hinterlegt – im Kundenfenster unter
               &bdquo;Fahrzeuge&ldquo; anlegen.
-            </div>
+            </span>
           ) : (
             <select value={vehicleId} onChange={(e) => setVehicleId(e.target.value)}>
               <option value="">– Fahrzeug wählen –</option>
-              {kundenFahrzeuge.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {[v.license_plate, v.make_model].filter(Boolean).join(" · ") || "Fahrzeug ohne Kennzeichen"}
-                </option>
-              ))}
+              {kundenFahrzeuge.map((v) => <option key={v.id} value={v.id}>{fahrzeugText(v)}</option>)}
             </select>
           )}
-          {/* E12: großer Reifen, normales Fach – ein Hinweis, keine Sperre. */}
-          {(() => {
-            const zuKlein = platzZuKlein(slot, kundenFahrzeuge.find((v) => v.id === vehicleId)?.tire_size);
-            return zuKlein ? <div className="small einlagerung-pflicht" style={{ marginTop: 4 }}>{zuKlein}</div> : null;
-          })()}
-        </div>
+        </label>
+        {/* E12: großer Reifen, normales Fach – ein Hinweis, keine Sperre. */}
+        {zuKlein && <div className="small einlagerung-pflicht">{zuKlein}</div>}
 
-        <div className="field">
-          <label>Saison</label>
-          <div className="filterbar" style={{ marginTop: 2 }}>
+        <div className="nk-feld">
+          <span>Saison</span>
+          {/* Ein zweiter Tipp auf die gewählte Saison nimmt sie wieder weg – „ohne Saison“ ist erlaubt. */}
+          <div className="lg-lagerwahl ar-segment" role="group" aria-label="Saison">
             {SAISON_LISTE.map((wert) => (
-              <button
-                key={wert}
-                type="button"
-                className={"chip" + (saison === wert ? " active" : "")}
-                onClick={() => setSaison(saison === wert ? "" : wert)}
-              >
+              <button key={wert} type="button" className={saison === wert ? "aktiv" : ""} aria-pressed={saison === wert}
+                onClick={() => setSaison(saison === wert ? "" : wert)}>
                 {SAISON_LABEL[wert]}
               </button>
             ))}
           </div>
         </div>
 
-        <div className="field">
-          <label>DOT-Datum</label>
+        <label className="nk-feld">
+          <span>DOT-Datum</span>
           <input type="text" placeholder="z. B. 2523 (KW 25 / 2023)" value={dotDate} onChange={(e) => setDotDate(e.target.value)} />
-        </div>
+        </label>
+      </div>
 
-        {/* Zwei verschiedene Aussagen, nie gleichzeitig (Migration 33): „der Satz hat etwa
-            4 mm" oder vier einzelne Werte. Dieselbe Wahl wie im Auftragsfenster. */}
-        <div className="field">
-          <label>Profiltiefe</label>
-          <ErfassungsWahl einzeln={einzeln} gesperrt={saving} onWahl={artWaehlen} />
-          {!einzeln && (
-            <div style={{ marginTop: 8 }}>
-              {/* Ohne `onSpeichern`: Hier speichert erst der Knopf unten das ganze Formular. */}
-              <SatzProfil
-                wert={profiltiefe === "" ? null : Number(profiltiefe)}
-                onWert={(mm) => setProfiltiefe(mm == null ? "" : String(mm))}
-              />
-              {assignment && artGespeichert === "einzeln" && gemesseneRaeder.length > 0 && (
-                <div className="small" style={{ marginTop: 6 }}>
-                  Noch gilt die Messung je Rad. Erst mit &bdquo;Zuordnung speichern&ldquo; wird auf
-                  einen Wert umgestellt – die {gemesseneRaeder.length} gemessenen Räder werden dann gelöscht.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+      {/* Zwei verschiedene Aussagen, nie gleichzeitig (Migration 33): „der Satz hat etwa
+          4 mm" oder vier einzelne Werte. Dieselbe Wahl wie im Auftragsfenster. */}
+      <div className="ar-karte-feld">
+        <div className="bl-gruppe-titel ta-titel">PROFILTIEFE</div>
+        <ErfassungsWahl einzeln={einzeln} gesperrt={saving} onWahl={artWaehlen} />
+        {!einzeln && (
+          <>
+            {/* Ohne `onSpeichern`: Hier speichert erst der Knopf unten das ganze Formular. */}
+            <SatzProfil
+              wert={profiltiefe === "" ? null : Number(profiltiefe)}
+              onWert={(mm) => setProfiltiefe(mm == null ? "" : String(mm))}
+            />
+            {assignment && artGespeichert === "einzeln" && gemesseneRaeder.length > 0 && (
+              <div className="bl-hilfe">
+                Noch gilt die Messung je Rad. Erst mit &bdquo;Zuordnung speichern&ldquo; wird auf
+                einen Wert umgestellt – die {gemesseneRaeder.length} gemessenen Räder werden dann gelöscht.
+              </div>
+            )}
+          </>
+        )}
 
         {einzeln && !assignment && (
-          <div className="small" style={{ marginTop: -4, marginBottom: 8 }}>
+          <div className="bl-hilfe">
             Nach &bdquo;Reifen einlagern&ldquo; erscheinen hier die vier Räder zum Antippen und Messen.
           </div>
         )}
         {einzeln && assignment && (
-          <div className="field">
-            {eben && <div className="small" style={{ marginBottom: 6 }}>Eingelagert. Jetzt jedes Rad antippen und die Profiltiefe eintragen.</div>}
+          <>
+            {eben && <div className="bl-hilfe">Eingelagert. Jetzt jedes Rad antippen und die Profiltiefe eintragen.</div>}
             {/* Der bisherige Satzwert bleibt sichtbar, solange noch kein Rad gemessen ist – und
                 bleibt gespeichert, wenn jetzt ✕ getippt wird. */}
             {artGespeichert === "sammel" && assignment.profiltiefe_mm != null && (
-              <div className="small" style={{ marginBottom: 6 }}>
+              <div className="bl-hilfe">
                 Bisher ein Wert für den Satz: <b>{profilText(assignment.profiltiefe_mm)}</b>. Er bleibt, bis du
                 das erste Rad misst oder &bdquo;Zuordnung speichern&ldquo; tippst.
               </div>
@@ -222,28 +223,26 @@ export function TireAssignModal({ slot, customers, vehicles, assignment, gruende
               onSpeichern={radSpeichern}
               onEntfernen={onRadEntfernen}
             />
-            <label style={{ marginTop: 8 }}>Räder in diesem Satz</label>
-            {/* Nicht immer vier: „zwei weggeworfen, zwei eingelagert" ist ein realer Fall. */}
-            <input
-              type="number" min={1} max={8} step={1} style={{ maxWidth: 120 }}
-              defaultValue={assignment.anzahl_raeder ?? 4}
-              disabled={saving}
-              onBlur={(e) => {
-                const zahl = Math.round(parseFloat(e.target.value));
-                if (!isNaN(zahl) && zahl >= 1 && zahl <= 8 && zahl !== assignment.anzahl_raeder) void onAnzahlRaeder(assignment.id, zahl);
-                else e.target.value = String(assignment.anzahl_raeder ?? 4);
-              }}
-            />
-          </div>
+            <label className="nk-feld ta-anzahl">
+              <span>Räder in diesem Satz</span>
+              {/* Nicht immer vier: „zwei weggeworfen, zwei eingelagert" ist ein realer Fall. */}
+              <input
+                type="number" min={1} max={8} step={1}
+                defaultValue={assignment.anzahl_raeder ?? 4}
+                disabled={saving}
+                onBlur={(e) => {
+                  const zahl = Math.round(parseFloat(e.target.value));
+                  if (!isNaN(zahl) && zahl >= 1 && zahl <= 8 && zahl !== assignment.anzahl_raeder) void onAnzahlRaeder(assignment.id, zahl);
+                  else e.target.value = String(assignment.anzahl_raeder ?? 4);
+                }}
+              />
+            </label>
+          </>
         )}
-        <div className="field">
-          <ReifenNotizenFelder werte={notizen} anzahlRaeder={assignment?.anzahl_raeder ?? 4} gesperrt={saving}
-            onAendern={(feld: SatzNotizFeld, wert: string) => setNotizen((n) => ({ ...n, [feld]: wert }))} />
-        </div>
-        <button className="btn-primary btn-block" disabled={!customerId || saving} onClick={() => void save()}>
-          {!assignment ? (einzeln ? "Reifen einlagern und Räder messen" : "Reifen einlagern") : eben ? "Fertig" : "Zuordnung speichern"}
-        </button>
       </div>
-    </div>
+
+      <ReifenNotizenFelder werte={notizen} anzahlRaeder={assignment?.anzahl_raeder ?? 4} gesperrt={saving}
+        onAendern={(feld: SatzNotizFeld, wert: string) => setNotizen((n) => ({ ...n, [feld]: wert }))} />
+    </Blatt>
   );
 }

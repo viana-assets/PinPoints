@@ -106,7 +106,8 @@ viana-pinpoints/
     icons.tsx                  Alle Icon-Komponenten (IconDashboard, IconKunden, …)
     NavItem.tsx                  Ein Eintrag in #iconNav
     EmployeeCheckboxList.tsx      Mitarbeiter-Mehrfachauswahl als Chips
-    CustomerPicker.tsx            Wiederverwendbare Kundensuche (Lager & Aufträge)
+    Blatt.tsx                     Das gemeinsame Fenster: Kopf, ✕, Fußzeile; am Handy Blatt von unten (v134)
+    CustomerPicker.tsx            Wiederverwendbare Kundensuche (Lager & Aufträge), Suchfeld + Trefferzeilen (v134)
     AdressFeld.tsx                 Adressfeld mit Vorschlägen + Genauigkeits-Kennzeichnung
                                    (`geo_genauigkeit`, Migration 35)
     OfflineHinweis.tsx              Randbalken „Offline – angezeigt wird der Stand von …"

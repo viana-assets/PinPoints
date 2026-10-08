@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Customer } from "@/lib/types";
 import { CustomerPicker } from "@/components/CustomerPicker";
+import { Blatt } from "@/components/Blatt";
 
 // Kundenauswahl vor dem Anlegen eines Auftrags – aus dem Aufträge-Tab heraus.
 //
@@ -40,25 +41,21 @@ export function OrderModal({ customers, onClose, onWeiter, terminText, onNeuerKu
   }
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box" style={{ position: "relative", maxWidth: 460 }}>
-        <button className="modal-close" onClick={onClose}>✕</button>
-        <h2>Neuer Auftrag</h2>
-        {terminText && <div className="termin-vorgabe">{terminText}</div>}
-        <p className="small" style={{ marginTop: 0 }}>
-          Für welchen Kunden? Danach öffnet sich das Auftragsfenster mit
-          {terminText ? " Fahrzeug, Mitarbeitern und Leistungen" : " Termin, Fahrzeug, Mitarbeitern und Leistungen"}.
-        </p>
-        <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />
-        <button className="btn-primary btn-block" style={{ marginTop: 10 }} disabled={!customerId || laeuft} onClick={weiter}>
+    <Blatt titel="Neuer Auftrag" onClose={onClose}
+      fuss={<>
+        {onNeuerKunde && (
+          <button type="button" className="btn-secondary" disabled={laeuft} onClick={onNeuerKunde}>Kunde ist noch nicht angelegt</button>
+        )}
+        <button type="button" className="btn-primary" disabled={!customerId || laeuft} onClick={weiter}>
           {laeuft ? "Wird angelegt …" : "Weiter zum Auftrag"}
         </button>
-        {onNeuerKunde && (
-          <button className="btn-secondary btn-rand btn-block" style={{ marginTop: 8 }} disabled={laeuft} onClick={onNeuerKunde}>
-            Kunde ist noch nicht angelegt
-          </button>
-        )}
-      </div>
-    </div>
+      </>}>
+      {terminText && <div className="termin-vorgabe">{terminText}</div>}
+      <p className="bl-hilfe">
+        Für welchen Kunden? Danach öffnet sich das Auftragsfenster mit
+        {terminText ? " Fahrzeug, Mitarbeitern und Leistungen" : " Termin, Fahrzeug, Mitarbeitern und Leistungen"}.
+      </p>
+      <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} />
+    </Blatt>
   );
 }

@@ -1,5 +1,6 @@
 import type { Customer } from "@/lib/types";
 import { getPhoneNumbers, telHref } from "@/lib/helpers";
+import { Blatt } from "@/components/Blatt";
 
 // Das Fenster, das nach dem Antippen der Meldung „Anrufen: ‹Kunde›" aufgeht (Weg 3 in
 // docs/auftraege.md: am Rechner klicken, auf dem Handy telefonieren).
@@ -19,28 +20,20 @@ export function AnrufFenster({ kunde, onClose, onKundeOeffnen }: {
 }) {
   const nummern = getPhoneNumbers(kunde);
 
+  // Seit v134 ein Blatt (components/Blatt.tsx): am Handy von unten, wo der Daumen ist.
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box anruf-fenster" style={{ position: "relative", maxWidth: 380 }}>
-        <button className="modal-close" onClick={onClose} aria-label="Schließen">✕</button>
-        <h2 style={{ marginBottom: 2 }}>{kunde.name}</h2>
-        {kunde.address && <p className="small" style={{ marginTop: 0 }}>{kunde.address}</p>}
-
-        {nummern.length === 0 ? (
-          <div className="empty">Für diesen Kunden ist keine Rufnummer hinterlegt.</div>
-        ) : (
-          nummern.map((n) => (
-            <a key={n.label} className="btn-primary btn-block anruf-knopf" href={"tel:" + telHref(n.number)}>
-              <span className="ak-label">{n.label}</span>
-              <span className="ak-nummer">{n.number}</span>
-            </a>
-          ))
-        )}
-
-        <button className="btn-secondary btn-rand btn-block" style={{ marginTop: 10 }} onClick={onKundeOeffnen}>
-          Kundenakte öffnen
-        </button>
-      </div>
-    </div>
+    <Blatt titel={kunde.name} unter={kunde.address || undefined} className="anruf-fenster" onClose={onClose}
+      fuss={<button type="button" className="btn-secondary" onClick={onKundeOeffnen}>Kundenakte öffnen</button>}>
+      {nummern.length === 0 ? (
+        <div className="empty">Für diesen Kunden ist keine Rufnummer hinterlegt.</div>
+      ) : (
+        nummern.map((n) => (
+          <a key={n.label} className="btn-primary anruf-knopf" href={"tel:" + telHref(n.number)}>
+            <span className="ak-label">{n.label}</span>
+            <span className="ak-nummer">{n.number}</span>
+          </a>
+        ))
+      )}
+    </Blatt>
   );
 }

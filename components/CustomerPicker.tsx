@@ -1,59 +1,51 @@
 import { useState } from "react";
 import type { Customer } from "@/lib/types";
+import { SuchFeld } from "@/components/SuchFeld";
 
 // Wiederverwendbare Kundenauswahl (Suche + Liste), für Lager- und Aufträge-Modul.
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
+//
+// Seit v134 (Runde 2 der Designprüfung) im Stil der Listen: das Suchfeld der Kundenliste
+// (`SuchFeld`), die Treffer als Zeilen zum Antippen, der gewählte Kunde als graue Karte mit
+// „Ändern“. Vorher ein schmales Eingabefeld mit aufklappender Liste und Stil am Element.
 export function CustomerPicker({ customers, value, onChange, placeholder }: {
   customers: Customer[]; value: string; onChange: (customerId: string) => void; placeholder?: string;
 }) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const selected = customers.find((c) => c.id === value) || null;
-  const matches = query.trim()
-    ? customers.filter((c) => c.name.toLowerCase().includes(query.toLowerCase()) || c.address.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-    : customers.slice(0, 8);
+  const q = query.trim().toLowerCase();
+  const matches = q
+    ? customers.filter((c) => c.name.toLowerCase().includes(q) || c.address.toLowerCase().includes(q)).slice(0, 8)
+    : [];
 
   if (selected && !open) {
     return (
-      <div className="field">
-        <label>Kunde</label>
-        <div className="row" style={{ alignItems: "center" }}>
-          <div style={{ flex: 1, padding: "8px 10px", border: "1px solid var(--border)", borderRadius: 10, background: "var(--input-bg)", fontSize: 13 }}>
-            {selected.name} <span className="small">– {selected.address}</span>
-          </div>
-          <button type="button" className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }} onClick={() => { setOpen(true); setQuery(""); }}>Ändern</button>
+      <div className="kp-feld">
+        <span className="kp-label">Kunde</span>
+        <div className="kp-gewaehlt">
+          <span className="kp-text"><b>{selected.name}</b>{selected.address && <span>{selected.address}</span>}</span>
+          <button type="button" className="kp-aendern" onClick={() => { setOpen(true); setQuery(""); }}>Ändern</button>
         </div>
       </div>
     );
   }
   return (
-    <div className="field" style={{ position: "relative" }}>
-      <label>Kunde</label>
-      <input
-        type="text"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-        onFocus={() => setOpen(true)}
-        placeholder={placeholder || "Kunde suchen…"}
-      />
-      {open && (
-        <div style={{ border: "1px solid var(--border)", borderRadius: 10, marginTop: 4, maxHeight: 180, overflowY: "auto", background: "var(--panel)" }}>
-          {matches.length === 0 && <div className="small" style={{ padding: 8 }}>Keine Treffer</div>}
-          {matches.map((c) => (
-            <div
-              key={c.id}
-              className="cust-item"
-              style={{ borderRadius: 0, boxShadow: "none", border: "none", borderBottom: "1px solid var(--border)" }}
-              onClick={() => { onChange(c.id); setOpen(false); setQuery(""); }}
-            >
-              <div className="info">
-                <div className="name">{c.name}</div>
-                <div className="addr">{c.address}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+    <div className="kp-feld">
+      <span className="kp-label">Kunde</span>
+      <SuchFeld value={query} onWert={setQuery} placeholder={placeholder || "Kunde suchen …"} ariaLabel="Kunde suchen" />
+      {/* Erst mit Suchtext eine Liste – acht beliebige Kunden helfen niemandem. */}
+      {q && <div className="kp-liste" role="listbox" aria-label="Treffer">
+        {matches.length === 0 && <div className="kp-leer">Keine Treffer</div>}
+        {matches.map((c) => (
+          <button key={c.id} type="button" role="option" aria-selected={c.id === value} className={"kp-treffer" + (c.id === value ? " aktiv" : "")}
+            onClick={() => { onChange(c.id); setOpen(false); setQuery(""); }}>
+            <b>{c.name}</b>
+            {c.address && <span>{c.address}</span>}
+          </button>
+        ))}
+      </div>}
+      {selected && <button type="button" className="kp-aendern kp-zurueck" onClick={() => setOpen(false)}>Bei {selected.name} bleiben</button>}
     </div>
   );
 }

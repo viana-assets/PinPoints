@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v133";
+export const APP_VERSION = "v134";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v134", datum: "2026-10-08", titel: "Fenster im neuen Stil",
+    punkte: [
+      "Neuer Auftrag, Einlagern, Auslagern, Anrufen, Mitnehmen, der Scanner und „Noch nicht übertragen“ sehen jetzt aus wie die übrigen Fenster: größerer Titel, rundes ✕, Felder in grauen Gruppen.",
+      "Der Knopf zum Speichern bleibt unten stehen – auch beim langen Einlagern-Fenster muss man nicht mehr ans Ende scrollen.",
+      "Am Handy kommen diese Fenster von unten herein statt den ganzen Bildschirm zu füllen.",
+      "Bei der Kundenauswahl erscheinen die Treffer, sobald du tippst; der gewählte Kunde steht als Karte mit „Ändern“ da.",
+    ],
+  },
   {
     version: "v133", datum: "2026-10-08", titel: "Mehr Platz am Rechner",
     punkte: [

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Blatt } from "@/components/Blatt";
 
 // Kamera-Scanner für die QR-Aufkleber am Regal.
 //
@@ -135,23 +136,19 @@ export function QrScanner({ titel = "Code scannen", onErkannt, onClose }: {
   }, []);
 
   return (
-    <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="modal-box scanner-box" style={{ position: "relative" }}>
-        <button className="modal-close" onClick={onClose}>✕</button>
-        <h2>{titel}</h2>
-        {fehler ? (
-          <div className="fehler-hinweis" style={{ position: "static", marginBottom: 10 }}>{fehler}</div>
-        ) : (
-          <>
-            <div className="scanner-bild">
-              <video ref={videoRef} muted playsInline />
-              <div className="scanner-rahmen" />
-            </div>
-            <div className="small" style={{ textAlign: "center", marginTop: 8 }}>{hinweis}</div>
-          </>
-        )}
-        <button className="btn-secondary btn-rand btn-block" style={{ marginTop: 10 }} onClick={onClose}>Abbrechen</button>
-      </div>
-    </div>
+    <Blatt titel={titel} className="scanner-box" onClose={onClose}
+      fuss={<button type="button" className="btn-secondary" onClick={onClose}>Abbrechen</button>}>
+      {fehler ? (
+        <div className="fehler-hinweis scanner-fehler">{fehler}</div>
+      ) : (
+        <>
+          <div className="scanner-bild">
+            <video ref={videoRef} muted playsInline />
+            <div className="scanner-rahmen" />
+          </div>
+          <div className="scanner-hinweis">{hinweis}</div>
+        </>
+      )}
+    </Blatt>
   );
 }

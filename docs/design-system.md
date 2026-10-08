@@ -149,6 +149,34 @@ anklickbar ist, sieht man ihr sonst nicht an. Bedienelemente **innerhalb** solch
 Mitarbeiter-Popover, Notizfeld, Löschen, Navigation, Kundenname – müssen `stopPropagation()`
 aufrufen, sonst öffnet jeder Klick darauf zusätzlich das Auftragsfenster.
 
+## Fenster: eines für alle (08.10.2026, v134)
+
+Runde 2 der Designprüfung. Neun Fenster hatten bis v133 noch den alten Rahmen `.modal-box`: Titel
+16 px, ✕ frei oben rechts, am Handy bildschirmfüllend, Knöpfe in drei Größen, Abstände per
+`style={{…}}`. Seitdem gibt es dafür **eine Komponente**, `components/Blatt.tsx`:
+
+| Teil | Aussehen |
+|---|---|
+| Rahmen | `.auswahl-blatt.bl-blatt` – wie die Filter- und Artikelblätter, Breite `schmal` 440 / `mittel` 540 / `breit` 640 |
+| Kopf | `.bl-kopf`: Titel `.ab-titel` (h2, 18 px), darunter optional `.bl-unter`; rundes ✕ 36 px |
+| Inhalt | Felder als `.nk-feld` (44 px hoch, Radius 12), zusammengehörige in grauen Gruppen `.ar-karte-feld`, Gruppenkopf `.bl-gruppe-titel`, Hilfetext `.bl-hilfe`, Umschalter `.lg-lagerwahl` |
+| Fuß | `.bl-fuss`: Knöpfe 46 px, bleibt beim Scrollen unten stehen; ein Zweitknopf neben dem Hauptknopf nur so breit wie nötig |
+| Handy | Blatt von unten mit Griff, höchstens 92 % hoch – nicht mehr bildschirmfüllend |
+| Ebene | `ebene="modal-auslagern"` u. ä. setzt die Klasse am Hintergrund (Leiter siehe unten); ohne Angabe 10000 wie bisher |
+
+Umgestellt: Neuer Auftrag (`OrderModal`), Einlagern / Lagerplatz bearbeiten (`TireAssignModal`),
+Reifen auslagern (`AuslagernDialog`, alle drei Fassungen), Anrufen (`AnrufFenster` – die eigene
+Handy-Regel „unten andocken“ ist damit entfallen), Mitnehmen (`MitnehmenFenster`, ‹ › im Kopf, „Der
+Reihe nach auslagern“ im Fuß), Scanner (`QrScanner`), Ausgangskorb (`AusgangFenster`). Die
+Kundenauswahl (`CustomerPicker`) hat das Suchfeld der Listen (`SuchFeld`) und zeigt Treffer erst
+mit Suchtext; der gewählte Kunde steht als graue Karte mit „Ändern“.
+
+Noch auf `.modal-box`, weil sie drucken (Runde 3): Etiketten und Aufkleber, Auskunftsauszug,
+Rechnung. **Ein neues Fenster nimmt `Blatt`** – kein neues `.modal-box`.
+
+Geprüft am 08.10.2026 bei 1280×800 und 390×844: kein seitlicher Überlauf, Auslagern liegt über
+dem Auftrag (`elementFromPoint` in der Mitte des Blatts).
+
 ## Auftragsfenster
 
 Seit dem 26.09.2026 (Entwurf N) `.ao-fenster`: am Rechner 680 px breit und bis 94 vh hoch, am

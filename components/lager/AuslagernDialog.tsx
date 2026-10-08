@@ -5,6 +5,7 @@ import type { Article, ArticlePrice, Customer, Order, StorageSlot, TireStorage, 
 import { currentArticlePrice, formatDate, formatEUR, istLanglieger, lagermonate, todayStr } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { lagerBis } from "@/lib/lagerVormerkung";
+import { Blatt } from "@/components/Blatt";
 
 // Was beim Auslagern passieren soll. Der Aufrufer entscheidet nicht selbst, sondern bekommt
 // die Wahl des Nutzers als ein Stück – sonst müsste jede Aufrufstelle dieselben vier Fälle
@@ -141,202 +142,186 @@ export function AuslagernDialog({
     try { await onZuruecknehmen(); } finally { setLaeuft(false); }
   }
 
+  // Seit v134 ein Blatt (components/Blatt.tsx) auf derselben Ebene wie bisher (10002, über dem
+  // Auftrag): Kopf mit dem Satz, Felder in grauen Gruppen, Knöpfe unten.
+  const satzKarte = (
+    <div className="kp-gewaehlt auslagern-satz">
+      <span className="kp-text">
+        <b>{kunde?.name ?? "Unbekannter Kunde"}{fahrzeug ? ` · ${[fahrzeug.license_plate, fahrzeug.make_model].filter(Boolean).join(" ")}` : ""}</b>
+        <span>{platz} · eingelagert {formatDate(satz.created_at.slice(0, 10))}</span>
+      </span>
+    </div>
+  );
+
   if (vorgemerktFuer) {
     return (
-      <div className="modal-overlay modal-auslagern" onClick={(e) => { if (e.target === e.currentTarget) onAbbrechen(); }}>
-        <div className="modal-box" style={{ position: "relative", maxWidth: 480 }}>
-          <button className="modal-close" onClick={onAbbrechen} aria-label="Schließen">✕</button>
-          <h2>Zum Auslagern vorgemerkt</h2>
-          <div className="auslagern-satz">
-            <strong>{kunde?.name ?? "Unbekannter Kunde"}</strong>
-            {fahrzeug ? ` · ${[fahrzeug.license_plate, fahrzeug.make_model].filter(Boolean).join(" ")}` : ""}
-            <br />
-            {platz} · eingelagert {formatDate(satz.created_at.slice(0, 10))}
-          </div>
-          <div className="auslagern-hinweis">
-            Vorgemerkt für Auftrag {auftragsNr(vorgemerktFuer.order_number)} am {formatDate(vorgemerktFuer.order_date)}
-            {vorgemerktFuer.title ? ` · ${vorgemerktFuer.title}` : ""}. Die Reifen liegen noch im Regal
-            und gehen heraus, wenn dieser Auftrag abgeschlossen wird.
-          </div>
-          <div className="auslagern-fuss">
-            {darfAuslagern && (
-              <button type="button" className="btn-secondary btn-rand" onClick={() => void zuruecknehmen()} disabled={laeuft}>
-                Vormerkung zurücknehmen
-              </button>
-            )}
-            <button type="button" className="btn-primary" onClick={() => onAuftragOeffnen(vorgemerktFuer.id)} disabled={laeuft}>
-              Auftrag öffnen
+      <Blatt titel="Zum Auslagern vorgemerkt" ebene="modal-auslagern" onClose={onAbbrechen}
+        fuss={<>
+          {darfAuslagern && (
+            <button type="button" className="btn-secondary" onClick={() => void zuruecknehmen()} disabled={laeuft}>
+              Vormerkung zurücknehmen
             </button>
-          </div>
+          )}
+          <button type="button" className="btn-primary" onClick={() => onAuftragOeffnen(vorgemerktFuer.id)} disabled={laeuft}>
+            Auftrag öffnen
+          </button>
+        </>}>
+        {satzKarte}
+        <div className="auslagern-hinweis">
+          Vorgemerkt für Auftrag {auftragsNr(vorgemerktFuer.order_number)} am {formatDate(vorgemerktFuer.order_date)}
+          {vorgemerktFuer.title ? ` · ${vorgemerktFuer.title}` : ""}. Die Reifen liegen noch im Regal
+          und gehen heraus, wenn dieser Auftrag abgeschlossen wird.
         </div>
-      </div>
+      </Blatt>
     );
   }
 
   if (!darfAuslagern) {
     return (
-      <div className="modal-overlay modal-auslagern" onClick={(e) => { if (e.target === e.currentTarget) onAbbrechen(); }}>
-        <div className="modal-box" style={{ position: "relative", maxWidth: 480 }}>
-          <button className="modal-close" onClick={onAbbrechen} aria-label="Schließen">✕</button>
-          <h2>Reifen auslagern</h2>
-          <div className="auslagern-hinweis">
-            Auslagern ist für deine Rolle nicht freigegeben (Admin › Rechte › Lager › Reifen auslagern).
-          </div>
-          <div className="auslagern-fuss">
-            <button type="button" className="btn-secondary btn-rand" onClick={onAbbrechen}>Schließen</button>
-          </div>
+      <Blatt titel="Reifen auslagern" ebene="modal-auslagern" onClose={onAbbrechen}
+        fuss={<button type="button" className="btn-secondary" onClick={onAbbrechen}>Schließen</button>}>
+        <div className="auslagern-hinweis">
+          Auslagern ist für deine Rolle nicht freigegeben (Admin › Rechte › Lager › Reifen auslagern).
         </div>
-      </div>
+      </Blatt>
     );
   }
 
   return (
-    <div className="modal-overlay modal-auslagern" onClick={(e) => { if (e.target === e.currentTarget) onAbbrechen(); }}>
-      <div className="modal-box" style={{ position: "relative", maxWidth: 480 }}>
-        <button className="modal-close" onClick={onAbbrechen} aria-label="Schließen">✕</button>
-        <h2>Reifen auslagern</h2>
-        <div>
-          <div className="auslagern-satz">
-            <strong>{kunde?.name ?? "Unbekannter Kunde"}</strong>
-            {fahrzeug ? ` · ${[fahrzeug.license_plate, fahrzeug.make_model].filter(Boolean).join(" ")}` : ""}
-            <br />
-            {platz} · eingelagert {formatDate(satz.created_at.slice(0, 10))}
-          </div>
+    <Blatt titel="Reifen auslagern" ebene="modal-auslagern" onClose={onAbbrechen}
+      fuss={<>
+        <button type="button" className="btn-secondary" onClick={onAbbrechen} disabled={laeuft}>Abbrechen</button>
+        <button
+          type="button" className="btn-primary" onClick={bestaetigen}
+          disabled={laeuft || (!sofort && !ohne && gebuehrArtikel.length > 0 && !kannBerechnen)}
+        >
+          {sofort
+            ? "Jetzt auslagern"
+            : ziel === "neu"
+              ? "Vormerken und Auftrag anlegen"
+              : wirdBerechnet ? "Vormerken und berechnen" : "Vormerken"}
+        </button>
+      </>}>
+      {satzKarte}
 
-          {/* Die Zahl steht groß da, weil sie die einzige ist, die hier zur Entscheidung
-              gehört. Der Zeitraum daneben, damit man sie nachrechnen kann, ohne die
-              Einlagerung zu suchen. */}
-          <div className="field">
-            <label htmlFor="auslagern-ziel">Mit welchem Auftrag?</label>
-            <select id="auslagern-ziel" value={ziel} onChange={(e) => setZiel(e.target.value)}>
-              {auswahl.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {auftragsNr(o.order_number)} · {formatDate(o.order_date)} · {o.title}
-                </option>
-              ))}
-              {darfNeuerAuftrag && <option value="neu">Neuen Auftrag für diesen Kunden anlegen</option>}
-              <option value="sofort">Ohne Auftrag – jetzt gleich auslagern</option>
-            </select>
-            <span className="small">
-              {sofort
-                ? "Der Platz ist sofort frei – etwa wenn der Kunde seine Reifen selbst abholt."
-                : ziel === "neu"
-                  ? "Der Auftrag wird mit dem heutigen Datum angelegt und danach geöffnet. Die Reifen bleiben bis zu seinem Abschluss im Regal."
-                  : `Die Reifen bleiben im Regal und belegen ihren Platz, bis Auftrag ${auftragsNr(zielAuftrag?.order_number ?? 0)} abgeschlossen wird – erst dann gelten sie als ausgelagert.`}
-            </span>
-          </div>
+      <div className="nk-feld">
+        <label htmlFor="auslagern-ziel" className="kp-label">Mit welchem Auftrag?</label>
+        <select id="auslagern-ziel" value={ziel} onChange={(e) => setZiel(e.target.value)}>
+          {auswahl.map((o) => (
+            <option key={o.id} value={o.id}>
+              {auftragsNr(o.order_number)} · {formatDate(o.order_date)} · {o.title}
+            </option>
+          ))}
+          {darfNeuerAuftrag && <option value="neu">Neuen Auftrag für diesen Kunden anlegen</option>}
+          <option value="sofort">Ohne Auftrag – jetzt gleich auslagern</option>
+        </select>
+        <span className="bl-hilfe">
+          {sofort
+            ? "Der Platz ist sofort frei – etwa wenn der Kunde seine Reifen selbst abholt."
+            : ziel === "neu"
+              ? "Der Auftrag wird mit dem heutigen Datum angelegt und danach geöffnet. Die Reifen bleiben bis zu seinem Abschluss im Regal."
+              : `Die Reifen bleiben im Regal und belegen ihren Platz, bis Auftrag ${auftragsNr(zielAuftrag?.order_number ?? 0)} abgeschlossen wird – erst dann gelten sie als ausgelagert.`}
+        </span>
+      </div>
 
-          <div className="auslagern-dauer">
-            <span className="auslagern-monate">{monate}</span>
-            <span>
-              {monate === 1 ? "angefangener Monat" : "angefangene Monate"} im Regal
-              <br />
-              <span className="small">
-                {formatDate(satz.created_at.slice(0, 10))} – {formatDate(bis)}{bis > todayStr() ? " (Termin)" : ""} · ein angefangener Monat zählt voll
-              </span>
-            </span>
-          </div>
+      {/* Die Zahl steht groß da, weil sie die einzige ist, die hier zur Entscheidung
+          gehört. Der Zeitraum daneben, damit man sie nachrechnen kann, ohne die
+          Einlagerung zu suchen. */}
+      <div className="auslagern-dauer">
+        <span className="auslagern-monate">{monate}</span>
+        <span>
+          {monate === 1 ? "angefangener Monat" : "angefangene Monate"} im Regal
+          <br />
+          <span className="small">
+            {formatDate(satz.created_at.slice(0, 10))} – {formatDate(bis)}{bis > todayStr() ? " (Termin)" : ""} · ein angefangener Monat zählt voll
+          </span>
+        </span>
+      </div>
 
-          {sofort ? null : gebuehrArtikel.length === 0 ? (
-            <div className="auslagern-hinweis">
-              Im Artikelstamm ist kein Artikel mit der Abrechnungsart &bdquo;Lagergebühr&ldquo;
-              hinterlegt. Der Satz wird nur vorgemerkt – berechnet wird nichts. Wer das ändern
-              will, stellt den Einlagerungsartikel unter &bdquo;Artikel&ldquo; um.
-            </div>
-          ) : (
+      {sofort ? null : gebuehrArtikel.length === 0 ? (
+        <div className="auslagern-hinweis">
+          Im Artikelstamm ist kein Artikel mit der Abrechnungsart &bdquo;Lagergebühr&ldquo;
+          hinterlegt. Der Satz wird nur vorgemerkt – berechnet wird nichts. Wer das ändern
+          will, stellt den Einlagerungsartikel unter &bdquo;Artikel&ldquo; um.
+        </div>
+      ) : (
+        <div className="ar-karte-feld">
+          <div className="bl-gruppe-titel auslagern-gebuehr-titel">LAGERGEBÜHR</div>
+          {darfGebuehrAnpassen && (
+            <label className="auslagern-ohne" htmlFor="auslagern-ohne-gebuehr">
+              <input
+                type="checkbox" id="auslagern-ohne-gebuehr"
+                checked={ohneGebuehr} onChange={(e) => setOhneGebuehr(e.target.checked)}
+              />
+              <span>Ohne Gebühr</span>
+            </label>
+          )}
+
+          {!ohne && (
             <>
-              {darfGebuehrAnpassen && (
-                <div className="checkbox-row">
-                  <input
-                    type="checkbox" id="auslagern-ohne-gebuehr"
-                    checked={ohneGebuehr} onChange={(e) => setOhneGebuehr(e.target.checked)}
-                  />
-                  <label htmlFor="auslagern-ohne-gebuehr">Ohne Gebühr</label>
+              {gebuehrArtikel.length > 1 && (
+                <div className="nk-feld">
+                  <label htmlFor="auslagern-artikel" className="kp-label">Leistung</label>
+                  <select id="auslagern-artikel" value={artikelId} onChange={(e) => setArtikelId(e.target.value)}>
+                    {gebuehrArtikel.map((a) => (
+                      <option key={a.id} value={a.id}>{a.short_name}</option>
+                    ))}
+                  </select>
                 </div>
               )}
 
-              {!ohne && (
-                <>
-                  {gebuehrArtikel.length > 1 && (
-                    <div className="field">
-                      <label htmlFor="auslagern-artikel">Leistung</label>
-                      <select id="auslagern-artikel" value={artikelId} onChange={(e) => setArtikelId(e.target.value)}>
-                        {gebuehrArtikel.map((a) => (
-                          <option key={a.id} value={a.id}>{a.short_name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="row">
-                    <div className="field" style={{ maxWidth: 140 }}>
-                      <label htmlFor="auslagern-menge">Menge (Monate)</label>
-                      <input
-                        id="auslagern-menge" type="number" min={0} step={1} disabled={!darfGebuehrAnpassen}
-                        title={darfGebuehrAnpassen ? undefined : "Die Monate ändert, wer „Lagergebühr anpassen“ darf."}
-                        value={menge} onChange={(e) => setMengeEigen(e.target.value)}
-                      />
-                    </div>
-                    <div className="field">
-                      <label>Ergibt</label>
-                      <div className="auslagern-summe">
-                        {preis === null ? (
-                          <span className="small">
-                            Für diesen Artikel ist kein gültiger Preis hinterlegt – so lässt sich
-                            nichts berechnen. Entweder den Preis im Artikelstamm nachtragen oder
-                            oben auf ohne Gebühr umschalten.
-                          </span>
-                        ) : (
-                          <>
-                            {formatEUR(summe ?? 0)} netto
-                            <span className="small"> · {formatEUR(preis.net_price)} je Monat</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
+              <div className="nk-zeile auslagern-rechnung">
+                <div className="nk-feld auslagern-menge">
+                  <label htmlFor="auslagern-menge" className="kp-label">Menge (Monate)</label>
+                  <input
+                    id="auslagern-menge" type="number" min={0} step={1} disabled={!darfGebuehrAnpassen}
+                    title={darfGebuehrAnpassen ? undefined : "Die Monate ändert, wer „Lagergebühr anpassen“ darf."}
+                    value={menge} onChange={(e) => setMengeEigen(e.target.value)}
+                  />
+                </div>
+                <div className="nk-feld">
+                  <span className="kp-label">Ergibt</span>
+                  <div className="auslagern-summe">
+                    {preis === null ? (
+                      <span className="small">
+                        Für diesen Artikel ist kein gültiger Preis hinterlegt – so lässt sich
+                        nichts berechnen. Entweder den Preis im Artikelstamm nachtragen oder
+                        oben auf ohne Gebühr umschalten.
+                      </span>
+                    ) : (
+                      <>
+                        {formatEUR(summe ?? 0)} netto
+                        <span className="small"> · {formatEUR(preis.net_price)} je Monat</span>
+                      </>
+                    )}
                   </div>
-                  {/* Kulanz ist eine Geschäftsentscheidung, keine Rechenaufgabe. Die Zahl darf
-                      deshalb kleiner gesetzt werden, ohne dass die Anwendung widerspricht. */}
-                  {mengeZahl === 0 && preis !== null && (
-                    <div className="small" style={{ marginTop: -4, marginBottom: 8 }}>
-                      Menge 0 heißt: es wird nichts berechnet. Dann ist die Angabe ohne Gebühr
-                      die ehrlichere – sie steht auch später noch im Protokoll.
-                    </div>
-                  )}
-                  {mengeZahl !== monate && mengeZahl > 0 && (
-                    <div className="small" style={{ marginTop: -4, marginBottom: 8 }}>
-                      Abweichend von den {monate} berechneten Monaten – so gewollt?
-                    </div>
-                  )}
+                </div>
+              </div>
+              {/* Kulanz ist eine Geschäftsentscheidung, keine Rechenaufgabe. Die Zahl darf
+                  deshalb kleiner gesetzt werden, ohne dass die Anwendung widerspricht. */}
+              {mengeZahl === 0 && preis !== null && (
+                <div className="bl-hilfe">
+                  Menge 0 heißt: es wird nichts berechnet. Dann ist die Angabe ohne Gebühr
+                  die ehrlichere – sie steht auch später noch im Protokoll.
+                </div>
+              )}
+              {mengeZahl !== monate && mengeZahl > 0 && (
+                <div className="bl-hilfe">
+                  Abweichend von den {monate} berechneten Monaten – so gewollt?
+                </div>
+              )}
 
-                  {langlieger && (
-                    <div className="auslagern-warnung">
-                      Dieser Satz liegt ungewöhnlich lange. Die Gebühr summiert sich auf
-                      {" "}{summe !== null ? formatEUR(summe) : `${monate} Monate`} – bitte einmal
-                      ansehen, bevor die Rechnung geschrieben wird.
-                    </div>
-                  )}
-
-                </>
+              {langlieger && (
+                <div className="auslagern-warnung">
+                  Dieser Satz liegt ungewöhnlich lange. Die Gebühr summiert sich auf
+                  {" "}{summe !== null ? formatEUR(summe) : `${monate} Monate`} – bitte einmal
+                  ansehen, bevor die Rechnung geschrieben wird.
+                </div>
               )}
             </>
           )}
         </div>
-
-        <div className="auslagern-fuss">
-          <button type="button" className="btn-secondary btn-rand" onClick={onAbbrechen} disabled={laeuft}>Abbrechen</button>
-          <button
-            type="button" className="btn-primary" onClick={bestaetigen}
-            disabled={laeuft || (!sofort && !ohne && gebuehrArtikel.length > 0 && !kannBerechnen)}
-          >
-            {sofort
-              ? "Jetzt auslagern"
-              : ziel === "neu"
-                ? "Vormerken und Auftrag anlegen"
-                : wirdBerechnet ? "Vormerken und berechnen" : "Vormerken"}
-          </button>
-        </div>
-      </div>
-    </div>
+      )}
+    </Blatt>
   );
 }
