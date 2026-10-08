@@ -432,7 +432,10 @@ export function terminZeitraum(o: { time: string | null; end_time: string | null
 // Dass es zweimal dasteht, ist Absicht und keine Doppelung im schlechten Sinn: Eine Prüfung
 // im Browser ist eine Bitte, eine im Trigger eine Regel. Wer nur die Bitte hat, verhindert
 // den Fehler bei dem, der die Maske benutzt – und bei niemandem sonst.
-export type RechnungsMangel = { schluessel: string; text: string; behebbarHier: boolean };
+// `pflicht` (seit v128, Migration 79): Hält der Mangel den Abschluss auf? Die E-Mail-Adresse nicht
+// mehr – sie fehlt unterwegs oft und wird später nachgetragen; bis dahin steht in der Liste der
+// offenen Rechnungen „E-Mail hinterlegen“ (`rechnungOhneEmail`).
+export type RechnungsMangel = { schluessel: string; text: string; behebbarHier: boolean; pflicht: boolean };
 
 export function rechnungsdatenMaengel(
   kunde: { name: string; address: string; email: string | null; laufkundschaft?: boolean } | null,
@@ -449,20 +452,20 @@ export function rechnungsdatenMaengel(
   if (kunde?.laufkundschaft) return maengel;
 
   if (!kunde || leer(kunde.name)) {
-    maengel.push({ schluessel: "name", text: "Name des Kunden", behebbarHier: false });
+    maengel.push({ schluessel: "name", text: "Name des Kunden", behebbarHier: false, pflicht: true });
   }
   if (!kunde || leer(kunde.address)) {
-    maengel.push({ schluessel: "adresse", text: "Anschrift des Kunden", behebbarHier: false });
+    maengel.push({ schluessel: "adresse", text: "Anschrift des Kunden", behebbarHier: false, pflicht: true });
   }
   if (!kunde || leer(kunde.email)) {
     // Die einzige Angabe, die man unterwegs nachtragen kann, ohne das Fenster zu verlassen –
     // deshalb als einzige `behebbarHier`. Name und Anschrift gehören ins Kundenfenster, wo
     // auch die Geokodierung daranhängt.
-    maengel.push({ schluessel: "email", text: "E-Mail-Adresse des Kunden", behebbarHier: true });
+    maengel.push({ schluessel: "email", text: "E-Mail-Adresse des Kunden", behebbarHier: true, pflicht: false });
   }
 
   if (fahrzeuge.length === 0) {
-    maengel.push({ schluessel: "fahrzeug", text: "mindestens ein Fahrzeug", behebbarHier: true });
+    maengel.push({ schluessel: "fahrzeug", text: "mindestens ein Fahrzeug", behebbarHier: true, pflicht: true });
   } else {
     const ohneKennzeichen = fahrzeuge.filter((f) => leer(f.kennzeichen)).length;
     if (ohneKennzeichen > 0) {
@@ -470,6 +473,7 @@ export function rechnungsdatenMaengel(
         schluessel: "kennzeichen",
         text: `${ohneKennzeichen} Fahrzeug${ohneKennzeichen === 1 ? "" : "e"} ohne Kennzeichen`,
         behebbarHier: true,
+        pflicht: true,
       });
     }
     const ohneKm = fahrzeuge.filter((f) => f.kilometerstand == null).length;
@@ -478,11 +482,19 @@ export function rechnungsdatenMaengel(
         schluessel: "kilometerstand",
         text: `${ohneKm} Fahrzeug${ohneKm === 1 ? "" : "e"} ohne Kilometerstand`,
         behebbarHier: true,
+        pflicht: true,
       });
     }
   }
 
   return maengel;
+}
+
+// Fehlt für die Rechnung die E-Mail-Adresse des Kunden? Seit v128 kein Hindernis mehr beim
+// Abschließen, aber ein Hinweis in der Liste „Rechnungen noch nicht ausgestellt“. Die
+// Laufkundschaft hat nie eine (Kleinbetragsrechnung, Migration 53).
+export function rechnungOhneEmail(kunde: { email: string | null; laufkundschaft?: boolean } | null | undefined): boolean {
+  return !!kunde && !kunde.laufkundschaft && (kunde.email ?? "").trim() === "";
 }
 
 // ---------------------------------------------------------------- Ausgelagert (C5, v106)

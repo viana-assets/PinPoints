@@ -340,7 +340,7 @@ viana-pinpoints/
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
       alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–78
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–79
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -674,7 +674,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 78** (08.10.2026; alle ausgeführt). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 79** (08.10.2026; 79 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -780,6 +780,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   Fotos/Unterschrift löschen, Auslagern/Tausch (`lager_handlungen_pruefen()`), Lagergebühr anpassen
   (`lagergebuehr_pruefen()`, `lager_monate()`), Rechnung stornieren (`rechnung_storno_pruefen()`),
   Kontakte eintragen (`kunde_kontakt_pruefen()`), Dubletten. Siehe `docs/berechtigungen-und-rollen.md`.
+- **79** – `pruefe_rechnungsdaten()` verlangt die E-Mail-Adresse nicht mehr; die App erinnert in
+  „Rechnungen noch nicht ausgestellt“ („E-Mail hinterlegen“).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

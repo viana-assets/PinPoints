@@ -13,7 +13,7 @@ import {
   todayStr, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
   KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref, plzAus, naechsteSaison, raederNachSatz,
   satzProfilMm, geocodeAddress, getPhoneNumbers, navigationUrls, istHandy, menuLage, seitenZoom, formatEUR,
-  letzterSatzFuer, orderArticleTotals, currentArticlePrice, rechnungOffen,
+  letzterSatzFuer, orderArticleTotals, currentArticlePrice, rechnungOffen, rechnungOhneEmail,
 } from "@/lib/helpers";
 import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
 import {
@@ -93,7 +93,7 @@ import { imZeitraum, terminPhase } from "@/lib/terminAnsicht";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { DashboardPanel } from "@/components/dashboard/DashboardPanel";
 import { KundenListePanel } from "@/components/kunden/KundenListePanel";
-import { anfangsbuchstabe, anzeigeName, rueckrufFaellig } from "@/lib/kundenAnsicht";
+import { anfangsbuchstabe, anzeigeName, kundenArtPasst, kundenArtZahlen, rueckrufFaellig, type KundenArt } from "@/lib/kundenAnsicht";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
 import {
   insertArticle, updateArticleById, updateArticleNumberById, insertArticlePrice,
@@ -228,6 +228,8 @@ export default function HomePage() {
   const [filter, setFilter] = useState<KundenFilter>("all");
   const [plzFilter, setPlzFilter] = useState("");
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
+  // Privat-, Firmen-, Einmal-, Testkunden (v128) – neben A–Z in der Kundenliste.
+  const [kundenArt, setKundenArt] = useState<KundenArt>("alle");
   // Zeitraum des Termine-Reiters. Steuert Liste UND Kartennadeln – siehe terminKundenIds.
   const [terminFilter, setTerminFilter] = useState<TerminFilter>("anstehend");
   // Mitarbeiter im Termine-Reiter (26.09.2026, Entwurf L): „alle" oder eine employee-ID. Steuert
@@ -667,7 +669,7 @@ export default function HomePage() {
   // aufgeklappte lange Liste eine neue, kurze Trefferliste unnötig groß halten.
   useEffect(() => {
     setListenGrenze(LISTEN_SCHRITT);
-  }, [search, filter, plzFilter, letterFilter]);
+  }, [search, filter, plzFilter, letterFilter, kundenArt]);
 
   // Meldung nach einer Weile von selbst ausblenden – sie ist ein Hinweis, kein Dialog.
   useEffect(() => {
@@ -1601,7 +1603,10 @@ export default function HomePage() {
   // also gerechnet auf dem, was Suche, Buchstabe und Postleitzahl schon eingegrenzt haben,
   // aber ohne den Zustandsfilter selbst. Rechnete man ihn mit, stünde am aktiven Knopf seine
   // eigene Trefferzahl und an allen anderen eine Null.
-  const vorgefiltert = useMemo(
+  //
+  // Die Kundenart (v128) kommt als letzte Stufe dazu: `vorArt` ist alles davor und Grundlage der
+  // Zahlen im Kundenart-Blatt – aus demselben Grund wie oben.
+  const vorArt = useMemo(
     () =>
       activeCustomers
         .filter((c) => {
@@ -1625,6 +1630,8 @@ export default function HomePage() {
         }),
     [activeCustomers, search, letterFilter, plzFilter]
   );
+  const artZahlen = useMemo(() => kundenArtZahlen(vorArt), [vorArt]);
+  const vorgefiltert = useMemo(() => vorArt.filter((c) => kundenArtPasst(c, kundenArt)), [vorArt, kundenArt]);
 
   // Wer hat einen Termin vor sich? Einmal gebildet und dann überall nachgeschlagen – die
   // Kundenliste, die Karte, die Zähler und das Kundenfenster fragen dieselbe Menge.
@@ -2283,7 +2290,7 @@ export default function HomePage() {
     .map((o) => {
       const c = kundeFuerAuftrag(o, customers);
       return { id: o.id, nummer: o.order_number, kunde: (c?.company || "").trim() || c?.name || o.title, datum: o.order_date,
-        netto: orderArticleTotals(orderArticlesFor(o.id), o.rechnung_noetig).net };
+        netto: orderArticleTotals(orderArticlesFor(o.id), o.rechnung_noetig).net, emailFehlt: rechnungOhneEmail(c) };
     });
 
   // Die Hinweise der Kachelseite „Weitere" – nur aus dem, was ohnehin geladen ist.
@@ -2451,6 +2458,9 @@ export default function HomePage() {
             buchstabe={letterFilter}
             onBuchstabe={setLetterFilter}
             buchstaben={availableLetters}
+            kundenArt={kundenArt}
+            onKundenArt={setKundenArt}
+            artZahlen={artZahlen}
             alleKunden={activeCustomers}
             zustand={kundenZustand}
             naechsterTermin={(c) => nextOrder(ordersFor(c.id))}

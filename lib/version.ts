@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v127";
+export const APP_VERSION = "v128";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v128", datum: "2026-10-08", titel: "Rechnung ohne E-Mail, Kundenart",
+    punkte: [
+      "Mit „Rechnung nötig“ lässt sich ein Auftrag jetzt auch ohne E-Mail-Adresse des Kunden abschließen.",
+      "Unter Aufträge › „Rechnungen noch nicht ausgestellt“ steht dann rot „E-Mail hinterlegen“. Nachtragen geht im Auftrag unter „Rechnung nötig“ – auch, wenn er schon erledigt ist.",
+      "In der Kundenliste gibt es neben A–Z den Filter „Kundenart“: Privatkunden, Firmenkunden, Einmalkunden, Testkunden.",
+    ],
+  },
   {
     version: "v127", datum: "2026-10-08", titel: "Aufgeräumt",
     punkte: [

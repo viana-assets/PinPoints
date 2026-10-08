@@ -4,7 +4,7 @@ import { ausstellMaengel, entwurfBauen, mailtoRechnung, stornoAus, istGueltig, v
 import type { RechnungEntwurf } from "@/lib/rechnung";
 import { RechnungDokument } from "./RechnungDokument";
 import { RECHNUNG_SEITE_CSS } from "@/lib/constants";
-import { formatDate, formatEUR, todayStr } from "@/lib/helpers";
+import { formatDate, formatEUR, rechnungOhneEmail, todayStr } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 
 // Das Rechnungsfenster am Auftrag.
@@ -134,6 +134,14 @@ export function RechnungModal({
           </div>
         )}
         {fehler && <div className="hinweis-pflicht druck-weg">{fehler}</div>}
+        {/* v128: Ohne E-Mail lässt sich abschließen und ausstellen (Migration 79) – nur nicht per Mail
+            schicken, und auf der Rechnung steht dann keine. Ein Hinweis, keine Sperre. */}
+        {!beleg && maengel.length === 0 && rechnungOhneEmail(kunde) && (
+          <div className="hinweis-pflicht druck-weg">
+            Beim Kunden ist keine E-Mail-Adresse hinterlegt – die Rechnung lässt sich dann nur drucken, nicht per
+            Mail schicken. Nachtragen im Auftrag unter „Rechnung nötig“.
+          </div>
+        )}
 
         {zeigbar ? (
           <div className="rechnung-vorschau">

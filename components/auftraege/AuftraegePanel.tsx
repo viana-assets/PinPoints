@@ -1,7 +1,7 @@
 import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useState } from "react";
 import type { Customer, Employee, Order, OrderStatus } from "@/lib/types";
-import { getPhoneNumbers, rechnungOffen, todayStr } from "@/lib/helpers";
+import { getPhoneNumbers, rechnungOffen, rechnungOhneEmail, todayStr } from "@/lib/helpers";
 import { ORDER_STATUS_FARBE, ORDER_STATUS_LABEL } from "@/lib/constants";
 import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import { AUFTRAGSFENSTER_LABEL, type AuftragsFenster } from "@/lib/api/orders";
@@ -109,6 +109,8 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
     const wer = orderEmployees[o.id] || [];
     const vergangenFertig = ausgeblendet(o, heute);
     const offeneRechnung = rechnungOffen(o);
+    // Seit v128 lässt sich ohne E-Mail abschließen (Migration 79) – hier wird daran erinnert.
+    const emailFehlt = offeneRechnung && rechnungOhneEmail(cust);
     return (
       <div key={o.id} className={"au-karte" + (vergangenFertig ? " vergangen" : "")} role="button" tabIndex={0}
         onClick={() => onOpenOrder(o.id)} onKeyDown={(e) => { if (e.key === "Enter") onOpenOrder(o.id); }}>
@@ -161,6 +163,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
             )}
             <span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
             {offeneRechnung && !nurRechnungOffen && <span className="au-rechnung">Rechnung offen</span>}
+            {emailFehlt && <span className="au-rechnung au-email-fehlt">E-Mail hinterlegen</span>}
           </span>
           {/* In der Arbeitsliste „Rechnungen" der Weg dorthin, wo die Rechnung entsteht – der
               Haken kommt danach von der Datenbank (Migration 40). */}

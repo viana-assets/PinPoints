@@ -476,7 +476,11 @@ im Quelltext:
 Der Mensch hängt das PDF selbst an, praktisch über die Druckvorschau des Browsers (am iPhone
 über das Teilen-Symbol). Text und Betreff kommen aus dem **Snapshot** der Rechnung
 (`empfaenger`/`absender`), nicht aus den aktuellen Kunden-/Betriebsdaten – wer eine zwei Jahre
-alte Rechnung erneut verschickt, soll sie mit dem Absender verschicken, der auf ihr steht. Der
+alte Rechnung erneut verschickt, soll sie mit dem Absender verschicken, der auf ihr steht.
+
+Seit Migration 79 (v128) lässt sich ein Auftrag auch ohne E-Mail-Adresse abschließen und abrechnen;
+die Listen „Rechnungen noch nicht ausgestellt“ (Aufträge, Rechnungen) zeigen dann rot „E-Mail
+hinterlegen“, das Rechnungsfenster einen Hinweis (`rechnungOhneEmail()`, lib/helpers.ts). Der
 Link ist `null`, wenn der Empfänger keine E-Mail-Adresse hat (`RechnungModal` zeigt dann einen
 Hinweistext statt des Knopfs).
 

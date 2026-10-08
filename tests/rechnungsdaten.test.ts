@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { rechnungsdatenMaengel } from "@/lib/helpers";
+import { rechnungOhneEmail, rechnungsdatenMaengel } from "@/lib/helpers";
 
 // Die Abhakliste im Auftragsfenster und die Sperre am Abschluss. Ein Fehler hier heisst: ein
 // Auftrag geht als abgeschlossen ins ERP, und dort fehlt die Anschrift.
@@ -66,5 +66,22 @@ describe("rechnungsdatenMaengel", () => {
     const ohne = { name: "Laufkundschaft", address: "", email: null, laufkundschaft: false };
     expect(rechnungsdatenMaengel(ohne, []).map((x) => x.schluessel))
       .toEqual(["adresse", "email", "fahrzeug"]);
+  });
+
+  // v128 (Migration 79): Die E-Mail-Adresse hält den Abschluss nicht mehr auf.
+  it("führt die fehlende E-Mail als Hinweis, nicht als Pflicht", () => {
+    const m = rechnungsdatenMaengel({ ...vollstaendig, email: null }, [auto]);
+    expect(m.map((x) => x.schluessel)).toEqual(["email"]);
+    expect(m.filter((x) => x.pflicht)).toEqual([]);
+    const alles = rechnungsdatenMaengel({ name: "", address: "", email: null }, []);
+    expect(alles.filter((x) => x.pflicht).map((x) => x.schluessel)).toEqual(["name", "adresse", "fahrzeug"]);
+  });
+
+  it("erkennt den Hinweis „E-Mail hinterlegen“ – nie bei der Laufkundschaft", () => {
+    expect(rechnungOhneEmail({ email: null })).toBe(true);
+    expect(rechnungOhneEmail({ email: "  " })).toBe(true);
+    expect(rechnungOhneEmail({ email: "a@b.de" })).toBe(false);
+    expect(rechnungOhneEmail({ email: null, laufkundschaft: true })).toBe(false);
+    expect(rechnungOhneEmail(null)).toBe(false);
   });
 });

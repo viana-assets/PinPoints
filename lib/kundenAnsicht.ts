@@ -43,3 +43,36 @@ export function initialen(name: string): string {
   const teile = name.trim().split(/\s+/).filter((t) => /\p{L}|\d/u.test(t.charAt(0)));
   return teile.slice(0, 2).map((t) => t.charAt(0).toUpperCase()).join("") || "?";
 }
+
+// Kundenart-Filter neben A–Z (08.10.2026, v128). Die Arten überschneiden sich bewusst: Ein
+// Einmalkunde ist zugleich Privat- oder Firmenkunde, ein Testkunde ebenso. Privat und Firma
+// trennt allein das Feld „Firma“; die Laufkundschaft (Sammelkunde, Migration 53) ist keins von
+// beiden.
+export type KundenArt = "alle" | "privat" | "firma" | "einmal" | "test";
+
+export const KUNDEN_ARTEN: { wert: KundenArt; text: string }[] = [
+  { wert: "alle", text: "Alle Kundenarten" },
+  { wert: "privat", text: "Privatkunden" },
+  { wert: "firma", text: "Firmenkunden" },
+  { wert: "einmal", text: "Einmalkunden" },
+  { wert: "test", text: "Testkunden" },
+];
+
+type ArtFelder = Pick<Customer, "company" | "laufkundschaft" | "einmalkunde" | "testkunde">;
+
+export function kundenArtPasst(c: ArtFelder, art: KundenArt): boolean {
+  const firma = (c.company || "").trim() !== "";
+  switch (art) {
+    case "alle": return true;
+    case "privat": return !firma && !c.laufkundschaft;
+    case "firma": return firma && !c.laufkundschaft;
+    case "einmal": return !!c.einmalkunde;
+    case "test": return !!c.testkunde;
+  }
+}
+
+export function kundenArtZahlen(kunden: ArtFelder[]): Record<KundenArt, number> {
+  const z: Record<KundenArt, number> = { alle: 0, privat: 0, firma: 0, einmal: 0, test: 0 };
+  for (const c of kunden) for (const { wert } of KUNDEN_ARTEN) if (kundenArtPasst(c, wert)) z[wert]++;
+  return z;
+}

@@ -12,9 +12,11 @@ import { rechnungsdatenMaengel } from "@/lib/helpers";
 // beantwortet die Frage „ist das gepflegt?", eine leere Stelle beantwortet sie nicht. Genau
 // dieselbe Überlegung wie bei den grauen Zellen in der Rechtematrix.
 //
-// Sie SPERRT nichts. Man darf den Haken setzen und die Angaben später ergänzen – unterwegs
-// fehlt oft die E-Mail-Adresse. Verlangt werden sie erst beim Abschließen, und dort von der
-// Datenbank (`pruefe_rechnungsdaten()`), nicht von dieser Anzeige.
+// Sie SPERRT nichts. Man darf den Haken setzen und die Angaben später ergänzen. Verlangt werden
+// sie erst beim Abschließen, und dort von der Datenbank (`pruefe_rechnungsdaten()`), nicht von
+// dieser Anzeige. Die E-Mail-Adresse seit v128 (Migration 79) gar nicht mehr: Sie fehlt unterwegs
+// oft; dann steht in der Liste „Rechnungen noch nicht ausgestellt“ ein roter Hinweis, und
+// nachgetragen wird sie auch am erledigten Auftrag hier (sie gehört zum Kunden, nicht zum Auftrag).
 // Eine Zeile der Abhakliste. Steht außerhalb der Hauptkomponente, nicht darin: Ein Bauteil,
 // das bei jedem Rendern neu entsteht, behandelt React als neues Element und wirft seinen
 // Zustand weg – hier wäre das der Fokus im Eingabefeld beim Tippen.
@@ -34,7 +36,7 @@ function Zeile({ erfuellt, titel, wert, children }: {
 }
 
 export function RechnungsdatenBlock({
-  kunde, fahrzeuge, gesperrt, darfKundeAendern, onEmailSpeichern,
+  kunde, fahrzeuge, darfKundeAendern, onEmailSpeichern,
 }: {
   kunde: Customer | null;
   // Die Fahrzeuge DIESES Auftrags, angereichert um das zugehörige Fahrzeug. Nur zum PRÜFEN –
@@ -43,6 +45,7 @@ export function RechnungsdatenBlock({
   // hinter dem Rechnungshaken versteckt, während oben ein zweiter Auswahlkasten dieselbe
   // Frage ein zweites Mal stellte und in ein anderes Feld schrieb.
   fahrzeuge: (AuftragFahrzeug & { fahrzeug: Vehicle | null })[];
+  // Abgeschlossener Auftrag. Seit v128 ohne Wirkung: Die E-Mail lässt sich auch dann nachtragen.
   gesperrt?: boolean;
   // Darf die aufrufende Rolle Kundenstammdaten ändern (`kunden.schreiben`)? Ein Techniker
   // darf das nicht – ihm hier ein Eingabefeld für die E-Mail-Adresse anzubieten hieße, ihn in
@@ -57,7 +60,9 @@ export function RechnungsdatenBlock({
     fahrzeuge.map((f) => ({ kennzeichen: f.fahrzeug?.license_plate ?? null, kilometerstand: f.kilometerstand }))
   );
   const fehlt = (schluessel: string) => maengel.some((m) => m.schluessel === schluessel);
-  const vollstaendig = maengel.length === 0;
+  const pflichtMaengel = maengel.filter((m) => m.pflicht);
+  const vollstaendig = pflichtMaengel.length === 0;
+  const ohneEmail = fehlt("email");
 
   // Was an den Fahrzeugen fehlt, wird hier nur GENANNT und nicht noch einmal zum Ändern
   // angeboten. Ein zweites Eingabefeld für dieselbe Sache wäre genau die Dopplung, die am
@@ -86,8 +91,10 @@ export function RechnungsdatenBlock({
     <div className={"rechnungsdaten" + (vollstaendig ? " vollstaendig" : "")}>
       <div className="rd-kopf">
         {vollstaendig
-          ? "Für die Rechnung ist alles da."
-          : `Für die Rechnung fehlt noch: ${maengel.map((m) => m.text).join(", ")}.`}
+          ? ohneEmail
+            ? "Für den Abschluss ist alles da. Die E-Mail-Adresse fehlt noch – sie lässt sich auch später nachtragen."
+            : "Für die Rechnung ist alles da."
+          : `Für die Rechnung fehlt noch: ${pflichtMaengel.map((m) => m.text).join(", ")}.`}
       </div>
 
       <Zeile erfuellt={!fehlt("name")} titel="Name" wert={kunde?.name || null} />
@@ -96,7 +103,9 @@ export function RechnungsdatenBlock({
       </Zeile>
 
       <Zeile erfuellt={!fehlt("email")} titel="E-Mail-Adresse" wert={kunde?.email || null}>
-        {fehlt("email") && !gesperrt && darfKundeAendern && (
+        {fehlt("email") && <span className="small rd-spaeter">Freiwillig – geht auch später. Bis dahin steht der Auftrag unter „Rechnungen noch nicht ausgestellt“ mit „E-Mail hinterlegen“.</span>}
+        {/* Auch am erledigten Auftrag: Die Adresse gehört zum Kunden, nicht zum (eingefrorenen) Auftrag. */}
+        {fehlt("email") && darfKundeAendern && (
           <span className="rd-eingabe">
             <input
               type="email"

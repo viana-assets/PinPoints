@@ -707,13 +707,15 @@ Oberfläche.
 **(c) Vollständige Rechnungsdaten** – `pruefe_rechnungsdaten()` (Migration 44), läuft **nach**
 dem Statuswechsel-Trigger (Funktionsname beginnt mit `trg_p`, extra so gewählt, damit er nach
 `trg_enforce_…` läuft). Greift nur, wenn `rechnung_noetig = true` **und** der Übergang nach
-`erledigt` führt. Verlangt: Kundenname, -anschrift, -E-Mail, mindestens ein Fahrzeug in
+`erledigt` führt. Verlangt: Kundenname, -anschrift (die E-Mail seit Migration 79 nicht mehr –
+dann steht in „Rechnungen noch nicht ausgestellt“ der rote Hinweis „E-Mail hinterlegen“), mindestens ein Fahrzeug in
 `auftrag_fahrzeuge`, und an jedem davon ein Kennzeichen (am verknüpften `vehicles`-Datensatz)
 sowie einen Kilometerstand. Die Fehlermeldung nennt **alle** fehlenden Punkte auf einmal, nicht
 nur den ersten. Beim Stornieren wird nichts verlangt. Im Auftragsfenster spiegelt
 `RechnungsdatenBlock.tsx`/`rechnungsdatenMaengel()` (`lib/helpers.ts`) dieselbe Regel als
-Abhakliste – sie sperrt nichts, die Datenbank ist die durchsetzende Instanz. Eine fehlende
-E-Mail lässt sich dort direkt eintragen – seit v119 auch vom Techniker bei Kunden seiner Aufträge,
+Abhakliste – sie sperrt nichts, die Datenbank ist die durchsetzende Instanz. Die E-Mail steht dort
+als freiwillig (`pflicht: false`) und hält den Knopf „Auftrag erledigt“ nicht auf. Eine fehlende
+E-Mail lässt sich dort direkt eintragen, seit v128 auch am erledigten Auftrag – seit v119 auch vom Techniker bei Kunden seiner Aufträge,
 solange noch keine hinterlegt ist (`kunde_email_ergaenzen()`, Migration 74); eine vorhandene ändert
 das Büro im Kundenfenster.
 

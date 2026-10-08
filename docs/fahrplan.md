@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – „Rechnung nötig“ ohne E-Mail, Kundenart-Filter (Migration 79, Service Worker
+  v128).** Wunsch Vitali: Ohne E-Mail kam man im Auftrag nicht weiter. Jetzt ist sie freiwillig;
+  in „Rechnungen noch nicht ausgestellt“ (Aufträge und Rechnungen) steht rot „E-Mail hinterlegen“,
+  nachtragen geht auch am erledigten Auftrag. In der Kundenliste neben A–Z das Blatt „Kundenart“:
+  Privat-, Firmen-, Einmal-, Testkunden.
+
 * **08.10.2026 – Aufräumen: Aufträge und Kunden als eigene Bausteine (Service Worker v127, ohne
   Migration).** Fahrplan C5: `app/_seite/useAuftragAktionen.ts` und `useKundenAktionen.ts`, Verhalten
   unverändert (Probe: Leistung eintragen, Menge, Kontakt mit „Auftrag anlegen“). Dazu nachgetragen:

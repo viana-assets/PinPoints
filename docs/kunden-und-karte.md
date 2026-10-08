@@ -13,7 +13,10 @@
   beim Scrollen stehen bleibt – Titel mit Zahl und „+ Neu", Suche (mit × zum Leeren, seit v110
   auch am iPhone – `components/SuchFeld.tsx`), Zustand als Pillen mit
   Farbpunkt wie die Nadeln und Trefferzahl, „Gebiet" (PLZ-Blatt mit Vorschlägen, dieselben wie
-  in der Saisonliste) und „A–Z" (Buchstabenblatt) statt PLZ-Feld und Buchstabenleiste. Darüber
+  in der Saisonliste) und „A–Z" (Buchstabenblatt) statt PLZ-Feld und Buchstabenleiste; seit v128
+  daneben **„Kundenart"** (Blatt mit Privat-, Firmen-, Einmal-, Testkunden und Zahlen,
+  `kundenArtPasst`/`KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`: Firmenkunde = Feld „Firma“ gefüllt,
+  die Laufkundschaft ist keins von beiden, Einmal/Test überschneiden sich mit Privat/Firma). Darüber
   der Liste die Karte **„Rückrufe heute fällig"** (Wiedervorlage erreicht, Kunde offen –
   `rueckrufFaellig`, dieselbe Regel wie im Dashboard); antippen setzt den Filter `rueckruf`.
   Die Kunden stehen nach Anfangsbuchstaben gruppiert in weißen Karten: Kreis mit Initialen in

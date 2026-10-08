@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: keine.** **Stand 08.10.2026: Alle Migrationen 01–78 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026) –
+**Noch auszuführen: 79** (Abschnitt „Noch auszuführen“ ganz unten). **Stand 08.10.2026: Alle Migrationen 01–78 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1036,3 +1036,15 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   abgewiesen; Admin legt mit Transporter an und lagert aus. Dazu `t74.sql`, `t76.sql`, `t77.sql` gegen
   76 + 77 und 76 + 77 + 78 verglichen: nur die neuen Meldungstexte unterscheiden sich. Zurückgenommen,
   zweimal – Richtlinien, Funktionen, Trigger und Matrix identisch mit 76 + 77 –, erneut ausgeführt.
+
+## Noch auszuführen
+
+- `79_rechnung_ohne_email.sql` – **nach `78`, SQL zuerst, dann die Dateien von v128.** Wunsch Vitali
+  08.10.2026: Ohne E-Mail-Adresse beim Kunden ließ sich ein Auftrag mit „Rechnung nötig“ nicht
+  abschließen. `pruefe_rechnungsdaten()` verlangt die E-Mail nicht mehr (Name, Anschrift, Fahrzeug,
+  Kennzeichen, Kilometerstand bleiben). Die App erinnert in „Rechnungen noch nicht ausgestellt“ mit
+  „E-Mail hinterlegen“. Ergebnistabelle mit einer Zeile (sollte false sein). Zweiter Lauf folgenlos.
+  Rücknahme: `rollback/79_rollback.sql` (Funktion wie nach 78; zweimal lauffähig). Geprüft gegen
+  Postgres 16 (Stand 78, `pgtest/t79.sql`): ohne E-Mail abgeschlossen; ohne Anschrift abgewiesen, die
+  Meldung nennt nur die Anschrift; E-Mail am erledigten Auftrag über `kunde_email_ergaenzen()`
+  nachgetragen; ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

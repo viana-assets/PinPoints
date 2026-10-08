@@ -588,7 +588,8 @@ export function AuftragModal({
   const rechnungsMaengel = rechnungNoetig
     ? rechnungsdatenMaengel(customer ?? null, auftragsFahrzeuge.map((f) => ({ kennzeichen: f.fahrzeug?.license_plate ?? null, kilometerstand: f.kilometerstand })))
     : [];
-  const fehltListe = gesperrt ? [] : [...new Set([...(zeitFehlt ? ["Uhrzeit"] : []), ...abschlussFehlt, ...rechnungsMaengel.map((m) => m.text)])];
+  const fehltListe = gesperrt ? [] : [...new Set([...(zeitFehlt ? ["Uhrzeit"] : []), ...abschlussFehlt, ...rechnungsMaengel.filter((m) => m.pflicht).map((m) => m.text)])];
+  // Die E-Mail-Adresse hält seit v128 (Migration 79) nichts mehr auf – sie wird später nachgetragen.
   const telefonDa = !!kundeAnzeige && getPhoneNumbers(kundeAnzeige).length > 0;
   const adresseDa = !!kundeAnzeige && kundeAnzeige.address.trim() !== "";
   const summen = orderArticles.reduce((n, r) => n + (r.endpreis_netto ?? r.quantity * r.net_price), 0);

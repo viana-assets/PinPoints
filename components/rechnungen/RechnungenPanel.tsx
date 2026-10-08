@@ -17,7 +17,9 @@ import { SuchFeld } from "@/components/SuchFeld";
 type Sicht = "alle" | "gueltig" | "storniert";
 
 // Ein erledigter Auftrag mit „Rechnung nötig", aber ohne Rechnung (Entwurf P, 26.09.2026).
-export type OffeneRechnung = { id: string; nummer: number; kunde: string; datum: string; netto: number };
+// `emailFehlt` (v128): Beim Kunden steht keine E-Mail-Adresse – seit Migration 79 kein Hindernis
+// beim Abschließen mehr, deshalb der Hinweis hier.
+export type OffeneRechnung = { id: string; nummer: number; kunde: string; datum: string; netto: number; emailFehlt?: boolean };
 
 export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, darfStornieren, onAuftragOeffnen, onKundeOeffnen, onStornieren, offene = [] }: {
   // Noch nicht ausgestellt – dieselbe Liste wie die Karte in den Aufträgen (`rechnungOffen`).
@@ -201,7 +203,8 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, darfStornier
             <span className="small">Erledigte Aufträge mit „Rechnung nötig“, aber ohne Rechnung. Die Rechnung entsteht im Auftrag.</span>
             {offene.map((o) => (
               <div key={o.id} className="am-listen-zeile statisch">
-                <span className="am-lz-text"><b>{o.kunde}</b><span className="small">erledigt {formatDate(o.datum)} · #{auftragsNr(o.nummer)}</span></span>
+                <span className="am-lz-text"><b>{o.kunde}</b><span className="small">erledigt {formatDate(o.datum)} · #{auftragsNr(o.nummer)}</span>
+                  {o.emailFehlt && <span className="small re-email-fehlt">E-Mail hinterlegen</span>}</span>
                 <b>{formatEUR(o.netto)}</b>
                 {onAuftragOeffnen && <button type="button" className="am-mini" onClick={() => { setOffeneZeigen(false); onAuftragOeffnen(o.id); }}>Rechnung</button>}
               </div>

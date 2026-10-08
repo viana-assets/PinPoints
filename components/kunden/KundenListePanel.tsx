@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Customer, Order } from "@/lib/types";
 import { KUNDEN_FILTER, type KundenFilter } from "@/lib/constants";
 import { getPhoneNumbers, type KundenZustand } from "@/lib/helpers";
-import { anzeigeName, initialen, nachBuchstaben } from "@/lib/kundenAnsicht";
+import { anzeigeName, initialen, KUNDEN_ARTEN, nachBuchstaben, type KundenArt } from "@/lib/kundenAnsicht";
 import { plzVorschlaege } from "@/lib/saisonAnsicht";
 import { datumKurz } from "@/lib/dashboard";
 import { IconNavPin } from "@/components/icons";
@@ -44,6 +44,10 @@ export function KundenListePanel(p: {
   buchstabe: string | null;
   onBuchstabe: (b: string | null) => void;
   buchstaben: string[];
+  // Kundenart (v128): Privat, Firma, Einmal, Test – Zahlen ohne den Artfilter selbst.
+  kundenArt: KundenArt;
+  onKundenArt: (a: KundenArt) => void;
+  artZahlen: Record<KundenArt, number>;
   // Grundlage der Gebietsvorschläge: alle aktiven Kunden, nicht die gefilterten – sonst
   // schrumpfen die Vorschläge mit jedem Filter mit.
   alleKunden: Customer[];
@@ -57,7 +61,8 @@ export function KundenListePanel(p: {
   onCall: (e: React.MouseEvent, c: Customer) => void;
   onNeu?: () => void;
 }) {
-  const [blatt, setBlatt] = useState<null | "gebiet" | "az">(null);
+  const [blatt, setBlatt] = useState<null | "gebiet" | "az" | "art">(null);
+  const artText = KUNDEN_ARTEN.find((a) => a.wert === p.kundenArt)?.text ?? "Kundenart";
   const [plzEingabe, setPlzEingabe] = useState("");
   const gruppen = nachBuchstaben(p.sichtbar);
   const rueckrufe = p.filterZahlen.rueckruf;
@@ -111,6 +116,9 @@ export function KundenListePanel(p: {
             </button>
             <button type="button" className={"pl-pille" + (p.buchstabe ? " aktiv" : "")} onClick={() => setBlatt("az")}>
               {p.buchstabe ? `Buchstabe ${p.buchstabe}` : "A–Z"} <span aria-hidden="true">▾</span>
+            </button>
+            <button type="button" className={"pl-pille" + (p.kundenArt !== "alle" ? " aktiv" : "")} onClick={() => setBlatt("art")}>
+              {p.kundenArt !== "alle" ? artText : "Kundenart"} <span aria-hidden="true">▾</span>
             </button>
           </div>
         </div>
@@ -194,7 +202,7 @@ export function KundenListePanel(p: {
 
       {blatt && (
         <div className="modal-overlay auswahl-overlay" onClick={() => setBlatt(null)}>
-          <div className="auswahl-blatt lg-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={blatt === "gebiet" ? "Gebiet" : "Anfangsbuchstabe"}>
+          <div className="auswahl-blatt lg-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label={blatt === "gebiet" ? "Gebiet" : blatt === "art" ? "Kundenart" : "Anfangsbuchstabe"}>
             <div className="ab-griff" />
             {blatt === "az" && (
               <>
@@ -205,6 +213,18 @@ export function KundenListePanel(p: {
                     <button key={b} type="button" className={p.buchstabe === b ? "aktiv" : ""} onClick={() => { p.onBuchstabe(b); setBlatt(null); }}>{b}</button>
                   ))}
                 </div>
+              </>
+            )}
+            {blatt === "art" && (
+              <>
+                <div className="ab-titel">Kundenart</div>
+                <span className="small">Einmal- und Testkunden sind zugleich Privat- oder Firmenkunden. Firmenkunde ist, wer eine Firma eingetragen hat.</span>
+                {KUNDEN_ARTEN.map(({ wert, text }) => (
+                  <button key={wert} type="button" className={"ab-option" + (p.kundenArt === wert ? " aktiv" : "")}
+                    aria-pressed={p.kundenArt === wert} onClick={() => { p.onKundenArt(wert); setBlatt(null); }}>
+                    <span className="ab-text">{text}</span><span className="small">{p.artZahlen[wert]} {p.artZahlen[wert] === 1 ? "Kunde" : "Kunden"}</span>
+                  </button>
+                ))}
               </>
             )}
             {blatt === "gebiet" && (

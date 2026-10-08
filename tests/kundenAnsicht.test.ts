@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { anfangsbuchstabe, anzeigeName, initialen, nachBuchstaben, rueckrufFaellig } from "@/lib/kundenAnsicht";
+import { anfangsbuchstabe, anzeigeName, initialen, kundenArtPasst, kundenArtZahlen, nachBuchstaben, rueckrufFaellig } from "@/lib/kundenAnsicht";
 
 // Die Regeln hinter der neuen Kundenliste (Entwurf J).
 
@@ -47,3 +47,35 @@ describe("initialen", () => {
     expect(initialen("")).toBe("?");
   });
 });
+
+// Kundenart-Filter (v128): Privat und Firma trennt das Feld „Firma“, die Laufkundschaft ist keins
+// von beiden; Einmal- und Testkunden überschneiden sich mit Privat/Firma.
+describe("kundenArtPasst / kundenArtZahlen", () => {
+  const k = (teil: Partial<{ company: string | null; laufkundschaft: boolean; einmalkunde: boolean; testkunde: boolean }> = {}) =>
+    ({ company: null, laufkundschaft: false, einmalkunde: false, testkunde: false, ...teil });
+  const privat = k();
+  const firma = k({ company: "Muster GmbH" });
+  const leereFirma = k({ company: "   " });
+  const einmal = k({ einmalkunde: true, company: "Einmal AG" });
+  const test = k({ testkunde: true });
+  const lauf = k({ laufkundschaft: true });
+
+  it("ordnet jede Art zu", () => {
+    expect(kundenArtPasst(privat, "privat")).toBe(true);
+    expect(kundenArtPasst(leereFirma, "privat")).toBe(true);
+    expect(kundenArtPasst(firma, "firma")).toBe(true);
+    expect(kundenArtPasst(firma, "privat")).toBe(false);
+    expect(kundenArtPasst(einmal, "einmal")).toBe(true);
+    expect(kundenArtPasst(einmal, "firma")).toBe(true);
+    expect(kundenArtPasst(test, "test")).toBe(true);
+    expect(kundenArtPasst(lauf, "privat")).toBe(false);
+    expect(kundenArtPasst(lauf, "firma")).toBe(false);
+    expect(kundenArtPasst(lauf, "alle")).toBe(true);
+  });
+
+  it("zählt je Art", () => {
+    expect(kundenArtZahlen([privat, firma, leereFirma, einmal, test, lauf]))
+      .toEqual({ alle: 6, privat: 3, firma: 2, einmal: 1, test: 1 });
+  });
+});
+

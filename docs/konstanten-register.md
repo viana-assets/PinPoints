@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **148 exportierte Konstanten** (`export const`) in 40 Dateien unter `lib/` – gezählt am
-08.10.2026 (v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **149 exportierte Konstanten** (`export const`) in 41 Dateien unter `lib/` – gezählt am
+08.10.2026 (v128: `KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`; v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -108,6 +108,7 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
 |---|---|---|---|---|
 | `KUNDEN_FILTER` | `lib/constants.ts` | `{ wert: KundenFilter; text: string }[]` | Die Zustandsfilter über der Kundenliste, mit Reihenfolge und Beschriftung. Der Typ `KundenFilter` kennt zusätzlich `"rueckruf"` (26.09.2026) – bewusst ohne eigenen Knopf, erreichbar über die Karte „Rückrufe heute fällig" und aus dem Dashboard | `KundenListePanel` (Pillen), `app/page.tsx` (Trefferzahlen, Filter) |
+| `KUNDEN_ARTEN` | `lib/kundenAnsicht.ts` | `{ wert: KundenArt; text: string }[]` | Kundenart-Filter neben A–Z (v128): alle, Privat, Firma, Einmal, Test – Regel in `kundenArtPasst()` | `KundenListePanel` (Blatt „Kundenart"), `kundenArtZahlen()`, `tests/kundenAnsicht.test.ts` |
 | `KUNDEN_ZUSTAND_LABEL` | `lib/helpers.ts` | `Record<KundenZustand, string>` | Beschriftung der fünf Kundenzustände (kontaktiert/Termin/Wiedervorlage/offen/kein Interesse) | `DetailModal`, `app/page.tsx` (Karten-Popup, Kundenliste) |
 | `DUBLETTEN_GRUND_LABEL` | `lib/dubletten.ts` | `Record<DublettenGrund, string>` | Warum zwei Kunden dieselbe Person sein könnten: gleiche Telefonnummer, gleiche E-Mail, gleicher Name und PLZ, ähnlicher Name (E1, v103) | `AddCustomerForm` („Gibt es schon?"), `DublettenPanel`; `tests/dubletten.test.ts` |
 | `KUNDEN_ZUSTAND_REIHENFOLGE` | `lib/helpers.ts` | `readonly KundenZustand[]` | Reihenfolge der Zustände in Legenden/Auswahlen, nach Dringlichkeit sortiert | `app/page.tsx` (Zustandsfilter auf der Karte) |
