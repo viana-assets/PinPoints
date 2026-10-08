@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **149 exportierte Konstanten** (`export const`) in 41 Dateien unter `lib/` – gezählt am
-08.10.2026 (v128: `KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`; v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **157 exportierte Konstanten** (`export const`) in 42 Dateien unter `lib/` – gezählt am
+08.10.2026 (v129: `CHAT_PARAMETER` in `lib/constants.ts`, sieben in `lib/chat.ts` (neu), siehe „Team-Chat"; v128: `KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`; v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -242,7 +242,22 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `BELEG_JPEG_QUALITAET` | `lib/belege.ts` | `number` (0,8) | JPEG-Qualität beim Verkleinern | `bildVerkleinern()` (lib/belegBild.ts) |
 | `SPRUNG_PARAMETER` | `lib/sprungMerker.ts` | `readonly string[]` | Alle Adress-Parameter, die einen Sprung auslösen (Aufkleber, Benachrichtigung) – aus den Einzelkonstanten zusammengesetzt (D19, v106) | `sprungTeile()`; `tests/sprungMerker.test.ts` |
 | `SPRUNG_MERKEN_MS` | `lib/sprungMerker.ts` | `number` (60 000) | Wie lange ein gemerkter Sprung das Neuladen durch den Service Worker überdauert | `sprungLesen()` |
+| `CHAT_PARAMETER` | `lib/constants.ts` | `string` ("chat") | Aufrufparameter der Push-Meldung zum Team-Chat: `/?chat=1` öffnet den Chat (Migration 80, v129) | `lib/chat.ts` (`chatPushInhalt()`), `app/page.tsx` (`zielOeffnen`), `SPRUNG_PARAMETER` |
 | `WOCHENTAG_KURZ` | `lib/dashboard.ts` | `readonly ["So", …, "Sa"]` (Sonntag zuerst wie `getDay()`) | Kurze Wochentage für „Fr 25.9." (26.09.2026 zusammengeführt – stand vorher als Literal in `datumKurz()`) | `datumKurz()`, darüber Dashboard, Kundenfenster, Auftragsfenster, Aufträge im Kundenfenster |
+
+---
+
+## Team-Chat (Migration 80, v129)
+
+| Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
+|---|---|---|---|---|
+| `CHAT_TEXT_MAX` | `lib/chat.ts` | `number` (4000) | Höchstlänge einer Nachricht – dieselbe Grenze prüft die Datenbank (`chat_text_laenge`) | `ChatFenster` (Eingabefeld) |
+| `CHAT_PUSH_TEXT_MAX` | `lib/chat.ts` | `number` (140) | So viel Text steht in der Push-Meldung | `chatPushInhalt()` – `lib/chatVersand.ts`; `tests/chat.test.ts` |
+| `CHAT_LADEN_ANZAHL` | `lib/chat.ts` | `number` (300) | So viele Nachrichten lädt der Chat beim Öffnen | `fetchChatNachrichten()` (`lib/api/chat.ts`) |
+| `CHAT_ABFRAGE_MS` | `lib/chat.ts` | `number` (20 000) | Rückfall-Takt, falls die Live-Verbindung nicht steht (Verlauf; die Zahl dreimal so lang) | `useChatNachrichten()`, `useChatUngelesen()` (`lib/queries/hooks.ts`) |
+| `CHAT_BEZUG_MAX` | `lib/chat.ts` | `number` (120) | Länge von Kartentitel und Unterzeile | `bezugAuftrag()` & Co. |
+| `CHAT_BEZUG_ANSICHT` | `lib/chat.ts` | `Record<ChatBezugArt, { zeichen, oeffnen, klasse }>` | Wie die Karte aussieht: Zeichen links, Text „… öffnen ›", Farbe (Auftrag orange, Kunde grün, Lager blau) | `ChatFenster` |
+| `CHAT_VORSCHLAEGE_MAX` | `lib/chat.ts` | `number` (6) | Treffer je Art beim „+“ (Karte anhängen) | `bezugVorschlaege()`; `tests/chat.test.ts` |
 
 ---
 

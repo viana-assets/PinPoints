@@ -148,7 +148,8 @@ with pruefungen(nr, was, vorhanden) as (
                                                   and to_regprocedure('public.verkaufsreifen_einkaufspreise()') is not null),
     ('78', 'Zehn weitere Unterrechte', to_regprocedure('public.lager_handlungen_pruefen()') is not null
                                                   and to_regprocedure('public.kunde_kontakt_pruefen()') is not null),
-    ('79', 'Rechnung nötig ohne E-Mail', position('E-Mail-Adresse des Kunden' in pg_get_functiondef('public.pruefe_rechnungsdaten()'::regprocedure)) = 0)
+    ('79', 'Rechnung nötig ohne E-Mail', position('E-Mail-Adresse des Kunden' in pg_get_functiondef('public.pruefe_rechnungsdaten()'::regprocedure)) = 0),
+    ('80', 'Team-Chat', to_regclass('public.chat_nachrichten') is not null and to_regprocedure('public.chat_ungelesen()') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

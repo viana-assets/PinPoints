@@ -490,3 +490,39 @@ unverändert; das ist die Entscheidung aus „Die Datenschutzfrage" weiter oben.
 Bei einem Auftrag der Laufkundschaft nennt die Erinnerung statt „Laufkundschaft" den am Auftrag
 eingetragenen Namen, den Einsatzort und die Nummer: „Termin 10:00 Uhr – Max Muster · Rastplatz A9
 Feucht · 0171 …". Ohne eingetragenen Namen steht wie bisher der Sammelkunde da.
+
+## Vierte Nutzung: der Team-Chat (08.10.2026, Migration 80, v129)
+
+**Wozu.** Jede neue Nachricht im Team-Chat kommt als Push-Meldung, so wie die Terminerinnerung –
+Wunsch Vitali vom 08.10.2026 („bei jeder Nachricht“). Wer erwähnt ist (@Name), sieht im Titel
+„… hat dich erwähnt“, alle anderen „… im Team-Chat“. Antippen öffnet `/?chat=1`, also den Chat
+(nicht die Karte darin: erst lesen, was dazu geschrieben wurde).
+
+> **Jan im Team-Chat**
+> Kunde will zusätzlich wuchten lassen – was soll ich berechnen? · Auftrag #114 · Räderwechsel
+
+**Sofort statt im Minutentakt.** Ein Trigger auf `chat_nachrichten` (`chat_push_anstossen()`)
+ruft nach dem Schreiben über pg_net dieselbe Route wie der Zeitgeber auf –
+`/api/push/senden`, gleiches Geheimnis aus `private.push_konfiguration`, Rumpf `{"anlass":"chat"}`.
+Dann läuft NUR der Chat-Versand (`lib/chatVersand.ts`); Terminerinnerung und Abendhinweis bleiben
+beim Minutentakt. Der Minutentakt schickt keinen Anlass und holt zusätzlich nach, was beim Anstoß
+durchgerutscht ist (Route nicht erreichbar, pg_net voll). Eine Nachricht, die älter als eine Stunde
+ist, wird nur noch abgehakt – eine Meldung zu gestern weckt niemanden sinnvoll.
+
+**Einmal je Nachricht:** „erst eintragen, dann das Eingetragene senden“ wie bei `push_versand`: Das
+Update setzt `push_gesendet_am` nur, wo es leer ist, und liefert genau diese Zeilen zurück.
+
+**Empfänger:** alle Zugänge, deren Rolle `chat · lesen` hat (und der Superadmin), außer dem
+Schreiber. Ohne Zeile in der Rechtematrix gilt `RECHTE_VORGABE.chat`.
+
+**Die rote Zahl am App-Symbol.** Jede Meldung trägt `zahl` (die Ungelesenen dieses Empfängers nach
+`chat_gelesen`); der Service Worker setzt sie mit `navigator.setAppBadge()` (public/sw.js). Ist die
+App offen, folgt das Abzeichen der Zahl an der Blase (`app/_seite/useChat.ts`) und verschwindet,
+sobald der Chat gelesen ist. Auf dem iPhone nur in der Homescreen-App (ab iOS 16.4) und nur mit
+erlaubten Mitteilungen – dieselbe Voraussetzung wie für die Terminerinnerung.
+
+**Datenschutz:** Der Text der Nachricht steht in der Meldung (gekürzt auf 140 Zeichen), wie Kunde
+und Anschrift in der Terminerinnerung. Er reist verschlüsselt über Apple/Google (siehe „Die
+Datenschutzfrage“). Wer im Chat Kundendaten schreibt, schreibt sie also auch auf den
+Sperrbildschirm der Kollegen – das gehört in die Einweisung. Aufbewahrung 12 Monate
+(`chat_aufraeumen()`, nächtlich 03:25 UTC); mit dem Datenschutz abzustimmen.

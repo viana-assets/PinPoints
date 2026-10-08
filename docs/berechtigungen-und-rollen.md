@@ -1,6 +1,6 @@
 # Berechtigungen und Rollen
 
-**Stand: 19.09.2026, ergänzt bis 08.10.2026 (`lager.verkauf`, Migration 61; Funktionen aus Migration 64; fünf Unterrechte, Migration 77; zehn weitere, Migration 78).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
+**Stand: 19.09.2026, ergänzt bis 08.10.2026 (`lager.verkauf`, Migration 61; Funktionen aus Migration 64; fünf Unterrechte, Migration 77; zehn weitere, Migration 78; Team-Chat, Migration 80).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
 Entscheidung tatsächlich fällt, und welche Irrtümer das Projekt dabei schon gemacht hat –
 damit sie kein zweites Mal gemacht werden.
 
@@ -206,6 +206,7 @@ Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 | `rechnungen` | Rechnungen | L S | – | – |
 | `rechnungen.storno` | – Rechnungen stornieren (78) | S | – | – |
 | `auswertung` | Auswertungen | L | – | – |
+| `chat` | Team-Chat (80) | L S | L S | L S |
 | `einstellungen` | Einstellungen | L S | L S | L S |
 
 Der Techniker ist in dieser Tabelle die eigentliche Aussage: Er sieht Aufträge, Termine, Lager
@@ -248,6 +249,13 @@ Einzelne Zeilen verdienen einen Satz Begründung:
     prüft `verkaufsreifen_ek_pruefen()`. Die Maske zeigt das Feld ohne L nicht und schickt es ohne
     S nicht mit. **Folge:** Eine neue Spalte an `verkaufsreifen` braucht ein eigenes
     `grant select (spalte)` und gehört in `VERKAUFSREIFEN_SPALTEN`.
+- **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
+  Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,
+  `chat_ungelesen()`, Empfänger in `lib/chatVersand.ts`); S = schreiben (Richtlinie „Chat schreiben“,
+  nur als man selbst). Kein X: Nachrichten werden nicht von Hand gelöscht, sondern nach 12 Monaten
+  (`chat_aufraeumen()`). Eine Karte im Chat öffnet nur, was die Rolle ohnehin sehen darf – die
+  Schnappschuss-Zeile (Titel, Unterzeile) liest aber jeder mit L; deshalb steht auf der Kundenkarte
+  nur Name und Ort, keine Anschrift und keine Nummer.
 - **Die zehn Zeilen aus Migration 78:**
   - `auftraege.anlegen` – Richtlinie „Bereich auftraege schreiben“ (INSERT). Legt ein Techniker an,
     trägt ihn `auftrag_techniker_einteilen()` selbst ein (sonst sähe er den Auftrag nicht); ohne

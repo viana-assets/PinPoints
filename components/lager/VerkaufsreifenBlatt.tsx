@@ -16,7 +16,7 @@ import { dotFehler, groesseAusText, groesseText, reifenHinweise } from "@/lib/re
 
 type Felge = "keine" | "stahl" | "alu";
 
-export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBelegt, vorgabeLagerId, darfSchreiben, darfLoeschen, darfEkLesen = true, darfEkSchreiben = true, onSpeichern, onLoeschen, onClose, onEtikett }: {
+export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBelegt, vorgabeLagerId, darfSchreiben, darfLoeschen, darfEkLesen = true, darfEkSchreiben = true, onSpeichern, onLoeschen, onClose, onEtikett, onInDenChat }: {
   // null = neu erfassen
   posten: Verkaufsreifen | null;
   warehouses: Warehouse[];
@@ -35,6 +35,8 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
   onClose: () => void;
   // Etikett mit QR-Code je Stück (E17). Nur an einem gespeicherten Posten – vorher hat er keine Kennung.
   onEtikett?: () => void;
+  // Team-Chat (Migration 80, v129): den Posten als Karte in den Chat stellen.
+  onInDenChat?: () => void;
 }) {
   const p = posten;
   const [zustand, setZustand] = useState<ReifenZustand>(p?.zustand ?? "neu");
@@ -144,6 +146,9 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
         )}
         {p && onEtikett && (
           <button type="button" className="btn-secondary btn-rand vk-etikett" onClick={onEtikett}>Etikett drucken</button>
+        )}
+        {p && onInDenChat && (
+          <button type="button" className="btn-secondary btn-rand vk-etikett" onClick={onInDenChat}>In den Chat</button>
         )}
 
         <div className="lg-lagerwahl ar-segment" role="group" aria-label="Zustand">

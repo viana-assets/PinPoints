@@ -18,7 +18,7 @@
 // Bei jeder Änderung an dieser Datei hochzählen: der Name ist der Schlüssel des
 // Zwischenspeichers, ein neuer Name wirft beim Aktivieren alle alten Bestände weg.
 // Immer gleich `APP_VERSION` in lib/version.ts (geprüft in tests/version.test.ts).
-const FASSUNG = "v128";
+const FASSUNG = "v129";
 const SPEICHER = `pinpoints-programm-${FASSUNG}`;
 // Übergabe an die Anwendung: wohin eine angetippte Benachrichtigung führen soll. Die drei Namen
 // stehen wortgleich in lib/benachrichtigungZiel.ts – dort steht auch, warum es diesen Umweg
@@ -94,6 +94,12 @@ self.addEventListener("push", (ereignis) => {
   // dem PinPoints-Symbol – auf dem Sperrbildschirm, trotz Tarnung.
   const titel = daten.titel || "Hinweis";
   const symbol = daten.symbol || "/icons/mr-logo-192.png";
+  // Team-Chat (v129): die Zahl der Ungelesenen als rotes Abzeichen am App-Symbol. Auf dem iPhone
+  // nur in der Homescreen-App und nur mit erlaubten Mitteilungen; wo es fehlt, passiert nichts.
+  if (typeof daten.zahl === "number" && self.navigator && "setAppBadge" in self.navigator) {
+    const zahl = daten.zahl;
+    ereignis.waitUntil((zahl > 0 ? self.navigator.setAppBadge(zahl) : self.navigator.clearAppBadge()).catch(() => {}));
+  }
   ereignis.waitUntil(
     self.registration.showNotification(titel, {
       body: daten.text || "",

@@ -24,7 +24,7 @@ function euroGanz(betrag: number): string {
   return `${Math.round(betrag).toLocaleString("de-DE")} €`;
 }
 
-export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBelegt, darfSchreiben, darfLoeschen, darfEkLesen = true, darfEkSchreiben = true, oeffneId, onGeoeffnet, onSpeichern, onLoeschen }: {
+export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBelegt, darfSchreiben, darfLoeschen, darfEkLesen = true, darfEkSchreiben = true, oeffneId, onGeoeffnet, onSpeichern, onLoeschen, onInDenChat }: {
   verkaufsreifen: Verkaufsreifen[];
   warehouses: Warehouse[];
   storageSlots: StorageSlot[];
@@ -39,6 +39,8 @@ export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBe
   onGeoeffnet: () => void;
   onSpeichern: (felder: VerkaufsreifenFelder, id: string | null) => Promise<void>;
   onLoeschen: (id: string) => Promise<void>;
+  // Team-Chat (Migration 80, v129).
+  onInDenChat?: (posten: Verkaufsreifen) => void;
 }) {
   const [suche, setSuche] = useState("");
   const [filter, setFilter] = useState<VerkaufFilter>("alle");
@@ -178,6 +180,7 @@ export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBe
           onLoeschen={onLoeschen}
           onClose={schliessen}
           onEtikett={offen ? () => { const id = offen.id; schliessen(); setEtikettId(id); } : undefined}
+          onInDenChat={offen && onInDenChat ? () => { const posten = offen; schliessen(); onInDenChat(posten); } : undefined}
         />
       )}
       {etikettPosten && <VerkaufsreifenEtikett posten={etikettPosten} onClose={() => setEtikettId(null)} />}

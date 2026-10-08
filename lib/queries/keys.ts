@@ -57,6 +57,13 @@ export const qk = {
 
   modulrechte: () => ["modulrechte"] as const,
 
+  // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
+  // Nachricht ändert Verlauf und Zahl auf einmal.
+  chat: () => ["chat"] as const,
+  chatNachrichten: () => ["chat", "nachrichten"] as const,
+  chatUngelesen: () => ["chat", "ungelesen"] as const,
+  chatPersonen: () => ["chat", "personen"] as const,
+
   // Haken bei „Reifen mitnehmen" (Migration 58), je Liste von Einsatztagen.
   gepackt: (daten: string[]) => ["mitnehmen-gepackt", ...daten] as const,
   gepacktAlle: () => ["mitnehmen-gepackt"] as const,

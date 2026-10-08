@@ -29,7 +29,7 @@ import { KartenKundeKarte } from "@/components/karte/KartenKundeKarte";
 import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import {
   type KundenFilter, TERMIN_FILTER, type TerminFilter, RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
-  regelZerlegen, ANRUF_PARAMETER, MITNEHMEN_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD, PROFIL_KRITISCH_MM,
+  regelZerlegen, ANRUF_PARAMETER, MITNEHMEN_PARAMETER, CHAT_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD, PROFIL_KRITISCH_MM,
   STANDARD_DAUER_MIN, type Verb,
 } from "@/lib/constants";
 import {
@@ -55,6 +55,10 @@ import { deleteVorlage, insertVorlage, updateVorlage } from "@/lib/api/vorlagen"
 import { APP_VERSION, neuigkeitenUngelesen } from "@/lib/version";
 import { NeuigkeitenBlatt } from "@/components/NeuigkeitenBlatt";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
+import { ChatBlase } from "@/components/chat/ChatBlase";
+import { ChatFenster } from "@/components/chat/ChatFenster";
+import { bezugAuftrag, bezugKunde, bezugVorschlaege, type ChatBezug } from "@/lib/chat";
+import { useChat } from "./_seite/useChat";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
 // Marke.
@@ -204,6 +208,8 @@ export default function HomePage() {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [myRole, setMyRole] = useState<Role>("user");
   const [userEmail, setUserEmail] = useState("");
+  // Die eigene Kennung (auth.uid) – für den Team-Chat: eigene Nachrichten rechts, Lesestand.
+  const [meineId, setMeineId] = useState<string | null>(null);
   // Startet in der Einsatzplanung (START_TAB in lib/module.ts), nicht mehr im Dashboard.
   const [tab, setTab] = useState<TabKey>(START_TAB);
   // Vollseiten-Module: hier ergibt die Karte keinen Sinn, der Inhalt bekommt die volle Breite.
@@ -698,6 +704,7 @@ export default function HomePage() {
       }
       if (!user) { router.push("/login"); return; }
       setUserEmail(user.email || "");
+      setMeineId(user.id);
 
       // Rolle und Einstellungen kommen aus der Datenbank und fehlen deshalb ohne Netz. Das
       // darf den Start nicht aufhalten: ohne Rolle gilt die geringste Berechtigung, für die
@@ -1486,6 +1493,41 @@ export default function HomePage() {
     darf, neuenAuftragAnlegen, refreshCustomers, refreshOrders, refreshTireStorages, loadHistory, neuLaden,
   });
 
+  // ---------------------------------------------------------------- Team-Chat (Migration 80, v129)
+  const chat = useChat({ supabase, aktiv: sitzungBereit && darf("chat", "lesen"), meineId });
+  const darfChatSchreiben = darf("chat", "schreiben");
+  const inDenChat = darf("chat", "lesen") && darfChatSchreiben ? chat.inDenChat : undefined;
+
+  // Eine Karte im Chat antippen: Der Chat geht zu, die Sache auf. Was die Rolle nicht sehen darf
+  // (oder was es nicht mehr gibt), öffnet nichts – dann sagt es eine Meldung, statt still zu bleiben.
+  function chatBezugKannOeffnen(b: ChatBezug): boolean {
+    if (b.art === "auftrag") return canView("auftraege");
+    if (b.art === "kunde") return true;
+    if (b.art === "platz") return canView("lager");
+    return canView("lager") && darf("lager.verkauf", "lesen");
+  }
+  function chatBezugOeffnen(b: ChatBezug) {
+    chat.schliessen();
+    if (b.art === "auftrag") {
+      // Wie aus der Rechnungsliste: Der Auftrag kann älter sein als das geladene Zeitfenster.
+      if (!orders.some((o) => o.id === b.id)) setAuftragsFenster("alles");
+      setOffenerAuftragId(b.id);
+      void auftraegeNeuLaden();
+      return;
+    }
+    if (b.art === "kunde") {
+      if (!customers.some((c) => c.id === b.id)) {
+        setFehler("Diesen Kunden kannst du nicht öffnen – er ist gelöscht oder für deine Rolle nicht sichtbar.");
+        return;
+      }
+      openDetail(b.id);
+      return;
+    }
+    if (b.art === "platz") setGescannterLagerplatzId(b.id);
+    else setGescannterVerkaufsreifenId(b.id);
+    setTab("lager");
+  }
+
   // ---------------------------------------------------------------- Lager-Modul
   // Die Handlungen stehen seit v113 in app/_seite/useLagerAktionen.ts (Fahrplan C5).
   const {
@@ -1998,6 +2040,11 @@ export default function HomePage() {
   function zielOeffnen(parameter: URLSearchParams): void {
     // „Anrufen" zuerst: Diese Meldung hat genau einen Zweck, und wer sie antippt, hat das Handy
     // schon am Ohr im Sinn – da ist jedes andere Fenster im Weg.
+    // Team-Chat (Migration 80): Die Meldung zu einer neuen Nachricht öffnet den Chat.
+    if (parameter.get(CHAT_PARAMETER)) {
+      chat.oeffnen();
+      return;
+    }
     const anrufId = parameter.get(ANRUF_PARAMETER);
     if (anrufId) {
       setAnrufKundeId(anrufId);
@@ -2044,7 +2091,7 @@ export default function HomePage() {
   useEffect(() => {
     const parameter = sprungDieserLadung();
     if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER) && !parameter.get(ANRUF_PARAMETER)
-      && !parameter.get(MITNEHMEN_PARAMETER)) return;
+      && !parameter.get(MITNEHMEN_PARAMETER) && !parameter.get(CHAT_PARAMETER)) return;
     zielOeffnen(parameter);
   }, []);
 
@@ -2561,6 +2608,7 @@ export default function HomePage() {
         {tab === "lager" && canView("lager") && (
           <LagerPanel
             vormerkung={vormerkungText}
+            onInDenChat={inDenChat}
             customers={customers}
             vehicles={alleFahrzeuge}
             warehouses={warehouses}
@@ -2854,6 +2902,33 @@ export default function HomePage() {
           geladenen Bestand, wartet das Fenster – der Abruf läuft bereits (siehe zielOeffnen). */}
       {auskunftKundeId && <AuskunftFenster kundeId={auskunftKundeId} onClose={() => setAuskunftKundeId(null)} />}
 
+      {/* Team-Chat (Migration 80, v129): die Blase auf jeder Seite, das Fenster darüber. */}
+      {sitzungBereit && darf("chat", "lesen") && !chat.offen && (
+        <ChatBlase
+          zahl={chat.ungelesen}
+          lage={!fullPageTabs ? (mobileMapVisible ? "karte-offen" : "bei-karte") : null}
+          onClick={chat.oeffnen}
+        />
+      )}
+      {chat.offen && (
+        <ChatFenster
+          nachrichten={chat.nachrichten}
+          laedt={chat.laedt}
+          fehler={chat.fehler}
+          personen={chat.personen}
+          ichId={meineId}
+          darfSchreiben={darfChatSchreiben}
+          online={!istOffline}
+          bezug={chat.bezug}
+          onBezug={chat.setBezug}
+          vorschlaege={(suche) => bezugVorschlaege(suche, orders, customers, todayStr())}
+          onSenden={chat.senden}
+          kannOeffnen={chatBezugKannOeffnen}
+          onBezugOeffnen={chatBezugOeffnen}
+          onClose={chat.schliessen}
+        />
+      )}
+
       {anrufKundeId && (() => {
         const kunde = customers.find((c) => c.id === anrufKundeId);
         if (!kunde) return null;
@@ -3053,6 +3128,10 @@ export default function HomePage() {
           orderArticles={orderArticlesFor(offenerAuftrag.id)}
           isTechniker={isTechniker}
           darfWiedereroeffnen={darf("auftraege.wiedereroeffnen", "schreiben")}
+          onInDenChat={inDenChat ? () => {
+            const k = customers.find((c) => c.id === offenerAuftrag.customer_id);
+            inDenChat(bezugAuftrag(offenerAuftrag, k?.laufkundschaft ? offenerAuftrag.laufkunde_name || k.name : k ? anzeigeName(k) : null));
+          } : undefined}
           darfTransporter={darf("auftraege.transporter", "schreiben")}
           darfAuslagern={darf("lager.auslagern", "schreiben")}
           darfTausch={darf("lager.tausch", "schreiben")}
@@ -3228,6 +3307,7 @@ export default function HomePage() {
           onSaveFields={(fields) => updateCustomerFields(selectedId, fields)}
           onMarkContacted={darf("kunden.kontakte", "schreiben") ? () => setKontaktKundeId(selectedId) : undefined}
           onMarkOpen={darf("kunden.kontakte", "schreiben") ? () => markOpen(selectedId) : undefined}
+          onInDenChat={inDenChat ? () => inDenChat(bezugKunde(gewaehlterKunde)) : undefined}
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}
           onTestkundeLoeschen={isSuperAdmin ? () => testkundeRestlosLoeschen(selectedId) : undefined}

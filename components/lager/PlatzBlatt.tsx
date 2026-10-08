@@ -19,7 +19,7 @@ const GRENZEN = { hinweis: PROFIL_HINWEIS_MM, kritisch: PROFIL_KRITISCH_MM };
 
 export function PlatzBlatt({
   slot, wo, satz, kunde, fahrzeug, raeder, gruende, vormerkung = null, verlauf, customers, raederFuer, lagergebuehrJeMonat,
-  canAssign, canAuslagern = true, canDelete, onClose, onKunde, onAuslagern, onBearbeiten, onEtikett, onAufkleber, onLoeschen, onGroesse, onZumVerkauf,
+  canAssign, canAuslagern = true, canDelete, onClose, onKunde, onAuslagern, onBearbeiten, onEtikett, onAufkleber, onLoeschen, onGroesse, onZumVerkauf, onInDenChat,
 }: {
   slot: StorageSlot;
   // „Hauptlager · Reihe A"
@@ -53,6 +53,8 @@ export function PlatzBlatt({
   onGroesse?: (groesse: PlatzGroesse) => Promise<void>;
   // Der Kunde lässt den Satz da (E17): in den Reifenverkauf übernehmen.
   onZumVerkauf?: () => void;
+  // Team-Chat (Migration 80, v129): den Platz als Karte in den Chat stellen.
+  onInDenChat?: () => void;
 }) {
   const [verlaufOffen, setVerlaufOffen] = useState(false);
   const [groesseLaeuft, setGroesseLaeuft] = useState(false);
@@ -122,6 +124,7 @@ export function PlatzBlatt({
             <div className="lg-knoepfe">
               <button type="button" className="lg-knopf" onClick={onAufkleber}>Aufkleber fürs Regal</button>
               {groesseKnopf}
+              {onInDenChat && <button type="button" className="lg-knopf klein" onClick={onInDenChat}>In den Chat</button>}
               {canDelete && <button type="button" className="lg-knopf gefahr" onClick={loeschen}>Platz löschen</button>}
             </div>
             {verlaufKnopf || <span className="small">Auf diesem Platz lag noch kein Satz.</span>}
@@ -204,6 +207,7 @@ export function PlatzBlatt({
               <button type="button" className="lg-knopf klein" onClick={onAufkleber}>Aufkleber fürs Regal</button>
               {groesseKnopf}
               {onZumVerkauf && <button type="button" className="lg-knopf klein" onClick={onZumVerkauf}>Kunde lässt sie da · zum Verkauf</button>}
+              {onInDenChat && <button type="button" className="lg-knopf klein" onClick={onInDenChat}>In den Chat</button>}
             </div>
             {verlaufKnopf}
             {verlaufListe}

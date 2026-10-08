@@ -18,6 +18,9 @@ export type PushInhalt = {
   url: string;
   // Gleiche Kennung ersetzt eine noch offene Meldung, statt eine zweite daneben zu legen.
   kennung?: string;
+  // Zahl für das rote Abzeichen am App-Symbol (Team-Chat, Migration 80). Der Service Worker
+  // setzt sie mit `setAppBadge`, wo das Gerät es kann (iPhone ab iOS 16.4 als Homescreen-App).
+  zahl?: number;
 };
 
 export function pushNutzlast(inhalt: PushInhalt): string {

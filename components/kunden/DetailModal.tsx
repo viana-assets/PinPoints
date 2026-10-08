@@ -51,6 +51,8 @@ export function DetailModal(props: {
   // Fehlen, wenn die Rolle keine Kontakte eintragen darf (Migration 78, „Kontakte eintragen“).
   onMarkContacted?: () => void;
   onMarkOpen?: () => void;
+  // Team-Chat (Migration 80, v129): den Kunden als Karte in den Chat stellen.
+  onInDenChat?: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
   // Testkunde (Migration 60): restlos löschen statt Papierkorb. Nur für den Superadmin gesetzt.
@@ -507,6 +509,11 @@ export function DetailModal(props: {
               </span>
               <span className={"nk-spur" + (cust.laufkundschaft ? " an" : "")} aria-hidden="true"><span /></span>
             </button>
+            )}
+            {props.onInDenChat && (
+              <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onInDenChat?.(); }}>
+                <span className="ab-text">In den Chat <span className="small">· als Karte im Team-Chat</span></span>
+              </button>
             )}
             {props.onMarkOpen && (
               <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onMarkOpen?.(); }}>

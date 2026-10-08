@@ -79,6 +79,8 @@ viana-pinpoints/
       useKundenAktionen.ts    Kontakt festhalten, offen/aktiv, Stammdaten, Position, anlegen, löschen (v127)
       useLagerAktionen.ts     Lager, Plätze, Einlagerung am Auftrag, Auslagern/Vormerken, Tausch, Räder
       useFahrzeugAktionen.ts  Kartei der Fahrzeuge, Fahrzeuge am Auftrag, Kilometerstand (offline-fähig)
+      useChat.ts              Team-Chat: offen/zu, Karte an der Eingabe, Ungelesene, Live-Verbindung,
+                              Lesestand, Abzeichen am App-Symbol (Migration 80, v129)
     manifest.ts               Erzeugt das PWA-Manifest aus lib/erscheinung.ts (kein statisches
                               manifest.webmanifest mehr, damit der App-Name nicht an zwei
                               Stellen gepflegt werden muss)
@@ -95,7 +97,8 @@ viana-pinpoints/
     api/adresse-suchen/route.ts  Server-Route für Adressvorschläge/Tippfehlertoleranz
                                 (eigener Dienst, siehe Migration 25 – Nominatim selbst verbietet
                                 Autovervollständigung)
-    api/push/                   anmelden/abmelden/schluessel/senden/status/test – Web-Push
+    api/push/                   anmelden/abmelden/schluessel/senden/status/test – Web-Push; `senden` verschickt
+                                seit v129 auch den Team-Chat (`{"anlass":"chat"}` aus dem Trigger der Migration 80)
                                 (siehe „PWA, Service Worker und Push" unten)
     providers.tsx               QueryClientProvider + IndexedDB-Persistenz der Abfragen
   components/
@@ -122,6 +125,9 @@ viana-pinpoints/
                                      Ebenen, Standort, Zoom, Legende, Tagesstreifen (Entwurf W)
       KartenKundeKarte.tsx           Die Kundenkarte an der Nadel (ersetzt das Leaflet-Popup)
       nadel.ts                       Nadeln als HTML – eine Quelle für Karte und Legende
+    chat/
+      ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
+      ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen)
     termine/
       TerminePanel.tsx               Reiter „Termine" als Zeitleiste je Tag (Entwurf L)
     WeiterePanel.tsx                Handy-Seite „Weitere": Kacheln nach `WEITERE_GRUPPEN`, je
@@ -279,6 +285,9 @@ viana-pinpoints/
     fremdabfrage.ts               Abfragebremse der Adressdienste über die Datenbank (B3, v100)
     abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
     pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
+    chat.ts                       Regeln des Team-Chats: Karten, @-Erwähnungen, Tagestrenner, Push-Inhalt,
+                                  Vorschläge für „+“ (Migration 80, v129; tests/chat.test.ts)
+    chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
     reifenverkauf.ts              Reifenverkauf: Größe lesen, Hinweise, Lagerwert (Migration 61);
                                   seit v103 Übernahme aus der Einlagerung, Etikett, Auswertung (E17/E18)
@@ -324,6 +333,7 @@ viana-pinpoints/
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
+      chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80)
       permissions.ts                Modul-Berechtigungen (module_permissions, `darf()`)
       audit.ts                      Lesezugriff auf das Änderungsprotokoll (audit_log)
       protokoll.ts                   Namensauflösung/Aufbereitung fürs Protokoll
@@ -340,7 +350,7 @@ viana-pinpoints/
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
       alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–79
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–80
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -486,7 +496,7 @@ aktualisieren bzw. über `qk.*` einen Query-Schlüssel für ungültig erklären.
 `neuLaden`, `offlineOderDirekt`, `refreshX`) und geben die Funktionen zurück, die vorher in
 `HomePage` standen – Namen und Verhalten unverändert, die Props der Panels bleiben gleich. Damit
 ist die Datei von ~3.950 auf ~3.550 Zeilen geschrumpft; **v127** hat `useAuftragAktionen` und
-`useKundenAktionen` dazugenommen (~3.580 → ~3.300 Zeilen). `useAuftragAktionen` steht dabei VOR
+`useKundenAktionen` dazugenommen (~3.580 → ~3.300 Zeilen), **v129** `useChat` (Team-Chat). `useAuftragAktionen` steht dabei VOR
 `useLagerAktionen`, weil dieser `addOrder` braucht, und `useKundenAktionen` danach, weil er
 `neuenAuftragAnlegen` braucht. Der Hook wird vor dem ersten `return`
 aufgerufen (Regel der Hooks); was er zurückgibt, ist erst ab dieser Zeile da – Funktionen weiter
@@ -674,7 +684,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 79** (08.10.2026; 79 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 80** (08.10.2026; 79 und 80 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -782,6 +792,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   Kontakte eintragen (`kunde_kontakt_pruefen()`), Dubletten. Siehe `docs/berechtigungen-und-rollen.md`.
 - **79** – `pruefe_rechnungsdaten()` verlangt die E-Mail-Adresse nicht mehr; die App erinnert in
   „Rechnungen noch nicht ausgestellt“ („E-Mail hinterlegen“).
+- **80** – Team-Chat: `chat_nachrichten` (mit Karten-Schnappschuss), `chat_gelesen`, Recht `chat`,
+  `chat_ungelesen()`, `chat_personen()`, Push-Anstoß per pg_net an `/api/push/senden`, Karte vergisst
+  den Inhalt beim endgültigen Löschen, Aufbewahrung 12 Monate, Realtime. Siehe `docs/team-chat.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

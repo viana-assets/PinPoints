@@ -8,6 +8,8 @@ import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsd
 import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVerfuegbarkeiten } from "@/lib/api/verfuegbarkeit";
+import { fetchChatNachrichten, fetchChatPersonen, fetchChatUngelesen } from "@/lib/api/chat";
+import { CHAT_ABFRAGE_MS } from "@/lib/chat";
 import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 import { fetchVehiclesFuerKunden } from "@/lib/api/vehicles";
 import type { Order } from "@/lib/types";
@@ -351,5 +353,37 @@ export function useBelegLinks(supabase: SupabaseClient, pfade: string[], aktiv: 
     staleTime: BELEG_LINK_FRISCH_MS,
     // Nicht in den Offline-Lesespeicher – das regelt app/providers.tsx über den Schlüssel.
     gcTime: BELEG_LINK_FRISCH_MS + 5 * 60_000,
+  });
+}
+
+// Team-Chat (Migration 80, v129). Neue Nachrichten kommen live (app/_seite/useChat.ts hört auf
+// Supabase Realtime und erklärt `qk.chat()` für ungültig); die Abfrage im Takt ist nur der
+// Rückfall, falls die Live-Verbindung nicht steht. Der Verlauf wird nur geladen, solange der Chat
+// offen ist – die Zahl an der Blase immer.
+export function useChatNachrichten(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.chatNachrichten(),
+    queryFn: () => fetchChatNachrichten(supabase),
+    enabled: aktiv,
+    refetchInterval: aktiv ? CHAT_ABFRAGE_MS : false,
+  });
+}
+
+export function useChatUngelesen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.chatUngelesen(),
+    queryFn: () => fetchChatUngelesen(supabase),
+    enabled: aktiv,
+    // Seltener als der Verlauf: Die Zahl hält Realtime aktuell, das hier fängt nur Lücken.
+    refetchInterval: aktiv ? 3 * CHAT_ABFRAGE_MS : false,
+  });
+}
+
+export function useChatPersonen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.chatPersonen(),
+    queryFn: () => fetchChatPersonen(supabase),
+    enabled: aktiv,
+    staleTime: 10 * FRISCH_MS,
   });
 }

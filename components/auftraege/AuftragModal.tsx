@@ -50,7 +50,7 @@ import { auftragsNr } from "@/lib/testkunde";
 // Wiedereröffnen, Historie – steht im Menü „⋯".
 export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
-  isTechniker, darfWiedereroeffnen, frischAngelegt = false,
+  isTechniker, darfWiedereroeffnen, frischAngelegt = false, onInDenChat,
   darfStornieren, darfLoeschen, darfEndpreis = true, darfFahrzeuge = true, darfKontakt,
   darfTransporter, darfAuslagern = true, darfTausch = true, darfLagergebuehr = true,
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
@@ -95,6 +95,9 @@ export function AuftragModal({
   orderArticles: OrderArticle[];
   isTechniker: boolean;
   darfWiedereroeffnen: boolean;
+  // Team-Chat (Migration 80, v129): den Auftrag als Karte in den Chat stellen. Fehlt ohne
+  // „Chat schreiben“.
+  onInDenChat?: () => void;
   // Rechte aus der Matrix (Migration 77, v125). Fehlen sie, gilt das alte Verhalten (Techniker nein,
   // sonst ja) – so laufen Tests und Aufrufe ohne die neuen Angaben weiter.
   darfStornieren?: boolean;
@@ -639,8 +642,10 @@ export function AuftragModal({
     fussHinweis = `Storniert${order.cancelled_at ? ` am ${formatDate(order.cancelled_at.slice(0, 10))}` : ""}${order.cancel_reason ? ` – ${order.cancel_reason}` : ""}`;
   }
 
-  type MenuePunkt = "termin" | "wieder" | "rechnung" | "anderswo" | "anderswoZurueck" | "historie" | "storno" | "loeschen";
+  type MenuePunkt = "chat" | "termin" | "wieder" | "rechnung" | "anderswo" | "anderswoZurueck" | "historie" | "storno" | "loeschen";
   const menue: { key: MenuePunkt; text: string; info?: string; gefahr?: boolean; aus?: boolean }[] = [];
+  // Ein eben erst erzeugter Auftrag ist noch keiner, über den man reden kann.
+  if (onInDenChat && !frischAngelegt) menue.push({ key: "chat", text: "In den Chat", info: "als Karte im Team-Chat" });
   if (!gesperrt && feldeAendern) menue.push({ key: "termin", text: "Termin & Team", info: "Datum, von–bis, Mitarbeiter, Transporter" });
   if (gesperrt) {
     // Ein stornierter Auftrag wird „wieder aufgenommen", ein erledigter „wiedereröffnet" (D12):
@@ -672,7 +677,8 @@ export function AuftragModal({
       return;
     }
     setMenueOffen(false);
-    if (k === "termin") zumTermin();
+    if (k === "chat") onInDenChat?.();
+    else if (k === "termin") zumTermin();
     else if (k === "wieder") setWiederOffen(true);
     else if (k === "rechnung") onRechnungOeffnen?.(order.id);
     else if (k === "anderswo") { setAnderswoFehler(null); setAnderswoOffen(true); }

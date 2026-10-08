@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v128";
+export const APP_VERSION = "v129";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v129", datum: "2026-10-08", titel: "Team-Chat",
+    punkte: [
+      "Neu: der Team-Chat. Die dunkle Sprechblase unten rechts öffnet ihn, die rote Zahl zeigt, was du noch nicht gelesen hast – am iPhone auch am App-Symbol.",
+      "Im Auftrag und beim Kunden (⋯) sowie am Lagerplatz und am Verkaufsreifen gibt es „In den Chat“: Die Sache hängt dann als Karte an deiner Nachricht. Ein Tipp auf die Karte öffnet sie.",
+      "Mit @ sprichst du jemanden direkt an. Bei jeder neuen Nachricht kommt eine Mitteilung aufs Handy, wie bei der Terminerinnerung.",
+      "Wer mitlesen und schreiben darf, steht unter Admin › Rechte in der neuen Zeile „Team-Chat“. Nachrichten werden nach 12 Monaten gelöscht.",
+    ],
+  },
   {
     version: "v128", datum: "2026-10-08", titel: "Rechnung ohne E-Mail, Kundenart",
     punkte: [

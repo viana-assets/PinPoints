@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 79** (Abschnitt „Noch auszuführen“ ganz unten). **Stand 08.10.2026: Alle Migrationen 01–78 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026) –
+**Noch auszuführen: 79, dann 80** (Abschnitt „Noch auszuführen“ ganz unten). **Stand 08.10.2026: Alle Migrationen 01–78 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1048,3 +1048,20 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Postgres 16 (Stand 78, `pgtest/t79.sql`): ohne E-Mail abgeschlossen; ohne Anschrift abgewiesen, die
   Meldung nennt nur die Anschrift; E-Mail am erledigten Auftrag über `kunde_email_ergaenzen()`
   nachgetragen; ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `80_team_chat.sql` – **nach `79`, SQL zuerst, dann die Dateien von v129.** Wunsch Vitali
+  08.10.2026: Team-Chat. Neue Tabellen `chat_nachrichten` (Text, Karte als Schnappschuss,
+  Erwähnungen, `push_gesendet_am`) und `chat_gelesen`; neues Recht `chat` (lesen/schreiben,
+  Vorgabe Admin, Techniker, Benutzer); `chat_ungelesen()`, `chat_personen()`; Trigger
+  `chat_push_anstossen()` ruft nach jeder Nachricht per pg_net `/api/push/senden` auf (Konfiguration
+  aus Migration 28 – fehlt sie, holt der Minutentakt den Versand nach); `chat_bezug_vergessen()` an
+  `customers` und `orders`; Zeitplan `pinpoints-chat-aufraeumen` (03:25 UTC, älter als 12 Monate
+  löschen); `chat_nachrichten` in `supabase_realtime`. Ergebnistabelle mit fünf Zeilen. Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/80_rollback.sql` (**löscht alle Chatnachrichten**; zweimal
+  lauffähig, Funktionen und Trigger danach wie nach 79). Geprüft gegen Postgres 16 (Stand 79,
+  `pgtest/t80.sql`): Techniker schreibt mit Karte, Text getrimmt; fremder Autor, leerer Text, Karte
+  ohne Kennung abgewiesen; Ändern und Löschen treffen 0 Zeilen; Personen gelistet; Ungelesene 1 →
+  0 nach dem Lesen; fremden Lesestand schreiben abgewiesen; ohne Recht 0 Nachrichten, kein
+  Schreiben, 0 Ungelesene, 0 Personen; Kunde gelöscht → Karte „Kunde gelöscht“; Aufräumen löscht
+  nur, was älter als 12 Monate ist; ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+  `PRUEFUNG_welche_migrationen_liefen.sql` hat Zeile 80.

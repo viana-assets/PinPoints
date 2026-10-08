@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Team-Chat (Migration 80, Service Worker v129).** Wunsch Vitali: ein gemeinsamer
+  Chat wie WhatsApp. Schwebende Blase mit roter Zahl, Karten für Auftrag, Kunde, Lagerplatz und
+  Verkaufsreifen („In den Chat“ im ⋯-Menü bzw. Blatt, „+“ an der Eingabe), Antippen öffnet die
+  Sache, @-Erwähnung, Push bei jeder Nachricht, Zahl am App-Symbol, neues Recht „Team-Chat“
+  (lesen/schreiben, Vorgabe Admin/Techniker/Benutzer), Aufbewahrung 12 Monate. `docs/team-chat.md`.
+
 * **08.10.2026 – „Rechnung nötig“ ohne E-Mail, Kundenart-Filter (Migration 79, Service Worker
   v128).** Wunsch Vitali: Ohne E-Mail kam man im Auftrag nicht weiter. Jetzt ist sie freiwillig;
   in „Rechnungen noch nicht ausgestellt“ (Aufträge und Rechnungen) steht rot „E-Mail hinterlegen“,
@@ -733,6 +739,14 @@ gebraucht mit Vorjahr, Marge über die Stück mit Einkaufspreis, Lagerwert heute
 Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Verlauf,
 „liegt seit über sechs Monaten".
 *Aufwand: klein bis mittel.*
+
+### E19. Team-Chat: Einzelchats, Bearbeiten, Fotos
+
+Der Team-Chat (Migration 80, v129) ist ein gemeinsamer Kanal. Offen, auf Wunsch:
+Einzelchats (`kanal` ist dafür vorbereitet, die Prüfregel erlaubt heute nur `team`), eigene
+Nachricht ändern oder löschen, Fotos im Chat (Speicher wie bei den Belegen, E3), älter als die
+letzten 300 Nachrichten zurückblättern. Die Aufbewahrung (12 Monate) mit dem Datenschutz abstimmen.
+*Aufwand: je mittel.*
 
 ---
 

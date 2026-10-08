@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { bezugPlatz, bezugVerkaufsreifen, type ChatBezug } from "@/lib/chat";
 import type { SatzNotizen } from "@/lib/lagerNotizen";
 import type { Customer, EingelagertesRad, Erfassungsart, PlatzGroesse, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, VerkaufsreifenFelder, Warehouse } from "@/lib/types";
 import type { RadFelder } from "@/lib/api/lager";
@@ -74,12 +75,15 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, canAuslagern = true, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf, onStapelAuslagern, vormerkung }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, canAuslagern = true, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf, onStapelAuslagern, vormerkung, onInDenChat }: {
   // Saisonwechsel (E7): öffnet die Mitnehmen-Liste von heute, von dort „der Reihe nach auslagern".
   onStapelAuslagern?: () => void;
   // „vorgemerkt · 1234 am 08.10." für einen Satz, der mit einem Auftrag herausgeht (Migration 67) –
   // er liegt noch im Fach und belegt den Platz. Null bei allen anderen.
   vormerkung?: (satz: TireStorage) => string | null;
+  // Team-Chat (Migration 80, v129): Platz oder Verkaufsreifen als Karte in den Chat stellen.
+  // Fehlt ohne „Chat schreiben“.
+  onInDenChat?: (bezug: ChatBezug) => void;
   // Reifenverkauf (Migration 61). Null = kein Leserecht auf „Lager · Reifenverkauf" – dann gibt
   // es den Reiter nicht. Plätze mit Verkaufsreifen sperrt die Datenbank trotzdem für Kundensätze.
   verkauf: {
@@ -518,6 +522,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             onGeoeffnet={() => { setVerkaufOeffneId(null); if (sprungVerkauf) ansichtSetzen("verkauf"); }}
             onSpeichern={verkauf.onSpeichern}
             onLoeschen={verkauf.onLoeschen}
+            onInDenChat={onInDenChat ? (posten) => onInDenChat(bezugVerkaufsreifen(posten)) : undefined}
           />
         ) : <>
         {scanHinweis && (
@@ -691,6 +696,14 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           onLoeschen={() => { setBlattSlotId(null); void onDeleteSlot(blattSlot.id); }}
           onGroesse={canCreateSlot ? (g) => onSlotGroesse(blattSlot.id, g) : undefined}
           onZumVerkauf={blattSatz && verkauf?.onSatzZumVerkauf && canAssignTire && canAuslagern ? () => { setBlattSlotId(null); setZumVerkaufSatzId(blattSatz.id); } : undefined}
+          onInDenChat={onInDenChat ? () => {
+            const kunde = blattSatz ? customers.find((c) => c.id === blattSatz.customer_id) : null;
+            const fz = blattSatz?.vehicle_id ? vehicles.find((v) => v.id === blattSatz.vehicle_id) : null;
+            setBlattSlotId(null);
+            onInDenChat(bezugPlatz(blattSlot, blattSatz
+              ? { kundenName: kunde?.name ?? null, saison: blattSatz.saison, groesse: fz?.tire_size ?? null }
+              : { lager: "frei" }));
+          } : undefined}
         />
       )}
 

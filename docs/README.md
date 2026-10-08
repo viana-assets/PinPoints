@@ -5,7 +5,7 @@ Dieser Ordner ist die Detail-Dokumentation des Projekts, ein Baustein pro Datei.
 Fallstricke und ein Index hierher. Wer wissen will, **wie ein bestimmter Baustein
 funktioniert, wo er im Code liegt und womit er verknüpft ist**, findet das hier.
 
-Stand: 08.10.2026, Migrationen bis 79 (79 noch auszuführen), Service Worker v128.
+Stand: 08.10.2026, Migrationen bis 80 (79 und 80 noch auszuführen), Service Worker v129.
 
 ## Die eine Regel, die den Ordner zusammenhält
 
@@ -39,6 +39,7 @@ je Abschnitt, was gebaut ist und was nicht.
 | `artikelstammdaten.md` | Artikel und Leistungen, Preis-Historie, Abrechnungsart, freie Position |
 | `rechnungen.md` | Rechnungsstellung: Betriebsdaten, Nummernkreis, Snapshot, A4-Druck, Girocode, Storno |
 | `pwa-plan.md` | Ausbau zur PWA: welche Stufe gebaut ist, was offen ist, Service-Worker-Regeln |
+| `team-chat.md` | Team-Chat: Blase, Karten, @-Erwähnung, Push bei jeder Nachricht, Aufbewahrung (Migration 80) |
 | `benachrichtigungen-plan.md` | Terminerinnerung als Push: Architektur, Zeitgeber, iOS-Grenzen, offener Gerätetest |
 | `prompt-etikettendrucker.md` | Etikettendrucker: gekauft ist der Brother QL-820NWBc (Stand 30.09.2026), darunter der Recherche-Prompt für eine Neuanschaffung |
 | `fahrplan.md` | **Alles Offene**: Fehler, Aufräumarbeiten, Verbesserungen, neue Funktionen – mit Priorität |

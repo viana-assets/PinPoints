@@ -253,6 +253,9 @@ export const RECHTE_KATALOG: RechtBereich[] = [
   { schluessel: "auswertung", klartext: { lesen: "Auswertungen und DATEV-Export öffnen" }, label: "Auswertungen", verben: ["lesen"],
     erklaerung: "Umsatz, Kunden, Einsatz, Lager und Artikel; Export für den Steuerberater (DATEV).",
     warumNicht: "Auswertungen rechnen nur – sie legen nichts an und löschen nichts." },
+  { schluessel: "chat", klartext: { lesen: "den Team-Chat lesen und dort genannt werden", schreiben: "im Team-Chat schreiben und Aufträge, Kunden oder Lagerplätze hineinstellen" }, label: "Team-Chat", verben: ["lesen", "schreiben"],
+    erklaerung: "Ein gemeinsamer Chat für alle mit diesem Recht (Migration 80). Wer „Lesen“ hat, bekommt bei jeder neuen Nachricht eine Push-Meldung und erscheint in der @-Liste. Eine Karte im Chat öffnet den Auftrag oder Kunden nur, wenn man ihn ohnehin sehen darf. Nachrichten werden nach 12 Monaten gelöscht.",
+    warumNicht: "Nachrichten werden nicht von Hand gelöscht, sondern nach 12 Monaten automatisch." },
   { schluessel: "einstellungen", klartext: { lesen: "die eigenen Einstellungen öffnen", schreiben: "die eigenen Einstellungen ändern" }, label: "Einstellungen", verben: ["lesen", "schreiben"],
     erklaerung: "Anzeige, Wiedervorlage-Zeitraum, App. Jeder ändert ausschließlich seine eigenen.",
     warumNicht: "Jeder hat genau einen Satz Einstellungen; zu löschen gibt es dort nichts." },
@@ -310,6 +313,7 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
   rechnungen:             { lesen: ["admin"], schreiben: ["admin"] },
   "rechnungen.storno":    { schreiben: ["admin"] },
   auswertung:             { lesen: ["admin"] },
+  chat:                   { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
   einstellungen:          { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
 };
 
@@ -502,6 +506,9 @@ export const ANRUF_PARAMETER = "anruf";
 // am genannten Tag mitmüssen – `/?mitnehmen=YYYY-MM-DD`. Der Tag steht in der Adresse und nicht
 // „morgen", weil die Meldung abends kommt und oft erst am nächsten Morgen angetippt wird.
 export const MITNEHMEN_PARAMETER = "mitnehmen";
+// Team-Chat (Migration 80): `/?chat=1` öffnet den Chat. Die Push-Meldung einer neuen Nachricht
+// führt dorthin, nicht in den Auftrag der Karte – man will erst lesen, was dazu geschrieben wurde.
+export const CHAT_PARAMETER = "chat";
 
 // Wann der Abendhinweis kommt, solange jemand nichts anderes einstellt. Dieselbe Vorgabe steht
 // als Spaltenvorgabe in der Datenbank (`user_settings.abendhinweis_uhrzeit`, Migration 55) –
