@@ -10,10 +10,30 @@ import { fetchPaged, q, qOne, qWrite } from "./client";
 // `reserviert` und `verkauft` schreibt diese Schicht nie: Die Datenbank zählt sie selbst und
 // würde mitgeschickte Werte ohnehin verwerfen (`verkaufsreifen_pruefen`).
 
-export async function fetchVerkaufsreifen(supabase: SupabaseClient): Promise<Verkaufsreifen[]> {
-  return fetchPaged<Verkaufsreifen>("Die Verkaufsreifen konnten nicht geladen werden", (von, bis) =>
-    supabase.from("verkaufsreifen").select("*").order("updated_at", { ascending: false }).order("id").range(von, bis)
+// Alle Spalten außer dem Einkaufspreis. Seit Migration 77 darf `authenticated` `ek_netto` nicht
+// mehr direkt lesen – ein `select("*")` scheitert dann für JEDE Rolle. Den Einkaufspreis holt
+// `einkaufspreiseErgaenzen()` über `verkaufsreifen_einkaufspreise()`, die das Recht
+// „Lager › Einkaufspreise“ prüft. Eine neue Spalte an `verkaufsreifen` gehört hier hinein UND
+// braucht in ihrer Migration ein eigenes `grant select (spalte) to authenticated`.
+// (Ein einziges Zeichenketten-Literal, kein „+“: Sonst kann supabase-js die Liste nicht lesen.)
+export const VERKAUFSREIFEN_SPALTEN = "id,zustand,breite,querschnitt,zoll,kennung,hersteller,modell,saison,dot,profiltiefe_mm,felge,runflat,xl,eprel,preis_netto,bestand,reserviert,verkauft,warehouse_id,storage_slot_id,notiz,created_at,updated_at,herkunft_satz_id";
+
+// Trägt den Einkaufspreis nach, soweit die Rolle ihn sehen darf; sonst bleibt er leer (null).
+export async function einkaufspreiseErgaenzen(supabase: SupabaseClient, posten: Omit<Verkaufsreifen, "ek_netto">[]): Promise<Verkaufsreifen[]> {
+  if (posten.length === 0) return [];
+  const preise = await q<{ id: string; ek_netto: number | string | null }[]>(
+    "Die Einkaufspreise konnten nicht geladen werden",
+    supabase.rpc("verkaufsreifen_einkaufspreise")
   );
+  const ek = new Map((preise ?? []).map((x) => [x.id, x.ek_netto == null ? null : Number(x.ek_netto)]));
+  return posten.map((p) => ({ ...p, ek_netto: ek.get(p.id) ?? null }));
+}
+
+export async function fetchVerkaufsreifen(supabase: SupabaseClient): Promise<Verkaufsreifen[]> {
+  const posten = await fetchPaged<Omit<Verkaufsreifen, "ek_netto">>("Die Verkaufsreifen konnten nicht geladen werden", (von, bis) =>
+    supabase.from("verkaufsreifen").select(VERKAUFSREIFEN_SPALTEN).order("updated_at", { ascending: false }).order("id").range(von, bis)
+  );
+  return einkaufspreiseErgaenzen(supabase, posten);
 }
 
 export async function insertVerkaufsreifen(supabase: SupabaseClient, felder: VerkaufsreifenFelder): Promise<string> {

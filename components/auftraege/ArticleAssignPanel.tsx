@@ -36,7 +36,7 @@ export type ReifenImAuftrag = {
 // Seit Migration 61: „Reifen aus dem Lager" öffnet die Reifensuche (ReifenSuche.tsx). Dieselbe
 // Suche öffnet sich, wenn im Leistungsblatt ein Artikel mit der Abrechnungsart Reifenverkauf
 // gewählt wird – der Artikel allein wüsste weder Preis noch Reifen.
-export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove, vorlagen }: {
+export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove, vorlagen, darfEndpreis = true, darfLagergebuehr = true }: {
   orderId: string;
   reifen?: ReifenImAuftrag | null;
   articles: Article[];
@@ -57,6 +57,12 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   // `null` heißt „kein Sonderpreis" – dann gilt wieder Menge × Listenpreis. Das ist etwas
   // anderes als 0, was „geschenkt" bedeutet, und beides muss eingebbar bleiben.
   onUpdateEndpreis: (id: string, endpreisNetto: number | null) => Promise<void>;
+  // „Endpreis überschreiben“ (Migration 77). Ohne das Recht steht das Feld da, ist aber gesperrt –
+  // so sieht man, dass es den Sonderpreis gibt und wer ihn setzt.
+  darfEndpreis?: boolean;
+  // Ohne „Lagergebühr anpassen“ (Migration 78) steht die Lagergebühr eines Satzes fest: keine
+  // Menge, kein Endpreis, kein Entfernen – sie geht nur mit der Vormerkung vom Auftrag.
+  darfLagergebuehr?: boolean;
   // Der Text auf der Rechnung (Migration 50). Bei einem Freitext-Artikel ist er die
   // Bezeichnung, sonst eine Zusatzzeile darunter.
   onUpdateText: (id: string, text: string | null) => Promise<void>;
@@ -152,6 +158,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
           r.endpreis_netto != null ? "Sonderpreis" : null,
           r.verkaufsreifen_id ? (gesperrt ? "aus dem Lager, abgebucht" : `aus dem Lager${ort ? ` (${ort})` : ""}`) : null,
         ].filter(Boolean).join(" · ");
+        const festeGebuehr = !darfLagergebuehr && !!r.lager_satz_id;
+        const zeileFest = gesperrt || festeGebuehr;
         return (
           <div key={r.id} className={"ls-zeile" + (offen ? " offen" : "")}>
             <div className="ls-haupt">
@@ -161,8 +169,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                 <span className="small">{info}</span>
                 {r.note && !art?.freitext && <span className="small ls-zusatz">{r.note}</span>}
               </button>
-              {gesperrt ? (
-                <span className="ls-menge-fest">{r.quantity} ×</span>
+              {zeileFest ? (
+                <span className="ls-menge-fest" title={festeGebuehr ? "Die Lagergebühr ändert, wer „Lagergebühr anpassen“ darf." : undefined}>{r.quantity} ×</span>
               ) : (
                 <span className="ls-stepper">
                   <button type="button" aria-label="Eins weniger" disabled={r.quantity <= 1} onClick={() => void onUpdateQty(r.id, r.quantity - 1)}>−</button>
@@ -181,7 +189,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
               <div className="ls-details">
                 <div className="nk-zeile">
                   <label className="nk-feld"><span>Menge</span>
-                    <input type="number" min={1} step={1} value={r.quantity} onChange={(e) => void onUpdateQty(r.id, ganzeMenge(e.target.value))} />
+                    <input type="number" min={1} step={1} value={r.quantity} disabled={festeGebuehr} onChange={(e) => void onUpdateQty(r.id, ganzeMenge(e.target.value))} />
                   </label>
                   <label className="nk-feld"><span>Endpreis netto (ganze Position)</span>
                     <input
@@ -191,6 +199,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                       // drin, wäre jede Position sofort ein „Sonderpreis" in Höhe des
                       // Listenpreises – und der Nachlass in der Auswertung dauerhaft 0.
                       placeholder={listenwert.toFixed(2)}
+                      disabled={!darfEndpreis || festeGebuehr}
+                      title={darfEndpreis ? undefined : "Den Endpreis ändert, wer „Endpreis überschreiben“ darf."}
                       value={r.endpreis_netto ?? ""}
                       onChange={(e) => {
                         const t = e.target.value.trim();
@@ -215,7 +225,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                   />
                 </label>
                 <div className="ad-knoepfe">
-                  <button type="button" className="es-knopf ad-gefahr" onClick={() => { setOffeneZeile(null); void onRemove(r.id); }}>Entfernen</button>
+                  {!festeGebuehr && <button type="button" className="es-knopf ad-gefahr" onClick={() => { setOffeneZeile(null); void onRemove(r.id); }}>Entfernen</button>}
                   <span className="ad-luecke" />
                   {!textFehlt && <button type="button" className="es-knopf" onClick={() => setOffeneZeile(null)}>Fertig</button>}
                 </div>

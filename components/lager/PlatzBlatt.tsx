@@ -19,7 +19,7 @@ const GRENZEN = { hinweis: PROFIL_HINWEIS_MM, kritisch: PROFIL_KRITISCH_MM };
 
 export function PlatzBlatt({
   slot, wo, satz, kunde, fahrzeug, raeder, gruende, vormerkung = null, verlauf, customers, raederFuer, lagergebuehrJeMonat,
-  canAssign, canDelete, onClose, onKunde, onAuslagern, onBearbeiten, onEtikett, onAufkleber, onLoeschen, onGroesse, onZumVerkauf,
+  canAssign, canAuslagern = true, canDelete, onClose, onKunde, onAuslagern, onBearbeiten, onEtikett, onAufkleber, onLoeschen, onGroesse, onZumVerkauf,
 }: {
   slot: StorageSlot;
   // „Hauptlager · Reihe A"
@@ -38,6 +38,8 @@ export function PlatzBlatt({
   raederFuer: (satzId: string) => EingelagertesRad[];
   lagergebuehrJeMonat: number | null;
   canAssign: boolean;
+  // „Reifen auslagern“ (Migration 78). Ein vorgemerkter Satz zeigt trotzdem „Vorgemerkt …“.
+  canAuslagern?: boolean;
   canDelete: boolean;
   onClose: () => void;
   onKunde?: (kundeId: string) => void;
@@ -196,7 +198,7 @@ export function PlatzBlatt({
             <ReifenNotizenAnzeige satz={satz} />
 
             <div className="lg-knoepfe">
-              {canAssign && <button type="button" className="lg-knopf primaer" onClick={() => onAuslagern(satz.id)}>{vormerkung ? "Vorgemerkt …" : "Auslagern"}</button>}
+              {canAssign && (vormerkung || canAuslagern) && <button type="button" className="lg-knopf primaer" onClick={() => onAuslagern(satz.id)}>{vormerkung ? "Vorgemerkt …" : "Auslagern"}</button>}
               {canAssign && <button type="button" className="lg-knopf" onClick={onBearbeiten}>Bearbeiten</button>}
               <button type="button" className="lg-knopf klein" onClick={() => onEtikett(satz.id)}>Etikett für den Satz</button>
               <button type="button" className="lg-knopf klein" onClick={onAufkleber}>Aufkleber fürs Regal</button>

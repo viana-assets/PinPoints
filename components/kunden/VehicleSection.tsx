@@ -49,9 +49,12 @@ function VehicleFieldsForm({ values, onChangeField }: {
   );
 }
 
-export function VehicleRow({ vehicle, tireStorages, storageSlots, warehouses, onUpdate, onDelete }: {
+// `darfAendern` = Recht „Kunden › Fahrzeuge“ (Migration 77), `darfLoeschen` = „Kunden löschen“.
+// Ohne Änderungsrecht gibt es kein „Bearbeiten“ – und damit auch das Löschen darin nicht.
+export function VehicleRow({ vehicle, tireStorages, storageSlots, warehouses, onUpdate, onDelete, darfAendern = true, darfLoeschen = true }: {
   vehicle: Vehicle; tireStorages: TireStorage[]; storageSlots: StorageSlot[]; warehouses: Warehouse[];
   onUpdate: (id: string, fields: VehicleFieldValues) => void; onDelete: (id: string) => void;
+  darfAendern?: boolean; darfLoeschen?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [values, setValues] = useState<VehicleFieldValues>({
@@ -74,7 +77,7 @@ export function VehicleRow({ vehicle, tireStorages, storageSlots, warehouses, on
           onChangeField={(key, value) => setValues((prev) => ({ ...prev, [key]: value }))}
         />
         <div className="ad-knoepfe">
-          <button type="button" className="es-knopf ad-gefahr" onClick={() => { if (confirm("Dieses Fahrzeug wirklich löschen?")) onDelete(vehicle.id); }}>Löschen</button>
+          {darfLoeschen && <button type="button" className="es-knopf ad-gefahr" onClick={() => { if (confirm("Dieses Fahrzeug wirklich löschen?")) onDelete(vehicle.id); }}>Löschen</button>}
           <span className="ad-luecke" />
           <button type="button" className="es-knopf" onClick={() => setEditing(false)}>Abbrechen</button>
           <button type="button" className="am-mini" onClick={() => { onUpdate(vehicle.id, values); setEditing(false); }}>Speichern</button>
@@ -90,7 +93,7 @@ export function VehicleRow({ vehicle, tireStorages, storageSlots, warehouses, on
           <b>{vehicle.make_model || "Fahrzeug"}</b>
           <span className="small">{vehicle.tire_size || "keine Reifengröße hinterlegt"}</span>
         </span>
-        <button type="button" className="db-link" onClick={() => setEditing(true)}>Bearbeiten</button>
+        {darfAendern && <button type="button" className="db-link" onClick={() => setEditing(true)}>Bearbeiten</button>}
       </div>
       {linked && <span className="dm-fz-lager">Im Lager: {tireStorageLabel(linked, storageSlots, warehouses)}</span>}
       {vehicle.note && <span className="small">{vehicle.note}</span>}

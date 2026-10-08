@@ -1538,7 +1538,7 @@ export default function HomePage() {
     setKontaktKundeId(null);
     // „Auftrag anlegen" führt direkt weiter ins Auftragsfenster – der Kontakt ist zu diesem
     // Zeitpunkt bereits geschrieben, es geht also nichts verloren, falls dort abgebrochen wird.
-    if (ergebnis === "auftrag") await neuenAuftragAnlegen(id);
+    if (ergebnis === "auftrag" && darf("auftraege.anlegen", "schreiben")) await neuenAuftragAnlegen(id);
   }
   async function markOpen(id: string) {
     await markCustomerOpen(supabase, id);
@@ -1597,7 +1597,7 @@ export default function HomePage() {
     // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist meist auch schon klar, worum es
     // geht. Statt eines eigenen kleinen Auftragsformulars hier führt der Weg über dieselbe
     // Maske wie überall: Zeile anlegen, vollständiges Auftragsfenster öffnen.
-    if (createdId && fields.auftragAnlegen) {
+    if (createdId && fields.auftragAnlegen && darf("auftraege.anlegen", "schreiben")) {
       // Kam der Weg über einen Klick in den Kalender, ist der Termin schon gewählt – er wartet
       // seit dem Klick in `terminFuerNeuenKunden` und wird jetzt eingesetzt. Danach wird er
       // gelöscht: Der nächste Kunde, der ohne Kalender angelegt wird, soll nicht die Uhrzeit
@@ -1628,7 +1628,9 @@ export default function HomePage() {
     // einzelne daran denkt.
     const kunde = customers.find((c) => c.id === fields.customerId);
     const id = await insertOrder(supabase, { ...fields, title: fields.title.trim() || terminTitel(kunde?.name) });
-    if (id) await setOrderEmployees(id, fields.assignedEmployeeIds);
+    // Nur mit Auswahl: Ein Techniker, der anlegt (Migration 78), steht danach schon selbst darauf
+    // (`auftrag_techniker_einteilen()`), und das Einteilen anderer ist nicht sein Recht.
+    if (id && fields.assignedEmployeeIds.length > 0) await setOrderEmployees(id, fields.assignedEmployeeIds);
     await refreshOrders();
     // Die Id geht an den Aufrufer zurück, damit er den frisch angelegten Auftrag sofort öffnen
     // kann – ohne sie müsste er ihn in der Liste wiederfinden, was bei gleichnamigen Aufträgen
@@ -2772,6 +2774,7 @@ export default function HomePage() {
             onNavigate={openNavMenu}
             onCall={openCallMenu}
             isTechniker={isTechniker}
+            darfAnlegen={darf("auftraege.anlegen", "schreiben")}
           />
           </>
         )}
@@ -2796,7 +2799,7 @@ export default function HomePage() {
             onOpenCustomer={openDetail}
             onCall={openCallMenu}
             onNavigate={openNavMenu}
-            onWiedervorlage={saisonWiedervorlageSetzen}
+            onWiedervorlage={darf("kunden.kontakte", "schreiben") ? saisonWiedervorlageSetzen : undefined}
             schreibt={saisonSchreibt}
           />
         )}
@@ -2837,18 +2840,21 @@ export default function HomePage() {
             canCreateSlot={darf("lager.regale", "schreiben")}
             canDeleteSlot={darf("lager.regale", "loeschen")}
             canAssignTire={darf("lager.einlagerung", "schreiben")}
+            canAuslagern={darf("lager.auslagern", "schreiben")}
             springeZuLagerplatzId={gescannterLagerplatzId}
             onLagerplatzGeoeffnet={() => setGescannterLagerplatzId(null)}
             springeZuVerkaufsreifenId={gescannterVerkaufsreifenId}
-            onStapelAuslagern={darf("lager.einlagerung", "schreiben") ? () => { setMitnehmenDatum(todayStr()); void auftraegeNeuLaden(); void neuLaden(qk.einlagerungen()); } : undefined}
+            onStapelAuslagern={darf("lager.einlagerung", "schreiben") && darf("lager.auslagern", "schreiben") ? () => { setMitnehmenDatum(todayStr()); void auftraegeNeuLaden(); void neuLaden(qk.einlagerungen()); } : undefined}
             onVerkaufsreifenGeoeffnet={() => setGescannterVerkaufsreifenId(null)}
             verkauf={darf("lager.verkauf", "lesen") ? {
               verkaufsreifen,
               darfSchreiben: darf("lager.verkauf", "schreiben"),
               darfLoeschen: darf("lager.verkauf", "loeschen"),
+              darfEkLesen: darf("lager.verkauf_ek", "lesen"),
+              darfEkSchreiben: darf("lager.verkauf_ek", "schreiben"),
               onSpeichern: verkaufsreifenSpeichern,
               onLoeschen: verkaufsreifenLoeschen,
-              onSatzZumVerkauf: darf("lager.verkauf", "schreiben") && darf("lager.einlagerung", "schreiben") ? satzInDenVerkauf : undefined,
+              onSatzZumVerkauf: darf("lager.verkauf", "schreiben") && darf("lager.einlagerung", "schreiben") && darf("lager.auslagern", "schreiben") ? satzInDenVerkauf : undefined,
             } : null}
           />
         )}
@@ -2878,6 +2884,7 @@ export default function HomePage() {
             onNeuerKunde={(termin) => { setTerminFuerNeuenKunden(termin); setTab("add"); }}
             onVerschieben={darf("auftraege.auftrag", "schreiben") ? terminVerschieben : undefined}
             isTechniker={isTechniker}
+            darfAnlegen={darf("auftraege.anlegen", "schreiben")}
             verfuegbarkeit={verfuegbarkeitImPlan}
           />
           </>
@@ -2941,6 +2948,7 @@ export default function HomePage() {
             onFirmenfahrzeugAendern={firmenfahrzeugAendern}
             onFirmenfahrzeugAusmustern={firmenfahrzeugStilllegen}
             onKundeOeffnen={openDetail}
+            darfDubletten={darf("kunden.dubletten", "schreiben") && darf("kunden", "loeschen")}
             onKundenbestandGeaendert={() => { void neuLaden(qk.kunden(), qk.einlagerungen()); void refreshVehicles(); void auftraegeNeuLaden(); }}
             kunden={customers}
           />
@@ -2965,6 +2973,7 @@ export default function HomePage() {
             rechnungen={rechnungenQuery.data ?? KEINE_RECHNUNGEN}
             laedt={rechnungenQuery.isLoading}
             darfSchreiben={darf("rechnungen", "schreiben")}
+            darfStornieren={darf("rechnungen.storno", "schreiben")}
             onAuftragOeffnen={auftragAusRechnungOeffnen}
             onKundeOeffnen={openDetail}
             onStornieren={rechnungStornieren}
@@ -3073,12 +3082,12 @@ export default function HomePage() {
               onNavigation={(e) => openNavMenu(e, kartenKunde)}
               // „Kontakt" öffnet den Kontaktdialog, statt direkt zu speichern: erst dort wird
               // festgehalten, WAS herausgekommen ist (Migration 23).
-              onKontakt={() => { setKartenKundeId(null); setKontaktKundeId(kartenKunde.id); }}
+              onKontakt={darf("kunden.kontakte", "schreiben") ? () => { setKartenKundeId(null); setKontaktKundeId(kartenKunde.id); } : undefined}
               // Auftrag anlegen und Kontakt bestätigen sind seit 29.08.2026 zwei getrennte
               // Handlungen. Der Auftrag öffnet das Auftragsfenster als Overlay über der Karte.
-              onAuftrag={() => { setKartenKundeId(null); void neuenAuftragAnlegen(kartenKunde.id); }}
+              onAuftrag={darf("auftraege.anlegen", "schreiben") ? () => { setKartenKundeId(null); void neuenAuftragAnlegen(kartenKunde.id); } : undefined}
               onKundenfenster={() => { setKartenKundeId(null); setSelectedId(kartenKunde.id); void loadHistory(kartenKunde.id); }}
-              onOffen={() => { void markOpen(kartenKunde.id); }}
+              onOffen={darf("kunden.kontakte", "schreiben") ? () => { void markOpen(kartenKunde.id); } : undefined}
               onDeaktivieren={() => { setKartenKundeId(null); void setActive(kartenKunde.id, false); }}
               onPositionSetzen={() => { setKartenKundeId(null); void positionSetzenStarten(kartenKunde.id); }}
             />
@@ -3125,7 +3134,7 @@ export default function HomePage() {
           onClose={() => setMitnehmenDatum(null)}
           onAuftragOeffnen={(id) => { setMitnehmenDatum(null); setOffenerAuftragId(id); }}
           onDatum={setMitnehmenDatum}
-          onStapelAuslagern={darf("lager.einlagerung", "schreiben") ? (eintraege) => { const d = mitnehmenDatum; setMitnehmenDatum(null); stapelOeffnen(d, eintraege); } : undefined}
+          onStapelAuslagern={darf("lager.einlagerung", "schreiben") && darf("lager.auslagern", "schreiben") ? (eintraege) => { const d = mitnehmenDatum; setMitnehmenDatum(null); stapelOeffnen(d, eintraege); } : undefined}
         />
       )}
 
@@ -3143,6 +3152,7 @@ export default function HomePage() {
             auftraegeMitGebuehr={stapel.mitGebuehr}
             onAuslagern={auslagernAusfuehren}
             onClose={() => setStapel(null)}
+            darfGebuehrAnpassen={darf("lager.gebuehr", "schreiben")}
           />
         );
       })()}
@@ -3268,7 +3278,9 @@ export default function HomePage() {
             onAuslagern={(wahl) => auslagernAusfuehren(satz.id, wahl)}
             onAuftragOeffnen={(id) => { setAuslagernSatzId(null); setAuslagernAusAuftragId(null); setOffenerAuftragId(id); }}
             onZuruecknehmen={() => vormerkungAufheben(satz.id)}
-            darfNeuerAuftrag={!isTechniker && darf("auftraege.auftrag", "schreiben")}
+            darfNeuerAuftrag={darf("auftraege.anlegen", "schreiben")}
+            darfAuslagern={darf("lager.auslagern", "schreiben")}
+            darfGebuehrAnpassen={darf("lager.gebuehr", "schreiben")}
           />
         );
       })()}
@@ -3291,7 +3303,17 @@ export default function HomePage() {
           articlePrices={articlePrices}
           orderArticles={orderArticlesFor(offenerAuftrag.id)}
           isTechniker={isTechniker}
-          darfWiedereroeffnen={isAdmin}
+          darfWiedereroeffnen={darf("auftraege.wiedereroeffnen", "schreiben")}
+          darfTransporter={darf("auftraege.transporter", "schreiben")}
+          darfAuslagern={darf("lager.auslagern", "schreiben")}
+          darfTausch={darf("lager.tausch", "schreiben")}
+          darfLagergebuehr={darf("lager.gebuehr", "schreiben")}
+          // Rechte aus der Matrix (Migration 77, v125) – die Datenbank prüft dieselben.
+          darfStornieren={darf("auftraege.storno", "schreiben")}
+          darfLoeschen={darf("auftraege.auftrag", "loeschen")}
+          darfEndpreis={darf("auftraege.preis", "schreiben")}
+          darfFahrzeuge={darf("kunden.fahrzeuge", "schreiben")}
+          darfKontakt={darf("kunden", "schreiben") || darf("auftraege.kontakt", "schreiben")}
           frischAngelegt={offenerAuftrag.id === frischerAuftragId}
           terminIntervallMin={terminIntervall}
           {...(() => {
@@ -3327,7 +3349,7 @@ export default function HomePage() {
           ausLagerSaetze={saetzeAusDemLager(tireStorages, offenerAuftrag.id)}
           fruehereEinlagerungen={frueherEingelagert(tireStorages, offenerAuftrag.id)}
           onVormerkungZuruecknehmen={vormerkungAufheben}
-          onTausch={darf("lager.einlagerung", "schreiben") ? (altId) => tauschStarten(offenerAuftrag, altId) : undefined}
+          onTausch={darf("lager.einlagerung", "schreiben") && darf("lager.tausch", "schreiben") ? (altId) => tauschStarten(offenerAuftrag, altId) : undefined}
           verfuegbarkeit={verfuegbarkeitImPlan?.alleSehen ? verfuegbarkeitImPlan.eintraege : null}
           onAuslagern={(satzId) => { setAuslagernAusAuftragId(offenerAuftrag.id); setAuslagernSatzId(satzId); }}
           onEtikett={(satzId) => setEtikettSatzIds([satzId])}
@@ -3389,7 +3411,7 @@ export default function HomePage() {
             laedt: auftragBelegeQuery.isLoading,
             links: belegLinksQuery.data ?? KEINE_LINKS,
             darfHinzufuegen: darf("auftraege.auftrag", "schreiben"),
-            darfLoeschen: darf("auftraege.auftrag", "loeschen"),
+            darfLoeschen: darf("auftraege.belege", "loeschen"),
             onHochladen: async (art, datei, masse, beschriftung) => {
               await belegHochladen(supabase, offenerAuftrag.id, art, datei, masse, beschriftung);
               await neuLaden(qk.auftragBelege(offenerAuftrag.id));
@@ -3427,6 +3449,7 @@ export default function HomePage() {
               .filter(Boolean)}
             rechnungen={auftragRechnungenQuery.data ?? KEINE_RECHNUNGEN}
             darfSchreiben={darf("rechnungen", "schreiben")}
+            darfStornieren={darf("rechnungen.storno", "schreiben")}
             onAusstellen={rechnungAusstellen}
             onStornieren={rechnungStornieren}
             onClose={() => setRechnungAuftragId(null)}
@@ -3454,19 +3477,21 @@ export default function HomePage() {
           warehouses={warehouses}
           onClose={() => setSelectedId(null)}
           onSaveFields={(fields) => updateCustomerFields(selectedId, fields)}
-          onMarkContacted={() => setKontaktKundeId(selectedId)}
-          onMarkOpen={() => markOpen(selectedId)}
+          onMarkContacted={darf("kunden.kontakte", "schreiben") ? () => setKontaktKundeId(selectedId) : undefined}
+          onMarkOpen={darf("kunden.kontakte", "schreiben") ? () => markOpen(selectedId) : undefined}
           onToggleActive={() => setActive(selectedId, customers.find((c) => c.id === selectedId)?.active === false)}
           onDelete={() => deleteCustomerById(selectedId)}
           onTestkundeLoeschen={isSuperAdmin ? () => testkundeRestlosLoeschen(selectedId) : undefined}
           onAuskunft={isAdmin ? () => setAuskunftKundeId(selectedId) : undefined}
           darfTestkundeUmschalten={isSuperAdmin}
-          onNeuerAuftrag={() => { void neuenAuftragAnlegen(selectedId); }}
+          onNeuerAuftrag={darf("auftraege.anlegen", "schreiben") ? () => { void neuenAuftragAnlegen(selectedId); } : undefined}
           onUpdateOrder={updateOrder}
           onDeleteOrder={deleteOrder}
           onAddVehicle={(fields) => addVehicle(selectedId, fields)}
           onUpdateVehicle={updateVehicle}
           onDeleteVehicle={deleteVehicle}
+          darfFahrzeuge={darf("kunden.fahrzeuge", "schreiben")}
+          darfFahrzeugeLoeschen={darf("kunden", "loeschen")}
           onZumLagerplatz={canView("lager") ? (platzId) => { setSelectedId(null); setGescannterLagerplatzId(platzId); setTab("lager"); } : undefined}
           onNavigate={openNavMenu}
           onCall={openCallMenu}

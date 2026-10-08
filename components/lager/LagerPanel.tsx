@@ -74,7 +74,7 @@ function SlotNumberingFields({ prefix, setPrefix, start, setStart, end, setEnd, 
   );
 }
 
-export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf, onStapelAuslagern, vormerkung }: {
+export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tireStorages, eingelagerteRaeder, lagergebuehrJeMonat, onOpenCustomer, onAddWarehouse, onUpdateWarehouse, onDeleteWarehouse, onAddSlot, onAddSlotsBulk, onSlotGroesse, onDeleteSlot, onAssignTire, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onRemoveAssignment, onEtikett, canCreateWarehouse, canEditWarehouse, canDeleteWarehouse, canCreateSlot, canDeleteSlot, canAssignTire, canAuslagern = true, springeZuLagerplatzId, onLagerplatzGeoeffnet, springeZuVerkaufsreifenId, onVerkaufsreifenGeoeffnet, verkauf, onStapelAuslagern, vormerkung }: {
   // Saisonwechsel (E7): öffnet die Mitnehmen-Liste von heute, von dort „der Reihe nach auslagern".
   onStapelAuslagern?: () => void;
   // „vorgemerkt · 1234 am 08.10." für einen Satz, der mit einem Auftrag herausgeht (Migration 67) –
@@ -86,6 +86,9 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
     verkaufsreifen: Verkaufsreifen[];
     darfSchreiben: boolean;
     darfLoeschen: boolean;
+    // Einkaufspreise (Migration 77): sehen bzw. eintragen.
+    darfEkLesen: boolean;
+    darfEkSchreiben: boolean;
     onSpeichern: (felder: VerkaufsreifenFelder, id: string | null) => Promise<void>;
     onLoeschen: (id: string) => Promise<void>;
     // E17 (Migration 64): Der Kunde lässt den Satz da – auslagern und als Posten auf denselben
@@ -135,6 +138,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
   canCreateSlot: boolean;
   canDeleteSlot: boolean;
   canAssignTire: boolean;
+  // „Reifen auslagern“ (Migration 78).
+  canAuslagern?: boolean;
   // Lagerplatz, der beim Öffnen des Moduls direkt aufgeschlagen werden soll – gesetzt, wenn
   // die App über einen gescannten QR-Aufkleber aufgerufen wurde (?lagerplatz=…). Das Lager
   // dazu wird mit ausgewählt. `onLagerplatzGeoeffnet` meldet zurück, dass der Sprung erledigt ist.
@@ -507,6 +512,8 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             platzBelegt={new Set(tireStorages.filter((t) => !t.removed_at).map((t) => t.storage_slot_id))}
             darfSchreiben={verkauf.darfSchreiben}
             darfLoeschen={verkauf.darfLoeschen}
+            darfEkLesen={verkauf.darfEkLesen}
+            darfEkSchreiben={verkauf.darfEkSchreiben}
             oeffneId={verkaufOeffneId ?? (sprungVerkauf ? springeZuVerkaufsreifenId ?? null : null)}
             onGeoeffnet={() => { setVerkaufOeffneId(null); if (sprungVerkauf) ansichtSetzen("verkauf"); }}
             onSpeichern={verkauf.onSpeichern}
@@ -671,6 +678,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           raederFuer={raederVon}
           lagergebuehrJeMonat={lagergebuehrJeMonat}
           canAssign={canAssignTire}
+          canAuslagern={canAuslagern}
           canDelete={canDeleteSlot}
           onClose={() => setBlattSlotId(null)}
           onKunde={onOpenCustomer ? (id) => { setBlattSlotId(null); onOpenCustomer(id); } : undefined}
@@ -682,7 +690,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
           onAufkleber={() => { setBlattSlotId(null); setAufkleberFuer([blattSlot]); }}
           onLoeschen={() => { setBlattSlotId(null); void onDeleteSlot(blattSlot.id); }}
           onGroesse={canCreateSlot ? (g) => onSlotGroesse(blattSlot.id, g) : undefined}
-          onZumVerkauf={blattSatz && verkauf?.onSatzZumVerkauf && canAssignTire ? () => { setBlattSlotId(null); setZumVerkaufSatzId(blattSatz.id); } : undefined}
+          onZumVerkauf={blattSatz && verkauf?.onSatzZumVerkauf && canAssignTire && canAuslagern ? () => { setBlattSlotId(null); setZumVerkaufSatzId(blattSatz.id); } : undefined}
         />
       )}
 
@@ -699,6 +707,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             kunde={customers.find((c) => c.id === satz.customer_id) ?? null}
             platzText={[warehouses.find((w) => w.id === platz?.warehouse_id)?.name, platz ? `Platz ${platz.code}` : null].filter(Boolean).join(" · ")}
             onClose={() => setZumVerkaufSatzId(null)}
+            darfEk={verkauf.darfEkSchreiben}
             onUebernehmen={async (posten) => {
               await verkauf.onSatzZumVerkauf!(satz.id, posten);
               setZumVerkaufSatzId(null);

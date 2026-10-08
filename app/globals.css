@@ -3438,6 +3438,23 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .rm-haken.gibts-nicht{background:var(--bg);border-color:var(--bg);cursor:help;}
 .rm-haken:disabled:not(.gibts-nicht){opacity:.6;cursor:default;}
 .rm-fuss{padding-top:10px;}
+/* Einklappen, Zusammenfassung, Hinweise, „Ansehen als …“ (v124). */
+.rm-namefeld{display:flex;align-items:flex-start;gap:4px;min-width:0;}
+.rm-zeile.unter .rm-namefeld{padding-left:22px;}
+.rm-zeile.unter .rm-name{padding-left:0;}
+.rm-pfeil{flex:0 0 22px;width:22px;height:22px;border:none;background:none;padding:0;cursor:pointer;font-size:17px;font-weight:700;
+  color:var(--muted);line-height:22px;transition:transform .15s;}
+.rm-pfeil.offen{transform:rotate(90deg);}
+.rm-zusammen{font-size:11.5px;font-weight:600;color:var(--muted);}
+.rm-warn-zahl{color:#9a3412;font-weight:700;font-size:11.5px;}
+.rm-hinweis-text{font-size:11.5px;font-weight:600;color:#9a3412;line-height:1.35;}
+.rm-leiste{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;}
+.rm-klartext{display:flex;flex-direction:column;gap:10px;padding-top:4px;}
+.rm-kt-gruppe{display:flex;flex-direction:column;gap:3px;font-size:13px;line-height:1.4;border-top:1px solid #f1ece2;padding-top:8px;}
+.rm-kt-gruppe b{font-size:13.5px;}
+.rm-kt-kann{color:#146b4c;}
+.rm-kt-nicht{color:var(--muted);}
+.rm-kt-sonder{background:var(--bg);border:none;border-radius:12px;padding:10px 12px;}
 @media (max-width: 420px){
   .rm-zeile{grid-template-columns:minmax(0,1fr) repeat(3, 48px);}
   .rm-kopf{font-size:10.5px;}

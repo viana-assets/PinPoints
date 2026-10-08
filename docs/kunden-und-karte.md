@@ -5,7 +5,9 @@
 - **Kundendetails** (`DetailModal`): Kontaktdaten, Fahrzeuge (mehrere pro Kunde, mit
   Kennzeichen, Marke/Modell, montierter Reifengröße, DOT-Datum, Profiltiefe, optionaler
   Verknüpfung zu einem im Lager eingelagerten Reifensatz), Kontakt erfassen, **Aufträge &
-  Termine** dieses Kunden (siehe `auftraege.md`), Kontakt-Historie.
+  Termine** dieses Kunden (siehe `auftraege.md`), Kontakt-Historie. Kontakt erfassen, „auf offen
+  setzen“ und „Anrufliste erzeugen“ (Saisonliste) hängen seit Migration 78 am Haken „Kontakte
+  eintragen“, „+ Auftrag“ an „Aufträge anlegen“ – ohne Haken fehlen die Knöpfe (auch auf der Karte).
 - **Kundenliste, neu gestaltet am 26.09.2026** (Entwurf „J · Kundenliste",
   `components/kunden/KundenListePanel.tsx`, Regeln in `lib/kundenAnsicht.ts`): Bedienleiste, die
   beim Scrollen stehen bleibt – Titel mit Zahl und „+ Neu", Suche (mit × zum Leeren, seit v110

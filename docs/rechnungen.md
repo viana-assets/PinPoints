@@ -537,7 +537,9 @@ wäre eine Behauptung.
 Ohne `rechnungen.schreiben` ist der Knopf „Rechnung ausstellen“ deaktiviert
 (`darfSchreiben` in `RechnungModal`), ebenso „Stornieren“. Die Berechtigung wird zusätzlich in
 der Datenbank über die RLS-Policies auf `rechnungen` durchgesetzt – ein deaktivierter Knopf
-allein wäre nur eine Bitte.
+allein wäre nur eine Bitte. Seit Migration 78 (v126) hat **Stornieren einen eigenen Haken**
+(`rechnungen.storno`, Vorgabe wie „Rechnungen schreiben“): ohne ihn fehlt der Knopf, und
+`rechnung_storno_pruefen()` lehnt eine Stornorechnung ab.
 
 Ein Techniker sieht mit dieser Vorgabe keine Rechnungen und kann keine ausstellen, unabhängig
 davon, ob er den zugehörigen Auftrag sehen darf.

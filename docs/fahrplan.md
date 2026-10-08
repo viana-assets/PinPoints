@@ -16,6 +16,28 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **08.10.2026 – Rechtematrix, Schritt 3: zehn weitere Unterrechte (Migration 78, Service Worker
+  v126).** Ausgewählt von Vitali, alles in einer Runde: Aufträge anlegen, Wiedereröffnen,
+  Transporter, Fotos/Unterschrift löschen, Auslagern, Lagergebühr anpassen, Reifentausch, Rechnung
+  stornieren, Kontakte eintragen, Dubletten zusammenführen. Haken aus dem bisherigen Stand
+  übernommen – niemand gewinnt oder verliert etwas, bis jemand einen Haken umsetzt. Legt ein
+  Techniker mit Haken einen Auftrag an, steht er danach selbst darauf. Damit ist die Überarbeitung
+  der Rechtematrix (Schritte 1–3) abgeschlossen.
+
+* **08.10.2026 – Rechtematrix, Schritt 2: fünf neue Unterrechte (Migration 77, Service Worker
+  v125).** Endpreis überschreiben, Stornieren (getrennt vom Löschen), Fahrzeuge anlegen/ändern,
+  Kontaktdaten am Auftrag, Einkaufspreise im Reifenverkauf sehen/eintragen – je von der Datenbank
+  durchgesetzt, Haken aus dem bisherigen Stand übernommen. Einzige sichtbare Änderung: Der Techniker
+  sieht den Einkauf nicht mehr (Haken setzbar). Stornieren und Löschen sind für den Techniker nicht
+  mehr fest gesperrt, sondern Haken (Vorgabe aus). Schritt 3 siehe oben (v126).
+
+* **08.10.2026 – Rechtematrix, Schritt 1: einklappbar, Hinweise, „Ansehen als …“ (Service Worker
+  v124, ohne Migration).** Anlass: die Techniker-Lücken vom 07.10. Entschieden (Vitali, 08.10.2026):
+  mehr Unterrechte, einklappbare Gruppen, in Schritten. Schritt 1 ändert keine Rechte, nur die
+  Ansicht. Schritt 2 erledigt (v125), Schritt 3 erledigt (v126). Ursprünglich als Schritt 3: der Rest gruppenweise (Vorschlag vom 08.10.2026: Kunden, Aufträge,
+  Einsatzplanung, Lager, Rechnungen je mit Unterrechten), jeweils mit allen drei Rollen gegen die
+  Datenbank durchgespielt.
+
 * **07.10.2026 – Etikett je Rad als Vorgabe (Service Worker v123, ohne Migration).** Im Fenster
   „Etikett für den Reifensatz“ ist „Ein Etikett je Rad“ vorgewählt und steht oben in der Liste.
 

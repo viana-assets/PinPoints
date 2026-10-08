@@ -34,7 +34,7 @@ export type VerfuegbarkeitImPlan = {
 // Einsatz-Punkten je Tag, Tages-Detail beim Anklicken eines Tages, und darunter eine volle,
 // filter-/sortierbare Liste aller Aufträge mit Mitarbeiter-Zuordnung. Ausgelagert aus
 // app/page.tsx, siehe docs/roadmap.md Phase 2.
-export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, fenster, isTechniker, firmenadresse = null, verfuegbarkeit = null }: {
+export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrzeuge, orderEmployees, standardDauerMin, onEditEmployees, employeeNamesFor, orderArticlesLabel, onOpenCustomer, onOpenOrder, onDelete, onNavigate, onNeuerAuftrag, onNeuerKunde, onVerschieben, fenster, isTechniker, firmenadresse = null, verfuegbarkeit = null, darfAnlegen }: {
   // Verfügbarkeit der Mitarbeiter (Migration 68, v112): der Reiter „Verfügbarkeit", Punkte im
   // Tageskopf und die Warnmarke an Terminen (das „x frei" im Monat ist seit v116 entfallen).
   verfuegbarkeit?: VerfuegbarkeitImPlan | null;
@@ -75,6 +75,9 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   // in der Oberfläche zusätzlich keine Mitarbeiter-/Leistungen-Zuordnung oder Löschung anstoßen –
   // nur Status und die eigene Techniker-Notiz, siehe AuftraegePanel für dasselbe Muster.
   isTechniker: boolean;
+  // Recht „Aufträge anlegen“ (Migration 78): ein Klick in den Kalender legt an. Fehlt es, gilt wie
+  // früher: alle außer dem Techniker.
+  darfAnlegen?: boolean;
 }) {
   const today = new Date();
   const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -579,7 +582,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                 standardDauerMin={standardDauerMin}
                 onOeffnen={onOpenOrder}
                 onTagOeffnen={ansicht === "woche" ? tagOeffnen : undefined}
-                onSlot={isTechniker ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
+                onSlot={!(darfAnlegen ?? !isTechniker) ? undefined : (datum, von, bis) => setSlot({ datum, von, bis })}
                 onVerschieben={onVerschieben ? (id, datum, von, bis) => { void terminSetzen(id, datum, von, bis); } : undefined}
                 tagesPunkte={vf?.alleSehen && ansicht === "woche" ? (ds) => verfuegbareAm(vf.eintraege, employees, ds).map(({ employee: e, eintrag }) => ({ id: e.id, farbe: employeeColorFor(employees, e.id), titel: `${e.name} (${fensterText(eintrag)})` })) : undefined}
                 warnungFuer={vf?.alleSehen ? warnungAmTermin : undefined}

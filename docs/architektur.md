@@ -229,6 +229,7 @@ viana-pinpoints/
                                  Seitenleiste UND die Handy-Kachelseite „Weitere"; dazu
                                  `WEITERE_GRUPPEN`/`weitereGruppen()`
     version.ts                    `APP_VERSION` und `NEUIGKEITEN` (gleichlaufend mit public/sw.js)
+    rechteAnsicht.ts              Rechtematrix: Gruppen, „x von y“, Hinweise, „Ansehen als …“ (v124)
     testkunde.ts                  Testkunden lesen: `auftragsNr()` („T3"), `istTestauftrag`,
                                   `ohneTest…`-Filter für Auswertungen und Exporte (Migration 60)
     calendar.ts                   Reine Kalender-Hilfsfunktionen (Wochenstart, ISO-KW, Mitarbeiterfarbe)
@@ -329,7 +330,7 @@ viana-pinpoints/
       adressen.ts                    Wrapper um api/adresse-suchen
       auswertung.ts                   Datenbeschaffung für das Auswertungs-Modul
       session.ts                    Rolle + Anzeige-Einstellungen beim Initial-Load
-      verkaufsreifen.ts              Reifenverkauf (Migration 61)
+      verkaufsreifen.ts              Reifenverkauf (Migration 61); Einkauf nur nach Recht (77)
       mitnehmen.ts                   „Reifen mitnehmen" abhaken (Migration 58)
       vorlagen.ts                    Auftragsvorlagen (Migration 63, E6)
       dubletten.ts                   „Keine Dublette"-Vermerke, Zusammenführen (Migration 64, E1)
@@ -337,7 +338,7 @@ viana-pinpoints/
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
       alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
   supabase/migrations/
-    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–76
+    <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–78
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
     README.md                            Was wofür, Reihenfolge, Abhängigkeiten
     PRUEFUNG_welche_migrationen_liefen.sql
@@ -668,7 +669,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 76** (07.10.2026; 73–76 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 78** (08.10.2026; 73–78 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -764,6 +765,16 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   `docs/berechtigungen-und-rollen.md`, „Fallen“.
 - **76** – Storno/Löschen eines Auftrags verwirft auch seinen Tausch-Satz (`auftrag_lager_entnahme()`);
   verwaiste Tausch-Sätze, die einen Platz sperrten, einmal verworfen. Siehe `docs/lager.md`.
+- **77** – Fünf neue Unterrechte, je von der Datenbank durchgesetzt: Endpreis überschreiben
+  (`position_endpreis_pruefen()`), Stornieren (`auftrag_storno_pruefen()`; die feste Storno-/Lösch-
+  sperre für den Techniker entfällt, beides regelt die Matrix), Kontaktdaten am Auftrag, Fahrzeuge
+  anlegen/ändern (eigene Richtlinien an `vehicles`), Einkaufspreise im Reifenverkauf (Spaltenrecht
+  ohne `ek_netto`, `verkaufsreifen_einkaufspreise()`). Siehe `docs/berechtigungen-und-rollen.md`.
+- **78** – Zehn weitere Unterrechte: Aufträge anlegen (der Techniker trägt sich dabei selbst ein,
+  `auftrag_techniker_einteilen()`), Wiedereröffnen, Transporter (`auftrag_handlungen_pruefen()`),
+  Fotos/Unterschrift löschen, Auslagern/Tausch (`lager_handlungen_pruefen()`), Lagergebühr anpassen
+  (`lagergebuehr_pruefen()`, `lager_monate()`), Rechnung stornieren (`rechnung_storno_pruefen()`),
+  Kontakte eintragen (`kunde_kontakt_pruefen()`), Dubletten. Siehe `docs/berechtigungen-und-rollen.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

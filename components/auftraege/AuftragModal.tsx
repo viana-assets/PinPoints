@@ -51,6 +51,8 @@ import { auftragsNr } from "@/lib/testkunde";
 export function AuftragModal({
   order, customer, vehicles, firmenfahrzeuge, employees, assignedEmployeeIds, articles, articlePrices, orderArticles,
   isTechniker, darfWiedereroeffnen, frischAngelegt = false,
+  darfStornieren, darfLoeschen, darfEndpreis = true, darfFahrzeuge = true, darfKontakt,
+  darfTransporter, darfAuslagern = true, darfTausch = true, darfLagergebuehr = true,
   einlagerungen, hatLagergebuehr, storageSlots, warehouses, belegteSlotIds, raeder,
   fremdeSaetze, onAuslagern, onEtikett, ausLagerSaetze = [], fruehereEinlagerungen = [], onVormerkungZuruecknehmen, verfuegbarkeit = null, onTausch,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
@@ -93,6 +95,18 @@ export function AuftragModal({
   orderArticles: OrderArticle[];
   isTechniker: boolean;
   darfWiedereroeffnen: boolean;
+  // Rechte aus der Matrix (Migration 77, v125). Fehlen sie, gilt das alte Verhalten (Techniker nein,
+  // sonst ja) – so laufen Tests und Aufrufe ohne die neuen Angaben weiter.
+  darfStornieren?: boolean;
+  darfLoeschen?: boolean;
+  darfEndpreis?: boolean;
+  darfFahrzeuge?: boolean;
+  darfKontakt?: boolean;
+  // Rechte aus Migration 78. Fehlt `darfTransporter`, gilt wie früher: alle außer dem Techniker.
+  darfTransporter?: boolean;
+  darfAuslagern?: boolean;
+  darfTausch?: boolean;
+  darfLagergebuehr?: boolean;
   // Der Auftrag wurde gerade eben angelegt und ist noch leer. Dann steht oben ein Hinweis, was
   // jetzt zu tun ist, und unten "Verwerfen" statt des Papierkorbs: einen Auftrag, den man vor
   // einer Sekunde selbst erzeugt hat, löscht man nicht – man nimmt ihn zurück. Deshalb dort
@@ -278,6 +292,7 @@ export function AuftragModal({
     : [];
   const [beschreibung, setBeschreibung] = useState(order.description || "");
   const [firmenfahrzeugId, setFirmenfahrzeugId] = useState(order.firmenfahrzeug_id || "");
+  const transporterWaehlbar = darfTransporter ?? !isTechniker;
   const [mitarbeiterIds, setMitarbeiterIds] = useState<string[]>(assignedEmployeeIds);
   const [notiz, setNotiz] = useState(order.techniker_notiz || "");
   // Der Laufkunde (Migration 57) – Teil des Entwurfs wie Titel und Uhrzeit, gespeichert mit
@@ -474,7 +489,7 @@ export function AuftragModal({
       });
       // Den Transporter teilt das Büro ein (Migration 75): Beim Techniker nie mitschreiben – sonst
       // überschriebe ein offenes Fenster mit altem Stand eine Änderung, die das Büro inzwischen gemacht hat.
-      if (!isTechniker && firmenfahrzeugId !== (order.firmenfahrzeug_id || "")) await onSetFirmenfahrzeug(order.id, firmenfahrzeugId || null);
+      if (transporterWaehlbar && firmenfahrzeugId !== (order.firmenfahrzeug_id || "")) await onSetFirmenfahrzeug(order.id, firmenfahrzeugId || null);
       if (notiz !== (order.techniker_notiz || "")) await onUpdateTechnikerNotiz(order.id, notiz);
       setGespeichert(true);
     } finally {
@@ -638,12 +653,12 @@ export function AuftragModal({
   if (rechnungOffenHier && rechnungAnderswo) menue.push({ key: "anderswo", text: "Anderswo abgerechnet", info: "Rechnung in einem anderen System erstellt" });
   if (anderswo && rechnungAnderswo) menue.push({ key: "anderswoZurueck", text: "Vermerk „anderswo abgerechnet“ zurücknehmen", info: "steht danach wieder unter „noch nicht ausgestellt“" });
   menue.push({ key: "historie", text: "Historie", info: "wer hat was geändert" });
-  if (!gesperrt && !isTechniker) menue.push({ key: "storno", text: "Stornieren", info: "mit Grund – bleibt in der Liste", gefahr: true });
+  if (!gesperrt && (darfStornieren ?? !isTechniker)) menue.push({ key: "storno", text: "Stornieren", info: "mit Grund – bleibt in der Liste", gefahr: true });
   // Einen Auftrag, den man vor einer Sekunde selbst erzeugt hat, löscht man nicht – man nimmt
   // ihn zurück. Deshalb dort keine Rückfrage; es kann nichts verloren gehen.
   // Ein abgerechneter Auftrag wird gar nicht erst zum Löschen angeboten (D2, lib/auftragLoeschen.ts).
   const loeschPruefung = auftragLoeschPruefung(order);
-  if (!isTechniker && (frischAngelegt || loeschPruefung.erlaubt)) menue.push(frischAngelegt
+  if ((darfLoeschen ?? !isTechniker) && (frischAngelegt || loeschPruefung.erlaubt)) menue.push(frischAngelegt
     ? { key: "loeschen", text: "Verwerfen", info: "der Auftrag wurde eben erst angelegt", gefahr: true }
     : { key: "loeschen", text: "Löschen", info: "mit Rückfrage", gefahr: true });
 
@@ -929,9 +944,9 @@ export function AuftragModal({
                 )}
 
                 <span className="op-gruppe-titel">TRANSPORTER</span>
-                {/* Techniker sehen die Einteilung, ändern dürfen sie sie nicht – das macht das Büro,
-                    und die Datenbank erzwingt es (Migration 32). */}
-                {isTechniker ? (
+                {/* Ohne „Transporter einteilen“ (Migration 78; vorher fest für Techniker, 75) nur die
+                    Anzeige – die Datenbank erzwingt es (`auftrag_handlungen_pruefen()`). */}
+                {!transporterWaehlbar ? (
                   <span className="small">{firmenfahrzeugText(firmenfahrzeugId || null) || "– nicht eingeteilt –"}</span>
                 ) : aktiveFirmenfahrzeuge.length === 0 && !firmenfahrzeugId ? (
                   <span className="small">Es sind noch keine Transporter angelegt (Admin → Transporter).</span>
@@ -988,7 +1003,8 @@ export function AuftragModal({
               onFahrzeugHinzufuegen={(vid) => onFahrzeugHinzufuegen(order.id, vid)}
               onFahrzeugAnlegen={(kz) => onRechnungsFahrzeugAnlegen(order.id, order.customer_id, kz)}
               onKilometerstand={onKilometerstand}
-              onFahrzeugAngaben={onFahrzeugAngaben}
+              onFahrzeugAngaben={darfFahrzeuge ? onFahrzeugAngaben : undefined}
+              darfAnlegen={darfFahrzeuge}
               onFahrzeugEntfernen={onFahrzeugEntfernen}
             />
           </div>
@@ -1011,6 +1027,8 @@ export function AuftragModal({
               </div>
             )}
             <ArticleAssignPanel
+              darfEndpreis={darfEndpreis}
+              darfLagergebuehr={darfLagergebuehr}
               rechnungNoetig={rechnungNoetig}
               orderId={order.id}
               articles={articles}
@@ -1050,7 +1068,7 @@ export function AuftragModal({
                 // Seit v119 auch der Techniker: Eine FEHLENDE E-Mail darf er bei seinem Kunden
                 // ergänzen (Migration 74, `kunde_email_ergaenzen()`), sonst ließe sich sein
                 // Auftrag nicht abschließen. Eine schon hinterlegte ändert weiter das Büro.
-                darfKundeAendern
+                darfKundeAendern={darfKontakt ?? true}
                 fahrzeuge={auftragsFahrzeuge}
                 onEmailSpeichern={(email) => onEmailSpeichern(order.customer_id, email)}
               />
@@ -1103,7 +1121,7 @@ export function AuftragModal({
             <LagerSaetzeAmAuftrag
               ausLager={ausLagerSaetze} frueher={fruehereEinlagerungen} einlagerungen={einlagerungen}
               storageSlots={storageSlots} warehouses={warehouses} vehicles={vehicles}
-              auftraege={andereAuftraege} gesperrt={gesperrt}
+              auftraege={andereAuftraege} gesperrt={gesperrt || !darfAuslagern}
               onZuruecknehmen={async (id) => { await onVormerkungZuruecknehmen?.(id); }}
             />
             {fremdeSaetze.length > 0 && (
@@ -1133,7 +1151,7 @@ export function AuftragModal({
                         ? <button type="button" className="es-knopf" onClick={() => onAuslagern(satz.id)}>
                             <span className="vm-marke">vorgemerkt{anderswo ? ` · ${auftragsNr(anderswo.order_number)}` : ""}</span>
                           </button>
-                        : <button type="button" className="es-knopf" disabled={gesperrt} onClick={() => onAuslagern(satz.id)}>Auslagern</button>}
+                        : darfAuslagern && <button type="button" className="es-knopf" disabled={gesperrt} onClick={() => onAuslagern(satz.id)}>Auslagern</button>}
                     </div>
                   );
                 })}
@@ -1157,6 +1175,7 @@ export function AuftragModal({
                 raeder={raeder.filter((r) => r.tire_storage_id === satz.id)}
                 onEinlagern={(lagerplatzId) => onEinlagern(lagerplatzId, satz.id)}
                 onEntfernen={onEinlagerungEntfernen}
+                darfEntfernen={!satz.kommt_rein || darfTausch}
                 onAngabenAendern={onEinlagerungAngaben}
                 onErfassungsart={onErfassungsart}
                 onAnzahlRaeder={onAnzahlRaeder}
@@ -1164,6 +1183,7 @@ export function AuftragModal({
                 onRadEntfernen={onRadEntfernen}
                 onSatzNotizen={onSatzNotizen}
                 onFahrzeugAnlegen={(kennzeichen, modell) => onFahrzeugAnlegen(kennzeichen, modell, satz.id)}
+                darfFahrzeugAnlegen={darfFahrzeuge}
                 onEtikett={onEtikett}
                 reifengroesse={reifengroesseAmAuftrag}
               />
@@ -1190,6 +1210,7 @@ export function AuftragModal({
                 onRadEntfernen={onRadEntfernen}
                 onSatzNotizen={onSatzNotizen}
                 onFahrzeugAnlegen={onFahrzeugAnlegen}
+                darfFahrzeugAnlegen={darfFahrzeuge}
                 reifengroesse={reifengroesseAmAuftrag}
               />
             )}

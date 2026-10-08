@@ -16,11 +16,13 @@ import { fetchKeineDubletten, keineDubletteVermerken, kundenZusammenfuehren } fr
 //     aus der Liste.
 //
 // Nur Admin und Superadmin (der Reiter steht nur dort, die Datenbank prüft es noch einmal).
-export function DublettenPanel({ supabase, kunden, onKundeOeffnen, onKundenbestandGeaendert }: {
+export function DublettenPanel({ supabase, kunden, onKundeOeffnen, onKundenbestandGeaendert, darfBearbeiten = true }: {
   supabase: SupabaseClient;
   kunden: Customer[];
   onKundeOeffnen: (id: string) => void;
   onKundenbestandGeaendert: () => void;
+  // „Dubletten zusammenführen“ und „Kunden löschen“ (Migration 78). Ohne beides nur die Liste.
+  darfBearbeiten?: boolean;
 }) {
   const [vermerkt, setVermerkt] = useState<Set<string> | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
@@ -106,8 +108,8 @@ export function DublettenPanel({ supabase, kunden, onKundeOeffnen, onKundenbesta
               </button>
             ))}
             <div className="pk-knoepfe">
-              <button type="button" className="btn-secondary btn-rand" onClick={() => void keineDublette(p)}>Keine Dublette</button>
-              <button type="button" className="btn-primary" onClick={() => { setMeldung(null); setOffen({ paar: p, behaltenId: vorschlagBehalten(p.a, p.b).id }); }}>Zusammenführen …</button>
+              {darfBearbeiten && <button type="button" className="btn-secondary btn-rand" onClick={() => void keineDublette(p)}>Keine Dublette</button>}
+              {darfBearbeiten && <button type="button" className="btn-primary" onClick={() => { setMeldung(null); setOffen({ paar: p, behaltenId: vorschlagBehalten(p.a, p.b).id }); }}>Zusammenführen …</button>}
             </div>
           </div>
         ))

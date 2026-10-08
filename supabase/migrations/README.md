@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 73, 74, 75 und 76** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
+**Noch auszuführen: 73, 74, 75, 76, 77 und 78** (Abschnitt „Noch auszuführen“ unten, in dieser Reihenfolge). **Stand 07.10.2026: Alle Migrationen 01–72 sind in der Produktivdatenbank ausgeführt** (72 laut Vitali am 06.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -958,3 +958,81 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Auftrag 2 → derselbe „duplicate key“); nach 76 verworfen, Tausch an Auftrag 2 geht; Storno von
   Auftrag 2 verwirft den Tausch und hebt die Vormerkung auf; Tausch an Auftrag 3 und Abschluss: alter
   Satz raus, neuer im Regal; zurückgenommen, zweimal, erneut ausgeführt.
+- `77_neue_unterrechte.sql` – **nach `76`, SQL zuerst, dann die Dateien von v125.** Schritt 2 der
+  Rechte-Überarbeitung vom 08.10.2026: fünf neue Zeilen der Rechtematrix, jede von der Datenbank
+  durchgesetzt. Die Haken werden aus dem bisherigen Stand übernommen – nach dem Lauf darf jede Rolle
+  dasselbe wie vorher, mit einer Ausnahme (Einkaufspreise, siehe unten).
+  - `auftraege.preis` („Endpreis überschreiben“, wie bisher „Leistungen schreiben“): Trigger
+    `position_endpreis_pruefen()` an `order_articles` (`endpreis_netto`).
+  - `auftraege.storno` („Stornieren“, wie bisher „Aufträge schreiben“ ohne Techniker): Trigger
+    `auftrag_storno_pruefen()` an `orders` (Status auf storniert). Damit fällt die feste Sperre für
+    den Techniker in `restrict_techniker_order_update()` (Storno-Spalten, `deleted_at`) weg – Stornieren
+    und Löschen regelt jetzt die Matrix (Löschen weiter `auftraege.auftrag › löschen`, Trigger aus 42).
+    Wiedereröffnen und den Transporter darf der Techniker weiter nicht.
+  - `auftraege.kontakt` („Kontaktdaten am Auftrag“, wie „Aufträge schreiben“): `kunde_email_ergaenzen()`
+    fragt danach.
+  - `kunden.fahrzeuge` („Fahrzeuge anlegen und ändern“, wie „Kunden schreiben“ plus Techniker): neue
+    Richtlinien „Bereich fahrzeuge schreiben/aendern“ an `vehicles` statt „Bereich kunden schreiben/
+    aendern“ und „Techniker legt Fahrzeug eigener Kunden an“ (73); Techniker nur bei eigenen Kunden.
+    `fahrzeug_angaben_ergaenzen()` fragt danach.
+  - `lager.verkauf_ek` („Einkaufspreise sehen/eintragen“, wie „Reifenverkauf schreiben“ – **der
+    Techniker sieht den Einkauf danach nicht mehr**): Spaltenrecht – `authenticated` liest
+    `verkaufsreifen` ohne `ek_netto`; den Einkauf liefert `verkaufsreifen_einkaufspreise()` nach
+    Recht, Eintragen prüft `verkaufsreifen_ek_pruefen()`. **Eine neue Spalte an `verkaufsreifen`
+    braucht ab jetzt ein eigenes `grant select (spalte) to authenticated`** (und gehört in
+    `VERKAUFSREIFEN_SPALTEN`, `lib/api/verkaufsreifen.ts`).
+
+  Ohne angemeldeten Nutzer (Service-Schlüssel, Migrationen) greifen die neuen Prüfungen nicht.
+  Ergebnistabelle mit vier Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/77_rollback.sql`
+  (Funktionen wie 74/75, Fahrzeug-Richtlinien wie vorher, Lesen von `verkaufsreifen` wieder ganz, die
+  fünf Matrixzeilen entfernt; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 76): Techniker setzt
+  Endpreis, Storno und Löschen abgewiesen, Fahrzeug beim eigenen Kunden ja, beim fremden nein, E-Mail
+  und Angaben ergänzt, `ek_netto` und `select *` verweigert, Funktion liefert ihm nichts; Haken
+  umgestellt – Endpreis abgewiesen (Menge geht), Storno und Löschen gehen, Fahrzeug abgewiesen,
+  Transporter weiter gesperrt; Nutzer ändert Fahrzeug, sieht und ändert den Einkauf, storniert;
+  zurückgenommen, zweimal – Richtlinien und Funktionen identisch mit 76 –, erneut ausgeführt.
+- `78_unterrechte_schritt_3.sql` – **nach `77`, SQL zuerst, dann die Dateien von v126.** Bricht ab, wenn
+  77 fehlt. Schritt 3 der Rechte-Überarbeitung (Vitali 08.10.2026: Auswahl getroffen, „alles in einer
+  Runde“): zehn neue Zeilen der Rechtematrix, übernommen aus dem bisherigen Stand – nach dem Lauf darf
+  jede Rolle dasselbe wie vorher.
+  - `auftraege.anlegen` (wie „Aufträge schreiben“ ohne Techniker): Richtlinie „Bereich auftraege
+    schreiben“ (INSERT) fragt nur noch diesen Haken, die feste Techniker-Sperre fällt. Legt ein
+    Techniker an, trägt ihn `auftrag_techniker_einteilen()` (AFTER INSERT) ein; ohne verknüpften
+    Mitarbeiter lehnt `auftrag_handlungen_pruefen()` mit Begründung ab.
+  - `auftraege.wiedereroeffnen` (wie bisher: Admin): `enforce_order_status_transition()` fragt den
+    Haken statt der Rolle; `restrict_techniker_order_update()` sperrt `reopen_reason` nicht mehr.
+  - `auftraege.transporter` (wie „Aufträge schreiben“ ohne Techniker): `auftrag_handlungen_pruefen()`
+    für alle Rollen statt der festen Sperre aus 75.
+  - `auftraege.belege` (Löschen, wie „Aufträge löschen“): Löschtrigger auf `auftrag_belege` und
+    Speicher-Richtlinie „MR Belege loeschen“.
+  - `lager.auslagern`, `lager.tausch`, `lager.gebuehr` (wie „Einlagerung schreiben“):
+    `lager_handlungen_pruefen()` auf `tire_storage` (Herausnehmen, Vormerken/Zurücknehmen, Tausch
+    anlegen/verwerfen; ein heute selbst eingelagerter Satz darf ohne „Auslagern“ wieder heraus) und
+    `lagergebuehr_pruefen()` auf `order_articles` (ohne „Lagergebühr anpassen“: Menge =
+    `lager_monate()`, kein Sonderpreis, nicht ändern, entfernen nur mit der Vormerkung; Vormerken nur
+    mit Gebühr, wenn `lagergebuehr_gepflegt()`). **Die App bucht die Gebühr seit v126 VOR dem
+    Vormerken** (sonst wäre die Prüfung beim Vormerken nicht möglich).
+  - `rechnungen.storno` (wie „Rechnungen schreiben“): `rechnung_storno_pruefen()`.
+  - `kunden.kontakte` (wie „Kunden schreiben“): Richtlinie „Bereich kunden aendern“ lässt auch diesen
+    Haken zu (Techniker nur eigene Kunden), `kunde_kontakt_pruefen()` trennt Kontaktspalten von den
+    Stammdaten – **ohne `security definer`**, damit Funktionen wie `kunde_email_ergaenzen()` (sie
+    laufen als Eigentümer) nicht ein zweites Mal geprüft werden; Kontakthistorie schreiben fragt den Haken.
+  - `kunden.dubletten` (wie „Kunden löschen“): `kunden_zusammenfuehren()` (braucht zusätzlich „Kunden
+    löschen“) und die Richtlinien auf `kunden_keine_dublette`.
+
+  Ergebnistabelle mit vier Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/78_rollback.sql`
+  (Richtlinien, Trigger, Funktionen wie nach 77, zehn Matrixzeilen entfernt; von Technikern angelegte
+  Aufträge bleiben; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 76 + 77, `pgtest/t78.sql`):
+  `lager_monate()` gegen die JS-Rechnung (vier Fälle); Techniker nach Vorgabe – anlegen, Transporter,
+  wiedereröffnen, Beleg löschen abgewiesen, Gebühr frei und Vormerken ohne Gebühr erlaubt; Haken
+  umgestellt – anlegen (danach sichtbar und eingeteilt), Transporter, wiedereröffnen, Beleg löschen
+  gehen, fremden Satz auslagern, vormerken, Tausch abgewiesen, eigenen heutigen Satz herausnehmen
+  geht; nur „Gebühr anpassen“ weg – Vormerken ohne Gebühr, falsche Menge, Sonderpreis, Ändern und
+  Entfernen bei bestehender Vormerkung abgewiesen, richtige Menge und Entfernen nach Zurücknehmen
+  gehen, ohne gepflegten Preis Vormerken ohne Gebühr; Techniker ohne Mitarbeiter legt nicht an;
+  Kontakte – Nutzer ohne Haken: Kontakt und Historie abgewiesen, Notiz geht; nur Kontakte: Kontakt
+  geht, Notiz nicht; Techniker eigener Kunde ja, fremder 0 Zeilen; Rechnung stornieren ohne Haken
+  abgewiesen, mit Haken geht; Dubletten ohne Haken abgewiesen, mit Haken ohne „Kunden löschen“
+  abgewiesen; Admin legt mit Transporter an und lagert aus. Dazu `t74.sql`, `t76.sql`, `t77.sql` gegen
+  76 + 77 und 76 + 77 + 78 verglichen: nur die neuen Meldungstexte unterscheiden sich. Zurückgenommen,
+  zweimal – Richtlinien, Funktionen, Trigger und Matrix identisch mit 76 + 77 –, erneut ausgeführt.

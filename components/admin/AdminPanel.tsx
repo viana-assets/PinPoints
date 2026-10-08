@@ -52,12 +52,14 @@ function initialen(text: string): string {
 export function AdminPanel({
   isAdmin, isSuperAdmin, employees, onAddEmployee, onDeleteEmployee, onUpdateEmployeeProfileId, modulePermissions, onUpdateModulePermissions,
   firmenfahrzeuge, onFirmenfahrzeugAnlegen, onFirmenfahrzeugAendern, onFirmenfahrzeugAusmustern,
-  onKundeOeffnen, onKundenbestandGeaendert, kunden,
+  onKundeOeffnen, onKundenbestandGeaendert, kunden, darfDubletten = true,
 }: {
   // Der geladene Kundenbestand – für die Dublettensuche (E1, v103).
   kunden: Customer[];
   // Nach dem Wiederherstellen aus dem Papierkorb (Migration 56): Kundenliste neu laden.
   onKundenbestandGeaendert: () => void;
+  // Zusammenführen und „keine Dublette“ (Migration 78: „Dubletten zusammenführen“ + „Kunden löschen“).
+  darfDubletten?: boolean;
   isAdmin: boolean; isSuperAdmin: boolean; employees: Employee[];
   // Aus der Adressprüfung heraus das Kundenfenster öffnen (Wartung). Der Admin-Bereich ist
   // ein Reiter, kein Fenster – das Kundenfenster legt sich darüber und lässt die Liste stehen.
@@ -329,7 +331,7 @@ export function AdminPanel({
             <div className="db-karte"><div className="db-leer">Lädt …</div></div>
           )
         ) : aktiverReiter === "dubletten" ? (
-          <DublettenPanel supabase={supabase} kunden={kunden} onKundeOeffnen={onKundeOeffnen} onKundenbestandGeaendert={onKundenbestandGeaendert} />
+          <DublettenPanel supabase={supabase} kunden={kunden} onKundeOeffnen={onKundeOeffnen} onKundenbestandGeaendert={onKundenbestandGeaendert} darfBearbeiten={darfDubletten} />
         ) : aktiverReiter === "papierkorb" ? (
           <PapierkorbPanel supabase={supabase} isSuperAdmin={isSuperAdmin} onKundenbestandGeaendert={onKundenbestandGeaendert} />
         ) : aktiverReiter === "protokoll" ? (

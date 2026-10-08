@@ -1,6 +1,6 @@
 # Berechtigungen und Rollen
 
-**Stand: 19.09.2026, ergänzt bis 02.10.2026 (`lager.verkauf`, Migration 61; Funktionen aus Migration 64).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
+**Stand: 19.09.2026, ergänzt bis 08.10.2026 (`lager.verkauf`, Migration 61; Funktionen aus Migration 64; fünf Unterrechte, Migration 77; zehn weitere, Migration 78).** Dieses Blatt beschreibt, wer in PinPoints was darf, wo diese
 Entscheidung tatsächlich fällt, und welche Irrtümer das Projekt dabei schon gemacht hat –
 damit sie kein zweites Mal gemacht werden.
 
@@ -141,35 +141,70 @@ Arbeit zu verlieren. Der Datenzugriff dazu liegt in `lib/api/permissions.ts`;
 mit allen drei Listen bei zwei gleichzeitig offenen Fenstern die Änderung des anderen
 überschreiben würde.
 
+**Seit v124 (Schritt 1 der Überarbeitung vom 08.10.2026):** Module mit Unterzeilen sind
+einklappbar (zu Beginn zu) und zeigen zugeklappt „x von y erlaubt“ für die gewählte Rolle; „Alle
+aufklappen“ öffnet alles. Haken, die ins Leere laufen, tragen ein ⚠ mit Begründung
+(`rechteHinweise()` in `lib/rechteAnsicht.ts`): Schreiben/Löschen ohne Lesen in derselben Zeile,
+eine Unterzeile mit Haken bei ausgeschaltetem Reiter, und die Voraussetzungen aus
+`RECHTE_ABHAENGIGKEITEN` (etwa „Mitarbeiter einteilen“ braucht „Mitarbeiter sehen“). Die Hinweise
+sperren nichts – die Datenbank setzt jeden Haken für sich durch. **„Ansehen als …“** zeigt dieselbe
+Rolle in Sätzen („Kann: …“ / „Kann nicht: …“, Texte aus `klartext` im Katalog) und darunter die
+Regeln, die kein Haken ändert (`ROLLEN_SONDERREGELN`, etwa „Techniker sieht nur eingeteilte
+Aufträge“). Wer eine Datenbankregel ändert, die dort beschrieben ist, ändert den Satz mit. Schritt 2
+(Migration 77, v125) brachte fünf Unterrechte, Schritt 3 (Migration 78, v126) zehn weitere – siehe
+unten.
+
+**Handlungszeilen ohne „Lesen“** (`handlung: true` im Katalog, seit v125): Zeilen wie „Stornieren“
+oder „Endpreis überschreiben“ sind eine einzelne Handlung, zu sehen gibt es dort nichts eigenes –
+sie haben nur „Schreiben“. Lesen kommt aus der Zeile darüber (`RECHTE_ABHAENGIGKEITEN` meldet, wenn
+es fehlt).
+
 ## Die Bereiche und ihre Vorgabe
 
 Vorgabe heißt: Was gilt, solange in `public.module_permissions` für diesen Bereich noch keine
 Zeile steht. Quelle ist `RECHTE_VORGABE` in `lib/constants.ts`; dieselben Werte hat
 Migration 42 beim ersten Lauf in die Tabelle geschrieben (bzw. Migration 48 für
-`rechnungen`, Migration 61 für `lager.verkauf`, Migration 68 für `einsatzplanung.verfuegbarkeit`). **L** = lesen, **S** = schreiben, **X** = löschen, **–** = nichts. Was in der
+`rechnungen`, Migration 61 für `lager.verkauf`, Migration 68 für `einsatzplanung.verfuegbarkeit`, Migration 77 für die
+fünf Unterrechte, Migration 78 für die zehn danach – dort aus dem damaligen Stand übernommen, nicht
+aus der Vorgabe). **L** = lesen, **S** = schreiben, **X** = löschen, **–** = nichts. Was in der
 Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 
 | Schlüssel | Zeile in der Maske | Admin | Techniker | Nutzer |
 |---|---|---|---|---|
 | `dashboard` | Dashboard (gesperrt, immer an) | L | L | L |
 | `kunden` | Kunden | L S X | – | L S |
+| `kunden.fahrzeuge` | – Fahrzeuge anlegen und ändern (77) | S | S | S |
+| `kunden.kontakte` | – Kontakte eintragen (78) | S | – | S |
+| `kunden.dubletten` | – Dubletten zusammenführen (78) | S | – | – |
 | `auftraege` | **Aufträge** (Modul) | L | L | L |
-| `auftraege.auftrag` | – Auftrag anlegen und ändern | L S X | L S | L S X |
+| `auftraege.auftrag` | – Auftrag ändern | L S X | L S | L S X |
+| `auftraege.anlegen` | – Aufträge anlegen (78) | S | – | S |
+| `auftraege.wiedereroeffnen` | – Wiedereröffnen (78) | S | – | – |
+| `auftraege.transporter` | – Transporter einteilen (78) | S | – | S |
+| `auftraege.storno` | – Stornieren (77) | S | – | S |
+| `auftraege.belege` | – Fotos und Unterschrift löschen (78) | X | – | X |
 | `auftraege.leistungen` | – Leistungen im Auftrag | L S X | L S X | L S X |
+| `auftraege.preis` | – Endpreis überschreiben (77) | S | S | S |
 | `auftraege.einteilung` | – Mitarbeiter einteilen | L S | L | L S |
+| `auftraege.kontakt` | – Kontaktdaten am Auftrag ergänzen (77) | S | S | S |
 | `termine` | Termine | L | L | L |
 | `einsatzplanung` | Einsatzplanung | L | L | L |
 | `einsatzplanung.verfuegbarkeit` | – Verfügbarkeit aller Mitarbeiter (Migration 68) | L S | – | – |
 | `lager` | **Lager** (Modul) | L | L | L |
 | `lager.regale` | – Regale und Plätze verwalten | L S X | L | L |
-| `lager.einlagerung` | – Reifen ein- und auslagern | L S | L S | L S |
+| `lager.einlagerung` | – Reifen einlagern | L S | L S | L S |
+| `lager.auslagern` | – Reifen auslagern (78) | S | S | S |
+| `lager.gebuehr` | – Lagergebühr anpassen (78) | S | S | S |
+| `lager.tausch` | – Reifentausch (78) | S | S | S |
 | `lager.raeder` | – Räder einzeln messen | L S X | L S X | L S X |
 | `lager.verkauf` | – Reifenverkauf (Migration 61) | L S X | L | L S |
+| `lager.verkauf_ek` | – Einkaufspreise sehen/eintragen (77) | L S | – | L S |
 | `saison` | Saisonliste | L | – | L |
 | `artikel` | Artikel und Preise | L S X | – | L |
 | `mitarbeiter` | Mitarbeiter | L S X | L | L |
 | `firmenfahrzeuge` | Firmenfahrzeuge | L S X | L | L |
 | `rechnungen` | Rechnungen | L S | – | – |
+| `rechnungen.storno` | – Rechnungen stornieren (78) | S | – | – |
 | `auswertung` | Auswertungen | L | – | – |
 | `einstellungen` | Einstellungen | L S | L S | L S |
 
@@ -198,6 +233,42 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   Anwendung etwas nie tut, soll auch kein Haken so tun, als könnte man es erlauben.
 - **`rechnungen` – kein Löschen.** Eine Rechnung wird storniert, nicht gelöscht. Eine fehlende
   Nummer ist eine Lücke im Kreis, und die erklärt man bei der nächsten Prüfung.
+- **Die fünf Zeilen aus Migration 77** setzt jede die Datenbank durch, nicht nur die Maske:
+  - `auftraege.preis` – Trigger `position_endpreis_pruefen()` an `order_articles`
+    (`endpreis_netto` setzen oder ändern); Menge und Leistung bleiben bei `auftraege.leistungen`.
+  - `auftraege.storno` – Trigger `auftrag_storno_pruefen()` an `orders`. Löschen bleibt
+    `auftraege.auftrag` › X (Trigger `pruefe_loeschrecht()`).
+  - `auftraege.kontakt` – E-Mail am Auftrag ergänzen (`kunde_email_ergaenzen()`), auch ohne
+    „Kunden schreiben“.
+  - `kunden.fahrzeuge` – Richtlinien „Bereich fahrzeuge schreiben/aendern“ an `vehicles`, der
+    Techniker nur bei Kunden seiner Aufträge; auch `fahrzeug_angaben_ergaenzen()`. Fahrzeuge
+    löschen bleibt bei `kunden` › X.
+  - `lager.verkauf_ek` – Spaltenrecht: `authenticated` liest `verkaufsreifen` ohne `ek_netto`; den
+    Einkauf liefert `verkaufsreifen_einkaufspreise()` nur mit L (und Reifenverkauf L), Eintragen
+    prüft `verkaufsreifen_ek_pruefen()`. Die Maske zeigt das Feld ohne L nicht und schickt es ohne
+    S nicht mit. **Folge:** Eine neue Spalte an `verkaufsreifen` braucht ein eigenes
+    `grant select (spalte)` und gehört in `VERKAUFSREIFEN_SPALTEN`.
+- **Die zehn Zeilen aus Migration 78:**
+  - `auftraege.anlegen` – Richtlinie „Bereich auftraege schreiben“ (INSERT). Legt ein Techniker an,
+    trägt ihn `auftrag_techniker_einteilen()` selbst ein (sonst sähe er den Auftrag nicht); ohne
+    verknüpften Mitarbeiter lehnt `auftrag_handlungen_pruefen()` ab.
+  - `auftraege.wiedereroeffnen` – `enforce_order_status_transition()`; vorher fest „nur Admin“.
+  - `auftraege.transporter` – `auftrag_handlungen_pruefen()` (Anlegen mit Transporter und Ändern).
+  - `auftraege.belege` (nur X) – Löschtrigger und Speicher-Richtlinie; Aufnehmen bleibt „Auftrag ändern“.
+  - `lager.auslagern` / `lager.tausch` – `lager_handlungen_pruefen()` auf `tire_storage`. Ausnahme:
+    Einen heute selbst eingelagerten Satz darf man ohne „Auslagern“ wieder herausnehmen (Korrektur).
+  - `lager.gebuehr` – ohne den Haken: berechnete Monate (`lager_monate()`, dieselbe Rechnung wie
+    `lagermonate()` in lib/lagerdauer.ts, bis zum Termin des Auftrags), kein Sonderpreis, nicht
+    ändern, entfernen nur mit der Vormerkung, und Vormerken nur mit Gebühr – sofern ein
+    Lagergebühr-Artikel mit gültigem Preis gepflegt ist (`lagergebuehr_gepflegt()`). Die App bucht die
+    Gebühr deshalb vor dem Vormerken und nimmt sie wieder weg, wenn das Vormerken scheitert.
+  - `rechnungen.storno` – `rechnung_storno_pruefen()` (Insert mit `hebt_auf`).
+  - `kunden.kontakte` – Status, letzter Kontakt, Ergebnis, Wiedervorlage und Kontakthistorie. Wer nur
+    diesen Haken hat, kann keine Stammdaten ändern (`kunde_kontakt_pruefen()`); wer nur „Kunden
+    schreiben“ hat, keine Kontakte. Der Trigger läuft bewusst ohne `security definer` und lässt
+    Änderungen aus Funktionen mit eigener Prüfung durch (`current_user` ≠ `authenticated`).
+  - `kunden.dubletten` – `kunden_zusammenfuehren()` und `kunden_keine_dublette`; Zusammenführen
+    braucht zusätzlich „Kunden löschen“.
 - **`dashboard` – gesperrt.** Immer an, für alle, nicht abwählbar (Startseite und
   Absturz-Sicherung). Es steht trotzdem in der Liste, aus Transparenz.
 - **`einstellungen`** meint immer nur die eigenen; jeder hat genau einen Satz.
@@ -227,9 +298,9 @@ telefoniert hat, ist Büroarbeit; der Techniker braucht die Anschrift, nicht den
 bleibt das **Schreiben** an `darf('kunden','schreiben')` – wer die Anschrift seines Kunden
 ändern kann, ändert dessen Kartei.
 Eine Ausnahme seit Migration 73 (07.10.2026): Ein **neues Fahrzeug anlegen** darf der Techniker
-beim eigenen Kunden, wenn er Aufträge schreiben darf – das Kennzeichen am Auftrag gehört zu seiner
-Arbeit vor Ort, und ohne Fahrzeug gibt es kein Kilometerfeld. Ändern und Löschen von Fahrzeugen
-bleiben bei `darf('kunden','schreiben')`. Seit Migration 74 (v119) zwei Funktionen für genau
+beim eigenen Kunden – das Kennzeichen am Auftrag gehört zu seiner Arbeit vor Ort, und ohne Fahrzeug
+gibt es kein Kilometerfeld. Seit Migration 77 hängt das an der eigenen Zeile `kunden.fahrzeuge`
+(anlegen und ändern; der Techniker weiter nur bei eigenen Kunden), Löschen an `kunden` › X. Seit Migration 74 (v119) zwei Funktionen für genau
 einzelne Felder: `kunde_email_ergaenzen()` (der Techniker nur bei eigenen Kunden und nur, solange
 keine Adresse hinterlegt ist) und `fahrzeug_angaben_ergaenzen()` (Marke/Modell, Reifengröße).
 
@@ -248,10 +319,12 @@ darf er alles ändern – auch Preise und die Rechnungsschalter. Die Begründung
 ungefährlich", sondern: Seit Migration 18/36 steht jede Änderung mit Person und Zeitpunkt im
 Protokoll und ist am Auftrag sichtbar. Nachvollziehbarkeit statt Verbot.
 
-Gesperrt bleiben genau die Handlungen, die etwas **wegnehmen** statt hinzuzufügen: stornieren,
-löschen, wiedereröffnen – dazu die Felder, die die Identität des Auftrags ausmachen
-(`order_number`, `customer_id`). Durchgesetzt wird das von
-`public.restrict_techniker_order_update()` als Negativliste.
+Fest gesperrt bleiben für den Techniker nur die Felder, die die Identität des Auftrags ausmachen
+(`order_number`, `customer_id`). Durchgesetzt wird das von `public.restrict_techniker_order_update()`
+als Negativliste. **Stornieren und Löschen** standen bis Migration 77 ebenfalls fest darin,
+**Wiedereröffnen und der Transporter** bis Migration 78; seitdem regelt sie die Matrix
+(`auftraege.storno`, `auftraege.auftrag` › X, `auftraege.wiedereroeffnen`, `auftraege.transporter`),
+Vorgabe für den Techniker: nein.
 
 **Achtung, hier dreht sich eine Regel um:** Phase 6 hatte den Spaltenschutz bewusst von einer
 Negativ- auf eine Positivliste umgestellt („alles gesperrt außer diesen"), damit eine künftige

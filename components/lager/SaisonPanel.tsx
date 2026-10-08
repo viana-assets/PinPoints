@@ -61,7 +61,8 @@ export function SaisonPanel({
   onOpenCustomer: (id: string) => void;
   onCall: (e: React.MouseEvent, cust: Customer) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
-  onWiedervorlage: (kundenIds: string[], datum: string) => Promise<void>;
+  // Fehlt ohne „Kontakte eintragen“ (Migration 78) – dann gibt es keine Anrufliste zum Erzeugen.
+  onWiedervorlage?: (kundenIds: string[], datum: string) => Promise<void>;
   schreibt: boolean;
 }) {
   const [blatt, setBlatt] = useState<null | "gebiet" | "anruf">(null);
@@ -140,7 +141,7 @@ export function SaisonPanel({
               <span className="db-n-unter">{basisMitTermin} {basisMitTermin === 1 ? "hat" : "haben"} schon einen Wechseltermin · {basisKunden.length - basisMitTermin} noch nicht</span>
             </>
           )}
-          {kundenIds.length > 0 && (
+          {kundenIds.length > 0 && onWiedervorlage && (
             <div className="db-n-knoepfe sl-knopf">
               <button type="button" className="primaer" disabled={schreibt} onClick={() => { setErledigt(null); setBlatt("anruf"); }}>
                 {schreibt ? "Wird gesetzt …" : `Anrufliste erzeugen (${kundenIds.length})`}
@@ -291,7 +292,7 @@ export function SaisonPanel({
                   onClick={async () => {
                     setBlatt(null);
                     try {
-                      await onWiedervorlage(kundenIds, datum);
+                      await onWiedervorlage?.(kundenIds, datum);
                       setErledigt(`${kundenIds.length} ${kundenIds.length === 1 ? "Kunde steht" : "Kunden stehen"} ab ${formatDate(datum)} wieder als fällig in der Kundenliste.`);
                     } catch {
                       setErledigt("Die Wiedervorlage konnte nicht gesetzt werden – bitte noch einmal versuchen.");

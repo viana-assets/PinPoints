@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **145 exportierte Konstanten** (`export const`) in 39 Dateien unter `lib/` – gezählt am
-06.10.2026 (v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **148 exportierte Konstanten** (`export const`) in 40 Dateien unter `lib/` – gezählt am
+08.10.2026 (v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -45,6 +45,8 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `VERBEN` | `lib/constants.ts` | `Verb[]` | Die drei Rechte-Verben: lesen/schreiben/löschen (seit 17.09.2026) | `PermissionMatrix`, `tests/navigation.test.ts`, `tests/rechte.test.ts` |
 | `VERB_LABEL` | `lib/constants.ts` | `Record<Verb, string>` | Beschriftung der drei Verben | `PermissionMatrix` |
 | `RECHTE_KATALOG` | `lib/constants.ts` | `RechtBereich[]` | Vollständiger Katalog aller Rechte-Bereiche (Module + eingerückte Unterbereiche) mit Verben, Erklärung, Sperrung | `PermissionMatrix`, `app/page.tsx` (Warnung bei unbekanntem Bereich), `tests/navigation.test.ts`, `tests/rechte.test.ts` |
+| `RECHTE_ABHAENGIGKEITEN` | `lib/constants.ts` | `RechtAbhaengigkeit[]` | Welcher Haken welchen anderen voraussetzt, mit Grund – Hinweise in der Rechtematrix (v124) | `rechteHinweise()` (lib/rechteAnsicht.ts), `PermissionMatrix` |
+| `ROLLEN_SONDERREGELN` | `lib/constants.ts` | `Record<Role, string[]>` | Was für eine Rolle unabhängig von den Haken gilt (Datenbankregeln) – in „Ansehen als …“ (v124) | `PermissionMatrix` |
 | `RECHTE_VORGABE` | `lib/constants.ts` | `Record<string, Partial<Record<Verb, Role[]>>>` | Fallback-Rechte, solange in der Datenbank keine Zeile für einen Bereich steht | `PermissionMatrix`, `app/page.tsx` (`hasPermission`/`canView`), `tests/navigation.test.ts`, `tests/rechte.test.ts` |
 | `PERMISSION_ROLES` | `lib/constants.ts` | `Role[]` | Die drei in der Rechte-Matrix konfigurierbaren Rollen (ohne Superadmin, der darf immer alles) | `PermissionMatrix` |
 
@@ -150,6 +152,7 @@ eingetragen (vier fehlten: `KLICK_RASTER_MIN`, `ZIEH_RASTER_MIN`, `ANRUF_PARAMET
 | `ABRECHNUNGSARTEN` | `lib/constants.ts` | `Article["abrechnungsart"][]` | Die vier Abrechnungsarten in der Reihenfolge der Auswahlknöpfe | `ArticleDetailEditor` |
 | `ABRECHNUNGSART_LABEL` | `lib/constants.ts` | `Record<Article["abrechnungsart"], string>` | Beschriftung der Abrechnungsarten | `ArticleDetailEditor`, `ArticleAdminPanel` |
 | `VERKAUF_LANGE_LIEGEND_MONATE` | `lib/reifenverkauf.ts` | `number` (6) | Ab so vielen Monaten im Bestand steht ein Verkaufsposten in der Auswertung unter „liegt seit über …" (E18, v103) | `reifenAuswertung()`, `AuswertungPanel` (Reiter „Reifen"); `tests/reifenverkauf.test.ts` |
+| `VERKAUFSREIFEN_SPALTEN` | `lib/api/verkaufsreifen.ts` | `string` (Spaltenliste ohne `ek_netto`) | Was `authenticated` an `verkaufsreifen` lesen darf (Migration 77); eine neue Spalte gehört hier hinein und braucht in ihrer Migration `grant select (spalte)` | `fetchVerkaufsreifen()`, `fetchReifenverkauf()` in `lib/api/auswertung.ts`, `tests/unterrechte.test.tsx` |
 | `NEUREIFEN_ALT_JAHRE` | `lib/constants.ts` | `number` (3) | Ab diesem Alter (DOT) gilt ein Neureifen als alt – Hinweis in Liste und Suche; gebrauchte nutzen `DOT_ALT_JAHRE` | `reifenHinweise()` in `lib/reifenverkauf.ts`, `tests/reifenverkauf.test.ts` |
 
 Die Größengrenzen (Breite 100–400, Querschnitt 20–95, Zoll 10–24) stehen in `fertig()` in

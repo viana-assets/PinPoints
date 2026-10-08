@@ -30,7 +30,7 @@ export function EinlagerungBlock({
   titel = "Einlagerung",
   einlagerung, slots, warehouses, belegteSlotIds, gesperrt, vehicles, raeder,
   onEinlagern, onEntfernen, onAngabenAendern, onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen,
-  onFahrzeugAnlegen, onEtikett, reifengroesse = null,
+  onFahrzeugAnlegen, onEtikett, reifengroesse = null, darfFahrzeugAnlegen = true, darfEntfernen = true,
 }: {
   // Die Reifengröße des Autos am Auftrag (E12). Braucht sie ein großes Fach, stehen die großen
   // Fächer in der Auswahl oben; ein normales gibt einen Hinweis. Hat der Satz schon ein Fahrzeug,
@@ -53,6 +53,8 @@ export function EinlagerungBlock({
   vehicles: Vehicle[];
   onEinlagern: (lagerplatzId: string) => Promise<void>;
   onEntfernen: (einlagerungId: string) => Promise<void>;
+  // Ein Tausch-Satz (kommt_rein) lässt sich nur mit „Reifentausch“ verwerfen (Migration 78).
+  darfEntfernen?: boolean;
   onAngabenAendern: (einlagerungId: string, felder: { vehicleId?: string | null; saison?: Saison | null; profiltiefeMm?: string }) => Promise<void>;
   // Die einzeln erfassten Räder DIESES Satzes (Migration 33). Leer, solange der Satz auf
   // Sammelmessung steht – dann gilt der eine Wert am Satz.
@@ -67,6 +69,8 @@ export function EinlagerungBlock({
   // Auftrag – ihn dafür ins Kundenfenster und wieder zurück zu schicken, war der längste Weg
   // für die kürzeste Eingabe (Kennzeichen + Modell).
   onFahrzeugAnlegen: (kennzeichen: string, modell: string) => Promise<void>;
+  // „Fahrzeuge anlegen und ändern“ (Migration 77). Ohne das Recht fehlt der Knopf.
+  darfFahrzeugAnlegen?: boolean;
   // Öffnet den Etikettendruck für DIESEN Satz. Optional: Wer den Block ohne diese Zusage
   // einbindet, bekommt den Knopf gar nicht erst zu sehen, statt auf einen zu drücken, der
   // nichts tut.
@@ -236,7 +240,7 @@ export function EinlagerungBlock({
                     abzulesen ist, während man davorsteht. Alles Weitere (Reifengröße, Notiz)
                     steht im Kundenfenster und kann später nachgetragen werden – ein längeres
                     Formular hier würde nur dazu führen, dass es gar nicht ausgefüllt wird. */}
-                {!fahrzeugFormOffen ? (
+                {!darfFahrzeugAnlegen ? null : !fahrzeugFormOffen ? (
                   <button
                     type="button"
                     className={"btn-secondary btn-rand" + (vehicles.length === 0 ? " btn-block" : "")}
@@ -403,13 +407,15 @@ export function EinlagerungBlock({
                     Etikett drucken
                   </button>
                 )}
-                <button
-                  type="button" className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }}
-                  disabled={laeuft}
-                  onClick={() => onEntfernen(einlagerung.id)}
-                >
-                  Einlagerung entfernen
-                </button>
+                {darfEntfernen && (
+                  <button
+                    type="button" className="btn-secondary btn-rand" style={{ flex: "0 0 auto" }}
+                    disabled={laeuft}
+                    onClick={() => onEntfernen(einlagerung.id)}
+                  >
+                    Einlagerung entfernen
+                  </button>
+                )}
               </div>
               {onEtikett && (!einlagerung.vehicle_id || !einlagerung.saison) && (
                 <div className="small" style={{ marginTop: 4 }}>

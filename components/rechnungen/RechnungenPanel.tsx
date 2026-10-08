@@ -19,7 +19,7 @@ type Sicht = "alle" | "gueltig" | "storniert";
 // Ein erledigter Auftrag mit „Rechnung nötig", aber ohne Rechnung (Entwurf P, 26.09.2026).
 export type OffeneRechnung = { id: string; nummer: number; kunde: string; datum: string; netto: number };
 
-export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOeffnen, onKundeOeffnen, onStornieren, offene = [] }: {
+export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, darfStornieren, onAuftragOeffnen, onKundeOeffnen, onStornieren, offene = [] }: {
   // Noch nicht ausgestellt – dieselbe Liste wie die Karte in den Aufträgen (`rechnungOffen`).
   offene?: OffeneRechnung[];
   // Der Weg zum Kunden aus dem Beleg (neu am 26.09.2026).
@@ -27,6 +27,8 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
   rechnungen: Rechnung[];
   laedt?: boolean;
   darfSchreiben: boolean;
+  // „Rechnungen stornieren“ (Migration 78). Fehlt es, gilt wie früher „Rechnungen schreiben“.
+  darfStornieren?: boolean;
   // Der Weg zurück zum Auftrag. Null, wenn der Auftrag gelöscht wurde – die Rechnung bleibt
   // trotzdem: Sie ist ein Beleg, kein Anhang.
   onAuftragOeffnen?: (orderId: string) => void;
@@ -236,7 +238,7 @@ export function RechnungenPanel({ rechnungen, laedt, darfSchreiben, onAuftragOef
                   E-Mail vorbereiten
                 </a>
               )}
-              {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (
+              {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (darfStornieren ?? true) && (
                 <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
                   onClick={() => { setStornoGrund(""); setStornoFrage(beleg); }}>
                   Stornieren

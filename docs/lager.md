@@ -360,7 +360,11 @@ die Seite dynamisch – Aufwand ohne Gegenwert für einen einzelnen Parameter.
 ## Die Lagergebühr (Migration 46)
 
 Sie wird **beim Auslagern** fällig, nicht beim Einlagern – dort steht die Zahl der Monate erst
-fest. Zwei Felder tragen das:
+fest. **Seit Migration 78 (v126)** sind Auslagern, Reifentausch und „Lagergebühr anpassen“ eigene
+Haken in der Rechtematrix. Ohne „Lagergebühr anpassen“ zeigt der Dialog (und der Stapel) die
+berechneten Monate fest und kein „Ohne Gebühr“; die Datenbank prüft dasselbe (`lager_monate()`,
+`lagergebuehr_pruefen()`, `lager_handlungen_pruefen()`). Die App bucht die Gebühr dafür VOR dem
+Vormerken und nimmt sie wieder vom Auftrag, wenn das Vormerken scheitert. Zwei Felder tragen das:
 
 * **`articles.abrechnungsart`** (`'normal'` oder `'lagergebuehr'`) am Artikel: Ein
   Lagergebühr-Artikel wird beim Einlagern nie verlangt und beim Auslagern vorgeschlagen, Menge =
@@ -955,7 +959,8 @@ entfernen und neu eintragen.
 
 - Oben der Umschalter **Einlagerung | Verkauf**, nur mit Leserecht `lager.verkauf`.
 - **Verkauf** (`VerkaufPanel.tsx`): Kacheln Frei, Reserviert, Lagerwert (netto, VK; EK nur über
-  Posten mit gepflegtem Einkaufspreis, `lagerwert`), Suche wie im Auftrag, Filter
+  Posten mit gepflegtem Einkaufspreis, `lagerwert`; den Einkauf sieht und trägt nur ein, wer
+  `lager.verkauf_ek` hat – Migration 77, Vorgabe ohne Techniker), Suche wie im Auftrag, Filter
   Neu/Gebraucht/Saison/Ausverkauft, je Posten eine Karte mit Hinweisen. „+ Erfassen" öffnet
   `VerkaufsreifenBlatt.tsx`.
 - **Regalwand:** Ein Platz hält ENTWEDER einen Kundensatz ODER Verkaufsreifen (mehrere Posten

@@ -27,10 +27,11 @@ export function KartenKundeKarte({ anker, ...p }: {
   onSchliessen: () => void;
   onAnrufen: (e: React.MouseEvent) => void;
   onNavigation: (e: React.MouseEvent) => void;
-  onKontakt: () => void;
-  onAuftrag: () => void;
+  // Fehlen, wenn die Rolle keine Kontakte eintragen bzw. keine Aufträge anlegen darf (Migration 78).
+  onKontakt?: () => void;
+  onAuftrag?: () => void;
   onKundenfenster: () => void;
-  onOffen: () => void;
+  onOffen?: () => void;
   onDeaktivieren: () => void;
   onPositionSetzen: () => void;
 }) {
@@ -108,18 +109,22 @@ export function KartenKundeKarte({ anker, ...p }: {
           </span>
           Navigation
         </button>
-        <button type="button" onClick={p.onKontakt} title="Kontakt festhalten">
-          <span className="kk-sym a-kontakt" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5 9-10" /></svg>
-          </span>
-          Kontakt
-        </button>
-        <button type="button" onClick={p.onAuftrag} title="Auftrag anlegen">
-          <span className="kk-sym a-auftrag" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-          </span>
-          Auftrag
-        </button>
+        {p.onKontakt && (
+          <button type="button" onClick={p.onKontakt} title="Kontakt festhalten">
+            <span className="kk-sym a-kontakt" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5 9-10" /></svg>
+            </span>
+            Kontakt
+          </button>
+        )}
+        {p.onAuftrag && (
+          <button type="button" onClick={p.onAuftrag} title="Auftrag anlegen">
+            <span className="kk-sym a-auftrag" aria-hidden="true">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            </span>
+            Auftrag
+          </button>
+        )}
       </div>
 
       <div className="kk-fuss">
@@ -128,7 +133,7 @@ export function KartenKundeKarte({ anker, ...p }: {
           <button type="button" className="kk-mehr" onClick={() => setMenueOffen((o) => !o)} aria-expanded={menueOffen} aria-label="Weitere Aktionen">⋯</button>
           {menueOffen && (
             <span className="kk-menue" role="menu">
-              <button type="button" role="menuitem" onClick={() => { setMenueOffen(false); p.onOffen(); }}>Auf offen setzen</button>
+              {p.onOffen && <button type="button" role="menuitem" onClick={() => { setMenueOffen(false); p.onOffen?.(); }}>Auf offen setzen</button>}
               <button type="button" role="menuitem" onClick={() => { setMenueOffen(false); p.onPositionSetzen(); }}>Position auf der Karte setzen</button>
               {/* Nur bei „kein Interesse": Das Deaktivieren bleibt ein eigener, bewusster Schritt
                   und passiert nicht als Nebenwirkung des Anrufergebnisses (Migration 23). */}

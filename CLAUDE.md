@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 07.10.2026 (Migrationen bis 76, 73–76 noch auszuführen; Service Worker v123; Regeln seit der Projektdurchsicht vom
+Stand: 08.10.2026 (Migrationen bis 78, 73–78 noch auszuführen; Service Worker v126; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -150,6 +150,20 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
   `alle_daten_behalten()` (Profile, Rechte, Einstellungen, Push-Geräte). Eine neue Tabelle wird
   also automatisch mitgelöscht – richtig für Fachdaten. Soll eine neue EINSTELLUNGS-Tabelle das
   Löschen überstehen, kommt sie mit einer neuen Migration in diese Liste.
+- **Ein Prüftrigger, der Funktionen mit eigener Prüfung durchlassen soll, läuft OHNE `security
+  definer` und fragt `current_user`.** Direkt aus der App ist das `authenticated`; aus einer
+  `security definer`-Funktion (etwa `kunde_email_ergaenzen()`) der Eigentümer. Mit `security definer`
+  am Trigger sähe er immer den Eigentümer. Vorbild: `kunde_kontakt_pruefen()` (Migration 78) – ohne
+  diese Weiche hätte er das E-Mail-Ergänzen des Technikers (Migration 74/77) abgelehnt; gefunden,
+  weil die Tests der vorigen Migrationen gegen den neuen Stand mitliefen. **Deshalb: Bei jeder
+  Migration mit neuen Prüfungen die Testskripte der Vorgänger erneut laufen lassen und die Ausgabe
+  vergleichen.**
+- **`verkaufsreifen` hat seit Migration 77 Spaltenrechte**: `authenticated` liest alle Spalten außer
+  `ek_netto` (den Einkauf liefert `verkaufsreifen_einkaufspreise()` nach dem Recht „Lager ›
+  Einkaufspreise“). **Eine neue Spalte dort braucht in ihrer Migration ein eigenes
+  `grant select (spalte) on public.verkaufsreifen to authenticated`** und gehört in
+  `VERKAUFSREIFEN_SPALTEN` (`lib/api/verkaufsreifen.ts`) – sonst sieht sie niemand. Ein
+  `select("*")` auf diese Tabelle scheitert für jede Rolle.
 
 ### Und auf der Code-Seite dazu
 

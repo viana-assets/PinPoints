@@ -5,7 +5,7 @@ import type { Article, ArticlePrice, Customer, EingelagertesRad, OrderArticle, S
 import type { AuftragAnlegen, Nachladen, NeuLaden, OfflineOderDirekt } from "./typen";
 import { type AuslagernWahl } from "@/components/lager/AuslagernDialog";
 import { insertOrderArticle } from "@/lib/api/articles";
-import { type RadFelder, deleteRadById, deleteStorageSlotById, deleteWarehouseById, insertRad, insertStorageSlot, insertStorageSlotsBulk, insertWarehouse, radZuZeile, removeTireAssignmentById, satzVormerken, setAnzahlRaeder, setErfassungsart, satzNotizenSpeichern, tauschAnlegen, updateRadById, updateSlotGroesse, updateTireStorageDetails, updateWarehouseById, upsertTireAssignment, vormerkungZuruecknehmen } from "@/lib/api/lager";
+import { type RadFelder, deleteRadById, deleteStorageSlotById, deleteWarehouseById, insertRad, insertStorageSlot, insertStorageSlotsBulk, insertWarehouse, radZuZeile, lagergebuehrVerwerfen, removeTireAssignmentById, satzVormerken, setAnzahlRaeder, setErfassungsart, satzNotizenSpeichern, tauschAnlegen, updateRadById, updateSlotGroesse, updateTireStorageDetails, updateWarehouseById, upsertTireAssignment, vormerkungZuruecknehmen } from "@/lib/api/lager";
 import { formatDate, terminTitel, todayStr } from "@/lib/helpers";
 import { istVorgemerkt } from "@/lib/lagerVormerkung";
 import type { SatzNotizen } from "@/lib/lagerNotizen";
@@ -167,14 +167,25 @@ export function useLagerAktionen(k: LagerKontext) {
       });
     }
 
-    if (wahl.sofort || !auftragId) await removeTireAssignmentById(supabase, satzId, null);
-    else await satzVormerken(supabase, satzId, auftragId);
-    if (auftragId && !wahl.sofort && wahl.artikelId && wahl.menge > 0) {
+    const mitGebuehr = !!auftragId && !wahl.sofort && !!wahl.artikelId && wahl.menge > 0;
+    if (mitGebuehr && auftragId && wahl.artikelId) {
       // Beim Auslagern gibt es keinen Freitext: Die Lagergebühr ist ein benannter Artikel
       // mit Monaten als Menge, und was sie beschreibt, steht im Artikelstamm. Sie hängt am Satz
       // (`lager_satz_id`), damit sie beim Zurücknehmen der Vormerkung mitgeht.
+      //
+      // Seit Migration 78 VOR dem Vormerken: Wer die Gebühr nicht anpassen darf, kann nur mit Gebühr
+      // vormerken, und das prüft die Datenbank beim Vormerken. Scheitert das Vormerken, geht die
+      // Gebühr wieder vom Auftrag.
       await insertOrderArticle(supabase, articlePrices, auftragId, wahl.artikelId, wahl.menge, null, null, satzId);
-      await refreshOrderArticles();
+    }
+    try {
+      if (wahl.sofort || !auftragId) await removeTireAssignmentById(supabase, satzId, null);
+      else await satzVormerken(supabase, satzId, auftragId);
+    } catch (e) {
+      if (mitGebuehr && auftragId) await lagergebuehrVerwerfen(supabase, satzId, auftragId).catch(() => undefined);
+      throw e;
+    } finally {
+      if (mitGebuehr) await refreshOrderArticles();
     }
     await refreshTireStorages();
     setAuslagernSatzId(null);

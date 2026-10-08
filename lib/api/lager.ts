@@ -201,6 +201,16 @@ export async function satzVormerken(supabase: SupabaseClient, id: string, auftra
   );
 }
 
+// Die Lagergebühr eines Satzes wieder vom Auftrag nehmen (Migration 78): Seit die Gebühr VOR dem
+// Vormerken gebucht wird, räumt das auf, wenn das Vormerken danach scheitert.
+export async function lagergebuehrVerwerfen(supabase: SupabaseClient, satzId: string, auftragId: string): Promise<void> {
+  await qWrite(
+    "Die Lagergebühr konnte nicht vom Auftrag genommen werden – bitte bei den Leistungen entfernen",
+    supabase.from("order_articles").update({ deleted_at: new Date().toISOString() })
+      .eq("order_id", auftragId).eq("lager_satz_id", satzId).is("deleted_at", null)
+  );
+}
+
 // Vormerkung zurücknehmen: Der Satz bleibt einfach liegen. Die Lagergebühr, die beim Vormerken auf
 // den Auftrag kam, geht mit – erkennbar an `lager_satz_id`. Zuerst die Vormerkung: Scheitert danach
 // das Entfernen der Gebühr, steht nur eine Position zu viel da, die man sieht und von Hand löscht;

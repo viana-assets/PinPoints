@@ -3,6 +3,7 @@ import type { AuftragFahrzeug, Betrieb, Order, OrderArticle, Rechnung, TireStora
 import type { ReifenVerkaufszeile } from "@/lib/reifenverkauf";
 import { fetchBetrieb } from "./betrieb";
 import { fetchPaged, q } from "./client";
+import { einkaufspreiseErgaenzen, VERKAUFSREIFEN_SPALTEN } from "./verkaufsreifen";
 
 // Datenbeschaffung für das Register „Auswertungen" (Block D).
 //
@@ -140,8 +141,10 @@ export async function fetchAuswertungsdaten(
 // verkauft), deshalb vollständig und nicht nach Zeitraum. Testaufträge filtert
 // `reifenAuswertung` über die negative Nummer.
 async function fetchReifenverkauf(supabase: SupabaseClient): Promise<AuswertungsAbzug["reifenVerkauf"]> {
-  const posten = await fetchPaged<Verkaufsreifen>("Die Verkaufsreifen für die Auswertung konnten nicht geladen werden", (a, b) =>
-    supabase.from("verkaufsreifen").select("*").order("created_at").order("id").range(a, b));
+  // Ohne `ek_netto` (Migration 77) – der Einkaufspreis kommt nur, wenn die Rolle ihn sehen darf.
+  const ohneEk = await fetchPaged<Omit<Verkaufsreifen, "ek_netto">>("Die Verkaufsreifen für die Auswertung konnten nicht geladen werden", (a, b) =>
+    supabase.from("verkaufsreifen").select(VERKAUFSREIFEN_SPALTEN).order("created_at").order("id").range(a, b));
+  const posten = await einkaufspreiseErgaenzen(supabase, ohneEk);
   const positionen = await fetchPaged<OrderArticle>("Die Reifenverkäufe für die Auswertung konnten nicht geladen werden", (a, b) =>
     supabase.from("order_articles").select("*").not("verkaufsreifen_id", "is", null).is("deleted_at", null)
       .order("created_at").order("id").range(a, b));

@@ -555,8 +555,10 @@ export type Verkaufsreifen = {
 };
 
 // Was am Posten von Hand geändert werden kann – ohne die Zählfelder, die die Datenbank führt, und
-// ohne die Herkunft (setzt nur `satz_zum_verkauf()`).
-export type VerkaufsreifenFelder = Omit<Verkaufsreifen, "id" | "reserviert" | "verkauft" | "created_at" | "updated_at" | "herkunft_satz_id">;
+// ohne die Herkunft (setzt nur `satz_zum_verkauf()`). Den Einkaufspreis schickt nur mit, wer ihn
+// eintragen darf (Migration 77, „Lager › Einkaufspreise“) – fehlt er, bleibt der alte Wert stehen.
+export type VerkaufsreifenFelder = Omit<Verkaufsreifen, "id" | "reserviert" | "verkauft" | "created_at" | "updated_at" | "herkunft_satz_id" | "ek_netto">
+  & { ek_netto?: number | null };
 
 export type Role = "superadmin" | "admin" | "techniker" | "user";
 

@@ -27,7 +27,7 @@ import { SuchFeld } from "@/components/SuchFeld";
 
 const STATUS_WAHL: ("all" | OrderStatus)[] = ["all", "offen", "in_arbeit", "erledigt", "storniert"];
 
-export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, leistungenText, onOpenCustomer, onOpenOrder, onNavigate, onCall, isTechniker, fenster }: {
+export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, leistungenText, onOpenCustomer, onOpenOrder, onNavigate, onCall, isTechniker, fenster, darfAnlegen }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Legt für den gewählten Kunden einen Auftrag an und öffnet das Auftragsfenster – derselbe
   // Weg wie im Karten-Popup und im Kundenfenster (docs/auftragsablauf.md).
@@ -50,7 +50,10 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   // Der geladene Zeitraum (docs/architektur.md, „Datenladen") – seit dem 26.09.2026 als
   // Auswahlknopf in der Bedienleiste statt als eigener Balken darüber, wie in der Einsatzplanung.
   fenster?: { wert: AuftragsFenster; onChange: (w: AuftragsFenster) => void; laedt: boolean };
+  // Recht „Aufträge anlegen“ (Migration 78). Fehlt es, gilt wie früher: alle außer dem Techniker.
+  darfAnlegen?: boolean;
 }) {
+  const anlegen = darfAnlegen ?? !isTechniker;
   const heute = todayStr();
   const [showAdd, setShowAdd] = useState(false);
   const [statusFilter, setStatusFilter] = useState<"all" | OrderStatus>("all");
@@ -192,7 +195,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
               <h2>Aufträge</h2>
               <span className="lg-unter" title="Ein Termin ist ein Auftrag mit Uhrzeit">{orders.length} Aufträge · {offenGesamt} offen</span>
             </div>
-            {!isTechniker && (
+            {anlegen && (
               <button type="button" className="kl-neu" onClick={() => setShowAdd(true)}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
                 Auftrag
@@ -307,7 +310,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
       {/* Nach dem Anlegen geht der frische Auftrag direkt auf. Ein neu angelegter Auftrag ist nie
           fertig: Fahrzeug und Leistungen fehlen noch, und wer ihn erst in der Liste wiedersuchen
           muss, trägt sie oft gar nicht nach. Siehe docs/termine-kontakt-auftrag-analyse.md. */}
-      {showAdd && !isTechniker && (
+      {showAdd && anlegen && (
         <OrderModal
           customers={customers}
           onClose={() => setShowAdd(false)}

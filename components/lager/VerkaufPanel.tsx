@@ -24,13 +24,16 @@ function euroGanz(betrag: number): string {
   return `${Math.round(betrag).toLocaleString("de-DE")} €`;
 }
 
-export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBelegt, darfSchreiben, darfLoeschen, oeffneId, onGeoeffnet, onSpeichern, onLoeschen }: {
+export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBelegt, darfSchreiben, darfLoeschen, darfEkLesen = true, darfEkSchreiben = true, oeffneId, onGeoeffnet, onSpeichern, onLoeschen }: {
   verkaufsreifen: Verkaufsreifen[];
   warehouses: Warehouse[];
   storageSlots: StorageSlot[];
   platzBelegt: Set<string>;
   darfSchreiben: boolean;
   darfLoeschen: boolean;
+  // Einkaufspreise (Migration 77). Ohne „Lesen“ liefert die Datenbank keinen – dann fehlt die Spalte.
+  darfEkLesen?: boolean;
+  darfEkSchreiben?: boolean;
   // Von der Regalwand aus: diesen Posten gleich öffnen.
   oeffneId: string | null;
   onGeoeffnet: () => void;
@@ -169,6 +172,8 @@ export function VerkaufPanel({ verkaufsreifen, warehouses, storageSlots, platzBe
           vorgabeLagerId={null}
           darfSchreiben={darfSchreiben}
           darfLoeschen={darfLoeschen}
+          darfEkLesen={darfEkLesen}
+          darfEkSchreiben={darfEkSchreiben}
           onSpeichern={onSpeichern}
           onLoeschen={onLoeschen}
           onClose={schliessen}

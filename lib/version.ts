@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v123";
+export const APP_VERSION = "v126";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,30 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v126", datum: "2026-10-08", titel: "Zehn weitere Rechte",
+    punkte: [
+      "Unter Admin › Rechte gibt es eigene Haken für: Aufträge anlegen, Wiedereröffnen, Transporter einteilen, Fotos und Unterschrift löschen, Reifen auslagern, Lagergebühr anpassen, Reifentausch, Rechnungen stornieren, Kontakte eintragen und Dubletten zusammenführen.",
+      "Alle Haken sind so gesetzt, wie es bisher galt – es ändert sich erst etwas, wenn du einen umstellst.",
+      "Darf ein Techniker Aufträge anlegen, steht er danach selbst darauf.",
+    ],
+  },
+  {
+    version: "v125", datum: "2026-10-08", titel: "Fünf neue Rechte",
+    punkte: [
+      "Unter Admin › Rechte gibt es eigene Haken für: Endpreis überschreiben, Stornieren, Kontaktdaten am Auftrag, Fahrzeuge anlegen und ändern sowie Einkaufspreise im Reifenverkauf.",
+      "Die Haken sind so gesetzt, wie es bisher galt. Neu ist nur: Der Techniker sieht den Einkaufspreis nicht mehr – wer will, setzt den Haken.",
+      "Stornieren und Löschen sind für den Techniker jetzt Haken statt fester Sperre (ab Werk aus).",
+    ],
+  },
+  {
+    version: "v124", datum: "2026-10-08", titel: "Rechte übersichtlicher",
+    punkte: [
+      "Unter Admin › Rechte lassen sich Aufträge, Einsatzplanung und Lager einklappen. Zugeklappt steht dabei, wie viel die gewählte Rolle dort darf – etwa „8 von 12 erlaubt“.",
+      "Läuft ein Haken ins Leere – zum Beispiel „Mitarbeiter einteilen“ ohne „Mitarbeiter sehen“ –, steht ein Hinweis mit Begründung an der Zeile.",
+      "„Ansehen als …“ zeigt in Sätzen, was die Rolle kann und was nicht, dazu die Regeln, die immer gelten.",
+    ],
+  },
   {
     version: "v123", datum: "2026-10-07", titel: "Etikett je Rad als Vorgabe",
     punkte: [

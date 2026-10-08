@@ -35,7 +35,7 @@ export type AuslagernWahl = {
 export function AuslagernDialog({
   satz, kunde, fahrzeug, slot, warehouse, gebuehrArtikel, articlePrices,
   offeneAuftraege, vorschlagAuftragId, vorgemerktFuer, onAbbrechen, onAuslagern, onAuftragOeffnen, onZuruecknehmen,
-  darfNeuerAuftrag = true,
+  darfNeuerAuftrag = true, darfAuslagern = true, darfGebuehrAnpassen = true,
 }: {
   satz: TireStorage;
   kunde: Customer | undefined;
@@ -61,6 +61,11 @@ export function AuslagernDialog({
   // Darf hier ein neuer Auftrag entstehen? Der Techniker darf keine Aufträge anlegen (Migration
   // 42) – ohne diesen Schalter bot ihm die Liste eine Wahl an, die beim Ausführen scheiterte (v119).
   darfNeuerAuftrag?: boolean;
+  // Rechte aus Migration 78: „Reifen auslagern“ (auch Vormerkung zurücknehmen) und „Lagergebühr
+  // anpassen“. Ohne Letzteres gelten die berechneten Monate, und mit einem Auftrag geht es nur mit
+  // Gebühr – die Datenbank prüft beides (`lager_handlungen_pruefen()`, `lagergebuehr_pruefen()`).
+  darfAuslagern?: boolean;
+  darfGebuehrAnpassen?: boolean;
 }) {
   const [artikelId, setArtikelId] = useState(gebuehrArtikel[0]?.id ?? "");
   // Die Menge folgt den berechneten Monaten, bis jemand sie selbst ändert.
@@ -93,7 +98,7 @@ export function AuslagernDialog({
   const zielAuftrag = auswahl.find((o) => o.id === ziel) ?? null;
   const bis = lagerBis(todayStr(), zielAuftrag);
   const monate = lagermonate(satz.created_at, bis);
-  const menge = mengeEigen ?? String(monate);
+  const menge = darfGebuehrAnpassen ? mengeEigen ?? String(monate) : String(monate);
   const sofort = ziel === "sofort";
 
   const artikel = gebuehrArtikel.find((a) => a.id === artikelId);
@@ -112,7 +117,9 @@ export function AuslagernDialog({
   // „8 Monate · 0,00 €", und niemand sah, dass die App genau davor gewarnt hatte. Eine
   // Warnung, die man wegklicken kann, ohne dass etwas passiert, ist keine Warnung.
   const kannBerechnen = !!artikel && preis !== null && mengeZahl > 0;
-  const wirdBerechnet = !sofort && !ohneGebuehr && kannBerechnen;
+  // Ohne „Lagergebühr anpassen“ gibt es kein „ohne Gebühr“ – außer es lässt sich nichts berechnen.
+  const ohne = darfGebuehrAnpassen ? ohneGebuehr : !kannBerechnen;
+  const wirdBerechnet = !sofort && !ohne && kannBerechnen;
 
   async function bestaetigen() {
     setLaeuft(true);
@@ -152,12 +159,31 @@ export function AuslagernDialog({
             und gehen heraus, wenn dieser Auftrag abgeschlossen wird.
           </div>
           <div className="auslagern-fuss">
-            <button type="button" className="btn-secondary btn-rand" onClick={() => void zuruecknehmen()} disabled={laeuft}>
-              Vormerkung zurücknehmen
-            </button>
+            {darfAuslagern && (
+              <button type="button" className="btn-secondary btn-rand" onClick={() => void zuruecknehmen()} disabled={laeuft}>
+                Vormerkung zurücknehmen
+              </button>
+            )}
             <button type="button" className="btn-primary" onClick={() => onAuftragOeffnen(vorgemerktFuer.id)} disabled={laeuft}>
               Auftrag öffnen
             </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!darfAuslagern) {
+    return (
+      <div className="modal-overlay modal-auslagern" onClick={(e) => { if (e.target === e.currentTarget) onAbbrechen(); }}>
+        <div className="modal-box" style={{ position: "relative", maxWidth: 480 }}>
+          <button className="modal-close" onClick={onAbbrechen} aria-label="Schließen">✕</button>
+          <h2>Reifen auslagern</h2>
+          <div className="auslagern-hinweis">
+            Auslagern ist für deine Rolle nicht freigegeben (Admin › Rechte › Lager › Reifen auslagern).
+          </div>
+          <div className="auslagern-fuss">
+            <button type="button" className="btn-secondary btn-rand" onClick={onAbbrechen}>Schließen</button>
           </div>
         </div>
       </div>
@@ -219,15 +245,17 @@ export function AuslagernDialog({
             </div>
           ) : (
             <>
-              <div className="checkbox-row">
-                <input
-                  type="checkbox" id="auslagern-ohne-gebuehr"
-                  checked={ohneGebuehr} onChange={(e) => setOhneGebuehr(e.target.checked)}
-                />
-                <label htmlFor="auslagern-ohne-gebuehr">Ohne Gebühr</label>
-              </div>
+              {darfGebuehrAnpassen && (
+                <div className="checkbox-row">
+                  <input
+                    type="checkbox" id="auslagern-ohne-gebuehr"
+                    checked={ohneGebuehr} onChange={(e) => setOhneGebuehr(e.target.checked)}
+                  />
+                  <label htmlFor="auslagern-ohne-gebuehr">Ohne Gebühr</label>
+                </div>
+              )}
 
-              {!ohneGebuehr && (
+              {!ohne && (
                 <>
                   {gebuehrArtikel.length > 1 && (
                     <div className="field">
@@ -244,7 +272,8 @@ export function AuslagernDialog({
                     <div className="field" style={{ maxWidth: 140 }}>
                       <label htmlFor="auslagern-menge">Menge (Monate)</label>
                       <input
-                        id="auslagern-menge" type="number" min={0} step={1}
+                        id="auslagern-menge" type="number" min={0} step={1} disabled={!darfGebuehrAnpassen}
+                        title={darfGebuehrAnpassen ? undefined : "Die Monate ändert, wer „Lagergebühr anpassen“ darf."}
                         value={menge} onChange={(e) => setMengeEigen(e.target.value)}
                       />
                     </div>
@@ -298,7 +327,7 @@ export function AuslagernDialog({
           <button type="button" className="btn-secondary btn-rand" onClick={onAbbrechen} disabled={laeuft}>Abbrechen</button>
           <button
             type="button" className="btn-primary" onClick={bestaetigen}
-            disabled={laeuft || (!sofort && !ohneGebuehr && gebuehrArtikel.length > 0 && !kannBerechnen)}
+            disabled={laeuft || (!sofort && !ohne && gebuehrArtikel.length > 0 && !kannBerechnen)}
           >
             {sofort
               ? "Jetzt auslagern"

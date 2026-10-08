@@ -14,13 +14,15 @@ import { entwurfAlsPosten, entwurfFehler, groesseAusText, groesseText, postenAus
 // Gespeichert wird in EINEM Zug (`satz_zum_verkauf()`, Migration 64): Der Satz wird ausgelagert,
 // die Posten liegen auf demselben Platz. Eine Lagergebühr wird dabei nicht berechnet – stand noch
 // eine aus, gehört sie in einen Auftrag (oder wird mit dem Ankaufspreis verrechnet).
-export function SatzZumVerkaufBlatt({ satz, raeder, fahrzeug, kunde, platzText, onClose, onUebernehmen }: {
+export function SatzZumVerkaufBlatt({ satz, raeder, fahrzeug, kunde, platzText, onClose, onUebernehmen, darfEk = true }: {
   satz: TireStorage;
   raeder: EingelagertesRad[];
   fahrzeug: Vehicle | null;
   kunde: Customer | null;
   platzText: string;
   onClose: () => void;
+  // Ankaufspreis eintragen (Migration 77, „Einkaufspreise eintragen“). Ohne das Recht fehlt das Feld.
+  darfEk?: boolean;
   onUebernehmen: (posten: Record<string, string | number | boolean | null>[]) => Promise<void>;
 }) {
   const [entwuerfe, setEntwuerfe] = useState<PostenEntwurf[]>(() => postenAusSatz(satz, raeder, fahrzeug?.tire_size));
@@ -118,10 +120,12 @@ export function SatzZumVerkaufBlatt({ satz, raeder, fahrzeug, kunde, platzText, 
                   <span>Verkauf je Stück netto *</span>
                   <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0,00" value={e.preis} onChange={(ev) => setze(i, { preis: ev.target.value })} />
                 </label>
-                <label className="nk-feld">
-                  <span>Ankauf je Stück netto</span>
-                  <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0 = geschenkt" value={e.ek} onChange={(ev) => setze(i, { ek: ev.target.value })} />
-                </label>
+                {darfEk && (
+                  <label className="nk-feld">
+                    <span>Ankauf je Stück netto</span>
+                    <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0 = geschenkt" value={e.ek} onChange={(ev) => setze(i, { ek: ev.target.value })} />
+                  </label>
+                )}
               </div>
               {e.felge && <span className="small">Komplettrad mit {e.felge === "alu" ? "Alufelge" : "Stahlfelge"}</span>}
               {f && <span className="small vk-fehler">{f}</span>}

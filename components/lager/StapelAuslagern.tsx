@@ -6,6 +6,7 @@ import { formatDate, formatEUR, todayStr } from "@/lib/helpers";
 import { gebuehrVorschlag, type StapelSchritt } from "@/lib/stapelAuslagern";
 import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
 import { auftragsNr } from "@/lib/testkunde";
+import { lagerBis } from "@/lib/lagerVormerkung";
 import { QrScanner } from "@/components/QrScanner";
 
 // Stapel-Auslagern für den Saisonwechsel (Fahrplan E7, v104): die Sätze eines Tages der Reihe nach,
@@ -24,7 +25,7 @@ import { QrScanner } from "@/components/QrScanner";
 // Lager geht er, wenn der Auftrag abgeschlossen wird. Wird der Termin abgesagt, liegt er also
 // weiter im Regal – richtig, denn dann kommt er dorthin zurück. Was beim Öffnen schon für seinen
 // Auftrag vorgemerkt ist, steht gleich als erledigt da.
-export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrArtikelId, monatspreis, auftraegeMitGebuehr, onAuslagern, onClose }: {
+export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrArtikelId, monatspreis, auftraegeMitGebuehr, onAuslagern, onClose, darfGebuehrAnpassen = true }: {
   datum: string;
   schritte: StapelSchritt[];
   customers: Customer[];
@@ -36,6 +37,9 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
   auftraegeMitGebuehr: Set<string>;
   onAuslagern: (satzId: string, wahl: AuslagernWahl) => Promise<void>;
   onClose: () => void;
+  // Ohne „Lagergebühr anpassen“ (Migration 78): berechnete Monate, immer mit Gebühr, sofern ein
+  // Preis gepflegt ist – die Datenbank verlangt es beim Vormerken.
+  darfGebuehrAnpassen?: boolean;
 }) {
   const heute = todayStr();
   const [stand, setStand] = useState<Record<string, "raus" | "ueber">>(() => Object.fromEntries(
@@ -56,9 +60,10 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
   const raus = Object.values(stand).filter((x) => x === "raus").length;
   const ueber = Object.values(stand).filter((x) => x === "ueber").length;
 
-  const vorschlag = s ? gebuehrVorschlag(s.satz, heute, gebuehrArtikelId ? monatspreis : null, auftraegeMitGebuehr.has(s.auftrag.id)) : null;
-  const gebuehrAn = !!s && !!vorschlag && (ohneGebuehr[s.satz.id] === undefined ? vorschlag.an : !ohneGebuehr[s.satz.id]);
-  const mengeText = s ? monate[s.satz.id] ?? String(vorschlag?.monate ?? 1) : "";
+  // Gezählt bis zum Termin des Auftrags, wie im Auslagern-Dialog und in der Datenbank (`lager_monate()`).
+  const vorschlag = s ? gebuehrVorschlag(s.satz, lagerBis(heute, s.auftrag), gebuehrArtikelId ? monatspreis : null, darfGebuehrAnpassen && auftraegeMitGebuehr.has(s.auftrag.id)) : null;
+  const gebuehrAn = !!s && !!vorschlag && (!darfGebuehrAnpassen ? vorschlag.an : ohneGebuehr[s.satz.id] === undefined ? vorschlag.an : !ohneGebuehr[s.satz.id]);
+  const mengeText = s ? (darfGebuehrAnpassen ? monate[s.satz.id] : undefined) ?? String(vorschlag?.monate ?? 1) : "";
   const menge = Math.max(0, parseInt(mengeText, 10) || 0);
 
   function weiter() {
@@ -126,12 +131,12 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
               {vorschlag && gebuehrArtikelId && monatspreis != null ? (
                 <>
                   <label className="vl-aktiv">
-                    <input type="checkbox" checked={gebuehrAn} onChange={(e) => setOhneGebuehr({ ...ohneGebuehr, [s.satz.id]: !e.target.checked })} />
+                    <input type="checkbox" checked={gebuehrAn} disabled={!darfGebuehrAnpassen} onChange={(e) => setOhneGebuehr({ ...ohneGebuehr, [s.satz.id]: !e.target.checked })} />
                     Lagergebühr auf Auftrag {auftragsNr(s.auftrag.order_number)}
                   </label>
                   {gebuehrAn && (
                     <span className="st-menge">
-                      <input type="number" min={1} max={120} value={mengeText} aria-label="Monate"
+                      <input type="number" min={1} max={120} value={mengeText} aria-label="Monate" disabled={!darfGebuehrAnpassen}
                         onChange={(e) => setMonate({ ...monate, [s.satz.id]: e.target.value })} />
                       Monate · {formatEUR(monatspreis * menge)} netto
                     </span>

@@ -22,7 +22,7 @@ import { auftragsNr } from "@/lib/testkunde";
 
 export function RechnungModal({
   auftrag, kunde, betrieb, zeilen, artikel, kennzeichen, rechnungen,
-  darfSchreiben, onAusstellen, onStornieren, onClose,
+  darfSchreiben, darfStornieren, onAusstellen, onStornieren, onClose,
 }: {
   auftrag: Order;
   kunde: Customer | null;
@@ -32,6 +32,8 @@ export function RechnungModal({
   kennzeichen: string[];
   rechnungen: Rechnung[];
   darfSchreiben: boolean;
+  // „Rechnungen stornieren“ (Migration 78). Fehlt es, gilt wie früher „Rechnungen schreiben“.
+  darfStornieren?: boolean;
   onAusstellen: (entwurf: RechnungEntwurf) => Promise<Rechnung>;
   onStornieren: (entwurf: RechnungEntwurf & { hebt_auf: string; storno_grund: string }) => Promise<Rechnung>;
   onClose: () => void;
@@ -164,7 +166,7 @@ export function RechnungModal({
               ) : (
                 <span className="small">Für eine E-Mail fehlt die Adresse des Kunden.</span>
               )}
-              {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (
+              {beleg.art === "rechnung" && !beleg.storniert_durch && darfSchreiben && (darfStornieren ?? true) && (
                 <button type="button" className="btn-secondary btn-rand" disabled={laeuft}
                   onClick={() => { setStornoGrund(""); setStornoFrage(beleg); }}>
                   Stornieren

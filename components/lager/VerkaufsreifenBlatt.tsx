@@ -16,7 +16,7 @@ import { dotFehler, groesseAusText, groesseText, reifenHinweise } from "@/lib/re
 
 type Felge = "keine" | "stahl" | "alu";
 
-export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBelegt, vorgabeLagerId, darfSchreiben, darfLoeschen, onSpeichern, onLoeschen, onClose, onEtikett }: {
+export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBelegt, vorgabeLagerId, darfSchreiben, darfLoeschen, darfEkLesen = true, darfEkSchreiben = true, onSpeichern, onLoeschen, onClose, onEtikett }: {
   // null = neu erfassen
   posten: Verkaufsreifen | null;
   warehouses: Warehouse[];
@@ -26,6 +26,10 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
   vorgabeLagerId: string | null;
   darfSchreiben: boolean;
   darfLoeschen: boolean;
+  // Einkaufspreis (Migration 77): ohne „Lesen“ fehlt das Feld, ohne „Schreiben“ ist es gesperrt und
+  // geht beim Speichern gar nicht mit – sonst überschriebe ein leeres Feld den Einkauf, den man nicht sieht.
+  darfEkLesen?: boolean;
+  darfEkSchreiben?: boolean;
   onSpeichern: (felder: VerkaufsreifenFelder, id: string | null) => Promise<void>;
   onLoeschen: (id: string) => Promise<void>;
   onClose: () => void;
@@ -94,7 +98,7 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
         felge: felge === "keine" ? null : felge,
         runflat, xl, eprel: eprel.trim() || null,
         preis_netto: Math.round(preisZahl * 100) / 100,
-        ek_netto: ekZahl != null ? Math.round(ekZahl * 100) / 100 : null,
+        ...(darfEkSchreiben ? { ek_netto: ekZahl != null ? Math.round(ekZahl * 100) / 100 : null } : {}),
         bestand,
         warehouse_id: lagerId || null,
         storage_slot_id: platzId || null,
@@ -206,18 +210,20 @@ export function VerkaufsreifenBlatt({ posten, warehouses, storageSlots, platzBel
               <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="0,00" value={preis} disabled={nurLesen}
                 className={zeige("preis") ? "ls-fehlt" : undefined} onChange={(e) => setPreis(e.target.value)} />
             </label>
-            <label className="nk-feld">
-              <span>Einkauf je Stück</span>
-              <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="freiwillig" value={ek} disabled={nurLesen}
-                className={zeige("ek") ? "ls-fehlt" : undefined} onChange={(e) => setEk(e.target.value)} />
-            </label>
+            {darfEkLesen && (
+              <label className="nk-feld">
+                <span>Einkauf je Stück</span>
+                <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="freiwillig" value={ek} disabled={nurLesen || !darfEkSchreiben}
+                  className={zeige("ek") ? "ls-fehlt" : undefined} onChange={(e) => setEk(e.target.value)} />
+              </label>
+            )}
           </div>
           {preisZahl != null && preisZahl > 0 ? (
             <span className="small">
               netto · {formatEUR(preisZahl * (1 + DEFAULT_VAT_RATE / 100))} brutto je Stück
               {ekZahl != null && ekZahl > 0 ? ` · Marge ${formatEUR(preisZahl - ekZahl)} je Stück` : ""}
             </span>
-          ) : <span className="small">Preise netto, wie jeder Preis im MR Assistent. Der Einkauf ist freiwillig – mit ihm zeigt das Lager die Marge.</span>}
+          ) : <span className="small">Preise netto, wie jeder Preis im MR Assistent.{darfEkLesen && " Der Einkauf ist freiwillig – mit ihm zeigt das Lager die Marge."}</span>}
         </div>
 
         <span className="op-gruppe-titel">ZUSTAND DES REIFENS</span>

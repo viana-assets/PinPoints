@@ -19,7 +19,7 @@ import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 // Auto bearbeitet wird, ist keine Frage der Abrechnung.
 export function FahrzeugeBlock({
   fahrzeuge, alleFahrzeuge, gesperrt,
-  onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen,
+  onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen, darfAnlegen = true,
 }: {
   // Die Fahrzeuge DIESES Auftrags, angereichert um das zugehörige Fahrzeug.
   fahrzeuge: (AuftragFahrzeug & { fahrzeug: Vehicle | null })[];
@@ -33,6 +33,9 @@ export function FahrzeugeBlock({
   // Knopf nicht.
   onFahrzeugAngaben?: (vehicleId: string, modell: string, reifengroesse: string) => Promise<void>;
   onFahrzeugEntfernen: (id: string) => Promise<void>;
+  // „Fahrzeuge anlegen und ändern“ (Migration 77). Ohne das Recht fehlt „Neues Kennzeichen“; ein
+  // vorhandenes Fahrzeug des Kunden lässt sich weiter zuordnen.
+  darfAnlegen?: boolean;
 }) {
   const [neuesKennzeichen, setNeuesKennzeichen] = useState("");
   const [auswahl, setAuswahl] = useState("");
@@ -139,7 +142,7 @@ export function FahrzeugeBlock({
               ))}
             </select>
           )}
-          <span className="ao-fz-neu">
+          {darfAnlegen && <span className="ao-fz-neu">
             <KennzeichenFeld
               placeholder="Neues Kennzeichen" aria-label="Neues Kennzeichen"
               value={neuesKennzeichen}
@@ -152,12 +155,12 @@ export function FahrzeugeBlock({
             >
               + anlegen
             </button>
-          </span>
-          <span className="small">
+          </span>}
+          {darfAnlegen && <span className="small">
             Neue Fahrzeuge werden beim Kunden hinterlegt. Hat der Kunde das Kennzeichen schon, wird
             dieses Fahrzeug genommen.
             {doppelt.size > 0 && " Doppelt angelegte Fahrzeuge lassen sich im Kundenfenster unter „Fahrzeuge“ löschen."}
-          </span>
+          </span>}
         </div>
       )}
     </div>

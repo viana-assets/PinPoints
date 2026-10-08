@@ -127,7 +127,12 @@ zugeordneten Auftrag **alles ändern außer**: `id`, `order_number`, `customer_i
 `created_by`, `cancelled_at`, `cancelled_by`, `cancel_reason`, `deleted_at`, `reopen_reason`.
 Das heißt konkret: Titel, Termin, Beschreibung, das Kundenfahrzeug, „Unser Fahrzeug" und die
 Leistungen (`order_articles` – anlegen, ändern, entfernen, RLS-Policy aus Migration 41/42) darf
-er jetzt selbst pflegen; verwehrt bleiben ihm Stornieren, Löschen und Wiedereröffnen. Der Grund
+er jetzt selbst pflegen; verwehrt bleiben ihm Stornieren, Löschen und Wiedereröffnen (Stornieren und
+Löschen seit Migration 77 nicht mehr fest, sondern über die Matrix – `auftraege.storno`,
+`auftraege.auftrag` › X, Vorgabe nein; ebenso eigene Zeilen für „Endpreis überschreiben“ und
+„Kontaktdaten am Auftrag“; seit Migration 78 auch für Anlegen, Wiedereröffnen, Transporter und
+Fotos löschen – legt ein Techniker mit Haken an, steht er danach selbst darauf; siehe
+`docs/berechtigungen-und-rollen.md`). Der Grund
 laut Migration: jede Änderung steht seit Migration 18/36 ohnehin mit Person und Zeitpunkt im
 Protokoll (sichtbar unten im Auftragsfenster, `AuftragProtokoll.tsx`) – Nachvollziehbarkeit
 statt Verbot. Der Einfrier-Trigger aus Migration 20 gilt für ihn unverändert weiter: an einem

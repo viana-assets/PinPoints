@@ -70,4 +70,23 @@ describe("AuslagernDialog", () => {
     fireEvent.click(screen.getByText("Vormerkung zurücknehmen"));
     expect(onZuruecknehmen).toHaveBeenCalled();
   });
+
+  it("ohne „Lagergebühr anpassen“ (Migration 78): kein „Ohne Gebühr“, Monate fest", () => {
+    const onAuslagern = zeige({ darfGebuehrAnpassen: false });
+    expect(screen.queryByLabelText("Ohne Gebühr")).toBeNull();
+    const menge = screen.getByLabelText("Menge (Monate)") as HTMLInputElement;
+    expect(menge.disabled).toBe(true);
+    fireEvent.click(screen.getByText("Vormerken und berechnen"));
+    expect(onAuslagern).toHaveBeenCalledWith(expect.objectContaining({ artikelId: "a1", menge: Number(menge.value) }));
+  });
+
+  it("ohne „Reifen auslagern“ (Migration 78): nur der Hinweis, kein Vormerken und kein Zurücknehmen", () => {
+    zeige({ darfAuslagern: false });
+    expect(screen.getByText(/Auslagern ist für deine Rolle nicht freigegeben/)).toBeTruthy();
+    expect(screen.queryByText("Vormerken und berechnen")).toBeNull();
+    cleanup();
+    zeige({ darfAuslagern: false, vorgemerktFuer: auftrag("o1", 101, "2099-12-20") });
+    expect(screen.queryByText("Vormerkung zurücknehmen")).toBeNull();
+    expect(screen.getByText("Auftrag öffnen")).toBeTruthy();
+  });
 });

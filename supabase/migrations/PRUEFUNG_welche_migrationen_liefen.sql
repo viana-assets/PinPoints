@@ -136,12 +136,18 @@ with pruefungen(nr, was, vorhanden) as (
     ('70', 'Unterschrift steht fest', to_regprocedure('public.auftrag_unterschrift_pruefen()') is not null),
     ('71', 'Notiz je Rad am Satz', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'notiz_hr')),
     ('72', 'Alle Daten löschen (Superadmin)', to_regprocedure('public.alle_daten_loeschen(text)') is not null),
-    ('73', 'Techniker legt Kennzeichen an', exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'vehicles' and policyname = 'Techniker legt Fahrzeug eigener Kunden an')),
+    -- 73: Migration 77 ersetzt die Richtlinie durch „Bereich fahrzeuge schreiben“ – beides heißt „gelaufen“.
+    ('73', 'Techniker legt Kennzeichen an', exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'vehicles'
+                                                  and policyname in ('Techniker legt Fahrzeug eigener Kunden an', 'Bereich fahrzeuge schreiben'))),
     ('74', 'Techniker ergänzt E-Mail und Fahrzeugangaben', to_regprocedure('public.kunde_email_ergaenzen(uuid,text)') is not null
                                                   and to_regprocedure('public.fahrzeug_angaben_ergaenzen(uuid,text,text)') is not null),
     ('75', 'Alte Richtlinien aufgeräumt', not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'customers' and policyname = 'Kunden lesen')
                                                   and exists (select 1 from pg_policies where schemaname = 'public' and policyname = 'Artikel für Leistungen lesen')),
-    ('76', 'Storno verwirft Tausch', position('Migration 76' in pg_get_functiondef('public.auftrag_lager_entnahme()'::regprocedure)) > 0)
+    ('76', 'Storno verwirft Tausch', position('Migration 76' in pg_get_functiondef('public.auftrag_lager_entnahme()'::regprocedure)) > 0),
+    ('77', 'Fünf neue Unterrechte', to_regprocedure('public.auftrag_storno_pruefen()') is not null
+                                                  and to_regprocedure('public.verkaufsreifen_einkaufspreise()') is not null),
+    ('78', 'Zehn weitere Unterrechte', to_regprocedure('public.lager_handlungen_pruefen()') is not null
+                                                  and to_regprocedure('public.kunde_kontakt_pruefen()') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

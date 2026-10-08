@@ -48,8 +48,9 @@ export function DetailModal(props: {
   // eine Funktion ohne Rückgabe – der Knopf konnte nichts melden, und genau das war der
   // Befund aus dem Betrieb: „wenn ich auf Kundendaten speichern klicke, passiert nichts."
   onSaveFields: (f: Partial<Customer>) => Promise<void>;
-  onMarkContacted: () => void;
-  onMarkOpen: () => void;
+  // Fehlen, wenn die Rolle keine Kontakte eintragen darf (Migration 78, „Kontakte eintragen“).
+  onMarkContacted?: () => void;
+  onMarkOpen?: () => void;
   onToggleActive: () => void;
   onDelete: () => void;
   // Testkunde (Migration 60): restlos löschen statt Papierkorb. Nur für den Superadmin gesetzt.
@@ -61,12 +62,16 @@ export function DetailModal(props: {
   // Legt einen Auftrag für diesen Kunden an und öffnet das vollständige Auftragsfenster.
   // Kein eigenes Formular mehr an dieser Stelle: es war die dritte von vier Masken für
   // dieselbe Sache und konnte als einzige keine Leistungen erfassen (docs/auftragsablauf.md).
-  onNeuerAuftrag: () => void;
+  // Fehlt, wenn die Rolle keine Aufträge anlegen darf (Migration 78).
+  onNeuerAuftrag?: () => void;
   onUpdateOrder: (id: string, fields: { title: string; description: string; orderDate: string; time: string; status: OrderStatus; assignedEmployeeIds: string[] }) => void;
   onDeleteOrder: (id: string) => void;
   onAddVehicle: (fields: { licensePlate: string; makeModel: string; tireSize: string; note: string }) => void;
   onUpdateVehicle: (id: string, fields: { licensePlate: string; makeModel: string; tireSize: string; note: string }) => void;
   onDeleteVehicle: (id: string) => void;
+  // Rechte „Kunden › Fahrzeuge“ (Migration 77) und „Kunden löschen“. Fehlen sie, gilt: ja.
+  darfFahrzeuge?: boolean;
+  darfFahrzeugeLoeschen?: boolean;
   // Aus der Liste „Eingelagerte Reifen" ins Lager auf diesen Platz springen. Fehlt, wenn die
   // Rolle das Lager nicht sehen darf.
   onZumLagerplatz?: (platzId: string) => void;
@@ -230,14 +235,18 @@ export function DetailModal(props: {
               <span className="dm-aktion-zeichen blau"><IconNavPin /></span>
               Navigation
             </button>
-            <button type="button" className="dm-aktion" onClick={props.onMarkContacted} title="Kontakt erfassen">
-              <span className="dm-aktion-zeichen hell">☎</span>
-              Kontakt
-            </button>
-            <button type="button" className="dm-aktion" onClick={props.onNeuerAuftrag} title="Neuen Auftrag anlegen">
-              <span className="dm-aktion-zeichen orange">+</span>
-              Auftrag
-            </button>
+            {props.onMarkContacted && (
+              <button type="button" className="dm-aktion" onClick={props.onMarkContacted} title="Kontakt erfassen">
+                <span className="dm-aktion-zeichen hell">☎</span>
+                Kontakt
+              </button>
+            )}
+            {props.onNeuerAuftrag && (
+              <button type="button" className="dm-aktion" onClick={props.onNeuerAuftrag} title="Neuen Auftrag anlegen">
+                <span className="dm-aktion-zeichen orange">+</span>
+                Auftrag
+              </button>
+            )}
           </div>
           <div className="ad-reiter dm-reiter" role="tablist" aria-label="Kunde">
             {REITER.map(([k, t]) => (
@@ -272,14 +281,16 @@ export function DetailModal(props: {
                   wird festgehalten, was bei dem Kontakt herauskam – Auftrag, Wiedervorlage oder
                   kein Interesse – samt Kontaktdatum. Bewusst EIN Dialog für beide Wege
                   (docs/termine-kontakt-auftrag-analyse.md). */}
-              <button type="button" className="sl-chance" onClick={props.onMarkContacted}>
-                <span className="dm-aktion-zeichen hell">☎</span>
-                <span className="db-punkt-text">
-                  <span className="db-punkt-titel">Kontakt</span>
-                  <span className="small">{kontaktText}</span>
-                </span>
-                <span className="db-link">Erfassen ›</span>
-              </button>
+              {props.onMarkContacted && (
+                <button type="button" className="sl-chance" onClick={props.onMarkContacted}>
+                  <span className="dm-aktion-zeichen hell">☎</span>
+                  <span className="db-punkt-text">
+                    <span className="db-punkt-titel">Kontakt</span>
+                    <span className="small">{kontaktText}</span>
+                  </span>
+                  <span className="db-link">Erfassen ›</span>
+                </button>
+              )}
 
               <div className="db-karte dm-lager">
                 <EingelagerteReifen
@@ -319,15 +330,17 @@ export function DetailModal(props: {
                   warehouses={props.warehouses}
                   onUpdate={props.onUpdateVehicle}
                   onDelete={props.onDeleteVehicle}
+                  darfAendern={props.darfFahrzeuge ?? true}
+                  darfLoeschen={props.darfFahrzeugeLoeschen ?? true}
                 />
               ))}
-              <AddVehicleInline tireStorages={props.tireStorages} storageSlots={props.storageSlots} warehouses={props.warehouses} onAdd={props.onAddVehicle} />
+              {(props.darfFahrzeuge ?? true) && <AddVehicleInline tireStorages={props.tireStorages} storageSlots={props.storageSlots} warehouses={props.warehouses} onAdd={props.onAddVehicle} />}
             </>
           )}
 
           {reiter === "auftraege" && (
             <>
-              <button type="button" className="dm-plus orange" onClick={props.onNeuerAuftrag}>+ Neuer Auftrag</button>
+              {props.onNeuerAuftrag && <button type="button" className="dm-plus orange" onClick={props.onNeuerAuftrag}>+ Neuer Auftrag</button>}
               {custOrders.length === 0 && <div className="db-karte"><div className="db-leer">Noch keine Aufträge hinterlegt.</div></div>}
               {custOrders.map((o) => (
                 <CustomerOrderRow
@@ -495,9 +508,11 @@ export function DetailModal(props: {
               <span className={"nk-spur" + (cust.laufkundschaft ? " an" : "")} aria-hidden="true"><span /></span>
             </button>
             )}
-            <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onMarkOpen(); }}>
-              <span className="ab-text">Auf „offen“ setzen</span>
-            </button>
+            {props.onMarkOpen && (
+              <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onMarkOpen?.(); }}>
+                <span className="ab-text">Auf „offen“ setzen</span>
+              </button>
+            )}
             {props.onAuskunft && !cust.laufkundschaft && (
               <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onAuskunft?.(); }}>
                 <span className="ab-text">Auskunft (DSGVO) <span className="small">· alles Gespeicherte als PDF</span></span>

@@ -12,9 +12,14 @@ describe("Rechtekatalog", () => {
     expect(new Set(s).size).toBe(s.length);
   });
 
-  it("nennt fuer jeden Bereich mindestens das Lesen", () => {
+  it("nennt fuer jeden Bereich mindestens das Lesen – ausser bei reinen Handlungen (v125)", () => {
     RECHTE_KATALOG.forEach((b) => {
-      expect(b.verben, `${b.schluessel} kennt kein Lesen`).toContain("lesen");
+      if (b.handlung) {
+        expect(b.unter, `${b.schluessel}: eine Handlung steht unter einem Modul`).toBe(true);
+        expect(b.verben, `${b.schluessel}: eine Handlung kennt kein Lesen`).not.toContain("lesen");
+      } else {
+        expect(b.verben, `${b.schluessel} kennt kein Lesen`).toContain("lesen");
+      }
     });
   });
 
