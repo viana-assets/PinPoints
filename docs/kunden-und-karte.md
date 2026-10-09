@@ -61,6 +61,16 @@
   gepflegt ist: öffnet ein kleines Menü ("Google Maps"/"Apple Karten"), `navigationUrls()` in
   `lib/helpers.ts` baut die App-spezifischen Deeplinks (bevorzugt Koordinaten, sonst
   Adresstext).
+- **Auf dem iPhone direkt in die Karten-App (v140, gemeldet 09.10.2026).** Aus der installierten App
+  heraus öffnete iOS den https-Link erst in einem eingebauten Browserfenster, das an Google Maps
+  weiterreichte; beim Zurückwischen stand nur noch dieses weiße Fenster („Suchbegriff oder
+  Websitenamen eingeben“, ✕) da, und es sah aus, als ginge die App nicht mehr. Seitdem ruft das Menü
+  auf iOS (`istIos()`) die App-Adressen auf – `comgooglemaps://?daddr=…` bzw. `maps://?daddr=…`
+  (`navigationAppUrls()`) – über `appOderWebOeffnen()` (`lib/navigationOeffnen.ts`): Bleibt die Seite
+  nach `NAVIGATION_RUECKFALL_MS` sichtbar (Google Maps nicht installiert), kommt der https-Link als
+  Rückfall. Andere Geräte nehmen weiter den https-Link. Die Tagesroute der Einsatzplanung
+  („In Google Maps öffnen“, mehrere Stopps) bleibt ein https-Link – für Zwischenziele hat die
+  App-Adresse keinen dokumentierten Parameter; dort schließt ✕ das Fenster.
 
 ---
 

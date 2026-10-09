@@ -1,4 +1,4 @@
-# Aufträge, Termine, Einsatzplanung (Stand 04.10.2026)
+# Aufträge, Termine, Einsatzplanung (Stand 09.10.2026)
 
 Ersetzt `auftragsablauf.md` (Stand 04.09.2026) und `auftraege-termine-einsatzplanung.md`
 (Stand 10.09.2026), die beide gelöscht werden. Dieses Blatt beschreibt nur den **Ist-Zustand**
@@ -499,8 +499,16 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
   Mitarbeiter und Transporter als Wahlchips, Überschneidungen und Erinnerungshinweis darunter.
   Vorher lag es in einem Blatt hinter „Ändern" und wurde beim Anlegen vergessen. Die Angaben
   gehören zum Entwurf und werden mit „Speichern" geschrieben – oben im Kopf oder am Fuß der Karte,
-  sobald etwas geändert ist. Der Termin oben im dunklen Kasten und „Termin & Team" im Menü
-  springen in die Karte. Ein Techniker sieht Mitarbeiter und Transporter nur.
+  sobald etwas geändert ist. „Termin & Team" im Menü springt in die Karte. Ein Techniker sieht
+  Mitarbeiter und Transporter nur.
+- **Termin aus dem Kalender (v139, Wunsch Vitali 09.10.2026).** Der Termin oben im dunklen Kasten
+  öffnet `TerminWahlBlatt` (Ebene 10002): den Monat wie in der Einsatzplanung, mit Punkten für die
+  schon geplanten Termine (Farbe = Mitarbeiter, grau = niemand eingeteilt), blättern mit ‹ › oder
+  Wischen. Ein Tipp auf den Tag zeigt dessen Tagesplan (`Stundenraster`) mit den anderen Terminen;
+  ein Tipp in die Uhrzeit setzt den Beginn, das Ende kommt aus dem Terminraster (von/bis darüber
+  fein einstellbar, das Ende wandert mit). „Fertig“ übernimmt Tag und Uhrzeit in den Entwurf –
+  gespeichert wird wie immer mit „Auftrag anlegen“ bzw. „Speichern“. Gezeigt werden die geladenen
+  Aufträge (Zeitraum der Einsatzplanung).
 - **Leistungen** mit −/+ je Zeile; Endpreis und Rechnungstext klappen darunter auf. Neue
   Leistungen kommen aus einem Blatt mit Suche und werden mit Menge 1 angelegt.
 - **Der Fuß** trägt die eine Handlung, die dran ist. Stornieren, Löschen/Verwerfen,

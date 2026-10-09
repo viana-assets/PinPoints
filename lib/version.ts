@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v138";
+export const APP_VERSION = "v140";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,21 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v140", datum: "2026-10-09", titel: "Navigation am iPhone",
+    punkte: [
+      "„Navigation › Google Maps“ bzw. „Apple Karten“ springt am iPhone jetzt direkt in die Karten-App. Das leere weiße Fenster, das beim Zurückwechseln in der App stehen blieb, gibt es nicht mehr.",
+      "Ist Google Maps nicht installiert, öffnet es sich wie bisher im Browser.",
+    ],
+  },
+  {
+    version: "v139", datum: "2026-10-09", titel: "Termin aus dem Kalender wählen",
+    punkte: [
+      "Im Auftrag oben auf den Termin tippen: Es geht der Monat wie in der Einsatzplanung auf – mit Punkten, wo schon Termine liegen. Mit ‹ › oder Wischen blättern.",
+      "Tag antippen, dann im Tagesplan in die Uhrzeit tippen. Von und Bis lassen sich darüber noch genau einstellen.",
+      "„Fertig“ übernimmt Tag und Uhrzeit in den Auftrag – gespeichert wird wie immer mit „Auftrag anlegen“ bzw. „Speichern“.",
+    ],
+  },
   {
     version: "v138", datum: "2026-10-09", titel: "Haken im Chat, Feierabend, Stempel-Erinnerung",
     punkte: [

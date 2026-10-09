@@ -12,7 +12,7 @@ import type {
 import {
   todayStr, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
   KUNDEN_ZUSTAND_REIHENFOLGE, type KundenZustand, telHref, plzAus, naechsteSaison, raederNachSatz,
-  satzProfilMm, geocodeAddress, getPhoneNumbers, navigationUrls, istHandy, menuLage, seitenZoom, formatEUR,
+  satzProfilMm, geocodeAddress, getPhoneNumbers, navigationUrls, navigationAppUrls, istIos, istHandy, menuLage, seitenZoom, formatEUR,
   letzterSatzFuer, orderArticleTotals, currentArticlePrice, rechnungOffen, rechnungOhneEmail,
 } from "@/lib/helpers";
 import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
@@ -63,6 +63,7 @@ import { useZeiterfassung } from "./_seite/useZeiterfassung";
 import { StempelKarte } from "@/components/zeit/StempelKarte";
 import { StempelBlatt } from "@/components/zeit/StempelBlatt";
 import { FeierabendFrage } from "@/components/zeit/FeierabendFrage";
+import { appOderWebOeffnen } from "@/lib/navigationOeffnen";
 import { UhrPille } from "@/components/zeit/UhrPille";
 import { ZeitPanel } from "@/components/zeit/ZeitPanel";
 import { ZeitBlase } from "@/components/zeit/ZeitBlase";
@@ -3100,12 +3101,15 @@ export default function HomePage() {
           <div className="call-menu" style={{ top: navMenuPos.top, left: navMenuPos.left }}>
             {(() => {
               const urls = navigationUrls(navMenuFor);
+              // Auf dem iPhone direkt in die Karten-App, ohne eingebautes Browserfenster (v140).
+              const app = navigationAppUrls(navMenuFor);
+              const ios = typeof navigator !== "undefined" && istIos(navigator.userAgent, navigator.maxTouchPoints || 0);
               return (
                 <>
-                  <button onClick={() => { window.open(urls.google, "_blank"); setNavMenuFor(null); }}>
+                  <button onClick={() => { setNavMenuFor(null); appOderWebOeffnen(app.google, urls.google, ios); }}>
                     Google Maps
                   </button>
-                  <button onClick={() => { window.open(urls.apple, "_blank"); setNavMenuFor(null); }}>
+                  <button onClick={() => { setNavMenuFor(null); appOderWebOeffnen(app.apple, urls.apple, ios); }}>
                     Apple Karten
                   </button>
                 </>
@@ -3205,6 +3209,7 @@ export default function HomePage() {
           onKundeOeffnen={(kundeId) => { setOffenerAuftragId(null); setFrischerAuftragId(null); openDetail(kundeId); }}
           andereAuftraege={orders}
           auftragsZuordnungen={orderEmployees}
+          kunden={customers}
           kundeName={(id) => customers.find((c) => c.id === id)?.name ?? "Unbekannter Kunde"}
           customer={customers.find((c) => c.id === offenerAuftrag.customer_id)}
           vehicles={auftragKundenFahrzeuge}

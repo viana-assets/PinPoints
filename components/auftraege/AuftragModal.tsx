@@ -6,6 +6,7 @@ import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, 
 import { eintragAm, fensterText, teamHinweise } from "@/lib/verfuegbarkeit";
 import type { RadFelder } from "@/lib/api/lager";
 import { BestaetigungBlatt } from "./BestaetigungBlatt";
+import { TerminWahlBlatt } from "./TerminWahlBlatt";
 import { FotoBlock, type BelegeImAuftrag } from "./FotoBlock";
 import { UnterschriftBlatt } from "./UnterschriftBlatt";
 import { belegStand } from "@/lib/belege";
@@ -61,8 +62,11 @@ export function AuftragModal({
   onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
-  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null,
+  andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null, kunden,
 }: {
+  // Alle Kunden – für die Namen im Tagesplan, wenn der Termin aus dem Kalender gewählt wird
+  // (TerminWahlBlatt, v138). Fehlt es, springt der Termin oben wie früher in die Karte „Termin & Team“.
+  kunden?: Customer[];
   // Fotos und Unterschrift (E3, Migration 65, v105). Null = Bereich nicht lesbar; dann fehlt die Karte.
   belege?: BelegeImAuftrag | null;
   // Firmenname und Telefon für die Terminbestätigung an den Kunden (E9, v104).
@@ -541,6 +545,14 @@ export function AuftragModal({
   const terminRef = useRef<HTMLDivElement>(null);
   const zeitRef = useRef<HTMLInputElement>(null);
 
+  // Termin aus dem Kalender wählen (v138): Monat → Tag → Uhrzeit → „Fertig“.
+  const [terminWahlOffen, setTerminWahlOffen] = useState(false);
+  function terminWaehlen() {
+    if (gesperrt) return;
+    if (kunden) setTerminWahlOffen(true);
+    else zumTermin();
+  }
+
   function zumTermin() {
     if (gesperrt) return;
     terminRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -750,7 +762,7 @@ export function AuftragModal({
           <div className="ao-wer">
             <div className="ao-wer-kopf">
               <span className={"ao-status " + statusKlasse}>{ORDER_STATUS_LABEL[order.status]}</span>
-              <button type="button" className="ao-termin" disabled={gesperrt || !feldeAendern} onClick={zumTermin}>
+              <button type="button" className="ao-termin" disabled={gesperrt || !feldeAendern} onClick={terminWaehlen}>
                 {terminText}{!gesperrt && feldeAendern ? " ›" : ""}
               </button>
             </div>
@@ -1330,6 +1342,27 @@ export function AuftragModal({
       )}
 
       {/* ---------------------------------------------------------------- Blatt: Menü */}
+      {terminWahlOffen && kunden && (
+        // Eigener Rahmen: Ein Klick im Blatt darf nicht beim Auftragsfenster ankommen (das würde schließen wollen).
+        <div onClick={(e) => e.stopPropagation()}>
+        <TerminWahlBlatt
+          order={order}
+          start={{ datum, von: zeit || null, bis: zeitBis || null }}
+          auftraege={andereAuftraege}
+          zuordnungen={{ ...auftragsZuordnungen, [order.id]: mitarbeiterIds }}
+          customers={kunden}
+          employees={employees}
+          terminIntervallMin={terminIntervallMin}
+          onUebernehmen={(w) => {
+            setDatum(w.datum);
+            setZeit(w.von || "");
+            setZeitBis(w.bis || "");
+            setEndeVorgeschlagen(!w.bis);
+          }}
+          onClose={() => setTerminWahlOffen(false)}
+        />
+        </div>
+      )}
       {bestaetigungOffen && kundeAnzeige && (
         <BestaetigungBlatt
           // Datum und Uhrzeit aus dem Entwurf: Wer eben verschoben und noch nicht gespeichert hat,

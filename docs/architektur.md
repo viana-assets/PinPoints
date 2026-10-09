@@ -187,6 +187,7 @@ viana-pinpoints/
                                      Karte seit v87), Menü „⋯", Fuß mit der Handlung, die dran ist (Entwurf N;
                                      siehe docs/auftraege.md)
       OrderModal.tsx                 Neuen Auftrag anlegen (aus dem Aufträge-Tab)
+      TerminWahlBlatt.tsx            Termin aus dem Kalender: Monat → Tag (Stundenraster) → Uhrzeit → „Fertig“ (v139)
       ArticleAssignPanel.tsx         Leistungen am Auftrag: −/+ je Zeile, Endpreis/Text
                                      aufklappbar, Blatt „Leistung hinzufügen" (Migration 38/50)
       EinlagerungBlock.tsx            Reifen ein-/auslagern direkt am Auftrag
@@ -254,6 +255,7 @@ viana-pinpoints/
     testkunde.ts                  Testkunden lesen: `auftragsNr()` („T3"), `istTestauftrag`,
                                   `ohneTest…`-Filter für Auswertungen und Exporte (Migration 60)
     calendar.ts                   Reine Kalender-Hilfsfunktionen (Wochenstart, ISO-KW, Mitarbeiterfarbe)
+    navigationOeffnen.ts        Karten-App öffnen: auf dem iPhone die App-Adresse, sonst/Rückfall https (v140)
     helpers.ts                  Aufträge/Termine, Kundenzustand, Telefon/Navigation, Preise, Rechnungsdaten
                                   (~500 Zeilen); reicht seit v106 die Themendateien darunter weiter (C5)
     format.ts                     `todayStr`, `datumStr`, `formatDate`, `formatEUR` (C5, v106)

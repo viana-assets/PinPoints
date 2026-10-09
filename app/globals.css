@@ -4376,3 +4376,13 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .zt-heimfahrt-wahl{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:4px 0;}
 .zt-heimfahrt-wahl input{width:18px;height:18px;}
 .zt-feierabend-text{font-size:15px;line-height:1.45;margin:0 0 6px;}
+
+/* Termin aus dem Kalender wählen (TerminWahlBlatt, v138) */
+.tw-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 8px;}
+.tw-nav b{font-size:15px;text-align:center;flex:1;}
+.tw-nav button{width:40px;height:40px;border-radius:50%;border:1px solid var(--border);background:var(--panel);font-size:20px;line-height:1;cursor:pointer;color:var(--text);}
+.tw-monat{max-width:none;touch-action:pan-y;}
+.tw-kw{display:flex;align-items:center;justify-content:center;cursor:default;}
+.tw-kw:hover{background:none;color:inherit;}
+.tw-wahl{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.tw-raster{--pl-hoehe:0px;margin-top:6px;}

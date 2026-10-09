@@ -219,6 +219,26 @@ export function navigationUrls(cust: Customer): { google: string; apple: string 
   };
 }
 
+// Dieselben Ziele als App-Adressen fürs iPhone (v140, gemeldet 09.10.2026): Aus der installierten
+// App heraus öffnet iOS einen https-Link zu Google Maps oder Apple Karten erst in einem eingebauten
+// Browserfenster, das ihn dann an die Karten-App weiterreicht – zurück in unserer App bleibt dieses
+// Fenster weiß stehen („Suchbegriff oder Websitenamen eingeben“, ✕). Die App-Adressen springen
+// direkt in die Karten-App, ohne dieses Fenster. `comgooglemaps://` gibt es nur mit installiertem
+// Google Maps – deshalb hält der Aufrufer den https-Link als Rückfall bereit (lib/navigationOeffnen.ts).
+export function navigationAppUrls(cust: Customer): { google: string; apple: string } {
+  const q = encodeURIComponent(navigationsZiel(cust));
+  return {
+    google: `comgooglemaps://?daddr=${q}&directionsmode=driving`,
+    apple: `maps://?daddr=${q}&dirflg=d`,
+  };
+}
+
+// iPhone, iPod oder iPad (das sich seit iPadOS 13 als „Macintosh“ mit Berührungspunkten meldet).
+export function istIos(kennung: string, beruehrpunkte: number): boolean {
+  if (/iPhone|iPod|iPad/i.test(kennung)) return true;
+  return /Macintosh/i.test(kennung) && beruehrpunkte > 1;
+}
+
 // ---------------------------------------------------------------- Artikelstammdaten
 // Standard-MwSt.-Satz (Deutschland), Vorbelegung im Preis-Formular und Fallback, wenn einem
 // Artikel noch kein Preis hinterlegt ist – zentral hier statt an zwei Stellen in

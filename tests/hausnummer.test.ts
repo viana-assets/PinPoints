@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adresseOhneHausnummer, geocodeAnfrage, hausnummerAus, navigationUrls, vorschlagOhneHausnummer } from "@/lib/helpers";
+import { adresseOhneHausnummer, geocodeAnfrage, hausnummerAus, istIos, navigationAppUrls, navigationUrls, vorschlagOhneHausnummer } from "@/lib/helpers";
 
 // Der Kartendienst schlägt gern die Straße ohne Haus vor. Wird dieser Vorschlag übernommen,
 // ist die Adresse anschließend schlechter als vorher – und die Fahrt endet am Anfang der
@@ -117,6 +117,20 @@ describe("navigationUrls", () => {
     // vollständigen Adresse. Ein fehlender Wert darf die Navigation nicht verschlechtern.
     const u = navigationUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: null });
     expect(u.google).toContain("49.35%2C11.15");
+  });
+
+  it("App-Adressen fürs iPhone (v140): dasselbe Ziel, direkt in die Karten-App", () => {
+    const genau = navigationAppUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: "exakt" });
+    expect(genau.google).toBe("comgooglemaps://?daddr=49.35%2C11.15&directionsmode=driving");
+    expect(genau.apple).toBe("maps://?daddr=49.35%2C11.15&dirflg=d");
+    expect(navigationAppUrls({ ...basis, lat: 49.35, lng: 11.15, geo_genauigkeit: "ungefaehr" }).google).toContain("36b");
+  });
+
+  it("erkennt iPhone und iPad, nicht Android oder den Mac", () => {
+    expect(istIos("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)", 5)).toBe(true);
+    expect(istIos("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 5)).toBe(true); // iPad
+    expect(istIos("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)", 0)).toBe(false);
+    expect(istIos("Mozilla/5.0 (Linux; Android 14)", 5)).toBe(false);
   });
 });
 

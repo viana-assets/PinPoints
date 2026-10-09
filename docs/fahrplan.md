@@ -16,6 +16,15 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **09.10.2026 – Navigation am iPhone ohne weißes Fenster (ohne Migration, Service Worker v140).**
+  Gemeldet von Vitali: Nach „Navigation › Google Maps“ stand beim Zurückwechseln ein leeres weißes
+  Browserfenster in der App. Jetzt springt das Menü auf dem iPhone direkt in die Karten-App
+  (`comgooglemaps://`, `maps://`), mit https-Rückfall. `docs/kunden-und-karte.md`.
+
+* **09.10.2026 – Termin aus dem Kalender wählen (ohne Migration, Service Worker v139).** Wunsch Vitali:
+  Der Termin oben im Auftragsfenster öffnet den Monat der Einsatzplanung (wischen/blättern), Tag
+  antippen, in die Uhrzeit tippen, „Fertig“ – Tag und Uhrzeit stehen im Auftrag. `docs/auftraege.md`.
+
 * **09.10.2026 – Haken im Chat, Feierabend mit Heimfahrt, Stempel-Erinnerung (Migration 85, Service
   Worker v138).** Wunsch Vitali: ✓ / ✓✓ grau / ✓✓ grün wie bei WhatsApp (nur Haken, keine Namen);
   „Für heute fertig?“ nach dem letzten Auftrag – „Ja“ stempelt aus und schreibt 30 Minuten Heimfahrt gut
