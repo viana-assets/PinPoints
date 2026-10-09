@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **09.10.2026 – Freier Streifen im Tagesplan (ohne Migration, Service Worker v141).** Wunsch
+  Vitali: Im Stundenraster füllten nebeneinanderliegende Termine die ganze Breite, ein zweiter
+  Termin zu einer belegten Uhrzeit ließ sich nicht anklicken. Jetzt bleibt rechts in jeder
+  anlegbaren Tagesspalte ein Streifen frei (Einsatzplanung Tag/Woche am Rechner, „Termin wählen“).
+  `docs/auftraege.md`.
+
 * **09.10.2026 – Navigation am iPhone ohne weißes Fenster (ohne Migration, Service Worker v140).**
   Gemeldet von Vitali: Nach „Navigation › Google Maps“ stand beim Zurückwechseln ein leeres weißes
   Browserfenster in der App. Jetzt springt das Menü auf dem iPhone direkt in die Karten-App

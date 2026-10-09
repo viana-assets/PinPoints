@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v140";
+export const APP_VERSION = "v141";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v141", datum: "2026-10-09", titel: "Platz zum Anlegen im Tagesplan",
+    punkte: [
+      "In der Tagesansicht der Einsatzplanung und im Tagesplan beim Termin-Wählen bleibt rechts neben den Terminen immer ein schmaler Streifen frei (fein gestrichelt).",
+      "Ein Tipp in diesen Streifen legt zu dieser Uhrzeit an bzw. wählt sie – auch wenn dort schon ein Termin liegt, etwa für einen zweiten Mitarbeiter.",
+    ],
+  },
   {
     version: "v140", datum: "2026-10-09", titel: "Navigation am iPhone",
     punkte: [

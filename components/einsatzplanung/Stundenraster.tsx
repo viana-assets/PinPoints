@@ -105,8 +105,12 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
         // (Farben, Formen, Abstände) steht im Stilblatt.
         top: `${oben}px`,
         height: `${Math.max(hoehe, 17)}px`,
-        left: `${auftrag.spalte * breite}%`,
-        width: `calc(${breite}% - 3px)`,
+        // `--tm-frei`: rechts in jeder anlegbaren Tagesspalte bleibt ein Streifen frei (v141,
+        // Wunsch Vitali 09.10.2026). Sonst füllen die Termine die ganze Breite, und wer zu einer
+        // belegten Uhrzeit einen zweiten Termin (für eine andere Person) setzen will, trifft
+        // immer den vorhandenen. Die Breite steht im Stilblatt (`.rl-anlegbar`).
+        left: `calc((100% - var(--tm-frei, 0px)) * ${auftrag.spalte / auftrag.spalten})`,
+        width: `calc((100% - var(--tm-frei, 0px)) * ${breite / 100} - 3px)`,
         // `backgroundColor` und NICHT `background`: Die Kurzform setzt `background-image`
         // mit zurück, und weil ein Stilattribut jede Regel schlägt, verschwand damit die
         // Schraffur des stornierten Termins – sichtbar war sie nur bei Aufträgen ohne

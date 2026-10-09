@@ -302,7 +302,13 @@ Monatsübersicht, die in der vorigen Fassung dieses Dokuments beschrieben war:
   storniert schraffiert/durchgestrichen, gestrichelte Unterkante = Ende nur geschätzt, weil
   `end_time` fehlt). Noch niemandem zugeteilt: hellgraue Fläche mit gestrichelter Kante
   (`--ohne-person`, seit v110 – vorher weiß und am Handy kaum zu sehen). Überlappende Termine bekommen per Gruppen-Algorithmus
-  (`layoutSpalten`) eigene, gleich breite Spalten. Termine ohne Uhrzeit erscheinen in einer
+  (`layoutSpalten`) eigene, gleich breite Spalten. **Rechts bleibt ein Streifen frei** (seit v141,
+  Wunsch Vitali 09.10.2026): Wo angelegt werden kann (`.rl-anlegbar`), enden die Termine vor
+  `--tm-frei` – Tagesansicht 44 px am Handy, 64 px am Rechner, Woche am Rechner 14 px, Woche am
+  Handy keiner (sieben Spalten zu je rund 50 px). Ein Klick dort trifft die Tagesspalte und legt
+  zu dieser Uhrzeit an, auch wo schon jemand eingeplant ist – sonst traf jeder Klick zu einer
+  belegten Zeit den vorhandenen Termin. Gilt auch im Tagesplan von „Termin wählen“
+  (`TerminWahlBlatt`). Sichtbar nur als feine gestrichelte Linie, keine Einfärbung. Termine ohne Uhrzeit erscheinen in einer
   eigenen Leiste „ohne Uhrzeit" statt verloren zu gehen oder eine erfundene Zeit zu bekommen.
   Zoom per Strg+Mausrad, Zwei-Finger-Geste oder ±-Knöpfen zwischen 14 und 120 px je Stunde;
   beim Herauszoomen öffnet sich gleichzeitig das Zeitfenster gleitend gegen 0–24 Uhr.

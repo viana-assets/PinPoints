@@ -207,7 +207,7 @@ viana-pinpoints/
     einsatzplanung/
       EinsatzplanungPanel.tsx        Tab "Einsatzplanung" (Kalender + Listenansicht)
       RoutenBlatt.tsx                 Tagesroute je Mitarbeiter: kürzeste Reihenfolge ab Firma (E5, v104)
-      Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster
+      Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster, rechts freier Streifen zum Anlegen (v141)
                                       (Migration 37)
       VerfuegbarkeitAnsicht.tsx       Reiter „Verfügbarkeit“: eigener Monat bzw. Wochenübersicht aller (Migration 68, v112)
     lager/

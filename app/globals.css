@@ -1522,6 +1522,19 @@ input.rm-feld:focus{outline:none;box-shadow:none;border:none;}
    und rufen dafür stopPropagation. */
 .rl-anlegbar{cursor:copy;}
 .rl-anlegbar .rl-linie{pointer-events:none;}
+
+/* Der freie Streifen rechts (v141, Wunsch Vitali 09.10.2026). Die Termine enden vor ihm
+   (Stundenraster.tsx, `--tm-frei` in left/width), ein Klick dort trifft also immer die
+   Tagesspalte und legt zu dieser Uhrzeit an – auch dort, wo schon jemand eingeplant ist.
+   Tagesansicht: daumenbreit. Woche am Rechner: schmal. Woche am Handy (sieben Spalten zu je
+   rund 50 px): keiner – dort fehlt der Platz, angelegt wird dafür in der Tagesansicht.
+   Sichtbar nur als feine gestrichelte Linie, keine Einfärbung (siehe oben). */
+.rl-anlegbar{--tm-frei:44px;}
+.raster-woche .rl-anlegbar{--tm-frei:14px;}
+.rl-anlegbar::after{content:"";position:absolute;top:0;bottom:0;right:0;width:var(--tm-frei);
+  border-left:1px dashed var(--border);pointer-events:none;}
+@media (min-width: 701px){ .raster-tag .rl-anlegbar{--tm-frei:64px;} }
+@media (max-width: 700px){ .raster-woche .rl-anlegbar{--tm-frei:0px;} .raster-woche .rl-anlegbar::after{display:none;} }
 .roz-anlegbar{cursor:copy;}
 
 /* Der vorbelegte Termin über der Kundenauswahl im Fenster „Neuer Auftrag". */
