@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v137";
+export const APP_VERSION = "v138";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v138", datum: "2026-10-09", titel: "Haken im Chat, Feierabend, Stempel-Erinnerung",
+    punkte: [
+      "Im Chat stehen an deinen Nachrichten Haken wie bei WhatsApp: ✓ gesendet, ✓✓ grau bei allen angekommen, ✓✓ grün von allen gelesen.",
+      "Wer seinen letzten Auftrag des Tages erledigt, wird gefragt „Für heute fertig?“. „Ja, Feierabend“ stempelt aus und schreibt 30 Minuten Heimfahrt gut – in der Zeiterfassung steht, wie oft.",
+      "Neue Erinnerung aufs Handy: 30 Minuten vor dem ersten Termin, wenn du noch nicht eingestempelt bist, und 30 Minuten nach dem letzten, wenn du noch eingestempelt bist. Abschalten unter Einstellungen.",
+    ],
+  },
   {
     version: "v137", datum: "2026-10-08", titel: "Chat: Einzelchats, Bearbeiten, Fotos",
     punkte: [

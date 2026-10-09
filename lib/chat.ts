@@ -351,6 +351,39 @@ export function chatListe(unterhaltungen: ChatUnterhaltung[], personen: ChatPers
   ];
 }
 
+// ---------------------------------------------------------------------------------------------
+// Haken an der eigenen Nachricht (Migration 85, v138) – wie bei WhatsApp
+// ---------------------------------------------------------------------------------------------
+
+// Was `chat_haken()` liefert: bis wann bei ALLEN Empfängern angekommen, bis wann von ALLEN gelesen.
+// Die Datenbank schickt Zeitpunkte, aber auch „infinity“ (niemand außer mir) und „-infinity“ (noch
+// nie) – die versteht `new Date()` nicht.
+export type ChatHaken = { zugestellt_bis: string | null; gelesen_bis: string | null };
+export type ChatHakenStatus = "gesendet" | "zugestellt" | "gelesen";
+
+function bisMs(wert: string | null | undefined): number {
+  if (!wert || wert === "-infinity") return Number.NEGATIVE_INFINITY;
+  if (wert === "infinity") return Number.POSITIVE_INFINITY;
+  const ms = new Date(wert).getTime();
+  return Number.isNaN(ms) ? Number.NEGATIVE_INFINITY : ms;
+}
+
+// ✓ gesendet (gespeichert), ✓✓ grau bei allen angekommen, ✓✓ grün von allen gelesen. Ohne Stand
+// (vor Migration 85 oder noch nicht geladen) nur ✓.
+export function hakenStatus(createdAt: string, haken: ChatHaken | null | undefined): ChatHakenStatus {
+  if (!haken) return "gesendet";
+  const am = new Date(createdAt).getTime();
+  if (bisMs(haken.gelesen_bis) >= am) return "gelesen";
+  if (bisMs(haken.zugestellt_bis) >= am) return "zugestellt";
+  return "gesendet";
+}
+
+export const CHAT_HAKEN_TEXT: Record<ChatHakenStatus, string> = {
+  gesendet: "gesendet",
+  zugestellt: "angekommen",
+  gelesen: "gelesen",
+};
+
 // Ungelesen in den ANDEREN Unterhaltungen – die Zahl am Knopf „Chats“ im Kopf.
 export function ungelesenAnderswo(unterhaltungen: ChatUnterhaltung[], partner: string | null): number {
   return unterhaltungen.filter((u) => u.partner !== partner).reduce((s, u) => s + (u.ungelesen || 0), 0);

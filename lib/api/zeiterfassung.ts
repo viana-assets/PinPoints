@@ -9,7 +9,8 @@ import { fetchPaged, q } from "./client";
 //
 // Nur mit Netz: Eine Stempelung, die erst Stunden später ankäme, trüge die falsche Uhrzeit.
 
-const SPALTEN = "id,profile_id,beginn,ende,korrigiert_am,korrigiert_von,korrektur_grund,pausen:zeit_pausen(id,beginn,ende)";
+// Seit Migration 85 mit der gutgeschriebenen Heimfahrt.
+const SPALTEN = "id,profile_id,beginn,ende,korrigiert_am,korrigiert_von,korrektur_grund,heimfahrt_minuten,pausen:zeit_pausen(id,beginn,ende)";
 
 export async function fetchZeitStatus(supabase: SupabaseClient): Promise<ZeitStatus> {
   const daten = await q<ZeitStatus>("Die Stempeluhr konnte nicht geladen werden", supabase.rpc("zeit_status"));
@@ -96,4 +97,19 @@ export async function zeitUrlaubLoeschen(supabase: SupabaseClient, u: { profileI
   return (await q<number>("Der Urlaub konnte nicht entfernt werden", supabase.rpc("zeit_urlaub_loeschen", {
     p_profile: u.profileId, p_von: u.von, p_bis: u.bis, p_grund: u.grund,
   }))) ?? 0;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Feierabend und Heimfahrt (Migration 85, v138)
+// ---------------------------------------------------------------------------------------------
+
+// „Für heute fertig? – Ja“: ausstempeln mit Heimfahrt. Ob es der letzte Auftrag war, prüft die
+// Datenbank selbst; ihre Begründung kommt als Fehlermeldung an. Gibt die Minuten zurück.
+export async function zeitFeierabend(supabase: SupabaseClient): Promise<number> {
+  return (await q<number>("Ausstempeln hat nicht geklappt", supabase.rpc("zeit_feierabend"))) ?? 0;
+}
+
+// Heimfahrt korrigieren – nur mit „Zeiten aller · schreiben“, mit Grund.
+export async function zeitHeimfahrtSetzen(supabase: SupabaseClient, id: string, minuten: number, grund: string): Promise<void> {
+  await q("Die Heimfahrt konnte nicht geändert werden", supabase.rpc("zeit_heimfahrt_setzen", { p_id: id, p_minuten: minuten, p_grund: grund }));
 }

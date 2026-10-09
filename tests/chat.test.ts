@@ -238,3 +238,19 @@ describe("Einzelchats, Bearbeiten, Fotos (Migration 84)", () => {
     expect(chatReaktionPushInhalt({ nachrichtId: "n", vonId: "j-id", vonName: "Jan", emoji: "👍", text: "x", zahl: 0, direkt: true }).url).toBe("/?chat=j-id");
   });
 });
+
+// Haken (Migration 85, v138)
+import { hakenStatus, CHAT_HAKEN_TEXT } from "@/lib/chat";
+
+describe("Haken an der eigenen Nachricht", () => {
+  const am = "2026-10-09T10:00:00.000Z";
+  it("✓ gesendet, ✓✓ angekommen, ✓✓ grün gelesen; „infinity“ und „-infinity“ aus der Datenbank", () => {
+    expect(hakenStatus(am, null)).toBe("gesendet");
+    expect(hakenStatus(am, { zugestellt_bis: "-infinity", gelesen_bis: "-infinity" })).toBe("gesendet");
+    expect(hakenStatus(am, { zugestellt_bis: "2026-10-09T09:59:59Z", gelesen_bis: null })).toBe("gesendet");
+    expect(hakenStatus(am, { zugestellt_bis: "2026-10-09T10:00:00+00:00", gelesen_bis: "-infinity" })).toBe("zugestellt");
+    expect(hakenStatus(am, { zugestellt_bis: "2026-10-09T09:00:00Z", gelesen_bis: "2026-10-09T12:00:00+02:00" })).toBe("gelesen");
+    expect(hakenStatus(am, { zugestellt_bis: "infinity", gelesen_bis: "infinity" })).toBe("gelesen");
+    expect(CHAT_HAKEN_TEXT.zugestellt).toBe("angekommen");
+  });
+});

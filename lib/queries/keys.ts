@@ -65,6 +65,8 @@ export const qk = {
   // „Ältere laden“. Liegt unter chatNachrichten – dessen Ungültigmachen trifft alle Unterhaltungen.
   chatVerlauf: (partner: string | null, anzahl: number) => ["chat", "nachrichten", partner ?? "team", anzahl] as const,
   chatUnterhaltungen: () => ["chat", "unterhaltungen"] as const,
+  // Haken an den eigenen Nachrichten (Migration 85) je Unterhaltung.
+  chatHaken: (partner: string | null) => ["chat", "haken", partner ?? "team"] as const,
   // Anzeige-Links der Chatfotos. Bewusst NICHT unter „chat“: Jede neue Nachricht macht „chat“
   // ungültig, die Links sollen aber eine Stunde halten (sonst lädt jedes Bild neu).
   chatFotoLinks: (pfade: string[]) => ["chatfotolinks", ...pfade] as const,

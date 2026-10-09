@@ -151,6 +151,9 @@ export type UserSettings = {
   // Abendhinweis „Reifen mitnehmen" (Migration 55): an/aus und Uhrzeit HH:MM, je Person.
   abendhinweis_aktiv: boolean;
   abendhinweis_uhrzeit: string;
+  // Stempel-Erinnerung per Push (Migration 85): an (Vorgabe) oder aus. Optional, weil es die Spalte
+  // vor Migration 85 nicht gibt.
+  stempel_erinnerung_aktiv?: boolean;
   // Zuletzt gelesene Fassung auf „Was gibt es Neues" (Migration 60), z. B. "v78".
   neuigkeiten_gesehen?: string | null;
 };

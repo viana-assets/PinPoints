@@ -33,6 +33,10 @@ import { pushNutzlast } from "./pushInhalt";
 // zweite Meldung aus (`push_gesendet_am` bleibt gesetzt). Die Zahl der Ungelesenen zählt die
 // Datenbank (`chat_ungelesen_von()`, Team und Einzelchats). Dazu räumt `chatFotosAufraeumen()` die
 // Fotodateien gelöschter oder aufgeräumter Nachrichten weg.
+//
+// SEIT MIGRATION 85 (v138): Haken. Hat eine Meldung mindestens ein Gerät des Empfängers erreicht,
+// gilt die Nachricht bei ihm als angekommen (`chat_zugestellt_setzen()`) – zwei graue Haken beim
+// Schreiber, sobald das für alle Empfänger gilt.
 
 const NACHHOLEN_MS = 60 * 60_000;
 
@@ -125,22 +129,36 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
 
   let gesendet = 0;
   const verwaist: string[] = [];
-  async function zustellen(id: string, inhalt: string) {
+  // Gibt zurück, ob die Meldung mindestens ein Gerät der Person erreicht hat.
+  async function zustellen(id: string, inhalt: string): Promise<boolean> {
+    let angekommen = false;
     await Promise.all((geraeteNach.get(id) || []).map(async (g) => {
       try {
         await webpush.sendNotification({ endpoint: g.endpoint, keys: { p256dh: g.p256dh, auth: g.auth } }, inhalt);
         gesendet++;
+        angekommen = true;
       } catch (e) {
         const status = (e as { statusCode?: number }).statusCode;
         if (status === 404 || status === 410) verwaist.push(g.endpoint);
       }
     }));
+    return angekommen;
   }
+  // Haken (Migration 85): Wem eine Nachricht zugestellt wurde, bei dem ist sie „angekommen“ –
+  // je Person und Unterhaltung der späteste Zeitpunkt.
+  const angekommenBis = new Map<string, { profil: string; partner: string | null; bis: string }>();
   await Promise.all(frisch.flatMap((n) => mitGeraet
     // Einzelchat: nur der Empfänger. Team: alle außer dem Schreiber.
     .filter((id) => id !== n.autor && (n.kanal !== "direkt" || id === n.an))
     .map((id) => {
       const ursprung = ursprungNach.get(antwortAuf.get(n.id as string) ?? "");
+      const partner = n.kanal === "direkt" ? (n.autor as string) : null;
+      const merken = (ok: boolean) => {
+        if (!ok) return;
+        const schluessel = `${id}|${partner ?? ""}`;
+        const alt = angekommenBis.get(schluessel);
+        if (!alt || alt.bis < (n.created_at as string)) angekommenBis.set(schluessel, { profil: id, partner, bis: n.created_at as string });
+      };
       return zustellen(id, pushNutzlast(chatPushInhalt({
         id: n.id as string,
         autorName: autorName(n.autor as string),
@@ -149,16 +167,19 @@ export async function chatNachrichtenVersenden(supabase: SupabaseClient): Promis
         erwaehnt: ((n.erwaehnt as string[] | null) || []).includes(id),
         geantwortet: !!ursprung && ursprung.autor === id,
         zahl: zahlNach.get(id) ?? 0,
-        direktVon: n.kanal === "direkt" ? (n.autor as string) : null,
+        direktVon: partner,
         foto: !!n.foto_pfad,
-      })));
+      }))).then(merken);
     })));
+  // Vor Migration 85 fehlt die Funktion – dann eben ohne Haken.
+  await Promise.all(Array.from(angekommenBis.values()).map((a) =>
+    Promise.resolve(supabase.rpc("chat_zugestellt_setzen", { p_profile: a.profil, p_partner: a.partner, p_bis: a.bis })).catch(() => null)));
 
   // Reaktionen: nur an den Verfasser – wenn er mitlesen darf, ein Gerät hat und nicht selbst reagiert.
   await Promise.all(frischeReaktionen.map((r) => {
     const ursprung = ursprungNach.get(r.nachricht_id as string);
     const an = ursprung?.autor as string | undefined;
-    if (!ursprung || !an || an === r.profile_id || ursprung.geloescht_am || !geraeteNach.has(an)) return Promise.resolve();
+    if (!ursprung || !an || an === r.profile_id || ursprung.geloescht_am || !geraeteNach.has(an)) return Promise.resolve(false);
     return zustellen(an, pushNutzlast(chatReaktionPushInhalt({
       nachrichtId: r.nachricht_id as string,
       vonId: r.profile_id as string,

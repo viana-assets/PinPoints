@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { zeitStempeln } from "@/lib/api/zeiterfassung";
+import { zeitFeierabend, zeitStempeln } from "@/lib/api/zeiterfassung";
 import { useZeitSchichten, useZeitStatus } from "@/lib/queries/hooks";
 import { qk } from "@/lib/queries/keys";
 import { tagVon, wochenMontag, zustand, type StempelArt, type ZeitSchicht } from "@/lib/zeiterfassung";
@@ -56,6 +56,15 @@ export function useZeiterfassung({ supabase, aktiv, meineId }: ZeitKontext) {
     }
   }
 
+  // „Für heute fertig? – Ja“ (Migration 85): ausstempeln mit Heimfahrt. Fehler gehen an das Fenster.
+  async function feierabend() {
+    try {
+      await zeitFeierabend(supabase);
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: qk.zeit() });
+    }
+  }
+
   return {
     schicht,
     zustand: zustand(schicht),
@@ -63,6 +72,7 @@ export function useZeiterfassung({ supabase, aktiv, meineId }: ZeitKontext) {
     montag,
     wocheSchichten: (wocheQuery.data ?? KEINE).filter((s) => s.profile_id === meineId),
     stempeln,
+    feierabend,
     laeuft,
     fehler,
     blattOffen,

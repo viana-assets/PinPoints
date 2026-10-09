@@ -29,7 +29,7 @@ export function ZeitNachweis({ zeilen, monat, onClose }: {
             <p><b>{person.name}</b></p>
             <table className="zn-tabelle">
               <thead>
-                <tr><th>Tag</th><th>Zeiten</th><th>Pause</th><th>Arbeit</th><th>Urlaub</th><th>Hinweis</th></tr>
+                <tr><th>Tag</th><th>Zeiten</th><th>Pause</th><th>Arbeit</th><th>davon Heimf.</th><th>Urlaub</th><th>Hinweis</th></tr>
               </thead>
               <tbody>
                 {m.tage.map((x) => {
@@ -40,6 +40,7 @@ export function ZeitNachweis({ zeilen, monat, onClose }: {
                       <td>{x.schichten.map((s) => schichtSpanne(s).replace("jetzt", "offen")).join(", ") || "–"}</td>
                       <td>{x.schichten.length ? dauerText(x.pauseMs) : ""}</td>
                       <td>{x.schichten.length ? dauerText(x.arbeitMs) : ""}</td>
+                      <td>{x.heimfahrtMs ? dauerText(x.heimfahrtMs) : ""}</td>
                       <td>{x.urlaubMs ? dauerText(x.urlaubMs) : ""}</td>
                       <td>{x.hinweise.map((h) => ZEIT_HINWEIS_TEXT[h]).join(", ")}</td>
                     </tr>
@@ -51,13 +52,14 @@ export function ZeitNachweis({ zeilen, monat, onClose }: {
                   <td colSpan={2}>Summe · {m.arbeitstage} Arbeitstage{m.urlaubstage ? `, ${m.urlaubstage} Urlaubstage` : ""}</td>
                   <td>{dauerText(m.pauseMs)}</td>
                   <td>{dauerText(m.arbeitMs)}</td>
+                  <td>{m.heimfahrten ? `${dauerText(m.heimfahrtMs)} (${m.heimfahrten}×)` : ""}</td>
                   <td>{dauerText(m.urlaubMs)}</td>
                   <td>{stundenDezimal(m.arbeitMs + m.urlaubMs)} Std.</td>
                 </tr>
               </tfoot>
             </table>
             <p className="zn-klein">
-              Arbeitszeit ohne Pausen, in Stunden:Minuten. Erfasst mit der Stempeluhr; nachträgliche Änderungen sind
+              Arbeitszeit ohne Pausen, in Stunden:Minuten, einschließlich gutgeschriebener Heimfahrt nach dem letzten Auftrag. Erfasst mit der Stempeluhr; nachträgliche Änderungen sind
               mit Grund festgehalten („korrigiert“). Eine Schicht, die an einem früheren Tag nicht beendet wurde,
               zählt erst nach ihrer Korrektur.
             </p>

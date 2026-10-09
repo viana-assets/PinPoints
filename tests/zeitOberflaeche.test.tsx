@@ -154,3 +154,41 @@ describe("Urlaub eintragen (v136)", () => {
     expect(screen.getByText(/· Jan$/)).toBeTruthy();
   });
 });
+
+// Feierabend mit Heimfahrt (Migration 85, v138)
+import { FeierabendFrage } from "@/components/zeit/FeierabendFrage";
+
+describe("Feierabend und Heimfahrt (v138)", () => {
+  it("„Ja, Feierabend“ stempelt aus und schließt; ein Fehler bleibt im Fenster; „Noch nicht“ schließt nur", async () => {
+    const onJa = vi.fn(async () => {});
+    const onClose = vi.fn();
+    render(<FeierabendFrage onJa={onJa} onClose={onClose} />);
+    expect(screen.getByText(/0:30 h für die Heimfahrt/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ja, Feierabend" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(onJa).toHaveBeenCalledTimes(1);
+    cleanup();
+    const onClose2 = vi.fn();
+    render(<FeierabendFrage onJa={async () => { throw new Error("Heute steht noch ein Auftrag an"); }} onClose={onClose2} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ja, Feierabend" }));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toMatch(/noch ein Auftrag/));
+    expect(onClose2).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Noch nicht" }));
+    expect(onClose2).toHaveBeenCalled();
+  });
+
+  it("Tag zeigt die Heimfahrt; Korrektur kann sie gutschreiben", async () => {
+    const zu: ZeitSchicht = { id: "s3", profile_id: "mira", beginn: ort(tag, "07:00"), ende: ort(tag, "08:00"), pausen: [], heimfahrt_minuten: 30 };
+    const ohne: ZeitSchicht = { id: "s4", profile_id: "mira", beginn: ort(tag, "09:00"), ende: ort(tag, "10:00"), pausen: [] };
+    const onSpeichern = vi.fn(async () => {});
+    render(<ZeitTagBlatt person={{ id: "mira", name: "Mira", rolle: "user" }} tag={tag} schichten={[zu, ohne]} heute={tag} jetzt={Date.now()}
+      darfKorrigieren onSpeichern={onSpeichern} onLoeschen={vi.fn(async () => {})} onClose={() => {}} />);
+    expect(screen.getByText(/0:30 h Heimfahrt gutgeschrieben/)).toBeTruthy();
+    expect(screen.getByText(/davon Heimfahrt 0:30 h/)).toBeTruthy();
+    fireEvent.click(screen.getAllByRole("button", { name: "Bearbeiten ›" })[1]);
+    fireEvent.click(screen.getByLabelText("Heimfahrt gutschreiben"));
+    fireEvent.change(screen.getByLabelText("Grund"), { target: { value: "Rückfahrt vergessen" } });
+    fireEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => expect(onSpeichern).toHaveBeenCalledWith(expect.objectContaining({ id: "s4", heimfahrtMinuten: 30, grund: "Rückfahrt vergessen" })));
+  });
+});

@@ -25,6 +25,7 @@ export function MonatSummen({ m }: { m: MonatsAuswertung }) {
       <div><b>{dauerText(m.arbeitMs)} h</b><span>Arbeitszeit</span></div>
       <div><b>{dauerText(m.pauseMs)} h</b><span>Pausen</span></div>
       <div><b>{dauerText(m.urlaubMs)} h</b><span>Urlaub{m.urlaubstage ? ` · ${m.urlaubstage} ${m.urlaubstage === 1 ? "Tag" : "Tage"}` : ""}</span></div>
+      {m.heimfahrten > 0 && <div><b>{dauerText(m.heimfahrtMs)} h</b><span>davon Heimfahrt · {m.heimfahrten}×</span></div>}
       <div><b>{m.arbeitstage}</b><span>{m.arbeitstage === 1 ? "Arbeitstag" : "Arbeitstage"}</span></div>
     </div>
   );
@@ -52,6 +53,7 @@ export function MonatTagListe({ m, onTag }: { m: MonatsAuswertung; onTag: (tag: 
 export function tagZeile(x: MonatsTag): string {
   const teile: string[] = [];
   if (x.schichten.length) teile.push(`${x.schichten.map(schichtSpanne).join(" · ")} · Pause ${dauerText(x.pauseMs)}`);
+  if (x.heimfahrtMs) teile.push(`Heimfahrt ${dauerText(x.heimfahrtMs)} h`);
   if (x.urlaubMs) teile.push(`Urlaub ${dauerText(x.urlaubMs)} h`);
   return teile.join(" · ");
 }
@@ -71,6 +73,7 @@ export function MonatAlleTabelle({ zeilen, onPerson }: {
         <span role="columnheader">Arbeit</span>
         <span role="columnheader" className="zt-breit">Pausen</span>
         <span role="columnheader">Urlaub</span>
+        <span role="columnheader" className="zt-breit" title="Heimfahrten (gutgeschrieben, in der Arbeit enthalten)">Heimf.</span>
         <span role="columnheader">Σ</span>
         <span role="columnheader" className="zt-breit">Hinweise</span>
       </div>
@@ -82,6 +85,7 @@ export function MonatAlleTabelle({ zeilen, onPerson }: {
           <span role="cell">{dauerText(m.arbeitMs)}</span>
           <span role="cell" className="zt-breit">{dauerText(m.pauseMs)}</span>
           <span role="cell">{m.urlaubMs ? dauerText(m.urlaubMs) : "–"}</span>
+          <span role="cell" className="zt-breit">{m.heimfahrten ? `${m.heimfahrten}×` : "–"}</span>
           <span role="cell" className="zt-summe">{dauerText(m.arbeitMs + m.urlaubMs)}</span>
           <span role="cell" className={"zt-breit" + (m.hinweise ? " zt-warn-text" : "")}>{m.hinweise ? `${m.hinweise} ${m.hinweise === 1 ? "Tag" : "Tage"}` : "–"}</span>
         </button>
@@ -92,6 +96,7 @@ export function MonatAlleTabelle({ zeilen, onPerson }: {
         <span role="cell">{dauerText(summe((m) => m.arbeitMs))}</span>
         <span role="cell" className="zt-breit">{dauerText(summe((m) => m.pauseMs))}</span>
         <span role="cell">{dauerText(summe((m) => m.urlaubMs))}</span>
+        <span role="cell" className="zt-breit">{summe((m) => m.heimfahrten) ? `${summe((m) => m.heimfahrten)}×` : "–"}</span>
         <span role="cell" className="zt-summe">{dauerText(summe((m) => m.arbeitMs + m.urlaubMs))}</span>
         <span role="cell" className="zt-breit">{summe((m) => m.hinweise) || "–"}</span>
       </div>

@@ -9,7 +9,7 @@ import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsd
 import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVerfuegbarkeiten } from "@/lib/api/verfuegbarkeit";
-import { chatFotoLinks, fetchChatNachrichten, fetchChatPersonen, fetchChatUngelesen, fetchChatUnterhaltungen } from "@/lib/api/chat";
+import { chatEmpfangen, chatFotoLinks, fetchChatHaken, fetchChatNachrichten, fetchChatPersonen, fetchChatUngelesen, fetchChatUnterhaltungen } from "@/lib/api/chat";
 import { CHAT_ABFRAGE_MS } from "@/lib/chat";
 import { fetchZeitAbwesenheiten, fetchZeitKorrekturen, fetchZeitOffene, fetchZeitPersonen, fetchZeitSchichten, fetchZeitStatus } from "@/lib/api/zeiterfassung";
 import { monatVonBis, wocheVonBis, ZEIT_STATUS_ABFRAGE_MS } from "@/lib/zeiterfassung";
@@ -381,6 +381,17 @@ export function useChatNachrichten(
   });
 }
 
+// Die Haken an meinen Nachrichten (Migration 85): angekommen/gelesen der anderen ändern sich ohne
+// Ereignis bei mir – deshalb im Takt, solange der Chat offen ist.
+export function useChatHaken(supabase: SupabaseClient, aktiv: boolean, partner: string | null) {
+  return useQuery({
+    queryKey: qk.chatHaken(partner),
+    queryFn: () => fetchChatHaken(supabase, partner),
+    enabled: aktiv,
+    refetchInterval: aktiv ? CHAT_ABFRAGE_MS : false,
+  });
+}
+
 export function useChatUnterhaltungen(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.chatUnterhaltungen(),
@@ -429,7 +440,8 @@ export function useChatFotoLinks(supabase: SupabaseClient, pfade: string[], akti
 export function useChatUngelesen(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.chatUngelesen(),
-    queryFn: () => fetchChatUngelesen(supabase),
+    // Mit der Zahl zugleich „abgeholt“ melden (Migration 85): zwei graue Haken beim Schreiber.
+    queryFn: async () => { await chatEmpfangen(supabase); return fetchChatUngelesen(supabase); },
     enabled: aktiv,
     // Seltener als der Verlauf: Die Zahl hält Realtime aktuell, das hier fängt nur Lücken.
     refetchInterval: aktiv ? 3 * CHAT_ABFRAGE_MS : false,

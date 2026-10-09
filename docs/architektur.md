@@ -131,6 +131,7 @@ viana-pinpoints/
       ZeitMonat.tsx                  Monatssummen, Tagesliste, Monatstabelle aller, Korrekturen, Export-Knöpfe (v136)
       ZeitNachweis.tsx               Arbeitszeitnachweis zum Drucken/PDF, eine A4-Seite je Person (v136)
       UrlaubBlatt.tsx                Urlaub eintragen/entfernen, Werktage im Zeitraum (Migration 83, v136)
+      FeierabendFrage.tsx            „Für heute fertig?“ nach dem letzten Auftrag, Heimfahrt (Migration 85, v138)
       useJetzt.ts                    „Jetzt“ im Takt, mit Versatz zur Datenbankuhr
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
@@ -296,6 +297,8 @@ viana-pinpoints/
     auftragLoeschen.ts            Darf ein Auftrag gelöscht werden, mit welcher Frage (D2, v100)
     fremdabfrage.ts               Abfragebremse der Adressdienste über die Datenbank (B3, v100)
     abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
+    stempelErinnerung.ts          Regeln der Stempel-Erinnerung (Migration 85, v138; tests/stempelErinnerung.test.ts)
+    stempelErinnerungVersand.ts   Versand „Einstempeln nicht vergessen“ / „Ausstempeln vergessen?“ (aus app/api/push/senden)
     pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
     chat.ts                       Regeln des Team-Chats: Karten, @-Erwähnungen, Tagestrenner, Push-Inhalt,
                                   Vorschläge für „+“ (Migration 80, v129; tests/chat.test.ts); Einzelchat-Liste,
@@ -704,7 +707,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 84** (08.10.2026; 01–82 ausgeführt, 83 und 84 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 85** (09.10.2026; 01–84 ausgeführt, 85 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -827,6 +830,10 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   bearbeiten (24 h) und löschen (`chat_nachricht_aendern()`), Fotos (privater Bucket `chat-fotos`, Dateien
   über `private.chat_fotos_weg` und den Minutentakt entfernt), `chat_gelesen_direkt`,
   `chat_unterhaltungen()`, `chat_ungelesen()` zählt Team und Einzelchats. Siehe `docs/team-chat.md`.
+- **85** – Haken im Chat (`zugestellt_bis` neben `gelesen_bis`, `chat_empfangen()`, `chat_zugestellt_setzen()`,
+  `chat_haken()`), Feierabend mit Heimfahrt (`zeit_schichten.heimfahrt_minuten`, `zeit_feierabend()`,
+  `zeit_heimfahrt_setzen()`), Stempel-Erinnerung (`user_settings.stempel_erinnerung_aktiv`,
+  `push_stempel_erinnerung`), RLS auf `private.chat_fotos_weg`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

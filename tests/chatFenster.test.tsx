@@ -227,4 +227,17 @@ describe("Team-Chat", () => {
     fenster({ hatMehr: false, onMehrLaden });
     expect(screen.queryByRole("button", { name: "Ältere Nachrichten laden" })).toBeNull();
   });
+
+  it("Haken nur an eigenen Nachrichten: gesendet, angekommen, gelesen (Migration 85)", () => {
+    const vorher = new Date(Date.now() - 60_000).toISOString();
+    const liste = [{ ...nachrichten[1], id: "e1", created_at: vorher }, { ...nachrichten[0], id: "f1", created_at: vorher }];
+    fenster({ nachrichten: liste });
+    expect(screen.getAllByRole("img", { name: "gesendet" })).toHaveLength(1);
+    cleanup();
+    fenster({ nachrichten: liste, haken: { zugestellt_bis: new Date().toISOString(), gelesen_bis: "-infinity" } });
+    expect(screen.getByRole("img", { name: "angekommen" })).toBeTruthy();
+    cleanup();
+    fenster({ nachrichten: liste, haken: { zugestellt_bis: "infinity", gelesen_bis: new Date().toISOString() } });
+    expect(screen.getByRole("img", { name: "gelesen" }).className).toContain("gelesen");
+  });
 });

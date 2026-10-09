@@ -1,6 +1,6 @@
 # Team-Chat
 
-**Stand: 08.10.2026 (Migrationen 80, 81 und 84, Service Worker v137).** Ein gemeinsamer Chat für alle mit dem
+**Stand: 09.10.2026 (Migrationen 80, 81, 84 und 85, Service Worker v138).** Ein gemeinsamer Chat für alle mit dem
 Recht `chat · lesen` – Wunsch Vitali vom 08.10.2026, Entwurf `entwurf_chat.html` (Claude outputs).
 Reaktionen und Antworten kamen mit Migration 81 (v130). Mit Migration 84 (v137, Fahrplan E19):
 Einzelchats, die eigene Nachricht bearbeiten und löschen, Fotos im Chat und „Ältere Nachrichten
@@ -79,6 +79,24 @@ laden“ – Abschnitt „Einzelchats, Bearbeiten, Fotos“ unten.
   `/?chat=<Kennung des Schreibers>`, also genau diese Unterhaltung (`chatZielAus()`). Eine Nachricht,
   die vor dem Versand gelöscht wurde, meldet sich nicht.
 
+## Haken an der eigenen Nachricht (Migration 85, v138)
+
+Wie bei WhatsApp, rechts neben der Uhrzeit jeder eigenen Nachricht (Wunsch Vitali 09.10.2026;
+entschieden: nur die Haken, keine Namen, wer wann gelesen hat):
+
+- **✓ grau** – gesendet (in der Datenbank gespeichert).
+- **✓✓ grau** – bei **allen** angekommen: im Team bei allen mit Chat-Zugang außer dem Schreiber (auch
+  bei Zugängen, die den Chat nie öffnen – die halten den Haken dann grau, so wie in einer
+  WhatsApp-Gruppe), im Einzelchat bei der einen Person. Angekommen heißt: Die App der Person hat sie
+  abgeholt (`chat_empfangen()`, läuft bei offener App mit der Zahl an der Blase, etwa jede Minute) oder
+  die Push-Meldung hat ein Gerät der Person erreicht (`chat_zugestellt_setzen()` im Versand).
+- **✓✓ grün** – von allen gelesen (das „gelesen bis“, das beim Öffnen der Unterhaltung vorrückt).
+
+`chat_haken(partner)` gibt dem Schreiber nur zwei Zeitpunkte: bis wann bei allen angekommen, bis wann
+von allen gelesen (das Minimum über die Empfänger). Wer was gelesen hat, verrät sie im Team nicht. Die
+Haken fragt die App bei offenem Chat alle 20 s nach (`useChatHaken`) – das Lesen der anderen löst bei
+mir kein Ereignis aus. Vor Migration 85 steht nur ✓.
+
 ## Push und Zahl am App-Symbol
 
 Bei **jeder** neuen Nachricht bekommen alle anderen mit Leserecht eine Push-Meldung, so wie die
@@ -150,6 +168,13 @@ eigene Nachricht, und zählt nicht als ungelesen.
 - Rücknahme `rollback/84_rollback.sql`: löscht alle Einzelchats und gelöschten Nachrichten, reine
   Fotonachrichten heißen „[Foto]“; die Dateien im Bucket bleiben und sind von Hand zu entfernen.
 
+## Datenbank (Migration 85)
+
+- `chat_gelesen.zugestellt_bis`, `chat_gelesen_direkt.zugestellt_bis` – „angekommen bis“ neben „gelesen
+  bis“. Eine neue Zeile entsteht mit „gelesen bis“ = nie (angekommen ist nicht gelesen).
+- `chat_empfangen()` (App, nur für sich selbst, schreibt nur bei Neuem), `chat_zugestellt_setzen(person,
+  partner, bis)` (nur Dienstschlüssel), `chat_haken(partner)` (für den Aufrufer, mit `chat · lesen`).
+
 ## Code
 
 | Datei | Was |
@@ -169,6 +194,10 @@ jeden mit Leserecht sichtbar, auch für Rollen, die den Kunden selbst nicht öff
 Besondere Kategorien (Art. 9 DSGVO) gehören nicht in den Chat – auch nicht in einen Einzelchat und
 nicht als Foto (Krankmeldung, Attest). Die Aufbewahrung von 12 Monaten ist mit dem Datenschutz
 abzustimmen; sie gilt für Einzelchats und Fotos genauso.
+
+Lesebestätigungen (Haken, Migration 85) sind eine Information darüber, wann Beschäftigte etwas
+gelesen haben. Deshalb zeigen sie nur „alle haben gelesen“ bzw. im Einzelchat „die Person hat gelesen“,
+keine Uhrzeiten und keine Namen. Vor dem Einsatz kurz mit Datenschutz bzw. Betriebsrat abstimmen.
 
 Einzelchats (Migration 84) sind private Nachrichten zwischen zwei Beschäftigten: Die Rechte lassen
 **niemanden** sonst mitlesen, auch keinen Admin. Ausnahmen, die man kennen muss: Die „Sicherung aller

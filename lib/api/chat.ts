@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   CHAT_FOTO_BUCKET, CHAT_LADEN_ANZAHL, chatFotoPfad,
-  type ChatBezug, type ChatNachricht, type ChatPerson, type ChatUnterhaltung,
+  type ChatBezug, type ChatHaken, type ChatNachricht, type ChatPerson, type ChatUnterhaltung,
 } from "@/lib/chat";
 import { ApiError, q, qOne, qWrite } from "./client";
 
@@ -150,4 +150,35 @@ export async function chatReaktionSetzen(supabase: SupabaseClient, profileId: st
     "Die Reaktion konnte nicht gespeichert werden",
     supabase.from("chat_reaktionen").upsert({ nachricht_id: nachrichtId, profile_id: profileId, emoji }, { onConflict: "nachricht_id,profile_id" })
   );
+}
+
+// ---------------------------------------------------------------------------------------------
+// Haken (Migration 85, v138)
+// ---------------------------------------------------------------------------------------------
+
+// Fehlt die Funktion (Migration 85 noch nicht gelaufen), gibt es eben nur ✓.
+function fehltFunktion(code: string | undefined): boolean {
+  return code === "PGRST202" || code === "42883";
+}
+
+// Bis wann bei allen angekommen / von allen gelesen – für die Haken an meinen Nachrichten in dieser
+// Unterhaltung. `null` = unbekannt.
+export async function fetchChatHaken(supabase: SupabaseClient, partner: string | null): Promise<ChatHaken | null> {
+  const { data, error } = await supabase.rpc("chat_haken", { p_partner: partner });
+  if (error) {
+    if (fehltFunktion(error.code)) return null;
+    throw new ApiError("Die Haken konnten nicht geladen werden", error);
+  }
+  const zeile = Array.isArray(data) ? data[0] : data;
+  return zeile ? { zugestellt_bis: zeile.zugestellt_bis ?? null, gelesen_bis: zeile.gelesen_bis ?? null } : null;
+}
+
+// „Abgeholt“ melden: Was jetzt auf dem Server liegt, ist bei mir angekommen (zwei graue Haken beim
+// Schreiber). Läuft mit der Zahl an der Blase; ein Fehler hier ist nie einer, den jemand sehen muss.
+export async function chatEmpfangen(supabase: SupabaseClient): Promise<void> {
+  try {
+    await supabase.rpc("chat_empfangen");
+  } catch {
+    // ohne Netz oder vor Migration 85 – beim nächsten Mal
+  }
 }

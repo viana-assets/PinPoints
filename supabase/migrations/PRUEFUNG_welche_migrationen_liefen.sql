@@ -153,7 +153,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('81', 'Chat: Reaktionen und Antworten', to_regclass('public.chat_reaktionen') is not null),
     ('82', 'Zeiterfassung (Stempeluhr)', to_regclass('public.zeit_schichten') is not null and to_regprocedure('public.zeit_einstempeln()') is not null),
     ('83', 'Zeiterfassung: Urlaub', to_regclass('public.zeit_abwesenheiten') is not null),
-    ('84', 'Chat: Einzelchats, Bearbeiten, Fotos', to_regclass('public.chat_gelesen_direkt') is not null and to_regprocedure('public.chat_unterhaltungen()') is not null)
+    ('84', 'Chat: Einzelchats, Bearbeiten, Fotos', to_regclass('public.chat_gelesen_direkt') is not null and to_regprocedure('public.chat_unterhaltungen()') is not null),
+    ('85', 'Chat-Haken, Feierabend, Stempel-Erinnerung', to_regprocedure('public.chat_haken(uuid)') is not null and to_regprocedure('public.zeit_feierabend()') is not null and to_regclass('public.push_stempel_erinnerung') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

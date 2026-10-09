@@ -1,9 +1,11 @@
 # Zeiterfassung (Stempeluhr)
 
-**Stand: 08.10.2026 (Migration 83, Service Worker v136).** Wunsch Vitali vom 08.10.2026, Entwurf
+**Stand: 09.10.2026 (Migration 85, Service Worker v138).** Wunsch Vitali vom 08.10.2026, Entwurf
 `entwurf_stempeluhr.html` (Claude outputs) abgenickt. Entschieden per Auswahl: Pause-Knopf, nur
 „Zeiten aller“ korrigiert, 2 Jahre Aufbewahrung. Seit v136 (Fahrplan E20, Auswahl Vitali): Monat,
-Urlaub als Eintrag, Korrekturen sichtbar, Export als CSV und Arbeitszeitnachweis zum Drucken.
+Urlaub als Eintrag, Korrekturen sichtbar, Export als CSV und Arbeitszeitnachweis zum Drucken. Seit
+v138 (Migration 85, Wunsch Vitali 09.10.2026): „Für heute fertig?“ nach dem letzten Auftrag mit 30 Minuten
+Heimfahrt und die Stempel-Erinnerung per Push – Abschnitt „Feierabend, Heimfahrt, Erinnerung“.
 
 ## Was man sieht
 
@@ -66,6 +68,34 @@ Urlaub als Eintrag, Korrekturen sichtbar, Export als CSV und Arbeitszeitnachweis
 - Eine Schicht gehört zu dem Tag, an dem sie begann (auch über Mitternacht). Im Korrekturformular
   heißt ein Ende vor dem Beginn: am Folgetag.
 
+## Feierabend, Heimfahrt, Erinnerung (Migration 85, v138)
+
+- **„Für heute fertig?“** Wer eingestempelt ist und einen Auftrag erledigt, nach dem für ihn heute
+  keiner mehr offen oder in Arbeit ist (`letzterAuftragHeute()`), bekommt die Frage
+  (`components/zeit/FeierabendFrage.tsx`, Ebene 10002 über dem Auftragsfenster):
+  - **„Ja, Feierabend“** – stempelt aus und schreibt **30 Minuten Heimfahrt** gut
+    (`ZEIT_HEIMFAHRT_MINUTEN`, `zeit_feierabend()`). Die Datenbank prüft selbst: eingestempelt, heute ein
+    eigener Auftrag erledigt, keiner mehr offen, heute noch keine Heimfahrt – sonst nennt sie den Grund.
+  - **„Noch nicht“** – nichts passiert, die Stempeluhr läuft; ausstempeln dann selbst, **ohne**
+    Heimfahrt (die Zeit bis dahin ist gestempelt).
+- **Die Heimfahrt zählt zur Arbeitszeit** (sie wird vergütet) und steht überall zusätzlich als
+  „davon Heimfahrt“: an der Schicht („+ 0:30 h Heimfahrt gutgeschrieben“), in Tag, Woche und Monat,
+  im Monat mit Anzahl („davon Heimfahrt · 3×“), in der Monatstabelle aller (Spalte „Heimf.“), im
+  Nachweis (Spalte „davon Heimf.“) und in der CSV (Spalte „davon Heimfahrt (Std.)“, Summe mit „n×
+  Heimfahrt“). So sieht man, wie oft sie gutgeschrieben wurde.
+- **Korrigieren** mit „Zeiten aller · schreiben“: im Korrekturformular „Heimfahrt gutschreiben“ an
+  oder aus, mit Grund (`zeit_heimfahrt_setzen()`); die Korrektur heißt „Heimfahrt 0:30 h
+  gutgeschrieben“ bzw. „… entfernt“.
+- **Stempel-Erinnerung per Push** (im Minutentakt, `lib/stempelErinnerung.ts`):
+  - **„Einstempeln nicht vergessen“** 30 Minuten vor dem ersten eigenen Termin des Tages, wenn die
+    Person nicht eingestempelt ist.
+  - **„Ausstempeln vergessen?“** 30 Minuten nach dem geplanten Ende des letzten eigenen Termins (ohne
+    Endzeit: Beginn + 30 Minuten), wenn sie noch eingestempelt ist **und** dieser Auftrag nicht
+    erledigt ist. Antippen öffnet die Stempeluhr (`/?stempeluhr=1`).
+  - Termine mit Uhrzeit, nicht storniert, mit zugeteiltem Mitarbeiter mit Konto; nur, wer stempeln darf;
+    je Art einmal am Tag; verpasste werden höchstens eine Stunde lang nachgeholt.
+  - In den **Einstellungen** je Person abschaltbar („Stempel-Erinnerung“, erscheint nur mit Stempelrecht).
+
 ## Rechte
 
 | Zeile | Lesen | Schreiben | Ab Werk |
@@ -103,6 +133,17 @@ Fassung. Die eigenen Zeiten kann niemand selbst ändern.
   (`schicht_id` leer, `{"art": "urlaub", "tag", "minuten"}`).
 - `zeit_aufraeumen()` löscht auch den Urlaub nach 2 Jahren.
 
+## Datenbank (Migration 85)
+
+- `zeit_schichten.heimfahrt_minuten` (0–120, Vorgabe 0). `zeit_schicht_json()` gibt sie mit aus –
+  Vorher/Nachher jeder Korrektur zeigt sie.
+- `zeit_feierabend()` – ausstempeln mit Heimfahrt, mit den Prüfungen oben (Tag = Kalendertag in
+  Nürnberg). `zeit_heimfahrt_setzen(schicht, minuten, grund)` – Korrektur, nur „Zeiten aller ·
+  schreiben“; gleicher Wert schreibt nichts.
+- `user_settings.stempel_erinnerung_aktiv` (Vorgabe an); `push_stempel_erinnerung` (Person, Tag, Art –
+  Schlüssel für „einmal je Tag“; nur der Versand, RLS ohne Richtlinie; älter als 30 Tage räumt der
+  Versand ab).
+
 ## Code
 
 | Datei | Was |
@@ -113,6 +154,8 @@ Fassung. Die eigenen Zeiten kann niemand selbst ändern.
 | `components/zeit/` | Karte, Anzeige, Blatt, Bereich – `tests/zeitOberflaeche.test.tsx` |
 | `components/zeit/ZeitMonat.tsx`, `ZeitNachweis.tsx`, `UrlaubBlatt.tsx` | Monat, Nachweis zum Drucken, Urlaub (v136) |
 | `lib/download.ts` | Datei speichern (CSV) |
+| `components/zeit/FeierabendFrage.tsx` | „Für heute fertig?“ nach dem letzten Auftrag (v138) |
+| `lib/stempelErinnerung.ts`, `lib/stempelErinnerungVersand.ts` | Stempel-Erinnerung: Regeln (rein, `tests/stempelErinnerung.test.ts`) und Versand im Minutentakt |
 
 ## Datenschutz
 
@@ -123,3 +166,7 @@ Die Hinweise zur Pause und zu 10 Stunden sind Hinweise für Menschen; die App en
 Personen. Urlaub ist ein personenbezogenes Datum wie die Zeiten (gleiche Regeln, gleiche 2 Jahre);
 Krankheit wird bewusst nicht erfasst (Art. 9 DSGVO). Der Export enthält Namen und Zeiten – nur an
 Lohnbüro oder Steuerberater weitergeben, nicht offen ablegen.
+
+Die Heimfahrt ist eine Vergütungsregel des Betriebs; ob und wie sie arbeits- oder steuerrechtlich zu
+behandeln ist (Arbeitszeit, Fahrtzeit), klären Steuerberater bzw. Lohnbüro. Die Stempel-Erinnerung
+liest dafür Termine und Stempelstand – keine neuen Daten, kein Standort; jeder kann sie abschalten.

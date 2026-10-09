@@ -15,7 +15,7 @@ import { ABENDHINWEIS_UHRZEIT_STANDARD, ROLE_LABEL } from "@/lib/constants";
 // dort als eigener Reiter erreichbar – ein zweiter Weg an anderer Stelle macht die
 // Einstellungen unübersichtlich und lässt offen, welcher der "richtige" ist. `isAdmin` bleibt
 // als Prop, weil die Zeile "Angemeldet als …" die Rolle mit ausweist.
-export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTechniker = false, userEmail, datenStand, onAktualisieren, laedt, onLogout, onNeuigkeiten, neuigkeitenUngelesen = 0 }: {
+export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTechniker = false, stempelErinnerung = false, userEmail, datenStand, onAktualisieren, laedt, onLogout, onNeuigkeiten, neuigkeitenUngelesen = 0 }: {
   // „Was gibt es Neues" – nur für Admin und Superadmin gesetzt. Die Zahl sagt, wie viele
   // Fassungen seit dem letzten Öffnen dazugekommen sind.
   onNeuigkeiten?: () => void;
@@ -23,6 +23,8 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTec
   settings: UserSettings; onChange: (p: Partial<UserSettings>) => void; isAdmin: boolean; isSuperAdmin: boolean; userEmail: string;
   // Bis v108 stand beim Techniker „Nutzer" (gefunden beim Schreiben des Handbuchs, 02.10.2026).
   isTechniker?: boolean;
+  // Darf stempeln → Schalter „Stempel-Erinnerung“ (Migration 85).
+  stempelErinnerung?: boolean;
   // Wann der Kundenbestand zuletzt wirklich vom Server kam. Steht hier dauerhaft und nicht nur
   // im Offline-Balken: Wer wissen will, wie frisch seine Daten sind, sucht das in den
   // Einstellungen – und nicht erst dann, wenn ohnehin gerade kein Netz da ist.
@@ -36,6 +38,7 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTec
   const [abendZeit, setAbendZeit] = useState(settings.abendhinweis_uhrzeit || ABENDHINWEIS_UHRZEIT_STANDARD);
   const rolle = isSuperAdmin ? ROLE_LABEL.superadmin : isAdmin ? ROLE_LABEL.admin : isTechniker ? ROLE_LABEL.techniker : ROLE_LABEL.user;
   const abendAn = settings.abendhinweis_aktiv !== false;
+  const stempelAn = settings.stempel_erinnerung_aktiv !== false;
   // Die Wiedervorlage speichert jetzt bei jedem Schritt (vorher Zahlenfeld + eigener Knopf):
   // Ein Wert von 1 bis 24 ist mit − und + in wenigen Tipps erreicht und nie „halb getippt".
   const zeitraum = (n: number) => onChange({ period_months: Math.min(24, Math.max(1, n)) });
@@ -95,6 +98,20 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTec
           </div>
           <span className="small es-fuss">Eine Meldung mit Kunde und Lagerplatz für alle Aufträge von morgen, bei denen der Kunde Reifen bei uns liegen hat – an die eingeteilten Mitarbeiter, sonst an die Admins.</span>
         </div>
+
+        {stempelErinnerung && (
+          <div className="db-karte es-karte">
+            {/* Stempel-Erinnerung (Migration 85, v138). Je Person, wie der Abendhinweis. */}
+            <button type="button" className="es-zeile" aria-pressed={stempelAn} onClick={() => onChange({ stempel_erinnerung_aktiv: !stempelAn })}>
+              <span className="db-punkt-text">
+                <b>Stempel-Erinnerung</b>
+                <span className="small">„Einstempeln nicht vergessen“ und „Ausstempeln vergessen?“</span>
+              </span>
+              <span className={"nk-spur" + (stempelAn ? " an" : "")} aria-hidden="true"><span /></span>
+            </button>
+            <span className="small es-fuss">30 Minuten vor deinem ersten Termin, wenn du noch nicht eingestempelt bist – und 30 Minuten nach dem geplanten Ende des letzten, wenn du noch eingestempelt bist und der Auftrag nicht erledigt ist.</span>
+          </div>
+        )}
 
         <span className="op-gruppe-titel">ANZEIGE</span>
         <div className="db-karte es-karte">

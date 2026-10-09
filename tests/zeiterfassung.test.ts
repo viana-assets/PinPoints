@@ -160,10 +160,10 @@ describe("Monat und Urlaub (v136)", () => {
     expect(csv.startsWith("﻿Person;Datum;")).toBe(true);
     const zeilen = csv.trim().split("\r\n");
     expect(zeilen).toHaveLength(4);
-    expect(zeilen[1]).toBe('"Jan; Beispiel";05.10.2026;Mo;07:00;15:30;0:30;8:00;8,00;;');
-    expect(zeilen[2]).toBe('"Jan; Beispiel";12.10.2026;Mo;;;;;;8,00;');
+    expect(zeilen[1]).toBe('"Jan; Beispiel";05.10.2026;Mo;07:00;15:30;0:30;8:00;8,00;;;');
+    expect(zeilen[2]).toBe('"Jan; Beispiel";12.10.2026;Mo;;;;;;;8,00;');
     expect(zeilen[3]).toContain(";Summe;");
-    expect(zeilen[3]).toContain("1 Arbeitstage, 1 Urlaubstage");
+    expect(zeilen[3]).toContain("1 Arbeitstage, 1 Urlaubstage, 0× Heimfahrt");
     expect(exportDateiname("2026-10", "Jürgen Weiß")).toBe("arbeitszeiten-2026-10-juergen-weiss");
   });
 
@@ -179,5 +179,53 @@ describe("Monat und Urlaub (v136)", () => {
     expect(korrekturText(k(null, { art: "urlaub", tag: "2026-10-12", minuten: 480 }))).toBe("Urlaub 8:00 h eingetragen");
     expect(korrekturText(k({ art: "urlaub", tag: "2026-10-12", minuten: 480 }, { art: "urlaub", tag: "2026-10-12", minuten: 240 }))).toBe("Urlaub 8:00 h → 4:00 h");
     expect(korrekturTag(k({ art: "urlaub", tag: "2026-10-12", minuten: 480 }, null))).toBe("2026-10-12");
+  });
+});
+
+// Feierabend mit Heimfahrt (Migration 85, v138).
+import { heimfahrtMs, letzterAuftragHeute, ZEIT_HEIMFAHRT_MINUTEN } from "@/lib/zeiterfassung";
+
+describe("Heimfahrt (v138)", () => {
+  it("zählt zur Arbeitszeit, steht als „davon“ mit Anzahl in Tag, Woche, Monat und CSV", () => {
+    expect(ZEIT_HEIMFAHRT_MINUTEN).toBe(30);
+    const mit = schicht("h", "2026-10-05", "07:00", "15:30", [["12:00", "12:30"]], { heimfahrt_minuten: 30 });
+    expect(dauerText(arbeitMs(mit, 0))).toBe("8:30");
+    expect(heimfahrtMs(mit)).toBe(30 * 60_000);
+    const tag = tagAuswerten([mit], "2026-10-05", "2026-10-09", 0);
+    expect(dauerText(tag.arbeitMs)).toBe("8:30");
+    expect(dauerText(tag.heimfahrtMs)).toBe("0:30");
+    expect(dauerText(wocheAuswerten([mit], "2026-10-05", "2026-10-09", 0).heimfahrtMs)).toBe("0:30");
+    const m = monatAuswerten([mit, schicht("i", "2026-10-06", "07:00", "12:00", [], { heimfahrt_minuten: 30 }), schicht("j", "2026-10-07", "07:00", "12:00")], [], "2026-10", "2026-10-31", 0);
+    expect(m.heimfahrten).toBe(2);
+    expect(dauerText(m.heimfahrtMs)).toBe("1:00");
+    const csv = monatCsv([{ person: { id: "jan", name: "Jan", rolle: "" }, monat: m }]).trim().split("\r\n");
+    expect(csv[0]).toContain("davon Heimfahrt (Std.)");
+    expect(csv[1]).toBe("Jan;05.10.2026;Mo;07:00;15:30;0:30;8:30;8,50;0,50;;");
+    expect(csv[4]).toContain("2× Heimfahrt");
+  });
+
+  it("Korrektur nur der Heimfahrt heißt so", () => {
+    const v = { beginn: ort("2026-10-08", "08:00"), ende: ort("2026-10-08", "14:30"), pausen: [], heimfahrt_minuten: 0 };
+    const k = (vorher: object, nachher: object): ZeitKorrektur => ({ id: "k", schicht_id: "s", profile_id: "jan", vorher: vorher as never, nachher: nachher as never, grund: "g", von: null, am: "2026-10-09T10:00:00Z" });
+    expect(korrekturText(k(v, { ...v, heimfahrt_minuten: 30 }))).toBe("Heimfahrt 0:30 h gutgeschrieben");
+    expect(korrekturText(k({ ...v, heimfahrt_minuten: 30 }, v))).toBe("Heimfahrt 0:30 h entfernt");
+    expect(korrekturText(k(v, { ...v, ende: ort("2026-10-08", "15:00"), heimfahrt_minuten: 30 }))).toBe("Schicht 08:00 – 14:30 → 08:00 – 15:00, Heimfahrt 0:30");
+  });
+
+  it("„Für heute fertig?“ nur nach dem letzten eigenen Auftrag des Tages", () => {
+    const auftraege = [
+      { id: "o1", order_date: "2026-10-09", status: "offen" },
+      { id: "o2", order_date: "2026-10-09", status: "offen" },
+      { id: "o3", order_date: "2026-10-09", status: "offen" },
+      { id: "o4", order_date: "2026-10-10", status: "offen" },
+      { id: "o5", order_date: "2026-10-09", status: "offen", deleted_at: "x" },
+    ];
+    const zuteilung = { o1: ["jan"], o2: ["jan", "mira"], o3: ["mira"], o4: ["jan"], o5: ["jan"] };
+    const frage = (erledigtId: string, liste = auftraege, meine = ["jan"]) => letzterAuftragHeute({ erledigtId, heute: "2026-10-09", auftraege: liste, zuteilung, meineMitarbeiter: meine });
+    expect(frage("o1")).toBe(false); // o2 steht noch an
+    expect(frage("o2", auftraege.map((o) => (o.id === "o1" ? { ...o, status: "erledigt" } : o)))).toBe(true); // o3 ist Miras, o4 morgen, o5 gelöscht
+    expect(frage("o3")).toBe(false); // nicht meiner
+    expect(frage("o2", auftraege.map((o) => (o.id === "o1" ? { ...o, status: "in_arbeit" } : o)))).toBe(false);
+    expect(frage("o2", auftraege, [])).toBe(false); // ohne Mitarbeiter-Eintrag
   });
 });

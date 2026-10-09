@@ -542,3 +542,30 @@ zweites Mal. Ein Foto ohne Text heißt in der Meldung „📷 Foto“ – das Bi
 Zahl am Symbol zählt die Datenbank (`chat_ungelesen_von()`, Team und Einzelchats). Im selben
 Minutenlauf, aber nicht beim sofortigen Anstoß, entfernt `chatFotosAufraeumen()` die Dateien gelöschter
 oder aufgeräumter Fotonachrichten (`chatFotos` in der Antwort der Route).
+
+## Fünfte Nutzung: die Stempel-Erinnerung (09.10.2026, Migration 85, v138)
+
+**Wozu.** Wer stempeln darf und heute Termine hat, bekommt 30 Minuten vor dem ersten „Einstempeln nicht
+vergessen“ (wenn nicht eingestempelt) und 30 Minuten nach dem geplanten Ende des letzten „Ausstempeln
+vergessen?“ (wenn noch eingestempelt und der letzte Auftrag nicht erledigt ist – ist er erledigt, hat die
+App beim Abschließen schon „Für heute fertig?“ gefragt). Antippen öffnet die Stempeluhr (`/?stempeluhr=1`,
+`STEMPEL_PARAMETER`).
+
+> **Einstempeln nicht vergessen**
+> Dein erster Termin heute beginnt um 09:00 – du bist noch nicht eingestempelt.
+
+**Wie.** Im Minutentakt derselben Route (`lib/stempelErinnerungVersand.ts`, Ergebnis als `stempel` in der
+Antwort), Regeln rein in `lib/stempelErinnerung.ts`. Billig, solange nichts im Fenster liegt: erst die
+Termine von heute; nur wenn für jemanden jetzt etwas fällig sein könnte, werden Rechte, Einstellungen,
+Geräte und Stempelstand gelesen. „Erst eintragen, dann senden“ gegen `push_stempel_erinnerung` (Person,
+Tag, Art) – einmal je Tag und Art. Verpasste Meldungen werden höchstens eine Stunde nachgeholt
+(`STEMPEL_ERINNERUNG_NACHHOLEN_MIN`).
+
+**Empfänger:** die zugeteilten Mitarbeiter mit Konto, deren Rolle `zeiterfassung · schreiben` hat (der
+Superadmin immer), mit angemeldetem Gerät und eingeschalteter Erinnerung (Einstellungen,
+`user_settings.stempel_erinnerung_aktiv`).
+
+**Und im Team-Chat seit Migration 85:** Hat eine Chat-Meldung ein Gerät erreicht, meldet der Versand die
+Nachricht beim Empfänger als „angekommen“ (`chat_zugestellt_setzen()`) – das sind die zwei grauen Haken
+beim Schreiber (`docs/team-chat.md`).
+

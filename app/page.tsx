@@ -7,7 +7,7 @@ import type {
   Customer, ContactHistoryEntry, UserSettings, Warehouse, StorageSlot, TireStorage, Order,
   Vehicle, Role, Employee, Article, ArticlePrice, ArtikelFelder, OrderArticle, Saison,
   Firmenfahrzeug, EingelagertesRad, Rechnung, Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
-  AuftragBeleg,
+  AuftragBeleg, OrderStatus,
 } from "@/lib/types";
 import {
   todayStr, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
@@ -29,7 +29,7 @@ import { KartenKundeKarte } from "@/components/karte/KartenKundeKarte";
 import { addDays, employeeColorFor, toDateStr } from "@/lib/calendar";
 import {
   type KundenFilter, TERMIN_FILTER, type TerminFilter, RECHTE_VORGABE, KUNDE_PARAMETER, AUFTRAG_PARAMETER,
-  regelZerlegen, ANRUF_PARAMETER, MITNEHMEN_PARAMETER, CHAT_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD, PROFIL_KRITISCH_MM,
+  regelZerlegen, ANRUF_PARAMETER, MITNEHMEN_PARAMETER, CHAT_PARAMETER, STEMPEL_PARAMETER, ABENDHINWEIS_UHRZEIT_STANDARD, PROFIL_KRITISCH_MM,
   STANDARD_DAUER_MIN, type Verb,
 } from "@/lib/constants";
 import {
@@ -62,10 +62,11 @@ import { useChat } from "./_seite/useChat";
 import { useZeiterfassung } from "./_seite/useZeiterfassung";
 import { StempelKarte } from "@/components/zeit/StempelKarte";
 import { StempelBlatt } from "@/components/zeit/StempelBlatt";
+import { FeierabendFrage } from "@/components/zeit/FeierabendFrage";
 import { UhrPille } from "@/components/zeit/UhrPille";
 import { ZeitPanel } from "@/components/zeit/ZeitPanel";
 import { ZeitBlase } from "@/components/zeit/ZeitBlase";
-import { arbeitMs, uhrzeitVon } from "@/lib/zeiterfassung";
+import { arbeitMs, letzterAuftragHeute, uhrzeitVon } from "@/lib/zeiterfassung";
 // Die Symbole der Navigation stehen jetzt in der Modulliste (lib/module.ts). Hier bleiben nur
 // die, die außerhalb der Navigation gebraucht werden – Dashboard-Kacheln, Karten-Umschalter,
 // Marke.
@@ -1540,6 +1541,16 @@ export default function HomePage() {
   const darfZeit = darf("zeiterfassung", "lesen");
   const zeit = useZeiterfassung({ supabase, aktiv: sitzungBereit && darfZeit, meineId });
   const darfStempeln = darf("zeiterfassung", "schreiben");
+  // „Für heute fertig?“ nach dem letzten Auftrag des Tages (Migration 85, v138).
+  const [feierabendFrage, setFeierabendFrage] = useState(false);
+  async function auftragsStatusSetzen(id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
+    await updateOrderStatus(id, status, grund);
+    if (status !== "erledigt" || !darfStempeln || !zeit.schicht || zeit.schicht.ende) return;
+    const meineMitarbeiter = employees.filter((e) => e.profile_id === meineId).map((e) => e.id);
+    if (letzterAuftragHeute({ erledigtId: id, heute: todayStr(), auftraege: orders, zuteilung: orderEmployees, meineMitarbeiter })) {
+      setFeierabendFrage(true);
+    }
+  }
   // Die abgeschlossenen Schichten dieser Woche; die laufende zählt die Stempeluhr selbst dazu.
   const zeitWocheAbgeschlossenMs = zeit.wocheSchichten.filter((s) => s.ende).reduce((summe, s) => summe + arbeitMs(s, 0), 0);
   const stempelKarteProps = {
@@ -2065,6 +2076,11 @@ export default function HomePage() {
       chat.oeffnen(chatZielAus(parameter.get(CHAT_PARAMETER)));
       return;
     }
+    // Stempel-Erinnerung (Migration 85): die Stempeluhr öffnen.
+    if (parameter.get(STEMPEL_PARAMETER)) {
+      zeit.setBlattOffen(true);
+      return;
+    }
     const anrufId = parameter.get(ANRUF_PARAMETER);
     if (anrufId) {
       setAnrufKundeId(anrufId);
@@ -2111,7 +2127,7 @@ export default function HomePage() {
   useEffect(() => {
     const parameter = sprungDieserLadung();
     if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER) && !parameter.get(ANRUF_PARAMETER)
-      && !parameter.get(MITNEHMEN_PARAMETER) && !parameter.get(CHAT_PARAMETER)) return;
+      && !parameter.get(MITNEHMEN_PARAMETER) && !parameter.get(CHAT_PARAMETER) && !parameter.get(STEMPEL_PARAMETER)) return;
     zielOeffnen(parameter);
   }, []);
 
@@ -2759,6 +2775,7 @@ export default function HomePage() {
             isAdmin={isAdmin}
             isSuperAdmin={isSuperAdmin}
             isTechniker={isTechniker}
+            stempelErinnerung={darfStempeln}
             userEmail={userEmail}
             datenStand={kundenQuery.dataUpdatedAt}
             onAktualisieren={() => { void queryClient.invalidateQueries(); }}
@@ -2943,6 +2960,7 @@ export default function HomePage() {
       {sitzungBereit && darfZeit && tab !== "zeit" && !positionSetzenFuer && (
         <div className="zt-schwebend"><UhrPille schicht={zeit.schicht} versatzMs={zeit.versatzMs} onClick={() => zeit.setBlattOffen(true)} /></div>
       )}
+      {feierabendFrage && <FeierabendFrage onJa={zeit.feierabend} onClose={() => setFeierabendFrage(false)} />}
       {zeit.blattOffen && (
         <StempelBlatt {...stempelKarteProps}
           onZurUebersicht={canView("zeiterfassung") ? () => { zeit.setBlattOffen(false); setTab("zeit"); } : undefined}
@@ -2991,6 +3009,7 @@ export default function HomePage() {
           hatMehr={chat.hatMehr}
           laedtMehr={chat.laedtMehr}
           onMehrLaden={chat.mehrLaden}
+          haken={chat.haken}
           kannOeffnen={chatBezugKannOeffnen}
           onBezugOeffnen={chatBezugOeffnen}
           onClose={chat.schliessen}
@@ -3271,7 +3290,7 @@ export default function HomePage() {
           firmenfahrzeuge={firmenfahrzeuge}
           onSetFirmenfahrzeug={setOrderFirmenfahrzeug}
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
-          onSetStatus={updateOrderStatus}
+          onSetStatus={auftragsStatusSetzen}
           // Kein Knopf für den, der Rechnungen nicht einmal lesen darf. Ein Knopf, der ein
           // Fenster mit lauter abgeschalteten Schaltern öffnet, ist schlechter als keiner.
           onRechnungOeffnen={darf("rechnungen", "lesen") ? (id) => setRechnungAuftragId(id) : undefined}

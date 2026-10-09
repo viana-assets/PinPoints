@@ -4041,6 +4041,11 @@ button.ch-bezug:hover{background:#efe8da;}
 .ch-foto-vorschau span{flex:1;min-width:0;font-size:12.5px;color:var(--muted);}
 .ch-kamera svg{width:19px;height:19px;fill:currentColor;}
 .ch-plus-knopf:disabled{opacity:.45;cursor:default;}
+/* Haken an der eigenen Nachricht (Migration 85, v138) */
+.ch-haken{display:inline-flex;vertical-align:-1px;margin-left:4px;}
+.ch-haken svg{width:16px;height:10px;fill:none;stroke:#8a8476;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;}
+.ch-haken.gesendet svg{width:12px;}
+.ch-haken.gelesen svg{stroke:var(--green);}
 /* Groß: Ebene 10004 wie Foto/Unterschrift am Auftrag */
 .ch-gross{z-index:10004;background:rgba(0,0,0,.88);align-items:center;justify-content:center;padding:16px;}
 .ch-gross img{max-width:100%;max-height:100%;object-fit:contain;border-radius:6px;}
@@ -4327,7 +4332,7 @@ button.zt-tag{cursor:pointer;}
 .zt-export{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px;}
 .zt-warn-text{color:#7a4c00;font-weight:700;}
 /* Monatstabelle aller: Person, Tage, Arbeit, Pausen, Urlaub, Summe, Hinweise. */
-.zt-m{display:grid;grid-template-columns:minmax(130px,2fr) minmax(0,.7fr) repeat(4,minmax(0,1fr)) minmax(0,1.1fr);align-items:center;
+.zt-m{display:grid;grid-template-columns:minmax(130px,2fr) minmax(0,.7fr) repeat(5,minmax(0,1fr)) minmax(0,1.1fr);align-items:center;
   border-bottom:1px solid #f1ece2;width:100%;}
 .zt-m:last-child{border-bottom:none;}
 .zt-m > *{padding:9px 4px;text-align:center;font-variant-numeric:tabular-nums;min-width:0;}
@@ -4365,3 +4370,9 @@ button.zt-m-zeile:hover{background:var(--hover);}
   .zn-tabelle{font-size:10px;}
   .zn-tabelle th,.zn-tabelle td{padding:2px 5px;}
 }
+
+/* Heimfahrt und Feierabend (Migration 85, v138) */
+.zt-heimfahrt{color:var(--green);font-weight:600;}
+.zt-heimfahrt-wahl{display:flex;align-items:center;gap:8px;font-size:13.5px;padding:4px 0;}
+.zt-heimfahrt-wahl input{width:18px;height:18px;}
+.zt-feierabend-text{font-size:15px;line-height:1.45;margin:0 0 6px;}

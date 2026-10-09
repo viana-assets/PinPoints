@@ -2,8 +2,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   antwortVorschau, bezugAus, bezugGeloescht, CHAT_REAKTIONEN, chatListe, darfBearbeiten, darfLoeschen, meineReaktion, reaktionenZaehlen,
   reaktionNachTipp, CHAT_BEZUG_ANSICHT, CHAT_TEXT_MAX, erwaehnteIds, erwaehnungEinsetzen, erwaehnungsAnfrage, erwaehnungsVorschlaege,
-  initialen, nachTagen, personenFarbe, textTeile, uhrzeit, ungelesenAnderswo, zahlText,
-  type ChatBezug, type ChatFotoAuswahl, type ChatNachricht, type ChatPerson, type ChatUnterhaltung,
+  initialen, nachTagen, personenFarbe, textTeile, uhrzeit, ungelesenAnderswo, zahlText, hakenStatus, CHAT_HAKEN_TEXT,
+  type ChatBezug, type ChatFotoAuswahl, type ChatHaken, type ChatHakenStatus, type ChatNachricht, type ChatPerson, type ChatUnterhaltung,
 } from "@/lib/chat";
 import { ROLE_LABEL } from "@/lib/constants";
 import { bildVerkleinern } from "@/lib/belegBild";
@@ -58,6 +58,8 @@ type Props = {
   hatMehr?: boolean;
   laedtMehr?: boolean;
   onMehrLaden?: () => void;
+  // Haken an den eigenen Nachrichten (Migration 85): bis wann angekommen/gelesen.
+  haken?: ChatHaken | null;
   // Verkleinern vor dem Hochladen – austauschbar für die Tests (jsdom hat kein Canvas).
   fotoVerkleinern?: (datei: Blob) => Promise<ChatFotoAuswahl>;
   // Kann diese Rolle die Karte öffnen? Sonst ist sie nur zu lesen.
@@ -416,7 +418,10 @@ export function ChatFenster(p: Props) {
                           )}
                         </>
                       )}
-                      <div className="ch-zeit">{n.bearbeitet_am && !weg ? "bearbeitet · " : ""}{uhrzeit(n.created_at)}</div>
+                      <div className="ch-zeit">
+                        {n.bearbeitet_am && !weg ? "bearbeitet · " : ""}{uhrzeit(n.created_at)}
+                        {eigen && !weg && <Haken status={hakenStatus(n.created_at, p.haken)} />}
+                      </div>
                       {aktionen && (
                         <button type="button" className={"ch-mehr" + (offen ? " an" : "")} onClick={() => { setLoeschFrage(null); setAktionenFuer(offen ? null : n.id); }}
                           aria-label="Reagieren oder antworten" aria-expanded={offen}>☺</button>
@@ -566,6 +571,19 @@ export function ChatFenster(p: Props) {
       </div>
       {gross && <ChatFotoGross link={gross} onClose={() => setGross(null)} />}
     </div>
+  );
+}
+
+// ✓ gesendet, ✓✓ grau angekommen, ✓✓ grün gelesen (Migration 85, wie bei WhatsApp).
+function Haken({ status }: { status: ChatHakenStatus }) {
+  return (
+    <span className={"ch-haken " + status} role="img" aria-label={CHAT_HAKEN_TEXT[status]} title={CHAT_HAKEN_TEXT[status]}>
+      <svg viewBox="0 0 18 11" aria-hidden="true">
+        {status === "gesendet"
+          ? <path d="M1.5 5.8 4.6 9 11 2" />
+          : <><path d="M1 5.8 4.1 9 10.5 2" /><path d="M7 7.6 8.4 9 14.8 2" /></>}
+      </svg>
+    </span>
   );
 }
 

@@ -215,4 +215,22 @@ describe("Team-Chat: Push je Nachricht", () => {
     expect(abgehakt).toEqual(["jan/a.jpg", "chef/b.jpg"]);
     expect(await chatFotosAufraeumen(falscheDatenbank(db))).toEqual({ entfernt: 0 });
   });
+
+  it("Haken: nach zugestellter Meldung „angekommen“ je Empfänger und Unterhaltung melden (Migration 85)", async () => {
+    weg.add("handy-super");
+    db.chat_nachrichten.push(
+      nachricht("t1", "jan", { created_at: vor(1) }),
+      nachricht("t2", "jan", { created_at: vor(0) }),
+      nachricht("d1", "jan", { kanal: "direkt", an: "chef", created_at: vor(0) }),
+    );
+    const aufrufe: Record<string, unknown>[] = [];
+    const rpc: Rpc = (name, args) => { if (name === "chat_zugestellt_setzen") { aufrufe.push(args); return { data: null, error: null }; } return fehlt(name, args); };
+    await chatNachrichtenVersenden(falscheDatenbank(db, rpc));
+    const bisVon = (profil: string, partner: string | null) => aufrufe.find((a) => a.p_profile === profil && a.p_partner === partner)?.p_bis;
+    expect(bisVon("chef", null)).toBe(db.chat_nachrichten.find((n) => n.id === "t2")!.created_at);
+    expect(bisVon("chef", "jan")).toBe(db.chat_nachrichten.find((n) => n.id === "d1")!.created_at);
+    // Das Gerät des Superadmins war weg – bei ihm ist nichts angekommen.
+    expect(aufrufe.some((a) => a.p_profile === "super")).toBe(false);
+    expect(aufrufe).toHaveLength(2);
+  });
 });

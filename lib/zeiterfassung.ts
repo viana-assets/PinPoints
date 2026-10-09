@@ -8,6 +8,11 @@ import { datumKurz } from "./dashboard";
 // Eine Schicht gehört zu dem Tag, an dem sie begonnen hat – auch wenn sie über Mitternacht geht.
 // Die Hinweise (Pause zu kurz, über 10 Stunden, offen) sind Hinweise, keine Entscheidungen: Es wird
 // nichts gekürzt und nichts von selbst beendet.
+//
+// Heimfahrt (Migration 85, v138): Wer nach dem letzten Auftrag des Tages „Für heute fertig? – Ja“
+// sagt, wird ausgestempelt und bekommt ZEIT_HEIMFAHRT_MINUTEN gutgeschrieben (`heimfahrt_minuten`
+// an der Schicht). Die Heimfahrt zählt zur Arbeitszeit – sie wird vergütet – und steht überall
+// zusätzlich als „davon Heimfahrt“ mit Anzahl, damit man sieht, wie oft sie gutgeschrieben wurde.
 
 export type ZeitPause = { id?: string; beginn: string; ende: string | null };
 export type ZeitSchicht = {
@@ -18,6 +23,8 @@ export type ZeitSchicht = {
   korrigiert_am?: string | null;
   korrigiert_von?: string | null;
   korrektur_grund?: string | null;
+  // Gutgeschriebene Heimfahrt in Minuten (Migration 85); 0 = keine.
+  heimfahrt_minuten?: number | null;
   pausen: ZeitPause[];
 };
 export type ZeitStatus = { jetzt: string; schicht: ZeitSchicht | null };
@@ -44,14 +51,22 @@ export const ZEIT_HINWEIS_TEXT: Record<TagHinweis, string> = {
 };
 
 const MIN = 60_000;
+
+// Die Heimfahrt nach „Für heute fertig? – Ja“. Dieselbe Zahl schreibt die Datenbank
+// (`zeit_feierabend()`, Migration 85). Wer eine Stelle ändert, ändert beide.
+export const ZEIT_HEIMFAHRT_MINUTEN = 30;
 const t = (iso: string) => new Date(iso).getTime();
 
 export function pauseMs(s: Pick<ZeitSchicht, "pausen">, jetzt: number): number {
   return s.pausen.reduce((sum, p) => sum + Math.max(0, (p.ende ? t(p.ende) : jetzt) - t(p.beginn)), 0);
 }
 
-export function arbeitMs(s: Pick<ZeitSchicht, "beginn" | "ende" | "pausen">, jetzt: number): number {
-  return Math.max(0, (s.ende ? t(s.ende) : jetzt) - t(s.beginn) - pauseMs(s, jetzt));
+// Arbeitszeit einer Schicht: gestempelt ohne Pausen, plus gutgeschriebene Heimfahrt (seit v138).
+export function arbeitMs(s: Pick<ZeitSchicht, "beginn" | "ende" | "pausen"> & { heimfahrt_minuten?: number | null }, jetzt: number): number {
+  return Math.max(0, (s.ende ? t(s.ende) : jetzt) - t(s.beginn) - pauseMs(s, jetzt)) + heimfahrtMs(s);
+}
+export function heimfahrtMs(s: { heimfahrt_minuten?: number | null }): number {
+  return Math.max(0, s.heimfahrt_minuten ?? 0) * MIN;
 }
 
 export function zustand(s: Pick<ZeitSchicht, "ende" | "pausen"> | null | undefined): StempelZustand {
@@ -130,8 +145,10 @@ export function pauseZuKurz(arbeitMinuten: number, pauseMinuten: number): boolea
 
 export type TagAuswertung = {
   tag: string;
+  // Arbeitszeit einschließlich Heimfahrt; `heimfahrtMs` ist der Anteil daran (v138).
   arbeitMs: number;
   pauseMs: number;
+  heimfahrtMs: number;
   schichten: ZeitSchicht[];
   laeuft: boolean;
   hinweise: TagHinweis[];
@@ -144,16 +161,17 @@ export function tagAuswerten(schichten: ZeitSchicht[], tag: string, heute: strin
   const zaehlt = (s: ZeitSchicht) => !!s.ende || tag >= heute;
   const arbeit = liste.filter(zaehlt).reduce((sum, s) => sum + arbeitMs(s, jetzt), 0);
   const pause = liste.filter(zaehlt).reduce((sum, s) => sum + pauseMs(s, jetzt), 0);
+  const heimfahrt = liste.filter(zaehlt).reduce((sum, s) => sum + heimfahrtMs(s), 0);
   const hinweise: TagHinweis[] = [];
   const offen = liste.some((s) => !s.ende);
   if (offen && tag < heute) hinweise.push("offen");
   if (pauseZuKurz(arbeit / MIN, pause / MIN) && !(offen && tag === heute)) hinweise.push("pause");
   if (arbeit / MIN > ZEIT_TAG_MAX_MINUTEN) hinweise.push("lang");
   if (liste.some((s) => s.korrigiert_am)) hinweise.push("korrigiert");
-  return { tag, arbeitMs: arbeit, pauseMs: pause, schichten: liste, laeuft: offen && tag === heute, hinweise };
+  return { tag, arbeitMs: arbeit, pauseMs: pause, heimfahrtMs: heimfahrt, schichten: liste, laeuft: offen && tag === heute, hinweise };
 }
 
-export type WochenAuswertung = { tage: TagAuswertung[]; arbeitMs: number; pauseMs: number; arbeitstage: number };
+export type WochenAuswertung = { tage: TagAuswertung[]; arbeitMs: number; pauseMs: number; heimfahrtMs: number; arbeitstage: number };
 
 export function wocheAuswerten(schichten: ZeitSchicht[], montag: string, heute: string, jetzt: number): WochenAuswertung {
   const tage = wochenTage(montag).map((tag) => tagAuswerten(schichten, tag, heute, jetzt));
@@ -161,6 +179,7 @@ export function wocheAuswerten(schichten: ZeitSchicht[], montag: string, heute: 
     tage,
     arbeitMs: tage.reduce((s, x) => s + x.arbeitMs, 0),
     pauseMs: tage.reduce((s, x) => s + x.pauseMs, 0),
+    heimfahrtMs: tage.reduce((s, x) => s + x.heimfahrtMs, 0),
     arbeitstage: tage.filter((x) => x.schichten.length > 0).length,
   };
 }
@@ -252,7 +271,7 @@ export const ZEIT_URLAUB_VORGABEN = [
 
 // Eine Korrektur, wie sie `zeit_korrekturen` festhält: Schicht (vorher/nachher als Schicht-JSON)
 // oder Urlaub (`art: "urlaub"`, Tag und Minuten). Leeres `vorher` = neu, leeres `nachher` = gelöscht.
-type KorrekturSchicht = { beginn: string; ende: string | null; pausen: { beginn: string; ende: string | null }[] };
+type KorrekturSchicht = { beginn: string; ende: string | null; pausen: { beginn: string; ende: string | null }[]; heimfahrt_minuten?: number | null };
 type KorrekturUrlaub = { art: "urlaub"; tag: string; minuten: number };
 export type ZeitKorrektur = {
   id: string;
@@ -278,7 +297,8 @@ export function korrekturTag(k: ZeitKorrektur): string | null {
 
 function schichtKurz(x: KorrekturSchicht): string {
   const p = x.pausen.filter((y) => y.ende).reduce((s, y) => s + (t(y.ende as string) - t(y.beginn)), 0);
-  return `${schichtSpanne(x)}${p ? `, Pause ${dauerText(p)}` : ""}`;
+  const h = x.heimfahrt_minuten ?? 0;
+  return `${schichtSpanne(x)}${p ? `, Pause ${dauerText(p)}` : ""}${h ? `, Heimfahrt ${dauerText(h * MIN)}` : ""}`;
 }
 
 // „Schicht 08:00 – jetzt → 08:00 – 14:30, Pause 0:30“, „Urlaub 8:00 h eingetragen“ …
@@ -291,7 +311,15 @@ export function korrekturText(k: ZeitKorrektur): string {
   }
   if (!v && n) return `Schicht nachgetragen: ${schichtKurz(n as KorrekturSchicht)}`;
   if (v && !n) return `Schicht gelöscht: ${schichtKurz(v as KorrekturSchicht)}`;
-  if (v && n) return `Schicht ${schichtKurz(v as KorrekturSchicht)} → ${schichtKurz(n as KorrekturSchicht)}`;
+  if (v && n) {
+    // Nur die Heimfahrt geändert (Migration 85): das sagen, statt zweimal dieselbe Schicht zu zeigen.
+    const hv = (v as KorrekturSchicht).heimfahrt_minuten ?? 0, hn = (n as KorrekturSchicht).heimfahrt_minuten ?? 0;
+    const ohne = (x: KorrekturSchicht) => schichtKurz({ ...x, heimfahrt_minuten: 0 });
+    if (hv !== hn && ohne(v as KorrekturSchicht) === ohne(n as KorrekturSchicht)) {
+      return hn ? `Heimfahrt ${dauerText(hn * MIN)} h gutgeschrieben` : `Heimfahrt ${dauerText(hv * MIN)} h entfernt`;
+    }
+    return `Schicht ${schichtKurz(v as KorrekturSchicht)} → ${schichtKurz(n as KorrekturSchicht)}`;
+  }
   return "Korrektur";
 }
 
@@ -329,6 +357,9 @@ export type MonatsAuswertung = {
   arbeitMs: number;
   pauseMs: number;
   urlaubMs: number;
+  // Davon Heimfahrt (in `arbeitMs` enthalten) und wie oft sie gutgeschrieben wurde (v138).
+  heimfahrtMs: number;
+  heimfahrten: number;
   arbeitstage: number;
   urlaubstage: number;
   hinweise: number;
@@ -344,6 +375,8 @@ export function monatAuswerten(schichten: ZeitSchicht[], urlaub: ZeitAbwesenheit
     arbeitMs: tage.reduce((s, x) => s + x.arbeitMs, 0),
     pauseMs: tage.reduce((s, x) => s + x.pauseMs, 0),
     urlaubMs: tage.reduce((s, x) => s + x.urlaubMs, 0),
+    heimfahrtMs: tage.reduce((s, x) => s + x.heimfahrtMs, 0),
+    heimfahrten: tage.reduce((s, x) => s + x.schichten.filter((z) => heimfahrtMs(z) > 0 && (!!z.ende || x.tag >= heute)).length, 0),
     arbeitstage: tage.filter((x) => x.schichten.length > 0).length,
     urlaubstage: tage.filter((x) => x.urlaubMs > 0).length,
     hinweise: tage.filter((x) => x.hinweise.some((h) => h !== "korrigiert")).length,
@@ -379,7 +412,7 @@ function csvFeld(wert: string): string {
 // Summenzeile je Person. Semikolon, Dezimalkomma, UTF-8 mit BOM – so öffnet Excel die Datei richtig.
 // Offene Schichten vergangener Tage zählen wie überall erst nach der Korrektur.
 export function monatCsv(zeilen: { person: ZeitPerson; monat: MonatsAuswertung }[]): string {
-  const kopf = ["Person", "Datum", "Wochentag", "Beginn", "Ende", "Pausen (h:mm)", "Arbeitszeit (h:mm)", "Arbeitszeit (Std.)", "Urlaub (Std.)", "Hinweise"];
+  const kopf = ["Person", "Datum", "Wochentag", "Beginn", "Ende", "Pausen (h:mm)", "Arbeitszeit (h:mm)", "Arbeitszeit (Std.)", "davon Heimfahrt (Std.)", "Urlaub (Std.)", "Hinweise"];
   const out: string[][] = [kopf];
   for (const { person, monat } of zeilen) {
     for (const x of monat.tage) {
@@ -392,12 +425,14 @@ export function monatCsv(zeilen: { person: ZeitPerson; monat: MonatsAuswertung }
         x.schichten.length ? dauerText(x.pauseMs) : "",
         x.schichten.length ? dauerText(x.arbeitMs) : "",
         x.schichten.length ? stundenDezimal(x.arbeitMs) : "",
+        x.heimfahrtMs ? stundenDezimal(x.heimfahrtMs) : "",
         x.urlaubMs ? stundenDezimal(x.urlaubMs) : "",
         x.hinweise.map((h) => ZEIT_HINWEIS_TEXT[h]).join(", "),
       ]);
     }
     out.push([person.name, "Summe", "", "", "", dauerText(monat.pauseMs), dauerText(monat.arbeitMs), stundenDezimal(monat.arbeitMs),
-      stundenDezimal(monat.urlaubMs), `${monat.arbeitstage} Arbeitstage, ${monat.urlaubstage} Urlaubstage`]);
+      stundenDezimal(monat.heimfahrtMs), stundenDezimal(monat.urlaubMs),
+      `${monat.arbeitstage} Arbeitstage, ${monat.urlaubstage} Urlaubstage, ${monat.heimfahrten}× Heimfahrt`]);
   }
   return "﻿" + out.map((z) => z.map(csvFeld).join(";")).join("\r\n") + "\r\n";
 }
@@ -405,4 +440,26 @@ export function monatCsv(zeilen: { person: ZeitPerson; monat: MonatsAuswertung }
 export function exportDateiname(monat: string, wer: string): string {
   const name = wer.toLowerCase().replace(/ä/g, "ae").replace(/ö/g, "oe").replace(/ü/g, "ue").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return `arbeitszeiten-${monat}-${name || "export"}`;
+}
+
+// ---------------------------------------------------------------------------------------------
+// Feierabend (Migration 85, v138)
+// ---------------------------------------------------------------------------------------------
+
+// War das eben erledigte der letzte eigene Auftrag des Tages? Dann fragt die App „Für heute
+// fertig?“. Eigen = einer meiner Mitarbeiter-Einträge ist zugeteilt. Letzter = heute steht für mich
+// kein Auftrag mehr offen oder in Arbeit. Dieselbe Bedingung prüft die Datenbank in
+// `zeit_feierabend()` noch einmal, bevor sie die Heimfahrt gutschreibt.
+export function letzterAuftragHeute(a: {
+  erledigtId: string;
+  heute: string;
+  auftraege: { id: string; order_date: string; status: string; deleted_at?: string | null }[];
+  zuteilung: Record<string, string[] | undefined>;
+  meineMitarbeiter: string[];
+}): boolean {
+  if (a.meineMitarbeiter.length === 0) return false;
+  const meiner = (id: string) => (a.zuteilung[id] ?? []).some((m) => a.meineMitarbeiter.includes(m));
+  if (!meiner(a.erledigtId)) return false;
+  return !a.auftraege.some((o) => o.id !== a.erledigtId && o.order_date === a.heute && !o.deleted_at
+    && (o.status === "offen" || o.status === "in_arbeit") && meiner(o.id));
 }

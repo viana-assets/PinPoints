@@ -11,7 +11,7 @@ import {
   CHAT_LADEN_ANZAHL, CHAT_NACHLADEN_ANZAHL,
   type ChatBezug, type ChatFotoAuswahl, type ChatNachricht, type ChatPerson, type ChatUnterhaltung,
 } from "@/lib/chat";
-import { useChatFotoLinks, useChatNachrichten, useChatPersonen, useChatUngelesen, useChatUnterhaltungen } from "@/lib/queries/hooks";
+import { useChatFotoLinks, useChatHaken, useChatNachrichten, useChatPersonen, useChatUngelesen, useChatUnterhaltungen } from "@/lib/queries/hooks";
 import { qk } from "@/lib/queries/keys";
 
 // Der Team-Chat auf der Startseite (Migration 80, v129): ob er offen ist, welche Karte an der
@@ -53,6 +53,7 @@ export function useChat({ supabase, aktiv, meineId }: ChatKontext) {
   const ungelesenQuery = useChatUngelesen(supabase, aktiv);
   const personenQuery = useChatPersonen(supabase, aktiv && offen);
   const unterhaltungenQuery = useChatUnterhaltungen(supabase, aktiv && offen);
+  const hakenQuery = useChatHaken(supabase, aktiv && offen, partner);
 
   // Live: jede neue oder geänderte Zeile in `chat_nachrichten` macht Verlauf, Liste und Zahl
   // ungültig. Was die Rolle nicht lesen darf (fremde Einzelchats), schickt Supabase Realtime gar
@@ -169,5 +170,6 @@ export function useChat({ supabase, aktiv, meineId }: ChatKontext) {
     personen: personenQuery.data ?? KEINE_PERSONEN,
     unterhaltungen: unterhaltungenQuery.data ?? KEINE_UNTERHALTUNGEN,
     fotoLinks,
+    haken: hakenQuery.data ?? null,
   };
 }

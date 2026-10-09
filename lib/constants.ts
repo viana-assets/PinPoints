@@ -519,6 +519,9 @@ export const MITNEHMEN_PARAMETER = "mitnehmen";
 // Team-Chat (Migration 80): `/?chat=1` öffnet den Chat. Die Push-Meldung einer neuen Nachricht
 // führt dorthin, nicht in den Auftrag der Karte – man will erst lesen, was dazu geschrieben wurde.
 export const CHAT_PARAMETER = "chat";
+// Stempel-Erinnerung (Migration 85): `/?stempeluhr=1` öffnet die Stempeluhr – aus der Meldung
+// „Einstempeln nicht vergessen“ bzw. „Ausstempeln vergessen?“.
+export const STEMPEL_PARAMETER = "stempeluhr";
 
 // Wann der Abendhinweis kommt, solange jemand nichts anderes einstellt. Dieselbe Vorgabe steht
 // als Spaltenvorgabe in der Datenbank (`user_settings.abendhinweis_uhrzeit`, Migration 55) –

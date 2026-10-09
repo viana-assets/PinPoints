@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **09.10.2026 – Haken im Chat, Feierabend mit Heimfahrt, Stempel-Erinnerung (Migration 85, Service
+  Worker v138).** Wunsch Vitali: ✓ / ✓✓ grau / ✓✓ grün wie bei WhatsApp (nur Haken, keine Namen);
+  „Für heute fertig?“ nach dem letzten Auftrag – „Ja“ stempelt aus und schreibt 30 Minuten Heimfahrt gut
+  (sichtbar mit Anzahl in Monat, Nachweis, CSV); Push „Einstempeln nicht vergessen“ / „Ausstempeln
+  vergessen?“, je Person abschaltbar. `docs/team-chat.md`, `docs/zeiterfassung.md`.
+
 * **08.10.2026 – Team-Chat: Einzelchats, Bearbeiten/Löschen, Fotos (Migration 84, Service Worker
   v137).** Fahrplan E19, Auswahl Vitali: Einzelchats (lesen nur die beiden, auch kein Admin), eigene
   Nachricht 24 Stunden bearbeiten und jederzeit löschen, Fotos im Chat, ältere Nachrichten

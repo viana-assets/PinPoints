@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 83, 84** (siehe ganz unten). **Stand 08.10.2026: Die Migrationen 01–82 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb) –
+**Noch auszuführen: 85** (siehe ganz unten). **Stand 09.10.2026: Die Migrationen 01–84 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1101,7 +1101,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 
 ## Noch auszuführen
 
-- `83_zeit_urlaub.sql` – **noch auszuführen, vor dem Hochladen von v136.** Wunsch Vitali 08.10.2026
+- `83_zeit_urlaub.sql` – **ausgeführt** (vor v136). Wunsch Vitali 08.10.2026
   (Fahrplan E20, Auswahl „Urlaub als Eintrag“): Tabelle `zeit_abwesenheiten` (je Person und Tag eine
   Zeile, nur `art = 'urlaub'` – Krankheit wären Gesundheitsdaten nach Art. 9 DSGVO und kommen erst nach
   Rücksprache mit dem Datenschutz), Minuten 1–720; nur Leserichtlinie wie bei den Schichten;
@@ -1117,7 +1117,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   leerem Nachher; Aufräumen nach 2 Jahren. `t82.sql` gegen 82 und 82+83: gleiche Ausgabe. Ausgeführt,
   zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `84_chat_einzel_bearbeiten_fotos.sql` – **noch auszuführen, nach 83 und vor dem Hochladen von v137.**
+- `84_chat_einzel_bearbeiten_fotos.sql` – **ausgeführt** (vor v137; der SQL-Editor bot „Run and enable RLS“ für `private.chat_fotos_weg` an – gewählt, Migration 85 setzt es zusätzlich).
   Wunsch Vitali 08.10.2026 (Fahrplan E19, Auswahl „Bearbeiten/Löschen, Fotos, Einzelchats, Ältere
   nachladen“): `chat_nachrichten` bekommt `an`, `bearbeitet_am`, `geloescht_am`, `foto_pfad`/`_breite`/`_hoehe`;
   Prüfregeln `chat_kanal_bekannt` (team oder direkt mit Empfänger, nie an sich selbst), `chat_text_laenge`
@@ -1148,3 +1148,27 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   gleiche Ausgabe bis auf zwei gewollte Stellen (`t80` C4: eigene Nachricht ändern geht jetzt; `t81` R2:
   eigene Meldung statt Fremdschlüssel-Fehler). Ausgeführt, zweimal, zurückgenommen, zweimal (danach
   `t80`/`t81` wie auf 83), erneut ausgeführt, `t84` gleich.
+
+- `85_chat_haken_feierabend_stempelhinweis.sql` – **noch auszuführen, vor dem Hochladen von v138.** Wunsch
+  Vitali 09.10.2026: (1) Haken im Chat – `chat_gelesen.zugestellt_bis` und `chat_gelesen_direkt.zugestellt_bis`,
+  `chat_empfangen()` (App meldet „abgeholt“, schreibt nur bei Neuem, neue Zeile mit „gelesen bis“ = nie),
+  `chat_zugestellt_setzen()` (nur Dienstschlüssel, nach zugestellter Push-Meldung), `chat_haken(partner)` (nur
+  zwei Zeitpunkte: bis wann bei allen angekommen / von allen gelesen; ohne Leserecht keine Zeile). (2)
+  Feierabend – `zeit_schichten.heimfahrt_minuten` (0–120), `zeit_schicht_json()` mit Heimfahrt,
+  `zeit_feierabend()` (ausstempeln + 30 Min.; prüft eingestempelt, heute eigener Auftrag erledigt, keiner mehr
+  offen, heute noch keine Heimfahrt), `zeit_heimfahrt_setzen()` (Korrektur mit Grund, „Zeiten aller ·
+  schreiben“). (3) Stempel-Erinnerung – `user_settings.stempel_erinnerung_aktiv` (Vorgabe an),
+  `push_stempel_erinnerung` (Person/Tag/Art, RLS ohne Richtlinie). Dazu RLS auf `private.chat_fotos_weg`.
+  Wache: bricht ohne 83 oder 84 ab. Ergebnistabelle mit fünf Zeilen. Zweiter Lauf folgenlos. Der SQL-Editor
+  meldet ggf. „destructive operations“ (es werden nur eine Prüfregel und Funktionen ersetzt) – „Run this
+  query“. Rücknahme: `rollback/85_rollback.sql` (entfernt die gutgeschriebenen Heimfahrten – vorher CSV
+  sichern –, die Haken-Stände und den Schalter; zweimal lauffähig). Geprüft gegen Postgres 16 (Stand 84,
+  `pgtest/t85.sql`): Haken Team und Einzelchat von „nichts“ über „angekommen“ (App holt ab bzw. Versand
+  meldet) bis „gelesen“; neue Nachricht wieder ein Haken; zweimal abholen ohne Neues ändert nichts; Nutzer
+  kann „zugestellt“ nicht setzen; ohne Leserecht keine Haken. Feierabend: nicht eingestempelt / nichts
+  erledigt / noch ein Auftrag offen / schon gutgeschrieben / Mitarbeiter ohne Auftrag → abgewiesen mit Grund;
+  nach dem letzten erledigten → 30 Min., Schicht zu; normales Ausstempeln → 0; direktes Schreiben gesperrt;
+  Korrektur nur mit Recht und Grund, 0–120, Vorher/Nachher, gleicher Wert ohne neue Korrektur. Erinnerungsliste
+  für Nutzer gesperrt, für den Dienst einmal je Tag und Art. `t80`–`t84` gegen 84 und 85: gleiche Ausgabe bis
+  auf die gewollte Stelle in `t82` (`zeit_schicht_json` mit `heimfahrt_minuten`). Ausgeführt, zweimal,
+  zurückgenommen, zweimal (danach `t82`/`t84` wie auf 84), erneut ausgeführt.

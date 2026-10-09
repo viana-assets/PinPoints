@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { zeitSchichtLoeschen, zeitSchichtSpeichern, zeitUrlaubLoeschen, zeitUrlaubSetzen } from "@/lib/api/zeiterfassung";
+import { zeitHeimfahrtSetzen, zeitSchichtLoeschen, zeitSchichtSpeichern, zeitUrlaubLoeschen, zeitUrlaubSetzen } from "@/lib/api/zeiterfassung";
 import { useZeitKorrekturen, useZeitMonat, useZeitOffene, useZeitPersonen, useZeitSchichten, useZeitUrlaub } from "@/lib/queries/hooks";
 import { qk } from "@/lib/queries/keys";
 import { initialen, personenFarbe } from "@/lib/chat";
@@ -10,8 +10,7 @@ import {
   arbeitMs, dauerText, exportDateiname, formularAusSchicht, monatAuswerten, monatCsv, monatPlus, monatTitel, monatVon,
   monatVonBis, offeneSchichten, pauseMs, personenMonat, personenWoche, schichtAusFormular, schichtSpanne,
   tagAuswerten, tagPlus, tagSchluessel, tagTitel, tagVon, wocheAuswerten, wochenMontag, wochenTage, wochenTitel,
-  type MonatsAuswertung, type SchichtFormular, type TagAuswertung, type ZeitAbwesenheit, type ZeitKorrektur, type ZeitPerson, type ZeitSchicht,
-} from "@/lib/zeiterfassung";
+  type MonatsAuswertung, type SchichtFormular, type TagAuswertung, type ZeitAbwesenheit, type ZeitKorrektur, type ZeitPerson, type ZeitSchicht, heimfahrtMs, ZEIT_HEIMFAHRT_MINUTEN} from "@/lib/zeiterfassung";
 import { UhrPille } from "./UhrPille";
 import { useJetzt } from "./useJetzt";
 import { ExportKnoepfe, KorrekturListe, Marken, MonatAlleTabelle, MonatSummen, MonatTagListe } from "./ZeitMonat";
@@ -186,6 +185,7 @@ export function ZeitPanel(p: {
                 <div className="zt-summen">
                   <div><b>{dauerText(woche.arbeitMs)} h</b><span>Arbeitszeit</span></div>
                   <div><b>{dauerText(woche.pauseMs)} h</b><span>Pausen</span></div>
+                  {woche.heimfahrtMs > 0 && <div><b>{dauerText(woche.heimfahrtMs)} h</b><span>davon Heimfahrt</span></div>}
                   {wocheUrlaubMs > 0 && <div><b>{dauerText(wocheUrlaubMs)} h</b><span>Urlaub</span></div>}
                   <div><b>{woche.arbeitstage}</b><span>{woche.arbeitstage === 1 ? "Tag" : "Tage"}</span></div>
                 </div>
@@ -276,7 +276,12 @@ export function ZeitPanel(p: {
           jetzt={jetzt}
           darfKorrigieren={p.darfKorrigieren}
           onUrlaub={p.darfKorrigieren ? () => setUrlaubVorgabe({ personId: detail.person.id, tag: detail.tag }) : undefined}
-          onSpeichern={async (s) => { await zeitSchichtSpeichern(p.supabase, s); await neuLadenZeit(); }}
+          onSpeichern={async (s) => {
+            const id = await zeitSchichtSpeichern(p.supabase, s);
+            // Heimfahrt geändert (Migration 85): eigene Korrektur mit demselben Grund.
+            if (s.heimfahrtMinuten !== undefined && id) await zeitHeimfahrtSetzen(p.supabase, id, s.heimfahrtMinuten, s.grund);
+            await neuLadenZeit();
+          }}
           onLoeschen={async (id, grund) => { await zeitSchichtLoeschen(p.supabase, id, grund); await neuLadenZeit(); }}
           onClose={() => setDetail(null)}
         />
@@ -304,6 +309,7 @@ function TagListe({ daten, jetzt, leer, urlaubMs = 0 }: { daten: TagAuswertung; 
       <div className="zt-summen">
         <div><b>{dauerText(daten.arbeitMs)} h</b><span>Arbeitszeit</span></div>
         <div><b>{dauerText(daten.pauseMs)} h</b><span>Pausen</span></div>
+        {daten.heimfahrtMs > 0 && <div><b>{dauerText(daten.heimfahrtMs)} h</b><span>davon Heimfahrt</span></div>}
         {urlaubMs > 0 && <div><b>{dauerText(urlaubMs)} h</b><span>Urlaub</span></div>}
         <div className="zt-summe-marken"><Marken hinweise={daten.hinweise} laeuft={daten.laeuft} /></div>
       </div>
@@ -320,6 +326,7 @@ function SchichtZeile({ s, jetzt, onBearbeiten }: { s: ZeitSchicht; jetzt: numbe
         {s.pausen.length === 0 ? "keine Pause" : s.pausen.map((x) => `Pause ${schichtSpanne(x)}`).join(" · ")}
         {s.pausen.length > 0 && ` (${dauerText(pauseMs(s, jetzt))} h)`}
       </span>
+      {heimfahrtMs(s) > 0 && <span className="zt-tag-unter zt-heimfahrt">+ {dauerText(heimfahrtMs(s))} h Heimfahrt gutgeschrieben (in der Arbeitszeit enthalten)</span>}
       {s.korrigiert_am && <span className="zt-tag-unter zt-korrigiert">korrigiert: {s.korrektur_grund}</span>}
       {onBearbeiten && <button type="button" className="zt-link" onClick={onBearbeiten}>Bearbeiten ›</button>}
     </div>
@@ -385,7 +392,7 @@ export function ZeitTagBlatt(p: {
   jetzt: number;
   darfKorrigieren: boolean;
   onUrlaub?: () => void;
-  onSpeichern: (s: { id: string | null; profileId: string; beginn: string; ende: string | null; pausen: { beginn: string; ende: string }[]; grund: string }) => Promise<void>;
+  onSpeichern: (s: { id: string | null; profileId: string; beginn: string; ende: string | null; pausen: { beginn: string; ende: string }[]; grund: string; heimfahrtMinuten?: number }) => Promise<void>;
   onLoeschen: (id: string, grund: string) => Promise<void>;
   onClose: () => void;
 }) {
@@ -408,6 +415,7 @@ export function ZeitTagBlatt(p: {
         <>
           <span className="small">
             {daten.schichten.length ? `${dauerText(daten.arbeitMs)} h Arbeit · ${dauerText(daten.pauseMs)} h Pause` : "Nichts gestempelt."}
+            {daten.heimfahrtMs > 0 && ` · davon Heimfahrt ${dauerText(daten.heimfahrtMs)} h`}
             {urlaubMs > 0 && ` · Urlaub ${dauerText(urlaubMs)} h`}{" "}
             <Marken hinweise={daten.hinweise} laeuft={daten.laeuft} />
           </span>
@@ -429,11 +437,14 @@ function SchichtFormularAnsicht(p: {
   schicht: ZeitSchicht | null;
   tag: string;
   personId: string;
-  onSpeichern: (s: { id: string | null; profileId: string; beginn: string; ende: string | null; pausen: { beginn: string; ende: string }[]; grund: string }) => Promise<void>;
+  onSpeichern: (s: { id: string | null; profileId: string; beginn: string; ende: string | null; pausen: { beginn: string; ende: string }[]; grund: string; heimfahrtMinuten?: number }) => Promise<void>;
   onLoeschen?: (grund: string) => Promise<void>;
   onAbbrechen: () => void;
 }) {
   const [f, setF] = useState<SchichtFormular>(() => formularAusSchicht(p.schicht, p.tag));
+  // Heimfahrt (Migration 85): an/aus; gespeichert wird sie nur, wenn sie sich geändert hat.
+  const heimVorher = p.schicht?.heimfahrt_minuten ?? 0;
+  const [heim, setHeim] = useState(heimVorher > 0);
   const [grund, setGrund] = useState("");
   const [fehler, setFehler] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState(false);
@@ -447,7 +458,11 @@ function SchichtFormularAnsicht(p: {
   function speichern() {
     const { zeiten, fehler: f2 } = schichtAusFormular(f);
     if (!zeiten) { setFehler(f2); return; }
-    void ausfuehren(() => p.onSpeichern({ id: p.schicht?.id ?? null, profileId: p.personId, ...zeiten, grund: grund.trim() }));
+    const heimNeu = heim ? (heimVorher > 0 ? heimVorher : ZEIT_HEIMFAHRT_MINUTEN) : 0;
+    void ausfuehren(() => p.onSpeichern({
+      id: p.schicht?.id ?? null, profileId: p.personId, ...zeiten, grund: grund.trim(),
+      ...(heimNeu !== heimVorher ? { heimfahrtMinuten: heimNeu } : {}),
+    }));
   }
   function loeschen() {
     if (!p.onLoeschen) return;
@@ -473,6 +488,10 @@ function SchichtFormularAnsicht(p: {
         </div>
       ))}
       <button type="button" className="zt-link" onClick={() => setF({ ...f, pausen: [...f.pausen, { von: "", bis: "" }] })}>+ Pause</button>
+      <label className="zt-heimfahrt-wahl">
+        <input type="checkbox" checked={heim} onChange={(e) => setHeim(e.target.checked)} aria-label="Heimfahrt gutschreiben" />
+        <span>Heimfahrt gutschreiben (+ {dauerText((heimVorher || ZEIT_HEIMFAHRT_MINUTEN) * 60_000)} h)</span>
+      </label>
       <label className="zt-grund">Grund (Pflicht)
         <input type="text" value={grund} onChange={(e) => setGrund(e.target.value)} placeholder="z. B. Ausstempeln vergessen, Ende laut Mitarbeiter" aria-label="Grund" maxLength={300} />
       </label>
