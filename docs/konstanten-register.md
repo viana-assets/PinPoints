@@ -25,8 +25,8 @@ trägt sie dann hier ein.
 Nachtrag 26.09.2026 (v79): `lib/karte.ts` (neu) und `MAP_STIL_REIHENFOLGE`, siehe „Karte & Design";
 die Nadelfarben (`MARKER_FARBE`) sind entfallen – sie stehen als Tokens in `globals.css`.
 
-Insgesamt **173 exportierte Konstanten** (`export const`) in 45 Dateien unter `lib/` – gezählt am
-09.10.2026 (v140: `NAVIGATION_RUECKFALL_MS` in `lib/navigationOeffnen.ts` (neu); v138: `CHAT_HAKEN_TEXT` in `lib/chat.ts`, `STEMPEL_PARAMETER` in `lib/constants.ts`, `ZEIT_HEIMFAHRT_MINUTEN` in `lib/zeiterfassung.ts`, zwei in `lib/stempelErinnerung.ts` (neu); v137: `CHAT_NACHLADEN_ANZAHL`, `CHAT_BEARBEITEN_STUNDEN`, `CHAT_FOTO_BUCKET` in `lib/chat.ts`; v136: `ZEIT_URLAUB_VORGABEN` in `lib/zeiterfassung.ts`; v131: vier in `lib/zeiterfassung.ts` (neu), siehe „Zeiterfassung“; v130: `CHAT_REAKTIONEN`, `CHAT_ZITAT_MAX` in `lib/chat.ts`; v129: `CHAT_PARAMETER` in `lib/constants.ts`, sieben in `lib/chat.ts` (neu), siehe „Team-Chat"; v128: `KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`; v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
+Insgesamt **186 exportierte Konstanten** (`export const`) in 48 Dateien unter `lib/` – gezählt am
+13.10.2026 (v145: drei in `lib/systeme.ts` (neu), neun in `lib/finance/einstellungen.ts` (neu), `FINANCE_SEITEN` in `lib/finance/seiten.ts` (neu), siehe „Finance“; v140: `NAVIGATION_RUECKFALL_MS` in `lib/navigationOeffnen.ts` (neu); v138: `CHAT_HAKEN_TEXT` in `lib/chat.ts`, `STEMPEL_PARAMETER` in `lib/constants.ts`, `ZEIT_HEIMFAHRT_MINUTEN` in `lib/zeiterfassung.ts`, zwei in `lib/stempelErinnerung.ts` (neu); v137: `CHAT_NACHLADEN_ANZAHL`, `CHAT_BEARBEITEN_STUNDEN`, `CHAT_FOTO_BUCKET` in `lib/chat.ts`; v136: `ZEIT_URLAUB_VORGABEN` in `lib/zeiterfassung.ts`; v131: vier in `lib/zeiterfassung.ts` (neu), siehe „Zeiterfassung“; v130: `CHAT_REAKTIONEN`, `CHAT_ZITAT_MAX` in `lib/chat.ts`; v129: `CHAT_PARAMETER` in `lib/constants.ts`, sieben in `lib/chat.ts` (neu), siehe „Team-Chat"; v128: `KUNDEN_ARTEN` in `lib/kundenAnsicht.ts`; v125: `VERKAUFSREIFEN_SPALTEN` in `lib/api/verkaufsreifen.ts`; v124: `RECHTE_ABHAENGIGKEITEN`, `ROLLEN_SONDERREGELN` in `lib/constants.ts`; v117: `ALLE_DATEN_BESTAETIGUNG` in `lib/constants.ts`; v115: `RAD_NOTIZ_SPALTE`, `RAD_NOTIZ_MAX` in `lib/constants.ts`, `SATZ_OFFLINE_FELDER` in `lib/offline/ausgang.ts`; v113: `VORRAT_TAGE_VORAUS`, `VORRAT_TAGE_ZURUECK` in `lib/queries/hooks.ts`; v112: `VERFUEGBARKEIT_ZEITEN`, `VERFUEGBARKEIT_FENSTER_VORGABE` in `lib/verfuegbarkeit.ts`; v107: `WISCH_MIN_PX`, `WISCH_VERHAELTNIS`, `WISCH_MAX_MS`, `WISCH_START_MAX_MS` in `lib/wischen.ts`; v100: `IBAN_LAENGE`, `FREMDABFRAGE_ZU_VIEL`; v101: die vier aus `lib/offline/ausgang.ts`;
 v102: `LAGER_VOLL_AB` dazu, `GEO_GENAUIGKEIT_LABEL` entfernt; v103: `DUBLETTEN_GRUND_LABEL`,
 `PLATZ_GROESSE_LABEL`, `GROSSES_FACH_AB_DURCHMESSER_MM`, `GROSSES_FACH_AB_BREITE_MM`,
 `VERKAUF_LANGE_LIEGEND_MONATE`, `VERKAUFSREIFEN_PARAMETER`, `PROTOKOLL_SCHWAERZEN_MONATE`; v104:
@@ -281,6 +281,30 @@ verkaufen), `PROFIL_KRITISCH_MM` (Sommer knapp), `PROFIL_HINWEIS_MM` (Winter/Gan
 | `NAVIGATION_RUECKFALL_MS` | `lib/navigationOeffnen.ts` | `number` (1500) | So lange wartet die Navigation auf dem iPhone, ob die Karten-App übernommen hat, bevor der https-Link als Rückfall kommt (v140) | `appOderWebOeffnen()` – Navigationsmenü in `app/page.tsx`; `tests/navigationOeffnen.test.ts` |
 | `STEMPEL_PARAMETER` | `lib/constants.ts` | `string` ("stempeluhr") | `/?stempeluhr=1` öffnet die Stempeluhr – aus der Stempel-Erinnerung (Migration 85) | `lib/stempelErinnerung.ts`, `app/page.tsx` (`zielOeffnen`), `SPRUNG_PARAMETER` |
 | `ZEIT_URLAUB_VORGABEN` | `lib/zeiterfassung.ts` | `[{ minuten: 480, text }, { minuten: 240, text }]` | Was ein Urlaubstag zählt: ganzer Tag 8 h, halber 4 h; eigene Stunden frei (1 bis 720 Minuten, Prüfregel in Migration 83) | `UrlaubBlatt` |
+
+---
+
+## Systeme und Finance (Migration 87, v145)
+
+| Konstante | Datei | Typ/Form | Bedeutung | Verwendet in |
+|---|---|---|---|---|
+| `SYSTEME` | `lib/systeme.ts` | `SystemEintrag[]` (fsm, finance, crm „bald“) | Die Systeme der App mit Kurzname, Beschreibung und Sichtrecht (`finance` für Finance) | `sichtbareSysteme()`, `aktivesSystem()`, `SystemMarke`, `SystemWahl`, `app/page.tsx` |
+| `SYSTEM_PARAMETER` | `lib/systeme.ts` | `string` ("system") | `/?system=finance` öffnet direkt in Finance | `systemStartwert()` |
+| `SYSTEM_SPEICHER_SCHLUESSEL` | `lib/systeme.ts` | `string` ("mr-system") | Merker des Geräts: zuletzt gewähltes System (localStorage) | `systemStartwert()`, `systemMerken()` |
+| `FINANCE_SEITEN` | `lib/finance/seiten.ts` | `FinanceSeite[]` (11 Seiten) | Navigation von Finance: Name, Beschreibung, Lese-Recht, Phase, Hauptseite am Handy | `app/page.tsx` (Navigation), `FinanceBereich`; `tests/systeme.test.ts` |
+| `FIN_RECHTSFORMEN` | `lib/finance/einstellungen.ts` | `{ wert, text, hinweis }[]` | Einzelunternehmen, GbR, UG, GmbH, Andere – dieselben Werte wie die Prüfregel `fin_einst_rechtsform` | `FinanceEinstellungen`; `tests/financeEinstellungen.test.ts` (vergleicht mit Migration 87) |
+| `FIN_GEWINNERMITTLUNG` | `lib/finance/einstellungen.ts` | dto. | EÜR, Bilanz (`fin_einst_gewinn`) | dto. |
+| `FIN_KONTENRAHMEN` | `lib/finance/einstellungen.ts` | dto. | SKR03, SKR04 (`fin_einst_konten`) | dto. |
+| `FIN_BESTEUERUNG` | `lib/finance/einstellungen.ts` | dto. | Regelbesteuerung, Kleinunternehmer § 19 (`fin_einst_besteuerung`) | dto. |
+| `FIN_VERSTEUERUNG` | `lib/finance/einstellungen.ts` | dto. | Soll, Ist (`fin_einst_versteuerung`) | dto. |
+| `FIN_VORANMELDUNG` | `lib/finance/einstellungen.ts` | dto. | monatlich, vierteljährlich, befreit (`fin_einst_voranmeldung`) | dto. |
+| `KLEINUNTERNEHMER_GRENZE_VORJAHR` | `lib/finance/einstellungen.ts` | `number` (25 000) | § 19 UStG, Stand 2026: Umsatz im Vorjahr höchstens | Hinweis in `FinanceEinstellungen`; später die Überwachung (F5) |
+| `KLEINUNTERNEHMER_GRENZE_LAUFEND` | `lib/finance/einstellungen.ts` | `number` (100 000) | § 19 UStG, Stand 2026: Umsatz im laufenden Jahr höchstens | dto. |
+| `IST_VERSTEUERUNG_GRENZE` | `lib/finance/einstellungen.ts` | `number` (800 000) | § 20 UStG: Ist-Versteuerung auf Antrag bis zu diesem Vorjahresumsatz | noch ungenutzt – für die Prüfung in F5 |
+
+Die Zuordnung Seite → Icon (`FINANCE_ICONS`) steht in `components/finance/FinanceBereich.tsx`, damit
+`lib/finance/seiten.ts` ohne React auskommt. Die Akzentfarben `--fin`/`--fin-bg` sind Tokens in
+`app/globals.css`. Steuerliche Grenzen sind vor jeder Phase mit dem Steuerberater abzugleichen.
 
 ---
 

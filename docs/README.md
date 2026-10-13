@@ -5,7 +5,7 @@ Dieser Ordner ist die Detail-Dokumentation des Projekts, ein Baustein pro Datei.
 Fallstricke und ein Index hierher. Wer wissen will, **wie ein bestimmter Baustein
 funktioniert, wo er im Code liegt und womit er verknüpft ist**, findet das hier.
 
-Stand: 13.10.2026, Migrationen bis 86 (85 und 86 noch auszuführen), Service Worker v143.
+Stand: 13.10.2026, Migrationen bis 87 (87 noch auszuführen), Service Worker v145.
 
 ## Die eine Regel, die den Ordner zusammenhält
 
@@ -43,7 +43,7 @@ je Abschnitt, was gebaut ist und was nicht.
 | `zeiterfassung.md` | Stempeluhr: ein-/ausstempeln, Pause, Tag/Woche/Monat, alle Mitarbeiter, Korrektur mit Grund, Urlaub, Export, Feierabend mit Heimfahrt, Stempel-Erinnerung, Rechte (Migrationen 82, 83, 85) |
 | `benachrichtigungen-plan.md` | Terminerinnerung als Push: Architektur, Zeitgeber, iOS-Grenzen, offener Gerätetest |
 | `prompt-etikettendrucker.md` | Etikettendrucker: gekauft ist der Brother QL-820NWBc (Stand 30.09.2026), darunter der Recherche-Prompt für eine Neuanschaffung |
-| `finance.md` | **Finance (geplant)**: Buchhaltung als eigenes System neben FSM – Systemwechsel, Rechte, Besteuerung (§ 19, Soll/Ist, § 13b), Funktionsumfang, Phasen F0–F9 |
+| `finance.md` | **Finance (Pilot, ab v145 F0)**: Buchhaltung als eigenes System neben FSM – Systemwechsel, Rechte, Besteuerung (§ 19, Soll/Ist, § 13b), Funktionsumfang, Phasen F0–F9 |
 | `fahrplan.md` | **Alles Offene**: Fehler, Aufräumarbeiten, Verbesserungen, neue Funktionen – mit Priorität |
 
 Jede Datei nennt die betroffenen Tabellen und Migrationen, die zentralen Funktionen und

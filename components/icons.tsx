@@ -235,3 +235,69 @@ export function IconZeit() {
     </svg>
   );
 }
+
+// Finance (v145, docs/finance.md). Gleiche Linienstärke wie oben.
+// Belege: ein Kassenbon mit gezacktem Unterrand.
+export function IconBeleg() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M6 3h12v18l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5L6 21V3Z" strokeLinejoin="round" />
+      <path d="M9 8h6M9 11.5h6M9 15h3" strokeLinecap="round" />
+    </svg>
+  );
+}
+// Bank: Giebel mit Säulen.
+export function IconBank() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M3 9.5 12 4l9 5.5H3Z" strokeLinejoin="round" />
+      <path d="M6 10v7M10 10v7M14 10v7M18 10v7M4 20h16" strokeLinecap="round" />
+    </svg>
+  );
+}
+// Buchungen: zwei Pfeile gegeneinander – Soll an Haben.
+export function IconBuchen() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 8h14l-3-3M20 16H6l3 3" />
+    </svg>
+  );
+}
+// Steuern: Prozentzeichen.
+export function IconSteuer() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round">
+      <path d="M18 6 6 18" />
+      <circle cx="7.5" cy="7.5" r="2.5" />
+      <circle cx="16.5" cy="16.5" r="2.5" />
+    </svg>
+  );
+}
+// Offene Posten: Blatt mit Uhr.
+export function IconOffen() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M13 3H6v18h6" strokeLinejoin="round" />
+      <circle cx="17" cy="16" r="4.5" />
+      <path d="M17 13.8V16l1.5 1M9 8h4M9 11.5h2" strokeLinecap="round" />
+    </svg>
+  );
+}
+// Anlagen: ein Würfel – Anlagevermögen.
+export function IconAnlage() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round">
+      <path d="M12 3 20 7.5v9L12 21l-8-4.5v-9L12 3Z" />
+      <path d="M4 7.5 12 12l8-4.5M12 12v9" />
+    </svg>
+  );
+}
+// Export: Pfeil aus der Kiste.
+export function IconExport() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 15V3M8 7l4-4 4 4" />
+      <path d="M5 12v8h14v-8" />
+    </svg>
+  );
+}

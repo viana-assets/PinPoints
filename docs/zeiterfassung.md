@@ -158,6 +158,15 @@ Fassung. Die eigenen Zeiten kann niemand selbst ändern.
 | `components/zeit/FeierabendFrage.tsx` | „Für heute fertig?“ nach dem letzten Auftrag (v138) |
 | `lib/stempelErinnerung.ts`, `lib/stempelErinnerungVersand.ts` | Stempel-Erinnerung: Regeln (rein, `tests/stempelErinnerung.test.ts`) und Versand im Minutentakt |
 
+## In den Auswertungen (v144)
+
+Auswertungen › Einsatz zeigt neben der geplanten Einsatzzeit die **gestempelte Arbeitszeit des
+Betriebs**: gestempelt, davon beim Kunden laut Termin (Anteil in %), übrige Zeit (Fahrt, Rüsten, Lager,
+Büro), Heimfahrten (Anzahl und Stunden), Urlaub (Tage und Stunden), Korrekturen – mit Vorjahr.
+Entschieden 13.10.2026: **nur als Summe**, keine Zeile je Mitarbeiter, kein Vergleich zwischen Personen;
+mit Mitarbeiter-Filter wird die Karte nicht gezeigt. Sichtbar nur mit „Zeiten aller · lesen“ (die RLS
+gibt die Schichten aller ohnehin nur dann heraus). Gezählt wird je Schicht am Tag ihres Beginns.
+
 ## Datenschutz
 
 Arbeitszeiten sind personenbezogene Daten der Mitarbeiter. Vor dem Start die Mitarbeiter informieren,
@@ -166,7 +175,8 @@ dem Datenschutz bzw. Steuerberater abstimmen. Erfasst werden nur Zeiten – kein
 Die Hinweise zur Pause und zu 10 Stunden sind Hinweise für Menschen; die App entscheidet nichts über
 Personen. Urlaub ist ein personenbezogenes Datum wie die Zeiten (gleiche Regeln, gleiche 2 Jahre);
 Krankheit wird bewusst nicht erfasst (Art. 9 DSGVO). Der Export enthält Namen und Zeiten – nur an
-Lohnbüro oder Steuerberater weitergeben, nicht offen ablegen.
+Lohnbüro oder Steuerberater weitergeben, nicht offen ablegen. Die Auswertung (v144) zeigt bewusst nur
+Summen; bei sehr wenigen Mitarbeitern lässt sich aus einer Summe trotzdem auf Einzelne schließen.
 
 Die Heimfahrt ist eine Vergütungsregel des Betriebs; ob und wie sie arbeits- oder steuerrechtlich zu
 behandeln ist (Arbeitszeit, Fahrtzeit), klären Steuerberater bzw. Lohnbüro. Die Stempel-Erinnerung

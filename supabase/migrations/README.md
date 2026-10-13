@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 85, dann 86** (siehe ganz unten). **Stand 09.10.2026: Die Migrationen 01–84 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“) –
+**Noch auszuführen: `87_finance_grundlagen.sql`** (Abschnitt unten, vor den Dateien von v145). **Stand 13.10.2026: Die Migrationen 01–86 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1099,7 +1099,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   stempelt; Aufräumen nach 2 Jahren. `t80.sql`/`t81.sql` gegen 81 und 81+82: gleiche Ausgabe. Ausgeführt,
   zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-## Noch auszuführen
+## 08.–13.10.2026 – ausgeführt (Vitali, 83 bis 86)
 
 - `83_zeit_urlaub.sql` – **ausgeführt** (vor v136). Wunsch Vitali 08.10.2026
   (Fahrplan E20, Auswahl „Urlaub als Eintrag“): Tabelle `zeit_abwesenheiten` (je Person und Tag eine
@@ -1149,7 +1149,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   eigene Meldung statt Fremdschlüssel-Fehler). Ausgeführt, zweimal, zurückgenommen, zweimal (danach
   `t80`/`t81` wie auf 83), erneut ausgeführt, `t84` gleich.
 
-- `85_chat_haken_feierabend_stempelhinweis.sql` – **noch auszuführen, vor dem Hochladen von v138.** Wunsch
+- `85_chat_haken_feierabend_stempelhinweis.sql` – **ausgeführt** (13.10.2026). Wunsch
   Vitali 09.10.2026: (1) Haken im Chat – `chat_gelesen.zugestellt_bis` und `chat_gelesen_direkt.zugestellt_bis`,
   `chat_empfangen()` (App meldet „abgeholt“, schreibt nur bei Neuem, neue Zeile mit „gelesen bis“ = nie),
   `chat_zugestellt_setzen()` (nur Dienstschlüssel, nach zugestellter Push-Meldung), `chat_haken(partner)` (nur
@@ -1173,7 +1173,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   auf die gewollte Stelle in `t82` (`zeit_schicht_json` mit `heimfahrt_minuten`). Ausgeführt, zweimal,
   zurückgenommen, zweimal (danach `t82`/`t84` wie auf 84), erneut ausgeführt.
 
-- `86_alle_daten_neuigkeiten_chatfotos.sql` – **noch auszuführen, nach 85 und vor dem Hochladen von v142.**
+- `86_alle_daten_neuigkeiten_chatfotos.sql` – **ausgeführt** (13.10.2026).
   Wunsch Vitali 09.10.2026: „Alle Daten löschen“ soll die App wirklich neu machen – auch Chat, Stempelzeiten
   und „Was gibt es Neues“. Chat und Zeiterfassung leerte die Funktion schon (jede Tabelle in `public`); neu:
   Tabelle `app_stand` (eine Zeile, `neuigkeiten_ab`, `alles_geloescht_am`; RLS, lesen alle Angemeldeten,
@@ -1191,3 +1191,22 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   stehen; neue Fassung überschreibt, bleibt eine Zeile. `t72` gegen 85 und 86: gleiche Ausgabe bis auf die
   gewollten Stellen (`chat_fotos` im Umfang, eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal,
   zurückgenommen, zweimal, erneut ausgeführt.
+
+## 13.10.2026 – noch auszuführen (87)
+
+- `87_finance_grundlagen.sql` – **noch auszuführen**, vor den Dateien von v145.
+  Finance, Phase F0 (`docs/finance.md`): Rechte `finance`, `finance.rechnungen`, `.belege`, `.bank`, `.buchen`,
+  `.steuer`, `.abschluss`, `.einstellungen` in `module_permissions` – alle Rollenlisten leer, also nur der
+  Superadmin (`on conflict do nothing`: eine spätere Freischaltung übersteht den zweiten Lauf). Tabelle
+  `fin_einstellungen` (je Wirtschaftsjahr eine Zeile) mit Prüfregeln `fin_einst_*`, RLS: lesen mit `finance`,
+  anlegen/ändern mit `finance.einstellungen` schreiben, keine Löschrichtlinie; Trigger `fin_einstellungen_stempel`
+  setzt Zeit und Person. Nicht in `alle_daten_behalten()` – „Alle Daten löschen“ leert sie mit (entschieden
+  13.10.2026). Wache: bricht ohne `orders`/`tire_storage` oder ohne `darf()` (42) ab. Ergebnistabelle mit drei
+  Zeilen (Rechte, RLS, Richtlinien laut `pg_policies`). Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/87_rollback.sql` (Tabelle, Trigger, Funktion, Rechtezeilen weg; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 86, `pgtest/t87.sql`): Admin sieht und schreibt nichts; Superadmin legt an,
+  Stempel gesetzt, ändert; Dauerfrist bei „keine“, unbekannter Kontenrahmen und Jahr 1999 abgewiesen; Löschen
+  wirkt nicht; Admin nach Freischaltung „lesen“ sieht, ändert nicht; Techniker sieht nichts; „Alle Daten löschen“
+  leert die Tabelle, die Rechte bleiben. `t72` und `t86` gegen 86 und 87: gleiche Ausgabe bis auf die gewollten
+  Stellen (eine Tabelle mehr in der Sicherung, acht Rechtezeilen mehr). Ausgeführt, zweimal, zurückgenommen,
+  zweimal, erneut ausgeführt.

@@ -59,6 +59,11 @@ export const qk = {
 
   modulrechte: () => ["modulrechte"] as const,
 
+  // Finance (Migration 87, v145). Der Oberbegriff trifft alles aus Finance – „Alle Daten löschen“
+  // und spätere Phasen machen ihn ungültig.
+  finance: () => ["finance"] as const,
+  finEinstellungen: (jahr: number) => ["finance", "einstellungen", jahr] as const,
+
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.
   chat: () => ["chat"] as const,

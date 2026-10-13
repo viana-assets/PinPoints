@@ -443,3 +443,61 @@ export function lagerAusblick(saetze: TireStorage[], heute: string): { monat: st
   const zuwachs = belegtAm(saetze, naechsterVJ) - vorher;
   return { monat: naechster, zuwachsVorjahr: zuwachs, erwartet: belegtAm(saetze, heute) + zuwachs };
 }
+
+// ---------------------------------------------------------------- Arbeitszeit laut Stempeluhr (v144)
+//
+// Wunsch Vitali 13.10.2026: in den Auswertungen neben der geplanten Einsatzzeit die gestempelte
+// Arbeitszeit – als SUMME DES BETRIEBS, ohne Personenbezug (keine Zeile je Mitarbeiter, kein
+// Vergleich zwischen Personen). Zu sehen nur mit „Zeiten aller · lesen“ und ohne Mitarbeiter-Filter;
+// die Daten liefert ohnehin nur die RLS dieses Rechts heraus.
+//
+// Gezählt wird je Schicht am Tag ihres Beginns (Uhr des Geräts, wie in der Zeiterfassung). Die
+// Arbeitszeit ist `arbeitMs()` – also ohne Pausen, mit gutgeschriebener Heimfahrt.
+
+export type ZeitAuswertungEingang = {
+  schichten: { beginn: string; ende: string | null; pausen: { beginn: string; ende: string | null }[]; heimfahrt_minuten?: number | null }[];
+  urlaub: { tag: string; minuten: number }[];
+  korrekturen: { am: string }[];
+};
+
+export type ZeitAuswertung = {
+  gestempeltMin: number;
+  schichten: number;
+  tage: number;
+  heimfahrten: number;
+  heimfahrtMin: number;
+  urlaubTage: number;
+  urlaubMin: number;
+  korrekturen: number;
+  // Schichten ohne Ende (noch eingestempelt) – bis jetzt gezählt.
+  laufend: number;
+};
+
+export function zeitAuswertung(d: ZeitAuswertungEingang, z: Zeitraum, jetzt: number, arbeit: (s: ZeitAuswertungEingang["schichten"][number], jetzt: number) => number): ZeitAuswertung {
+  const imZeitraum = (tag: string) => tag >= z.von && tag <= z.bis;
+  const tagVonIso = (iso: string) => toDateStr(new Date(iso));
+  const tage = new Set<string>();
+  let ms = 0, schichten = 0, heimfahrten = 0, heimfahrtMin = 0, laufend = 0;
+  for (const s of d.schichten) {
+    const tag = tagVonIso(s.beginn);
+    if (!imZeitraum(tag)) continue;
+    schichten++; tage.add(tag);
+    ms += arbeit(s, jetzt);
+    if (!s.ende) laufend++;
+    const h = Math.max(0, s.heimfahrt_minuten ?? 0);
+    if (h > 0) { heimfahrten++; heimfahrtMin += h; }
+  }
+  const urlaub = d.urlaub.filter((u) => imZeitraum(u.tag));
+  return {
+    gestempeltMin: Math.round(ms / 60_000), schichten, tage: tage.size, heimfahrten, heimfahrtMin,
+    urlaubTage: urlaub.length, urlaubMin: urlaub.reduce((n, u) => n + u.minuten, 0),
+    korrekturen: d.korrekturen.filter((k) => imZeitraum(tagVonIso(k.am))).length,
+    laufend,
+  };
+}
+
+// Wie viel der gestempelten Zeit beim Kunden war (Termine von–bis, je eingeteilter Person gezählt).
+// Der Rest ist Fahrt, Rüsten, Lager, Büro. Über 100 % heißt: Termine länger geplant als gestempelt.
+export function anteilBeimKunden(beimKundenMin: number, gestempeltMin: number): number | null {
+  return gestempeltMin > 0 ? Math.round((beimKundenMin / gestempeltMin) * 100) : null;
+}

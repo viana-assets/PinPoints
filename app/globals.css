@@ -32,6 +32,9 @@
     --accent:#FF5A1F; --accent-bg:#ffe9dd;
     /* Petrol aus dem Logo des Mobilen Reifenservice (v88) – nur für die Marke. */
     --marke:#092633;
+    /* Systeme (v145, docs/finance.md Abschnitt 1): jedes System hat seinen Akzent. FSM bleibt
+       Sicherheits-Orange (--accent oben), Finance Petrol, CRM später Blau (--blau). */
+    --fin:#0f5c6e; --fin-bg:#dcedf1;
     /* Hellblau: der Zustand „Wiedervorlage" (seit 14.09.2026). Vorher teilte er sich das
        Orange mit dem Akzent – auf einer Karte mit 400 Nadeln war er damit von Rot kaum zu
        trennen. Ein eigener Ton, kühl und ruhig: eingeplant, aber nicht dringend. */
@@ -2931,6 +2934,11 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .am-r-zelle.s4{background:#ff7338;}
 .am-r-zelle.s5{background:#e2491a;}
 .am-hinweis{font-size:12.5px;background:var(--bg);border-radius:10px;padding:8px 10px;margin-top:10px;}
+/* Arbeitszeit laut Stempeluhr im Reiter Einsatz (v144): eine Zeile je Größe, Wert rechts. */
+.am-zeit{display:flex;flex-direction:column;gap:2px;}
+.am-zeit-zeile{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--border);font-size:14px;}
+.am-zeit-zeile b{white-space:nowrap;font-variant-numeric:tabular-nums;}
+.am-zeit .small{margin-top:6px;}
 
 /* Blätter */
 .auswahl-blatt.am-breit{width:min(560px, calc(100vw - 32px));}
@@ -4399,3 +4407,98 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .tw-kw:hover{background:none;color:inherit;}
 .tw-wahl{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .tw-raster{--pl-hoehe:0px;margin-top:6px;}
+
+/* ================================================================ Systeme: FSM · Finance (v145)
+   components/system/SystemMarke.tsx, SystemWahl.tsx, components/finance/FinanceBereich.tsx,
+   docs/finance.md Abschnitt 1, docs/design-system.md „Systeme“.
+
+   Finance färbt um, indem es die Akzent-Variablen am #app neu setzt. Alle drei müssen hier stehen:
+   `--nav-active-bg` ist in :root als var(--accent-bg) definiert und dort schon ausgerechnet – ein
+   neues --accent am #app erreicht sie nicht. */
+#app.sys-finance{--accent:var(--fin);--accent-bg:var(--fin-bg);--nav-active-bg:var(--fin-bg);--nav-active-text:var(--fin);
+  --chip-hover:#eef6f8;}
+
+/* Die Marke als Wechsler: der Knopf sitzt in der Überschrift, deckt über ::after aber den ganzen
+   Markenblock ab – getippt werden kann überall auf Signet und Schriftzug. */
+.marke-wechsel{position:relative;border-radius:12px;}
+.marke-wechsel:hover{background:var(--hover);}
+.marke-knopf{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px;vertical-align:baseline;}
+.marke-knopf::after{content:"";position:absolute;inset:0;border-radius:12px;}
+.marke-knopf:focus-visible::after{outline:2px solid var(--accent);outline-offset:2px;}
+.sys-pille{background:var(--accent-bg);color:var(--accent);border-radius:999px;padding:0 7px;font-size:11px;font-weight:800;
+  letter-spacing:.02em;line-height:17px;display:inline-block;}
+.sys-pfeil{font-size:10px;color:var(--muted);}
+.sys-name{font-weight:700;}
+/* Die Marke hat in der Seitenleiste einen Rand links (margin 4px); mit Hover-Fläche etwas Innenraum. */
+.nav-brand.marke-wechsel{padding:4px 6px;margin-left:0;}
+/* Abstand: Der Rand des Markenblocks darf die Pille nicht abschneiden (overflow:hidden in .marke-text small). */
+.marke-text small .marke-knopf,.marke-text small .sys-name{max-width:100%;}
+
+/* Systemauswahl im Blatt */
+.sw-liste{display:flex;flex-direction:column;gap:4px;padding:2px 0 6px;}
+.sw-sys{all:unset;box-sizing:border-box;display:flex;align-items:center;gap:12px;padding:11px 10px;border-radius:14px;cursor:pointer;width:100%;}
+.sw-sys:hover{background:var(--hover);}
+.sw-sys:focus-visible{outline:2px solid var(--accent);outline-offset:1px;}
+.sw-sys.aktiv{background:var(--bg);}
+.sw-sys.bald{cursor:default;opacity:.55;}
+.sw-sys.bald:hover{background:none;}
+.sw-zeichen{width:42px;height:42px;border-radius:12px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  font-family:var(--font-brand);font-weight:800;font-size:12.5px;letter-spacing:.02em;}
+.sw-sys.sys-fsm .sw-zeichen{background:#ffe9dd;color:#FF5A1F;}
+.sw-sys.sys-finance .sw-zeichen{background:var(--fin-bg);color:var(--fin);}
+.sw-sys.sys-crm .sw-zeichen{background:var(--blau-bg);color:var(--blau);}
+.sw-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
+.sw-text b{font-size:15px;display:flex;align-items:center;gap:6px;}
+.sw-text small{font-size:12.5px;color:var(--muted);line-height:1.35;}
+.sw-bald{font-size:10.5px;font-weight:800;background:#ece6da;color:var(--muted);border-radius:999px;padding:1px 7px;}
+.sw-haken{color:var(--green);font-weight:800;font-size:16px;flex:0 0 auto;}
+.sw-fuss{margin:4px 2px 2px;line-height:1.45;}
+
+/* Finance-Seiten */
+.fi-seite{max-width:880px;}
+.fi-hinweis{border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45;}
+.fi-hinweis code{font-size:12px;background:rgba(255,255,255,.6);border-radius:5px;padding:0 4px;}
+.fi-pilot,.fi-warn{background:#fdf1dc;}
+.fi-rot{background:var(--red-bg);}
+.fi-info{background:var(--blau-bg);}
+.fi-akzent{background:var(--accent-bg);}
+.fi-knopf{min-height:44px;border-radius:12px;}
+.fi-pfeil{font-size:20px;color:var(--muted);flex:0 0 auto;}
+.fi-symbol{width:36px;height:36px;border-radius:11px;background:var(--accent-bg);color:var(--accent);flex:0 0 auto;
+  display:flex;align-items:center;justify-content:center;font-weight:800;}
+.fi-symbol svg{width:19px;height:19px;}
+.fi-symbol.gross{width:48px;height:48px;border-radius:14px;}
+.fi-symbol.gross svg{width:24px;height:24px;}
+.fi-phase{flex:0 0 auto;font-size:11.5px;font-weight:800;color:var(--muted);background:var(--bg);border-radius:999px;padding:2px 8px;}
+.fi-fuss{padding:0 4px;}
+.fi-karte{gap:12px;}
+.fi-feld{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.fi-feld.aus{opacity:.45;}
+.fi-label{font-size:12.5px;font-weight:700;color:var(--muted);}
+.fi-feld select,.fi-feld input{height:42px;border-radius:10px;border:1px solid var(--border);padding:0 10px;font:inherit;font-size:14.5px;
+  background:var(--input-bg);width:100%;min-width:0;}
+.fi-zwei{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;}
+.fi-wahl{display:flex;flex-wrap:wrap;gap:8px;}
+.fi-wahl button{flex:1 1 180px;min-width:0;text-align:left;border:1.5px solid var(--border);background:var(--panel);border-radius:12px;
+  padding:9px 12px;font:inherit;font-weight:700;font-size:14px;color:var(--text);cursor:pointer;}
+.fi-wahl button small{display:block;color:var(--muted);font-weight:500;font-size:12px;margin-top:2px;line-height:1.35;}
+.fi-wahl button.aktiv{border-color:var(--accent);background:var(--accent-bg);}
+.fi-wahl button:disabled{cursor:default;}
+.fi-wahl button:disabled:not(.aktiv){opacity:.7;}
+.fi-schalter{display:flex;flex-direction:column;border-top:1px solid #f1ece2;padding-top:6px;}
+.fi-schalter .es-zeile:disabled{cursor:default;}
+.es-zeile.fi-aus{opacity:.45;}
+.fi-aktion{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap;padding:4px 0 8px;}
+.fi-aktion .btn-secondary{min-height:44px;border-radius:12px;border:1px solid var(--border);}
+.fi-meldung.ok{color:var(--green);font-weight:700;}
+.fi-meldung.fehler{color:var(--red);font-weight:700;}
+.fi-platzhalter{align-items:flex-start;gap:6px;padding:18px;}
+.fi-platzhalter b{font-size:16px;font-family:var(--font-brand);}
+@media (max-width:700px){
+  .fi-zwei{grid-template-columns:1fr;}
+  .fi-wahl button{flex-basis:100%;}
+  /* Chat-Blase und Stoppuhr schweben unten rechts: Platz zum Hochscrollen, Knöpfe über die ganze Breite. */
+  .fi-seite{padding-bottom:120px;}
+  .fi-aktion .btn-primary,.fi-aktion .btn-secondary{flex:1 1 140px;}
+  .fi-aktion .fi-meldung{flex-basis:100%;text-align:center;}
+}

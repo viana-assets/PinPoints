@@ -8,6 +8,7 @@ import {
   erbrachtNichtAbgerechnet, lagerAusblick, lagerBewegung, monatImZeitraum, monatKurz, monatLang, monatsreihe, neuAngelegteKunden,
   neuUndBestand, postenFuerPerson, rasterHinweis, saisonFenster, tagDeutsch, umsatzJeMonat, umsatzposten, umsatzstaerksteKunden, umsatzSumme,
   veraenderung, verschiebeJahr, vorigeSaison, vorjahr, wiederkehr, zeitraumFuer, zeitraumTitel, type AuswertungsZeitraum,
+  anteilBeimKunden, zeitAuswertung, type ZeitAuswertungEingang,
 } from "@/lib/auswertungAnsicht";
 import { csv, datevBuchungsstapel, datevEinstellungFehler, debitorenlisteCsv, rechnungslisteCsv, windows1252 } from "@/lib/datev";
 import { currentArticlePrice, formatEUR, LANGLIEGER_EURO, LANGLIEGER_MONATE, naechsteSaison, orderArticleTotals, todayStr } from "@/lib/helpers";
@@ -16,6 +17,9 @@ import { langlieger } from "@/lib/langlieger";
 import { auftragsNr } from "@/lib/testkunde";
 import { lagerwertVerlauf, reifenAuswertung, VERKAUF_LANGE_LIEGEND_MONATE } from "@/lib/reifenverkauf";
 import { dateiHerunterladen } from "@/lib/download";
+import { fetchZeitAbwesenheiten, fetchZeitKorrekturenZeitraum, fetchZeitSchichten } from "@/lib/api/zeiterfassung";
+import { arbeitMs } from "@/lib/zeiterfassung";
+import { addDays, toDateStr } from "@/lib/calendar";
 
 // Register „Auswertungen" – neu gestaltet am 26.09.2026 (Entwurf „M · Auswertungen", Fahrplan
 // E13). Vorher eine starre Seite: drei Zeiträume, sechs Kacheln, ein Balkendiagramm, zwei
@@ -112,6 +116,9 @@ export function AuswertungPanel(p: {
   darfRechnungen: boolean;
   // Darf der Nutzer den Reifenverkauf lesen (`lager.verkauf · lesen`)? Sonst kein Reiter „Reifen".
   darfReifenverkauf: boolean;
+  // Darf der Nutzer die Zeiten aller lesen (`zeiterfassung.alle · lesen`)? Dann im Reiter „Einsatz“ die
+  // gestempelte Arbeitszeit des Betriebs (v144) – nur als Summe, ohne Personenbezug.
+  darfZeitAlle?: boolean;
   standardDauerMin: number;
   onOpenOrder: (id: string) => void;
   onOpenCustomer: (id: string) => void;
@@ -157,6 +164,22 @@ export function AuswertungPanel(p: {
       .finally(() => { if (!abgebrochen) setLaedt(false); });
     return () => { abgebrochen = true; };
   }, [supabase, ladeVon, ladeBis, p.darfRechnungen, p.darfReifenverkauf]);
+
+  // Stempeluhr (v144): erst laden, wenn der Reiter „Einsatz“ offen ist – Zeitraum und Vorjahr.
+  // `jetzt` = Ladezeitpunkt: Bis dahin zählen Schichten, die noch laufen (kein Date.now() im Rendern).
+  const [zeitDaten, setZeitDaten] = useState<(ZeitAuswertungEingang & { jetzt: number }) | null>(null);
+  const [zeitFehler, setZeitFehler] = useState<string | null>(null);
+  const zeitAn = !!p.darfZeitAlle && reiter === "einsatz";
+  useEffect(() => {
+    if (!zeitAn) return;
+    let abgebrochen = false;
+    const bisTag = toDateStr(addDays(new Date(`${z.bis}T12:00:00`), 1));
+    const von = new Date(`${zVJ.von}T00:00:00`).toISOString(), bis = new Date(`${bisTag}T00:00:00`).toISOString();
+    Promise.all([fetchZeitSchichten(supabase, von, bis), fetchZeitAbwesenheiten(supabase, zVJ.von, z.bis), fetchZeitKorrekturenZeitraum(supabase, von, bis)])
+      .then(([schichten, urlaub, korrekturen]) => { if (!abgebrochen) { setZeitDaten({ schichten, urlaub, korrekturen, jetzt: Date.now() }); setZeitFehler(null); } })
+      .catch((e) => { if (!abgebrochen) setZeitFehler(e instanceof Error ? e.message : "Die Arbeitszeiten konnten nicht geladen werden."); });
+    return () => { abgebrochen = true; };
+  }, [supabase, zeitAn, zVJ.von, z.bis]);
 
   const a = abzug ?? LEER_ABZUG;
   const nachPerson = (o: Order) => !person || (a.orderEmployees[o.id] ?? []).includes(person);
@@ -212,6 +235,11 @@ export function AuswertungPanel(p: {
   const rMax = Math.max(1, ...e.raster.flat());
   const mitSonntag = e.raster[6].some((v) => v > 0);
   const hinweis = rasterHinweis(e.raster);
+  // Gestempelt gegen geplant (v144). „Beim Kunden“ zählt je eingeteilter Person, weil auch jede Person stempelt.
+  const zt = zeitDaten ? zeitAuswertung(zeitDaten, z, zeitDaten.jetzt, arbeitMs) : null;
+  const ztVJ = zeitDaten ? zeitAuswertung(zeitDaten, zVJ, zeitDaten.jetzt, arbeitMs) : null;
+  const beimKunden = e.jePerson.reduce((n, x) => n + x.minuten, 0);
+  const anteil = zt ? anteilBeimKunden(beimKunden, zt.gestempeltMin) : null;
 
   // ---------------------------------------------------------------- Lager
   const belegt = belegtAm(a.einlagerungen, heute);
@@ -507,6 +535,33 @@ export function AuswertungPanel(p: {
               {vergleich && <Delta jetzt={e.minuten} vorher={eVJ.minuten} dunkel einheit={`${Math.round(eVJ.minuten / 60)} Std.`} />}
               <span className="am-a-klein">Zeit beim Kunden laut Termin (von–bis) – ohne Fahrzeit.</span>
             </div>
+
+            {p.darfZeitAlle && (
+              <div className="db-karte">
+                <div className="db-karte-kopf"><span className="db-karte-titel">Arbeitszeit laut Stempeluhr</span><span className="small">ganzer Betrieb</span></div>
+                {person ? (
+                  <div className="db-leer">Nur für alle Mitarbeiter zusammen – mit Mitarbeiter-Filter nicht.</div>
+                ) : !zt ? (
+                  <div className="db-leer">{zeitFehler ?? "Lädt …"}</div>
+                ) : zt.schichten === 0 ? (
+                  <div className="db-leer">Keine Stempelungen im Zeitraum.</div>
+                ) : (
+                  <div className="am-zeit">
+                    <div className="am-zeit-zeile"><span>Gestempelt</span><b>{stunden(zt.gestempeltMin)} Std.</b></div>
+                    {vergleich && ztVJ && <Delta jetzt={zt.gestempeltMin} vorher={ztVJ.gestempeltMin} einheit={`${stunden(ztVJ.gestempeltMin)} Std.`} />}
+                    <div className="am-zeit-zeile"><span>davon beim Kunden laut Termin</span><b>{stunden(beimKunden)} Std.{anteil !== null ? ` · ${anteil} %` : ""}</b></div>
+                    <div className="am-zeit-zeile"><span>übrige Zeit (Fahrt, Rüsten, Lager, Büro)</span><b>{stunden(Math.max(0, zt.gestempeltMin - beimKunden))} Std.</b></div>
+                    <div className="am-zeit-zeile"><span>Heimfahrten gutgeschrieben</span><b>{zt.heimfahrten}× · {stunden(zt.heimfahrtMin)} Std.</b></div>
+                    <div className="am-zeit-zeile"><span>Urlaub</span><b>{zt.urlaubTage} {zt.urlaubTage === 1 ? "Tag" : "Tage"} · {stunden(zt.urlaubMin)} Std.</b></div>
+                    <div className="am-zeit-zeile"><span>Korrekturen an Stempelzeiten</span><b>{zt.korrekturen}</b></div>
+                    <span className="small">
+                      {zt.schichten} Schichten an {zt.tage} Tagen{zt.laufend > 0 ? `, ${zt.laufend} noch eingestempelt (bis jetzt gezählt)` : ""}. Summe aller
+                      Mitarbeiter ohne Pausen, mit Heimfahrt – keine Werte je Person.{anteil !== null && anteil > 100 ? " Über 100 %: Termine länger geplant als gestempelt." : ""}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="db-karte">
               <div className="db-karte-kopf"><span className="db-karte-titel">Je Mitarbeiter</span></div>

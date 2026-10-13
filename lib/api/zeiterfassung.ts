@@ -86,6 +86,14 @@ export async function fetchZeitKorrekturen(supabase: SupabaseClient, profileId: 
       .eq("profile_id", profileId).gte("am", ab).order("am", { ascending: false }).limit(500))) || [];
 }
 
+// Alle Korrekturen im Zeitraum (für die Auswertungen, v144) – mit „Zeiten aller“ die aller, sonst
+// liefert die RLS nur die eigenen. Gezählt wird nur, deshalb nur Kennung und Zeitpunkt.
+export async function fetchZeitKorrekturenZeitraum(supabase: SupabaseClient, von: string, bis: string): Promise<{ id: string; am: string }[]> {
+  return fetchPaged<{ id: string; am: string }>("Die Korrekturen konnten nicht geladen werden", (a, b) =>
+    supabase.from("zeit_korrekturen").select("id,am").gte("am", von).lt("am", bis).order("am").order("id").range(a, b)
+  );
+}
+
 // Urlaub eintragen (Werktage im Zeitraum) bzw. entfernen – Grund ist Pflicht, Recht „Zeiten aller“.
 export async function zeitUrlaubSetzen(supabase: SupabaseClient, u: { profileId: string; von: string; bis: string; minuten: number; grund: string }): Promise<number> {
   return (await q<number>("Der Urlaub konnte nicht eingetragen werden", supabase.rpc("zeit_urlaub_setzen", {

@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v143";
+export const APP_VERSION = "v145";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,21 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v145", datum: "2026-10-13", titel: "Finance – erster Schritt",
+    punkte: [
+      "Oben links steht jetzt „MR Assistent · FSM“. Der Superadmin kann dort auf Finance wechseln, die neue Buchhaltung – im Moment ein Pilot, nur für ihn sichtbar.",
+      "In Finance gibt es zunächst die Einstellungen (Rechtsform, EÜR oder Bilanz, Kontenrahmen, Umsatzsteuer). Die übrigen Seiten zeigen, was in welcher Phase kommt.",
+      "In FSM ändert sich nichts.",
+    ],
+  },
+  {
+    version: "v144", datum: "2026-10-13", titel: "Arbeitszeit in den Auswertungen",
+    punkte: [
+      "Auswertungen › Einsatz zeigt jetzt die gestempelte Arbeitszeit des ganzen Betriebs neben der geplanten: wie viel davon beim Kunden war, wie viel Fahrt und Rüsten, Heimfahrten, Urlaub und Korrekturen – mit Vorjahr.",
+      "Bewusst nur als Summe, ohne Werte je Mitarbeiter. Zu sehen für alle, die „Zeiten aller“ lesen dürfen.",
+    ],
+  },
   {
     version: "v143", datum: "2026-10-13", titel: "Sicherung jederzeit",
     punkte: [

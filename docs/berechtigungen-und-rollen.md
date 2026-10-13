@@ -209,6 +209,9 @@ Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 | `chat` | Team-Chat (80) | L S | L S | L S |
 | `zeiterfassung` | Zeiterfassung (82) | L S | – | L S |
 | `zeiterfassung.alle` | – Zeiten aller (82) | L S | – | – |
+| `finance` | Finance öffnen (87) | – | – | – |
+| `finance.rechnungen` … `finance.abschluss` | – Rechnungen, Belege, Bank, Buchungen, Steuern, Abschluss (87) | – | – | – |
+| `finance.einstellungen` | – Finance-Einstellungen ändern (87) | – | – | – |
 | `einstellungen` | Einstellungen | L S | L S | L S |
 
 Der Techniker ist in dieser Tabelle die eigentliche Aussage: Er sieht Aufträge, Termine, Lager
@@ -256,6 +259,11 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   `zeiterfassung.alle` · L = alle sehen (RLS „Zeiten lesen“, `zeit_personen()`), S = korrigieren,
   nachtragen, löschen (`zeit_schicht_speichern()`/`_loeschen()`, Grund Pflicht). Kein X: Löschen ist eine
   Korrektur. Direktes Schreiben auf die Tabellen gibt es für niemanden. Siehe `docs/zeiterfassung.md`.
+- **Finance (Migration 87, v145):** alle Rollenlisten leer – nur der Superadmin sieht Finance und den
+  Systemwechsler an der Marke. `finance` · L = Finance öffnen, Übersicht und Einstellungen ansehen (RLS
+  „Finance-Einstellungen lesen“); die Unterrechte schalten die Seiten der späteren Phasen frei und brauchen
+  `finance` lesen (`RECHTE_ABHAENGIGKEITEN`); `finance.einstellungen` · S = Einstellungen anlegen und ändern.
+  Kein Löschen. Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,
   `chat_ungelesen()`, Empfänger in `lib/chatVersand.ts`); S = schreiben (Richtlinie „Chat schreiben“,

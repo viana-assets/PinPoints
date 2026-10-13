@@ -19,6 +19,7 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
+import { fetchFinEinstellungen } from "@/lib/api/finance";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
   fetchEingelagerteRaeder,
@@ -518,5 +519,15 @@ export function useZeitKorrekturen(supabase: SupabaseClient, profileId: string |
     queryKey: qk.zeitKorrekturen(profileId ?? "", ab),
     queryFn: () => fetchZeitKorrekturen(supabase, profileId as string, ab),
     enabled: aktiv && !!profileId, staleTime: FRISCH_MS,
+  });
+}
+
+// Finance-Einstellungen je Wirtschaftsjahr (Migration 87). Ändern sich selten – wie der Briefkopf.
+export function useFinEinstellungen(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.finEinstellungen(jahr),
+    queryFn: () => fetchFinEinstellungen(supabase, jahr),
+    enabled: aktiv,
+    staleTime: BRIEFKOPF_FRISCH_MS,
   });
 }

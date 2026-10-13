@@ -16,6 +16,21 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **13.10.2026 – Finance Phase F0 (Migration 87, Service Worker v145).** Systemwechsel an der Marke
+  („MR Assistent · FSM“ ↔ „· Finance“, CRM als „bald“), Rechte `finance.*` (nur Superadmin), eigene Navigation,
+  Übersicht mit Pilot-Hinweis, Einstellungen je Wirtschaftsjahr speicherbar, Platzhalter je Phase. FSM unverändert.
+  `docs/finance.md`.
+
+* **13.10.2026 – Auswertungen mit Stempeluhr, Karte ausgelagert (ohne Migration, Service Worker v144).**
+  Auswertungen › Einsatz: gestempelte Arbeitszeit des Betriebs neben der geplanten (Anteil beim Kunden,
+  Heimfahrten, Urlaub, Korrekturen), nur als Summe, nur mit „Zeiten aller“ (`docs/zeiterfassung.md`).
+  C5: die Karte aus `app/page.tsx` nach `app/_seite/useKarte.ts`.
+
+* **13.10.2026 – Rückmeldungen aus dem Betrieb.** Offline schreiben im Betrieb getestet (passt),
+  Migrationen 85 und 86 ausgeführt, v138–v143 hochgeladen, Chat-Aufbewahrung 12 Monate bestätigt,
+  Etikettendrucker und alle Geräte (QR-Scanner) laufen. Offen bleibt aus E20 „Krankheit als Eintrag“
+  (Vitali: noch unklar).
+
 * **13.10.2026 – „Alle Daten sichern“ als eigener Knopf (ohne Migration, Service Worker v143).** Wunsch
   Vitali: die Sicherung, die „Alle Daten löschen“ vorher anbietet, auch für sich allein – unter Admin ›
   Wartung, nur Superadmin (`components/admin/AlleDatenSichern.tsx`, nutzt `alle_daten_sicherung()` aus
@@ -639,6 +654,10 @@ Zeilen. Nächste Kandidaten nach demselben Muster: Aufträge (~270 Zeilen), Kart
 als Hooks, `app/page.tsx` von ~3.580 auf ~3.300 Zeilen. Offen bleibt nur noch die Karte (Nadeln,
 Popups, Refs) – erst mit Browser-Prüfung.
 
+**Erledigt 13.10.2026 (v144):** die Karte als `app/_seite/useKarte.ts` – unverändert umgezogen, im
+Browser gegen den alten Stand verglichen (Nadeln, Bündel, Kundenkarte, Stil, Tagesmodus gleich).
+`app/page.tsx` ~2.970 Zeilen.
+
 `app/page.tsx` ist wieder auf rund 3.550 Zeilen gewachsen (nach der Sanierung waren es
 1.290). `components/auftraege/AuftragModal.tsx` liegt bei knapp 1.200, `components/lager/
 LagerPanel.tsx` bei rund 950, `lib/helpers.ts` bei rund 1.110 Zeilen (Stand 02.10.2026).
@@ -824,7 +843,7 @@ Umsatz neu/gebraucht, Marge (wo der Einkaufspreis gepflegt ist), Lagerwert im Ve
 **Erledigt 08.10.2026 (Migration 84, v137):** Einzelchats (nur die beiden lesen), eigene Nachricht
 bearbeiten (24 Stunden) und löschen, Fotos im Chat (privater Bucket `chat-fotos`, Dateien gelöschter
 Nachrichten räumt der Minutentakt weg), „Ältere Nachrichten laden“ – `docs/team-chat.md`. Offen: die
-Aufbewahrung (12 Monate) mit dem Datenschutz abstimmen; Gruppen mit mehr als zwei Personen außer dem
+Aufbewahrung 12 Monate von Vitali bestätigt (13.10.2026); Gruppen mit mehr als zwei Personen außer dem
 Team-Chat gibt es nicht.
 
 ### E20. Zeiterfassung: Export und Monatsblick
@@ -848,8 +867,8 @@ sofort in Finance › Rechnungen (vorgemerkt → zu erstellen); Ausstellen – a
 und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance.md` 4.2).
 **Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
 sind Probelauf, die Buchhaltung läuft wie bisher.
-Vorschlag Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **Vor F0:** Mockup abnehmen, offene Fragen in
-`docs/finance.md` Abschnitt 8 beantworten.
+Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 erledigt (v145, Migration 87).** Als Nächstes **F1**:
+Kontenrahmen SKR03/SKR04, Steuerschlüssel, Journal mit manuellen Buchungen, Soll = Haben, Festschreibung, Storno.
 
 ---
 
@@ -857,25 +876,12 @@ Vorschlag Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **Vor F0:** Mockup 
 
 ### F1. Offline schreiben (PWA Stufe 4)
 
-**Runde 1 erledigt am 02.10.2026 (v101)** – Ausgangskorb, Anzeige, Konfliktabfrage; offline gehen
-Titel/Beschreibung/Termin/„Rechnung benötigt"/Notiz, Leistungen und die Radmessung. Siehe
-`pwa-plan.md`, Stufe 4. **Runde 2 erledigt am 05.10.2026 (v113)** – Fahrzeug am Auftrag,
-Kilometerstand, neues Kennzeichen beim Kunden. Der Text unten ist die ursprüngliche Beschreibung.
-Lesen funktioniert offline (Stufen 1–3 sind gebaut). Schreiben nicht: es fehlt eine
-Warteschlange und eine Konfliktbehandlung.
-
-**Entschieden am 23.09.2026: der GROSSE Zuschnitt, als eigene Runde** – alles am Auftrag außer
-Abschließen (Notiz, Uhrzeit, Titel/Beschreibung, Leistungen, Endpreis,
-Fahrzeug und Kilometerstand, Radmessung), mit Konfliktabfrage bei gleichem Feld. Nicht offline:
-Abschließen, Ein- und Auslagern, Auftrag anlegen/stornieren, Kunden, Stammdaten. Die Bauvorgabe
-je Handlung steht im Projektkonzept „Offline schreiben" (Tabellen „Was offline gehen SOLL");
-dort ist nur die Zeile „Rechnung erstellt abhaken" überholt – seit Migration 48/49 entsteht die
-Rechnung in PinPoints, und Ausstellen bleibt netzgebunden. Siehe auch `pwa-plan.md`.
-*Aufwand: zwei bis drei Runden plus Test mit absichtlich abgeschaltetem Telefon.*
+**Erledigt:** Runde 1 (v101, 02.10.2026), Runde 2 (v113, 05.10.2026), **Test im Betrieb mit
+abgeschaltetem Telefon bestanden** (Vitali, 13.10.2026). Bauvorgabe und Abgrenzung in `pwa-plan.md`
+(Stufe 4) und im Projektkonzept „Offline schreiben“.
 
 ### F3. Welche Geräte sind eigentlich im Einsatz?
-Aus dem PWA-Plan unbeantwortet: welche iOS-Fassungen, ob der QR-Scanner in der
-installierten Web-App auf den älteren davon funktioniert. Reine Bestandsaufnahme.
+**Erledigt 13.10.2026:** laut Vitali laufen alle Geräte, der QR-Scanner auch in der installierten App.
 
 ### F4. Erledigt, aber noch als offen geführt gewesen
 Zur Klarstellung, damit niemand doppelt anfängt: Rechnungsstellung (Phase 5), die
@@ -913,9 +919,7 @@ Kleine Punkte, die bei Vitali oder im Betrieb liegen oder auf eine Rückmeldung 
 - **Stammplatz je Kunde:** bewusst nicht vorgesehen (Entscheidung 05.10.2026) – der Reifentausch
   (Migration 69) hält den Platz beim Saisonwechsel ohnehin beim Kunden.
 - **Brother QL-820NWBc:** Druck über PDF im Betrieb bestätigt (02.10.2026), Format 58 × 58 seit v96
-  fest, 60 × 86 seit v99 wieder wählbar. Offen: Regalaufkleber auf dem Brother testen (seit v99),
-  die Folienrolle DK-22212 auf einem gereinigten Reifen einige Wochen beobachten, sonst Etikett auf
-  Reifensack/Anhänger.
+  fest, 60 × 86 seit v99 wieder wählbar. **Im Betrieb bestätigt 13.10.2026: funktioniert.**
 - ~~**Etikettenformate im Admin einstellbar**~~ – entfällt (02.10.2026): Es gibt nur noch das eine
   Format 58 × 58 mm.
 

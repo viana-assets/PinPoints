@@ -1,6 +1,7 @@
 # Finance – Buchhaltung als zweites System neben FSM
 
-Stand: 13.10.2026 · **Konzept und Fahrplan, noch nichts gebaut.** Klickbarer Mockup:
+Stand: 13.10.2026 · **Phase F0 gebaut (v145, Migration 87)**: Systemwechsel, Rechte, Navigation,
+Übersicht, Einstellungen. Alles Weitere ist Konzept (Abschnitt 7). Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -52,9 +53,26 @@ Systemauswahl:
 - **Wer nur ein System sehen darf, sieht keinen Wechsler**, nur den Namen. Der Techniker merkt von
   Finance also nichts.
 - Das zuletzt gewählte System bleibt je Gerät gemerkt; ein Link (`?system=finance`) öffnet direkt.
-- Technisch: `SYSTEME` als eine zentrale Liste (Konstanten-Regel), `MODULE` bekommt das Feld
-  `system`, `app/page.tsx` schaltet nur die Navigation und den Inhaltsbereich um. Finance-Seiten
-  liegen unter `components/finance/` und `app/_seite/useFinance*.ts`.
+- Technisch: `SYSTEME` als eine zentrale Liste (Konstanten-Regel), die Finance-Seiten als eigene Liste
+  `FINANCE_SEITEN` (`lib/finance/seiten.ts`) – `MODULE` bleibt die Liste von FSM. `app/page.tsx` schaltet nur
+  die Navigation und den Inhaltsbereich um. Finance-Seiten liegen unter `components/finance/`; Handlungen
+  späterer Phasen kommen nach `app/_seite/useFinance*.ts`.
+
+### So ist F0 gebaut (v145)
+
+- `lib/systeme.ts`: `SYSTEME`, `sichtbareSysteme()`, `aktivesSystem()`, Startwert aus `?system=` oder dem Merker
+  `mr-system` im Gerät. Ohne Recht `finance` läuft immer FSM, egal was gemerkt ist.
+- `components/system/SystemMarke.tsx` (Marke mit Systemname, als Knopf nur bei mehr als einem System) und
+  `SystemWahl.tsx` (Blatt mit FSM, Finance, CRM „bald“).
+- `app/page.tsx`: In Finance stehen die Finance-Seiten in der Navigation (`FINANCE_SEITEN`, am Handy vier unten,
+  der Rest unter „Weitere“), der ganze FSM-Inhalt ist ausgehängt, `#app` trägt `vollseite sys-finance` (Petrol
+  statt Orange). Springt die App von sich aus in einen FSM-Reiter (Push-Meldung, Sprung aus dem Chat), wechselt
+  sie zurück nach FSM.
+- `components/finance/FinanceBereich.tsx`: Pilot-Hinweis auf jeder Seite, Übersicht (Einrichtung, was kommt),
+  Einstellungen (Abschnitt 3; speichern braucht `finance.einstellungen`), Platzhalter je Phase.
+- Datenbank: Migration 87 (`fin_einstellungen`, Rechte). Fehlt sie, sagt die Seite „Migration 87 fehlt“.
+- Noch nicht in F0: Steuernummer/USt-IdNr. werden aus Admin › Betrieb nur erwähnt, nicht angezeigt; Wirtschaftsjahr
+  ist das laufende Kalenderjahr (ein abweichendes Wirtschaftsjahr wird mit F1 ausgewertet).
 
 ## 2. Rechte – zuerst nur der Superadmin
 
@@ -64,6 +82,7 @@ Zeiterfassung:
 | Schlüssel | lesen | schreiben | löschen |
 |---|---|---|---|
 | `finance` | Finance öffnen, Übersicht | – | – |
+| `finance.rechnungen` | Finance › Rechnungen, Offene Posten | Rechnung aus Finance ausstellen, „bar bezahlt“ (F3) | – |
 | `finance.belege` | Belege sehen | Belege erfassen, buchen | Entwurf verwerfen (gebuchte nie) |
 | `finance.bank` | Bankkonten, Umsätze | importieren, zuordnen | Import vor dem Zuordnen zurücknehmen |
 | `finance.buchen` | Journal, Kontenblätter | manuelle Buchungen, Storno | – |
@@ -187,8 +206,10 @@ nötig“, und UStVA/EÜR aus Finance sind als **Probelauf** gekennzeichnet, nic
   werden beim zweiten Import erkannt.
 - **Abgleich:** Vorschläge nach Betrag, Rechnungsnummer im Verwendungszweck und Name; ein Tipp
   bestätigt. Regeln für Wiederkehrendes (Miete, Leasing, Versicherung).
-- **Kassenbuch** für Bargeld vor Ort: fortlaufend, tagesgenau, ohne nachträgliche Änderung,
-  Kassensturz; Barzahlungen aus FSM-Aufträgen fließen ein.
+- **Kassenbuch** für Bargeld vor Ort (bestätigt 13.10.2026: es gibt Barzahlungen beim Kunden):
+  fortlaufend, tagesgenau, ohne nachträgliche Änderung, Kassensturz. Im Pilot: Wird eine Rechnung zu
+  einem Vorgang mit „Rechnung nötig“ bar bezahlt, bucht „bar bezahlt“ an der Rechnung Kasse an
+  Forderung und schließt den offenen Posten – sonst bliebe sie offen, obwohl das Geld da ist.
 - Später: automatischer Abruf über einen Bankdienst (PSD2/FinTS) – Kontodaten gingen dann an diesen
   Dienst; braucht Vertrag und Datenschutzprüfung.
 
@@ -199,7 +220,11 @@ nötig“, und UStVA/EÜR aus Finance sind als **Probelauf** gekennzeichnet, nic
   innergemeinschaftlich).
 - **Festschreibung je Monat:** danach unveränderbar, nur Storno mit Gegenbuchung. Lückenlose
   Buchungsnummern wie bei den Rechnungen (Zähler mit Sperre, keine Sequence).
-- Wiederkehrende Buchungen, Privatentnahmen/-einlagen, Eröffnungsbilanz bzw. Saldenvorträge.
+- Wiederkehrende Buchungen, Privatentnahmen/-einlagen.
+- **Anfangsbestände nachtragbar** (entschieden 13.10.2026): Finance startet ohne Eröffnungswerte. Bank-
+  und Kassenstand zeigen bis dahin „ohne Anfangsbestand“; Eröffnungsbuchungen (Kontostände, offene
+  Posten von vorher, Anlagen) lassen sich jederzeit zum Starttag nachtragen, ohne die Buchungen
+  danach anzufassen. Ob ältere Daten (frühere Rechnungen) übernommen werden, wird später geprüft.
 
 ### 4.5 Anlagen
 - Anlagenverzeichnis mit Anschaffung, Nutzungsdauer, linearer AfA (monatsgenau).
@@ -234,8 +259,9 @@ nötig“, und UStVA/EÜR aus Finance sind als **Probelauf** gekennzeichnet, nic
 - **Snapshot-Prinzip** wie bei den Rechnungen: Eine Buchung speichert Konto, Steuersatz und Beleg-
   angaben selbst, nicht nur Verweise.
 - **Testdaten getrennt:** Testkunden/-rechnungen (negative Nummern) erzeugen keine Finance-Buchungen.
-- **„Alle Daten löschen“** würde heute alle `fin_*`-Tabellen mit leeren. Für eine echte Buchhaltung
-  muss vor Phase F1 entschieden werden, ob Finance dabei bleibt oder mitgelöscht wird (offene Frage).
+- **„Alle Daten löschen“ löscht Finance mit** (entschieden 13.10.2026): alle `fin_*`-Tabellen samt
+  Finance-Einstellungen, wie jede Fachtabelle. Keine `fin_*`-Tabelle kommt in `alle_daten_behalten()`.
+  Vorher bietet die App die Sicherung an; „Alle Daten sichern“ (v143) gibt es auch für sich allein.
 - **Datenschutz:** Belege und Bankumsätze enthalten Personendaten Dritter – nur für Rollen mit Recht,
   nicht in Push-Texten, nicht in Fehlermeldungen. Keine Bankdaten an Dritte ohne eigene Entscheidung.
 - **Eigenbau:** Die App ist kein zertifiziertes Buchhaltungsprogramm. Jede Phase wird vor dem echten
@@ -280,13 +306,22 @@ Vorschlag zur Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen
 Umsatz liefern und heute schon täglich entstehen; nach F5 laufen Rechnungen, Belege, Bank und UStVA
 über einen ganzen Monat, bevor die Auswertungen (F6 ff.) dazukommen.
 
-## 8. Offene Fragen vor F0/F1
+## 8. Entscheidungen vor F0/F1 (Stand 13.10.2026)
 
-1. Rechtsform des Betriebs und heutige Besteuerung (Regel/Kleinunternehmer, Soll/Ist, Zeitraum)?
-2. Bleibt Finance bei „Alle Daten löschen“ erhalten?
-3. Wird der Steuerberater weiter die Buchhaltung machen (dann reicht Belege + Export lange) oder
-   soll Finance sie ersetzen?
-4. Gibt es Barzahlungen beim Kunden (Kassenbuch nötig)?
-5. Ab welchem Wirtschaftsjahr soll gebucht werden, mit welchen Eröffnungswerten?
-6. Entschieden 13.10.2026: Der Pilot enthält nur Vorgänge mit „Rechnung nötig“; FSM bleibt
-   unverändert, alles andere bleibt in FSM und in der bisherigen Buchhaltung.
+1. **Besteuerung:** nicht fest vorgeben, sondern **in den Finance-Einstellungen auswählbar** (Abschnitt 3)
+   – Rechtsform, Gewinnermittlung, Kontenrahmen, Regel/Kleinunternehmer, Soll/Ist, Zeitraum,
+   Dauerfristverlängerung, § 13b. Alles Weitere richtet sich danach aus (Konten, Steuerschlüssel,
+   Rechnungstexte, UStVA, Auswertungen), so wie bei DATEV.
+2. **„Alle Daten löschen“ löscht Finance mit** (Abschnitt 5).
+3. **Wer führt die Buchhaltung? Entschieden 13.10.2026: erst Weg A**, Weg B ist später möglich. Die Wege:
+   - *Steuerberater bucht weiter* – Finance sammelt und bereitet vor (Rechnungen, Belege, Bank), übergibt
+     per DATEV-Export; Voranmeldung und Abschluss macht der Steuerberater. Finance muss nicht lückenlos sein.
+   - *Finance ersetzt die Buchhaltung* – alles wird in Finance gebucht, Voranmeldung und Abschluss kommen
+     von dort; der Steuerberater prüft und macht die Jahreserklärung. Dann muss Finance vollständig sein
+     (alle Umsätze, alle Kosten, Bank, Kasse) und braucht Festschreibung und Verfahrensdokumentation.
+   Gebaut wird so, dass Weg B später ohne Neuerfassung möglich bleibt (doppelte Buchung, Festschreibung von Anfang an).
+4. **Barzahlungen gibt es** → Kassenbuch (Abschnitt 4.3), im Pilot „bar bezahlt“ an der Rechnung.
+5. **Start ab sofort:** gebucht wird ab dem Tag der Einrichtung, Wirtschaftsjahr 2026. Anfangsbestände
+   bleiben offen und werden nachgetragen, sobald sie vorliegen (Abschnitt 4.4). Übernahme älterer Daten
+   wird später geprüft.
+6. **Pilot nur mit „Rechnung nötig“**, FSM unverändert (Abschnitt 4.2).

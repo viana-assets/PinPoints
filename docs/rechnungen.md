@@ -570,6 +570,11 @@ einer Rechnung, damit die Summe dem Beleg entspricht. Nicht festgeschrieben (Fel
 Windows-1252. Gesperrt, solange Berater oder Mandant fehlen, wenn der Zeitraum über zwei
 Wirtschaftsjahre reicht oder ein Debitor außerhalb 10000–69999 läge – jeweils mit Klartext.
 
+**Arbeitszeit laut Stempeluhr** (v144) im Reiter „Einsatz“: gestempelt (ohne Pausen, mit Heimfahrt),
+davon beim Kunden laut Termin (je eingeteilter Person), übrige Zeit, Heimfahrten, Urlaub, Korrekturen –
+**nur als Summe des Betriebs**, ohne Werte je Person, nur mit „Zeiten aller · lesen“ und ohne
+Mitarbeiter-Filter (`zeitAuswertung()` in `lib/auswertungAnsicht.ts`, siehe `docs/zeiterfassung.md`).
+
 Dazu die **Debitorenliste** (Konto, Kundennummer, Name, Anschrift aus der jüngsten Rechnung, also
 aus dem Beleg), die **Rechnungsliste** und die aktuelle Ansicht als CSV (UTF-8 mit BOM, Semikolon,
 Dezimalkomma – für Excel). Die Dateien enthalten Kundennamen; die Seite sagt das dazu.

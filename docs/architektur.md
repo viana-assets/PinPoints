@@ -76,6 +76,7 @@ viana-pinpoints/
                               der Unterstrich hält den Ordner aus dem Routing heraus
       typen.ts                Gemeinsame Typen (NeuLaden, OfflineOderDirekt, AuftragAnlegen, NeuerTermin …)
       useAuftragAktionen.ts   Aufträge anlegen/ändern/Termin/Status/Notiz/Transporter/löschen, Leistungen (v127)
+      useKarte.ts             Karte: Leaflet laden, Stil, Nadeln/Bündel, Tagesmodus, Kundenkarte, Standort (v144)
       useKundenAktionen.ts    Kontakt festhalten, offen/aktiv, Stammdaten, Position, anlegen, löschen (v127)
       useLagerAktionen.ts     Lager, Plätze, Einlagerung am Auftrag, Auslagern/Vormerken, Tausch, Räder
       useFahrzeugAktionen.ts  Kartei der Fahrzeuge, Fahrzeuge am Auftrag, Kilometerstand (offline-fähig)
@@ -134,6 +135,12 @@ viana-pinpoints/
       UrlaubBlatt.tsx                Urlaub eintragen/entfernen, Werktage im Zeitraum (Migration 83, v136)
       FeierabendFrage.tsx            „Für heute fertig?“ nach dem letzten Auftrag, Heimfahrt (Migration 85, v138)
       useJetzt.ts                    „Jetzt“ im Takt, mit Versatz zur Datenbankuhr
+    system/
+      SystemMarke.tsx                Marke mit „MR Assistent · FSM/Finance“; Knopf zum Wechseln, wenn es mehr als ein System gibt (v145)
+      SystemWahl.tsx                 Blatt „System wechseln“: FSM, Finance, CRM „bald“ (v145)
+    finance/
+      FinanceBereich.tsx             Finance (Pilot, Migration 87, v145): Übersicht, Einstellungen je Wirtschaftsjahr,
+                                     Platzhalter je Phase, „Weitere“ am Handy; `FINANCE_ICONS`
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
       ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
@@ -310,6 +317,10 @@ viana-pinpoints/
     zeiterfassung.ts              Regeln der Stempeluhr: zählen, Woche, Monat, Urlaub, Hinweise (ArbZG), Formular,
                                   Korrekturtexte, CSV-Export (Migration 82/83, v131/v136)
     download.ts                   Eine Datei aus dem Browser speichern – für alle Exporte (v136)
+    systeme.ts                    Die Systeme FSM · Finance · CRM, wer was sieht, Startwert und Merker je Gerät (v145)
+    finance/
+      einstellungen.ts            Finance-Einstellungen: Wahllisten, Vorgabe, Prüfung, Kurztext (Migration 87, v145)
+      seiten.ts                   Die Seiten von Finance mit Recht und Phase (v145)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
                                   Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -357,6 +368,7 @@ viana-pinpoints/
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
+      finance.ts                   Finance-Einstellungen lesen/speichern; „Migration 87 fehlt“ statt Fehler (v145)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -523,7 +535,7 @@ aktualisieren bzw. über `qk.*` einen Query-Schlüssel für ungültig erklären.
 `neuLaden`, `offlineOderDirekt`, `refreshX`) und geben die Funktionen zurück, die vorher in
 `HomePage` standen – Namen und Verhalten unverändert, die Props der Panels bleiben gleich. Damit
 ist die Datei von ~3.950 auf ~3.550 Zeilen geschrumpft; **v127** hat `useAuftragAktionen` und
-`useKundenAktionen` dazugenommen (~3.580 → ~3.300 Zeilen), **v129** `useChat` (Team-Chat), **v131** `useZeiterfassung`. `useAuftragAktionen` steht dabei VOR
+`useKundenAktionen` dazugenommen (~3.580 → ~3.300 Zeilen), **v129** `useChat` (Team-Chat), **v131** `useZeiterfassung`, **v144** `useKarte` (der letzte große Block: Leaflet, Nadeln, Bündel, Tagesmodus, Kundenkarte, Standort – unverändert umgezogen, `app/page.tsx` ~3.500 → ~2.970 Zeilen). **v145** schaltet `app/page.tsx` zwischen den Systemen um (`systemAktiv`): In Finance stehen Navigation und Inhalt aus `components/finance/`, der ganze FSM-Inhalt der Seitenleiste ist ausgehängt, `#app` trägt `vollseite` und `sys-finance`. `useAuftragAktionen` steht dabei VOR
 `useLagerAktionen`, weil dieser `addOrder` braucht, und `useKundenAktionen` danach, weil er
 `neuenAuftragAnlegen` braucht. Der Hook wird vor dem ersten `return`
 aufgerufen (Regel der Hooks); was er zurückgibt, ist erst ab dieser Zeile da – Funktionen weiter
@@ -711,7 +723,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 86** (09.10.2026; 01–84 ausgeführt, 85 und 86 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 87** (13.10.2026; 87 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -842,6 +854,11 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   „Was gibt es Neues“ zeigt nur spätere Fassungen), `alle_daten_umfang()` mit `chat_fotos`,
   `alle_daten_loeschen(p_bestaetigung, p_fassung)`. Die Chat-Fotodateien entfernt danach
   `app/api/alle-daten/fotos`.
+- **87** – Finance, Phase F0: Rechte `finance` und `finance.*` (alle Rollenlisten leer – nur der
+  Superadmin), Tabelle `fin_einstellungen` je Wirtschaftsjahr (Rechtsform, EÜR/Bilanz, SKR03/04,
+  Regel/§ 19, Soll/Ist, Voranmeldung, Dauerfrist, § 13b, innergemeinschaftlich, Starttag) mit RLS
+  (lesen `finance`, schreiben `finance.einstellungen`, kein Löschen) und Stempel-Trigger. „Alle Daten
+  löschen“ leert sie mit. Siehe `docs/finance.md`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

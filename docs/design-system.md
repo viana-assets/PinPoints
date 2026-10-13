@@ -521,6 +521,23 @@ Vergrößern auch dort weg, wo es jemand zum Lesen braucht – eine Barriere, ke
 
 Die beiden folgenden Abschnitte beschreiben die Viana-Marke bis v87 und bleiben als Verlauf stehen.
 
+## Systeme: FSM · Finance (13.10.2026, v145)
+
+Unter der Marke steht seit v145 das laufende System: **„MR Assistent · FSM“** bzw. **„· Finance“**
+(`components/system/SystemMarke.tsx`, Liste in `lib/systeme.ts`). Wer mehr als ein System sehen darf,
+bekommt den Namen als Pille mit ▾; ein Tipp irgendwo auf Signet und Schriftzug öffnet „System wechseln“
+(`SystemWahl`, ein `Blatt`). Der Knopf steht IN der Überschrift und deckt den Block über `::after` ab –
+eine Überschrift im Knopf wäre kein gültiges HTML. Wer nur FSM hat, sieht nur den Namen, ohne Knopf.
+
+- **Akzent je System:** FSM Sicherheits-Orange (`--accent`), Finance Petrol (`--fin`, `--fin-bg`), CRM
+  später Blau. Finance setzt am `#app` (`.sys-finance`) `--accent`, `--accent-bg`, `--nav-active-bg` und
+  `--nav-active-text` neu – alle vier, weil die Navigationsfarben in `:root` schon ausgerechnet sind.
+- **Finance-Seiten** (`.fi-*` in `globals.css`): dieselben Karten und Zeilen wie die Einstellungen
+  (`db-karte es-karte`, `es-zeile`, `nk-spur`), dazu Wahlkarten mit Erklärtext (`.fi-wahl`, eine Karte je
+  Möglichkeit, am Handy untereinander) und Hinweisflächen (`.fi-hinweis`: Pilot/Warnung gelb, Fehler rot,
+  Info blau, Akzent). Höchstbreite 880 px – Formulare lesen sich nicht über die volle Monitorbreite.
+- Finance ist eine Vollseite wie Lager und Aufträge (`#app.vollseite`), ohne Karte.
+
 ## Branding: eine Markenquelle, viewport-abhängig (behoben)
 
 Früher existierten **zwei** "Viana PinPoints"-Markenelemente gleichzeitig sichtbar

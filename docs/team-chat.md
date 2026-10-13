@@ -131,7 +131,7 @@ eigene Nachricht, und zählt nicht als ungelesen.
 - `chat_bezug_vergessen()` – wird ein Kunde oder Auftrag **endgültig** gelöscht, heißt die Karte
   „Kunde gelöscht“ bzw. „Auftrag gelöscht“ und verliert ihre Unterzeile. Der Text bleibt.
 - `chat_aufraeumen()` – nächtlich 03:25 UTC (`pinpoints-chat-aufraeumen`): Nachrichten älter als
-  12 Monate werden gelöscht. Die Frist ist mit dem Datenschutz abzustimmen.
+  12 Monate werden gelöscht. Die Frist hat Vitali am 13.10.2026 bestätigt.
 - Realtime: `chat_nachrichten` steht in der Veröffentlichung `supabase_realtime`. Die App hört auf
   neue Zeilen (`app/_seite/useChat.ts`) und fragt zusätzlich alle 20 s nach, falls die Verbindung
   nicht steht (`CHAT_ABFRAGE_MS`).
@@ -194,8 +194,8 @@ Was im Chat steht, steht auch auf dem Sperrbildschirm der Kollegen (gekürzt auf
 Karte selbst zeigt bewusst wenig: Name und Ort, keine Straße, keine Telefonnummer – sie ist für
 jeden mit Leserecht sichtbar, auch für Rollen, die den Kunden selbst nicht öffnen dürfen.
 Besondere Kategorien (Art. 9 DSGVO) gehören nicht in den Chat – auch nicht in einen Einzelchat und
-nicht als Foto (Krankmeldung, Attest). Die Aufbewahrung von 12 Monaten ist mit dem Datenschutz
-abzustimmen; sie gilt für Einzelchats und Fotos genauso.
+nicht als Foto (Krankmeldung, Attest). Die Aufbewahrung von 12 Monaten hat Vitali am
+13.10.2026 bestätigt; sie gilt für Einzelchats und Fotos genauso.
 
 Lesebestätigungen (Haken, Migration 85) sind eine Information darüber, wann Beschäftigte etwas
 gelesen haben. Deshalb zeigen sie nur „alle haben gelesen“ bzw. im Einzelchat „die Person hat gelesen“,
