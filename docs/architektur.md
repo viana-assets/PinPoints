@@ -91,6 +91,7 @@ viana-pinpoints/
       HashSessionHandler.tsx    Globaler Client-Handler für Hash-Token-Login
       set-password/…            Passwort setzen nach Invite
     api/invite/route.ts         Server-Route für den Invite-Versand (Service-Role-Key)
+    api/alle-daten/fotos/route.ts  Chat-Fotos nach „Alle Daten löschen“ sofort entfernen (nur Superadmin, Service-Role-Key; v142)
     api/geocode/route.ts        Server-Route für die punktgenaue Geokodierung (Drosselung,
                                 User-Agent, geocode_cache)
     api/adresse-suchen/route.ts  Server-Route für Adressvorschläge/Tippfehlertoleranz
@@ -174,6 +175,7 @@ viana-pinpoints/
       AdressenPruefen.tsx             Korrekturliste für ungenau geokodierte Kundenadressen
       GeokodierLauf.tsx               Sammellauf über den ganzen Kundenbestand
       AlleDatenLoeschen.tsx           Wartung, nur Superadmin: alle Daten löschen, Sicherung (Migration 72, v117)
+      AlleDatenSichern.tsx            Wartung, nur Superadmin: Sicherung aller Daten bei Bedarf, ohne Löschen (v143)
       artikel/
         ArticleAdminPanel.tsx          Tab "Artikel" (eigene Kachel, nicht mehr Teil von Admin –
                                        Ordnerpfad bewusst historisch belassen, um keine
@@ -373,7 +375,7 @@ viana-pinpoints/
       dubletten.ts                   „Keine Dublette"-Vermerke, Zusammenführen (Migration 64, E1)
       belege.ts                      Fotos/Unterschrift: Speicher-Upload, Anzeige-Links, Löschen (Migration 65, E3)
       pushGeraete.ts                 Geräte, die Benachrichtigungen empfangen
-      alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117)
+      alleDaten.ts                   Alle Daten löschen: Umfang, Sicherung, Löschen (Migration 72, v117), App-Stand (86, v142)
   supabase/migrations/
     <nr>_<name>.sql                     Durchnummerierte SQL-Migrationen 01–83
     rollback/<nr>_rollback.sql           Rücknahme-Skript je Migration
@@ -709,7 +711,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 85** (09.10.2026; 01–84 ausgeführt, 85 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 86** (09.10.2026; 01–84 ausgeführt, 85 und 86 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -836,6 +838,10 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   `chat_haken()`), Feierabend mit Heimfahrt (`zeit_schichten.heimfahrt_minuten`, `zeit_feierabend()`,
   `zeit_heimfahrt_setzen()`), Stempel-Erinnerung (`user_settings.stempel_erinnerung_aktiv`,
   `push_stempel_erinnerung`), RLS auf `private.chat_fotos_weg`.
+- **86** – „Alle Daten löschen“ vollständig: Tabelle `app_stand` (übersteht das Löschen, `neuigkeiten_ab` =
+  „Was gibt es Neues“ zeigt nur spätere Fassungen), `alle_daten_umfang()` mit `chat_fotos`,
+  `alle_daten_loeschen(p_bestaetigung, p_fassung)`. Die Chat-Fotodateien entfernt danach
+  `app/api/alle-daten/fotos`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

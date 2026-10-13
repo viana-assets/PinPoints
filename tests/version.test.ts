@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { APP_VERSION, NEUIGKEITEN, neuigkeitenUngelesen } from "@/lib/version";
+import { APP_VERSION, NEUIGKEITEN, neuigkeitenAb, neuigkeitenUngelesen } from "@/lib/version";
 import { auftragsNr, istTestauftrag, istTestrechnung, ohneTestauftraege, ohneTestkunden, ohneTestrechnungen } from "@/lib/testkunde";
 
 describe("Fassung", () => {
@@ -29,6 +29,24 @@ describe("Fassung", () => {
     expect(neuigkeitenUngelesen(liste[0].version, liste)).toEqual([]);
     expect(neuigkeitenUngelesen(null, liste).map((n) => n.version)).toEqual([liste[0].version]);
     expect(neuigkeitenUngelesen("v1", liste).map((n) => n.version)).toEqual([liste[0].version]);
+  });
+
+  it("beginnt nach „Alle Daten löschen“ neu (Migration 86): nur Fassungen nach der Grenze", () => {
+    const liste = [
+      { version: "v12", datum: "2026-10-03", titel: "c", punkte: [] },
+      { version: "v11", datum: "2026-10-02", titel: "b", punkte: [] },
+      { version: "v9", datum: "2026-10-01", titel: "a", punkte: [] },
+    ];
+    expect(neuigkeitenAb(null, liste)).toEqual(liste);
+    expect(neuigkeitenAb("unsinn", liste)).toEqual(liste);
+    expect(neuigkeitenAb("v11", liste).map((n) => n.version)).toEqual(["v12"]);
+    // Die Grenze muss nicht in der Liste stehen; v10 < v11 numerisch, nicht als Text.
+    expect(neuigkeitenAb("v10", liste).map((n) => n.version)).toEqual(["v12", "v11"]);
+    expect(neuigkeitenAb("v12", liste)).toEqual([]);
+    // Direkt nach dem Löschen: nichts Neues, auch nicht für jemanden, der nie gelesen hat.
+    expect(neuigkeitenUngelesen(null, neuigkeitenAb("v12", liste))).toEqual([]);
+    // Die nächste Fassung danach erscheint als neu.
+    expect(neuigkeitenUngelesen("v11", neuigkeitenAb("v11", liste)).map((n) => n.version)).toEqual(["v12"]);
   });
 });
 

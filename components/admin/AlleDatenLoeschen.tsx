@@ -3,11 +3,11 @@
 import { useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ALLE_DATEN_BESTAETIGUNG } from "@/lib/constants";
-import { alleDatenLoeschen, alleDatenSicherung, alleDatenUmfang, type AlleDatenUmfang } from "@/lib/api/alleDaten";
+import { alleDatenLoeschen, alleDatenUmfang, type AlleDatenUmfang } from "@/lib/api/alleDaten";
+import { sicherungSpeichern } from "./AlleDatenSichern";
 import { datenSpeicherLeeren } from "@/app/providers";
 import { ausgangLeeren } from "@/lib/offline/speicher";
-import { todayStr } from "@/lib/format";
-import { dateiHerunterladen } from "@/lib/download";
+import { APP_VERSION } from "@/lib/version";
 
 // „Alle Daten löschen“ (Migration 72, v117) – nur für den Superadmin, unter Admin › Wartung.
 //
@@ -26,10 +26,10 @@ const BEREICHE: [string, string][] = [
   ["tire_storage", "eingelagerte Sätze"], ["verkaufsreifen", "Verkaufsreifen"], ["articles", "Artikel"],
   ["storage_slots", "Lagerplätze"], ["employees", "Mitarbeiter"], ["firmenfahrzeuge", "Transporter"],
   ["audit_log", "Protokolleinträge"],
+  // Seit Migration 80–85 (genannt seit v142, gelöscht wurden sie schon vorher): Chat und Stempeluhr.
+  ["chat_nachrichten", "Chat-Nachrichten (Team- und Einzelchats)"], ["zeit_schichten", "Stempelzeiten (mit Pausen, Heimfahrten, Korrekturen)"],
+  ["zeit_abwesenheiten", "Urlaube und Abwesenheiten"],
 ];
-
-// Gespeichert wird über lib/download.ts (seit v136 eine Funktion für alle Exporte).
-const herunterladen = (name: string, inhalt: string) => dateiHerunterladen(name, inhalt, "application/json;charset=utf-8");
 
 export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
   const [offen, setOffen] = useState(false);
@@ -48,10 +48,7 @@ export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
   async function sichern() {
     setFehler(null); setLaeuft("Sicherung wird erstellt …");
     try {
-      const inhalt = await alleDatenSicherung(supabase);
-      const name = `MR-Sicherung-${todayStr()}.json`;
-      herunterladen(name, inhalt);
-      setGesichert(`${name} · ${(inhalt.length / 1024 / 1024).toLocaleString("de-DE", { maximumFractionDigits: 1 })} MB`);
+      setGesichert(await sicherungSpeichern(supabase));
     } catch (e) {
       setFehler(e instanceof Error ? e.message : "Die Sicherung konnte nicht erstellt werden.");
     } finally { setLaeuft(null); }
@@ -61,7 +58,7 @@ export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
     if (wort.trim() !== ALLE_DATEN_BESTAETIGUNG) return;
     setFehler(null); setLaeuft("Wird gelöscht …");
     try {
-      await alleDatenLoeschen(supabase, wort.trim(), setLaeuft);
+      await alleDatenLoeschen(supabase, wort.trim(), setLaeuft, APP_VERSION);
       setLaeuft("Gelöscht. Die App wird neu geladen …");
       // Was auf diesem Gerät noch liegt, gehört zu den gelöschten Daten.
       await ausgangLeeren().catch(() => undefined);
@@ -83,7 +80,8 @@ export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
       <b className="ad-aktion-titel">Alle Daten löschen</b>
       <span className="small">
         Stellt die App auf null, wie bei einem frischen Unternehmen: Kunden, Aufträge, Rechnungen, Lager,
-        Artikel und Preise, Mitarbeiter, Transporter, Briefkopf, Fotos und Protokoll. Übrig bleiben nur die
+        Artikel und Preise, Mitarbeiter, Transporter, Briefkopf, Fotos, Chat, Stempelzeiten und Urlaube,
+        Protokoll und der Verlauf „Was gibt es Neues“. Übrig bleiben nur die
         Zugänge mit der Rolle Admin oder Superadmin und die Rechte. Nur für den Superadmin.
       </span>
       {!offen ? (
@@ -101,9 +99,11 @@ export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
                   <li key={t}><b>{zahl(t).toLocaleString("de-DE")}</b> {text}</li>
                 ))}
                 {umfang.belege > 0 && <li><b>{umfang.belege.toLocaleString("de-DE")}</b> Fotos und Unterschriften</li>}
+                {(umfang.chat_fotos ?? 0) > 0 && <li><b>{(umfang.chat_fotos ?? 0).toLocaleString("de-DE")}</b> Fotos im Chat</li>}
                 {weitere > 0 && <li><b>{weitere.toLocaleString("de-DE")}</b> weitere Einträge (Leistungen, Kontakte, Verfügbarkeit …)</li>}
                 <li><b>{umfang.zugaenge_weg}</b> Zugänge von Technikern und Nutzern – sie können sich danach nicht mehr anmelden</li>
                 <li>Briefkopf und Nummernkreise – Kunden-, Auftrags- und Rechnungsnummern beginnen neu</li>
+                <li>„Was gibt es Neues“ – die bisherigen Fassungen bis {APP_VERSION} erscheinen nicht mehr</li>
               </ul>
               <span>Es bleiben {umfang.zugaenge_bleiben} Zugänge (Admin und Superadmin) und die Rechtetabelle.</span>
               {umfang.rechnungen_echt > 0 && (

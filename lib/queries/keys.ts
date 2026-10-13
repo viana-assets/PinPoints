@@ -42,6 +42,8 @@ export const qk = {
   // Der Briefkopf (Migration 48). Eine einzige Zeile, die auf jeder Rechnung landet – und
   // deshalb genau EINEN Schlüssel hat, nicht einen je Fenster, das sie braucht.
   betrieb: () => ["betrieb"] as const,
+  // Migration 86: ab welcher Fassung „Was gibt es Neues“ gilt (übersteht „Alle Daten löschen“).
+  appStand: () => ["appstand"] as const,
   rechnungen: () => ["rechnungen"] as const,
   auftragRechnungen: (orderId: string) => ["auftrag", orderId, "rechnungen"] as const,
   // Fahrzeuge am Auftrag (Migration 44) – seit v113 eine Abfrage statt eines Zustands, damit sie im

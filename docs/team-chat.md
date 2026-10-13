@@ -164,7 +164,9 @@ eigene Nachricht, und zählt nicht als ungelesen.
   Der Minutentakt (`app/api/push/senden` → `chatFotosAufraeumen()`) löscht die Dateien mit dem
   Dienstschlüssel und hakt sie ab (`chat_fotos_weg_liste()`, `chat_fotos_weg_erledigt()`, nur
   Dienstschlüssel). Die Liste liegt im Schema `private`, damit „Alle Daten löschen“ sie nicht vor
-  den Dateien leert.
+  den Dateien leert. Seit v142 (Migration 86) wartet „Alle Daten löschen“ nicht auf den Minutentakt:
+  Danach ruft die App `app/api/alle-daten/fotos` (nur Superadmin) auf, das die Liste sofort abarbeitet und –
+  nur wenn der Chat dann leer ist – den ganzen Speicher `chat-fotos` leert.
 - Rücknahme `rollback/84_rollback.sql`: löscht alle Einzelchats und gelöschten Nachrichten, reine
   Fotonachrichten heißen „[Foto]“; die Dateien im Bucket bleiben und sind von Hand zu entfernen.
 

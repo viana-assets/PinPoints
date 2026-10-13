@@ -367,8 +367,12 @@ im Migrationsverlauf zu Migration 41.
   ist die vollständigste Sammlung von Personendaten, die die App erzeugen kann.
 - `alle_daten_umfang()`, `alle_daten_sicherung()`, `alle_daten_loeschen()` (Migration 72, v117):
   nur **Superadmin**, unabhängig von der Matrix; das Löschen zusätzlich nur mit dem Wort „löschen“,
-  das die Funktion selbst prüft. Unter Admin › Wartung sieht nur der Superadmin die Karte. Übrig
+  das die Funktion selbst prüft. Unter Admin › Wartung sieht nur der Superadmin die Karten („Alle Daten
+  sichern“ seit v143 als eigene Karte, „Alle Daten löschen“). Übrig
   bleiben die Zugänge mit der Rolle Admin oder Superadmin und die Rechtetabelle.
+  Seit Migration 86 (v142) dazu `app_stand` (lesen alle Angemeldeten, schreiben nur `alle_daten_loeschen()`)
+  und `app/api/alle-daten/fotos` (Server-Route, prüft selbst „Superadmin“, löscht Chat-Fotos mit dem
+  Dienstschlüssel – auch aus Einzelchats, die der Superadmin nicht lesen darf, ohne sie zu zeigen).
 - `satz_zum_verkauf()` (E17): `security invoker`, es gelten die Rechte des Aufrufers –
   Einlagerung schreiben (auslagern) und Reifenverkauf schreiben (Posten anlegen). Das zweite
   prüft die Funktion vorab und sagt es im Klartext, statt nach dem Auslagern an der Richtlinie

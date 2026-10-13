@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 09.10.2026 (Migrationen bis 85, 85 noch auszuführen; Service Worker v141; Regeln seit der Projektdurchsicht vom
+Stand: 13.10.2026 (Migrationen bis 86, 85 und 86 noch auszuführen; Service Worker v143; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -147,7 +147,7 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
   standen bis Migration 75 (07.10.2026) weiter und lockerten per ODER jede neue. Wer Richtlinien
   ersetzt, gibt in der Ergebnistabelle aus, was laut `pg_policies` danach auf der Tabelle steht.
 - **„Alle Daten löschen“ (Migration 72) leert JEDE Tabelle in `public`**, außer denen in
-  `alle_daten_behalten()` (Profile, Rechte, Einstellungen, Push-Geräte). Eine neue Tabelle wird
+  `alle_daten_behalten()` (Profile, Rechte, Einstellungen, Push-Geräte, seit Migration 86 `app_stand`). Eine neue Tabelle wird
   also automatisch mitgelöscht – richtig für Fachdaten. Soll eine neue EINSTELLUNGS-Tabelle das
   Löschen überstehen, kommt sie mit einer neuen Migration in diese Liste.
 - **Ein Prüftrigger, der Funktionen mit eigener Prüfung durchlassen soll, läuft OHNE `security
@@ -417,6 +417,7 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
 | Wie funktionieren Artikelstammdaten und Leistungen? | `docs/artikelstammdaten.md` |
 | Wie funktioniert die Rechnungsstellung? | `docs/rechnungen.md` |
 | Was ist offen, was ist als Nächstes dran? | `docs/fahrplan.md` |
+| Was soll Finance (Buchhaltung) werden? | `docs/finance.md` (Konzept und Phasen, noch nicht gebaut) |
 | Wie ist die PWA aufgebaut, was fehlt offline? | `docs/pwa-plan.md` |
 | Wie funktioniert die Terminerinnerung per Push? | `docs/benachrichtigungen-plan.md` |
 | Wie funktioniert die Stempeluhr? | `docs/zeiterfassung.md` |

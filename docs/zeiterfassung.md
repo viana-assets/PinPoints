@@ -122,7 +122,8 @@ Fassung. Die eigenen Zeiten kann niemand selbst ändern.
   vorkommt: Rollen mit `zeiterfassung · lesen` und jeder mit Schicht; ohne „Zeiten aller“ nur man selbst).
 - `zeit_aufraeumen()` nächtlich 03:35 UTC (`pinpoints-zeit-aufraeumen`): Schichten und Korrekturen
   älter als 2 Jahre werden gelöscht.
-- „Alle Daten löschen“ (Migration 72) leert die Tabellen mit.
+- „Alle Daten löschen“ (Migration 72) leert die Tabellen mit (Schichten, Pausen, Korrekturen, Urlaube,
+  Heimfahrten, Stempel-Erinnerungen); seit v142 nennt die Übersicht Stempelzeiten und Urlaube einzeln.
 
 ## Datenbank (Migration 83)
 

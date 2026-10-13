@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: 85** (siehe ganz unten). **Stand 09.10.2026: Die Migrationen 01–84 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“) –
+**Noch auszuführen: 85, dann 86** (siehe ganz unten). **Stand 09.10.2026: Die Migrationen 01–84 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1172,3 +1172,22 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   für Nutzer gesperrt, für den Dienst einmal je Tag und Art. `t80`–`t84` gegen 84 und 85: gleiche Ausgabe bis
   auf die gewollte Stelle in `t82` (`zeit_schicht_json` mit `heimfahrt_minuten`). Ausgeführt, zweimal,
   zurückgenommen, zweimal (danach `t82`/`t84` wie auf 84), erneut ausgeführt.
+
+- `86_alle_daten_neuigkeiten_chatfotos.sql` – **noch auszuführen, nach 85 und vor dem Hochladen von v142.**
+  Wunsch Vitali 09.10.2026: „Alle Daten löschen“ soll die App wirklich neu machen – auch Chat, Stempelzeiten
+  und „Was gibt es Neues“. Chat und Zeiterfassung leerte die Funktion schon (jede Tabelle in `public`); neu:
+  Tabelle `app_stand` (eine Zeile, `neuigkeiten_ab`, `alles_geloescht_am`; RLS, lesen alle Angemeldeten,
+  schreiben nur die Funktion), die das Löschen übersteht (`alle_daten_behalten()` + `app_stand`);
+  `alle_daten_umfang()` zählt zusätzlich `chat_fotos`; `alle_daten_loeschen(p_bestaetigung, p_fassung default
+  null)` ersetzt die Form mit einem Wert und setzt `app_stand.neuigkeiten_ab` (Format `v123`, ohne Fassung
+  bleibt der Stand). Die Chat-Fotodateien löscht danach `app/api/alle-daten/fotos` (Dienstschlüssel, nur
+  Superadmin). Wache: bricht ohne 72 oder 84 ab. Ergebnistabelle mit vier Zeilen. Zweiter Lauf folgenlos.
+  Der SQL-Editor meldet ggf. „destructive operations“ (eine Funktion wird ersetzt) – „Run this query“. Gelöscht
+  wird beim Ausführen NICHTS. Rücknahme: `rollback/86_rollback.sql` (alte Funktionen, `app_stand` weg; zweimal
+  lauffähig). Geprüft gegen Postgres 16 (Stand 85 + 72, `pgtest/t86.sql`): Techniker liest `app_stand`, schreibt
+  nicht, darf weder Umfang noch Löschen; Superadmin zählt Chat-Fotos auch aus Einzelchats; falsche Fassung und
+  falsches Wort abgewiesen; Löschen leert Chat (4 Tabellen), Zeiterfassung (4), Stempel-Erinnerungen, Kunden,
+  merkt beide Fotopfade vor, lässt Admin/Superadmin; alter Aufruf mit einem Wert geht und lässt die Grenze
+  stehen; neue Fassung überschreibt, bleibt eine Zeile. `t72` gegen 85 und 86: gleiche Ausgabe bis auf die
+  gewollten Stellen (`chat_fotos` im Umfang, eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal,
+  zurückgenommen, zweimal, erneut ausgeführt.

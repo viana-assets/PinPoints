@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v141";
+export const APP_VERSION = "v143";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,21 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v143", datum: "2026-10-13", titel: "Sicherung jederzeit",
+    punkte: [
+      "Unter Admin › Wartung gibt es für den Superadmin jetzt „Alle Daten sichern“: alle Daten als eine Datei herunterladen, ohne etwas zu löschen.",
+      "Die Datei enthält Kundendaten – bitte sicher aufbewahren.",
+    ],
+  },
+  {
+    version: "v142", datum: "2026-10-09", titel: "„Alle Daten löschen“ vollständig",
+    punkte: [
+      "Die Übersicht vor dem Löschen nennt jetzt auch Chat-Nachrichten, Fotos im Chat, Stempelzeiten sowie Urlaube und Abwesenheiten.",
+      "Die Fotos aus dem Chat werden beim Löschen sofort mit entfernt.",
+      "„Was gibt es Neues“ beginnt nach dem Löschen von vorn – die bisherigen Fassungen erscheinen nicht mehr.",
+    ],
+  },
   {
     version: "v141", datum: "2026-10-09", titel: "Platz zum Anlegen im Tagesplan",
     punkte: [
@@ -565,6 +580,20 @@ export const NEUIGKEITEN: Neuigkeit[] = [
     punkte: ["Was heute ansteht, was zu erledigen ist, und die Liste „Reifen mitnehmen“ zum Abhaken."],
   },
 ];
+
+// Nach „Alle Daten löschen“ (Migration 86) beginnt „Was gibt es Neues“ neu: Es bleiben nur die
+// Fassungen NACH `ab` (`app_stand.neuigkeiten_ab`). Ohne `ab` oder mit einer unlesbaren Angabe die
+// ganze Liste. Verglichen wird die Nummer, nicht die Stelle in der Liste – `ab` muss hier nicht stehen.
+export function neuigkeitenAb(ab: string | null | undefined, liste: Neuigkeit[] = NEUIGKEITEN): Neuigkeit[] {
+  const grenze = fassungsNummer(ab);
+  if (grenze === null) return liste;
+  return liste.filter((n) => (fassungsNummer(n.version) ?? 0) > grenze);
+}
+
+function fassungsNummer(v: string | null | undefined): number | null {
+  const m = v ? /^v(\d+)$/.exec(v.trim()) : null;
+  return m ? Number(m[1]) : null;
+}
 
 // Gibt es für diese Person etwas Ungelesenes? `gesehen` ist die zuletzt geöffnete Fassung
 // (user_settings.neuigkeiten_gesehen, Migration 60). Nie gesehen = alles neu.

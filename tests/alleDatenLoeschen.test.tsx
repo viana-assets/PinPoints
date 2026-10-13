@@ -16,6 +16,7 @@ vi.mock("@/app/providers", () => ({ datenSpeicherLeeren: vi.fn(async () => {}) }
 vi.mock("@/lib/offline/speicher", () => ({ ausgangLeeren: vi.fn(async () => {}) }));
 
 import { AlleDatenLoeschen } from "@/components/admin/AlleDatenLoeschen";
+import { APP_VERSION } from "@/lib/version";
 
 const supabase = {} as SupabaseClient;
 const umfang = (rechnungen_echt = 0) => ({
@@ -47,6 +48,22 @@ describe("AlleDatenLoeschen", () => {
     expect(screen.queryByText(/Aufbewahrungspflicht/)).toBeNull();
   });
 
+  it("nennt Chat, Stempelzeiten, Urlaube, Chat-Fotos und den Neuigkeiten-Verlauf (v142)", async () => {
+    api.alleDatenUmfang.mockResolvedValue({
+      ...umfang(), chat_fotos: 4,
+      tabellen: { customers: 1, chat_nachrichten: 23, zeit_schichten: 9, zeit_abwesenheiten: 2, order_items: 5 },
+    });
+    render(<AlleDatenLoeschen supabase={supabase} />);
+    fireEvent.click(screen.getByRole("button", { name: "Alle Daten löschen …" }));
+    await screen.findByText("Gelöscht werden:");
+    expect(screen.getByText(/Chat-Nachrichten/).textContent).toContain("23");
+    expect(screen.getByText(/Stempelzeiten \(mit Pausen/).textContent).toContain("9");
+    expect(screen.getByText(/Urlaube und Abwesenheiten/).textContent).toContain("2");
+    expect(screen.getByText(/Fotos im Chat/).textContent).toContain("4");
+    expect(screen.getByText(/weitere Einträge/).textContent).toContain("5");
+    expect(screen.getByText(new RegExp(`bis ${APP_VERSION} erscheinen nicht mehr`))).toBeTruthy();
+  });
+
   it("warnt bei ausgestellten Rechnungen", async () => {
     await oeffnen(4);
     expect(screen.getByText(/Aufbewahrungspflicht/)).toBeTruthy();
@@ -67,7 +84,7 @@ describe("AlleDatenLoeschen", () => {
     Object.defineProperty(window, "location", { configurable: true, value: { ...window.location, replace: ersetzen } });
     fireEvent.click(knopf);
     await waitFor(() => expect(ersetzen).toHaveBeenCalledWith("/"));
-    expect(api.alleDatenLoeschen).toHaveBeenCalledWith(supabase, "löschen", expect.any(Function));
+    expect(api.alleDatenLoeschen).toHaveBeenCalledWith(supabase, "löschen", expect.any(Function), APP_VERSION);
   });
 
   it("Abbrechen schließt ohne zu löschen", async () => {

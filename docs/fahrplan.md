@@ -16,6 +16,18 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **13.10.2026 – „Alle Daten sichern“ als eigener Knopf (ohne Migration, Service Worker v143).** Wunsch
+  Vitali: die Sicherung, die „Alle Daten löschen“ vorher anbietet, auch für sich allein – unter Admin ›
+  Wartung, nur Superadmin (`components/admin/AlleDatenSichern.tsx`, nutzt `alle_daten_sicherung()` aus
+  Migration 72). Gelöscht wird dabei nichts; Fotos nur als Liste.
+
+* **09.10.2026 – „Alle Daten löschen“ vollständig (Migration 86, Service Worker v142).** Wunsch Vitali:
+  Nach dem Löschen soll die App wirklich neu sein. Chat und Zeiterfassung leerte die Funktion schon; jetzt
+  nennt die Übersicht Chat-Nachrichten, Chat-Fotos, Stempelzeiten und Urlaube einzeln, die Chat-Fotos
+  verschwinden sofort (`app/api/alle-daten/fotos`), und „Was gibt es Neues“ beginnt neu
+  (`app_stand.neuigkeiten_ab`, `neuigkeitenAb()`). Entschieden: Arbeitszeiten werden ohne eigene Warnung
+  mitgelöscht. `docs/team-chat.md`, `docs/zeiterfassung.md`, `docs/architektur.md`.
+
 * **09.10.2026 – Freier Streifen im Tagesplan (ohne Migration, Service Worker v141).** Wunsch
   Vitali: Im Stundenraster füllten nebeneinanderliegende Termine die ganze Breite, ein zweiter
   Termin zu einer belegten Uhrzeit ließ sich nicht anklicken. Jetzt bleibt rechts in jeder
@@ -821,6 +833,23 @@ Team-Chat gibt es nicht.
 Korrekturen sichtbar, Export als CSV und Arbeitszeitnachweis zum Drucken – `docs/zeiterfassung.md`.
 Offen, nur nach Rücksprache mit dem Datenschutz: Krankheit als Eintrag (Art. 9 DSGVO). Feiertage
 kennt die App nicht (Urlaub über einen Feiertag danach für diesen Tag entfernen).
+
+---
+
+### E21. Finance – Buchhaltung als eigenes System (Wunsch 13.10.2026)
+
+Konzept, Entscheidungen und Phasen F0–F9 in **`docs/finance.md`**, klickbarer Mockup
+`Claude outputs\Mockup_Finance_v3.html`. Kurz: Systemwechsel an der Marke („MR Assistent · FSM“ ↔
+„· Finance“, CRM später), Recht `finance.*` zuerst nur Superadmin, Einstellungen mit
+EÜR/Bilanz, SKR03/04, Regelbesteuerung/Kleinunternehmer § 19, Soll/Ist, Zeitraum,
+Dauerfristverlängerung, § 13b. Die App rechnet und exportiert für DATEV; Bank erst per Datei-Import.
+Rechnungen (entschieden 13.10.): Rechnungsstellung bleibt in FSM. Nur Vorgänge mit „Rechnung nötig“ erscheinen
+sofort in Finance › Rechnungen (vorgemerkt → zu erstellen); Ausstellen – aus Finance oder FSM – bucht Umsatz
+und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance.md` 4.2).
+**Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
+sind Probelauf, die Buchhaltung läuft wie bisher.
+Vorschlag Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **Vor F0:** Mockup abnehmen, offene Fragen in
+`docs/finance.md` Abschnitt 8 beantworten.
 
 ---
 

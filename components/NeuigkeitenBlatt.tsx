@@ -1,4 +1,4 @@
-import { APP_VERSION, NEUIGKEITEN, neuigkeitenUngelesen } from "@/lib/version";
+import { APP_VERSION, NEUIGKEITEN, neuigkeitenUngelesen, type Neuigkeit } from "@/lib/version";
 import { formatDate } from "@/lib/helpers";
 
 // „Was gibt es Neues" (26.09.2026): je Fassung, was sich geändert hat – für Admin und
@@ -7,8 +7,12 @@ import { formatDate } from "@/lib/helpers";
 //
 // `gesehen` ist die Fassung, die diese Person zuletzt geöffnet hatte, BEVOR das Blatt aufging –
 // die Einträge danach tragen „neu". Das Öffnen selbst merkt die Seite (user_settings).
-export function NeuigkeitenBlatt({ gesehen, onClose }: { gesehen: string | null | undefined; onClose: () => void }) {
-  const neu = new Set(neuigkeitenUngelesen(gesehen).map((n) => n.version));
+//
+// `liste`: seit Migration 86 ohne die Fassungen vor „Alle Daten löschen“ (`neuigkeitenAb`).
+export function NeuigkeitenBlatt({ gesehen, liste = NEUIGKEITEN, onClose }: {
+  gesehen: string | null | undefined; liste?: Neuigkeit[]; onClose: () => void;
+}) {
+  const neu = new Set(neuigkeitenUngelesen(gesehen, liste).map((n) => n.version));
   return (
     <div className="modal-overlay auswahl-overlay" onClick={onClose}>
       <div className="auswahl-blatt am-breit nw-blatt" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Was gibt es Neues">
@@ -18,7 +22,8 @@ export function NeuigkeitenBlatt({ gesehen, onClose }: { gesehen: string | null 
           <button type="button" className="modal-close" onClick={onClose} aria-label="Schließen">×</button>
         </div>
         <span className="small">Diese App läuft in Fassung <b>{APP_VERSION}</b>.</span>
-        {NEUIGKEITEN.map((n) => (
+        {liste.length === 0 && <span className="small">Noch keine Neuigkeiten – hier erscheint, was ab der nächsten Fassung dazukommt.</span>}
+        {liste.map((n) => (
           <div key={n.version} className={"nw-eintrag" + (neu.has(n.version) ? " neu" : "")}>
             <div className="nw-kopf">
               <span className="nw-version">{n.version}</span>

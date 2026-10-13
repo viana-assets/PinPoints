@@ -26,6 +26,7 @@ import {
 import { fetchModulePermissions } from "@/lib/api/permissions";
 import { fetchVerkaufsreifen } from "@/lib/api/verkaufsreifen";
 import { fetchBetrieb } from "@/lib/api/betrieb";
+import { fetchAppStand } from "@/lib/api/alleDaten";
 import { fetchRechnungen, fetchRechnungenZuAuftrag } from "@/lib/api/rechnungen";
 import { belegLinks, fetchBelege } from "@/lib/api/belege";
 
@@ -86,6 +87,17 @@ export function useKundenAuftraege(supabase: SupabaseClient, kundeId: string | n
 
 // Die eigenen Transporter. Klein und selten geändert – wird überall dort gebraucht, wo ein
 // Auftrag eingeteilt oder angezeigt wird.
+// Stand der App (Migration 86): eine Zeile, ab welcher Fassung „Was gibt es Neues“ gilt. Nur für
+// Admin und Superadmin geladen – nur sie sehen die Neuigkeiten.
+export function useAppStand(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.appStand(),
+    queryFn: () => fetchAppStand(supabase),
+    enabled: aktiv,
+    staleTime: 10 * 60_000,
+  });
+}
+
 export function useFirmenfahrzeuge(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({
     queryKey: qk.firmenfahrzeuge(),

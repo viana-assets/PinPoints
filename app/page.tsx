@@ -52,7 +52,7 @@ import { ausgangSenden } from "@/lib/offline/senden";
 import { AusgangFenster } from "@/components/AusgangFenster";
 import { VorlagenBlock } from "@/components/admin/artikel/VorlagenBlock";
 import { deleteVorlage, insertVorlage, updateVorlage } from "@/lib/api/vorlagen";
-import { APP_VERSION, neuigkeitenUngelesen } from "@/lib/version";
+import { APP_VERSION, neuigkeitenAb, neuigkeitenUngelesen } from "@/lib/version";
 import { NeuigkeitenBlatt } from "@/components/NeuigkeitenBlatt";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 import { ChatBlase } from "@/components/chat/ChatBlase";
@@ -124,7 +124,7 @@ import { fetchBetrieb } from "@/lib/api/betrieb";
 import { qk } from "@/lib/queries/keys";
 import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie, useMitarbeiter,
-  useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useRechnungen, useAuftragRechnungen, useLager,
+  useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useAppStand, useRechnungen, useAuftragRechnungen, useLager,
   useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge, useFirmenfahrzeuge,
   useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten,
 } from "@/lib/queries/hooks";
@@ -428,6 +428,9 @@ export default function HomePage() {
   // NICHT beim Start: Er steht in keiner Liste und in keiner Karte.
   // Seit v104 auch für die Tagesroute (E5, Firmenadresse als Start) und die Terminbestätigung
   // (E9, Firmenname und Telefon im Text) – eine Zeile, jeder darf sie lesen.
+  // „Was gibt es Neues“ ohne die Fassungen vor „Alle Daten löschen“ (Migration 86). Nur Admins sehen es.
+  const appStandQuery = useAppStand(supabase, sitzungBereit && isAdmin);
+  const neuigkeiten = neuigkeitenAb(appStandQuery.data?.neuigkeiten_ab);
   const betriebQuery = useBetrieb(supabase, sitzungBereit && (tab === "rechnungen" || tab === "einsatzplanung" || rechnungAuftragId !== null || offenerAuftragId !== null));
   const firmenadresse = (() => {
     const b = betriebQuery.data;
@@ -2488,7 +2491,7 @@ export default function HomePage() {
           <DashboardPanel
             stempeluhr={darfZeit ? <StempelKarte {...stempelKarteProps} /> : undefined}
             supabase={supabase}
-            neuigkeit={isAdmin ? neuigkeitenUngelesen(settings.neuigkeiten_gesehen)[0] ?? null : null}
+            neuigkeit={isAdmin ? neuigkeitenUngelesen(settings.neuigkeiten_gesehen, neuigkeiten)[0] ?? null : null}
             onNeuigkeiten={isAdmin ? neuigkeitenOeffnen : undefined}
             orders={orders}
             orderEmployees={orderEmployees}
@@ -2771,7 +2774,7 @@ export default function HomePage() {
           <SettingsPanel
             settings={settings}
             onNeuigkeiten={isAdmin ? neuigkeitenOeffnen : undefined}
-            neuigkeitenUngelesen={isAdmin ? neuigkeitenUngelesen(settings.neuigkeiten_gesehen).length : 0}
+            neuigkeitenUngelesen={isAdmin ? neuigkeitenUngelesen(settings.neuigkeiten_gesehen, neuigkeiten).length : 0}
             onChange={saveSettingsPatch}
             isAdmin={isAdmin}
             isSuperAdmin={isSuperAdmin}
@@ -3139,7 +3142,7 @@ export default function HomePage() {
       )}
 
       {neuigkeitenVon !== undefined && (
-        <NeuigkeitenBlatt gesehen={neuigkeitenVon} onClose={() => setNeuigkeitenVon(undefined)} />
+        <NeuigkeitenBlatt gesehen={neuigkeitenVon} liste={neuigkeiten} onClose={() => setNeuigkeitenVon(undefined)} />
       )}
 
       {/* Kontaktdialog (Migration 23) – aus dem Karten-Popup wie aus dem Kundenfenster derselbe.
