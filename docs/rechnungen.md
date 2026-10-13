@@ -583,6 +583,15 @@ Dezimalkomma – für Excel). Die Dateien enthalten Kundennamen; die Seite sagt 
 lassen. Aufgebaut nach der DATEV-Formatbeschreibung und der Feldliste von `ledermann/datev`;
 geprüft sind Aufbau, Feldzahl und Inhalt (`tests/datev.test.ts`), nicht der Import in DATEV selbst.
 
+## Finance bucht mit (Migration 89, v147)
+
+Seit Migration 89 hängt am Ausstellen ein zusätzlicher Trigger (`trg_zz_fin_rechnung`, AFTER INSERT, nach
+`trg_rechnung_am_auftrag`): Gehört der Auftrag zu „Rechnung nötig“, bucht Finance die Rechnung (Forderung an
+Erlöse + Umsatzsteuer); eine Stornorechnung storniert die Buchung. **Am Rechnungsweg ändert das nichts** – der
+Trigger fängt jeden eigenen Fehler, die Rechnung entsteht immer; Finance merkt sich dann „nicht gebucht“ mit dem
+Grund (`fin_rechnungen`). Testrechnungen und Aufträge ohne Haken bleiben draußen. Details: `docs/finance.md`
+(„So ist F3 gebaut“). Wer hier am Ausstellen etwas ändert (Summen, Snapshot, Storno), prüft `pgtest/t89.sql` mit.
+
 ## Fallstricke
 
 - **Den Nummernkreis von Hand verschieben, ohne die tatsächlich vergebenen Nummern zu prüfen.**

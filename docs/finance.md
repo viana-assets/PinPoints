@@ -1,8 +1,9 @@
 # Finance – Buchhaltung als zweites System neben FSM
 
 Stand: 13.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rechte, Navigation, Übersicht,
-Einstellungen – und **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung
-(„So ist F1 gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung – und
+**F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten („So ist … gebaut“ in
+Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -331,7 +332,28 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - Noch nicht in F1: Anfangsbestände als eigener Assistent (bis dahin von Hand gegen 9000 „Saldenvorträge“),
   Splitbuchungen über mehrere Konten auf einer Seite, Debitoren/Kreditoren (kommen mit F3/F2), Export (F9).
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0 und F1 erledigt**, als Nächstes F3.
+### So ist F3 gebaut (v147, Migration 89)
+
+- **Finance › Rechnungen**, drei Reiter: *Zu erstellen* (erledigt, Haken, keine Rechnung – mit „Rechnung
+  erstellen“), *Vorgemerkt* (Haken, Auftrag läuft noch; Betrag als Schätzung aus den Leistungen), *Ausgestellt*
+  (Rechnungen des Jahres mit Zustand). Anderswo abgerechnete Aufträge stehen als Hinweis darunter.
+- **Rechnung erstellen** öffnet das gewohnte Rechnungsfenster von FSM – dieselbe Rechnung, derselbe Nummernkreis.
+- **Gebucht wird in der Datenbank** beim Ausstellen (Trigger an `rechnungen`), egal von wo: Forderung (1400/1200)
+  an Erlöse je Steuersatz (8400/8300/8200, Kleinunternehmer 8195 bzw. SKR04 4400/4300/4200/4185) und Umsatzsteuer.
+  Die Summen müssen zum Beleg passen. Fällig nach 14 Tagen. Eine Stornorechnung storniert die Buchung mit.
+- **FSM wird nie aufgehalten** (Pilot): Klappt die Buchung nicht – Einstellungen fehlen, Monat festgeschrieben,
+  Konto ausgeblendet, Summen passen nicht –, entsteht die Rechnung trotzdem. Finance zeigt „nicht gebucht“ mit dem
+  Grund und „Jetzt buchen“. Abweichend vom ursprünglichen Konzept („keine Rechnung ohne Buchung“), weil FSM im
+  Pilot unverändert bleiben soll.
+- **Bezahlt:** „Bar bezahlt“ (Kasse an Forderung) oder „Überweisung eingegangen“ (Bank an Forderung), ganzer
+  Betrag mit Datum; „Zahlung zurücknehmen“ mit Grund (Gegenbuchung). Teilzahlungen und der Bankabgleich kommen mit F4.
+- Buchungen aus Rechnungen und Zahlungen lassen sich unter Buchungen nicht von Hand stornieren – das geht über die
+  Rechnung bzw. „Zahlung zurücknehmen“.
+- **Offene Posten:** gebucht, nicht bezahlt, nicht storniert – Summe und überfällig. Lieferanten kommen mit F2.
+- **Übersicht › Zu erledigen:** Rechnungen zu erstellen, nicht gebucht, überfällig.
+- Ältere Rechnungen (vor Migration 89) werden nicht automatisch nachgebucht; je Rechnung „Jetzt buchen“.
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1 und F3 erledigt**, als Nächstes F2.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den
 Umsatz liefern und heute schon täglich entstehen; nach F5 laufen Rechnungen, Belege, Bank und UStVA

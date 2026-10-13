@@ -267,7 +267,11 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   `finance.buchen` · L = Journal und Buchungszeilen sehen, S = buchen und stornieren (`fin_buchen()`,
   `fin_stornieren()`); `finance.abschluss` · S = Monat festschreiben (`fin_monat_festschreiben()`). Konten,
   Steuerschlüssel und Festschreibungen liest jeder mit `finance`. Direktes Schreiben aufs Journal gibt es für
-  niemanden, auch nicht für den Superadmin.
+  niemanden, auch nicht für den Superadmin. **F3 (Migration 89, v147):** `finance.rechnungen` · L = Finance ›
+  Rechnungen und Offene Posten (`fin_rechnungen_stand()`, zeigt auch Kundennamen und Beträge der Aufträge mit
+  „Rechnung nötig“), S = „Jetzt buchen“, Zahlung erfassen und zurücknehmen. Das automatische Buchen beim Ausstellen
+  braucht kein Finance-Recht – es läuft für jeden, der in FSM eine Rechnung ausstellen darf. „Rechnung erstellen“
+  aus Finance öffnet das FSM-Fenster und braucht dort wie immer „Rechnungen“.
   Kein Löschen. Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

@@ -1120,14 +1120,16 @@ export default function HomePage() {
 
   async function rechnungAusstellen(entwurf: RechnungEntwurf) {
     const neu = await stelleRechnungAus(supabase, entwurf);
-    await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen());
+    // qk.finance(): Finance bucht Rechnungen zu Aufträgen mit „Rechnung nötig“ mit (Migration 89).
+    await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen(), qk.finance());
     await refreshOrders();
     return neu;
   }
 
   async function rechnungStornieren(entwurf: RechnungEntwurf & { hebt_auf: string; storno_grund: string }) {
     const neu = await storniereRechnung(supabase, entwurf);
-    await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen());
+    // qk.finance(): Finance bucht Rechnungen zu Aufträgen mit „Rechnung nötig“ mit (Migration 89).
+    await neuLaden(qk.auftragRechnungen(entwurf.order_id ?? "-"), qk.rechnungen(), qk.finance());
     await refreshOrders();
     return neu;
   }
@@ -2003,7 +2005,13 @@ export default function HomePage() {
 
         {systemAktiv === "finance" && (
           <FinanceBereich supabase={supabase} seite={finSeite} onSeite={setFinSeite} darf={darf}
-            wechselbar={systemWechselbar} onSystemWahl={() => setSystemWahlOffen(true)} />
+            wechselbar={systemWechselbar} onSystemWahl={() => setSystemWahlOffen(true)}
+            onRechnungOeffnen={(orderId) => {
+              // Dasselbe Rechnungsfenster wie in FSM (F3). Ein älterer erledigter Auftrag liegt nicht im
+              // Zeitfenster „Aktuell“ – dann alle laden; das Fenster erscheint, sobald er da ist.
+              if (!orders.some((o) => o.id === orderId)) setAuftragsFenster("alles");
+              setRechnungAuftragId(orderId);
+            }} />
         )}
 
         {/* Alles von FSM. In Finance ausgehängt (v145): nichts davon läuft dann im Hintergrund mit. */}

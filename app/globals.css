@@ -4519,6 +4519,20 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .fi-tabelle .zahl{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;width:110px;}
 .fi-tabelle tr.steuer td{color:var(--muted);}
 .fi-tabelle tfoot td{font-weight:800;border-bottom:none;}
+/* Rechnungen und offene Posten (F3, v147): components/finance/FinanceRechnungen.tsx */
+.fi-reiter-breit{max-width:560px;}
+.es-knopf.fi-primaer{background:var(--accent);border-color:var(--accent);color:#fff;}
+.fi-schaetzung{color:var(--muted);font-weight:600;}
+.fi-nr-breit{min-width:72px;color:var(--text);}
+.fi-kacheln{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
+.fi-kachel{gap:2px;padding:12px 14px;}
+.fi-kachel b{font-family:var(--font-brand);font-size:22px;font-variant-numeric:tabular-nums;}
+.fi-kachel-warn b{color:var(--red);}
+.fi-rot-text{color:var(--red);font-weight:700;}
+.fi-gruen-text{color:var(--green);font-weight:700;}
+.fi-zahl{flex:0 0 auto;min-width:30px;height:30px;border-radius:15px;background:var(--accent-bg);color:var(--accent);font-weight:800;
+  display:flex;align-items:center;justify-content:center;padding:0 8px;}
+.fi-links{align-self:flex-start;}
 @media (max-width:700px){
   .fi-zwei{grid-template-columns:1fr;}
   .fi-wahl button{flex-basis:100%;}
@@ -4528,4 +4542,7 @@ button.zt-m-zeile:hover{background:var(--hover);}
   .fi-aktion .fi-meldung{flex-basis:100%;text-align:center;}
   .fi-werkzeug .fi-knopf{flex:1 1 100%;}
   .fi-tabelle .zahl{width:88px;}
+  .fi-vorgang{flex-wrap:wrap;}
+  .fi-vorgang .db-punkt-text{flex:1 1 0;}
+  .fi-vorgang .es-knopf.fi-primaer{flex:1 1 100%;height:40px;font-size:13px;}
 }

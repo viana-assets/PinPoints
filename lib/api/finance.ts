@@ -2,8 +2,10 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ApiError, fetchPaged, q, qWrite } from "./client";
 import type { FinEinstellungen, Kontenrahmen } from "@/lib/finance/einstellungen";
 import type { FinBuchung, FinFestschreibung, FinKonto, FinPosten, FinSteuerschluessel } from "@/lib/finance/buchung";
+import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
 
-// Finance (Migration 87/88, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal.
+// Finance (Migration 87–89, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
+// F3 (v147): Rechnungen mit „Rechnung nötig“, Zahlungen.
 // Lesen mit dem Recht „finance“, schreiben mit „finance.einstellungen“ – durchgesetzt von RLS.
 
 export type FinEinstellungenStand =
@@ -105,4 +107,24 @@ export async function finKontoAnlegen(supabase: SupabaseClient, k: Pick<FinKonto
 export async function finKontoAktiv(supabase: SupabaseClient, rahmen: Kontenrahmen, nummer: number, aktiv: boolean): Promise<void> {
   await qWrite("Das Konto konnte nicht geändert werden",
     supabase.from("fin_konten").update({ aktiv }).eq("kontenrahmen", rahmen).eq("nummer", nummer));
+}
+
+// ---------------------------------------------------------------- F3: Rechnungen, Zahlungen (Migration 89, v147)
+
+export async function fetchFinRechnungenStand(supabase: SupabaseClient, jahr: number): Promise<FinRechnungenStand> {
+  const roh = await q<unknown>("Finance › Rechnungen konnte nicht geladen werden", supabase.rpc("fin_rechnungen_stand", { p_jahr: jahr }));
+  return standLesen(roh);
+}
+
+export async function finRechnungNachbuchen(supabase: SupabaseClient, rechnungId: string): Promise<void> {
+  await q("Nicht gebucht", supabase.rpc("fin_rechnung_nachbuchen", { p_rechnung: rechnungId }));
+}
+
+export async function finRechnungBezahlt(supabase: SupabaseClient, rechnungId: string, art: "bar" | "bank", datum: string): Promise<{ nr: number }> {
+  const r = await q<{ nr: number }>("Zahlung nicht erfasst", supabase.rpc("fin_rechnung_bezahlt", { p_rechnung: rechnungId, p_art: art, p_datum: datum }));
+  return r ?? { nr: 0 };
+}
+
+export async function finZahlungZuruecknehmen(supabase: SupabaseClient, rechnungId: string, grund: string): Promise<void> {
+  await q("Zahlung nicht zurückgenommen", supabase.rpc("fin_zahlung_zuruecknehmen", { p_rechnung: rechnungId, p_grund: grund }));
 }

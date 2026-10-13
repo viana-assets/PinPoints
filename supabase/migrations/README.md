@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `88_finance_buchungen.sql`** (Abschnitt unten, vor den Dateien von v146). **Stand 13.10.2026: Die Migrationen 01–87 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen) –
+**Noch auszuführen: `88_finance_buchungen.sql`, dann `89_finance_rechnungen.sql`** (Abschnitte unten, vor den Dateien von v146/v147). **Stand 13.10.2026: Die Migrationen 01–87 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1234,3 +1234,26 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Journal, Nummern, Festschreibungen, behält 145 Konten und 18 Schlüssel. `t72`, `t86`, `t87` gegen 87 und 88:
   gleiche Ausgabe bis auf die gewollte Stelle (sechs Tabellen mehr in der Sicherung). Ausgeführt, zweimal,
   zurückgenommen, zweimal, erneut ausgeführt.
+
+- `89_finance_rechnungen.sql` – **noch auszuführen**, nach 88 und vor den Dateien von v147.
+  Finance, Phase F3 (`docs/finance.md` 4.2): Tabelle `fin_rechnungen` (Stand je Rechnung: gebucht / fehler mit
+  Grund / storniert, Fälligkeit, Zahlung; nur lesen mit `finance.rechnungen`). Trigger `trg_zz_fin_rechnung`
+  (AFTER INSERT auf `rechnungen`, nach `trg_rechnung_am_auftrag`): Rechnung zu einem Auftrag mit „Rechnung nötig“
+  → Buchung Forderung an Erlöse je Steuersatz + USt (Summen müssen zum Beleg passen), fällig nach 14 Tagen;
+  Stornorechnung → Gegenbuchung. **Scheitert die Buchung, entsteht die Rechnung trotzdem** (Finance merkt sich den
+  Grund – FSM bleibt unverändert). Einstiege: `fin_rechnung_nachbuchen()`, `fin_rechnung_bezahlt()` (bar/Bank an
+  Forderung), `fin_zahlung_zuruecknehmen()`, `fin_rechnungen_stand()`. `fin_stornieren()` lehnt Buchungen aus
+  Rechnungen und Zahlungen ab; der Kern liegt jetzt in `fin_gegenbuchung()`. Quelle `zahlung` erlaubt. Bestehende
+  Rechnungen werden nicht nachgebucht (je Rechnung „Jetzt buchen“). Wache: bricht ohne 88 ab. Ergebnistabelle mit
+  fünf Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/89_rollback.sql` (Trigger, Tabelle, Funktionen weg,
+  Journal bleibt; `fin_stornieren` wie 88; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 88, `pgtest/t89.sql`): Vorgänge mit Schätzung (2 × 50 € zu 19 % + 20 € zu 7 % →
+  140,40 €); Rechnung ohne Einstellungen entsteht, Finance „fehler“ mit Grund; „Jetzt buchen“ für Admin ohne Recht
+  abgelehnt, für Superadmin 1400 140,40 / 8400 100 + 1776 19 / 8300 20 + 1771 1,40, zweites Mal folgenlos;
+  Rechnung ohne Haken nicht in Finance, „Jetzt buchen“ abgelehnt; Admin stellt aus → gebucht; Zahlung in der
+  Zukunft, falsche Art, doppelt abgelehnt; bar → zurück (Grund Pflicht) → Überweisung; von Hand stornieren von
+  Rechnungs- und Zahlungsbuchung abgelehnt; Stornorechnung storniert die Buchung, Auftrag wieder „zu erstellen“;
+  Summen passen nicht → Rechnung entsteht, „fehler“; Monat festgeschrieben → Rechnung entsteht, „fehler“; Admin
+  und Techniker sehen nichts, direktes Schreiben und Bausteine verweigert; überall Soll = Haben; „Alle Daten
+  löschen“ leert `fin_rechnungen`. `t72`, `t86`, `t87`, `t88` gegen 88 und 89: gleiche Ausgabe bis auf die gewollte
+  Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

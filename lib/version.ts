@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v146";
+export const APP_VERSION = "v147";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v147", datum: "2026-10-13", titel: "Finance: Rechnungen und offene Posten",
+    punkte: [
+      "Aufträge mit „Rechnung nötig“ stehen jetzt in Finance › Rechnungen: vorgemerkt, solange sie laufen, und „zu erstellen“, sobald sie erledigt sind. „Rechnung erstellen“ öffnet das gewohnte Rechnungsfenster.",
+      "Wird die Rechnung ausgestellt – egal ob in FSM oder aus Finance –, bucht Finance sie automatisch. „Bar bezahlt“ und „Überweisung eingegangen“ schließen den offenen Posten.",
+      "In FSM ändert sich nichts: Klappt die Buchung einmal nicht, entsteht die Rechnung trotzdem, und Finance zeigt „nicht gebucht“ mit dem Grund.",
+    ],
+  },
   {
     version: "v146", datum: "2026-10-13", titel: "Finance: Buchungen",
     punkte: [

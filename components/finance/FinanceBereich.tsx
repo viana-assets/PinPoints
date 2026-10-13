@@ -5,9 +5,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Verb } from "@/lib/constants";
 import { qk } from "@/lib/queries/keys";
-import { useFinEinstellungen } from "@/lib/queries/hooks";
+import { useFinEinstellungen, useFinRechnungen } from "@/lib/queries/hooks";
 import { saveFinEinstellungen } from "@/lib/api/finance";
 import { FinanceBuchungen } from "./FinanceBuchungen";
+import { FinanceRechnungen } from "./FinanceRechnungen";
+import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
 import {
   FIN_BESTEUERUNG, FIN_GEWINNERMITTLUNG, FIN_KONTENRAHMEN, FIN_RECHTSFORMEN, FIN_VERSTEUERUNG, FIN_VORANMELDUNG,
@@ -35,13 +37,15 @@ export const FINANCE_ICONS: Record<FinanceSeiteKey, () => React.JSX.Element> = {
 
 export type FinanceAnsicht = FinanceSeiteKey | "mehr";
 
-export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onSystemWahl }: {
+export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onSystemWahl, onRechnungOeffnen }: {
   supabase: SupabaseClient;
   seite: FinanceAnsicht;
   onSeite: (s: FinanceAnsicht) => void;
   darf: (bereich: string, verb?: Verb) => boolean;
   wechselbar: boolean;
   onSystemWahl: () => void;
+  // Öffnet das Rechnungsfenster von FSM für diesen Auftrag (F3) – dieselbe Rechnung, derselbe Nummernkreis.
+  onRechnungOeffnen?: (orderId: string) => void;
 }) {
   // Einmal beim Öffnen festgehalten (nicht im Rendern gerechnet: react-hooks/purity).
   const [heute] = useState(() => {
@@ -89,10 +93,12 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
 
         {aktiv === "uebersicht" && (
           <FinanceUebersicht
+            supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
             laedt={einstellungenQuery.isPending}
             seiten={sichtbar}
             onSeite={onSeite}
+            rechnungenSehen={darf("finance.rechnungen", "lesen")}
           />
         )}
         {aktiv === "einstellungen" && (
@@ -108,6 +114,12 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
         {aktiv === "mehr" && (
           <FinanceMehr seiten={sichtbar.filter((s) => !s.primaer)} onSeite={onSeite} wechselbar={wechselbar} onSystemWahl={onSystemWahl} />
         )}
+        {(aktiv === "rechnungen" || aktiv === "op") && (
+          <FinanceRechnungen supabase={supabase} jahr={jahr} heute={heute} modus={aktiv === "op" ? "op" : "rechnungen"}
+            darfSchreiben={darf("finance.rechnungen", "schreiben")}
+            onRechnungOeffnen={darf("rechnungen", "lesen") ? onRechnungOeffnen : undefined}
+            onEinstellungen={() => onSeite("einstellungen")} />
+        )}
         {aktiv === "buchungen" && (
           <FinanceBuchungen supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
@@ -121,15 +133,42 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
 }
 
 // ---------------------------------------------------------------- Übersicht
-function FinanceUebersicht({ einstellungen, laedt, seiten, onSeite }: {
+function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten, onSeite, rechnungenSehen }: {
+  supabase: SupabaseClient;
+  jahr: number;
+  heute: string;
   einstellungen: FinEinstellungen | null;
   laedt: boolean;
   seiten: FinanceSeite[];
   onSeite: (s: FinanceAnsicht) => void;
+  rechnungenSehen: boolean;
 }) {
   const kommend = seiten.filter((s) => s.phase);
+  const rechnungenQ = useFinRechnungen(supabase, jahr, rechnungenSehen);
+  const zu = rechnungenQ.data ? rechnungenZuErledigen(rechnungenQ.data, heute) : null;
+  const punkte = zu ? [
+    { n: zu.zuErstellen, text: zu.zuErstellen === 1 ? "Rechnung zu erstellen" : "Rechnungen zu erstellen", seite: "rechnungen" as const },
+    { n: zu.nichtGebucht, text: zu.nichtGebucht === 1 ? "Rechnung nicht gebucht" : "Rechnungen nicht gebucht", seite: "rechnungen" as const },
+    { n: zu.ueberfaellig, text: zu.ueberfaellig === 1 ? "Rechnung überfällig" : "Rechnungen überfällig", seite: "op" as const },
+  ].filter((p) => p.n > 0) : [];
   return (
     <>
+      {rechnungenSehen && (
+        <>
+          <span className="op-gruppe-titel">ZU ERLEDIGEN</span>
+          <div className="db-karte es-karte">
+            {!zu ? <span className="small">{rechnungenQ.isError ? "Konnte nicht geladen werden." : "Lädt …"}</span>
+              : punkte.length === 0 ? <span className="small">Nichts offen.</span>
+              : punkte.map((p) => (
+                <button key={p.text} type="button" className="es-zeile" onClick={() => onSeite(p.seite)}>
+                  <span className="fi-zahl">{p.n}</span>
+                  <span className="db-punkt-text"><b>{p.text}</b></span>
+                  <span className="fi-pfeil" aria-hidden="true">›</span>
+                </button>
+              ))}
+          </div>
+        </>
+      )}
       <span className="op-gruppe-titel">EINRICHTUNG</span>
       <div className="db-karte es-karte">
         {laedt ? (
@@ -173,7 +212,7 @@ function FinanceUebersicht({ einstellungen, laedt, seiten, onSeite }: {
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen. Als Nächstes laut Plan: F3 Rechnungen → F2 Belege → F4 Bank & Kasse → F5 Steuern.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen und offene Posten. Als Nächstes laut Plan: F2 Belege → F4 Bank & Kasse → F5 Steuern.</span>
         </>
       )}
     </>

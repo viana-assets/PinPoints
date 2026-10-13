@@ -22,10 +22,10 @@ export type FinanceSeite = {
 
 export const FINANCE_SEITEN: FinanceSeite[] = [
   { key: "uebersicht", label: "Übersicht", beschreibung: "Was ansteht und wie der Pilot läuft", recht: "finance", phase: null, primaer: true },
-  { key: "rechnungen", label: "Rechnungen", beschreibung: "Aufträge mit Haken „Rechnung nötig“: vorgemerkt, zu erstellen, gebucht", recht: "finance.rechnungen", phase: "F3", primaer: true },
+  { key: "rechnungen", label: "Rechnungen", beschreibung: "Aufträge mit Haken „Rechnung nötig“: vorgemerkt, zu erstellen, ausgestellt", recht: "finance.rechnungen", phase: null, primaer: true },
   { key: "belege", label: "Belege", beschreibung: "Eingangsrechnungen und Quittungen hochladen und erfassen", recht: "finance.belege", phase: "F2", primaer: true },
   { key: "bank", label: "Bank & Kasse", beschreibung: "Kontoauszüge einlesen, zuordnen; Kassenbuch für Barzahlungen", recht: "finance.bank", phase: "F4", primaer: true },
-  { key: "op", label: "Offene Posten", beschreibung: "Wer noch zahlen muss und wem wir etwas schulden", recht: "finance.rechnungen", phase: "F3" },
+  { key: "op", label: "Offene Posten", beschreibung: "Wer noch zahlen muss – fällig und überfällig", recht: "finance.rechnungen", phase: null },
   { key: "buchungen", label: "Buchungen", beschreibung: "Journal, Konten mit Saldo, Monate festschreiben", recht: "finance.buchen", phase: null },
   { key: "steuern", label: "Steuern", beschreibung: "Umsatzsteuer-Voranmeldung und Zahllast – als Probelauf", recht: "finance.steuer", phase: "F5" },
   { key: "anlagen", label: "Anlagen", beschreibung: "Anlagevermögen und Abschreibungen", recht: "finance.abschluss", phase: "F7" },
