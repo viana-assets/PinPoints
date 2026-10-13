@@ -88,7 +88,7 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
               <span className="small">{anzahl(offen.posten.filter((p) => p.zustand.art === "ueberfaellig").length)}</span></div>
           </div>
           <RechnungListe liste={offen.posten} heute={heute} laedt={q.isPending} onOeffnen={setDetail} leer="Keine offenen Posten – alles bezahlt." />
-          <span className="small es-fuss fi-fuss">Kundenseite aus den Rechnungen mit „Rechnung nötig“. Eingangsrechnungen (was wir schulden) kommen mit Phase F2.</span>
+          <span className="small es-fuss fi-fuss">Aus den Rechnungen mit „Rechnung nötig“, fällig nach 14 Tagen.</span>
         </>
       )}
 

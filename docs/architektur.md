@@ -92,7 +92,7 @@ viana-pinpoints/
       HashSessionHandler.tsx    Globaler Client-Handler für Hash-Token-Login
       set-password/…            Passwort setzen nach Invite
     api/invite/route.ts         Server-Route für den Invite-Versand (Service-Role-Key)
-    api/alle-daten/fotos/route.ts  Chat-Fotos nach „Alle Daten löschen“ sofort entfernen (nur Superadmin, Service-Role-Key; v142)
+    api/alle-daten/fotos/route.ts  Chat-Fotos und Finance-Belegdateien nach „Alle Daten löschen“ sofort entfernen (nur Superadmin, Service-Role-Key; v142/v148)
     api/geocode/route.ts        Server-Route für die punktgenaue Geokodierung (Drosselung,
                                 User-Agent, geocode_cache)
     api/adresse-suchen/route.ts  Server-Route für Adressvorschläge/Tippfehlertoleranz
@@ -145,6 +145,8 @@ viana-pinpoints/
                                      Konten mit Saldo, eigene Konten, Monate festschreiben
       FinanceRechnungen.tsx          Rechnungen und offene Posten (Migration 89, v147): zu erstellen, vorgemerkt,
                                      ausgestellt; Jetzt buchen, bar bezahlt, Überweisung, Zahlung zurücknehmen
+      FinanceBelege.tsx              Belege und Lieferanten (Migration 90, v148): Entwurf mit Datei/E-Rechnung,
+                                     Kontovorschlag, buchen (auf Wunsch gleich bezahlt), Storno; offene Posten Lieferanten
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
       ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
@@ -327,6 +329,8 @@ viana-pinpoints/
       seiten.ts                   Die Seiten von Finance mit Recht und Phase (v145)
       buchung.ts                  Buchungsregeln wie `fin_posten_schreiben()` (Vorschau), Salden, Betrag lesen (Migration 88, v146)
       rechnungen.ts               Vorgänge teilen, Zustand einer Rechnung, offene Posten, Zahlungsziel (Migration 89, v147)
+      belege.ts                   Belege: Zustand, Kontovorschlag, offene Posten, Dateipfad und -prüfung (Migration 90, v148)
+      erechnung.ts                E-Rechnung lesen (XRechnung UBL/CII, ZUGFeRD-XML) und in Posten übersetzen (v148)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
                                   Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -375,7 +379,7 @@ viana-pinpoints/
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
       finance.ts                   Finance: Einstellungen (v145); Konten, Steuerschlüssel, Journal, buchen, stornieren,
-                                   festschreiben (v146); Rechnungen, Zahlungen (v147)
+                                   festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -730,7 +734,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 89** (13.10.2026; 88 und 89 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 90** (13.10.2026; 88–90 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -874,6 +878,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **89** – Finance, Phase F3: `fin_rechnungen` (Stand je Rechnung), Trigger `trg_zz_fin_rechnung` an `rechnungen`
   bucht Rechnungen zu Aufträgen mit „Rechnung nötig“ (Forderung an Erlöse + USt) und storniert mit; scheitert das,
   entsteht die Rechnung trotzdem (Grund in `fin_rechnungen.fehler`). Zahlungen bar/Bank, `fin_rechnungen_stand()`.
+- **90** – Finance, Phase F2: `fin_lieferanten`, `fin_belege` (Entwurf direkt, gebucht nur über Funktionen,
+  Trigger `fin_beleg_pruefen`), Bucket `fin-belege` (Foto/PDF/XML, gebuchte Dateien nicht löschbar),
+  `fin_beleg_buchen()` / `_bezahlt()` / `_zahlung_zuruecknehmen()` / `_stornieren()`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

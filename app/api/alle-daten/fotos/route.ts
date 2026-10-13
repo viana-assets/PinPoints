@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabaseServer";
 import { chatFotosAufraeumen } from "@/lib/chatVersand";
 import { CHAT_FOTO_BUCKET } from "@/lib/chat";
+import { FIN_BELEG_BUCKET } from "@/lib/finance/belege";
 
 // Chat-Fotos nach „Alle Daten löschen“ sofort entfernen (Migration 86, v142). Nur der Superadmin.
 //
@@ -13,6 +14,10 @@ import { CHAT_FOTO_BUCKET } from "@/lib/chat";
 // Zusätzlich, NUR wenn der Chat wirklich leer ist: alles, was sonst noch im Speicher liegt (etwa ein
 // Foto, dessen Nachricht nie ankam). Bei leerem Chat gehört dort keine Datei mehr hin. Steht noch eine
 // Nachricht in der Tabelle, bleibt der Speicher unangetastet – dieser Weg löscht nie lebende Fotos.
+
+//
+// Seit v148 (Migration 90) genauso die Belegdateien von Finance (`fin-belege`): Ist `fin_belege` leer,
+// gehört dort keine Datei mehr hin.
 
 // So viele Runden zu je 200 Pfaden (`chat_fotos_weg_liste`) höchstens – reicht für 10 000 Fotos.
 const RUNDEN = 50;
@@ -36,25 +41,32 @@ export async function POST() {
     }
 
     const { count, error: zaehlFehler } = await admin.from("chat_nachrichten").select("id", { count: "exact", head: true });
-    if (!zaehlFehler && count === 0) {
-      const speicher = admin.storage.from(CHAT_FOTO_BUCKET);
-      // Ablage: <Konto-ID>/<Datei> (lib/api/chat.ts). Oben stehen also nur Ordner.
-      const { data: ordner } = await speicher.list("", { limit: 1000 });
-      for (const o of ordner || []) {
-        for (;;) {
-          const { data: dateien } = await speicher.list(o.name, { limit: 1000 });
-          const pfade = (dateien || []).filter((d) => d.id).map((d) => `${o.name}/${d.name}`);
-          if (pfade.length === 0) break;
-          const { error } = await speicher.remove(pfade);
-          if (error) throw new Error(error.message);
-          entfernt += pfade.length;
-          if (pfade.length < 1000) break;
-        }
-      }
-    }
+    if (!zaehlFehler && count === 0) entfernt += await bucketLeeren(admin, CHAT_FOTO_BUCKET);
+    // Fehlt die Tabelle (Migration 90 nicht gelaufen), kommt ein Fehler – dann bleibt der Speicher, wie er ist.
+    const belege = await admin.from("fin_belege").select("id", { count: "exact", head: true });
+    if (!belege.error && belege.count === 0) entfernt += await bucketLeeren(admin, FIN_BELEG_BUCKET);
   } catch (e) {
     // Keine Pfade oder Inhalte in die Meldung – nur, dass es nicht ganz geklappt hat.
-    return NextResponse.json({ error: e instanceof Error ? "Chat-Fotos nicht vollständig gelöscht." : "Fehler", entfernt }, { status: 500 });
+    return NextResponse.json({ error: e instanceof Error ? "Fotos und Belegdateien nicht vollständig gelöscht." : "Fehler", entfernt }, { status: 500 });
   }
   return NextResponse.json({ ok: true, entfernt });
+}
+
+// Alles in einem Bucket entfernen. Ablage überall `<Ordner>/<Datei>` (Chat: Konto-ID, Belege: Beleg-ID).
+async function bucketLeeren(admin: ReturnType<typeof createAdminClient>, bucket: string): Promise<number> {
+  const speicher = admin.storage.from(bucket);
+  let entfernt = 0;
+  const { data: ordner } = await speicher.list("", { limit: 1000 });
+  for (const o of ordner || []) {
+    for (;;) {
+      const { data: dateien } = await speicher.list(o.name, { limit: 1000 });
+      const pfade = (dateien || []).filter((d) => d.id).map((d) => `${o.name}/${d.name}`);
+      if (pfade.length === 0) break;
+      const { error } = await speicher.remove(pfade);
+      if (error) throw new Error(error.message);
+      entfernt += pfade.length;
+      if (pfade.length < 1000) break;
+    }
+  }
+  return entfernt;
 }

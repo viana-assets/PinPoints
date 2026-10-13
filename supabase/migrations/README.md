@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `88_finance_buchungen.sql`, dann `89_finance_rechnungen.sql`** (Abschnitte unten, vor den Dateien von v146/v147). **Stand 13.10.2026: Die Migrationen 01–87 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen) –
+**Noch auszuführen (soweit nicht gemeldet): `88_finance_buchungen.sql`, `89_finance_rechnungen.sql`, `90_finance_belege.sql`** – in dieser Reihenfolge (Abschnitte unten, je vor den Dateien von v146/v147/v148). **Stand 13.10.2026: Die Migrationen 01–87 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1257,3 +1257,25 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   und Techniker sehen nichts, direktes Schreiben und Bausteine verweigert; überall Soll = Haben; „Alle Daten
   löschen“ leert `fin_rechnungen`. `t72`, `t86`, `t87`, `t88` gegen 88 und 89: gleiche Ausgabe bis auf die gewollte
   Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `90_finance_belege.sql` – **noch auszuführen**, nach 89 und vor den Dateien von v148.
+  Finance, Phase F2 (`docs/finance.md` 4.1): `fin_lieferanten` (Name eindeutig ohne Groß/Klein, USt-IdNr.,
+  Konto- und Steuervorschlag; lesen/schreiben `finance.belege`, kein Löschen; Spaltenrechte), `fin_belege`
+  (Entwurf direkt änderbar, Posten als jsonb, Datei; gebucht/storniert nur über Funktionen – Trigger
+  `fin_beleg_pruefen()` ohne security definer lehnt Ändern/Löschen gebuchter Belege ab, Entwurf verwerfen braucht
+  „löschen“). Bucket `fin-belege` (privat, 10 MB, Foto/PDF/XML) mit drei Speicher-Richtlinien: lesen mit
+  `finance.belege`, hochladen nur zu einem Entwurf, löschen nicht bei gebuchten. Funktionen `fin_beleg_buchen()`
+  (über `fin_posten_schreiben()` gegen 1600/3300, auf Wunsch gleich bezahlt), `fin_beleg_bezahlt()`,
+  `fin_beleg_zahlung_zuruecknehmen()`, `fin_beleg_stornieren()`; `fin_stornieren()` lehnt Belegbuchungen ab;
+  `fin_rechnung_konto()` kennt `verbindlichkeit`; Quelle `beleg`. Wache: bricht ohne 89 oder ohne Storage ab.
+  Ergebnistabelle mit fünf Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/90_rollback.sql` (Speicher-
+  Richtlinien zuerst, dann Funktionen, Tabellen, Bucket nur wenn leer; `fin_stornieren` wie 89; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 89, `pgtest/t90.sql`): Admin ohne Recht legt nichts an; doppelter Lieferant
+  abgelehnt; Status direkt setzen verweigert; Datei zum Entwurf ja, zu unbekanntem Beleg nein; Buchen 59,50 € →
+  4530 50 + 1576 9,50 an 1600, zweites Buchen abgelehnt; gebucht nicht änderbar, nicht löschbar, Datei bleibt;
+  Zahlung in der Zukunft/doppelt abgelehnt, Storno bei Zahlung abgelehnt, zurücknehmen, Storno (Grund Pflicht);
+  § 13b mit sofort Bank; ohne Lieferant, ohne Posten, falsches Konto → abgelehnt ohne verbrauchte Nummer; von Hand
+  stornieren abgelehnt; Entwurf verwerfen ohne „löschen“ abgelehnt, mit erlaubt; überall Soll = Haben; „Alle Daten
+  löschen“ leert Belege und Lieferanten. `t72`, `t86`–`t89` gegen 89 und 90: gleiche Ausgabe bis auf die gewollten
+  Stellen (zwei Tabellen mehr in der Sicherung; Meldung zum Stornieren einer Zahlung allgemeiner). Ausgeführt,
+  zweimal, zurückgenommen, zweimal, erneut ausgeführt.

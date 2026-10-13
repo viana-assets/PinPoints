@@ -2,8 +2,8 @@
 
 Stand: 13.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rechte, Navigation, Übersicht,
 Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung – und
-**F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten („So ist … gebaut“ in
-Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+**F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten – und **F2 (v148,
+Migration 90)** – Belege und Lieferanten („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -353,7 +353,27 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - **Übersicht › Zu erledigen:** Rechnungen zu erstellen, nicht gebucht, überfällig.
 - Ältere Rechnungen (vor Migration 89) werden nicht automatisch nachgebucht; je Rechnung „Jetzt buchen“.
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1 und F3 erledigt**, als Nächstes F2.
+### So ist F2 gebaut (v148, Migration 90)
+
+- **Finance › Belege**, Reiter Entwürfe · Offen · Bezahlt · Storniert · Lieferanten; „Beleg erfassen“.
+- **Entwurf:** Lieferant (wählen oder neu – entsteht beim Speichern), Belegdatum, Beleg-Nr., „Was“, Fälligkeit,
+  ein oder mehrere Posten (Konto aus Aufwand/Anlagen, Betrag, Steuer) und eine **Datei**: Foto (wird verkleinert),
+  PDF oder E-Rechnung. Speichern als Entwurf jederzeit; verwerfen mit Recht „löschen“.
+- **E-Rechnung:** Eine XML-Datei nach EN 16931 (XRechnung in UBL oder CII, auch das XML aus ZUGFeRD/Factur-X)
+  füllt Lieferant (gefunden über USt-IdNr. oder Name, sonst neu), Nummer, Datum, Fälligkeit und je Steuersatz einen
+  Posten; Kategorie AE → § 13b, K → innergemeinschaftlicher Erwerb. Ein ZUGFeRD-**PDF** wird abgelegt, sein
+  XML-Anhang aber noch nicht gelesen (später).
+- **Kontovorschlag:** das am Lieferanten hinterlegte Konto, sonst das des letzten gebuchten Belegs. Regeln
+  („Tankstelle → 4530“) entstehen so von selbst; eine eigene Regeltabelle gibt es nicht.
+- **Buchen:** Aufwand an Verbindlichkeiten (1600/3300) über dieselbe Steuerlogik wie F1 – Vorsteuer aus brutto,
+  § 13b netto mit USt und VSt, Kleinunternehmer ohne Vorsteuer. Auf Wunsch im selben Schritt „bar bezahlt“ (Kasse)
+  oder „per Bank bezahlt“. Fälligkeit ohne Angabe = Belegdatum.
+- **Danach:** unveränderbar; Zahlung erfassen/zurücknehmen, Storno (Gegenbuchung, nicht bei erfasster Zahlung).
+  Die Datei eines gebuchten Belegs bleibt im Speicher und lässt sich nicht löschen (GoBD).
+- **Offene Posten** zeigen jetzt beide Seiten: Kunden (F3) und Lieferanten (F2).
+- „Alle Daten löschen“ leert Belege und Lieferanten und entfernt die Dateien (`app/api/alle-daten/fotos`).
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3 und F2 erledigt**, als Nächstes F4.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den
 Umsatz liefern und heute schon täglich entstehen; nach F5 laufen Rechnungen, Belege, Bank und UStVA

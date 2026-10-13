@@ -156,11 +156,14 @@ function Journal({ buchungen, konten, fest, laedt, darfBuchen, onNeu, onOeffnen 
 type PostenEingabe = { soll: string; haben: string; betrag: string; steuer: string };
 const LEER: PostenEingabe = { soll: "", haben: "", betrag: "", steuer: "" };
 
-function KontoWahl({ wert, konten, onWert, label }: { wert: string; konten: FinKonto[]; onWert: (w: string) => void; label: string }) {
+// Auch im Belegfenster (FinanceBelege.tsx), dort nur mit Aufwand und Anlagen (`nur`).
+export function KontoWahl({ wert, konten, onWert, label, nur, disabled }: {
+  wert: string; konten: FinKonto[]; onWert: (w: string) => void; label: string; nur?: readonly KontoKategorie[]; disabled?: boolean;
+}) {
   return (
-    <select value={wert} onChange={(e) => onWert(e.target.value)} aria-label={label}>
+    <select value={wert} onChange={(e) => onWert(e.target.value)} aria-label={label} disabled={disabled}>
       <option value="">Konto wählen</option>
-      {FIN_KONTO_KATEGORIEN.map((k) => {
+      {FIN_KONTO_KATEGORIEN.filter((k) => !nur || nur.includes(k.wert)).map((k) => {
         const liste = konten.filter((x) => x.kategorie === k.wert && x.aktiv);
         if (!liste.length) return null;
         return (
@@ -269,7 +272,7 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
   );
 }
 
-function ZeilenTabelle({ zeilen, name }: { zeilen: { seite: "S" | "H"; konto: number; betrag: number; ist_steuer: boolean }[]; name: (n: number) => string }) {
+export function ZeilenTabelle({ zeilen, name }: { zeilen: { seite: "S" | "H"; konto: number; betrag: number; ist_steuer: boolean }[]; name: (n: number) => string }) {
   if (!zeilen.length) return <span className="small">Noch nichts – Konten und Betrag eintragen.</span>;
   const soll = zeilen.filter((z) => z.seite === "S").reduce((s, z) => s + z.betrag, 0);
   const haben = zeilen.filter((z) => z.seite === "H").reduce((s, z) => s + z.betrag, 0);

@@ -271,7 +271,10 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   Rechnungen und Offene Posten (`fin_rechnungen_stand()`, zeigt auch Kundennamen und Beträge der Aufträge mit
   „Rechnung nötig“), S = „Jetzt buchen“, Zahlung erfassen und zurücknehmen. Das automatische Buchen beim Ausstellen
   braucht kein Finance-Recht – es läuft für jeden, der in FSM eine Rechnung ausstellen darf. „Rechnung erstellen“
-  aus Finance öffnet das FSM-Fenster und braucht dort wie immer „Rechnungen“.
+  aus Finance öffnet das FSM-Fenster und braucht dort wie immer „Rechnungen“. **F2 (Migration 90, v148):**
+  `finance.belege` · L = Belege, Lieferanten und Belegdateien sehen, S = Entwürfe und Lieferanten anlegen/ändern,
+  Dateien hochladen, buchen, bezahlen, stornieren; X = einen Entwurf verwerfen (gebuchte nie –
+  `fin_beleg_pruefen()` begründet). Gebuchte Belegdateien löscht niemand (Speicher-Richtlinie).
   Kein Löschen. Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

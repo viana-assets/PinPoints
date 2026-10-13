@@ -19,7 +19,7 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
-import { fetchFinBuchungen, fetchFinEinstellungen, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
+import { fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
 import type { Kontenrahmen } from "@/lib/finance/einstellungen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
@@ -548,4 +548,10 @@ export function useFinFestschreibungen(supabase: SupabaseClient, jahr: number, a
 }
 export function useFinRechnungen(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
   return useQuery({ queryKey: qk.finRechnungen(jahr), queryFn: () => fetchFinRechnungenStand(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });
+}
+export function useFinLieferanten(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finLieferanten(), queryFn: () => fetchFinLieferanten(supabase), enabled: aktiv, staleTime: FRISCH_MS });
+}
+export function useFinBelege(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finBelege(jahr), queryFn: () => fetchFinBelege(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });
 }

@@ -4533,6 +4533,10 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .fi-zahl{flex:0 0 auto;min-width:30px;height:30px;border-radius:15px;background:var(--accent-bg);color:var(--accent);font-weight:800;
   display:flex;align-items:center;justify-content:center;padding:0 8px;}
 .fi-links{align-self:flex-start;}
+/* Belege (F2, v148): components/finance/FinanceBelege.tsx */
+.fi-datei{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border-radius:12px;padding:8px 10px;}
+.fi-dateiwahl{position:relative;overflow:hidden;display:inline-flex;align-items:center;}
+.fi-dateiwahl input{position:absolute;inset:0;opacity:0;cursor:pointer;}
 @media (max-width:700px){
   .fi-zwei{grid-template-columns:1fr;}
   .fi-wahl button{flex-basis:100%;}

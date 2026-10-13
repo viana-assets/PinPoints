@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { ApiError, fetchPaged, q, qWrite } from "./client";
+import { ApiError, fetchPaged, q, qOne, qWrite } from "./client";
 import type { FinEinstellungen, Kontenrahmen } from "@/lib/finance/einstellungen";
 import type { FinBuchung, FinFestschreibung, FinKonto, FinPosten, FinSteuerschluessel } from "@/lib/finance/buchung";
 import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
+import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLieferant } from "@/lib/finance/belege";
 
 // Finance (Migration 87–89, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
-// F3 (v147): Rechnungen mit „Rechnung nötig“, Zahlungen.
+// F3 (v147): Rechnungen mit „Rechnung nötig“, Zahlungen; F2 (v148): Belege, Lieferanten, Belegdateien.
 // Lesen mit dem Recht „finance“, schreiben mit „finance.einstellungen“ – durchgesetzt von RLS.
 
 export type FinEinstellungenStand =
@@ -127,4 +128,98 @@ export async function finRechnungBezahlt(supabase: SupabaseClient, rechnungId: s
 
 export async function finZahlungZuruecknehmen(supabase: SupabaseClient, rechnungId: string, grund: string): Promise<void> {
   await q("Zahlung nicht zurückgenommen", supabase.rpc("fin_zahlung_zuruecknehmen", { p_rechnung: rechnungId, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------- F2: Belege, Lieferanten (Migration 90, v148)
+
+const BELEG_SPALTEN = "id, lieferant_id, belegdatum, belegnummer, text, faellig_am, posten, datei_pfad, datei_typ, datei_name, status, brutto, buchung_id, bezahlt_am, bezahlt_art, erstellt_am";
+
+export async function fetchFinLieferanten(supabase: SupabaseClient): Promise<FinLieferant[]> {
+  return (await q<FinLieferant[]>("Die Lieferanten konnten nicht geladen werden",
+    supabase.from("fin_lieferanten").select("id, name, ust_id, konto, steuer, aktiv").order("name").order("id").range(0, 1999))) ?? [];
+}
+
+export async function finLieferantAnlegen(supabase: SupabaseClient, l: Pick<FinLieferant, "name" | "ust_id" | "konto" | "steuer">): Promise<FinLieferant> {
+  return qOne<FinLieferant>("Der Lieferant konnte nicht angelegt werden",
+    supabase.from("fin_lieferanten").insert({ ...l, name: l.name.trim() }).select("id, name, ust_id, konto, steuer, aktiv").single());
+}
+
+export async function finLieferantAendern(supabase: SupabaseClient, id: string, felder: Partial<Pick<FinLieferant, "name" | "ust_id" | "konto" | "steuer" | "aktiv">>): Promise<void> {
+  await qWrite("Der Lieferant konnte nicht geändert werden", supabase.from("fin_lieferanten").update(felder).eq("id", id));
+}
+
+// Alle Entwürfe und die Belege des Jahres (Belegdatum). Ein Entwurf ist Arbeit – er gehört dazu, egal wie alt.
+export async function fetchFinBelege(supabase: SupabaseClient, jahr: number): Promise<FinBeleg[]> {
+  const alle = await fetchPaged<FinBeleg>("Die Belege konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_belege").select(BELEG_SPALTEN)
+      .or(`status.eq.entwurf,and(belegdatum.gte.${jahr}-01-01,belegdatum.lte.${jahr}-12-31)`)
+      .order("belegdatum", { ascending: false }).order("id").range(von, bis));
+  return alle.map((b) => ({
+    ...b,
+    brutto: b.brutto == null ? null : Number(b.brutto),
+    posten: (b.posten ?? []).map((p) => ({ konto: p.konto ?? null, betrag: p.betrag == null ? null : Number(p.betrag), steuer: p.steuer ?? null })),
+  }));
+}
+
+export type FinBelegFelder = Pick<FinBeleg, "lieferant_id" | "belegdatum" | "belegnummer" | "text" | "faellig_am" | "posten">;
+
+// Ein Entwurf: anlegen (ohne id) oder ändern. Gebuchte Belege lehnt die Datenbank ab (fin_beleg_pruefen).
+export async function finBelegSpeichern(supabase: SupabaseClient, id: string | null, felder: FinBelegFelder): Promise<string> {
+  if (id) {
+    await qWrite("Der Beleg konnte nicht gespeichert werden", supabase.from("fin_belege").update(felder).eq("id", id));
+    return id;
+  }
+  const r = await qOne<{ id: string }>("Der Beleg konnte nicht angelegt werden", supabase.from("fin_belege").insert(felder).select("id").single());
+  return r.id;
+}
+
+function belegSpeicherFehler(meldung: string): string {
+  if (/row-level security|unauthorized|403/i.test(meldung)) return "Keine Berechtigung – Dateien gibt es nur zu einem Entwurf.";
+  if (/bucket not found/i.test(meldung)) return "Der Speicher für Belege fehlt – Migration 90 ist nicht ausgeführt.";
+  if (/payload too large|exceeded the maximum|413/i.test(meldung)) return "Die Datei ist zu groß (höchstens 10 MB).";
+  if (/mime|type/i.test(meldung)) return "Diese Dateiart nimmt der Speicher nicht an.";
+  return `Die Datei konnte nicht hochgeladen werden (${meldung}).`;
+}
+
+// Erst die neue Datei, dann der Eintrag am Beleg, zuletzt die alte Datei weg – so bleibt im schlimmsten
+// Fall eine Datei ohne Eintrag (unsichtbar), nie ein Eintrag ohne Datei (lib/api/belege.ts, gleiches Muster).
+export async function finBelegDateiHochladen(supabase: SupabaseClient, belegId: string, datei: Blob, name: string, alterPfad: string | null): Promise<string> {
+  const typ = istXml({ type: datei.type, name }) ? "application/xml" : datei.type;
+  const pfad = belegDateiPfad(belegId, name, new Date());
+  const { error } = await supabase.storage.from(FIN_BELEG_BUCKET).upload(pfad, datei, { contentType: typ, upsert: false });
+  if (error) throw new Error(belegSpeicherFehler(error.message));
+  await qWrite("Die Datei ist hochgeladen, aber nicht am Beleg eingetragen",
+    supabase.from("fin_belege").update({ datei_pfad: pfad, datei_typ: typ, datei_name: name.slice(0, 120) }).eq("id", belegId));
+  if (alterPfad) await supabase.storage.from(FIN_BELEG_BUCKET).remove([alterPfad]);
+  return pfad;
+}
+
+export async function finBelegDateiLink(supabase: SupabaseClient, pfad: string): Promise<string> {
+  const { data, error } = await supabase.storage.from(FIN_BELEG_BUCKET).createSignedUrl(pfad, 15 * 60);
+  if (error || !data?.signedUrl) throw new Error("Die Datei konnte nicht geöffnet werden.");
+  return data.signedUrl;
+}
+
+// Entwurf verwerfen: erst die Datei, dann die Zeile.
+export async function finBelegVerwerfen(supabase: SupabaseClient, b: Pick<FinBeleg, "id" | "datei_pfad">): Promise<void> {
+  if (b.datei_pfad) await supabase.storage.from(FIN_BELEG_BUCKET).remove([b.datei_pfad]);
+  await qWrite("Der Entwurf konnte nicht verworfen werden", supabase.from("fin_belege").delete().eq("id", b.id));
+}
+
+export async function finBelegBuchen(supabase: SupabaseClient, id: string, bezahlt: "bar" | "bank" | null, bezahltAm: string | null): Promise<{ nr: number; brutto: number }> {
+  const r = await q<{ nr: number; brutto: number }>("Nicht gebucht",
+    supabase.rpc("fin_beleg_buchen", { p_beleg: id, p_bezahlt: bezahlt, p_bezahlt_am: bezahltAm }));
+  return { nr: r?.nr ?? 0, brutto: Number(r?.brutto ?? 0) };
+}
+
+export async function finBelegBezahlt(supabase: SupabaseClient, id: string, art: "bar" | "bank", datum: string): Promise<{ nr: number }> {
+  return (await q<{ nr: number }>("Zahlung nicht erfasst", supabase.rpc("fin_beleg_bezahlt", { p_beleg: id, p_art: art, p_datum: datum }))) ?? { nr: 0 };
+}
+
+export async function finBelegZahlungZuruecknehmen(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
+  await q("Zahlung nicht zurückgenommen", supabase.rpc("fin_beleg_zahlung_zuruecknehmen", { p_beleg: id, p_grund: grund }));
+}
+
+export async function finBelegStornieren(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
+  await q("Nicht storniert", supabase.rpc("fin_beleg_stornieren", { p_beleg: id, p_grund: grund }));
 }

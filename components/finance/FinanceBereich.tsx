@@ -5,10 +5,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Verb } from "@/lib/constants";
 import { qk } from "@/lib/queries/keys";
-import { useFinEinstellungen, useFinRechnungen } from "@/lib/queries/hooks";
+import { useFinBelege, useFinEinstellungen, useFinRechnungen } from "@/lib/queries/hooks";
+import { belegZustand } from "@/lib/finance/belege";
 import { saveFinEinstellungen } from "@/lib/api/finance";
 import { FinanceBuchungen } from "./FinanceBuchungen";
 import { FinanceRechnungen } from "./FinanceRechnungen";
+import { BelegeOffenePosten, FinanceBelege } from "./FinanceBelege";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
 import {
@@ -99,6 +101,7 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             seiten={sichtbar}
             onSeite={onSeite}
             rechnungenSehen={darf("finance.rechnungen", "lesen")}
+            belegeSehen={darf("finance.belege", "lesen")}
           />
         )}
         {aktiv === "einstellungen" && (
@@ -114,10 +117,23 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
         {aktiv === "mehr" && (
           <FinanceMehr seiten={sichtbar.filter((s) => !s.primaer)} onSeite={onSeite} wechselbar={wechselbar} onSystemWahl={onSystemWahl} />
         )}
-        {(aktiv === "rechnungen" || aktiv === "op") && (
-          <FinanceRechnungen supabase={supabase} jahr={jahr} heute={heute} modus={aktiv === "op" ? "op" : "rechnungen"}
-            darfSchreiben={darf("finance.rechnungen", "schreiben")}
-            onRechnungOeffnen={darf("rechnungen", "lesen") ? onRechnungOeffnen : undefined}
+        {(aktiv === "rechnungen" || (aktiv === "op" && darf("finance.rechnungen", "lesen"))) && (
+          <>
+            {aktiv === "op" && <span className="op-gruppe-titel">KUNDEN · WER UNS NOCH ZAHLEN MUSS</span>}
+            <FinanceRechnungen supabase={supabase} jahr={jahr} heute={heute} modus={aktiv === "op" ? "op" : "rechnungen"}
+              darfSchreiben={darf("finance.rechnungen", "schreiben")}
+              onRechnungOeffnen={darf("rechnungen", "lesen") ? onRechnungOeffnen : undefined}
+              onEinstellungen={() => onSeite("einstellungen")} />
+          </>
+        )}
+        {aktiv === "op" && darf("finance.belege", "lesen") && (
+          <BelegeOffenePosten supabase={supabase} jahr={jahr} heute={heute}
+            einstellungen={stand?.status === "da" ? stand.einstellungen : null} darfSchreiben={darf("finance.belege", "schreiben")} />
+        )}
+        {aktiv === "belege" && (
+          <FinanceBelege supabase={supabase} jahr={jahr} heute={heute}
+            einstellungen={stand?.status === "da" ? stand.einstellungen : null}
+            darfSchreiben={darf("finance.belege", "schreiben")} darfLoeschen={darf("finance.belege", "loeschen")}
             onEinstellungen={() => onSeite("einstellungen")} />
         )}
         {aktiv === "buchungen" && (
@@ -133,7 +149,7 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
 }
 
 // ---------------------------------------------------------------- Übersicht
-function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten, onSeite, rechnungenSehen }: {
+function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten, onSeite, rechnungenSehen, belegeSehen }: {
   supabase: SupabaseClient;
   jahr: number;
   heute: string;
@@ -142,22 +158,32 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
   seiten: FinanceSeite[];
   onSeite: (s: FinanceAnsicht) => void;
   rechnungenSehen: boolean;
+  belegeSehen: boolean;
 }) {
   const kommend = seiten.filter((s) => s.phase);
   const rechnungenQ = useFinRechnungen(supabase, jahr, rechnungenSehen);
+  const belegeQ = useFinBelege(supabase, jahr, belegeSehen && !!einstellungen);
   const zu = rechnungenQ.data ? rechnungenZuErledigen(rechnungenQ.data, heute) : null;
-  const punkte = zu ? [
-    { n: zu.zuErstellen, text: zu.zuErstellen === 1 ? "Rechnung zu erstellen" : "Rechnungen zu erstellen", seite: "rechnungen" as const },
-    { n: zu.nichtGebucht, text: zu.nichtGebucht === 1 ? "Rechnung nicht gebucht" : "Rechnungen nicht gebucht", seite: "rechnungen" as const },
-    { n: zu.ueberfaellig, text: zu.ueberfaellig === 1 ? "Rechnung überfällig" : "Rechnungen überfällig", seite: "op" as const },
-  ].filter((p) => p.n > 0) : [];
+  const belege = (belegeQ.data ?? []).map((b) => belegZustand(b, heute));
+  const entwuerfe = belege.filter((b) => b.art === "entwurf").length;
+  const belegeUeber = belege.filter((b) => b.art === "ueberfaellig").length;
+  const punkte = [
+    ...(zu ? [
+      { n: zu.zuErstellen, text: zu.zuErstellen === 1 ? "Rechnung zu erstellen" : "Rechnungen zu erstellen", seite: "rechnungen" as const },
+      { n: zu.nichtGebucht, text: zu.nichtGebucht === 1 ? "Rechnung nicht gebucht" : "Rechnungen nicht gebucht", seite: "rechnungen" as const },
+      { n: zu.ueberfaellig, text: zu.ueberfaellig === 1 ? "Rechnung überfällig" : "Rechnungen überfällig", seite: "op" as const },
+    ] : []),
+    { n: entwuerfe, text: entwuerfe === 1 ? "Beleg im Entwurf" : "Belege im Entwurf", seite: "belege" as const },
+    { n: belegeUeber, text: belegeUeber === 1 ? "Lieferantenbeleg überfällig" : "Lieferantenbelege überfällig", seite: "op" as const },
+  ].filter((p) => p.n > 0);
+  const laedtZu = (rechnungenSehen && !zu && !rechnungenQ.isError) || (belegeSehen && !!einstellungen && belegeQ.isPending);
   return (
     <>
-      {rechnungenSehen && (
+      {(rechnungenSehen || belegeSehen) && (
         <>
           <span className="op-gruppe-titel">ZU ERLEDIGEN</span>
           <div className="db-karte es-karte">
-            {!zu ? <span className="small">{rechnungenQ.isError ? "Konnte nicht geladen werden." : "Lädt …"}</span>
+            {laedtZu ? <span className="small">Lädt …</span>
               : punkte.length === 0 ? <span className="small">Nichts offen.</span>
               : punkte.map((p) => (
                 <button key={p.text} type="button" className="es-zeile" onClick={() => onSeite(p.seite)}>
@@ -212,7 +238,7 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen und offene Posten. Als Nächstes laut Plan: F2 Belege → F4 Bank & Kasse → F5 Steuern.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten. Als Nächstes laut Plan: F4 Bank & Kasse → F5 Steuern.</span>
         </>
       )}
     </>

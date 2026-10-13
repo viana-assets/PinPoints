@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **13.10.2026 – Finance Phase F2 (Migration 90, Service Worker v148).** Belege und Lieferanten: Entwurf mit Foto,
+  PDF oder E-Rechnung (XRechnung UBL/CII liest Lieferant, Nummer, Datum, Beträge), Kontovorschlag je Lieferant,
+  buchen (Vorsteuer, § 13b, gleich bar/Bank bezahlt), Storno; offene Posten der Lieferanten. `docs/finance.md`.
+
 * **13.10.2026 – Finance Phase F3 (Migration 89, Service Worker v147).** Aufträge mit „Rechnung nötig“ in Finance ›
   Rechnungen (zu erstellen / vorgemerkt / ausgestellt), Rechnung aus Finance über das FSM-Fenster, automatisches
   Buchen beim Ausstellen und beim Storno, bar bezahlt / Überweisung, offene Posten, „Zu erledigen“ in der
@@ -876,9 +880,9 @@ sofort in Finance › Rechnungen (vorgemerkt → zu erstellen); Ausstellen – a
 und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance.md` 4.2).
 **Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
 sind Probelauf, die Buchhaltung läuft wie bisher.
-Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 (v145, Migration 87), F1 (v146, 88) und F3 (v147, 89) erledigt.**
-Als Nächstes **F2**: Belege und Lieferanten – Eingangsrechnung hochladen (Foto/PDF, E-Rechnung lesen), Kontovorschlag,
-buchen, offene Posten der Lieferanten. Offen vor dem Echtbetrieb: Kontenliste mit dem Steuerberater abgleichen.
+Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 (v145, Migration 87), F1 (v146, 88), F3 (v147, 89) und F2 (v148, 90)
+erledigt.** Als Nächstes **F4**: Bank-Import (CAMT.053/CSV), Abgleich mit offenen Posten, Kassenbuch. Offen vor dem
+Echtbetrieb: Kontenliste mit dem Steuerberater abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen.
 
 ---
 

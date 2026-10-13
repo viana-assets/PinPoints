@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v147";
+export const APP_VERSION = "v148";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v148", datum: "2026-10-13", titel: "Finance: Belege",
+    punkte: [
+      "Unter Finance › Belege lassen sich Eingangsrechnungen und Quittungen erfassen – mit Foto, PDF oder E-Rechnung. Eine E-Rechnung (XML) füllt Lieferant, Nummer, Datum und Betrag selbst aus.",
+      "Ein Lieferant merkt sich sein Konto: Beim nächsten Beleg steht es schon da. „Buchen“ rechnet die Vorsteuer heraus; „bar bezahlt“ oder „per Bank“ geht gleich mit.",
+      "Unter Offene Posten steht jetzt auch, was wir den Lieferanten schulden.",
+    ],
+  },
   {
     version: "v147", datum: "2026-10-13", titel: "Finance: Rechnungen und offene Posten",
     punkte: [

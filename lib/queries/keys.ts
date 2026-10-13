@@ -71,6 +71,9 @@ export const qk = {
   // F3 (Migration 89): Vorgänge mit „Rechnung nötig“ und Rechnungen des Jahres. Liegt unter „finance“ – eine
   // neue Rechnung in FSM macht „finance“ ungültig (app/page.tsx, rechnungAusstellen).
   finRechnungen: (jahr: number) => ["finance", "rechnungen", jahr] as const,
+  // F2 (Migration 90): Lieferanten und Belege (Entwürfe + Jahr).
+  finLieferanten: () => ["finance", "lieferanten"] as const,
+  finBelege: (jahr: number) => ["finance", "belege", jahr] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.
