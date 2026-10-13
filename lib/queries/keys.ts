@@ -63,6 +63,11 @@ export const qk = {
   // und spätere Phasen machen ihn ungültig.
   finance: () => ["finance"] as const,
   finEinstellungen: (jahr: number) => ["finance", "einstellungen", jahr] as const,
+  // F1 (Migration 88). Konten und Steuerschlüssel je Kontenrahmen, Journal und Festschreibungen je Jahr.
+  finKonten: (rahmen: string) => ["finance", "konten", rahmen] as const,
+  finSteuerschluessel: (rahmen: string) => ["finance", "steuerschluessel", rahmen] as const,
+  finBuchungen: (jahr: number) => ["finance", "buchungen", jahr] as const,
+  finFestschreibungen: (jahr: number) => ["finance", "festschreibungen", jahr] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

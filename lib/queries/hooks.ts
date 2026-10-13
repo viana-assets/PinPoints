@@ -19,7 +19,8 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
-import { fetchFinEinstellungen } from "@/lib/api/finance";
+import { fetchFinBuchungen, fetchFinEinstellungen, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
+import type { Kontenrahmen } from "@/lib/finance/einstellungen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
   fetchEingelagerteRaeder,
@@ -530,4 +531,18 @@ export function useFinEinstellungen(supabase: SupabaseClient, jahr: number, akti
     enabled: aktiv,
     staleTime: BRIEFKOPF_FRISCH_MS,
   });
+}
+
+// Finance F1 (Migration 88). Konten und Schlüssel ändern sich selten, das Journal mit jeder Buchung.
+export function useFinKonten(supabase: SupabaseClient, rahmen: Kontenrahmen, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finKonten(rahmen), queryFn: () => fetchFinKonten(supabase, rahmen), enabled: aktiv, staleTime: BRIEFKOPF_FRISCH_MS });
+}
+export function useFinSteuerschluessel(supabase: SupabaseClient, rahmen: Kontenrahmen, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finSteuerschluessel(rahmen), queryFn: () => fetchFinSteuerschluessel(supabase, rahmen), enabled: aktiv, staleTime: BRIEFKOPF_FRISCH_MS });
+}
+export function useFinBuchungen(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finBuchungen(jahr), queryFn: () => fetchFinBuchungen(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });
+}
+export function useFinFestschreibungen(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finFestschreibungen(jahr), queryFn: () => fetchFinFestschreibungen(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });
 }

@@ -10,6 +10,8 @@ const ORDNER = join(__dirname, "..", "lib", "api");
 const EINDEUTIG = [
   /\.order\("id"\)\s*\.range\(/, /\.order\("module_key"\)\s*\.range\(/, /\.order\("tire_storage_id"\)\s*\.range\(/,
   /\.order\("kunde_a"\)\s*\.order\("kunde_b"\)\s*\.range\(/,
+  // `fin_konten` (Migration 88): Primärschlüssel (kontenrahmen, nummer), abgefragt je Kontenrahmen.
+  /\.eq\("kontenrahmen", rahmen\)\.order\("nummer"\)\.range\(/,
 ];
 
 describe("seitenweise Abfragen sind eindeutig sortiert", () => {

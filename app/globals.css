@@ -4494,6 +4494,31 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .fi-meldung.fehler{color:var(--red);font-weight:700;}
 .fi-platzhalter{align-items:flex-start;gap:6px;padding:18px;}
 .fi-platzhalter b{font-size:16px;font-family:var(--font-brand);}
+/* Buchungen (F1, v146): components/finance/FinanceBuchungen.tsx */
+.fi-ok{background:var(--green-bg);}
+.fi-reiter{max-width:420px;}
+.fi-werkzeug{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.fi-werkzeug .fi-suche{flex:1 1 220px;min-width:0;}
+.fi-werkzeug .fi-knopf{min-height:42px;padding:0 16px;}
+.fi-werkzeug .fi-monat{width:auto;flex:0 0 auto;height:42px;border-radius:12px;border:1px solid var(--border);background:var(--input-bg);font:inherit;font-size:14px;padding:0 10px;}
+.es-knopf.fi-an{background:var(--accent-bg);border-color:var(--accent);color:var(--accent);}
+.fi-nr{flex:0 0 auto;min-width:44px;font-weight:800;font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;}
+.fi-betrag{flex:0 0 auto;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.fi-gestrichen b{text-decoration:line-through;text-decoration-color:var(--muted);}
+.fi-gestrichen .fi-betrag,.fi-leise .fi-betrag,.fi-leise b{color:var(--muted);}
+.fi-gruppe{display:flex;flex-direction:column;gap:6px;}
+.fi-konto .es-knopf{height:32px;font-size:12px;padding:0 10px;}
+.fi-formular{display:flex;flex-direction:column;gap:10px;}
+.fi-posten{display:flex;flex-direction:column;gap:8px;background:var(--bg);border-radius:14px;padding:10px 12px;}
+.fi-posten-kopf{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.fi-posten-kopf .es-knopf{height:30px;font-size:12px;}
+.fi-mehr{align-self:flex-start;border:1px solid var(--border);min-height:40px;border-radius:12px;}
+.fi-tabelle{width:100%;border-collapse:collapse;font-size:13.5px;}
+.fi-tabelle th{text-align:left;font-size:12px;color:var(--muted);font-weight:700;padding:4px 6px;border-bottom:1px solid var(--border);}
+.fi-tabelle td{padding:6px;border-bottom:1px solid #f1ece2;vertical-align:top;}
+.fi-tabelle .zahl{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;width:110px;}
+.fi-tabelle tr.steuer td{color:var(--muted);}
+.fi-tabelle tfoot td{font-weight:800;border-bottom:none;}
 @media (max-width:700px){
   .fi-zwei{grid-template-columns:1fr;}
   .fi-wahl button{flex-basis:100%;}
@@ -4501,4 +4526,6 @@ button.zt-m-zeile:hover{background:var(--hover);}
   .fi-seite{padding-bottom:120px;}
   .fi-aktion .btn-primary,.fi-aktion .btn-secondary{flex:1 1 140px;}
   .fi-aktion .fi-meldung{flex-basis:100%;text-align:center;}
+  .fi-werkzeug .fi-knopf{flex:1 1 100%;}
+  .fi-tabelle .zahl{width:88px;}
 }

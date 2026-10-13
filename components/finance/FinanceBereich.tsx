@@ -7,6 +7,7 @@ import type { Verb } from "@/lib/constants";
 import { qk } from "@/lib/queries/keys";
 import { useFinEinstellungen } from "@/lib/queries/hooks";
 import { saveFinEinstellungen } from "@/lib/api/finance";
+import { FinanceBuchungen } from "./FinanceBuchungen";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
 import {
   FIN_BESTEUERUNG, FIN_GEWINNERMITTLUNG, FIN_KONTENRAHMEN, FIN_RECHTSFORMEN, FIN_VERSTEUERUNG, FIN_VORANMELDUNG,
@@ -107,6 +108,12 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
         {aktiv === "mehr" && (
           <FinanceMehr seiten={sichtbar.filter((s) => !s.primaer)} onSeite={onSeite} wechselbar={wechselbar} onSystemWahl={onSystemWahl} />
         )}
+        {aktiv === "buchungen" && (
+          <FinanceBuchungen supabase={supabase} jahr={jahr} heute={heute}
+            einstellungen={stand?.status === "da" ? stand.einstellungen : null}
+            darfBuchen={darf("finance.buchen", "schreiben")} darfFestschreiben={darf("finance.abschluss", "schreiben")}
+            darfKonten={darf("finance.einstellungen", "schreiben")} onEinstellungen={() => onSeite("einstellungen")} />
+        )}
         {eintrag && eintrag.phase && <FinancePlatzhalter seite={eintrag} />}
       </div>
     </div>
@@ -166,7 +173,7 @@ function FinanceUebersicht({ einstellungen, laedt, seiten, onSeite }: {
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Reihenfolge laut Plan: F1 Buchungen → F3 Rechnungen → F2 Belege → F4 Bank & Kasse → F5 Steuern.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen. Als Nächstes laut Plan: F3 Rechnungen → F2 Belege → F4 Bank & Kasse → F5 Steuern.</span>
         </>
       )}
     </>

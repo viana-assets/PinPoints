@@ -262,7 +262,12 @@ Einzelne Zeilen verdienen einen Satz Begründung:
 - **Finance (Migration 87, v145):** alle Rollenlisten leer – nur der Superadmin sieht Finance und den
   Systemwechsler an der Marke. `finance` · L = Finance öffnen, Übersicht und Einstellungen ansehen (RLS
   „Finance-Einstellungen lesen“); die Unterrechte schalten die Seiten der späteren Phasen frei und brauchen
-  `finance` lesen (`RECHTE_ABHAENGIGKEITEN`); `finance.einstellungen` · S = Einstellungen anlegen und ändern.
+  `finance` lesen (`RECHTE_ABHAENGIGKEITEN`); `finance.einstellungen` · S = Einstellungen anlegen und ändern,
+  seit Migration 88 auch eigene Konten anlegen und Konten ausblenden. **F1 (Migration 88, v146):**
+  `finance.buchen` · L = Journal und Buchungszeilen sehen, S = buchen und stornieren (`fin_buchen()`,
+  `fin_stornieren()`); `finance.abschluss` · S = Monat festschreiben (`fin_monat_festschreiben()`). Konten,
+  Steuerschlüssel und Festschreibungen liest jeder mit `finance`. Direktes Schreiben aufs Journal gibt es für
+  niemanden, auch nicht für den Superadmin.
   Kein Löschen. Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

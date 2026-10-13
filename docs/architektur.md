@@ -141,6 +141,8 @@ viana-pinpoints/
     finance/
       FinanceBereich.tsx             Finance (Pilot, Migration 87, v145): Übersicht, Einstellungen je Wirtschaftsjahr,
                                      Platzhalter je Phase, „Weitere“ am Handy; `FINANCE_ICONS`
+      FinanceBuchungen.tsx           Buchungen (Migration 88, v146): Journal, neue Buchung mit Vorschau, Storno,
+                                     Konten mit Saldo, eigene Konten, Monate festschreiben
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
       ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
@@ -321,6 +323,7 @@ viana-pinpoints/
     finance/
       einstellungen.ts            Finance-Einstellungen: Wahllisten, Vorgabe, Prüfung, Kurztext (Migration 87, v145)
       seiten.ts                   Die Seiten von Finance mit Recht und Phase (v145)
+      buchung.ts                  Buchungsregeln wie `fin_posten_schreiben()` (Vorschau), Salden, Betrag lesen (Migration 88, v146)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
                                   Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -368,7 +371,8 @@ viana-pinpoints/
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
-      finance.ts                   Finance-Einstellungen lesen/speichern; „Migration 87 fehlt“ statt Fehler (v145)
+      finance.ts                   Finance: Einstellungen (v145); Konten, Steuerschlüssel, Journal, buchen, stornieren,
+                                   festschreiben (v146)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -723,7 +727,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 87** (13.10.2026; 87 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 88** (13.10.2026; 88 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -859,6 +863,11 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   Regel/§ 19, Soll/Ist, Voranmeldung, Dauerfrist, § 13b, innergemeinschaftlich, Starttag) mit RLS
   (lesen `finance`, schreiben `finance.einstellungen`, kein Löschen) und Stempel-Trigger. „Alle Daten
   löschen“ leert sie mit. Siehe `docs/finance.md`.
+- **88** – Finance, Phase F1: `fin_konten` (SKR03/SKR04), `fin_steuerschluessel`, Journal `fin_buchungen` +
+  `fin_buchungszeilen`, `fin_nummern` (lückenlos je Jahr), `fin_festschreibungen`. Schreiben nur über
+  `fin_buchen()` (rechnet die Steuer, prüft Soll = Haben), `fin_stornieren()`, `fin_monat_festschreiben()`; kein
+  Ändern, kein Löschen. Kontenrahmen eines bebuchten Jahres gesperrt. Konten und Schlüssel überstehen „Alle Daten
+  löschen“ (`alle_daten_behalten()`).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

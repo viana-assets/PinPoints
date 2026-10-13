@@ -1,7 +1,8 @@
 # Finance – Buchhaltung als zweites System neben FSM
 
-Stand: 13.10.2026 · **Phase F0 gebaut (v145, Migration 87)**: Systemwechsel, Rechte, Navigation,
-Übersicht, Einstellungen. Alles Weitere ist Konzept (Abschnitt 7). Klickbarer Mockup:
+Stand: 13.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rechte, Navigation, Übersicht,
+Einstellungen – und **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung
+(„So ist F1 gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -302,7 +303,37 @@ Jede Phase ist eine eigene Lieferung mit Migration, Rücknahme, Tests und Doku �
 | **F9** | DATEV-Export des ganzen Journals, GoBD-Export, Verfahrensdokumentation | Übergabe an Steuerberater |
 | später | Bankabruf, ELSTER direkt, E-Rechnung-Ausgabe, Mahnwesen, Liquiditätsplanung, CRM | – |
 
-Vorschlag zur Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den
+### So ist F1 gebaut (v146, Migration 88)
+
+Bewusst schlank, damit F3 (Rechnungen) bald folgt:
+
+- **Konten** (`fin_konten`): je 72 Konten für SKR03 und SKR04, Nummern nach DATEV-Standard, Bezeichnungen eigene
+  Formulierung – **vor dem Echtbetrieb mit dem Steuerberater abgleichen**. Eigene Konten anlegen und Konten
+  ausblenden (Recht `finance.einstellungen`); gelöscht wird nie. Nummer und Art eines Kontos stehen fest.
+- **Steuerschlüssel** (`fin_steuerschluessel`): USt 19/7, Vorsteuer 19/7, § 13b 19 (Empfänger), ig. Erwerb 19,
+  ig. Lieferung, steuerfrei, Kleinunternehmer. Welche angeboten werden, folgt den Einstellungen (Kleinunternehmer:
+  keine USt/VSt; § 13b und ig. nur, wenn eingeschaltet).
+- **Buchen** (`fin_buchen()`): Datum, Beleg, Text und ein oder mehrere Posten (Soll, Haben, Betrag, Schlüssel).
+  Die Datenbank rechnet die Steuer und schreibt die Zeilen:
+  - USt/Vorsteuer: Betrag **brutto**, die Steuer wird herausgerechnet und auf der Seite des Erlös-, Aufwands- oder
+    Anlagekontos abgespalten (Rechnung 119 € → 1400 an 8400 100 € + 1776 19 €; Gutschrift umgekehrt).
+  - § 13b / ig. Erwerb: Betrag **netto**, die Steuer kommt als USt und Vorsteuer dazu; Kleinunternehmer ohne
+    Vorsteuer (die Steuer wird Aufwand).
+  - Soll = Haben wird geprüft; Nummern lückenlos je Jahr (eine abgelehnte Buchung verbraucht keine).
+  - Das Fenster zeigt vorher dieselbe Rechnung (`lib/finance/buchung.ts`).
+- **Kein Ändern, kein Löschen** (GoBD): korrigiert wird mit **Storno** – Gegenbuchung mit vertauschten Seiten,
+  Grund Pflicht, im festgeschriebenen Monat mit heutigem Datum.
+- **Festschreiben** je Monat (Recht `finance.abschluss`): danach wird dort nicht mehr gebucht; nicht rücknehmbar.
+- **Konten mit Saldo** (Soll, Haben, Saldo im Jahr) – eine erste Summen- und Saldenliste.
+- Ist ein Jahr bebucht, lassen sich Kontenrahmen und Beginn des Wirtschaftsjahres nicht mehr umstellen. Ein vom
+  Kalenderjahr abweichendes Wirtschaftsjahr bucht F1 noch nicht.
+- „Alle Daten löschen“ leert Journal und Festschreibungen; Konten und Steuerschlüssel bleiben.
+- Noch nicht in F1: Anfangsbestände als eigener Assistent (bis dahin von Hand gegen 9000 „Saldenvorträge“),
+  Splitbuchungen über mehrere Konten auf einer Seite, Debitoren/Kreditoren (kommen mit F3/F2), Export (F9).
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0 und F1 erledigt**, als Nächstes F3.
+
+Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den
 Umsatz liefern und heute schon täglich entstehen; nach F5 laufen Rechnungen, Belege, Bank und UStVA
 über einen ganzen Monat, bevor die Auswertungen (F6 ff.) dazukommen.
 

@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **13.10.2026 – Finance Phase F1 (Migration 88, Service Worker v146).** Konten SKR03/SKR04, Steuerschlüssel,
+  Journal mit Vorschau (Steuer rechnet die Datenbank), Storno, Konten mit Saldo, eigene Konten, Monate
+  festschreiben. Migration 87 und v145 laut Vitali ausgeführt und hochgeladen. `docs/finance.md`.
+
 * **13.10.2026 – Finance Phase F0 (Migration 87, Service Worker v145).** Systemwechsel an der Marke
   („MR Assistent · FSM“ ↔ „· Finance“, CRM als „bald“), Rechte `finance.*` (nur Superadmin), eigene Navigation,
   Übersicht mit Pilot-Hinweis, Einstellungen je Wirtschaftsjahr speicherbar, Platzhalter je Phase. FSM unverändert.
@@ -867,8 +871,9 @@ sofort in Finance › Rechnungen (vorgemerkt → zu erstellen); Ausstellen – a
 und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance.md` 4.2).
 **Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
 sind Probelauf, die Buchhaltung läuft wie bisher.
-Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 erledigt (v145, Migration 87).** Als Nächstes **F1**:
-Kontenrahmen SKR03/SKR04, Steuerschlüssel, Journal mit manuellen Buchungen, Soll = Haben, Festschreibung, Storno.
+Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 (v145, Migration 87) und F1 (v146, Migration 88) erledigt.** Als
+Nächstes **F3**: Aufträge mit „Rechnung nötig“ in Finance › Rechnungen, Ausstellen bucht Forderung an Erlöse und legt
+den offenen Posten an, „bar bezahlt“. Offen vor dem Echtbetrieb: Kontenliste mit dem Steuerberater abgleichen.
 
 ---
 

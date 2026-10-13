@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v145";
+export const APP_VERSION = "v146";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v146", datum: "2026-10-13", titel: "Finance: Buchungen",
+    punkte: [
+      "In Finance › Buchungen lässt sich jetzt buchen: Soll- und Haben-Konto, Betrag und Steuerschlüssel – die Umsatz- oder Vorsteuer rechnet die App selbst heraus und zeigt vorher, was gebucht wird.",
+      "Korrigiert wird mit Storno, nicht durch Ändern. Unter „Konten“ steht der Saldo jedes Kontos, unter „Monate“ lässt sich ein Monat festschreiben.",
+      "Die Konten (SKR03 oder SKR04) bitte vor dem Echtbetrieb mit dem Steuerberater abgleichen. In FSM ändert sich nichts.",
+    ],
+  },
   {
     version: "v145", datum: "2026-10-13", titel: "Finance – erster Schritt",
     punkte: [

@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `87_finance_grundlagen.sql`** (Abschnitt unten, vor den Dateien von v145). **Stand 13.10.2026: Die Migrationen 01–86 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026) –
+**Noch auszuführen: `88_finance_buchungen.sql`** (Abschnitt unten, vor den Dateien von v146). **Stand 13.10.2026: Die Migrationen 01–87 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1192,9 +1192,9 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   gewollten Stellen (`chat_fotos` im Umfang, eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal,
   zurückgenommen, zweimal, erneut ausgeführt.
 
-## 13.10.2026 – noch auszuführen (87)
+## 13.10.2026 – ausgeführt (87), noch auszuführen (88)
 
-- `87_finance_grundlagen.sql` – **noch auszuführen**, vor den Dateien von v145.
+- `87_finance_grundlagen.sql` – **ausgeführt** (13.10.2026).
   Finance, Phase F0 (`docs/finance.md`): Rechte `finance`, `finance.rechnungen`, `.belege`, `.bank`, `.buchen`,
   `.steuer`, `.abschluss`, `.einstellungen` in `module_permissions` – alle Rollenlisten leer, also nur der
   Superadmin (`on conflict do nothing`: eine spätere Freischaltung übersteht den zweiten Lauf). Tabelle
@@ -1210,3 +1210,27 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   leert die Tabelle, die Rechte bleiben. `t72` und `t86` gegen 86 und 87: gleiche Ausgabe bis auf die gewollten
   Stellen (eine Tabelle mehr in der Sicherung, acht Rechtezeilen mehr). Ausgeführt, zweimal, zurückgenommen,
   zweimal, erneut ausgeführt.
+
+- `88_finance_buchungen.sql` – **noch auszuführen**, vor den Dateien von v146.
+  Finance, Phase F1 (`docs/finance.md`): `fin_konten` (72 Konten je SKR03/SKR04 nach DATEV-Nummern, eigene
+  Bezeichnungen – mit dem Steuerberater abgleichen; eigene Konten anlegen und ausblenden mit
+  `finance.einstellungen`, kein Löschen, Spaltenrechte nur Bezeichnung/aktiv), `fin_steuerschluessel` (9 je
+  Kontenrahmen mit Steuerkonten, nur lesen), Journal `fin_buchungen` + `fin_buchungszeilen`, `fin_nummern`
+  (lückenlos je Jahr, `for update`), `fin_festschreibungen`. Geschrieben wird nur über `fin_buchen()`,
+  `fin_stornieren()` (Grund Pflicht, Gegenbuchung, im festgeschriebenen Monat heute datiert) und
+  `fin_monat_festschreiben()` (`finance.abschluss`, nicht in der Zukunft, nicht zweimal); direktes Schreiben ist
+  für alle gesperrt, die Bausteine (`fin_posten_schreiben`, `fin_naechste_nr`, `fin_buchbar`) sind nicht aufrufbar.
+  Neuer Trigger `fin_einstellungen_sperre`: Kontenrahmen und WJ-Beginn eines bebuchten Jahres stehen fest.
+  `alle_daten_behalten()` um `fin_konten`, `fin_steuerschluessel` erweitert. Wache: bricht ohne 87 oder 72/86 ab.
+  Ergebnistabelle mit sechs Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/88_rollback.sql` (alles aus 88
+  weg, Liste wie 87; löscht das Journal – vorher sichern; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 87 + Testzugänge, `pgtest/t88.sql`): ohne Recht und ohne Einstellungen
+  abgelehnt; Rechnung 119 → 1400/8400 100/1776 19, Einkauf 595 Vorsteuer, Gutschrift (Steuer im Soll), § 13b mit
+  USt und VSt, Anlage, zwei Posten; elf Ablehnungen ohne verbrauchte Nummer; Storno vertauscht die Seiten,
+  doppelt und Storno vom Storno abgelehnt; Festschreiben (Zukunft und zweimal abgelehnt), danach im Monat
+  gesperrt, Storno heute datiert; Kleinunternehmer ohne USt, § 13b ohne Vorsteuer; Kontenrahmen gesperrt,
+  Besteuerung änderbar; direktes Schreiben und Bausteine verweigert; eigenes Konto, ausblenden, Nummer gesperrt;
+  Admin mit „Finance lesen“ sieht Konten, nicht das Journal; überall Soll = Haben; „Alle Daten löschen“ leert
+  Journal, Nummern, Festschreibungen, behält 145 Konten und 18 Schlüssel. `t72`, `t86`, `t87` gegen 87 und 88:
+  gleiche Ausgabe bis auf die gewollte Stelle (sechs Tabellen mehr in der Sicherung). Ausgeführt, zweimal,
+  zurückgenommen, zweimal, erneut ausgeführt.

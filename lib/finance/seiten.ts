@@ -26,7 +26,7 @@ export const FINANCE_SEITEN: FinanceSeite[] = [
   { key: "belege", label: "Belege", beschreibung: "Eingangsrechnungen und Quittungen hochladen und erfassen", recht: "finance.belege", phase: "F2", primaer: true },
   { key: "bank", label: "Bank & Kasse", beschreibung: "Kontoauszüge einlesen, zuordnen; Kassenbuch für Barzahlungen", recht: "finance.bank", phase: "F4", primaer: true },
   { key: "op", label: "Offene Posten", beschreibung: "Wer noch zahlen muss und wem wir etwas schulden", recht: "finance.rechnungen", phase: "F3" },
-  { key: "buchungen", label: "Buchungen", beschreibung: "Journal, Konten und Buchungssätze", recht: "finance.buchen", phase: "F1" },
+  { key: "buchungen", label: "Buchungen", beschreibung: "Journal, Konten mit Saldo, Monate festschreiben", recht: "finance.buchen", phase: null },
   { key: "steuern", label: "Steuern", beschreibung: "Umsatzsteuer-Voranmeldung und Zahllast – als Probelauf", recht: "finance.steuer", phase: "F5" },
   { key: "anlagen", label: "Anlagen", beschreibung: "Anlagevermögen und Abschreibungen", recht: "finance.abschluss", phase: "F7" },
   { key: "auswertungen", label: "Auswertungen", beschreibung: "BWA, EÜR oder GuV und Summen-Salden", recht: "finance.abschluss", phase: "F6" },

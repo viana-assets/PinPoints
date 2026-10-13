@@ -156,7 +156,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('84', 'Chat: Einzelchats, Bearbeiten, Fotos', to_regclass('public.chat_gelesen_direkt') is not null and to_regprocedure('public.chat_unterhaltungen()') is not null),
     ('85', 'Chat-Haken, Feierabend, Stempel-Erinnerung', to_regprocedure('public.chat_haken(uuid)') is not null and to_regprocedure('public.zeit_feierabend()') is not null and to_regclass('public.push_stempel_erinnerung') is not null),
     ('86', 'Alle Daten löschen: Neuigkeiten, Chat-Fotos', to_regclass('public.app_stand') is not null and to_regprocedure('public.alle_daten_loeschen(text,text)') is not null),
-    ('87', 'Finance: Rechte und Einstellungen', to_regclass('public.fin_einstellungen') is not null and exists (select 1 from public.module_permissions where module_key = 'finance'))
+    ('87', 'Finance: Rechte und Einstellungen', to_regclass('public.fin_einstellungen') is not null and exists (select 1 from public.module_permissions where module_key = 'finance')),
+    ('88', 'Finance: Konten, Journal, Festschreibung', to_regprocedure('public.fin_buchen(date,text,text,jsonb)') is not null and to_regclass('public.fin_konten') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all
