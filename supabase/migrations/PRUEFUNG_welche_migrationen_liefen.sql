@@ -163,7 +163,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('91', 'Finance: Bank und Kasse', to_regclass('public.fin_bankumsaetze') is not null and to_regprocedure('public.fin_bank_einlesen(uuid,text,text,jsonb,numeric,date)') is not null),
     ('92', 'Finance: Umsatzsteuer-Voranmeldung', to_regclass('public.fin_voranmeldungen') is not null and to_regprocedure('public.fin_ust_stand(integer)') is not null),
     ('93', 'Finance: Teilzahlungen, Kassensturz, § 13b Abs. 2', to_regclass('public.fin_teilzahlungen') is not null and to_regprocedure('public.fin_kassensturz(date,numeric,text,boolean)') is not null),
-    ('94', 'Finance: Auswertungen (Salden, Kontenblatt, EÜR)', to_regprocedure('public.fin_euer(integer)') is not null and to_regprocedure('public.fin_auswertung_salden(integer)') is not null)
+    ('94', 'Finance: Auswertungen (Salden, Kontenblatt, EÜR)', to_regprocedure('public.fin_euer(integer)') is not null and to_regprocedure('public.fin_auswertung_salden(integer)') is not null),
+    ('95', 'Finance: Anlagen und Abschreibungen', to_regclass('public.fin_anlagen') is not null and to_regprocedure('public.fin_afa_buchen(integer,integer)') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

@@ -14,6 +14,7 @@ import { BelegeOffenePosten, FinanceBelege } from "./FinanceBelege";
 import { FinanceBank } from "./FinanceBank";
 import { FinanceSteuern } from "./FinanceSteuern";
 import { FinanceAuswertungen } from "./FinanceAuswertungen";
+import { FinanceAnlagen } from "./FinanceAnlagen";
 import { ustZuErledigen } from "@/lib/finance/steuern";
 import { MONATSNAMEN } from "@/lib/finance/auswertungen";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
@@ -156,6 +157,12 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
             darfSchreiben={darf("finance.steuer", "schreiben")} onEinstellungen={() => onSeite("einstellungen")} />
         )}
+        {aktiv === "anlagen" && (
+          <FinanceAnlagen supabase={supabase} jahr={jahr} heute={heute}
+            einstellungen={stand?.status === "da" ? stand.einstellungen : null}
+            darfSchreiben={darf("finance.abschluss", "schreiben")} belegeSehen={darf("finance.belege", "lesen")}
+            onEinstellungen={() => onSeite("einstellungen")} />
+        )}
         {aktiv === "auswertungen" && (
           <FinanceAuswertungen supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null} onEinstellungen={() => onSeite("einstellungen")} />
@@ -275,7 +282,7 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf), F6 Auswertungen. Als Nächstes laut Plan: F7 Anlagen.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf), F6 Auswertungen, F7 Anlagen. Als Nächstes laut Plan: F8 Bilanz und GuV.</span>
         </>
       )}
     </>
@@ -417,6 +424,15 @@ export function FinanceEinstellungen({ supabase, gespeichert, bereit, vorgabe, d
             an={e.r13b_empfaenger} gesperrt={gesperrt} onWechsel={() => setze({ r13b_empfaenger: !e.r13b_empfaenger })} />
           <Schalter titel="Innergemeinschaftliche Geschäfte" text="Erwerb und Lieferung mit USt-IdNr., Zusammenfassende Meldung"
             an={e.innergemeinschaftlich} gesperrt={gesperrt} onWechsel={() => setze({ innergemeinschaftlich: !e.innergemeinschaftlich })} />
+        </div>
+      </div>
+
+      <span className="op-gruppe-titel">ANLAGEN</span>
+      <div className="db-karte es-karte fi-karte">
+        <div className="fi-schalter">
+          <Schalter titel="Sammelposten für geringwertige Güter"
+            text="Güter über 250 € bis 1.000 € netto kommen in einen Sammelposten und werden fünf Jahre lang zu je 20 % abgeschrieben. Aus: bis 800 € sofort abschreiben, darüber nach Nutzungsdauer. Gilt einheitlich für das ganze Jahr und steht fest, sobald es solche Güter gibt."
+            an={e.sammelposten} gesperrt={gesperrt} onWechsel={() => setze({ sammelposten: !e.sammelposten })} />
         </div>
       </div>
 

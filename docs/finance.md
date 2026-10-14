@@ -5,8 +5,8 @@ Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Jou
 **F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten –, **F2 (v148,
 Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
 92)** – Umsatzsteuer-Voranmeldung als Probelauf –, dazu **Nachträge (v151, Migration 93)**: Teilzahlungen,
-Kassensturz, § 13b Abs. 2, Fristerinnerung – und **F6 (v152, Migration 94)** – Auswertungen („So ist … gebaut“ in
-Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Kassensturz, § 13b Abs. 2, Fristerinnerung –, **F6 (v152, Migration 94)** – Auswertungen – und **F7 (v153,
+Migration 95)** – Anlagen und Abschreibungen („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -489,7 +489,37 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - Noch nicht: Vorjahresvergleich, Liquiditätsvorschau, Offene-Posten-Liste als Export (die Liste steht unter
   Offene Posten).
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4, F5 und F6 erledigt**, Nachträge v151; danach laut Plan ein Monat
+### So ist F7 gebaut (v153, Migration 95)
+
+- **Finance › Anlagen** (Recht `finance.abschluss`; lesen L, pflegen und buchen S): Verzeichnis in Gruppen (Anlagen,
+  sofort abgeschriebene GWG, Sammelposten, Abgänge) mit Buchwert, Abschreibung des Jahres laut Plan und davon gebucht.
+- **Erfassen:** Bezeichnung, Anlagekonto, Anschaffungsdatum, Anschaffungskosten (netto, beim Kleinunternehmer
+  brutto), Art der Abschreibung, Nutzungsdauer (Vorschlag je Konto nach AfA-Tabelle: Software/Computer 1, Pkw 6,
+  Lkw/Transporter 9, Maschinen 10, Betriebsausstattung 8, Büroeinrichtung 13 Jahre – für das einzelne Gut prüfen),
+  auf Wunsch aus einem gebuchten Beleg mit Anlagekonto (übernimmt Datum, Netto, Konto) und mit dem Firmenfahrzeug aus
+  FSM. Der Abschreibungsplan steht sofort darunter. Der Kauf selbst wird wie bisher gebucht (Beleg oder Bank auf das
+  Anlagekonto) – das Verzeichnis bucht ihn nicht noch einmal.
+- **Regeln** (Stand Oktober 2026, in der Datenbank geprüft und in `lib/finance/anlagen.ts` gespiegelt): linear
+  monatsgenau; **degressiv** für bewegliche Güter mit Anschaffung 01.07.2025–31.12.2027, dreifach linear, höchstens
+  30 % vom Restwert, mit Wechsel zur linearen Abschreibung, sobald die höher ist; **GWG** bis 800 € ganz im
+  Anschaffungsmonat; **Sammelposten** über 250 € bis 1.000 €, je 20 % in fünf Jahren ohne Monatsanteil – nur, wenn unter
+  Einstellungen für das Jahr gewählt, dann für alle Güter in diesem Rahmen, und die Wahl steht fest, sobald es welche
+  gibt; **E-Fahrzeuge** (rein elektrisch, Anschaffung im selben Zeitraum) 75/10/5/5/3/2 %.
+- **Abschreibungen buchen** bis zu einem Monat (nicht im Voraus): je Anlage, was laut Plan bis Monatsende fällig und
+  noch nicht gebucht ist – eine Buchung mit einem Posten je Anlage (4830/6220, GWG 4855/6260, Sammelposten 4862/6264
+  an das Anlagekonto). Monatlich gebucht, stimmt auch die BWA. Ein Lauf lässt sich unter Buchungen stornieren; der
+  nächste bucht neu.
+- **Abgang** (verkauft, verschrottet): Abschreibung bis zum Abgangsmonat (zu viel Gebuchtes wird zurückgebucht),
+  Restbuchwert auf 2310/6895 Anlagenabgänge; zurücknehmbar. Ein Verkaufserlös wird wie jede Einnahme gebucht. Im
+  Sammelposten scheidet ein Gut nicht einzeln aus.
+- **Anlagen aus der Zeit vor Finance:** mit ihrem Buchwert als Anfangsbestand des Anlagekontos buchen; das Verzeichnis
+  rechnet den Plan ab Anschaffung, gebucht wird ab dem ersten Jahr in Finance.
+- **EÜR und BWA:** Abschreibungen stehen in Kz 130/132; Auflösung des Sammelpostens und Restbuchwert als eigene Zeilen
+  (Kennzahl mit dem Steuerberater klären). In der BWA unter „Abschreibungen“.
+- Noch nicht: Erinnerungswert 1 €, Leistungsabschreibung, Sonderabschreibung nach § 7g und Investitionsabzugsbetrag,
+  Anlagenspiegel als Export (kommt mit F8/F9).
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4, F5, F6 und F7 erledigt**, Nachträge v151; danach laut Plan ein Monat
 Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den

@@ -28,7 +28,7 @@ export const FINANCE_SEITEN: FinanceSeite[] = [
   { key: "op", label: "Offene Posten", beschreibung: "Wer noch zahlen muss und was wir schulden", recht: "finance.rechnungen", phase: null },
   { key: "buchungen", label: "Buchungen", beschreibung: "Journal, Konten mit Saldo, Monate festschreiben", recht: "finance.buchen", phase: null },
   { key: "steuern", label: "Steuern", beschreibung: "Umsatzsteuer-Voranmeldung mit Kennzahlen, Fristen und Zahllast – als Probelauf", recht: "finance.steuer", phase: null },
-  { key: "anlagen", label: "Anlagen", beschreibung: "Anlagevermögen und Abschreibungen", recht: "finance.abschluss", phase: "F7" },
+  { key: "anlagen", label: "Anlagen", beschreibung: "Anlagenverzeichnis, Abschreibungsplan, Abschreibungen buchen, Abgang", recht: "finance.abschluss", phase: null },
   { key: "auswertungen", label: "Auswertungen", beschreibung: "Summen und Salden, Kontenblätter, BWA und EÜR – auch als CSV", recht: "finance.abschluss", phase: null },
   { key: "export", label: "Export", beschreibung: "DATEV-Buchungsstapel für den Steuerberater", recht: "finance.abschluss", phase: "F9" },
   // Sichtbar für alle mit Finance; ÄNDERN braucht „finance.einstellungen“ schreiben.

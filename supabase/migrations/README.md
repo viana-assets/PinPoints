@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `93_finance_luecken.sql`, dann `94_finance_auswertungen.sql`** – vor den Dateien von v151/v152 (Abschnitte unten). **Stand 14.10.2026: Die Migrationen 01–92 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91 und 92 am 14.10.2026) –
+**Noch auszuführen: `95_finance_anlagen.sql`** – vor den Dateien von v153 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–94 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1329,7 +1329,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   leert beide Tabellen. `t72`, `t86`–`t91` gegen 91 und 92: gleiche Ausgabe bis auf die gewollte Stelle (zwei Tabellen
   mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `93_finance_luecken.sql` – **noch auszuführen**, nach 92 und vor den Dateien von v151.
+- `93_finance_luecken.sql` – **ausgeführt** (14.10.2026).
   Finance, Lücken aus F2–F5. **Teilzahlungen** (`fin_teilzahlungen`, lesen mit dem Recht der Rechnung bzw. des
   Belegs oder `finance.bank`): `fin_bank_zu_rechnung()`/`_zu_beleg()` nehmen jeden Umsatz bis zum offenen Rest
   (`fin_teilbezahlt()`), bezahlt erst beim Rest null; „Bar bezahlt“/„Überweisung“ (`fin_rechnung_bezahlt()`,
@@ -1356,7 +1356,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   (drei Tabellen mehr in der Sicherung, vier Konten und zwei Schlüssel mehr, Meldung „Betrag zu hoch“ statt „Betrag
   passt nicht“). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `94_finance_auswertungen.sql` – **noch auszuführen**, nach 93 und vor den Dateien von v152.
+- `94_finance_auswertungen.sql` – **ausgeführt** (14.10.2026).
   Finance, Phase F6 (`docs/finance.md` 4.7) – nur lesende Funktionen, keine Tabelle. `fin_auswertung_salden(jahr)`
   (Soll/Haben je Konto und Monat), `fin_kontenblatt(jahr, konto)` (Zeilen mit Gegenkonten), `fin_euer(jahr)` (Wirkung
   je Konto nach Zahlung: Gegenzeilen jeder Kassen-/Bankbuchung; Zahlungen auf Rechnungen und Belege anteilig auf deren
@@ -1370,3 +1370,32 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   eingerichtet“; Salden 1400/8400 je Monat; Kontenblatt 1400 mit Gegenkonten; Admin ohne Recht abgelehnt, mit
   „Auswertungen lesen“ erlaubt; Baustein nicht aufrufbar. `t72`, `t86`–`t93` gegen 93 und 94: gleiche Ausgabe.
   Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `95_finance_anlagen.sql` – **noch auszuführen**, nach 94 und vor den Dateien von v153.
+  Finance, Phase F7 (`docs/finance.md` 4.5). `fin_anlagen` (Verzeichnis, nur lesen mit `finance.abschluss`; geschrieben
+  über `fin_anlage_speichern()` mit den Regeln: linear monatsgenau; degressiv nur Anschaffung 01.07.2025–31.12.2027,
+  dreifach linear höchstens 30 %, Wechsel zu linear; GWG bis 800 €; Sammelposten über 250 € bis 1.000 € nur mit der
+  Wahl des Jahres und dann für alle Güter in diesem Rahmen; E-Fahrzeug 75/10/5/5/3/2 %), `fin_afa_posten` (gebuchte
+  Abschreibung je Anlage, Jahr und Lauf). `fin_afa_bis()` (die Rechnung, intern), `fin_afa_buchen(jahr, bis_monat)`
+  (eine Buchung, je Anlage fällig minus gebucht, auch negativ; nicht im Voraus; Quelle `afa`, von Hand stornierbar),
+  `fin_afa_gebucht(jahr)`, `fin_anlage_abgang()` (Abschreibung dieser Anlage bis zum Abgangsmonat, Restbuchwert laut
+  Plan auf 2310/6895, Quelle `abgang`), `fin_anlage_abgang_zuruecknehmen()`, `fin_anlage_loeschen()` (nur ohne
+  Buchungen). `fin_stornieren()` lehnt Abgänge ab. Neue Spalte `fin_einstellungen.sammelposten` (Trigger
+  `fin_einstellungen_sammelposten_sperre`: fest, sobald es im Jahr GWG über 250 € oder Sammelposten gibt). Konten
+  4862/6264 (Sammelposten) und 2310/6895 (Anlagenabgänge). Wache: bricht ohne 94 ab. Ergebnistabelle mit vier Zeilen.
+  Zweiter Lauf folgenlos. Rücknahme: `rollback/95_rollback.sql` (Funktionen gegen den Stand 94 verglichen: gleich;
+  `fin_stornieren` wie 91; Spalte `sammelposten` weg; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 94, `pgtest/t95.sql`): Plan linear 1.200/36 ab 15.03.2026 → 333,33 / 733,33 /
+  1.133,33 / 1.200; degressiv 10.000/120 ab 10.08.2025 → 1.250 / 3.875, Juni 2026 2.562,50; degressiv 5.000/60 mit Wechsel
+  2028 → 1.500 / 2.550 / 3.366,67 / 4.183,34 / 5.000; GWG im Anschaffungsmonat; Sammelposten 120 je Jahr, Abgang ohne
+  Wirkung; E-Fahrzeug 30.000 / 34.000 / 40.000, Juni 12.000; Abgang friert ein. Speichern: ohne Bezeichnung, falsches
+  Konto, ohne Nutzungsdauer, GWG über 800, degressiv vor 07/2025, Sammelposten ohne Wahl, Zukunft → abgelehnt; Lauf im
+  Voraus abgelehnt; Lauf bis Oktober 27.154,17 € in einer Buchung, zweiter Lauf folgenlos; nach dem Abschreiben nur
+  Bezeichnung änderbar, Löschen abgelehnt, ohne Buchung gelöscht; Lauf storniert und neu gebucht; Abgang im August:
+  66,67 zurück, Restbuchwert 1.000 auf 2310, Storno von Hand und zweiter Abgang abgelehnt, Abgang zurück → Rest
+  nachgeholt; Sammelposten-Wahl gesperrt, sobald GWG über 250 € da sind; mit Wahl GWG 600 abgelehnt, Sammelposten 600
+  und GWG 200 erlaubt, Abgang im Sammelposten abgelehnt; Admin ohne Recht abgelehnt, sieht nichts; direktes Schreiben
+  und Baustein verweigert; EÜR enthält die Abschreibung; überall Soll = Haben, Nummern lückenlos; „Alle Daten löschen“
+  leert Anlagen und Abschreibungen. `t72`, `t86`–`t94` gegen 94 und 95: gleiche Ausgabe bis auf die gewollten Stellen
+  (zwei Tabellen mehr in der Sicherung, vier Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut
+  ausgeführt.

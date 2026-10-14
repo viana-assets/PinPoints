@@ -25,6 +25,8 @@ export type FinEinstellungen = {
   innergemeinschaftlich: boolean;
   wj_beginn_monat: number;
   start_datum: string;
+  // Geringwertige Güter über 250 € bis 1.000 € in den Sammelposten (§ 6 Abs. 2a EStG, Migration 95) – einheitlich je Jahr.
+  sammelposten: boolean;
   aktualisiert_am?: string | null;
 };
 
@@ -74,7 +76,7 @@ export function finVorgabe(jahr: number, heute: string): FinEinstellungen {
   return {
     wirtschaftsjahr: jahr, rechtsform: "einzel", gewinnermittlung: "euer", kontenrahmen: "skr03",
     besteuerung: "regel", versteuerung: "soll", voranmeldung: "monat", dauerfrist: false,
-    r13b_empfaenger: true, innergemeinschaftlich: false, wj_beginn_monat: 1, start_datum: heute,
+    r13b_empfaenger: true, innergemeinschaftlich: false, wj_beginn_monat: 1, start_datum: heute, sammelposten: false,
   };
 }
 

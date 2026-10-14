@@ -115,6 +115,9 @@ export const FIN_EUER_AUSGABEN: EuerAusgabeDef[] = [
   { kz: "224", text: "Werbekosten", bereiche: { skr03: [[4600, 4639]], skr04: [[6600, 6639]] } },
   { kz: "165", text: "Bewirtung (davon 70 % abziehbar)", bereiche: { skr03: [[4650, 4654]], skr04: [[6640, 6644]] }, anteil: 0.7 },
   { kz: "144–146", text: "Kfz-Kosten (je nach Art: Leasing, Steuer/Versicherung, laufende Kosten)", bereiche: { skr03: [[4500, 4599]], skr04: [[6500, 6599], [7685, 7685]] } },
+  // Seit F7 (Migration 95). Eigene Zeilen der Anlage EÜR – die Kennzahl vor der Abgabe mit dem Steuerberater klären.
+  { kz: null, text: "Auflösung des Sammelpostens (20 % je Jahr)", bereiche: { skr03: [[4862, 4862]], skr04: [[6264, 6264]] } },
+  { kz: null, text: "Restbuchwert ausgeschiedener Anlagegüter", bereiche: { skr03: [[2310, 2310]], skr04: [[6895, 6895]] } },
   { kz: "183", text: "Übrige Betriebsausgaben", bereiche: { skr03: [], skr04: [] } },
 ];
 // Erlöse ohne Umsatzsteuer und nicht steuerbare Einnahmen (Kz 103); Kleinunternehmer-Erlöse (Kz 111).

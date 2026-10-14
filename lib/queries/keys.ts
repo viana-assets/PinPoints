@@ -86,6 +86,10 @@ export const qk = {
   finSalden: (jahr: number) => ["finance", "salden", jahr] as const,
   finEuer: (jahr: number) => ["finance", "euer", jahr] as const,
   finKontenblatt: (jahr: number, konto: number) => ["finance", "kontenblatt", jahr, konto] as const,
+  // F7 (Migration 95): Anlagenverzeichnis, gebuchte Abschreibung je Jahr, Firmenfahrzeuge zur Auswahl.
+  finAnlagen: () => ["finance", "anlagen"] as const,
+  finAfaGebucht: (jahr: number) => ["finance", "afa", jahr] as const,
+  finFahrzeuge: () => ["finance", "fahrzeuge"] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

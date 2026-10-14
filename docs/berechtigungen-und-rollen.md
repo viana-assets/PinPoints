@@ -291,6 +291,9 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **F6 (Migration 94, v152):** `finance.abschluss` · L = Finance › Auswertungen (Summen & Salden, Kontenblatt, BWA,
   EÜR). Die Funktionen dahinter liefern Summen und Kontenblätter auch mit `finance.buchen` L – wer das Journal sieht,
   sieht auch seine Auswertung; die Seite in der Navigation zeigt nur „Auswertungen“.
+  **F7 (Migration 95, v153):** `finance.abschluss` · L = Finance › Anlagen sehen, S = Anlagen erfassen und ändern,
+  Abschreibungen buchen, Abgang buchen und zurücknehmen, eine Anlage ohne Buchungen löschen. Die Sammelposten-Wahl je
+  Jahr gehört zu den Einstellungen (`finance.einstellungen` S).
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

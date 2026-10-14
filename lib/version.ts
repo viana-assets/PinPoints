@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v152";
+export const APP_VERSION = "v153";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v153", datum: "2026-10-14", titel: "Finance: Anlagen und Abschreibungen",
+    punkte: [
+      "Unter Finance › Anlagen steht das Anlagenverzeichnis: Maschinen, Fahrzeuge, Ausstattung mit Abschreibungsplan und Buchwert – auch aus einem Beleg oder einem Firmenfahrzeug übernehmbar.",
+      "Abgeschrieben wird linear, degressiv (Anschaffungen bis Ende 2027), sofort bis 800 € oder im Sammelposten; E-Fahrzeuge mit der neuen Sonderabschreibung.",
+      "„Abschreibungen buchen“ bucht monatlich, was fällig ist. Wird etwas verkauft oder verschrottet, bucht der Abgang den Restbuchwert.",
+    ],
+  },
   {
     version: "v152", datum: "2026-10-14", titel: "Finance: Auswertungen",
     punkte: [

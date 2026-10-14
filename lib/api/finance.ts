@@ -6,6 +6,7 @@ import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
 import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLieferant } from "@/lib/finance/belege";
 import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
+import type { FinAnlage } from "@/lib/finance/anlagen";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
 
 // Finance (Migration 87–92, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
@@ -23,7 +24,7 @@ export type FinEinstellungenStand =
 const TABELLE_FEHLT = new Set(["42P01", "PGRST205"]);
 
 const SPALTEN =
-  "wirtschaftsjahr, rechtsform, gewinnermittlung, kontenrahmen, besteuerung, versteuerung, voranmeldung, dauerfrist, r13b_empfaenger, innergemeinschaftlich, wj_beginn_monat, start_datum, aktualisiert_am";
+  "wirtschaftsjahr, rechtsform, gewinnermittlung, kontenrahmen, besteuerung, versteuerung, voranmeldung, dauerfrist, r13b_empfaenger, innergemeinschaftlich, wj_beginn_monat, start_datum, sammelposten, aktualisiert_am";
 
 export async function fetchFinEinstellungen(supabase: SupabaseClient, jahr: number): Promise<FinEinstellungenStand> {
   try {
@@ -358,4 +359,52 @@ export async function fetchFinKontenblatt(supabase: SupabaseClient, jahr: number
     datum: String(z.datum), nr: Number(z.nr), text: String(z.text ?? ""), beleg: (z.beleg as string | null) ?? null, seite: z.seite as "S" | "H",
     betrag: Number(z.betrag), steuer: (z.steuer as string | null) ?? null, storno: !!z.storno, gegen: (z.gegen as string | null) ?? null,
   }));
+}
+
+// ---------------------------------------------------------------- F7: Anlagen (Migration 95, v153)
+
+export async function fetchFinAnlagen(supabase: SupabaseClient): Promise<FinAnlage[]> {
+  const z = await q<FinAnlage[]>("Die Anlagen konnten nicht geladen werden",
+    supabase.from("fin_anlagen").select("id, bezeichnung, konto, art, anschaffung, ak, monate, satz, afa_konto, beleg_id, fahrzeug_id, abgang, abgang_buchung_id, notiz, erstellt_am")
+      .order("anschaffung").order("id").range(0, 1999));
+  return (z ?? []).map((a) => ({ ...a, ak: Number(a.ak), satz: a.satz == null ? null : Number(a.satz) }));
+}
+
+// Gebuchte Abschreibung je Anlage im Jahr (ohne stornierte Läufe). Ein einfaches Objekt, keine Map: der
+// Zwischenspeicher (app/providers.tsx) legt Abfragen als JSON ab.
+export async function fetchFinAfaGebucht(supabase: SupabaseClient, jahr: number): Promise<Record<string, number>> {
+  const z = await q<{ anlage_id: string; betrag: number }[]>("Die gebuchten Abschreibungen konnten nicht geladen werden", supabase.rpc("fin_afa_gebucht", { p_jahr: jahr }));
+  return Object.fromEntries((z ?? []).map((x) => [x.anlage_id, Number(x.betrag)]));
+}
+
+export type FinAnlageFelder = { bezeichnung: string; konto: number; art: string; anschaffung: string; ak: number; monate: number | null; beleg_id: string | null; fahrzeug_id: string | null; notiz: string };
+
+export async function finAnlageSpeichern(supabase: SupabaseClient, id: string | null, f: FinAnlageFelder): Promise<string> {
+  const r = await q<string>("Die Anlage wurde nicht gespeichert", supabase.rpc("fin_anlage_speichern", { p_id: id, p: f }));
+  if (!r) throw new ApiError("Die Anlage wurde nicht gespeichert", { message: "Die Datenbank hat keine Kennung zurückgegeben." });
+  return r;
+}
+
+export async function finAnlageLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Die Anlage wurde nicht gelöscht", supabase.rpc("fin_anlage_loeschen", { p_id: id }));
+}
+
+export async function finAfaBuchen(supabase: SupabaseClient, jahr: number, bisMonat: number): Promise<{ nr: number | null; anlagen: number; summe: number }> {
+  const r = await q<{ nr: number | null; anlagen: number; summe: number }>("Die Abschreibungen wurden nicht gebucht",
+    supabase.rpc("fin_afa_buchen", { p_jahr: jahr, p_bis_monat: bisMonat }));
+  return { nr: r?.nr ?? null, anlagen: r?.anlagen ?? 0, summe: Number(r?.summe ?? 0) };
+}
+
+export async function finAnlageAbgang(supabase: SupabaseClient, id: string, datum: string, grund: string): Promise<{ restwert: number; nr: number | null }> {
+  const r = await q<{ restwert: number; nr: number | null }>("Der Abgang wurde nicht gebucht", supabase.rpc("fin_anlage_abgang", { p_id: id, p_datum: datum, p_grund: grund }));
+  return { restwert: Number(r?.restwert ?? 0), nr: r?.nr ?? null };
+}
+
+export async function finAnlageAbgangZuruecknehmen(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
+  await q("Der Abgang wurde nicht zurückgenommen", supabase.rpc("fin_anlage_abgang_zuruecknehmen", { p_id: id, p_grund: grund }));
+}
+
+export async function fetchFirmenfahrzeugeFuerAnlagen(supabase: SupabaseClient): Promise<{ id: string; kennzeichen: string; bezeichnung: string | null }[]> {
+  return (await q<{ id: string; kennzeichen: string; bezeichnung: string | null }[]>("Die Firmenfahrzeuge konnten nicht geladen werden",
+    supabase.from("firmenfahrzeuge").select("id, kennzeichen, bezeichnung").eq("aktiv", true).order("kennzeichen").order("id").range(0, 199))) ?? [];
 }

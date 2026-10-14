@@ -149,6 +149,7 @@ viana-pinpoints/
                                      Kontovorschlag, buchen (auf Wunsch gleich bezahlt), Storno; offene Posten Lieferanten
       FinanceBank.tsx                Bank & Kasse (Migration 91, v149): Bankkonten, Kontoauszug einlesen mit Vorschau,
                                      Umsätze zuordnen (Rechnung, Beleg, Konto), ignorieren, aufheben; Importe; Kassenbuch
+      FinanceAnlagen.tsx             Anlagen (Migration 95, v153): Verzeichnis, Abschreibungsplan, Abschreibungen buchen, Abgang
       FinanceAuswertungen.tsx        Auswertungen (Migration 94, v152): Summen & Salden, Kontenblatt, BWA, EÜR, je als CSV
       FinanceSteuern.tsx             Steuern (Migration 92, v150): Voranmeldungen je Zeitraum mit Frist und Zustand,
                                      Formularansicht, Abgabe festhalten, Sondervorauszahlung, Kleinunternehmer-Grenzen
@@ -338,6 +339,7 @@ viana-pinpoints/
       belege.ts                   Belege: Zustand, Kontovorschlag, offene Posten, Dateipfad und -prüfung (Migration 90, v148)
       erechnung.ts                E-Rechnung lesen (XRechnung UBL/CII, ZUGFeRD-XML) und in Posten übersetzen (v148)
       bank.ts                     Kontoauszug lesen (CAMT.053, CSV, Zeichensatz), Vorschläge, Kassenbuch, Saldo (Migration 91, v149)
+      anlagen.ts                  Abschreibung wie fin_afa_bis() (linear, degressiv, GWG, Sammelposten, E-Fahrzeug), Plan, Regeln (Migration 95, v153)
       auswertungen.ts             Summen/Salden, BWA-Gliederung, EÜR nach Kennzahlen, Kontenblatt-Saldo, Monatsnamen (Migration 94, v152)
       steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150);
                                   Frist-Erinnerung (v151)
@@ -391,7 +393,7 @@ viana-pinpoints/
       finance.ts                   Finance: Einstellungen (v145); Konten, Steuerschlüssel, Journal, buchen, stornieren,
                                    festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148);
                                    Bankkonten, Kontoauszüge, Abgleich (v149); Voranmeldung, Steuerjahr (v150); Teilzahlungen, Kassensturz (v151);
-                                   Salden, Kontenblatt, EÜR (v152)
+                                   Salden, Kontenblatt, EÜR (v152); Anlagen, Abschreibungen (v153)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -903,6 +905,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **93** – Finance, Nachträge: `fin_teilzahlungen` (Bank bis zum offenen Rest, Trigger `fin_teilzahlung_nach_storno`),
   Ist anteilig je Zahlung, `fin_kassenstuerze` + `fin_kassensturz()` (Quelle `kasse`), Schlüssel `r13b2_19` (Kz 84/85),
   `fin_steuer_erinnerungen` (Push an die Frist).
+- **95** – Finance, Phase F7: `fin_anlagen`, `fin_afa_posten`, `fin_afa_bis()`, `fin_anlage_speichern()`, `fin_afa_buchen()`,
+  `fin_anlage_abgang()`; `fin_einstellungen.sammelposten`. Quellen `afa`, `abgang`.
 - **94** – Finance, Phase F6: nur lesend – `fin_auswertung_salden()`, `fin_kontenblatt()`, `fin_euer()` (Zufluss/Abfluss
   je Konto, Zahlungen anteilig auf Rechnungen und Belege).
 

@@ -8,7 +8,7 @@ import type { FinKonto, FinSteuerschluessel } from "@/lib/finance/buchung";
 
 // Finance F6 (Migration 94, v152). Die Konten kommen aus den Migrationen 88 und 93 – so prüft der Test zugleich,
 // dass jede Aufwandsnummer in genau eine Zeile fällt.
-const SQL = ["88_finance_buchungen.sql", "93_finance_luecken.sql"].map((d) => readFileSync(join(__dirname, "..", "supabase", "migrations", d), "utf8")).join("\n");
+const SQL = ["88_finance_buchungen.sql", "93_finance_luecken.sql", "95_finance_anlagen.sql"].map((d) => readFileSync(join(__dirname, "..", "supabase", "migrations", d), "utf8")).join("\n");
 const alle = [...SQL.matchAll(/\('(skr0[34])', (\d+), '((?:[^']|'')*)', '(\w+)'\)/g)].map((m) => ({ kontenrahmen: m[1], nummer: Number(m[2]), bezeichnung: m[3], kategorie: m[4], eigen: false, aktiv: true })) as FinKonto[];
 const K03 = alle.filter((k) => k.kontenrahmen === "skr03");
 const schl: FinSteuerschluessel[] = [...SQL.matchAll(/\('(skr03)', '(\w+)', '((?:[^']|'')*)', ([\d.]+), '(\w+)', (\w+), (\w+)\)/g)]
