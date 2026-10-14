@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v155";
+export const APP_VERSION = "v156";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v156", datum: "2026-10-14", titel: "Finance: Skonto, ZUGFeRD-PDF, Jahreswerte",
+    punkte: [
+      "Skonto: An einer Rechnung oder einem Beleg lässt sich der Abzug als Skonto buchen – die Umsatz- bzw. Vorsteuer sinkt anteilig, und der Posten ist ausgeglichen.",
+      "Eine ZUGFeRD-Rechnung als PDF wird jetzt wie eine E-Rechnung gelesen: Lieferant, Nummer, Datum und Beträge füllen sich selbst.",
+      "Unter Steuern stehen die Jahreswerte zur Umsatzsteuererklärung mit der voraussichtlichen Abschlusszahlung oder Erstattung.",
+    ],
+  },
   {
     version: "v155", datum: "2026-10-14", titel: "Finance: Export für die Kanzlei",
     punkte: [

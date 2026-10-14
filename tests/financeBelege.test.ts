@@ -73,7 +73,7 @@ describe("Teilzahlungen (Migration 93, v151)", () => {
   it("Rest und offene Posten mit dem Rest", async () => {
     const { belegRest } = await import("@/lib/finance/belege");
     expect(belegRest(b({ teilbezahlt: 20 }))).toBe(39.5);
-    expect(belegZustandText(belegZustand(b({ teilbezahlt: 20 }), "2026-10-05"))).toBe("offen · fällig in 5 Tagen · 20,00 € schon bezahlt");
+    expect(belegZustandText(belegZustand(b({ teilbezahlt: 20 }), "2026-10-05"))).toBe("offen · fällig in 5 Tagen · 20,00 € schon beglichen");
     expect(belegeOffen([b({ teilbezahlt: 20 })], "2026-10-05").summe).toBe(39.5);
   });
 });

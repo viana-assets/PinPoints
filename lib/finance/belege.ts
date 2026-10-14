@@ -38,7 +38,7 @@ export type FinBeleg = {
   brutto: number | null;
   buchung_id: string | null;
   bezahlt_am: string | null;
-  bezahlt_art: "bar" | "bank" | null;
+  bezahlt_art: "bar" | "bank" | "skonto" | null;
   erstellt_am: string;
   // Schon bezahlter Teil (Teilzahlungen, Migration 93) – lib/api/finance.ts liest ihn dazu.
   teilbezahlt?: number;
@@ -63,7 +63,7 @@ export type BelegZustand =
   | { art: "entwurf" }
   | { art: "offen"; faellig: string; tage: number; teil: number }
   | { art: "ueberfaellig"; faellig: string; tage: number; teil: number }
-  | { art: "bezahlt"; am: string; wie: "bar" | "bank" }
+  | { art: "bezahlt"; am: string; wie: "bar" | "bank" | "skonto" }
   | { art: "storniert" };
 
 export function belegZustand(b: Pick<FinBeleg, "status" | "faellig_am" | "belegdatum" | "bezahlt_am" | "bezahlt_art" | "teilbezahlt">, heute: string): BelegZustand {
@@ -81,13 +81,13 @@ export function belegZustandText(z: BelegZustand): string {
     case "entwurf": return "Entwurf";
     case "offen": return (z.tage === 0 ? "fällig heute" : `offen · fällig in ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}`) + teilText(z.teil);
     case "ueberfaellig": return `überfällig seit ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}` + teilText(z.teil);
-    case "bezahlt": return z.wie === "bar" ? "bar bezahlt" : "überwiesen";
+    case "bezahlt": return z.wie === "bar" ? "bar bezahlt" : z.wie === "skonto" ? "mit Skonto ausgeglichen" : "überwiesen";
     case "storniert": return "storniert";
   }
 }
 
 function teilText(teil: number): string {
-  return teil > 0 ? ` · ${teil.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € schon bezahlt` : "";
+  return teil > 0 ? ` · ${teil.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € schon beglichen` : "";
 }
 
 // Kontovorschlag für einen Lieferanten: sein hinterlegtes Konto, sonst das des letzten gebuchten Belegs.

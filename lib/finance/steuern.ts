@@ -81,6 +81,30 @@ export function ustFormular(kz: FinKennzahlen): FinUstFormular {
   return { zeilen, zahllast: summe((z) => z.steuer), zahllastBuch: summe((z) => z.steuerBuch), leer: zeilen.length === 0 };
 }
 
+// ---------------------------------------------------------------- Jahreswerte (v156)
+// Zur Vorbereitung der Umsatzsteuer-Jahreserklärung: alle Zeiträume des Jahres zusammen (ohne Kz 39), gerechnet wie
+// das Formular, gegen das, was angemeldet wurde (letzte Fassung je Zeitraum) plus die Sondervorauszahlung. Der
+// Unterschied ist die voraussichtliche Abschlusszahlung (positiv) bzw. Erstattung (negativ). Die Zeilen der
+// Jahreserklärung heißen anders – die Kennzahlen hier sind die der Voranmeldung.
+export type UstJahreswerte = { formular: FinUstFormular; angemeldet: number; abgegeben: number; zeitraeume: number; sondervorauszahlung: number; unterschied: number };
+export function ustJahreswerte(stand: Extract<FinUstStand, { eingerichtet: true }>, svzGilt: boolean): UstJahreswerte {
+  const summe: FinKennzahlen = {};
+  for (const z of stand.zeitraeume) {
+    for (const [kz, w] of Object.entries(z.kennzahlen)) {
+      if (kz === "39") continue;
+      const x = summe[kz] ?? {};
+      if (w.b != null) x.b = cent((x.b ?? 0) + w.b);
+      if (w.s != null) x.s = cent((x.s ?? 0) + w.s);
+      summe[kz] = x;
+    }
+  }
+  const formular = ustFormular(summe);
+  const mitAbgabe = stand.zeitraeume.filter((z) => z.abgaben.length > 0);
+  const angemeldet = cent(mitAbgabe.reduce((t, z) => t + ustFormular(z.abgaben[z.abgaben.length - 1].kennzahlen).zahllast, 0));
+  const svz = svzGilt && stand.sondervorauszahlung ? stand.sondervorauszahlung : 0;
+  return { formular, angemeldet, abgegeben: mitAbgabe.length, zeitraeume: stand.zeitraeume.length, sondervorauszahlung: svz, unterschied: cent(formular.zahllast - angemeldet - svz) };
+}
+
 // ---------------------------------------------------------------- Zeiträume und Fristen
 const MONATE = MONATSNAMEN;
 

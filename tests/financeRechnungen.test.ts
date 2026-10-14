@@ -82,7 +82,7 @@ describe("Teilzahlungen (Migration 93, v151)", () => {
     const t = r({ teilbezahlt: 50 });
     expect(rechnungRest(t)).toBe(69);
     expect(rechnungRest({ ...t, bezahlt_am: "2026-10-02" })).toBe(0);
-    expect(zustandText(rechnungZustand(t, "2026-10-13"))).toBe("offen · fällig in 2 Tagen · 50,00 € schon bezahlt");
+    expect(zustandText(rechnungZustand(t, "2026-10-13"))).toBe("offen · fällig in 2 Tagen · 50,00 € schon beglichen");
     expect(offenePosten([t, r({ rechnung_id: "x", faellig_am: "2026-10-01" })], "2026-10-13")).toMatchObject({ summe: 188, ueberfaellig: 119 });
     expect(standLesen({ rechnungen: [{ ...r({}), brutto: "119.00", teilbezahlt: "50.00" }] }).rechnungen[0].teilbezahlt).toBe(50);
   });

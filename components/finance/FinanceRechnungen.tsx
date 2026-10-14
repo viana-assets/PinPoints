@@ -13,6 +13,7 @@ import {
   type FinRechnungZeile, type FinVorgang, type RechnungZustand,
 } from "@/lib/finance/rechnungen";
 import { formatEUR } from "@/lib/format";
+import { SkontoAbschnitt } from "./FinanceSkonto";
 
 // Finance › Rechnungen und › Offene Posten (Phase F3, Migration 89, v147).
 //
@@ -211,7 +212,7 @@ function RechnungDetail({ supabase, r, heute, darfSchreiben, onRechnungOeffnen, 
           </div>
         )}
         {(z.art === "offen" || z.art === "ueberfaellig") && <span className="small">Fällig am {datumKurz(z.faellig)}.</span>}
-        {z.art === "bezahlt" && <span className="small">{z.wie === "bar" ? "Bar bezahlt" : "Überwiesen"} am {datumKurz(z.am)}.</span>}
+        {z.art === "bezahlt" && <span className="small">{z.wie === "bar" ? "Bar bezahlt" : z.wie === "skonto" ? "Mit Skonto ausgeglichen" : "Überwiesen"} am {datumKurz(z.am)}.</span>}
         {zahlung && (
           <label className="nk-feld"><span>{zahlung === "bar" ? "Bar bezahlt am" : "Eingegangen am"}</span>
             <input type="date" value={datum} max={heute} onChange={(e) => setDatum(e.target.value)} />
@@ -223,6 +224,10 @@ function RechnungDetail({ supabase, r, heute, darfSchreiben, onRechnungOeffnen, 
         )}
         {zurueck && (
           <label className="nk-feld"><span>Grund</span><input value={grund} maxLength={200} onChange={(e) => setGrund(e.target.value)} placeholder="z. B. doch nicht bezahlt" autoFocus /></label>
+        )}
+        {!zahlung && !zurueck && (z.art === "offen" || z.art === "ueberfaellig" || z.art === "bezahlt") && (
+          <SkontoAbschnitt supabase={supabase} art="rechnung" ziel={r.rechnung_id} brutto={Number(r.brutto)} rest={rechnungRest(r)} datumAb={r.datum} heute={heute}
+            offen={z.art !== "bezahlt"} darfSchreiben={darfSchreiben} onFertig={onFertig} />
         )}
         {r.order_id && onRechnungOeffnen && (
           <button type="button" className="es-knopf fi-links" onClick={() => onRechnungOeffnen(r.order_id as string)}>Rechnung ansehen</button>

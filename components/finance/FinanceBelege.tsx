@@ -18,8 +18,10 @@ import {
   type BelegZustand, type FinBeleg, type FinBelegPosten, type FinLieferant,
 } from "@/lib/finance/belege";
 import { eRechnungLesen, eRechnungPosten } from "@/lib/finance/erechnung";
+import { istPdf, pdfAnhangXml } from "@/lib/finance/zugferd";
 import { bildVerkleinern } from "@/lib/belegBild";
 import { formatEUR } from "@/lib/format";
+import { SkontoAbschnitt } from "./FinanceSkonto";
 import { KontoWahl, ZeilenTabelle } from "./FinanceBuchungen";
 
 // Finance › Belege (Phase F2, Migration 90, v148): Eingangsrechnungen und Quittungen.
@@ -255,8 +257,9 @@ function BelegFenster({ supabase, beleg, heute, einstellungen, konten, schluesse
     if (mangel) { setFehler(mangel); return; }
     await ausfuehren(async () => {
       const neu: Partial<Stand> = {};
-      if (istXml(f)) {
-        const r = eRechnungLesen(await f.text());
+      const xml = istXml(f) ? await f.text() : istPdf(f) ? await pdfAnhangXml(new Uint8Array(await f.arrayBuffer())) : null;
+      if (xml != null) {
+        const r = eRechnungLesen(xml);
         if (r) {
           // E-Rechnung: Felder füllen, soweit sie leer sind.
           if (r.nummer && !nummer) { neu.nummer = r.nummer; setNummer(r.nummer); }
@@ -274,9 +277,9 @@ function BelegFenster({ supabase, beleg, heute, einstellungen, konten, schluesse
             neu.posten = posten.map((p) => ({ konto: v.konto, betrag: p.betrag, steuer: p.steuer }));
             setPosten(posten.map((p) => ({ konto: v.konto ? String(v.konto) : "", betrag: String(p.betrag).replace(".", ","), steuer: p.steuer ?? "" })));
           }
-          setHinweis(`E-Rechnung (${r.format}) gelesen${r.brutto != null ? ` – zu zahlen ${formatEUR(r.brutto)}` : ""}. Bitte Konten prüfen.`);
+          setHinweis(`E-Rechnung (${r.format}${istXml(f) ? "" : ", im PDF"}) gelesen${r.brutto != null ? ` – zu zahlen ${formatEUR(r.brutto)}` : ""}. Bitte Konten prüfen.`);
         } else {
-          setHinweis("Die XML-Datei ist keine lesbare E-Rechnung – sie wird nur abgelegt.");
+          setHinweis(istXml(f) ? "Die XML-Datei ist keine lesbare E-Rechnung – sie wird nur abgelegt." : "Im PDF steckt ein XML, aber keine lesbare E-Rechnung – das PDF wird nur abgelegt.");
         }
       }
       const belegId = id ?? await speichern(neu);
@@ -434,6 +437,10 @@ function BelegFenster({ supabase, beleg, heute, einstellungen, konten, schluesse
             )}
             {(aktion === "storno" || aktion === "zurueck") && (
               <label className="nk-feld"><span>Grund</span><input value={grund} maxLength={200} onChange={(e) => setGrund(e.target.value)} autoFocus /></label>
+            )}
+            {!aktion && beleg.brutto != null && (z.art === "offen" || z.art === "ueberfaellig" || z.art === "bezahlt") && (
+              <SkontoAbschnitt supabase={supabase} art="beleg" ziel={beleg.id} brutto={Number(beleg.brutto)} rest={belegRest(beleg)} datumAb={beleg.belegdatum} heute={heute}
+                offen={z.art !== "bezahlt"} darfSchreiben={darfSchreiben} onFertig={onFertig} />
             )}
           </>
         )}

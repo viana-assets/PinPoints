@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `97_finance_export.sql`** – vor den Dateien von v155 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–96 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
+**Noch auszuführen: `98_finance_skonto.sql`** – vor den Dateien von v156 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–97 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1423,7 +1423,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   `t86`–`t95` gegen 95 und 96: gleiche Ausgabe bis auf die gewollten Stellen (eine Tabelle mehr in der Sicherung, acht
   Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `97_finance_export.sql` – **noch auszuführen**, nach 96 und vor den Dateien von v155.
+- `97_finance_export.sql` – **ausgeführt** (14.10.2026).
   Finance, Phase F9 (`docs/finance.md` 4.8). Nur lesend: `fin_export_journal(von, bis)` (Buchungen mit Zeilen, ein
   Wirtschaftsjahr, Recht `finance.abschluss` L), `fin_export_belege(von, bis)` (Belegliste mit Lieferant und Buchungsnummer,
   ohne Dateien). Protokoll `fin_exporte` (nur lesen; geschrieben über `fin_export_protokollieren(art, von, bis)` – die
@@ -1437,3 +1437,23 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Techniker überall abgelehnt, sieht nichts; Baustein nicht aufrufbar. `t72`, `t86`–`t96` gegen 96 und 97: gleiche Ausgabe
   bis auf die gewollte Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut
   ausgeführt.
+
+- `98_finance_skonto.sql` – **noch auszuführen**, nach 97 und vor den Dateien von v156.
+  Finance, Skonto (`docs/finance.md`, Nachträge v156). `fin_skonto_buchen(art, id, datum, betrag)` (Rechnung: Gewährte Skonti
+  an Forderung, Beleg: Verbindlichkeit an Erhaltene Skonti bzw. Anlagekonto; aufgeteilt wie die ursprüngliche Buchung je
+  Steuersatz über `fin_posten_schreiben()`; höchstens 10 % brutto; nicht vor dem Belegdatum, nicht in der Zukunft; § 13b/ig.
+  Erwerb abgelehnt; als Teilzahlung mit `skonto` – Rest null → bezahlt „skonto“), `fin_skonto_zuruecknehmen()` (Storno, Trigger
+  aus 93 öffnet den Posten), `fin_skonti(art)`, `fin_skonto_konto()` (Baustein). Neu: Spalte `fin_teilzahlungen.skonto`, Quelle
+  `skonto`, `bezahlt_art` `skonto`, zwölf Konten. Ersetzt: `fin_rechnung_zahlungsanteile()` (Skonto ist keine Zahlung),
+  `fin_ust_kennzahlen()` (Ist: Skonto einer Rechnung zählt nicht extra), `fin_stornieren()` (lehnt `skonto` ab). Wache: bricht
+  ohne 97 ab. Ergebnistabelle mit drei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/98_rollback.sql` (Funktionen gegen
+  den Stand 97 verglichen: gleich – auch nach gebuchten Skonti; Spalte, Konten und Werte bleiben, solange es Skonti gibt;
+  zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 97, `pgtest/t98.sql`): Rechnung 140,42 mit Bankteilzahlung 137,61, Skonto 2,81 → 8736 2,36 +
+  1776 0,45 an 1400, bezahlt „skonto“; zu hoch, über 10 %, Zukunft, vor dem Rechnungsdatum, 0 €, falsche Art → abgelehnt; Rechnung
+  19/7 % 172,50, Skonto 3,45 → 1,07 auf 7 % und 2,38 auf 19 %; Beleg 595 Skonto 11,90 → 3736 10,00 + 1576 1,90; Anlage 1.190
+  Skonto 23,80 → an 0210 20,00 + 1576 3,80; Voranmeldung September Soll 81 = 213,64, 86 = 49, 66 = 279,30, Ist 81 = 115,64
+  (nur die Zahlung), nach Storno des Skontos unverändert; Storno von Hand abgelehnt, Zurücknehmen öffnet die Rechnung (137,61
+  beglichen), zweites Mal abgelehnt; EÜR nur mit der Zahlung; Techniker abgelehnt; Soll = Haben überall. `t72`, `t86`–`t97` gegen
+  97 und 98: gleiche Ausgabe bis auf die gewollte Stelle (zwölf Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal,
+  erneut ausgeführt.

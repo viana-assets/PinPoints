@@ -152,6 +152,7 @@ viana-pinpoints/
       FinanceAnlagen.tsx             Anlagen (Migration 95, v153): Verzeichnis, Abschreibungsplan, Abschreibungen buchen, Abgang
       FinanceAbschluss.tsx           Jahresabschluss (Migration 96, v154): Schritte, GuV, Bilanz, Anlagenspiegel, Rückstellungen/Abgrenzungen, Saldenvortrag
       FinanceExport.tsx              Export (Migration 97, v155): DATEV-Buchungsstapel, GoBD-ZIP, Verfahrensdokumentation, Protokoll
+      FinanceSkonto.tsx              Skonto im Fenster von Rechnung und Beleg (Migration 98, v156): abziehen, zurücknehmen
       FinanceAuswertungen.tsx        Auswertungen (Migration 94, v152): Summen & Salden, Kontenblatt, BWA, EÜR, je als CSV
       FinanceSteuern.tsx             Steuern (Migration 92, v150): Voranmeldungen je Zeitraum mit Frist und Zustand,
                                      Formularansicht, Abgabe festhalten, Sondervorauszahlung, Kleinunternehmer-Grenzen
@@ -344,6 +345,7 @@ viana-pinpoints/
       anlagen.ts                  Abschreibung wie fin_afa_bis() (linear, degressiv, GWG, Sammelposten, E-Fahrzeug), Plan, Regeln (Migration 95, v153)
       abschluss.ts                GuV (§ 275 HGB), Bilanz (§ 266 HGB), Anlagenspiegel, Saldenvortrag lesen, Schritte zum Abschluss (Migration 96, v154)
       export.ts                   DATEV-Sätze aus dem Journal (brutto, Automatik/BU), GoBD index.xml + CSV, ZIP, Verfahrensdokumentation (Migration 97, v155)
+      zugferd.ts                  XML einer ZUGFeRD-/Factur-X-Rechnung aus dem PDF holen (v156)
       auswertungen.ts             Summen/Salden, BWA-Gliederung, EÜR nach Kennzahlen, Kontenblatt-Saldo, Monatsnamen (Migration 94, v152)
       steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150);
                                   Frist-Erinnerung (v151)
@@ -398,7 +400,7 @@ viana-pinpoints/
                                    festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148);
                                    Bankkonten, Kontoauszüge, Abgleich (v149); Voranmeldung, Steuerjahr (v150); Teilzahlungen, Kassensturz (v151);
                                    Salden, Kontenblatt, EÜR (v152); Anlagen, Abschreibungen (v153);
-                                   Abschlussbuchungen, Saldenvortrag (v154); Export-Journal, Belegliste, Protokoll (v155)
+                                   Abschlussbuchungen, Saldenvortrag (v154); Export-Journal, Belegliste, Protokoll (v155); Skonto (v156)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -753,7 +755,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 97** (14.10.2026; 97 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 98** (14.10.2026; 98 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -919,6 +921,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   2970/3070/1900/3900; `fin_euer()` ohne Vorträge, `fin_kassensturz()` nach Vortrag nur das Jahr. Quellen `abschluss`, `vortrag`.
 - **97** – Finance, Phase F9: nur lesend `fin_export_journal()`, `fin_export_belege()`; Protokoll `fin_exporte` über
   `fin_export_protokollieren()` (zählt selbst), `fin_export_protokolle(jahr)` mit dem heutigen Stand je Zeitraum.
+- **98** – Finance, Skonto: `fin_skonto_buchen()` / `_zuruecknehmen()`, `fin_skonti()`, `fin_teilzahlungen.skonto`, Quelle und
+  `bezahlt_art` `skonto`, Konten 8730/8731/8736/3730/3731/3736 bzw. 4730/4731/4736/5730/5731/5736; Ist ohne Skonto
+  (`fin_rechnung_zahlungsanteile`, `fin_ust_kennzahlen`).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

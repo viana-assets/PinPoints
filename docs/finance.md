@@ -6,7 +6,7 @@ Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Jou
 Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
 92)** – Umsatzsteuer-Voranmeldung als Probelauf –, dazu **Nachträge (v151, Migration 93)**: Teilzahlungen,
 Kassensturz, § 13b Abs. 2, Fristerinnerung –, **F6 (v152, Migration 94)** – Auswertungen –, **F7 (v153,
-Migration 95)** – Anlagen und Abschreibungen –, **F8 (v154, Migration 96)** – Jahresabschluss – und **F9 (v155, Migration 97)** – Export für die Kanzlei („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Migration 95)** – Anlagen und Abschreibungen –, **F8 (v154, Migration 96)** – Jahresabschluss – und **F9 (v155, Migration 97)** – Export für die Kanzlei –, dazu **Nachträge (v156, Migration 98)**: Skonto, ZUGFeRD-PDF, Jahreswerte („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -441,7 +441,7 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - **Zahlung ans Finanzamt:** unter Bank & Kasse den Umsatz auf 1780 (SKR04 3820) Umsatzsteuer-Vorauszahlungen bzw.
   1781 (3830) Sondervorauszahlung buchen.
 - **Übersicht › Zu erledigen:** Voranmeldungen überfällig, in 7 Tagen fällig, seit der Abgabe geändert.
-- Noch nicht: Zusammenfassende Meldung, Umsatzsteuer-Jahreserklärung, Abschlussbuchung der USt-Konten auf 1780.
+- Noch nicht: Zusammenfassende Meldung (siehe Nachträge v156), Abgabe der Umsatzsteuer-Jahreserklärung (die Jahreswerte stehen seit v156 unter Steuern), Abschlussbuchung der USt-Konten auf 1780.
   Übermittelt wird nie aus der App. (Erinnerung per Push und § 13b Abs. 2: Nachträge v151.)
 
 ### Nachträge zu F2–F5 (v151, Migration 93)
@@ -452,7 +452,7 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
   Fenster zeigen den Rest und „x € schon bezahlt“. „Bar bezahlt“/„Überweisung“ an Rechnung und Beleg buchen den
   Rest. Eine Teilzahlung nimmt man unter Bank & Kasse mit „Aufheben“ zurück; war der Posten bis dahin bezahlt,
   ist er wieder offen (eine Restzahlung von Hand zählt dann als Teilzahlung weiter). Mehr als der Rest wird nicht
-  zugeordnet – eine Überzahlung bucht man auf ein Konto. Skonto als eigene Buchung gibt es noch nicht.
+  zugeordnet – eine Überzahlung bucht man auf ein Konto. Skonto seit v156 am Posten („Skonto abziehen“).
 - **Ist-Versteuerung** in der Voranmeldung jetzt anteilig: Jede Zahlung auf eine Rechnung aus FSM bringt ihren Anteil
   an Bemessung und Steuer in den Zeitraum, in dem sie eingeht.
 - **Kassensturz** im Kassenbuch: Bargeld zählen, eintragen, mit dem Bestand laut Buchungen vergleichen (über alle
@@ -561,7 +561,7 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
   Monat); daneben, wie viele Buchungen es sind und ob die Monate festgeschrieben sind.
 - **DATEV-Buchungsstapel** (EXTF 700, Kategorie 21, Herkunft „FI“, nicht festgeschrieben, Windows-1252): DATEV rechnet die
   Steuer selbst – ein Satz trägt den Bruttobetrag, die Steuer kommt aus dem Automatikkonto (SKR03 8400/8300/3400/3300/3425/3123,
-  SKR04 4400/4300/5400/5300/5425/5923) oder aus dem BU-Schlüssel am Gegenkonto (3/2 Umsatzsteuer, 9/8 Vorsteuer, 19 ig.
+  SKR04 4400/4300/5400/5300/5425/5923; seit v156 auch die Skontokonten) oder aus dem BU-Schlüssel am Gegenkonto (3/2 Umsatzsteuer, 9/8 Vorsteuer, 19 ig.
   Erwerb, 94 § 13b; `FIN_DATEV_BU`, `FIN_DATEV_AUTOMATIK`). Finance fasst dazu je Posten Netto und Steuer wieder zusammen,
   aber nur, wenn DATEV aus dem Brutto dieselbe Steuer errechnet; sonst gehen Netto (BU 40, Automatik aus) und Steuer als
   eigene Sätze hinüber, mit Hinweis. Ein Automatikkonto ohne Steuer (Abgrenzung, Umbuchung) bekommt BU 40. Mehrere Posten
@@ -582,6 +582,28 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
   gebucht oder storniert wurde.
 - Noch nicht: Debitoren/Kreditoren als Personenkonten, Belegbilder an DATEV (Beleglink), Export direkt an DATEV Unternehmen
   online, ELSTER. **Vor dem Echtbetrieb:** eine DATEV-Datei probeweise in der Kanzlei einlesen lassen.
+
+### Nachträge vor dem Echtbetrieb (v156, Migration 98)
+
+- **Skonto** (`fin_skonto_buchen()`): im Fenster einer offenen Rechnung bzw. eines Belegs „Skonto abziehen“ (Datum, Betrag –
+  vorgeschlagen der offene Rest). Rechnung: Gewährte Skonti (SKR03 8736/8731, ohne Steuer 8730; SKR04 4736/4731/4730) an
+  Forderung; Beleg: Verbindlichkeit an Erhaltene Skonti (3736/3731/3730 bzw. 5736/5731/5730), bei einem Anlagegut an das
+  Anlagekonto (die Anschaffungskosten sinken – im Anlagenverzeichnis von Hand nachziehen). Aufgeteilt wie die ursprüngliche
+  Buchung je Steuersatz, die Steuer sinkt anteilig; höchstens 10 % des Bruttobetrags (mehr ist Ausfall oder Nachlass, mit dem
+  Steuerberater klären). Der Abzug zählt wie eine Teilzahlung; ist der Rest null, ist der Posten „mit Skonto ausgeglichen“.
+  Zurücknehmen mit Grund (Storno, der Posten ist wieder offen); unter Buchungen nicht stornierbar. § 13b und ig. Erwerb: von Hand.
+  **Ist-Versteuerung:** Die Rechnung zählt nur mit dem, was eingegangen ist; ihr Skonto zählt dann nicht noch einmal.
+  **EÜR:** Skonto ist kein Geld – die EÜR zählt nur die Zahlung (anteilig). **DATEV:** 8736/8731/3736/3731 bzw. 4736/4731/5736/5731
+  als Automatikkonten.
+- **ZUGFeRD/Factur-X als PDF** (`lib/finance/zugferd.ts`): Beim Hochladen eines PDF sucht Finance die eingebettete XML-Datei
+  (`/EmbeddedFile`, auch gepackt) und liest sie wie eine E-Rechnung; das PDF bleibt der Beleg. Verschlüsselte PDF und seltene
+  Filter: nur abgelegt.
+- **Jahreswerte zur Umsatzsteuererklärung** (Finance › Steuern, `ustJahreswerte()`): alle Zeiträume zusammen (ohne Kz 39),
+  gerechnet wie das Formular, gegen die letzte abgegebene Fassung jedes Zeitraums plus Sondervorauszahlung – der Unterschied
+  ist die voraussichtliche Abschlusszahlung bzw. Erstattung. Kennzahlen der Voranmeldung, nicht die Zeilen der Jahreserklärung.
+- **Zusammenfassende Meldung: bewusst nicht gebaut.** Sie braucht die USt-IdNr. des Kunden an der Rechnung (innergemeinschaftliche
+  Lieferungen und Leistungen an Unternehmer im EU-Ausland) – die führt FSM nicht, und beim Reifenservice kommen solche Umsätze
+  praktisch nicht vor. Kommt einer vor: mit dem Steuerberater melden.
 
 Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0 bis F9 erledigt**, Nachträge v151; danach laut Plan ein Monat
 Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.

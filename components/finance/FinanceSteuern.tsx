@@ -13,7 +13,7 @@ import {
   KLEINUNTERNEHMER_GRENZE_LAUFEND, KLEINUNTERNEHMER_GRENZE_VORJAHR, finKurztext, type FinEinstellungen,
 } from "@/lib/finance/einstellungen";
 import {
-  FIN_UST_ZAHLUNG_KONTEN, kuPruefung, sondervorauszahlungVorschlag, ustFormular, ustFrist, ustZustand, ustZustandText, zeitraumText,
+  FIN_UST_ZAHLUNG_KONTEN, kuPruefung, sondervorauszahlungVorschlag, ustFormular, ustFrist, ustJahreswerte, ustZustand, ustZustandText, zeitraumText,
   type FinKennzahlen, type FinUstZeitraum, type UstZustand,
 } from "@/lib/finance/steuern";
 import { formatEUR } from "@/lib/format";
@@ -92,6 +92,8 @@ export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchre
         unter Bank & Kasse den Umsatz ans Finanzamt auf {kontoNr(konten.vorauszahlung)} Umsatzsteuer-Vorauszahlungen buchen
         {svzGilt ? `, die Sondervorauszahlung auf ${kontoNr(konten.sonder)}` : ""}.</span>
 
+      {e.besteuerung !== "klein" && e.voranmeldung !== "keine" && stand?.eingerichtet && <Jahreswerte jahr={jahr} w={ustJahreswerte(stand, svzGilt)} />}
+
       {e.besteuerung === "klein" && stand?.eingerichtet && (
         <Kleinunternehmer supabase={supabase} jahr={jahr} umsatzJahr={stand.umsatz_jahr} umsatzVorjahr={stand.umsatz_vorjahr} svz={stand.sondervorauszahlung}
           darfSchreiben={darfSchreiben} onGespeichert={setMeldung} />
@@ -107,6 +109,35 @@ export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchre
           z={zeitraeume.find((x) => x.zeitraum === offen.zeitraum) ?? offen} kennzahlen={mitSvz(zeitraeume.find((x) => x.zeitraum === offen.zeitraum) ?? offen)}
           darfSchreiben={darfSchreiben} onFertig={(t) => { setOffen(null); setMeldung(t); }} onClose={() => setOffen(null)} />
       )}
+    </>
+  );
+}
+
+function Jahreswerte({ jahr, w }: { jahr: number; w: ReturnType<typeof ustJahreswerte> }) {
+  const [auf, setAuf] = useState(false);
+  return (
+    <>
+      <span className="op-gruppe-titel">JAHRESWERTE {jahr}</span>
+      <div className="db-karte es-karte">
+        <button type="button" className="es-zeile" aria-expanded={auf} onClick={() => setAuf(!auf)}>
+          <span className="db-punkt-text"><b>Umsatzsteuer für das Jahr {formatEUR(w.formular.zahllast)}</b>
+            <span className="small">angemeldet {formatEUR(w.angemeldet)} ({w.abgegeben} von {w.zeitraeume} Zeiträumen){w.sondervorauszahlung ? ` · Sondervorauszahlung ${formatEUR(w.sondervorauszahlung)}` : ""}</span></span>
+          <span className={"fi-betrag" + (w.unterschied > 0 ? " fi-rot-text" : "")}>{w.unterschied === 0 ? "±0" : formatEUR(w.unterschied)}</span>
+        </button>
+        {auf && (
+          <table className="fi-tabelle fi-ust">
+            <thead><tr><th>Kz</th><th>Jahr {jahr}</th><th className="zahl">Bemessung</th><th className="zahl">Steuer</th></tr></thead>
+            <tbody>{w.formular.zeilen.map((z) => <tr key={z.kz}><td>{z.kz}</td><td>{z.text}</td><td className="zahl">{z.bemessung == null ? "" : formatEUR(z.bemessung)}</td><td className="zahl">{z.steuer == null ? "" : formatEUR(z.steuer * z.seite)}</td></tr>)}</tbody>
+            <tfoot>
+              <tr><td /><td>Umsatzsteuer für das Jahr</td><td /><td className="zahl">{formatEUR(w.formular.zahllast)}</td></tr>
+              <tr><td /><td>abzüglich angemeldet{w.sondervorauszahlung ? " und Sondervorauszahlung" : ""}</td><td /><td className="zahl">{formatEUR(-(w.angemeldet + w.sondervorauszahlung))}</td></tr>
+              <tr><td /><td>{w.unterschied >= 0 ? "Voraussichtliche Abschlusszahlung" : "Voraussichtliche Erstattung"}</td><td /><td className="zahl">{formatEUR(w.unterschied)}</td></tr>
+            </tfoot>
+          </table>
+        )}
+      </div>
+      <span className="small es-fuss fi-fuss">Zur Vorbereitung der Umsatzsteuererklärung: alle Zeiträume zusammen, gerechnet wie das Formular, gegen die letzte
+        abgegebene Fassung jedes Zeitraums. Die Jahreserklärung hat eigene Zeilen – die Kennzahlen hier sind die der Voranmeldung; abgegeben wird über die Kanzlei.</span>
     </>
   );
 }

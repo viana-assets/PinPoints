@@ -300,6 +300,8 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **F9 (Migration 97, v155):** `finance.abschluss` · L = Finance › Export: DATEV-Datei, GoBD-Datenexport und Vorlage der
   Verfahrensdokumentation herunterladen; das Journal und die Belegliste dafür liefern `fin_export_journal()` /
   `fin_export_belege()` auch ohne „Buchungen“ bzw. „Belege lesen“. Jeder Export wird protokolliert (`fin_exporte`, nur lesen).
+  **Skonto (Migration 98, v156):** an Rechnungen mit `finance.rechnungen` S, an Belegen mit `finance.belege` S (buchen und
+  zurücknehmen); sehen, wer die Rechnung bzw. den Beleg lesen darf (`fin_skonti()`).
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

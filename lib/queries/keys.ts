@@ -96,6 +96,8 @@ export const qk = {
   // F9 (Migration 97): Protokoll der Exporte je Jahr.
   finExporte: (jahr: number) => ["finance", "exporte", jahr] as const,
   finExportJournal: (von: string, bis: string) => ["finance", "exportJournal", von, bis] as const,
+  // Skonto (Migration 98) je Art (Rechnung/Beleg).
+  finSkonti: (art: "rechnung" | "beleg") => ["finance", "skonti", art] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

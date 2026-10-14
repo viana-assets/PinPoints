@@ -19,7 +19,7 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
-import { fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
+import { fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
 import type { Kontenrahmen } from "@/lib/finance/einstellungen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
@@ -581,6 +581,9 @@ export function useFinVortrag(supabase: SupabaseClient, jahr: number, aktiv: boo
 }
 export function useFinExportProtokolle(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
   return useQuery({ queryKey: qk.finExporte(jahr), queryFn: () => fetchFinExportProtokolle(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });
+}
+export function useFinSkonti(supabase: SupabaseClient, art: "rechnung" | "beleg", aktiv: boolean) {
+  return useQuery({ queryKey: qk.finSkonti(art), queryFn: () => fetchFinSkonti(supabase, art), enabled: aktiv, staleTime: FRISCH_MS });
 }
 export function useFinSalden(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
   return useQuery({ queryKey: qk.finSalden(jahr), queryFn: () => fetchFinSalden(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });

@@ -469,3 +469,17 @@ export async function finExportProtokollieren(supabase: SupabaseClient, art: "da
 export async function fetchFinExportProtokolle(supabase: SupabaseClient, jahr: number): Promise<FinExportProtokoll[]> {
   return protokolleLesen(await q<unknown>("Die Exporte konnten nicht geladen werden", supabase.rpc("fin_export_protokolle", { p_jahr: jahr })));
 }
+
+// ---------------------------------------------------------------- Skonto (Migration 98)
+export type FinSkonto = { ziel_id: string; buchung_id: string; datum: string; betrag: number; nr: number };
+export async function fetchFinSkonti(supabase: SupabaseClient, art: "rechnung" | "beleg"): Promise<FinSkonto[]> {
+  const z = await q<FinSkonto[]>("Die Skonti konnten nicht geladen werden", supabase.rpc("fin_skonti", { p_art: art }));
+  return (z ?? []).map((x) => ({ ...x, betrag: Number(x.betrag), nr: Number(x.nr) }));
+}
+export async function finSkontoBuchen(supabase: SupabaseClient, art: "rechnung" | "beleg", ziel: string, datum: string, betrag: number): Promise<{ nr: number; rest: number }> {
+  const r = await q<{ nr: number; rest: number }>("Der Skonto wurde nicht gebucht", supabase.rpc("fin_skonto_buchen", { p_art: art, p_ziel: ziel, p_datum: datum, p_betrag: betrag }));
+  return { nr: Number(r?.nr), rest: Number(r?.rest ?? 0) };
+}
+export async function finSkontoZuruecknehmen(supabase: SupabaseClient, buchung: string, grund: string): Promise<void> {
+  await q("Der Skonto wurde nicht zurückgenommen", supabase.rpc("fin_skonto_zuruecknehmen", { p_buchung: buchung, p_grund: grund }));
+}

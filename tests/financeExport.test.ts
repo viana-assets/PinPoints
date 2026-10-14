@@ -10,7 +10,7 @@ import { finVorgabe } from "@/lib/finance/einstellungen";
 
 // Finance F9 (Migration 97, v155). Konten und Schlüssel aus den Migrationen; die Buchungen so, wie
 // fin_posten_schreiben() (Migration 88) und die Rechnungsbuchung (Migration 89) sie schreiben.
-const SQL = ["88_finance_buchungen.sql", "93_finance_luecken.sql", "95_finance_anlagen.sql", "96_finance_abschluss.sql"]
+const SQL = ["88_finance_buchungen.sql", "93_finance_luecken.sql", "95_finance_anlagen.sql", "96_finance_abschluss.sql", "98_finance_skonto.sql"]
   .map((d) => readFileSync(join(__dirname, "..", "supabase", "migrations", d), "utf8")).join("\n");
 const KONTEN = [...SQL.matchAll(/\('(skr0[34])', (\d+), '((?:[^']|'')*)', '(\w+)'\)/g)].map((m) => ({ kontenrahmen: m[1], nummer: Number(m[2]), bezeichnung: m[3], kategorie: m[4], eigen: false, aktiv: true })) as FinKonto[];
 const K03 = KONTEN.filter((k) => k.kontenrahmen === "skr03");

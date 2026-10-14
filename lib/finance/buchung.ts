@@ -62,7 +62,7 @@ export type FinBuchung = {
   datum: string;
   text: string;
   beleg: string | null;
-  quelle: "manuell" | "rechnung" | "zahlung" | "beleg" | "bank" | "kasse" | "afa" | "abgang" | "abschluss" | "vortrag";
+  quelle: "manuell" | "rechnung" | "zahlung" | "beleg" | "bank" | "kasse" | "afa" | "abgang" | "abschluss" | "vortrag" | "skonto";
   quelle_id: string | null;
   storno_von: string | null;
   storniert_durch: string | null;

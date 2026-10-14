@@ -21,8 +21,8 @@ const cent = (n: number) => Math.round((n + Number.EPSILON * Math.sign(n)) * 100
 export const FIN_DATEV_BU: Record<string, string> = { ust19: "3", ust7: "2", vst19: "9", vst7: "8", ige19: "19", r13b19: "94", r13b2_19: "94" };
 // Automatikkonten des DATEV-Standardkontenrahmens mit der Steuer, die DATEV dort selbst rechnet.
 export const FIN_DATEV_AUTOMATIK: Record<Kontenrahmen, Record<number, string>> = {
-  skr03: { 8400: "ust19", 8300: "ust7", 3400: "vst19", 3300: "vst7", 3425: "ige19", 3123: "r13b19" },
-  skr04: { 4400: "ust19", 4300: "ust7", 5400: "vst19", 5300: "vst7", 5425: "ige19", 5923: "r13b19" },
+  skr03: { 8400: "ust19", 8300: "ust7", 3400: "vst19", 3300: "vst7", 3425: "ige19", 3123: "r13b19", 8736: "ust19", 8731: "ust7", 3736: "vst19", 3731: "vst7" },
+  skr04: { 4400: "ust19", 4300: "ust7", 5400: "vst19", 5300: "vst7", 5425: "ige19", 5923: "r13b19", 4736: "ust19", 4731: "ust7", 5736: "vst19", 5731: "vst7" },
 };
 // „Aufhebung der Automatik“: Ein Automatikkonto ohne Steuer (Netto-Satz, Abgrenzung, Umbuchung).
 export const FIN_DATEV_OHNE_AUTOMATIK = "40";
