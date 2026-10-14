@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `96_finance_abschluss.sql`** – vor den Dateien von v154 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–95 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
+**Noch auszuführen: `97_finance_export.sql`** – vor den Dateien von v155 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–96 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1400,7 +1400,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   (zwei Tabellen mehr in der Sicherung, vier Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut
   ausgeführt.
 
-- `96_finance_abschluss.sql` – **noch auszuführen**, nach 95 und vor den Dateien von v154.
+- `96_finance_abschluss.sql` – **ausgeführt** (14.10.2026).
   Finance, Phase F8 (`docs/finance.md` 4.7). `fin_abschlussposten` (nur lesen mit `finance.abschluss`; geschrieben über
   `fin_abschlussposten_buchen(jahr, art, konto, betrag, text)` – nur bei Bilanzierung, ab 01.12., Aufwands- bzw.
   Erlöskonto; Buchung am 31.12., Quelle `abschluss`), `fin_abschlussposten_aufloesen()` (Abgrenzungen am 01.01. des
@@ -1422,3 +1422,18 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   den Vortrag; zurücknehmen mit Auflösung; Techniker abgelehnt, sieht nichts; GmbH mit Privatkonto abgelehnt. `t72`,
   `t86`–`t95` gegen 95 und 96: gleiche Ausgabe bis auf die gewollten Stellen (eine Tabelle mehr in der Sicherung, acht
   Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `97_finance_export.sql` – **noch auszuführen**, nach 96 und vor den Dateien von v155.
+  Finance, Phase F9 (`docs/finance.md` 4.8). Nur lesend: `fin_export_journal(von, bis)` (Buchungen mit Zeilen, ein
+  Wirtschaftsjahr, Recht `finance.abschluss` L), `fin_export_belege(von, bis)` (Belegliste mit Lieferant und Buchungsnummer,
+  ohne Dateien). Protokoll `fin_exporte` (nur lesen; geschrieben über `fin_export_protokollieren(art, von, bis)` – die
+  Datenbank zählt Buchungen, Summe Soll und letzte Nummer selbst), `fin_export_protokolle(jahr)` mit dem heutigen Stand.
+  Bausteine `fin_export_zeitraum()`, `fin_export_kennzahlen()` (nicht aufrufbar). Wache: bricht ohne 96 ab. Ergebnistabelle
+  mit drei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/97_rollback.sql` (Funktionen gegen den Stand 96 verglichen:
+  gleich; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 96, `pgtest/t97.sql`): Journal September mit drei Buchungen (Rechnung, Tanken mit zwei
+  Posten, Beleg), über zwei Jahre und verkehrt herum abgelehnt; Belegliste mit Lieferant und Buchung; Protokoll 3 Buchungen /
+  783,50, unbekannte Art abgelehnt, nach einem Nachtrag „jetzt 4 / 788,50“; direktes Schreiben ins Protokoll verweigert;
+  Techniker überall abgelehnt, sieht nichts; Baustein nicht aufrufbar. `t72`, `t86`–`t96` gegen 96 und 97: gleiche Ausgabe
+  bis auf die gewollte Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut
+  ausgeführt.

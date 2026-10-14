@@ -7,6 +7,7 @@ import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLiefer
 import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 import type { FinAnlage } from "@/lib/finance/anlagen";
+import { protokolleLesen, type FinExportBeleg, type FinExportProtokoll } from "@/lib/finance/export";
 import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
 
@@ -443,4 +444,28 @@ export async function finVortragBuchen(supabase: SupabaseClient, jahr: number, g
 
 export async function finVortragZuruecknehmen(supabase: SupabaseClient, jahr: number, grund: string): Promise<void> {
   await q("Der Saldenvortrag wurde nicht zurückgenommen", supabase.rpc("fin_vortrag_zuruecknehmen", { p_jahr: jahr, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------- F9 Export (Migration 97)
+function journalLesen(roh: unknown): FinBuchung[] {
+  return ((roh ?? []) as FinBuchung[]).map((b) => ({
+    ...b, fin_buchungszeilen: [...(b.fin_buchungszeilen ?? [])].map((z) => ({ ...z, betrag: Number(z.betrag) })).sort((a, c) => (a.id ?? 0) - (c.id ?? 0)),
+  }));
+}
+
+export async function fetchFinExportJournal(supabase: SupabaseClient, von: string, bis: string): Promise<FinBuchung[]> {
+  return journalLesen(await q<unknown>("Das Journal konnte nicht geladen werden", supabase.rpc("fin_export_journal", { p_von: von, p_bis: bis })));
+}
+
+export async function fetchFinExportBelege(supabase: SupabaseClient, von: string, bis: string): Promise<FinExportBeleg[]> {
+  const z = await q<FinExportBeleg[]>("Die Belege konnten nicht geladen werden", supabase.rpc("fin_export_belege", { p_von: von, p_bis: bis }));
+  return (z ?? []).map((x) => ({ ...x, brutto: x.brutto == null ? null : Number(x.brutto), buchung_nr: x.buchung_nr == null ? null : Number(x.buchung_nr) }));
+}
+
+export async function finExportProtokollieren(supabase: SupabaseClient, art: "datev" | "gobd", von: string, bis: string): Promise<void> {
+  await q("Der Export wurde nicht protokolliert", supabase.rpc("fin_export_protokollieren", { p_art: art, p_von: von, p_bis: bis }));
+}
+
+export async function fetchFinExportProtokolle(supabase: SupabaseClient, jahr: number): Promise<FinExportProtokoll[]> {
+  return protokolleLesen(await q<unknown>("Die Exporte konnten nicht geladen werden", supabase.rpc("fin_export_protokolle", { p_jahr: jahr })));
 }

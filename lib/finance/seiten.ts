@@ -31,7 +31,7 @@ export const FINANCE_SEITEN: FinanceSeite[] = [
   { key: "anlagen", label: "Anlagen", beschreibung: "Anlagenverzeichnis, Abschreibungsplan, Abschreibungen buchen, Abgang", recht: "finance.abschluss", phase: null },
   { key: "auswertungen", label: "Auswertungen", beschreibung: "Summen und Salden, Kontenblätter, BWA und EÜR – auch als CSV", recht: "finance.abschluss", phase: null },
   { key: "abschluss", label: "Jahresabschluss", beschreibung: "GuV, Bilanz, Anlagenspiegel, Rückstellungen und Abgrenzungen, Saldenvortrag ins neue Jahr", recht: "finance.abschluss", phase: null },
-  { key: "export", label: "Export", beschreibung: "DATEV-Buchungsstapel für den Steuerberater", recht: "finance.abschluss", phase: "F9" },
+  { key: "export", label: "Export", beschreibung: "DATEV-Buchungsstapel des Journals, GoBD-Datenexport, Verfahrensdokumentation", recht: "finance.abschluss", phase: null },
   // Sichtbar für alle mit Finance; ÄNDERN braucht „finance.einstellungen“ schreiben.
   { key: "einstellungen", label: "Einstellungen", beschreibung: "Rechtsform, EÜR oder Bilanz, Kontenrahmen, Umsatzsteuer", recht: "finance", phase: null },
 ];

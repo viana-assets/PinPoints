@@ -151,6 +151,26 @@ const tt = (iso: string) => iso.slice(8, 10) + iso.slice(5, 7);
 const ttmmjjjj = (iso: string) => iso.slice(8, 10) + iso.slice(5, 7) + iso.slice(0, 4);
 const kompakt = (iso: string) => iso.replace(/-/g, "");
 
+// Die Kopfzeile eines Buchungsstapels (Version 700, Kategorie 21, Formatversion 13). Auch für den Export des ganzen
+// Finance-Journals (lib/finance/export.ts, Herkunft „FI“). Nicht festgeschrieben (Feld 21 = 0).
+export function datevKopf(o: {
+  herkunft: string; berater: number | null; mandant: number | null; wjBeginn: string; sachkontenlaenge: number;
+  von: string; bis: string; bezeichnung: string; skr: string; erzeugtAm: Date;
+}): string {
+  const d = o.erzeugtAm;
+  const zwei = (n: number) => String(n).padStart(2, "0");
+  const stempel = `${d.getFullYear()}${zwei(d.getMonth() + 1)}${zwei(d.getDate())}${zwei(d.getHours())}${zwei(d.getMinutes())}${zwei(d.getSeconds())}${String(d.getMilliseconds()).padStart(3, "0")}`;
+  return [
+    text("EXTF"), 700, 21, text("Buchungsstapel"), 13, stempel, "", text(o.herkunft.slice(0, 2)), text(""), text(""),
+    o.berater ?? "", o.mandant ?? "", kompakt(o.wjBeginn), o.sachkontenlaenge,
+    kompakt(o.von), kompakt(o.bis), text(o.bezeichnung.slice(0, 30)), text(""), 1, 0, 0, text("EUR"),
+    "", text(""), "", "", text(o.skr), "", "", text(""), text(""),
+  ].join(";");
+}
+
+// Feldformate des Buchungsstapels – auch für lib/finance/export.ts.
+export { betrag as datevBetrag, text as datevText, tt as datevTt };
+
 export function datevBuchungsstapel(
   rechnungen: Rechnung[],
   e: DatevEinstellung,
@@ -165,14 +185,10 @@ export function datevBuchungsstapel(
   }
   const { buchungen, fehler: bFehler } = datevBuchungen(rechnungen, e, z);
   fehler.push(...bFehler);
-  const zwei = (n: number) => String(n).padStart(2, "0");
-  const stempel = `${erzeugtAm.getFullYear()}${zwei(erzeugtAm.getMonth() + 1)}${zwei(erzeugtAm.getDate())}${zwei(erzeugtAm.getHours())}${zwei(erzeugtAm.getMinutes())}${zwei(erzeugtAm.getSeconds())}${String(erzeugtAm.getMilliseconds()).padStart(3, "0")}`;
-  const kopf = [
-    text("EXTF"), 700, 21, text("Buchungsstapel"), 13, stempel, "", text("RE"), text(""), text(""),
-    e.datev_berater ?? "", e.datev_mandant ?? "", kompakt(wjVon), e.datev_sachkontenlaenge,
-    kompakt(z.von), kompakt(z.bis), text(bezeichnung.slice(0, 30)), text(""), 1, 0, 0, text("EUR"),
-    "", text(""), "", "", text(e.datev_skr), "", "", text(""), text(""),
-  ].join(";");
+  const kopf = datevKopf({
+    herkunft: "RE", berater: e.datev_berater, mandant: e.datev_mandant, wjBeginn: wjVon, sachkontenlaenge: e.datev_sachkontenlaenge,
+    von: z.von, bis: z.bis, bezeichnung, skr: e.datev_skr, erzeugtAm,
+  });
   const zeilen = buchungen.map((b) => {
     const f: string[] = DATEV_SPALTEN.map(() => "");
     f[SP.umsatz] = betrag(b.umsatz);

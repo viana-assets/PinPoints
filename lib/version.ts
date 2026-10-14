@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v154";
+export const APP_VERSION = "v155";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v155", datum: "2026-10-14", titel: "Finance: Export für die Kanzlei",
+    punkte: [
+      "Finance › Export erzeugt aus dem ganzen Journal eines Monats, Quartals oder Jahres eine DATEV-Datei für den Steuerberater – mit Bruttobeträgen und Steuerschlüsseln, wie DATEV sie erwartet.",
+      "Für eine Betriebsprüfung gibt es den GoBD-Datenexport als ZIP, dazu eine Vorlage der Verfahrensdokumentation zum Ergänzen.",
+      "Jeder Export wird festgehalten; die Liste meldet, wenn im Zeitraum seitdem noch gebucht wurde.",
+    ],
+  },
   {
     version: "v154", datum: "2026-10-14", titel: "Finance: Jahresabschluss",
     punkte: [

@@ -16,6 +16,7 @@ import { FinanceSteuern } from "./FinanceSteuern";
 import { FinanceAuswertungen } from "./FinanceAuswertungen";
 import { FinanceAnlagen } from "./FinanceAnlagen";
 import { FinanceAbschluss } from "./FinanceAbschluss";
+import { FinanceExport } from "./FinanceExport";
 import { ustZuErledigen } from "@/lib/finance/steuern";
 import { MONATSNAMEN } from "@/lib/finance/auswertungen";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
@@ -172,6 +173,7 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
           <FinanceAbschluss supabase={supabase} jahr={jahr} heute={heute}
             darfSchreiben={darf("finance.abschluss", "schreiben")} onSeite={onSeite} />
         )}
+        {aktiv === "export" && <FinanceExport supabase={supabase} jahr={jahr} heute={heute} onSeite={onSeite} />}
         {aktiv === "buchungen" && (
           <FinanceBuchungen supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
@@ -287,7 +289,7 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf), F6 Auswertungen, F7 Anlagen, F8 Jahresabschluss. Als Nächstes laut Plan: F9 DATEV-Export.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf), F6 Auswertungen, F7 Anlagen, F8 Jahresabschluss, F9 Export. Vor dem Echtbetrieb: Probelauf und Abstimmung mit der Kanzlei.</span>
         </>
       )}
     </>

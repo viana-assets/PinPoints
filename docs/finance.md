@@ -5,8 +5,8 @@ Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Jou
 **F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten –, **F2 (v148,
 Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
 92)** – Umsatzsteuer-Voranmeldung als Probelauf –, dazu **Nachträge (v151, Migration 93)**: Teilzahlungen,
-Kassensturz, § 13b Abs. 2, Fristerinnerung –, **F6 (v152, Migration 94)** – Auswertungen – und **F7 (v153,
-Migration 95)** – Anlagen und Abschreibungen – und **F8 (v154, Migration 96)** – Jahresabschluss („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Kassensturz, § 13b Abs. 2, Fristerinnerung –, **F6 (v152, Migration 94)** – Auswertungen –, **F7 (v153,
+Migration 95)** – Anlagen und Abschreibungen –, **F8 (v154, Migration 96)** – Jahresabschluss – und **F9 (v155, Migration 97)** – Export für die Kanzlei („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -554,7 +554,36 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - Noch nicht: Steuerrückstellungen, Anhang und Offenlegung, Vorjahresvergleich, Kapitalkonten je Gesellschafter (GbR),
   E-Bilanz. Den Abschluss stellt der Steuerberater auf.
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4, F5, F6, F7 und F8 erledigt**, Nachträge v151; danach laut Plan ein Monat
+### So ist F9 gebaut (v155, Migration 97)
+
+- **Finance › Export** (Recht `finance.abschluss` L, das Journal kommt über `fin_export_journal()` auch ohne „Buchungen
+  lesen“): Zeitraum Monat, Quartal oder Jahr des laufenden Jahres oder des Vorjahres (vorgewählt: der letzte abgeschlossene
+  Monat); daneben, wie viele Buchungen es sind und ob die Monate festgeschrieben sind.
+- **DATEV-Buchungsstapel** (EXTF 700, Kategorie 21, Herkunft „FI“, nicht festgeschrieben, Windows-1252): DATEV rechnet die
+  Steuer selbst – ein Satz trägt den Bruttobetrag, die Steuer kommt aus dem Automatikkonto (SKR03 8400/8300/3400/3300/3425/3123,
+  SKR04 4400/4300/5400/5300/5425/5923) oder aus dem BU-Schlüssel am Gegenkonto (3/2 Umsatzsteuer, 9/8 Vorsteuer, 19 ig.
+  Erwerb, 94 § 13b; `FIN_DATEV_BU`, `FIN_DATEV_AUTOMATIK`). Finance fasst dazu je Posten Netto und Steuer wieder zusammen,
+  aber nur, wenn DATEV aus dem Brutto dieselbe Steuer errechnet; sonst gehen Netto (BU 40, Automatik aus) und Steuer als
+  eigene Sätze hinüber, mit Hinweis. Ein Automatikkonto ohne Steuer (Abgrenzung, Umbuchung) bekommt BU 40. Mehrere Posten
+  werden in Konto/Gegenkonto-Paare zerlegt (eine Forderung, zwei Steuersätze → zwei Sätze). Belegfeld 1 = Belegnummer
+  (sonst `FIN<Jahr>-<Nr>`), Zusatzinformation „Finance-Nr“. Saldenvorträge (Konto 9000) auf Wunsch weg. Berater, Mandant
+  und Sachkontenlänge (muss 4 sein) aus Admin › Betrieb › DATEV. **Sachkonten statt Personenkonten**: Forderungen und
+  Verbindlichkeiten stehen auf 1400/1600 bzw. 1200/3300 – offene Posten je Kunde führt Finance, nicht DATEV.
+  **Nicht zusätzlich** den Rechnungs-Export aus FSM einlesen, sonst stehen die Rechnungen doppelt.
+- **GoBD-Datenexport** (Datenträgerüberlassung, § 147 Abs. 6 AO): ZIP mit `index.xml` nach dem Beschreibungsstandard und den
+  Tabellen Buchungen, Buchungszeilen, Konten, Steuerschlüssel und Belege (Windows-1252, Semikolon, Komma, TT.MM.JJJJ), dazu
+  `LIESMICH.txt`. Die DTD `gdpdu-01-09-2004.dtd` legt man aus der Veröffentlichung des BMF dazu; Belegdateien bleiben in
+  Finance › Belege.
+- **Verfahrensdokumentation**: HTML-Vorlage mit den Einstellungen des Jahres (allgemeine Beschreibung, Anwender-, technische
+  System- und Betriebsdokumentation, internes Kontrollsystem; Aufbewahrung: Belege acht, Bücher und Abschlüsse zehn Jahre).
+  Platzhalter in eckigen Klammern; im Browser öffnen, ergänzen, als PDF ablegen.
+- **Protokoll** `fin_exporte`: jeder DATEV- und GoBD-Export mit Zeitraum, Zahl, Summe und letzter Nummer der Buchungen (die
+  Datenbank zählt selbst). Die Seite zeigt die Exporte des Jahres und meldet „seitdem geändert“, wenn im Zeitraum danach
+  gebucht oder storniert wurde.
+- Noch nicht: Debitoren/Kreditoren als Personenkonten, Belegbilder an DATEV (Beleglink), Export direkt an DATEV Unternehmen
+  online, ELSTER. **Vor dem Echtbetrieb:** eine DATEV-Datei probeweise in der Kanzlei einlesen lassen.
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0 bis F9 erledigt**, Nachträge v151; danach laut Plan ein Monat
 Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den

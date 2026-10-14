@@ -297,6 +297,9 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **F8 (Migration 96, v154):** `finance.abschluss` · L = Finance › Jahresabschluss sehen (GuV, Bilanz, Anlagenspiegel,
   Vorschau des Saldenvortrags), S = Rückstellungen und Abgrenzungen buchen, auflösen und zurücknehmen, Saldenvortrag
   buchen, erneuern und zurücknehmen. Unter Buchungen lassen sich diese Buchungen nicht stornieren.
+  **F9 (Migration 97, v155):** `finance.abschluss` · L = Finance › Export: DATEV-Datei, GoBD-Datenexport und Vorlage der
+  Verfahrensdokumentation herunterladen; das Journal und die Belegliste dafür liefern `fin_export_journal()` /
+  `fin_export_belege()` auch ohne „Buchungen“ bzw. „Belege lesen“. Jeder Export wird protokolliert (`fin_exporte`, nur lesen).
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

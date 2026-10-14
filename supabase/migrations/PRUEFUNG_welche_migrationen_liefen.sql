@@ -165,7 +165,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('93', 'Finance: Teilzahlungen, Kassensturz, § 13b Abs. 2', to_regclass('public.fin_teilzahlungen') is not null and to_regprocedure('public.fin_kassensturz(date,numeric,text,boolean)') is not null),
     ('94', 'Finance: Auswertungen (Salden, Kontenblatt, EÜR)', to_regprocedure('public.fin_euer(integer)') is not null and to_regprocedure('public.fin_auswertung_salden(integer)') is not null),
     ('95', 'Finance: Anlagen und Abschreibungen', to_regclass('public.fin_anlagen') is not null and to_regprocedure('public.fin_afa_buchen(integer,integer)') is not null),
-    ('96', 'Finance: Jahresabschluss (Abgrenzungen, Saldenvortrag)', to_regclass('public.fin_abschlussposten') is not null and to_regprocedure('public.fin_vortrag_buchen(integer,text)') is not null)
+    ('96', 'Finance: Jahresabschluss (Abgrenzungen, Saldenvortrag)', to_regclass('public.fin_abschlussposten') is not null and to_regprocedure('public.fin_vortrag_buchen(integer,text)') is not null),
+    ('97', 'Finance: Export (DATEV, GoBD, Protokoll)', to_regclass('public.fin_exporte') is not null and to_regprocedure('public.fin_export_journal(date,date)') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all
