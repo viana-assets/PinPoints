@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Blatt } from "@/components/Blatt";
 import { fehlerText } from "@/components/FehlerHinweis";
 import { qk } from "@/lib/queries/keys";
-import { useFinRechnungen } from "@/lib/queries/hooks";
+import { useFinMahnungen, useFinRechnungen } from "@/lib/queries/hooks";
 import { finRechnungBezahlt, finRechnungNachbuchen, finZahlungZuruecknehmen } from "@/lib/api/finance";
 import {
   rechnungRest,  offenePosten, rechnungZustand, vorgaengeTeilen, zustandText,
@@ -14,6 +14,8 @@ import {
 } from "@/lib/finance/rechnungen";
 import { formatEUR } from "@/lib/format";
 import { SkontoAbschnitt } from "./FinanceSkonto";
+import { MahnAbschnitt } from "./FinanceMahnung";
+import { FIN_MAHNSTUFEN, aktiveMahnungen, type FinMahnung } from "@/lib/finance/mahnung";
 
 // Finance › Rechnungen und › Offene Posten (Phase F3, Migration 89, v147).
 //
@@ -34,6 +36,7 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
   onEinstellungen: () => void;
 }) {
   const q = useFinRechnungen(supabase, jahr, true);
+  const mahnQ = useFinMahnungen(supabase, true);
   const [reiter, setReiter] = useState<Reiter>("erstellen");
   const [detail, setDetail] = useState<string | null>(null);
   const [meldung, setMeldung] = useState<string | null>(null);
@@ -69,7 +72,7 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
           )}
           {reiter === "ausgestellt" && (
             <>
-              <RechnungListe liste={stand.rechnungen} heute={heute} laedt={q.isPending} onOeffnen={setDetail}
+              <RechnungListe liste={stand.rechnungen} heute={heute} laedt={q.isPending} mahnungen={mahnQ.data} onOeffnen={setDetail}
                 leer={`Noch keine Rechnung ${jahr} zu einem Auftrag mit „Rechnung nötig“.`} />
               {stand.anderswo.length > 0 && (
                 <div className="fi-hinweis fi-info">
@@ -88,7 +91,7 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
             <div className={"db-karte fi-kachel" + (offen.ueberfaellig > 0 ? " fi-kachel-warn" : "")}><span className="small">Davon überfällig</span><b>{formatEUR(offen.ueberfaellig)}</b>
               <span className="small">{anzahl(offen.posten.filter((p) => p.zustand.art === "ueberfaellig").length)}</span></div>
           </div>
-          <RechnungListe liste={offen.posten} heute={heute} laedt={q.isPending} onOeffnen={setDetail} leer="Keine offenen Posten – alles bezahlt." />
+          <RechnungListe liste={offen.posten} heute={heute} laedt={q.isPending} mahnungen={mahnQ.data} onOeffnen={setDetail} leer="Keine offenen Posten – alles bezahlt." />
           <span className="small es-fuss fi-fuss">Aus den Rechnungen mit „Rechnung nötig“, fällig nach 14 Tagen.</span>
         </>
       )}
@@ -124,7 +127,7 @@ function zustandKlasse(z: RechnungZustand): string {
   return z.art === "ueberfaellig" || z.art === "nicht_gebucht" ? " fi-rot-text" : z.art === "bezahlt" ? " fi-gruen-text" : "";
 }
 
-function RechnungListe({ liste, heute, laedt, leer, onOeffnen }: { liste: FinRechnungZeile[]; heute: string; laedt: boolean; leer: string; onOeffnen: (id: string) => void }) {
+function RechnungListe({ liste, heute, laedt, leer, mahnungen = [], onOeffnen }: { liste: FinRechnungZeile[]; heute: string; laedt: boolean; leer: string; mahnungen?: FinMahnung[]; onOeffnen: (id: string) => void }) {
   return (
     <div className="db-karte es-karte">
       {laedt ? <span className="small">Lädt …</span> : liste.length === 0 ? <span className="small">{leer}</span> : liste.map((r) => {
@@ -134,7 +137,8 @@ function RechnungListe({ liste, heute, laedt, leer, onOeffnen }: { liste: FinRec
             <span className="fi-nr fi-nr-breit">{r.nummer_text}</span>
             <span className="db-punkt-text">
               <b>{r.kunde}</b>
-              <span className="small">{datumKurz(r.datum)}{r.order_number ? ` · Auftrag ${r.order_number}` : ""} · <span className={zustandKlasse(z)}>{zustandText(z)}</span></span>
+              <span className="small">{datumKurz(r.datum)}{r.order_number ? ` · Auftrag ${r.order_number}` : ""} · <span className={zustandKlasse(z)}>{zustandText(z)}</span>
+                {(() => { const m = aktiveMahnungen(mahnungen, r.rechnung_id); const l = m[m.length - 1]; return l && z.art !== "bezahlt" ? ` · ${FIN_MAHNSTUFEN[l.stufe - 1].titel} ${datumKurz(l.datum)}` : ""; })()}</span>
             </span>
             <span className="fi-betrag">{formatEUR((z.art === "offen" || z.art === "ueberfaellig") && z.teil > 0 ? rechnungRest(r) : r.brutto)}</span>
           </button>
@@ -224,6 +228,9 @@ function RechnungDetail({ supabase, r, heute, darfSchreiben, onRechnungOeffnen, 
         )}
         {zurueck && (
           <label className="nk-feld"><span>Grund</span><input value={grund} maxLength={200} onChange={(e) => setGrund(e.target.value)} placeholder="z. B. doch nicht bezahlt" autoFocus /></label>
+        )}
+        {!zahlung && !zurueck && (z.art === "offen" || z.art === "ueberfaellig" || z.art === "bezahlt") && (
+          <MahnAbschnitt supabase={supabase} r={r} heute={heute} darfSchreiben={darfSchreiben} onFertig={onFertig} />
         )}
         {!zahlung && !zurueck && (z.art === "offen" || z.art === "ueberfaellig" || z.art === "bezahlt") && (
           <SkontoAbschnitt supabase={supabase} art="rechnung" ziel={r.rechnung_id} brutto={Number(r.brutto)} rest={rechnungRest(r)} datumAb={r.datum} heute={heute}

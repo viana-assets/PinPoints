@@ -6,7 +6,7 @@ Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Jou
 Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
 92)** – Umsatzsteuer-Voranmeldung als Probelauf –, dazu **Nachträge (v151, Migration 93)**: Teilzahlungen,
 Kassensturz, § 13b Abs. 2, Fristerinnerung –, **F6 (v152, Migration 94)** – Auswertungen –, **F7 (v153,
-Migration 95)** – Anlagen und Abschreibungen –, **F8 (v154, Migration 96)** – Jahresabschluss – und **F9 (v155, Migration 97)** – Export für die Kanzlei –, dazu **Nachträge (v156, Migration 98)**: Skonto, ZUGFeRD-PDF, Jahreswerte („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Migration 95)** – Anlagen und Abschreibungen –, **F8 (v154, Migration 96)** – Jahresabschluss – und **F9 (v155, Migration 97)** – Export für die Kanzlei –, dazu **Nachträge (v156, Migration 98)**: Skonto, ZUGFeRD-PDF, Jahreswerte, und das **Mahnwesen (v157, Migration 99)** („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -604,6 +604,33 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - **Zusammenfassende Meldung: bewusst nicht gebaut.** Sie braucht die USt-IdNr. des Kunden an der Rechnung (innergemeinschaftliche
   Lieferungen und Leistungen an Unternehmer im EU-Ausland) – die führt FSM nicht, und beim Reifenservice kommen solche Umsätze
   praktisch nicht vor. Kommt einer vor: mit dem Steuerberater melden.
+
+### Mahnwesen (v157, Migration 99)
+
+- **Drei Stufen** je Rechnung (`FIN_MAHNSTUFEN`, `fin_mahnung_erstellen()`): Zahlungserinnerung, Mahnung, letzte Mahnung –
+  der Reihe nach, keine überspringen, höchstens drei. Erlaubt nur für eine in Finance gebuchte, offene, nicht stornierte
+  Rechnung, frühestens am Tag nach der Fälligkeit bzw. nach Ablauf der Frist der vorigen Stufe; das Datum nicht in der Zukunft,
+  die neue Frist nach dem Datum. Vorgeschlagen wird die Erinnerung 7 Tage nach der Fälligkeit (Frist 10 Tage), die Mahnung und
+  die letzte Mahnung 3 Tage nach der vorigen Frist (Frist 10 bzw. 7 Tage).
+- **Wo:** im Fenster der Rechnung (Finance › Rechnungen bzw. Offene Posten), Abschnitt „Mahnungen“; die Liste zeigt die letzte
+  aktive Stufe, die Übersicht „Rechnung(en) zu mahnen“ (Vorschlag fällig). Der Text kommt als Vorlage je Stufe und ist vor dem
+  Erstellen änderbar.
+- **Das Schreiben ist ein Snapshot** (Absender und Empfänger der Rechnung, Betrag, bereits bezahlt, offen, Gebühr, Zinsen,
+  Text) und wird wie die Rechnung gedruckt bzw. als PDF gespeichert, mit Girocode über den Gesamtbetrag. **Verschickt wird
+  nichts automatisch** – „E-Mail vorbereiten“ öffnet nur das eigene Mailprogramm (`mailto:`), wenn der Kunde eine Adresse hat.
+- **Zurückziehen** mit Grund, nur die jeweils letzte aktive Stufe (z. B. Zahlung hat sich überschnitten); sie bleibt sichtbar,
+  die Stufe ist wieder frei.
+- **Mahngebühr** 0 bis 100 € von Hand. Bei Privatkunden nur tatsächliche Kosten (Porto); gegenüber Unternehmen ist zusätzlich
+  die Pauschale von 40 € möglich (§ 288 Abs. 5 BGB) – die App rechnet sie nicht von selbst ein.
+- **Verzugszinsen** (ab Stufe 2, wahlweise): ab dem Tag nach der Frist der Zahlungserinnerung bis zum Datum der Mahnung, taggenau
+  auf 365 Tage, mit dem Basiszinssatz je Halbjahr (`FIN_BASISZINS`, § 247 BGB) plus 5 Prozentpunkte (Privatkunde) bzw.
+  9 Prozentpunkte (Unternehmen, § 288 BGB). **`FIN_BASISZINS` zum 1. Januar und 1. Juli nachtragen** (Deutsche Bundesbank);
+  fehlt der neue Wert, rechnet die App mit dem letzten bekannten weiter.
+- **Nicht gebucht:** Gebühr und Zinsen stehen nur auf dem Schreiben. Gebucht wird, was der Kunde zahlt; ein Mehrbetrag über die
+  Rechnung hinaus von Hand auf Sonstige Erträge. Nach der letzten Mahnung: Inkasso oder gerichtliches Mahnverfahren mit dem
+  Steuerberater bzw. Anwalt klären – die App macht dort nichts.
+- **Rechte:** sehen mit `finance.rechnungen` L, erstellen und zurückziehen mit S. Die Texte sind Vorlagen, keine Rechtsberatung –
+  vor dem ersten echten Einsatz prüfen lassen.
 
 Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0 bis F9 erledigt**, Nachträge v151; danach laut Plan ein Monat
 Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.

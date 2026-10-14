@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `98_finance_skonto.sql`** – vor den Dateien von v156 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–97 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
+**Noch auszuführen: `99_finance_mahnwesen.sql`** – vor den Dateien von v157 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–98 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–98 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1438,7 +1438,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   bis auf die gewollte Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut
   ausgeführt.
 
-- `98_finance_skonto.sql` – **noch auszuführen**, nach 97 und vor den Dateien von v156.
+- `98_finance_skonto.sql` – ausgeführt (laut Vitali am 14.10.2026), nach 97 und vor den Dateien von v156.
   Finance, Skonto (`docs/finance.md`, Nachträge v156). `fin_skonto_buchen(art, id, datum, betrag)` (Rechnung: Gewährte Skonti
   an Forderung, Beleg: Verbindlichkeit an Erhaltene Skonti bzw. Anlagekonto; aufgeteilt wie die ursprüngliche Buchung je
   Steuersatz über `fin_posten_schreiben()`; höchstens 10 % brutto; nicht vor dem Belegdatum, nicht in der Zukunft; § 13b/ig.
@@ -1457,3 +1457,22 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   beglichen), zweites Mal abgelehnt; EÜR nur mit der Zahlung; Techniker abgelehnt; Soll = Haben überall. `t72`, `t86`–`t97` gegen
   97 und 98: gleiche Ausgabe bis auf die gewollte Stelle (zwölf Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal,
   erneut ausgeführt.
+
+- `99_finance_mahnwesen.sql` – **noch auszuführen**, nach 98 und vor den Dateien von v157.
+  Finance, Mahnwesen (`docs/finance.md`, Mahnwesen v157). Tabelle `fin_mahnungen` (Stufe 1–3, Datum, Frist, Snapshot von
+  Absender, Empfänger, Rechnungsnummer, Betrag, bezahlt, offen, Gebühr 0–100 €, Zinsen, Zinssatz, Text bis 2.000 Zeichen;
+  eine aktive Mahnung je Stufe; lesen mit „Finance › Rechnungen“ L, schreiben nur über die Funktionen).
+  `fin_mahnung_erstellen(rechnung, stufe, datum, frist, gebuehr, zinsen, zinssatz, text)` (Recht „Finance › Rechnungen“ S;
+  nur gebuchte, offene, nicht stornierte Rechnungen; Stufe für Stufe, höchstens drei; Datum nach der Fälligkeit bzw. nach der
+  Frist der vorigen Stufe, nicht in der Zukunft; Frist nach dem Datum; offen = brutto minus Teilzahlungen),
+  `fin_mahnung_zurueckziehen(id, grund)` (nur die jeweils letzte aktive). Bucht nichts, verschickt nichts. Wache: bricht ohne 98
+  ab. Ergebnistabelle mit drei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/99_rollback.sql` (Funktionen und Tabelle
+  weg – die gespeicherten Schreiben gehen dabei verloren, vorher sichern; Finance-Funktionen danach gleich Stand 98; zweimal
+  lauffähig).
+  Geprüft gegen Postgres 16 (Stand 98, `pgtest/t99.sql`): Rechnung 140,42 mit 40,42 beglichen, fällig 24.09.: vor der Fälligkeit,
+  Stufe übersprungen, Frist vor dem Datum, Datum in der Zukunft, Gebühr über 100 €, leerer Text → abgelehnt; Erinnerung
+  30.09. (offen 100,00), Mahnung vor Ablauf der Frist abgelehnt, Mahnung 08.10. und letzte Mahnung 13.10., vierte abgelehnt;
+  Snapshot mit Kunde und Absender; Zurückziehen der Erinnerung abgelehnt (spätere zuerst), ohne Grund abgelehnt, letzte
+  zurückgezogen und neu erstellt; bezahlte Rechnung abgelehnt; Techniker abgelehnt und sieht nichts; direktes Schreiben
+  verweigert. `t72`, `t86`–`t98` gegen 98 und 99: gleiche Ausgabe bis auf die gewollte Stelle (eine Tabelle mehr in der
+  Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

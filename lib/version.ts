@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v156";
+export const APP_VERSION = "v157";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v157", datum: "2026-10-14", titel: "Finance: Mahnwesen",
+    punkte: [
+      "Im Fenster einer überfälligen Rechnung lassen sich Zahlungserinnerung, Mahnung und letzte Mahnung erstellen – Stufe für Stufe, mit Vorschlag für Datum, Frist und Text.",
+      "Das Schreiben sieht aus wie die Rechnung, mit Girocode über den Gesamtbetrag, und wird gedruckt oder als PDF gespeichert. Verschickt wird nichts von selbst; die E-Mail bereitet die App nur vor.",
+      "Mahngebühr und Verzugszinsen (taggenau mit dem Basiszinssatz) stehen auf dem Schreiben; die Übersicht zeigt, welche Rechnungen zu mahnen sind.",
+    ],
+  },
   {
     version: "v156", datum: "2026-10-14", titel: "Finance: Skonto, ZUGFeRD-PDF, Jahreswerte",
     punkte: [

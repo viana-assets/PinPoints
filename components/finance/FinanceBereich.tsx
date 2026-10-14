@@ -5,7 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Verb } from "@/lib/constants";
 import { qk } from "@/lib/queries/keys";
-import { useFinBankumsaetze, useFinBelege, useFinEinstellungen, useFinRechnungen, useFinUst } from "@/lib/queries/hooks";
+import { useFinMahnungen, useFinBankumsaetze, useFinBelege, useFinEinstellungen, useFinRechnungen, useFinUst } from "@/lib/queries/hooks";
 import { belegZustand } from "@/lib/finance/belege";
 import { saveFinEinstellungen } from "@/lib/api/finance";
 import { FinanceBuchungen } from "./FinanceBuchungen";
@@ -17,6 +17,7 @@ import { FinanceAuswertungen } from "./FinanceAuswertungen";
 import { FinanceAnlagen } from "./FinanceAnlagen";
 import { FinanceAbschluss } from "./FinanceAbschluss";
 import { FinanceExport } from "./FinanceExport";
+import { mahnZuErledigen } from "@/lib/finance/mahnung";
 import { ustZuErledigen } from "@/lib/finance/steuern";
 import { MONATSNAMEN } from "@/lib/finance/auswertungen";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
@@ -208,6 +209,8 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
   const ustQ = useFinUst(supabase, jahr, steuernSehen && !!einstellungen);
   const ust = ustQ.data && einstellungen ? ustZuErledigen(ustQ.data, einstellungen, heute) : null;
   const zu = rechnungenQ.data ? rechnungenZuErledigen(rechnungenQ.data, heute) : null;
+  const mahnQ = useFinMahnungen(supabase, rechnungenSehen);
+  const zuMahnen = rechnungenQ.data && mahnQ.isSuccess ? mahnZuErledigen(rechnungenQ.data.rechnungen, mahnQ.data, heute) : 0;
   const belege = (belegeQ.data ?? []).map((b) => belegZustand(b, heute));
   const entwuerfe = belege.filter((b) => b.art === "entwurf").length;
   const belegeUeber = belege.filter((b) => b.art === "ueberfaellig").length;
@@ -216,6 +219,7 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
       { n: zu.zuErstellen, text: zu.zuErstellen === 1 ? "Rechnung zu erstellen" : "Rechnungen zu erstellen", seite: "rechnungen" as const },
       { n: zu.nichtGebucht, text: zu.nichtGebucht === 1 ? "Rechnung nicht gebucht" : "Rechnungen nicht gebucht", seite: "rechnungen" as const },
       { n: zu.ueberfaellig, text: zu.ueberfaellig === 1 ? "Rechnung überfällig" : "Rechnungen überfällig", seite: "op" as const },
+      { n: zuMahnen, text: zuMahnen === 1 ? "Rechnung zu mahnen (Erinnerung oder nächste Stufe)" : "Rechnungen zu mahnen (Erinnerung oder nächste Stufe)", seite: "op" as const },
     ] : []),
     { n: entwuerfe, text: entwuerfe === 1 ? "Beleg im Entwurf" : "Belege im Entwurf", seite: "belege" as const },
     { n: belegeUeber, text: belegeUeber === 1 ? "Lieferantenbeleg überfällig" : "Lieferantenbelege überfällig", seite: "op" as const },

@@ -4545,6 +4545,7 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .fi-skonto-zeile{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
 .fi-skonto-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1 1 100%;}
 .fi-skonto-form input{flex:1 1 160px;min-height:40px;}
+.fi-skonto-form.fi-rechts{flex:0 1 auto;justify-content:flex-end;}
 /* Jahresabschluss (F8, v154): components/finance/FinanceAbschluss.tsx */
 .fi-quer{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .fi-spiegel{min-width:560px;}

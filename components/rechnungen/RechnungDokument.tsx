@@ -224,7 +224,8 @@ export function RechnungDokument({ daten }: { daten: DokumentDaten }) {
 // Der Girocode als Bild. Eigenes Bauteil und nicht ein Effekt in der Seite – so wie beim
 // Lagerplatz-Aufkleber: Das Erzeugen ist asynchron, und ein Bauteil, das nur dafür da ist,
 // braucht dafür keinen Zustand in der Seite.
-function GiroBild({ text }: { text: string }) {
+// Auch für die Mahnung (components/finance/FinanceMahnung.tsx, v157).
+export function GiroBild({ text }: { text: string }) {
   const [bild, setBild] = useState<string | null>(null);
 
   useEffect(() => {

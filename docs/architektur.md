@@ -153,6 +153,7 @@ viana-pinpoints/
       FinanceAbschluss.tsx           Jahresabschluss (Migration 96, v154): Schritte, GuV, Bilanz, Anlagenspiegel, Rückstellungen/Abgrenzungen, Saldenvortrag
       FinanceExport.tsx              Export (Migration 97, v155): DATEV-Buchungsstapel, GoBD-ZIP, Verfahrensdokumentation, Protokoll
       FinanceSkonto.tsx              Skonto im Fenster von Rechnung und Beleg (Migration 98, v156): abziehen, zurücknehmen
+      FinanceMahnung.tsx             Mahnwesen im Fenster der Rechnung (Migration 99, v157): Stufen, Formular, Schreiben zum Drucken
       FinanceAuswertungen.tsx        Auswertungen (Migration 94, v152): Summen & Salden, Kontenblatt, BWA, EÜR, je als CSV
       FinanceSteuern.tsx             Steuern (Migration 92, v150): Voranmeldungen je Zeitraum mit Frist und Zustand,
                                      Formularansicht, Abgabe festhalten, Sondervorauszahlung, Kleinunternehmer-Grenzen
@@ -262,7 +263,7 @@ viana-pinpoints/
                                       ausgestellt", Beleg, Storno (Entwurf P)
       RechnungModal.tsx               Eine Rechnung ausstellen/stornieren
       BelegTeile.tsx                  Gemeinsam für beide: Knöpfe, Hinweise, Storno-Rückfrage (v135)
-      RechnungDokument.tsx            Druckansicht des Belegs (Briefkopf, Positionen, Summen)
+      RechnungDokument.tsx            Druckansicht des Belegs (Briefkopf, Positionen, Summen); `GiroBild` auch für die Mahnung
   lib/
     types.ts                  Zentrale TypeScript-Typen (Customer, Order, Rechnung, Betrieb,
                               AuftragFahrzeug, Firmenfahrzeug, AuditEintrag, EingelagertesRad, …)
@@ -346,6 +347,7 @@ viana-pinpoints/
       abschluss.ts                GuV (§ 275 HGB), Bilanz (§ 266 HGB), Anlagenspiegel, Saldenvortrag lesen, Schritte zum Abschluss (Migration 96, v154)
       export.ts                   DATEV-Sätze aus dem Journal (brutto, Automatik/BU), GoBD index.xml + CSV, ZIP, Verfahrensdokumentation (Migration 97, v155)
       zugferd.ts                  XML einer ZUGFeRD-/Factur-X-Rechnung aus dem PDF holen (v156)
+      mahnung.ts                  Mahnstufen, Vorschlag, Verzugszinsen (Basiszinssatz je Halbjahr), Brieftext, E-Mail (Migration 99, v157)
       auswertungen.ts             Summen/Salden, BWA-Gliederung, EÜR nach Kennzahlen, Kontenblatt-Saldo, Monatsnamen (Migration 94, v152)
       steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150);
                                   Frist-Erinnerung (v151)
@@ -400,7 +402,7 @@ viana-pinpoints/
                                    festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148);
                                    Bankkonten, Kontoauszüge, Abgleich (v149); Voranmeldung, Steuerjahr (v150); Teilzahlungen, Kassensturz (v151);
                                    Salden, Kontenblatt, EÜR (v152); Anlagen, Abschreibungen (v153);
-                                   Abschlussbuchungen, Saldenvortrag (v154); Export-Journal, Belegliste, Protokoll (v155); Skonto (v156)
+                                   Abschlussbuchungen, Saldenvortrag (v154); Export-Journal, Belegliste, Protokoll (v155); Skonto (v156); Mahnungen (v157)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -755,7 +757,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 98** (14.10.2026; 98 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 99** (14.10.2026; 99 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -924,6 +926,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **98** – Finance, Skonto: `fin_skonto_buchen()` / `_zuruecknehmen()`, `fin_skonti()`, `fin_teilzahlungen.skonto`, Quelle und
   `bezahlt_art` `skonto`, Konten 8730/8731/8736/3730/3731/3736 bzw. 4730/4731/4736/5730/5731/5736; Ist ohne Skonto
   (`fin_rechnung_zahlungsanteile`, `fin_ust_kennzahlen`).
+- **99** – Finance, Mahnwesen: `fin_mahnungen` (Snapshot je Stufe 1–3, eine aktive je Stufe), `fin_mahnung_erstellen()`
+  (Stufe für Stufe, nach Fälligkeit bzw. voriger Frist, nur gebuchte offene Rechnungen), `fin_mahnung_zurueckziehen()` (nur die letzte).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

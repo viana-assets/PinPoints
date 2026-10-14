@@ -7,6 +7,7 @@ import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLiefer
 import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 import type { FinAnlage } from "@/lib/finance/anlagen";
+import type { FinMahnung } from "@/lib/finance/mahnung";
 import { protokolleLesen, type FinExportBeleg, type FinExportProtokoll } from "@/lib/finance/export";
 import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
@@ -482,4 +483,21 @@ export async function finSkontoBuchen(supabase: SupabaseClient, art: "rechnung" 
 }
 export async function finSkontoZuruecknehmen(supabase: SupabaseClient, buchung: string, grund: string): Promise<void> {
   await q("Der Skonto wurde nicht zurückgenommen", supabase.rpc("fin_skonto_zuruecknehmen", { p_buchung: buchung, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------- Mahnwesen (Migration 99)
+export async function fetchFinMahnungen(supabase: SupabaseClient): Promise<FinMahnung[]> {
+  const z = await fetchPaged<FinMahnung>("Die Mahnungen konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_mahnungen").select("id, rechnung_id, stufe, datum, frist, nummer_text, rechnung_datum, faellig_am, brutto, bezahlt, offen, gebuehr, zinsen, zinssatz, text, absender, empfaenger, zurueckgezogen_am, zurueck_grund, erstellt_am")
+      .order("datum").order("id").range(von, bis));
+  return z.map((m) => ({ ...m, brutto: Number(m.brutto), bezahlt: Number(m.bezahlt), offen: Number(m.offen), gebuehr: Number(m.gebuehr), zinsen: Number(m.zinsen), zinssatz: m.zinssatz == null ? null : Number(m.zinssatz) }));
+}
+export type FinMahnungFelder = { stufe: number; datum: string; frist: string; gebuehr: number; zinsen: number; zinssatz: number | null; text: string };
+export async function finMahnungErstellen(supabase: SupabaseClient, rechnung: string, f: FinMahnungFelder): Promise<{ id: string }> {
+  const r = await q<{ id: string }>("Die Mahnung wurde nicht erstellt", supabase.rpc("fin_mahnung_erstellen", {
+    p_rechnung: rechnung, p_stufe: f.stufe, p_datum: f.datum, p_frist: f.frist, p_gebuehr: f.gebuehr, p_zinsen: f.zinsen, p_zinssatz: f.zinssatz, p_text: f.text }));
+  return { id: String(r?.id) };
+}
+export async function finMahnungZurueckziehen(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
+  await q("Die Mahnung wurde nicht zurückgezogen", supabase.rpc("fin_mahnung_zurueckziehen", { p_id: id, p_grund: grund }));
 }

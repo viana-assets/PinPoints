@@ -98,6 +98,8 @@ export const qk = {
   finExportJournal: (von: string, bis: string) => ["finance", "exportJournal", von, bis] as const,
   // Skonto (Migration 98) je Art (Rechnung/Beleg).
   finSkonti: (art: "rechnung" | "beleg") => ["finance", "skonti", art] as const,
+  // Mahnwesen (Migration 99): alle Mahnungen (wenige je Jahr).
+  finMahnungen: () => ["finance", "mahnungen"] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

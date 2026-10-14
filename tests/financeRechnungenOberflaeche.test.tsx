@@ -7,6 +7,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // Finance F3 (v147): Finance › Rechnungen – Reiter, „Rechnung erstellen“, Zahlung, „Jetzt buchen“.
 const api = vi.hoisted(() => ({
   fetchFinRechnungenStand: vi.fn(),
+  fetchFinMahnungen: vi.fn(async () => []),
+  fetchFinSkonti: vi.fn(async () => []),
   finRechnungNachbuchen: vi.fn(async () => undefined),
   finRechnungBezahlt: vi.fn(async () => ({ nr: 9 })),
   finZahlungZuruecknehmen: vi.fn(async () => undefined),

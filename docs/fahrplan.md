@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **14.10.2026 – Finance Mahnwesen (Migration 99, Service Worker v157).** Zahlungserinnerung, Mahnung, letzte Mahnung je
+  Rechnung (Stufe für Stufe, nach Fälligkeit bzw. Frist), Schreiben als Snapshot zum Drucken/PDF mit Girocode, E-Mail nur
+  vorbereitet, Mahngebühr und Verzugszinsen (Basiszinssatz je Halbjahr) auf dem Schreiben, nicht gebucht. Migration 98 und
+  v156 laut Vitali ausgeführt und hochgeladen. `docs/finance.md`.
+
 * **14.10.2026 – Finance Nachträge (Migration 98, Service Worker v156).** Skonto an Rechnung und Beleg (Steuer anteilig, Ist
   richtig, höchstens 10 %), ZUGFeRD-PDF lesen, Jahreswerte zur Umsatzsteuererklärung. Zusammenfassende Meldung bewusst nicht
   (keine USt-IdNr. der Kunden). Migration 97 und v155 laut Vitali ausgeführt und hochgeladen. `docs/finance.md`.

@@ -302,6 +302,9 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   `fin_export_belege()` auch ohne „Buchungen“ bzw. „Belege lesen“. Jeder Export wird protokolliert (`fin_exporte`, nur lesen).
   **Skonto (Migration 98, v156):** an Rechnungen mit `finance.rechnungen` S, an Belegen mit `finance.belege` S (buchen und
   zurücknehmen); sehen, wer die Rechnung bzw. den Beleg lesen darf (`fin_skonti()`).
+  **Mahnwesen (Migration 99, v157):** `finance.rechnungen` · L = Erinnerungen und Mahnungen sehen und drucken
+  (`fin_mahnungen`), S = erstellen und die letzte zurückziehen (`fin_mahnung_erstellen()` / `_zurueckziehen()`). Verschickt
+  wird nichts automatisch.
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,
