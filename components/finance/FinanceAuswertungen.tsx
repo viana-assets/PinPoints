@@ -136,7 +136,7 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
             </div>
             <span className="small es-fuss fi-fuss">Nach Buchungsdatum (Rechnungen, wenn sie ausgestellt sind), ohne Umsatzsteuer. {istEuer
               ? "Das steuerliche Ergebnis nach Zahlung steht unter EÜR."
-              : "Bilanz und GuV nach HGB kommen mit Phase F8; bis dahin ist das Ergebnis hier der vorläufige Stand."}</span>
+              : "GuV und Bilanz nach HGB stehen unter Jahresabschluss."}</span>
           </>
         );
       })()}

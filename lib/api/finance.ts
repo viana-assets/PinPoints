@@ -7,6 +7,7 @@ import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLiefer
 import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 import type { FinAnlage } from "@/lib/finance/anlagen";
+import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
 
 // Finance (Migration 87–92, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
@@ -407,4 +408,39 @@ export async function finAnlageAbgangZuruecknehmen(supabase: SupabaseClient, id:
 export async function fetchFirmenfahrzeugeFuerAnlagen(supabase: SupabaseClient): Promise<{ id: string; kennzeichen: string; bezeichnung: string | null }[]> {
   return (await q<{ id: string; kennzeichen: string; bezeichnung: string | null }[]>("Die Firmenfahrzeuge konnten nicht geladen werden",
     supabase.from("firmenfahrzeuge").select("id, kennzeichen, bezeichnung").eq("aktiv", true).order("kennzeichen").order("id").range(0, 199))) ?? [];
+}
+
+// ---------------------------------------------------------------- F8 Jahresabschluss (Migration 96)
+export async function fetchFinAbschlussposten(supabase: SupabaseClient, jahr: number): Promise<FinAbschlussposten[]> {
+  const z = await q<FinAbschlussposten[]>("Die Abschlussbuchungen konnten nicht geladen werden",
+    supabase.from("fin_abschlussposten").select("id, jahr, art, konto, betrag, text, buchung_id, aufloesung_buchung_id, erstellt_am")
+      .eq("jahr", jahr).order("erstellt_am").order("id").range(0, 999));
+  return (z ?? []).map((x) => ({ ...x, betrag: Number(x.betrag) }));
+}
+
+export async function finAbschlusspostenBuchen(supabase: SupabaseClient, jahr: number, art: AbschlussArt, konto: number, betrag: number, text: string): Promise<{ nr: number }> {
+  const r = await q<{ nr: number }>("Die Abschlussbuchung wurde nicht gebucht",
+    supabase.rpc("fin_abschlussposten_buchen", { p_jahr: jahr, p_art: art, p_konto: konto, p_betrag: betrag, p_text: text }));
+  return { nr: Number(r?.nr) };
+}
+
+export async function finAbschlusspostenAufloesen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Die Abgrenzung wurde nicht aufgelöst", supabase.rpc("fin_abschlussposten_aufloesen", { p_id: id }));
+}
+
+export async function finAbschlusspostenZuruecknehmen(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
+  await q("Die Abschlussbuchung wurde nicht zurückgenommen", supabase.rpc("fin_abschlussposten_zuruecknehmen", { p_id: id, p_grund: grund }));
+}
+
+export async function fetchFinVortrag(supabase: SupabaseClient, jahr: number): Promise<FinVortragStand> {
+  return vortragLesen(await q<unknown>("Der Saldenvortrag konnte nicht geladen werden", supabase.rpc("fin_vortrag_vorschau", { p_jahr: jahr })));
+}
+
+export async function finVortragBuchen(supabase: SupabaseClient, jahr: number, grund: string | null): Promise<{ nr: number | null; konten: number }> {
+  const r = await q<{ nr: number | null; konten: number }>("Der Saldenvortrag wurde nicht gebucht", supabase.rpc("fin_vortrag_buchen", { p_jahr: jahr, p_grund: grund }));
+  return { nr: r?.nr ?? null, konten: Number(r?.konten ?? 0) };
+}
+
+export async function finVortragZuruecknehmen(supabase: SupabaseClient, jahr: number, grund: string): Promise<void> {
+  await q("Der Saldenvortrag wurde nicht zurückgenommen", supabase.rpc("fin_vortrag_zuruecknehmen", { p_jahr: jahr, p_grund: grund }));
 }

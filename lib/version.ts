@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v153";
+export const APP_VERSION = "v154";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v154", datum: "2026-10-14", titel: "Finance: Jahresabschluss",
+    punkte: [
+      "Neue Seite Finance › Jahresabschluss: Gewinn- und Verlustrechnung und Bilanz nach HGB, der Anlagenspiegel und eine Liste, was bis zum Abschluss noch fehlt – jeweils auch als CSV.",
+      "Bei Bilanzierung lassen sich Rückstellungen und Rechnungsabgrenzungen zum 31.12. buchen; Abgrenzungen werden am 01.01. wieder aufgelöst.",
+      "Ist ein Jahr vorbei, trägt „Saldenvortrag buchen“ Bank, Kasse, offene Posten und Kapital ins neue Jahr – kein Anfangsbestand mehr von Hand.",
+    ],
+  },
   {
     version: "v153", datum: "2026-10-14", titel: "Finance: Anlagen und Abschreibungen",
     punkte: [

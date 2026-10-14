@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `95_finance_anlagen.sql`** – vor den Dateien von v153 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–94 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
+**Noch auszuführen: `96_finance_abschluss.sql`** – vor den Dateien von v154 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–95 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–94 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1371,7 +1371,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   „Auswertungen lesen“ erlaubt; Baustein nicht aufrufbar. `t72`, `t86`–`t93` gegen 93 und 94: gleiche Ausgabe.
   Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `95_finance_anlagen.sql` – **noch auszuführen**, nach 94 und vor den Dateien von v153.
+- `95_finance_anlagen.sql` – **ausgeführt** (14.10.2026).
   Finance, Phase F7 (`docs/finance.md` 4.5). `fin_anlagen` (Verzeichnis, nur lesen mit `finance.abschluss`; geschrieben
   über `fin_anlage_speichern()` mit den Regeln: linear monatsgenau; degressiv nur Anschaffung 01.07.2025–31.12.2027,
   dreifach linear höchstens 30 %, Wechsel zu linear; GWG bis 800 €; Sammelposten über 250 € bis 1.000 € nur mit der
@@ -1399,3 +1399,26 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   leert Anlagen und Abschreibungen. `t72`, `t86`–`t94` gegen 94 und 95: gleiche Ausgabe bis auf die gewollten Stellen
   (zwei Tabellen mehr in der Sicherung, vier Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut
   ausgeführt.
+
+- `96_finance_abschluss.sql` – **noch auszuführen**, nach 95 und vor den Dateien von v154.
+  Finance, Phase F8 (`docs/finance.md` 4.7). `fin_abschlussposten` (nur lesen mit `finance.abschluss`; geschrieben über
+  `fin_abschlussposten_buchen(jahr, art, konto, betrag, text)` – nur bei Bilanzierung, ab 01.12., Aufwands- bzw.
+  Erlöskonto; Buchung am 31.12., Quelle `abschluss`), `fin_abschlussposten_aufloesen()` (Abgrenzungen am 01.01. des
+  Folgejahres umgekehrt), `fin_abschlussposten_zuruecknehmen()` (Storno, Posten weg). Saldenvortrag:
+  `fin_vortrag_zeilen()` (intern: Bestandskonten, Steuerkonten zusammen auf 1790/3840, Rest ins Kapital 0880/2010 bzw.
+  Gewinnvortrag 0860/2970; UG/GmbH mit Privatkonto abgelehnt), `fin_vortrag_vorschau(jahr)`, `fin_vortrag_buchen(jahr,
+  grund)` (wenn das Jahr vorbei ist und das Folgejahr eingerichtet; erneuern storniert den alten; Anfangsbestände von Hand
+  im Folgejahr sperren), `fin_vortrag_zuruecknehmen()`. Ersetzt: `fin_euer()` (Buchungen mit Konto 9000 zählen nicht),
+  `fin_kassensturz()` (nach einem Vortrag nur das Jahr), `fin_stornieren()` (lehnt `abschluss`/`vortrag` ab). Konten
+  0860/2970, 0970/3070, 0980/1900, 0990/3900. Wache: bricht ohne 95 ab. Ergebnistabelle mit vier Zeilen. Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/96_rollback.sql` (Funktionen gegen den Stand 95 verglichen: gleich; zweimal lauffähig;
+  Konten und Quellen bleiben, solange darauf gebucht ist).
+  Geprüft gegen Postgres 16 (Stand 95, `pgtest/t96.sql`): Jahr 2025 (Bilanz, Einzelunternehmen) mit Anfangsbestand 5.000,
+  Rechnung, Wareneinkauf, Miete, Barverkauf, Entnahme; Abschlussbuchungen 2026 zu früh, falsches Konto, ohne Text, Betrag 0,
+  bei EÜR → abgelehnt; Rückstellung 500, aktive Abgrenzung 200, passive 100 am 31.12.; Storno von Hand abgelehnt; Vortrag
+  ohne Folgejahr abgelehnt, mit: neun Konten, Kapital 4.100 H (5.000 − 600 Verlust − 300 Privat), USt Vorjahr 114 H,
+  9000 im neuen Jahr 0; zweiter Vortrag ohne Grund abgelehnt, mit Grund erneuert (einer aktiv); Abgrenzungen am 01.01.
+  aufgelöst, zweites Mal abgelehnt; Kassensturz 2026 zählt nur den Vortrag; EÜR 2026 leer; Anfangsbestand von Hand sperrt
+  den Vortrag; zurücknehmen mit Auflösung; Techniker abgelehnt, sieht nichts; GmbH mit Privatkonto abgelehnt. `t72`,
+  `t86`–`t95` gegen 95 und 96: gleiche Ausgabe bis auf die gewollten Stellen (eine Tabelle mehr in der Sicherung, acht
+  Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

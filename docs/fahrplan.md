@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **14.10.2026 – Finance Phase F8 (Migration 96, Service Worker v154).** Jahresabschluss: GuV und Bilanz nach HGB,
+  Anlagenspiegel, Schritte zum Abschluss, Rückstellungen und Abgrenzungen (Bilanzierung), Saldenvortrag ins neue Jahr.
+  Migration 95 und v153 laut Vitali ausgeführt und hochgeladen. `docs/finance.md`.
+
 * **14.10.2026 – Finance Phase F7 (Migration 95, Service Worker v153).** Anlagen: Verzeichnis mit Abschreibungsplan
   (linear, degressiv 2025–2027, GWG, Sammelposten mit Jahreswahl, E-Fahrzeug), Abschreibungen monatsweise buchen,
   Abgang mit Restbuchwert, Übernahme aus Beleg und Firmenfahrzeug. Migrationen 93/94 und v151/v152 laut Vitali
@@ -907,8 +911,8 @@ und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance
 **Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
 sind Probelauf, die Buchhaltung läuft wie bisher.
 Reihenfolge F0 → F1 → F3 → F2 → F4 → F5 → F6. **F0 (v145, Migration 87), F1 (v146, 88), F3 (v147, 89), F2 (v148,
-90), F4 (v149, 91), F5 (v150, 92), Nachträge (v151, 93), F6 (v152, 94) und F7 (v153, 95) erledigt.** Als Nächstes laut
-Plan: **F8** (Bilanz und GuV nach HGB, Abschlussbuchungen, Jahresübernahme), dann **F9** (DATEV-Export). Offen vor dem Echtbetrieb: Kontenliste und Kennzahlen mit dem Steuerberater
+90), F4 (v149, 91), F5 (v150, 92), Nachträge (v151, 93), F6 (v152, 94), F7 (v153, 95) und F8 (v154, 96) erledigt.** Als Nächstes laut
+Plan: **F9** (DATEV-Export des ganzen Journals, GoBD-Export, Verfahrensdokumentation). Offen vor dem Echtbetrieb: Kontenliste und Kennzahlen mit dem Steuerberater
 abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen; Skonto; Zusammenfassende Meldung; Umsatzsteuer-Jahreserklärung.
 
 ---

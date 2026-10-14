@@ -4540,6 +4540,15 @@ button.zt-m-zeile:hover{background:var(--hover);}
 /* Auswertungen (F6, v152): components/finance/FinanceAuswertungen.tsx */
 .fi-tabelle tr.summe td{font-weight:800;border-top:1px solid var(--border);}
 .fi-bwa td:first-child{font-size:13px;}
+/* Jahresabschluss (F8, v154): components/finance/FinanceAbschluss.tsx */
+.fi-quer{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.fi-spiegel{min-width:560px;}
+.fi-spiegel td:first-child{min-width:150px;}
+.fi-bilanz td:first-child{font-size:13px;}
+.fi-bilanz tr.gruppe td{font-weight:800;padding-top:12px;}
+.fi-schritt{flex:0 0 auto;width:26px;height:26px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-weight:800;
+  border:2px solid var(--border);color:var(--muted);}
+.fi-schritt.fertig{background:var(--green-bg);border-color:var(--green);color:var(--green);}
 /* Steuern (F5, v150): components/finance/FinanceSteuern.tsx */
 .fi-kachel-nahe b{color:#b26a00;}
 .fi-ust td:first-child,.fi-ust th:first-child{width:52px;white-space:nowrap;}

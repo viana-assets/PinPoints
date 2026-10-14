@@ -90,6 +90,9 @@ export const qk = {
   finAnlagen: () => ["finance", "anlagen"] as const,
   finAfaGebucht: (jahr: number) => ["finance", "afa", jahr] as const,
   finFahrzeuge: () => ["finance", "fahrzeuge"] as const,
+  // F8 (Migration 96): Abschlussbuchungen und Saldenvortrag je Jahr.
+  finAbschlussposten: (jahr: number) => ["finance", "abschluss", jahr] as const,
+  finVortrag: (jahr: number) => ["finance", "vortrag", jahr] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

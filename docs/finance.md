@@ -1,12 +1,12 @@
 # Finance – Buchhaltung als zweites System neben FSM
 
-Stand: 13.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rechte, Navigation, Übersicht,
+Stand: 14.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rechte, Navigation, Übersicht,
 Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung – und
 **F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten –, **F2 (v148,
 Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
 92)** – Umsatzsteuer-Voranmeldung als Probelauf –, dazu **Nachträge (v151, Migration 93)**: Teilzahlungen,
 Kassensturz, § 13b Abs. 2, Fristerinnerung –, **F6 (v152, Migration 94)** – Auswertungen – und **F7 (v153,
-Migration 95)** – Anlagen und Abschreibungen („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Migration 95)** – Anlagen und Abschreibungen – und **F8 (v154, Migration 96)** – Jahresabschluss („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -516,10 +516,45 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
   rechnet den Plan ab Anschaffung, gebucht wird ab dem ersten Jahr in Finance.
 - **EÜR und BWA:** Abschreibungen stehen in Kz 130/132; Auflösung des Sammelpostens und Restbuchwert als eigene Zeilen
   (Kennzahl mit dem Steuerberater klären). In der BWA unter „Abschreibungen“.
-- Noch nicht: Erinnerungswert 1 €, Leistungsabschreibung, Sonderabschreibung nach § 7g und Investitionsabzugsbetrag,
-  Anlagenspiegel als Export (kommt mit F8/F9).
+- Noch nicht: Erinnerungswert 1 €, Leistungsabschreibung, Sonderabschreibung nach § 7g und Investitionsabzugsbetrag.
+  Der Anlagenspiegel steht seit F8 unter Jahresabschluss.
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4, F5, F6 und F7 erledigt**, Nachträge v151; danach laut Plan ein Monat
+### So ist F8 gebaut (v154, Migration 96)
+
+- **Finance › Jahresabschluss** (Recht `finance.abschluss`; lesen L, buchen S) für das laufende Jahr oder das Vorjahr
+  (bis Ende Juni steht das Vorjahr vorn, sobald es dafür Einstellungen gibt). Reiter Schritte · GuV · Bilanz ·
+  Anlagenspiegel, jeder Bericht als CSV.
+- **Schritte:** Abschreibungen bis Dezember gebucht, Konto 9000 ausgeglichen, (bei Bilanz) Rückstellungen und
+  Abgrenzungen geprüft, alle zwölf Monate festgeschrieben, Saldenvortrag gebucht und noch aktuell
+  (`abschlussSchritte()`).
+- **GuV** nach § 275 Abs. 2 HGB (Gesamtkostenverfahren), nur die Posten, die Finance bebucht: 1 Umsatzerlöse, 4 sonstige
+  betriebliche Erträge, 5 Materialaufwand, Rohergebnis, 6 Personal, 7 Abschreibungen, 8 sonstige betriebliche
+  Aufwendungen, 11/13 Zinsen, 14 Steuern vom Einkommen und Ertrag, 15 Ergebnis nach Steuern, 16 sonstige Steuern
+  (Kfz-Steuer), 17 Jahresüberschuss/-fehlbetrag. Bereiche je Kontenrahmen in `FIN_GUV_AUFWAND`; Restbuchwert aus
+  Anlagenabgängen gehört zu den sonstigen Aufwendungen.
+- **Bilanz** nach § 266 HGB in der verkürzten Form (Stand Ende eines Monats): Anlagevermögen (immateriell, Sachanlagen),
+  Umlaufvermögen (Forderungen, sonstige Vermögensgegenstände, Kasse/Bank), aktive Abgrenzung; Eigenkapital (Kapitalkonten,
+  Privat, Gewinn bzw. Jahresüberschuss), Rückstellungen, Verbindlichkeiten (gegenüber Kreditinstituten, aus Lieferungen
+  und Leistungen, sonstige), passive Abgrenzung. Konten nach Saldo, Umsatz- und Vorsteuer nicht verrechnet. Ein Rest
+  auf 9000 steht sichtbar im Eigenkapital. Bei EÜR nur zur Information.
+- **Abschlussbuchungen** (nur Bilanzierung, ab 01.12.): Rückstellung (Aufwand an 0970/3070), aktive Abgrenzung (0980/1900
+  an Aufwand), passive Abgrenzung (Erlös an 0990/3900), gebucht am 31.12., Quelle `abschluss`. Abgrenzungen löst ein
+  Knopf am 01.01. des Folgejahres auf; eine Rückstellung wird mit der Zahlung verbraucht (Bank an Rückstellung), ein
+  Rest von Hand gegen sonstige Erträge. Zurücknehmen storniert (mit Grund). Steuerrückstellungen (Gewerbe-,
+  Körperschaftsteuer) rechnet die App nicht – die kommen vom Steuerberater.
+- **Saldenvortrag** (`fin_vortrag_buchen()`, wenn das Jahr vorbei ist und die Einstellungen des Folgejahres gespeichert
+  sind): eine Buchung am 01.01. mit jedem Bestandskonto gegen 9000; Umsatz- und Vorsteuerkonten zusammen auf
+  1790/3840 „Umsatzsteuer Vorjahr“; Gewinn, Privatkonten und ein Rest auf 9000 ins Kapital 0880/2010 (UG/GmbH:
+  Gewinnvortrag 0860/2970; Privatkonten dort abgelehnt). Danach ist 9000 im neuen Jahr ausgeglichen. Bucht man im
+  alten Jahr nach, zeigt die Seite „neu vortragen“ (Storno und neue Buchung); Anfangsbestände von Hand auf 9000 im
+  Folgejahr sperren den Vortrag, damit nichts doppelt steht.
+- **Folgen woanders:** Die EÜR lässt Buchungen mit Konto 9000 aus (ein Vortrag ist keine Zahlung); der Kassensturz zählt
+  nach einem Vortrag nur das laufende Jahr; Abschluss- und Vortragsbuchungen lassen sich nicht unter Buchungen
+  stornieren.
+- Noch nicht: Steuerrückstellungen, Anhang und Offenlegung, Vorjahresvergleich, Kapitalkonten je Gesellschafter (GbR),
+  E-Bilanz. Den Abschluss stellt der Steuerberater auf.
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4, F5, F6, F7 und F8 erledigt**, Nachträge v151; danach laut Plan ein Monat
 Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den

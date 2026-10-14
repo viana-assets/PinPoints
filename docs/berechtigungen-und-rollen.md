@@ -294,6 +294,9 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **F7 (Migration 95, v153):** `finance.abschluss` · L = Finance › Anlagen sehen, S = Anlagen erfassen und ändern,
   Abschreibungen buchen, Abgang buchen und zurücknehmen, eine Anlage ohne Buchungen löschen. Die Sammelposten-Wahl je
   Jahr gehört zu den Einstellungen (`finance.einstellungen` S).
+  **F8 (Migration 96, v154):** `finance.abschluss` · L = Finance › Jahresabschluss sehen (GuV, Bilanz, Anlagenspiegel,
+  Vorschau des Saldenvortrags), S = Rückstellungen und Abgrenzungen buchen, auflösen und zurücknehmen, Saldenvortrag
+  buchen, erneuern und zurücknehmen. Unter Buchungen lassen sich diese Buchungen nicht stornieren.
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

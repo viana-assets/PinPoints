@@ -15,6 +15,7 @@ import { FinanceBank } from "./FinanceBank";
 import { FinanceSteuern } from "./FinanceSteuern";
 import { FinanceAuswertungen } from "./FinanceAuswertungen";
 import { FinanceAnlagen } from "./FinanceAnlagen";
+import { FinanceAbschluss } from "./FinanceAbschluss";
 import { ustZuErledigen } from "@/lib/finance/steuern";
 import { MONATSNAMEN } from "@/lib/finance/auswertungen";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
@@ -25,7 +26,7 @@ import {
   finFeldAktiv, finKurztext, finMaengel, finVorgabe, type FinEinstellungen,
 } from "@/lib/finance/einstellungen";
 import {
-  IconAnlage, IconAuswertung, IconBank, IconBeleg, IconBuchen, IconDashboard, IconExport, IconOffen, IconRechnung,
+  IconAbschluss, IconAnlage, IconAuswertung, IconBank, IconBeleg, IconBuchen, IconDashboard, IconExport, IconOffen, IconRechnung,
   IconSettings, IconSteuer,
 } from "@/components/icons";
 
@@ -39,7 +40,7 @@ import {
 
 export const FINANCE_ICONS: Record<FinanceSeiteKey, () => React.JSX.Element> = {
   uebersicht: IconDashboard, rechnungen: IconRechnung, belege: IconBeleg, bank: IconBank, op: IconOffen,
-  buchungen: IconBuchen, steuern: IconSteuer, anlagen: IconAnlage, auswertungen: IconAuswertung,
+  buchungen: IconBuchen, steuern: IconSteuer, anlagen: IconAnlage, auswertungen: IconAuswertung, abschluss: IconAbschluss,
   export: IconExport, einstellungen: IconSettings,
 };
 
@@ -167,6 +168,10 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
           <FinanceAuswertungen supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null} onEinstellungen={() => onSeite("einstellungen")} />
         )}
+        {aktiv === "abschluss" && (
+          <FinanceAbschluss supabase={supabase} jahr={jahr} heute={heute}
+            darfSchreiben={darf("finance.abschluss", "schreiben")} onSeite={onSeite} />
+        )}
         {aktiv === "buchungen" && (
           <FinanceBuchungen supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
@@ -282,7 +287,7 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf), F6 Auswertungen, F7 Anlagen. Als Nächstes laut Plan: F8 Bilanz und GuV.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf), F6 Auswertungen, F7 Anlagen, F8 Jahresabschluss. Als Nächstes laut Plan: F9 DATEV-Export.</span>
         </>
       )}
     </>
