@@ -168,12 +168,16 @@ with pruefungen(nr, was, vorhanden) as (
     ('96', 'Finance: Jahresabschluss (Abgrenzungen, Saldenvortrag)', to_regclass('public.fin_abschlussposten') is not null and to_regprocedure('public.fin_vortrag_buchen(integer,text)') is not null),
     ('97', 'Finance: Export (DATEV, GoBD, Protokoll)', to_regclass('public.fin_exporte') is not null and to_regprocedure('public.fin_export_journal(date,date)') is not null),
     ('98', 'Finance: Skonto', to_regprocedure('public.fin_skonto_buchen(text,uuid,date,numeric)') is not null),
-    ('99', 'Finance: Mahnwesen', to_regclass('public.fin_mahnungen') is not null and to_regprocedure('public.fin_mahnung_erstellen(uuid,integer,date,date,numeric,numeric,numeric,text)') is not null)
+    ('99', 'Finance: Mahnwesen', to_regclass('public.fin_mahnungen') is not null and to_regprocedure('public.fin_mahnung_erstellen(uuid,integer,date,date,numeric,numeric,numeric,text)') is not null),
+    ('100', 'Finance: Planposten (Liquiditätsvorschau)', to_regclass('public.fin_planposten') is not null and to_regprocedure('public.fin_planposten_speichern(uuid,text,text,numeric,date,text,date,text)') is not null)
 )
-select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
-union all
-select nr, was, case when vorhanden then 'ja' else '>>> NEIN <<<' end from pruefungen
-order by 1;
+select migration, woran_erkennbar, gelaufen from (
+  select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
+  union all
+  select nr, was, case when vorhanden then 'ja' else '>>> NEIN <<<' end from pruefungen
+) x
+-- Seit 100 dreistellig: erst nach Länge, damit 100 hinter 99 steht.
+order by length(migration), migration;
 
 
 -- ---------------------------------------------------------------------

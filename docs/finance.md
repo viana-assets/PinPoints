@@ -6,7 +6,7 @@ Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Jou
 Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
 92)** – Umsatzsteuer-Voranmeldung als Probelauf –, dazu **Nachträge (v151, Migration 93)**: Teilzahlungen,
 Kassensturz, § 13b Abs. 2, Fristerinnerung –, **F6 (v152, Migration 94)** – Auswertungen –, **F7 (v153,
-Migration 95)** – Anlagen und Abschreibungen –, **F8 (v154, Migration 96)** – Jahresabschluss – und **F9 (v155, Migration 97)** – Export für die Kanzlei –, dazu **Nachträge (v156, Migration 98)**: Skonto, ZUGFeRD-PDF, Jahreswerte, und das **Mahnwesen (v157, Migration 99)** („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Migration 95)** – Anlagen und Abschreibungen –, **F8 (v154, Migration 96)** – Jahresabschluss – und **F9 (v155, Migration 97)** – Export für die Kanzlei –, dazu **Nachträge (v156, Migration 98)**: Skonto, ZUGFeRD-PDF, Jahreswerte, das **Mahnwesen (v157, Migration 99)** und die **Liquiditätsvorschau mit BWA-Vorjahresvergleich (v158, Migration 100)** („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -631,6 +631,30 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
   Steuerberater bzw. Anwalt klären – die App macht dort nichts.
 - **Rechte:** sehen mit `finance.rechnungen` L, erstellen und zurückziehen mit S. Die Texte sind Vorlagen, keine Rechtsberatung –
   vor dem ersten echten Einsatz prüfen lassen.
+
+### Liquiditätsvorschau und Vorjahresvergleich (v158, Migration 100)
+
+- **Wo:** Finance › Auswertungen › Liquidität (Recht `finance.abschluss` L). Ab heute je Woche (13 Wochen, die laufende bis
+  Sonntag) oder je Monat (6 Monate): Bestand am Anfang, Einzahlungen, Auszahlungen, Bestand am Ende; ein Tipp auf eine Woche
+  zeigt die einzelnen Zahlungen. Dazu Bestand heute, tiefster Stand (rot, wenn unter 0), Summen und ein Säulenbild des
+  Bestands; „Als CSV“ mit Zeiträumen und Einzelposten. Gerechnet in `lib/finance/liquiditaet.ts`, nichts wird gebucht.
+- **Startbestand:** Kasse und Bank (Konten der Art „Kasse und Bank“) laut Buchhaltung bis zum laufenden Monat – oder, wenn es
+  eingelesene Kontoauszüge mit Endsaldo gibt, wahlweise je Bankkonto der Endsaldo des letzten Auszugs (Kasse weiter gebucht).
+  Ohne Saldenvortrag fehlt am Jahresanfang der Stand vom Vorjahr; nicht zugeordnete Bankumsätze nennt die Seite.
+- **Einzahlungen:** offene Rechnungen (dieses und voriges Jahr) mit dem offenen Rest zum Fälligkeitstag; Aufträge mit „Rechnung
+  nötig“ ohne Rechnung mit dem geschätzten Betrag 14 Tage nach dem Auftrag (frühestens ab heute, abschaltbar); Testaufträge nie.
+- **Auszahlungen:** offene Belege mit dem Rest zum Fälligkeitstag; Umsatzsteuer je Voranmeldungszeitraum zur Frist (laufender
+  Zeitraum mit dem bisher Gebuchten; abgegeben und Frist vorbei gilt als bezahlt; nicht abgegeben und überfällig auf heute;
+  eine Erstattung als Einzahlung). Sondervorauszahlung und die Zeiträume des neuen Jahres fehlen.
+- **Überfälliges** steht auf heute (abschaltbar – dann sagt die Seite, wie viel draußen bleibt).
+- **Planposten** (`fin_planposten`, `fin_planposten_speichern()` / `_loeschen()`, schreiben mit `finance.abschluss` S): Text,
+  Ein- oder Auszahlung, Betrag, erster Termin, Rhythmus (einmalig, monatlich, vierteljährlich, halbjährlich, jährlich), optional
+  „bis“ und Notiz. Für alles, was Finance nicht kennt: Miete, Löhne, Leasing, Versicherungen, Kredite, geplante Anschaffungen.
+  Monatliche Termine bleiben am Tag und werden am Monatsende abgeschnitten (31.01. → 28.02. → 31.03.). Keine Buchung, keine Steuer.
+- **BWA gegen das Vorjahr** (Auswertungen › BWA › „Vorjahr“): Januar bis Monat oder nur der Monat, je Zeile dieses Jahr,
+  Vorjahr, Abweichung in Euro und Prozent (bezogen auf den Vorjahreswert, ohne Vorjahreswert keine Prozentzahl), als CSV.
+  Das Vorjahr wird mit seinem eigenen Kontenrahmen gegliedert. Solange das Vorjahr nicht in Finance eingerichtet ist, sagt
+  die Seite das – der Vergleich trägt erst ab dem zweiten Jahr.
 
 Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0 bis F9 erledigt**, Nachträge v151; danach laut Plan ein Monat
 Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.

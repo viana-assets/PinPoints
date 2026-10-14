@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `99_finance_mahnwesen.sql`** – vor den Dateien von v157 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–98 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–98 am 14.10.2026) –
+**Noch auszuführen: `100_finance_planposten.sql`** – vor den Dateien von v158 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–99 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1458,7 +1458,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   97 und 98: gleiche Ausgabe bis auf die gewollte Stelle (zwölf Konten mehr). Ausgeführt, zweimal, zurückgenommen, zweimal,
   erneut ausgeführt.
 
-- `99_finance_mahnwesen.sql` – **noch auszuführen**, nach 98 und vor den Dateien von v157.
+- `99_finance_mahnwesen.sql` – ausgeführt (laut Vitali am 14.10.2026), nach 98 und vor den Dateien von v157.
   Finance, Mahnwesen (`docs/finance.md`, Mahnwesen v157). Tabelle `fin_mahnungen` (Stufe 1–3, Datum, Frist, Snapshot von
   Absender, Empfänger, Rechnungsnummer, Betrag, bezahlt, offen, Gebühr 0–100 €, Zinsen, Zinssatz, Text bis 2.000 Zeichen;
   eine aktive Mahnung je Stufe; lesen mit „Finance › Rechnungen“ L, schreiben nur über die Funktionen).
@@ -1476,3 +1476,18 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   zurückgezogen und neu erstellt; bezahlte Rechnung abgelehnt; Techniker abgelehnt und sieht nichts; direktes Schreiben
   verweigert. `t72`, `t86`–`t98` gegen 98 und 99: gleiche Ausgabe bis auf die gewollte Stelle (eine Tabelle mehr in der
   Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `100_finance_planposten.sql` – **noch auszuführen**, nach 99 und vor den Dateien von v158.
+  Finance, Planposten der Liquiditätsvorschau (`docs/finance.md`, Liquiditätsvorschau v158). Tabelle `fin_planposten` (Text bis
+  120 Zeichen, `art` ein/aus, Betrag > 0, erster Termin, Rhythmus einmal/monat/quartal/halbjahr/jahr, `bis` nur bei
+  wiederkehrenden und nicht vor dem ersten Termin, Notiz bis 500; lesen mit `finance.abschluss` L, schreiben nur über die
+  Funktionen). `fin_planposten_speichern(id, text, art, betrag, ab, rhythmus, bis, notiz)` (neu bei `id` null, sonst ändern;
+  gibt die ID zurück) und `fin_planposten_loeschen(id)`, beide mit `finance.abschluss` S. Keine Buchung. Wache: bricht ohne 99
+  ab. Ergebnistabelle mit drei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/100_rollback.sql` (Funktionen und Tabelle
+  weg – die Planposten gehen dabei verloren; Finance-Funktionen danach gleich Stand 99; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 99, `pgtest/t100.sql`): leerer Text, falsche Art, Betrag 0 oder mit drei Nachkommastellen,
+  ohne Datum, unbekannter Rhythmus, „bis“ bei einmalig, „bis“ vor dem Termin, zu lange Notiz → abgelehnt; anlegen (Text
+  getrimmt, leere Notiz → null), ändern (gleiche ID, `geaendert_am` gesetzt), unbekannte ID abgelehnt, löschen, zweites Löschen
+  abgelehnt; direktes Schreiben, Ändern und Löschen verweigert; Techniker abgelehnt und sieht nichts, Admin ohne Finance sieht
+  nichts, `anon` darf die Funktion nicht aufrufen. `t72`, `t86`–`t99` gegen 99 und 100: gleiche Ausgabe bis auf die gewollte
+  Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

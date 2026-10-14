@@ -98,6 +98,13 @@ export function bwa(salden: FinSaldo[], konten: FinKonto[], rahmen: Kontenrahmen
   return { monat: bwaWerte(salden, konten, rahmen, monat, monat), kumuliert: bwaWerte(salden, konten, rahmen, 1, monat) };
 }
 
+// Vorjahresvergleich (v158): Abweichung in Euro und Prozent gegen das Vorjahr. Prozent bezogen auf den Betrag des
+// Vorjahres; ohne Vorjahreswert (0) gibt es keine Prozentzahl.
+export function abweichung(jetzt: number, vorjahr: number): { betrag: number; prozent: number | null } {
+  const betrag = cent(jetzt - vorjahr);
+  return { betrag, prozent: vorjahr === 0 ? null : Math.round((betrag / Math.abs(vorjahr)) * 1000) / 10 };
+}
+
 // ---------------------------------------------------------------- EÜR
 // Betriebsausgaben nach Kennzahlen der Anlage EÜR (Vordruck 2025). `anteil`: abziehbarer Teil (Bewirtung 70 %).
 export type EuerAusgabeDef = { kz: string | null; text: string; bereiche: Record<Kontenrahmen, Bereich[]>; anteil?: number };

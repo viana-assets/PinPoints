@@ -4546,6 +4546,28 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .fi-skonto-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1 1 100%;}
 .fi-skonto-form input{flex:1 1 160px;min-height:40px;}
 .fi-skonto-form.fi-rechts{flex:0 1 auto;justify-content:flex-end;}
+/* Liquiditätsvorschau (v158): Säulen = Bestand am Ende je Zeitraum; Farbe nur für das Vorzeichen, Werte stehen als Text daneben. */
+.fi-liq-info{background:var(--fin-bg);}
+.fi-liq-art{flex:0 0 auto;}
+.fi-liq-bild{gap:6px;}
+.fi-liq-flaeche{position:relative;height:150px;display:flex;gap:2px;}
+.fi-liq-spalte{position:relative;flex:1 1 0;min-width:0;height:100%;padding:0;border:0;background:transparent;cursor:pointer;}
+.fi-liq-spalte:focus-visible{outline:2px solid var(--fin);outline-offset:1px;}
+.fi-liq-saeule,.fi-liq-saeule-minus{position:absolute;left:0;right:0;margin:0 auto;width:min(calc(100% - 4px),72px);min-height:1px;}
+.fi-liq-saeule{background:var(--fin);border-radius:4px 4px 0 0;}
+.fi-liq-saeule-minus{background:var(--red);border-radius:0 0 4px 4px;}
+.fi-liq-spalte.aktiv .fi-liq-saeule,.fi-liq-spalte.aktiv .fi-liq-saeule-minus{opacity:.75;}
+.fi-liq-null{position:absolute;left:0;right:0;height:1px;background:var(--border);pointer-events:none;}
+.fi-liq-skala{position:absolute;right:0;z-index:1;pointer-events:none;background:var(--panel);padding:0 4px;border-radius:4px;opacity:.9;}
+.fi-liq-achse{display:flex;justify-content:space-between;}
+.fi-liq-minus .fi-betrag{color:var(--red);}
+.fi-liq-posten{display:flex;flex-direction:column;gap:2px;padding:2px 4px 10px 12px;border-left:2px solid var(--fin-bg);margin:0 0 6px 8px;}
+.fi-liq-posten-zeile{display:flex;gap:10px;align-items:flex-start;padding:5px 0;border-bottom:1px solid #f1ece2;}
+.fi-liq-posten-zeile > .small:first-child{flex:0 0 44px;padding-top:2px;}
+.fi-liq-posten-zeile .db-punkt-text{flex:1;min-width:0;}
+.fi-liq-formular{padding:6px 0;}
+.fi-bwa-vj td.zahl,.fi-bwa-vj th.zahl{white-space:nowrap;}
+@media (max-width:520px){.fi-bwa-vj{font-size:12px;}.fi-bwa-vj td,.fi-bwa-vj th{padding:5px 3px;}}
 /* Jahresabschluss (F8, v154): components/finance/FinanceAbschluss.tsx */
 .fi-quer{overflow-x:auto;-webkit-overflow-scrolling:touch;}
 .fi-spiegel{min-width:560px;}

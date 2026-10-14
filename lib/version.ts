@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v157";
+export const APP_VERSION = "v158";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v158", datum: "2026-10-14", titel: "Finance: Liquiditätsvorschau und Vorjahresvergleich",
+    punkte: [
+      "Unter Auswertungen › Liquidität steht, wie sich der Kontostand in den nächsten 13 Wochen oder 6 Monaten entwickelt – aus offenen Rechnungen und Belegen, Aufträgen ohne Rechnung und der Umsatzsteuer.",
+      "Regelmäßige Zahlungen wie Miete, Leasing oder Löhne lassen sich als Planposten eintragen; der tiefste Stand ist auf einen Blick zu sehen.",
+      "Die BWA lässt sich mit dem Vorjahr vergleichen – Monat oder Januar bis Monat, mit Abweichung in Euro und Prozent.",
+    ],
+  },
   {
     version: "v157", datum: "2026-10-14", titel: "Finance: Mahnwesen",
     punkte: [

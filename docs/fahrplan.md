@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **14.10.2026 – Finance Liquiditätsvorschau und BWA-Vorjahresvergleich (Migration 100, Service Worker v158).** Vorschau 13
+  Wochen bzw. 6 Monate aus Geldkonten (oder Kontoauszug), offenen Rechnungen und Belegen, Aufträgen ohne Rechnung,
+  Umsatzsteuer und Planposten (Miete, Leasing, Löhne …) mit tiefstem Stand und CSV; BWA mit Vorjahr (Euro und Prozent).
+  Migration 99 und v157 laut Vitali ausgeführt und hochgeladen. `docs/finance.md`.
+
 * **14.10.2026 – Finance Mahnwesen (Migration 99, Service Worker v157).** Zahlungserinnerung, Mahnung, letzte Mahnung je
   Rechnung (Stufe für Stufe, nach Fälligkeit bzw. Frist), Schreiben als Snapshot zum Drucken/PDF mit Girocode, E-Mail nur
   vorbereitet, Mahngebühr und Verzugszinsen (Basiszinssatz je Halbjahr) auf dem Schreiben, nicht gebucht. Migration 98 und

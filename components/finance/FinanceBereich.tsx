@@ -168,7 +168,9 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
         )}
         {aktiv === "auswertungen" && (
           <FinanceAuswertungen supabase={supabase} jahr={jahr} heute={heute}
-            einstellungen={stand?.status === "da" ? stand.einstellungen : null} onEinstellungen={() => onSeite("einstellungen")} />
+            einstellungen={stand?.status === "da" ? stand.einstellungen : null} onEinstellungen={() => onSeite("einstellungen")}
+            rechte={{ rechnungen: darf("finance.rechnungen", "lesen"), belege: darf("finance.belege", "lesen"), bank: darf("finance.bank", "lesen"),
+              steuern: darf("finance.steuer", "lesen"), planen: darf("finance.abschluss", "schreiben") }} />
         )}
         {aktiv === "abschluss" && (
           <FinanceAbschluss supabase={supabase} jahr={jahr} heute={heute}

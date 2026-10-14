@@ -305,6 +305,9 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **Mahnwesen (Migration 99, v157):** `finance.rechnungen` · L = Erinnerungen und Mahnungen sehen und drucken
   (`fin_mahnungen`), S = erstellen und die letzte zurückziehen (`fin_mahnung_erstellen()` / `_zurueckziehen()`). Verschickt
   wird nichts automatisch.
+  **Liquiditätsvorschau (Migration 100, v158):** `finance.abschluss` · L = Auswertungen › Liquidität und die Planposten sehen
+  (`fin_planposten`); die Vorschau nimmt Rechnungen, Belege, Umsatzsteuer und Kontoauszüge nur auf, soweit die Person sie lesen
+  darf (die Seite nennt, was fehlt). S = Planposten anlegen, ändern, löschen (`fin_planposten_speichern()` / `_loeschen()`).
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

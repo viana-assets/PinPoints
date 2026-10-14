@@ -8,6 +8,7 @@ import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 import type { FinAnlage } from "@/lib/finance/anlagen";
 import type { FinMahnung } from "@/lib/finance/mahnung";
+import type { FinPlanposten } from "@/lib/finance/liquiditaet";
 import { protokolleLesen, type FinExportBeleg, type FinExportProtokoll } from "@/lib/finance/export";
 import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
@@ -500,4 +501,21 @@ export async function finMahnungErstellen(supabase: SupabaseClient, rechnung: st
 }
 export async function finMahnungZurueckziehen(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
   await q("Die Mahnung wurde nicht zurückgezogen", supabase.rpc("fin_mahnung_zurueckziehen", { p_id: id, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------- Planposten der Liquiditätsvorschau (Migration 100)
+export async function fetchFinPlanposten(supabase: SupabaseClient): Promise<FinPlanposten[]> {
+  const z = await fetchPaged<FinPlanposten>("Die Planposten konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_planposten").select("id, text, art, betrag, ab, rhythmus, bis, notiz, erstellt_am, geaendert_am")
+      .order("ab").order("id").range(von, bis));
+  return z.map((p) => ({ ...p, betrag: Number(p.betrag) }));
+}
+export type FinPlanpostenFelder = Pick<FinPlanposten, "text" | "art" | "betrag" | "ab" | "rhythmus" | "bis" | "notiz">;
+export async function finPlanpostenSpeichern(supabase: SupabaseClient, id: string | null, f: FinPlanpostenFelder): Promise<string> {
+  const r = await q<string>("Der Planposten wurde nicht gespeichert", supabase.rpc("fin_planposten_speichern", {
+    p_id: id, p_text: f.text, p_art: f.art, p_betrag: f.betrag, p_ab: f.ab, p_rhythmus: f.rhythmus, p_bis: f.bis, p_notiz: f.notiz }));
+  return String(r);
+}
+export async function finPlanpostenLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Der Planposten wurde nicht gelöscht", supabase.rpc("fin_planposten_loeschen", { p_id: id }));
 }

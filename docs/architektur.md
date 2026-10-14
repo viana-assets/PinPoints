@@ -154,7 +154,8 @@ viana-pinpoints/
       FinanceExport.tsx              Export (Migration 97, v155): DATEV-Buchungsstapel, GoBD-ZIP, Verfahrensdokumentation, Protokoll
       FinanceSkonto.tsx              Skonto im Fenster von Rechnung und Beleg (Migration 98, v156): abziehen, zurücknehmen
       FinanceMahnung.tsx             Mahnwesen im Fenster der Rechnung (Migration 99, v157): Stufen, Formular, Schreiben zum Drucken
-      FinanceAuswertungen.tsx        Auswertungen (Migration 94, v152): Summen & Salden, Kontenblatt, BWA, EÜR, je als CSV
+      FinanceAuswertungen.tsx        Auswertungen (Migration 94, v152): Summen & Salden, Kontenblatt, BWA (seit v158 mit Vorjahr), EÜR, je als CSV
+      FinanceLiquiditaet.tsx         Liquiditätsvorschau (Migration 100, v158): Wochen/Monate, Säulenbild, Planposten
       FinanceSteuern.tsx             Steuern (Migration 92, v150): Voranmeldungen je Zeitraum mit Frist und Zustand,
                                      Formularansicht, Abgabe festhalten, Sondervorauszahlung, Kleinunternehmer-Grenzen
     chat/
@@ -348,7 +349,8 @@ viana-pinpoints/
       export.ts                   DATEV-Sätze aus dem Journal (brutto, Automatik/BU), GoBD index.xml + CSV, ZIP, Verfahrensdokumentation (Migration 97, v155)
       zugferd.ts                  XML einer ZUGFeRD-/Factur-X-Rechnung aus dem PDF holen (v156)
       mahnung.ts                  Mahnstufen, Vorschlag, Verzugszinsen (Basiszinssatz je Halbjahr), Brieftext, E-Mail (Migration 99, v157)
-      auswertungen.ts             Summen/Salden, BWA-Gliederung, EÜR nach Kennzahlen, Kontenblatt-Saldo, Monatsnamen (Migration 94, v152)
+      auswertungen.ts             Summen/Salden, BWA-Gliederung, EÜR nach Kennzahlen, Kontenblatt-Saldo, Monatsnamen (Migration 94, v152); Abweichung zum Vorjahr (v158)
+      liquiditaet.ts              Liquiditätsvorschau: Planposten-Termine, Zahlungen aus OP/Aufträgen/USt, Wochen/Monate, Bestand (Migration 100, v158)
       steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150);
                                   Frist-Erinnerung (v151)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
@@ -402,7 +404,7 @@ viana-pinpoints/
                                    festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148);
                                    Bankkonten, Kontoauszüge, Abgleich (v149); Voranmeldung, Steuerjahr (v150); Teilzahlungen, Kassensturz (v151);
                                    Salden, Kontenblatt, EÜR (v152); Anlagen, Abschreibungen (v153);
-                                   Abschlussbuchungen, Saldenvortrag (v154); Export-Journal, Belegliste, Protokoll (v155); Skonto (v156); Mahnungen (v157)
+                                   Abschlussbuchungen, Saldenvortrag (v154); Export-Journal, Belegliste, Protokoll (v155); Skonto (v156); Mahnungen (v157); Planposten (v158)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -757,7 +759,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 99** (14.10.2026; 99 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 100** (14.10.2026; 100 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -928,6 +930,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   (`fin_rechnung_zahlungsanteile`, `fin_ust_kennzahlen`).
 - **99** – Finance, Mahnwesen: `fin_mahnungen` (Snapshot je Stufe 1–3, eine aktive je Stufe), `fin_mahnung_erstellen()`
   (Stufe für Stufe, nach Fälligkeit bzw. voriger Frist, nur gebuchte offene Rechnungen), `fin_mahnung_zurueckziehen()` (nur die letzte).
+- **100** – Finance, Planposten der Liquiditätsvorschau: `fin_planposten` (Ein-/Auszahlung, Rhythmus, bis), geschrieben über
+  `fin_planposten_speichern()` / `_loeschen()` mit `finance.abschluss` S. Die Vorschau selbst rechnet die App.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

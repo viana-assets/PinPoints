@@ -19,7 +19,7 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
-import { fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
+import { fetchFinPlanposten, fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
 import type { Kontenrahmen } from "@/lib/finance/einstellungen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
@@ -584,6 +584,9 @@ export function useFinExportProtokolle(supabase: SupabaseClient, jahr: number, a
 }
 export function useFinSkonti(supabase: SupabaseClient, art: "rechnung" | "beleg", aktiv: boolean) {
   return useQuery({ queryKey: qk.finSkonti(art), queryFn: () => fetchFinSkonti(supabase, art), enabled: aktiv, staleTime: FRISCH_MS });
+}
+export function useFinPlanposten(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finPlanposten(), queryFn: () => fetchFinPlanposten(supabase), enabled: aktiv, staleTime: FRISCH_MS });
 }
 export function useFinMahnungen(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({ queryKey: qk.finMahnungen(), queryFn: () => fetchFinMahnungen(supabase), enabled: aktiv, staleTime: FRISCH_MS });
