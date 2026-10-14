@@ -149,6 +149,7 @@ viana-pinpoints/
                                      Kontovorschlag, buchen (auf Wunsch gleich bezahlt), Storno; offene Posten Lieferanten
       FinanceBank.tsx                Bank & Kasse (Migration 91, v149): Bankkonten, Kontoauszug einlesen mit Vorschau,
                                      Umsätze zuordnen (Rechnung, Beleg, Konto), ignorieren, aufheben; Importe; Kassenbuch
+      FinanceAuswertungen.tsx        Auswertungen (Migration 94, v152): Summen & Salden, Kontenblatt, BWA, EÜR, je als CSV
       FinanceSteuern.tsx             Steuern (Migration 92, v150): Voranmeldungen je Zeitraum mit Frist und Zustand,
                                      Formularansicht, Abgabe festhalten, Sondervorauszahlung, Kleinunternehmer-Grenzen
     chat/
@@ -319,6 +320,7 @@ viana-pinpoints/
     fremdabfrage.ts               Abfragebremse der Adressdienste über die Datenbank (B3, v100)
     abendhinweisVersand.ts        Versand des Abendhinweises (aus app/api/push/senden)
     stempelErinnerung.ts          Regeln der Stempel-Erinnerung (Migration 85, v138; tests/stempelErinnerung.test.ts)
+    steuerErinnerungVersand.ts    Push an die Frist der Voranmeldung im Minutenlauf (Migration 93, v151; tests/steuerErinnerung.test.ts)
     stempelErinnerungVersand.ts   Versand „Einstempeln nicht vergessen“ / „Ausstempeln vergessen?“ (aus app/api/push/senden)
     pushInhalt.ts                 Inhalt jeder Push-Meldung an einer Stelle
     chat.ts                       Regeln des Team-Chats: Karten, @-Erwähnungen, Tagestrenner, Push-Inhalt,
@@ -336,7 +338,9 @@ viana-pinpoints/
       belege.ts                   Belege: Zustand, Kontovorschlag, offene Posten, Dateipfad und -prüfung (Migration 90, v148)
       erechnung.ts                E-Rechnung lesen (XRechnung UBL/CII, ZUGFeRD-XML) und in Posten übersetzen (v148)
       bank.ts                     Kontoauszug lesen (CAMT.053, CSV, Zeichensatz), Vorschläge, Kassenbuch, Saldo (Migration 91, v149)
-      steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150)
+      auswertungen.ts             Summen/Salden, BWA-Gliederung, EÜR nach Kennzahlen, Kontenblatt-Saldo, Monatsnamen (Migration 94, v152)
+      steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150);
+                                  Frist-Erinnerung (v151)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
                                   Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -386,7 +390,8 @@ viana-pinpoints/
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
       finance.ts                   Finance: Einstellungen (v145); Konten, Steuerschlüssel, Journal, buchen, stornieren,
                                    festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148);
-                                   Bankkonten, Kontoauszüge, Abgleich (v149); Voranmeldung, Steuerjahr (v150)
+                                   Bankkonten, Kontoauszüge, Abgleich (v149); Voranmeldung, Steuerjahr (v150); Teilzahlungen, Kassensturz (v151);
+                                   Salden, Kontenblatt, EÜR (v152)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -895,6 +900,11 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **92** – Finance, Phase F5: `fin_ust_kennzahlen()` (intern, Kennzahlen aus dem Journal, Soll/Ist),
   `fin_ust_zeitraeume()`, `fin_ust_stand(jahr)`, `fin_ust_abgegeben()` (Fassungen in `fin_voranmeldungen`),
   `fin_steuer_jahre` (Vorjahresumsatz, Sondervorauszahlung). Recht `finance.steuer`.
+- **93** – Finance, Nachträge: `fin_teilzahlungen` (Bank bis zum offenen Rest, Trigger `fin_teilzahlung_nach_storno`),
+  Ist anteilig je Zahlung, `fin_kassenstuerze` + `fin_kassensturz()` (Quelle `kasse`), Schlüssel `r13b2_19` (Kz 84/85),
+  `fin_steuer_erinnerungen` (Push an die Frist).
+- **94** – Finance, Phase F6: nur lesend – `fin_auswertung_salden()`, `fin_kontenblatt()`, `fin_euer()` (Zufluss/Abfluss
+  je Konto, Zahlungen anteilig auf Rechnungen und Belege).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

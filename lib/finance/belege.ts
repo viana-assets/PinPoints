@@ -40,7 +40,15 @@ export type FinBeleg = {
   bezahlt_am: string | null;
   bezahlt_art: "bar" | "bank" | null;
   erstellt_am: string;
+  // Schon bezahlter Teil (Teilzahlungen, Migration 93) – lib/api/finance.ts liest ihn dazu.
+  teilbezahlt?: number;
 };
+
+const cent = (n: number) => Math.round(n * 100) / 100;
+
+export function belegRest(b: Pick<FinBeleg, "brutto" | "teilbezahlt" | "bezahlt_am">): number {
+  return b.bezahlt_am ? 0 : cent(Number(b.brutto ?? 0) - Number(b.teilbezahlt ?? 0));
+}
 
 // Verbindlichkeiten aus Lieferungen und Leistungen – wie `fin_rechnung_konto(…, 'verbindlichkeit')` in
 // Migration 90 (dieselbe Zahl dort; tests/financeBelege.test.ts vergleicht).
@@ -53,28 +61,33 @@ export function belegAlsBuchung(posten: FinBelegPosten[], rahmen: Kontenrahmen):
 
 export type BelegZustand =
   | { art: "entwurf" }
-  | { art: "offen"; faellig: string; tage: number }
-  | { art: "ueberfaellig"; faellig: string; tage: number }
+  | { art: "offen"; faellig: string; tage: number; teil: number }
+  | { art: "ueberfaellig"; faellig: string; tage: number; teil: number }
   | { art: "bezahlt"; am: string; wie: "bar" | "bank" }
   | { art: "storniert" };
 
-export function belegZustand(b: Pick<FinBeleg, "status" | "faellig_am" | "belegdatum" | "bezahlt_am" | "bezahlt_art">, heute: string): BelegZustand {
+export function belegZustand(b: Pick<FinBeleg, "status" | "faellig_am" | "belegdatum" | "bezahlt_am" | "bezahlt_art" | "teilbezahlt">, heute: string): BelegZustand {
   if (b.status === "entwurf") return { art: "entwurf" };
   if (b.status === "storniert") return { art: "storniert" };
   if (b.bezahlt_am && b.bezahlt_art) return { art: "bezahlt", am: b.bezahlt_am, wie: b.bezahlt_art };
   const faellig = b.faellig_am ?? b.belegdatum;
   const tage = Math.round((Date.parse(faellig + "T00:00:00Z") - Date.parse(heute + "T00:00:00Z")) / 86_400_000);
-  return tage < 0 ? { art: "ueberfaellig", faellig, tage: -tage } : { art: "offen", faellig, tage };
+  const teil = Number(b.teilbezahlt ?? 0);
+  return tage < 0 ? { art: "ueberfaellig", faellig, tage: -tage, teil } : { art: "offen", faellig, tage, teil };
 }
 
 export function belegZustandText(z: BelegZustand): string {
   switch (z.art) {
     case "entwurf": return "Entwurf";
-    case "offen": return z.tage === 0 ? "fällig heute" : `offen · fällig in ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}`;
-    case "ueberfaellig": return `überfällig seit ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}`;
+    case "offen": return (z.tage === 0 ? "fällig heute" : `offen · fällig in ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}`) + teilText(z.teil);
+    case "ueberfaellig": return `überfällig seit ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}` + teilText(z.teil);
     case "bezahlt": return z.wie === "bar" ? "bar bezahlt" : "überwiesen";
     case "storniert": return "storniert";
   }
+}
+
+function teilText(teil: number): string {
+  return teil > 0 ? ` · ${teil.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € schon bezahlt` : "";
 }
 
 // Kontovorschlag für einen Lieferanten: sein hinterlegtes Konto, sonst das des letzten gebuchten Belegs.
@@ -87,17 +100,16 @@ export function kontoVorschlag(lieferant: FinLieferant | null | undefined, beleg
   return letzter ? { konto: letzter.posten[0].konto, steuer: letzter.posten[0].steuer ?? lieferant.steuer } : { konto: null, steuer: lieferant.steuer };
 }
 
-// Offene Posten der Lieferanten: gebucht, unbezahlt – älteste Fälligkeit zuerst.
+// Offene Posten der Lieferanten: gebucht, unbezahlt – älteste Fälligkeit zuerst. Summen = offener Rest.
 export function belegeOffen(belege: FinBeleg[], heute: string): { posten: (FinBeleg & { zustand: BelegZustand })[]; summe: number; ueberfaellig: number } {
   const posten = belege
     .map((b) => ({ ...b, zustand: belegZustand(b, heute) }))
     .filter((b) => b.zustand.art === "offen" || b.zustand.art === "ueberfaellig")
     .sort((a, b) => (a.faellig_am ?? a.belegdatum).localeCompare(b.faellig_am ?? b.belegdatum));
-  const cent = (n: number) => Math.round(n * 100) / 100;
   return {
     posten,
-    summe: cent(posten.reduce((s, b) => s + Number(b.brutto ?? 0), 0)),
-    ueberfaellig: cent(posten.filter((b) => b.zustand.art === "ueberfaellig").reduce((s, b) => s + Number(b.brutto ?? 0), 0)),
+    summe: cent(posten.reduce((s, b) => s + belegRest(b), 0)),
+    ueberfaellig: cent(posten.filter((b) => b.zustand.art === "ueberfaellig").reduce((s, b) => s + belegRest(b), 0)),
   };
 }
 

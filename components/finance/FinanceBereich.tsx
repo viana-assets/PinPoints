@@ -13,7 +13,9 @@ import { FinanceRechnungen } from "./FinanceRechnungen";
 import { BelegeOffenePosten, FinanceBelege } from "./FinanceBelege";
 import { FinanceBank } from "./FinanceBank";
 import { FinanceSteuern } from "./FinanceSteuern";
+import { FinanceAuswertungen } from "./FinanceAuswertungen";
 import { ustZuErledigen } from "@/lib/finance/steuern";
+import { MONATSNAMEN } from "@/lib/finance/auswertungen";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
 import {
@@ -154,6 +156,10 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
             darfSchreiben={darf("finance.steuer", "schreiben")} onEinstellungen={() => onSeite("einstellungen")} />
         )}
+        {aktiv === "auswertungen" && (
+          <FinanceAuswertungen supabase={supabase} jahr={jahr} heute={heute}
+            einstellungen={stand?.status === "da" ? stand.einstellungen : null} onEinstellungen={() => onSeite("einstellungen")} />
+        )}
         {aktiv === "buchungen" && (
           <FinanceBuchungen supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
@@ -269,7 +275,7 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf). Als Nächstes laut Plan: F6 Auswertungen.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse, F5 Steuern (Probelauf), F6 Auswertungen. Als Nächstes laut Plan: F7 Anlagen.</span>
         </>
       )}
     </>
@@ -308,7 +314,7 @@ function Schalter({ titel, text, an, aus, gesperrt, onWechsel }: {
   );
 }
 
-const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const MONATE = MONATSNAMEN;
 
 export function FinanceEinstellungen({ supabase, gespeichert, bereit, vorgabe, darfAendern }: {
   supabase: SupabaseClient;

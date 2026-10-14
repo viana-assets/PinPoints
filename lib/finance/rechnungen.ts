@@ -44,8 +44,17 @@ export type FinRechnungZeile = {
   faellig_am: string | null;
   bezahlt_am: string | null;
   bezahlt_art: "bar" | "bank" | null;
+  // Schon bezahlter Teil (Teilzahlungen, Migration 93); bezahlt ist die Rechnung erst mit `bezahlt_am`.
+  teilbezahlt?: number;
   buchung_nr: number | null;
 };
+
+const cent = (n: number) => Math.round(n * 100) / 100;
+
+// Was an einer Rechnung noch offen ist – wie `brutto - fin_teilbezahlt()` in Migration 93.
+export function rechnungRest(r: Pick<FinRechnungZeile, "brutto" | "teilbezahlt" | "bezahlt_am">): number {
+  return r.bezahlt_am ? 0 : cent(Number(r.brutto) - Number(r.teilbezahlt ?? 0));
+}
 
 export type FinAnderswo = { order_id: string; order_number: number; datum: string; kunde: string; rechnung_nummer: string | null };
 
@@ -61,8 +70,8 @@ export function vorgaengeTeilen(v: FinVorgang[]): { zuErstellen: FinVorgang[]; v
 
 export type RechnungZustand =
   | { art: "nicht_gebucht"; grund: string | null }
-  | { art: "offen"; faellig: string; tage: number }
-  | { art: "ueberfaellig"; faellig: string; tage: number }
+  | { art: "offen"; faellig: string; tage: number; teil: number }
+  | { art: "ueberfaellig"; faellig: string; tage: number; teil: number }
   | { art: "bezahlt"; am: string; wie: "bar" | "bank" }
   | { art: "storniert"; bezahlt: boolean };
 
@@ -77,30 +86,34 @@ export function rechnungZustand(r: FinRechnungZeile, heute: string): RechnungZus
   if (r.bezahlt_am && r.bezahlt_art) return { art: "bezahlt", am: r.bezahlt_am, wie: r.bezahlt_art };
   const faellig = r.faellig_am ?? r.datum;
   const tage = tageZwischen(heute, faellig);
-  return tage < 0 ? { art: "ueberfaellig", faellig, tage: -tage } : { art: "offen", faellig, tage };
+  const teil = Number(r.teilbezahlt ?? 0);
+  return tage < 0 ? { art: "ueberfaellig", faellig, tage: -tage, teil } : { art: "offen", faellig, tage, teil };
 }
 
 export function zustandText(z: RechnungZustand): string {
   switch (z.art) {
     case "nicht_gebucht": return "nicht gebucht";
-    case "offen": return z.tage === 0 ? "fällig heute" : `offen · fällig in ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}`;
-    case "ueberfaellig": return `überfällig seit ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}`;
+    case "offen": return (z.tage === 0 ? "fällig heute" : `offen · fällig in ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}`) + teilText(z.teil);
+    case "ueberfaellig": return `überfällig seit ${z.tage} ${z.tage === 1 ? "Tag" : "Tagen"}` + teilText(z.teil);
     case "bezahlt": return z.wie === "bar" ? "bar bezahlt" : "überwiesen";
     case "storniert": return z.bezahlt ? "storniert – war bezahlt, Erstattung prüfen" : "storniert";
   }
 }
 
-// Offene Posten: gebucht, nicht bezahlt, nicht storniert – älteste Fälligkeit zuerst.
+function teilText(teil: number): string {
+  return teil > 0 ? ` · ${teil.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € schon bezahlt` : "";
+}
+
+// Offene Posten: gebucht, nicht bezahlt, nicht storniert – älteste Fälligkeit zuerst. Summen = offener Rest.
 export function offenePosten(r: FinRechnungZeile[], heute: string): { posten: (FinRechnungZeile & { zustand: RechnungZustand })[]; summe: number; ueberfaellig: number } {
   const posten = r
     .map((x) => ({ ...x, zustand: rechnungZustand(x, heute) }))
     .filter((x) => x.zustand.art === "offen" || x.zustand.art === "ueberfaellig")
     .sort((a, b) => (a.faellig_am ?? a.datum).localeCompare(b.faellig_am ?? b.datum) || a.nummer_text.localeCompare(b.nummer_text));
-  const cent = (n: number) => Math.round(n * 100) / 100;
   return {
     posten,
-    summe: cent(posten.reduce((s, x) => s + Number(x.brutto), 0)),
-    ueberfaellig: cent(posten.filter((x) => x.zustand.art === "ueberfaellig").reduce((s, x) => s + Number(x.brutto), 0)),
+    summe: cent(posten.reduce((s, x) => s + rechnungRest(x), 0)),
+    ueberfaellig: cent(posten.filter((x) => x.zustand.art === "ueberfaellig").reduce((s, x) => s + rechnungRest(x), 0)),
   };
 }
 
@@ -119,7 +132,7 @@ export function standLesen(roh: unknown): FinRechnungenStand {
   const s = (roh ?? {}) as Partial<FinRechnungenStand>;
   return {
     vorgaenge: (s.vorgaenge ?? []).map((v) => ({ ...v, betrag: Number(v.betrag) || 0 })),
-    rechnungen: (s.rechnungen ?? []).map((r) => ({ ...r, brutto: Number(r.brutto) || 0 })),
+    rechnungen: (s.rechnungen ?? []).map((r) => ({ ...r, brutto: Number(r.brutto) || 0, teilbezahlt: Number(r.teilbezahlt ?? 0) || 0 })),
     anderswo: s.anderswo ?? [],
   };
 }

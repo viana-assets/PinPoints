@@ -569,3 +569,13 @@ Superadmin immer), mit angemeldetem Gerät und eingeschalteter Erinnerung (Einst
 Nachricht beim Empfänger als „angekommen“ (`chat_zugestellt_setzen()`) – das sind die zwei grauen Haken
 beim Schreiber (`docs/team-chat.md`).
 
+## Sechste Nutzung: die Frist der Umsatzsteuer-Voranmeldung (14.10.2026, Migration 93, v151)
+
+Im selben Minutenlauf von `app/api/push/senden` prüft `lib/steuerErinnerungVersand.ts` ab 8 Uhr, ob eine
+Voranmeldung (Finance › Steuern) in höchstens drei Tagen oder heute fällig ist und noch nicht als abgegeben
+festgehalten wurde – die Regel steht in `ustErinnerungen()` (`lib/finance/steuern.ts`, Frist mit Dauerfrist,
+Wochenende und bundesweiten Feiertagen). Empfänger: wer „Finance › Steuern · schreiben“ hat (der Superadmin immer)
+und ein Gerät angemeldet hat. Einmal je Zeitraum und Stufe („bald“, „heute“) über `fin_steuer_erinnerungen` – erst
+eintragen, dann senden. Die Meldung nennt Zeitraum und Frist, keinen Betrag; ein Tippen öffnet `/?system=finance`.
+Kleinunternehmer und „befreit“ bekommen nichts. Das Ergebnis steht in der Antwort der Route unter `steuer`.
+

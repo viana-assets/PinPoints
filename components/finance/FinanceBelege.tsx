@@ -14,7 +14,7 @@ import {
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import { betragLesen, buchungVorschau, kontoNr, passendeSchluessel, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
 import {
-  FIN_BELEG_KATEGORIEN, belegAlsBuchung, belegZustand, belegZustandText, belegeOffen, dateiMangel, istXml, kontoVorschlag,
+  FIN_BELEG_KATEGORIEN, belegAlsBuchung, belegRest, belegZustand, belegZustandText, belegeOffen, dateiMangel, istXml, kontoVorschlag,
   type BelegZustand, type FinBeleg, type FinBelegPosten, type FinLieferant,
 } from "@/lib/finance/belege";
 import { eRechnungLesen, eRechnungPosten } from "@/lib/finance/erechnung";
@@ -329,8 +329,8 @@ function BelegFenster({ supabase, beleg, heute, einstellungen, konten, schluesse
   } else if (beleg && darfSchreiben) {
     fuss = z.art === "offen" || z.art === "ueberfaellig" ? <>
       <button type="button" className="btn-secondary" onClick={() => setAktion("storno")}>Stornieren …</button>
-      <button type="button" className="btn-secondary" onClick={() => setAktion("bar")}>Bar bezahlt</button>
-      <button type="button" className="btn-primary" onClick={() => setAktion("bank")}>Überwiesen</button>
+      <button type="button" className="btn-secondary" onClick={() => setAktion("bar")}>{z.teil > 0 ? "Rest bar bezahlt" : "Bar bezahlt"}</button>
+      <button type="button" className="btn-primary" onClick={() => setAktion("bank")}>{z.teil > 0 ? "Rest überwiesen" : "Überwiesen"}</button>
     </> : z.art === "bezahlt" ? <button type="button" className="btn-secondary" onClick={() => setAktion("zurueck")}>Zahlung zurücknehmen …</button> : undefined;
   }
 
@@ -426,6 +426,9 @@ function BelegFenster({ supabase, beleg, heute, einstellungen, konten, schluesse
                 {beleg.brutto != null ? ` · ${formatEUR(beleg.brutto)}` : ""}{beleg.faellig_am ? ` · fällig ${datumKurz(beleg.faellig_am)}` : ""}</span>
             </div>
             <ZeilenTabelle zeilen={buchungVorschau(belegAlsBuchung(beleg.posten, einstellungen.kontenrahmen), konten, schluessel, einstellungen).zeilen} name={name} />
+            {(z.art === "offen" || z.art === "ueberfaellig") && z.teil > 0 && (
+              <span className="small">Teilzahlungen aus dem Bankabgleich: {formatEUR(z.teil)} – offen {formatEUR(belegRest(beleg))}.</span>
+            )}
             {(aktion === "bar" || aktion === "bank") && (
               <label className="nk-feld"><span>{aktion === "bar" ? "Bar bezahlt am" : "Überwiesen am"}</span><input type="date" value={zahlDatum} max={heute} onChange={(e) => setZahlDatum(e.target.value)} /></label>
             )}

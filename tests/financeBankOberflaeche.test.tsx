@@ -39,6 +39,8 @@ const api = vi.hoisted(() => ({
   finBankZuKonto: vi.fn(async () => ({ nr: 10 })),
   finBankZuBeleg: vi.fn(), finBankIgnorieren: vi.fn(), finBankAufheben: vi.fn(), finBankImportZuruecknehmen: vi.fn(),
   finBankkontoAnlegen: vi.fn(), finBankkontoAendern: vi.fn(), finBuchen: vi.fn(),
+  fetchFinKassenstuerze: vi.fn(async () => []),
+  finKassensturz: vi.fn(async () => ({ buchbestand: 0, differenz: -2, nr: 11 })),
 }));
 vi.mock("@/lib/api/finance", () => api);
 
@@ -88,5 +90,32 @@ describe("FinanceBank", () => {
     fireEvent.click(screen.getByRole("button", { name: "Buchen" }));
     expect(await screen.findByText("Gebucht (Nr. 10).")).toBeTruthy();
     expect(api.finBankZuKonto).toHaveBeenCalledWith(supabase, "u2", 4970, null, "Bank: Kontoführung");
+  });
+
+  it("kleiner Eingang wird Teilzahlung", async () => {
+    api.finBankZuRechnung.mockResolvedValueOnce({ nr: 12, rest: 69 } as never);
+    api.fetchFinBankumsaetze.mockResolvedValueOnce([
+      { id: "u9", bankkonto_id: "k1", import_id: "i1", datum: "2026-10-05", valuta: null, betrag: 50, zweck: "Anzahlung", name: "Muster GmbH",
+        iban: null, referenz: null, status: "offen", zuordnung: null, zuordnung_id: null, buchung_id: null, notiz: null },
+    ] as never);
+    zeigen();
+    fireEvent.click(await screen.findByText("Muster GmbH"));
+    expect(await screen.findByText(/als Teilzahlung/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Teilzahlung" }));
+    expect(await screen.findByText(/Teilzahlung gebucht \(Nr\. 12\) – offen bleiben 69,00\s€/)).toBeTruthy();
+    expect(api.finBankZuRechnung).toHaveBeenCalledWith(supabase, "u9", "r1");
+  });
+
+  it("Kassensturz mit Differenz", async () => {
+    zeigen();
+    fireEvent.click(await screen.findByRole("tab", { name: "Kasse" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Kassensturz" }));
+    fireEvent.change(screen.getByLabelText("Gezählter Bestand"), { target: { value: "-1" } });
+    expect((screen.getByRole("button", { name: "Festhalten" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Gezählter Bestand"), { target: { value: "45,00" } });
+    expect(screen.getByText("Differenz ausbuchen")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Festhalten" }));
+    expect(await screen.findByText(/Differenz -2,00\s€ ausgebucht \(Nr\. 11\)/)).toBeTruthy();
+    expect(api.finKassensturz).toHaveBeenCalledWith(supabase, "2026-10-13", 45, "", true);
   });
 });

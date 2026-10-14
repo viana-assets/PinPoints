@@ -7,6 +7,7 @@ import { pushNutzlast } from "@/lib/pushInhalt";
 import { abendhinweiseVersenden, type AbendhinweisErgebnis } from "@/lib/abendhinweisVersand";
 import { chatFotosAufraeumen, chatNachrichtenVersenden, type ChatVersandErgebnis } from "@/lib/chatVersand";
 import { stempelErinnerungenVersenden, type StempelErinnerungErgebnis } from "@/lib/stempelErinnerungVersand";
+import { steuerErinnerungenVersenden, type SteuerErinnerungErgebnis } from "@/lib/steuerErinnerungVersand";
 
 // Terminerinnerung: verschickt die Meldung „Termin in 5 Minuten" an die zugeordneten
 // Techniker (docs/benachrichtigungen-plan.md, Teile 3 bis 5).
@@ -33,6 +34,8 @@ import { stempelErinnerungenVersenden, type StempelErinnerungErgebnis } from "@/
 //
 // Seit v138 (Migration 85) im Minutentakt außerdem die Stempel-Erinnerung
 // (lib/stempelErinnerungVersand.ts): „Einstempeln nicht vergessen“ / „Ausstempeln vergessen?“.
+// Seit v151 (Migration 93) die Frist der Umsatzsteuer-Voranmeldung (lib/steuerErinnerungVersand.ts):
+// drei Tage vorher und am Tag, an wer in Finance Voranmeldungen festhalten darf.
 
 export const runtime = "nodejs";        // web-push braucht Node-Krypto, nicht die Edge-Laufzeit.
 export const dynamic = "force-dynamic"; // Nie vorberechnen: die Antwort hängt an der Uhrzeit.
@@ -107,6 +110,14 @@ export async function POST(request: Request) {
     stempel = { fehler: e instanceof Error ? e.message : String(e) };
   }
 
+  // Frist der Umsatzsteuer-Voranmeldung (Migration 93, Finance) – ebenfalls für sich.
+  let steuer: SteuerErinnerungErgebnis | { fehler: string };
+  try {
+    steuer = await steuerErinnerungenVersenden(supabase, { datum, minuten });
+  } catch (e) {
+    steuer = { fehler: e instanceof Error ? e.message : String(e) };
+  }
+
   // Der Abendhinweis zuerst und für sich: Ein Fehler darin darf die Terminerinnerung nicht
   // mitreißen, und umgekehrt. Sein Ergebnis steht in jeder Antwort mit dabei – so sieht man es
   // in `net._http_response`, ohne eine zweite Stelle abfragen zu müssen.
@@ -117,7 +128,7 @@ export async function POST(request: Request) {
     abendhinweis = { fehler: e instanceof Error ? e.message : String(e) };
   }
   const antwort = (daten: Record<string, unknown>, init?: ResponseInit) =>
-    NextResponse.json({ ...daten, abendhinweis, chat, chatFotos, stempel }, init);
+    NextResponse.json({ ...daten, abendhinweis, chat, chatFotos, stempel, steuer }, init);
 
   // Nur der heutige Tag: ein Termin um 00:02 würde eine Erinnerung um 23:57 des Vortages
   // brauchen und fiele durch dieses Raster. Für einen Reifenwechsel-Betrieb ist das kein

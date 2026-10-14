@@ -4,7 +4,9 @@ Stand: 13.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rech
 Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung – und
 **F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten –, **F2 (v148,
 Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
-92)** – Umsatzsteuer-Voranmeldung als Probelauf („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+92)** – Umsatzsteuer-Voranmeldung als Probelauf –, dazu **Nachträge (v151, Migration 93)**: Teilzahlungen,
+Kassensturz, § 13b Abs. 2, Fristerinnerung – und **F6 (v152, Migration 94)** – Auswertungen („So ist … gebaut“ in
+Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -439,10 +441,55 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - **Zahlung ans Finanzamt:** unter Bank & Kasse den Umsatz auf 1780 (SKR04 3820) Umsatzsteuer-Vorauszahlungen bzw.
   1781 (3830) Sondervorauszahlung buchen.
 - **Übersicht › Zu erledigen:** Voranmeldungen überfällig, in 7 Tagen fällig, seit der Abgabe geändert.
-- Noch nicht: Zusammenfassende Meldung, Umsatzsteuer-Jahreserklärung, Erinnerung per Push, Abschlussbuchung der
-  USt-Konten auf 1780, § 13b Abs. 2. Übermittelt wird nie aus der App.
+- Noch nicht: Zusammenfassende Meldung, Umsatzsteuer-Jahreserklärung, Abschlussbuchung der USt-Konten auf 1780.
+  Übermittelt wird nie aus der App. (Erinnerung per Push und § 13b Abs. 2: Nachträge v151.)
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4 und F5 erledigt**; danach laut Plan ein Monat
+### Nachträge zu F2–F5 (v151, Migration 93)
+
+- **Teilzahlungen** im Bankabgleich: Ein Zahlungseingang (oder eine Abbuchung) darf kleiner sein als der offene Rest
+  einer Rechnung (eines Belegs) – „Teilzahlung“ statt „Zuordnen“. Vorgeschlagen wird sie, wenn die Nummer im Zweck
+  steht oder der Name passt. Bezahlt ist der Posten erst, wenn nichts mehr offen ist; offene Posten, Übersicht und
+  Fenster zeigen den Rest und „x € schon bezahlt“. „Bar bezahlt“/„Überweisung“ an Rechnung und Beleg buchen den
+  Rest. Eine Teilzahlung nimmt man unter Bank & Kasse mit „Aufheben“ zurück; war der Posten bis dahin bezahlt,
+  ist er wieder offen (eine Restzahlung von Hand zählt dann als Teilzahlung weiter). Mehr als der Rest wird nicht
+  zugeordnet – eine Überzahlung bucht man auf ein Konto. Skonto als eigene Buchung gibt es noch nicht.
+- **Ist-Versteuerung** in der Voranmeldung jetzt anteilig: Jede Zahlung auf eine Rechnung aus FSM bringt ihren Anteil
+  an Bemessung und Steuer in den Zeitraum, in dem sie eingeht.
+- **Kassensturz** im Kassenbuch: Bargeld zählen, eintragen, mit dem Bestand laut Buchungen vergleichen (über alle
+  Jahre bis zum Tag). Eine Differenz lässt sich ausbuchen – Fehlbetrag als sonstiger Aufwand (4900/6300), Überschuss
+  als sonstiger Ertrag (2700/4830, neu angelegt). Jeder Kassensturz bleibt mit Datum, Zählung, Bestand und Differenz
+  stehen. Ein Tagesabschluss mit Sperre ist das noch nicht – dafür bleibt „Monat festschreiben“.
+- **§ 13b Abs. 2** (z. B. Bauleistungen, Gebäudereinigung, Schrott): eigener Schlüssel, Kz 84/85 und Vorsteuer 67,
+  Konto 3120/5920. Der bisherige Schlüssel heißt jetzt „§ 13b Abs. 1 – Leistung aus dem EU-Ausland“.
+- **Erinnerung an die Frist** der Voranmeldung per Push: drei Tage vorher und am Tag selbst, ab 8 Uhr, an alle mit
+  „Finance › Steuern · schreiben“ (heute der Superadmin) mit angemeldetem Gerät; nur solange der Zeitraum nicht als
+  abgegeben festgehalten ist, nicht für Kleinunternehmer und Befreite, nicht vor dem Starttag. Der Text nennt Zeitraum
+  und Frist, keine Beträge. Ein Tippen öffnet Finance (`docs/benachrichtigungen-plan.md`, „Sechste Nutzung“).
+
+### So ist F6 gebaut (v152, Migration 94)
+
+- **Finance › Auswertungen** (Recht `finance.abschluss` lesen; die Zahlen liefert die Datenbank auch mit
+  `finance.buchen` lesen), Reiter Summen & Salden · Kontenblatt · BWA · EÜR (nur bei EÜR). Jeder Reiter als CSV
+  (Semikolon, Komma, UTF-8 für Excel).
+- **Summen & Salden:** je Konto Soll, Haben, Saldo für einen wählbaren Zeitraum (Monat bis Monat), gegliedert nach
+  Kontoart; Gegenprobe Soll = Haben. Ein Tipp öffnet das Kontenblatt.
+- **Kontenblatt:** alle Buchungen eines Kontos im Jahr mit Gegenkonto, Beleg und laufendem Saldo.
+- **BWA** (kurzfristige Erfolgsrechnung): Monat und Januar bis Monat – Umsatzerlöse, Material/Wareneinsatz und
+  Fremdleistungen, Rohertrag, Kosten nach Bereichen (Personal, Raum, Versicherungen, Fahrzeuge, Werbung/Reise/Bewirtung,
+  Instandhaltung, Abschreibungen, Sonstige), Betriebsergebnis, sonstige Erträge, vorläufiges Ergebnis. Nach
+  Buchungsdatum, ohne Umsatzsteuer. Kontenbereiche je Kontenrahmen in `FIN_BWA_KOSTEN`. Ein Vorjahresvergleich folgt,
+  sobald es ein Vorjahr in Finance gibt.
+- **EÜR** (§ 4 Abs. 3 EStG, nach Zahlung): Einnahmen, wenn das Geld da ist, Ausgaben, wenn es weg ist –
+  Zahlungen auf Rechnungen und Belege anteilig auf deren Erlöse, Kosten und Steuer (Teilzahlungen ebenso), dazu
+  Abschreibungen. Gegliedert nach Kennzahlen der Anlage EÜR (Vordruck 2025: 111, 112, 103, 140, 141 → 159; 100, 110,
+  120, 130, 132, 150, 280, 221, 194, 223, 224, 165 mit 70 %, Kfz 144–146, 183, 185, 186 → 199; Gewinn). Anschaffungen von
+  Anlagen sind keine Ausgabe (Abschreibung mit F7), Privatentnahmen zählen nicht; Zahlungen auf Forderungen von Hand
+  stehen gesondert als „unklar“. Die Kfz-Kennzahlen hängen von der Art ab – die App teilt sie nicht auf.
+- Bei **Bilanzierung** ist die BWA das vorläufige Ergebnis; Bilanz und GuV nach HGB kommen mit F8.
+- Noch nicht: Vorjahresvergleich, Liquiditätsvorschau, Offene-Posten-Liste als Export (die Liste steht unter
+  Offene Posten).
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4, F5 und F6 erledigt**, Nachträge v151; danach laut Plan ein Monat
 Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den

@@ -284,7 +284,13 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **F5 (Migration 92, v150):** `finance.steuer` · L = Finance › Steuern (Kennzahlen je Zeitraum über `fin_ust_stand()` –
   Summen aus dem ganzen Journal, auch ohne `finance.buchen`), S = Abgabe festhalten (`fin_ust_abgegeben()`),
   Vorjahresumsatz und Sondervorauszahlung eintragen. Kein Löschen: Eine Voranmeldung wird nie gelöscht, eine
-  Berichtigung ist die nächste Fassung.
+  Berichtigung ist die nächste Fassung. Wer S hat, bekommt außerdem die Push-Erinnerung an die Frist (v151).
+  **Nachträge (Migration 93, v151):** Teilzahlungen sieht, wer die Rechnung (`finance.rechnungen` L) bzw. den Beleg
+  (`finance.belege` L) oder die Bank (`finance.bank` L) sehen darf; angelegt werden sie nur über den Bankabgleich
+  (`finance.bank` S). Kassensturz: lesen `finance.bank` L, festhalten und Differenz ausbuchen `finance.bank` S.
+  **F6 (Migration 94, v152):** `finance.abschluss` · L = Finance › Auswertungen (Summen & Salden, Kontenblatt, BWA,
+  EÜR). Die Funktionen dahinter liefern Summen und Kontenblätter auch mit `finance.buchen` L – wer das Journal sieht,
+  sieht auch seine Auswertung; die Seite in der Navigation zeigt nur „Auswertungen“.
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v150";
+export const APP_VERSION = "v152";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,22 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v152", datum: "2026-10-14", titel: "Finance: Auswertungen",
+    punkte: [
+      "Unter Finance › Auswertungen gibt es die Summen- und Saldenliste für einen frei wählbaren Zeitraum und zu jedem Konto das Kontenblatt mit laufendem Saldo.",
+      "Die BWA zeigt Monat und Jahr bis heute: Umsatz, Wareneinsatz, Rohertrag, Kosten nach Bereichen und Ergebnis.",
+      "Die EÜR rechnet nach Zahlung und gliedert nach den Kennzahlen der Anlage EÜR. Jede Auswertung lässt sich als CSV für den Steuerberater speichern.",
+    ],
+  },
+  {
+    version: "v151", datum: "2026-10-14", titel: "Finance: Teilzahlungen, Kassensturz, Fristerinnerung",
+    punkte: [
+      "Im Bankabgleich lässt sich ein kleinerer Zahlungseingang als Teilzahlung zuordnen. Die Rechnung bleibt offen, bis alles bezahlt ist – überall steht, was schon bezahlt und was noch offen ist.",
+      "Im Kassenbuch gibt es den Kassensturz: Bargeld zählen, eintragen, mit dem Bestand vergleichen und eine Differenz auf Wunsch ausbuchen.",
+      "Drei Tage vor der Frist einer Umsatzsteuer-Voranmeldung und am Tag selbst kommt eine Erinnerung aufs Handy – solange sie nicht als abgegeben festgehalten ist.",
+    ],
+  },
   {
     version: "v150", datum: "2026-10-14", titel: "Finance: Umsatzsteuer-Voranmeldung (Probelauf)",
     punkte: [

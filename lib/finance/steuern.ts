@@ -7,6 +7,7 @@
 
 import type { FinEinstellungen, Kontenrahmen } from "./einstellungen";
 import { KLEINUNTERNEHMER_GRENZE_LAUFEND, KLEINUNTERNEHMER_GRENZE_VORJAHR } from "./einstellungen";
+import { MONATSNAMEN } from "./auswertungen";
 
 export type FinKennzahlen = Record<string, { b?: number; s?: number }>;
 export type FinUstAbgabe = { fassung: number; abgegeben_am: string; kennzahlen: FinKennzahlen; notiz: string | null; erstellt_am: string };
@@ -25,6 +26,7 @@ export const FIN_UST_ZEILEN: FinUstZeile[] = [
   { kz: "48", text: "Steuerfreie Umsätze ohne Vorsteuerabzug (je nach Art auch Kz 43 – mit dem Steuerberater klären)", nurBemessung: true, seite: 1 },
   { kz: "89", text: "Innergemeinschaftliche Erwerbe 19 %", satz: 19, seite: 1 },
   { kz: "46", steuerKz: "47", text: "§ 13b: Sonstige Leistungen von Unternehmern aus dem übrigen EU-Gebiet", seite: 1 },
+  { kz: "84", steuerKz: "85", text: "§ 13b: Andere Leistungen (z. B. Bauleistungen, Gebäudereinigung – Abs. 2)", seite: 1 },
   { kz: "66", text: "Vorsteuer aus Rechnungen anderer Unternehmer", seite: -1 },
   { kz: "61", text: "Vorsteuer aus innergemeinschaftlichem Erwerb", seite: -1 },
   { kz: "67", text: "Vorsteuer aus Leistungen nach § 13b", seite: -1 },
@@ -80,7 +82,7 @@ export function ustFormular(kz: FinKennzahlen): FinUstFormular {
 }
 
 // ---------------------------------------------------------------- Zeiträume und Fristen
-const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
+const MONATE = MONATSNAMEN;
 
 export function zeitraumText(zeitraum: string, jahr: number): string {
   if (zeitraum === "J") return `Jahr ${jahr}`;
@@ -212,4 +214,51 @@ export function sondervorauszahlungVorschlag(vorjahr: FinUstStand): number | nul
     return s + ustFormular(k).zahllast;
   }, 0);
   return Math.max(0, Math.round(summe / 11));
+}
+
+// ---------------------------------------------------------------- Frist-Erinnerung (Migration 93, v151)
+// Zeiträume wie `fin_ust_zeitraeume()` (Migration 92) – hier für den Versand ohne Datenbankfunktion.
+export function ustZeitraeume(jahr: number, voranmeldung: FinEinstellungen["voranmeldung"]): { zeitraum: string; von: string; bis: string }[] {
+  const ende = (m: number) => new Date(Date.UTC(jahr, m, 0)).toISOString().slice(0, 10);
+  const pad = (m: number) => String(m).padStart(2, "0");
+  if (voranmeldung === "monat") return Array.from({ length: 12 }, (_, i) => ({ zeitraum: `M${pad(i + 1)}`, von: `${jahr}-${pad(i + 1)}-01`, bis: ende(i + 1) }));
+  if (voranmeldung === "quartal") return [1, 2, 3, 4].map((q) => ({ zeitraum: `Q${q}`, von: `${jahr}-${pad(3 * q - 2)}-01`, bis: ende(3 * q) }));
+  return [{ zeitraum: "J", von: `${jahr}-01-01`, bis: `${jahr}-12-31` }];
+}
+
+// Wie viele Tage vor der Frist die erste Erinnerung kommt; am Tag selbst kommt die zweite.
+export const FIN_UST_ERINNERUNG_TAGE = 3;
+
+export type UstErinnerung = { jahr: number; zeitraum: string; frist: string; stufe: "bald" | "heute"; tage: number };
+
+// Welche Voranmeldungen heute eine Erinnerung brauchen: noch nicht als abgegeben festgehalten, Frist in
+// höchstens FIN_UST_ERINNERUNG_TAGE Tagen. Nicht für Kleinunternehmer (die melden nur ausnahmsweise), nicht für
+// „befreit“, nicht vor dem Starttag von Finance.
+export function ustErinnerungen(
+  einstellungen: Pick<FinEinstellungen, "wirtschaftsjahr" | "voranmeldung" | "dauerfrist" | "besteuerung" | "start_datum">[],
+  abgegeben: { jahr: number; zeitraum: string }[],
+  heute: string,
+): UstErinnerung[] {
+  const erledigt = new Set(abgegeben.map((a) => `${a.jahr}|${a.zeitraum}`));
+  const liste: UstErinnerung[] = [];
+  for (const e of einstellungen) {
+    if (e.besteuerung === "klein" || e.voranmeldung === "keine") continue;
+    for (const z of ustZeitraeume(e.wirtschaftsjahr, e.voranmeldung)) {
+      if (z.bis < e.start_datum || z.bis >= heute || erledigt.has(`${e.wirtschaftsjahr}|${z.zeitraum}`)) continue;
+      const frist = ustFrist(z.bis, z.zeitraum, e.dauerfrist);
+      if (!frist) continue;
+      const tage = tageBis(heute, frist);
+      if (tage === 0) liste.push({ jahr: e.wirtschaftsjahr, zeitraum: z.zeitraum, frist, stufe: "heute", tage });
+      else if (tage > 0 && tage <= FIN_UST_ERINNERUNG_TAGE) liste.push({ jahr: e.wirtschaftsjahr, zeitraum: z.zeitraum, frist, stufe: "bald", tage });
+    }
+  }
+  return liste;
+}
+
+export function ustErinnerungText(e: UstErinnerung): { titel: string; text: string } {
+  const [j, m, t] = e.frist.split("-");
+  return {
+    titel: "Umsatzsteuer-Voranmeldung",
+    text: `${zeitraumText(e.zeitraum, e.jahr)}: Frist ${e.stufe === "heute" ? "heute" : `am ${t}.${m}.${j} (in ${e.tage} ${e.tage === 1 ? "Tag" : "Tagen"})`}. Probelauf unter Finance › Steuern ansehen – abgegeben wird über den Steuerberater oder ELSTER.`,
+  };
 }

@@ -7,7 +7,9 @@ import {
 } from "@/lib/finance/steuern";
 
 // Finance F5 (Migration 92, v150).
-const MIG = readFileSync(join(__dirname, "..", "supabase", "migrations", "92_finance_steuern.sql"), "utf8");
+// Die Kennzahlen rechnet seit Migration 93 deren Fassung von fin_ust_kennzahlen().
+const MIG = readFileSync(join(__dirname, "..", "supabase", "migrations", "92_finance_steuern.sql"), "utf8")
+  + readFileSync(join(__dirname, "..", "supabase", "migrations", "93_finance_luecken.sql"), "utf8");
 const MIG88 = readFileSync(join(__dirname, "..", "supabase", "migrations", "88_finance_buchungen.sql"), "utf8");
 
 describe("Formular", () => {

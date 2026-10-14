@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `92_finance_steuern.sql`** – vor den Dateien von v150 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–91 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91 am 14.10.2026) –
+**Noch auszuführen: `93_finance_luecken.sql`, dann `94_finance_auswertungen.sql`** – vor den Dateien von v151/v152 (Abschnitte unten). **Stand 14.10.2026: Die Migrationen 01–92 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91 und 92 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1306,7 +1306,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   `t72`, `t86`–`t90` gegen 90 und 91: gleiche Ausgabe bis auf die gewollte Stelle (drei Tabellen mehr in der
   Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `92_finance_steuern.sql` – **noch auszuführen**, nach 91 und vor den Dateien von v150.
+- `92_finance_steuern.sql` – **ausgeführt** (14.10.2026).
   Finance, Phase F5 (`docs/finance.md` 4.6): Umsatzsteuer-Voranmeldung als Probelauf. `fin_ust_kennzahlen()` (intern)
   rechnet je Zeitraum aus jeder Buchungszeile mit Steuerschlüssel, je Posten: Kz 81/86 (USt 19/7 – Bemessung vom
   Erlöskonto, Steuer vom USt-Konto), 41 (ig. Lieferung), 48 (steuerfrei, nur Erlöse), 89/61 (ig. Erwerb), 46/47/67
@@ -1328,3 +1328,45 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Schreiben in `fin_voranmeldungen` für alle verweigert; Upsert auf `fin_steuer_jahre` zweimal; „Alle Daten löschen“
   leert beide Tabellen. `t72`, `t86`–`t91` gegen 91 und 92: gleiche Ausgabe bis auf die gewollte Stelle (zwei Tabellen
   mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `93_finance_luecken.sql` – **noch auszuführen**, nach 92 und vor den Dateien von v151.
+  Finance, Lücken aus F2–F5. **Teilzahlungen** (`fin_teilzahlungen`, lesen mit dem Recht der Rechnung bzw. des
+  Belegs oder `finance.bank`): `fin_bank_zu_rechnung()`/`_zu_beleg()` nehmen jeden Umsatz bis zum offenen Rest
+  (`fin_teilbezahlt()`), bezahlt erst beim Rest null; „Bar bezahlt“/„Überweisung“ (`fin_rechnung_bezahlt()`,
+  `fin_beleg_zahlung_schreiben()`) buchen den offenen Rest; ein Beleg mit Teilzahlungen wird nicht storniert.
+  Trigger `fin_teilzahlung_nach_storno` (AFTER UPDATE OF storniert_durch): storniert die Teilzahlung, macht einen
+  bezahlten Posten wieder offen und wandelt eine Restzahlung von Hand dabei in eine Teilzahlung. `fin_rechnungen_stand()`
+  liefert `teilbezahlt`. **Ist-Versteuerung** anteilig je Zahlung (`fin_rechnung_zahlungsanteile()`, neue Fassung
+  von `fin_ust_kennzahlen()`). **§ 13b Abs. 2**: Schlüssel `r13b2_19` (Kz 84/85, Vorsteuer 67), Konto 3120/5920;
+  Bezeichnung von `r13b19` präzisiert. **Kassensturz**: `fin_kassenstuerze` (lesen `finance.bank`),
+  `fin_kassensturz()` (schreiben `finance.bank`; Bestand über alle Jahre bis zum Tag; Differenz auf Wunsch an
+  4900/6300 bzw. von 2700/4830, neu angelegt; Quelle `kasse`). **Fristerinnerung**: `fin_steuer_erinnerungen` (nur
+  Dienstschlüssel). Wache: bricht ohne 92 ab. Ergebnistabelle mit vier Zeilen. Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/93_rollback.sql` – stellt die sieben Funktionen in der Fassung aus 89–92 wieder her (gegen den Stand 92
+  verglichen: gleich), Konten/Schlüssel nur ohne Buchungen, Quelle `kasse` bleibt bei Buchungen; zweimal lauffähig.
+  Geprüft gegen Postgres 16 (Stand 92, `pgtest/t93.sql`): Rechnung 140,42 €: 200 € abgelehnt („Betrag zu hoch“),
+  50 € Teilzahlung (Rest 90,42, im Stand `teilbezahlt` 50); Rest bar 90,42 („(Rest)“), zurückgenommen → wieder 50
+  teilbezahlt; Rest per Bank → bezahlt; Ist: September 42,02/7,98, Oktober 75,98/14,44 (= 118/22,42); erste
+  Teilzahlung aufheben, obwohl bezahlt → wieder offen, Umsatz offen; Rest bar, dann Bank-Teil aufheben → Barzahlung
+  wird Teilzahlung, offen 90,42; Beleg: Teil 20, Storno abgelehnt, Rest 39,50 → bezahlt, Zahlung zurücknehmen → Umsatz
+  offen, 20 teilbezahlt; Kassensturz: Zukunft/negativ abgelehnt, 45 gegen 50 → 4900 an 1000 5 €, danach stimmt, ohne
+  Ausgleich nur festgehalten; § 13b Abs. 2 → 84 1000/190, 67 190; Admin ohne Recht: Kassensturz abgelehnt, sieht nichts;
+  direktes Schreiben verweigert; überall Soll = Haben, Nummern lückenlos; „Alle Daten löschen“ leert Teilzahlungen und
+  Kassenstürze, Konten bleiben. `t72`, `t86`–`t92` gegen 92 und 93: gleiche Ausgabe bis auf die gewollten Stellen
+  (drei Tabellen mehr in der Sicherung, vier Konten und zwei Schlüssel mehr, Meldung „Betrag zu hoch“ statt „Betrag
+  passt nicht“). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `94_finance_auswertungen.sql` – **noch auszuführen**, nach 93 und vor den Dateien von v152.
+  Finance, Phase F6 (`docs/finance.md` 4.7) – nur lesende Funktionen, keine Tabelle. `fin_auswertung_salden(jahr)`
+  (Soll/Haben je Konto und Monat), `fin_kontenblatt(jahr, konto)` (Zeilen mit Gegenkonten), `fin_euer(jahr)` (Wirkung
+  je Konto nach Zahlung: Gegenzeilen jeder Kassen-/Bankbuchung; Zahlungen auf Rechnungen und Belege anteilig auf deren
+  Erlös-, Aufwands- und Steuerzeilen; Abschreibungen ohne Geld; Forderungen/Verbindlichkeiten ohne Rechnung bzw. Beleg
+  als „unklar“). Lesen mit `finance.abschluss` oder `finance.buchen` (`fin_auswertung_darf()`, intern). Wache: bricht
+  ohne 93 ab. Ergebnistabelle mit einer Zeile. Zweiter Lauf folgenlos. Rücknahme: `rollback/94_rollback.sql`.
+  Geprüft gegen Postgres 16 (Stand 93, `pgtest/t94.sql`): Rechnung 140,42 € mit Teilzahlung 50 (Bank) und Rest bar,
+  Beleg 59,50 per Bank, USt-Zahlung 300 (1780), Privat 200, Zahlung 80 auf eine Forderung von Hand, Barverkauf 119,
+  Rechnung von Hand 238 (unbezahlt), Abschreibung 250, Kauf einer Maschine 1.190 → EÜR je Konto 8400 +218, 1776
+  +41,42, 4530 −50, 1576 −199,50, 1780 −300, 1800 −200, 4830 −250, 210 −1.000, unklar 80; ohne Einstellungen „nicht
+  eingerichtet“; Salden 1400/8400 je Monat; Kontenblatt 1400 mit Gegenkonten; Admin ohne Recht abgelehnt, mit
+  „Auswertungen lesen“ erlaubt; Baustein nicht aufrufbar. `t72`, `t86`–`t93` gegen 93 und 94: gleiche Ausgabe.
+  Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

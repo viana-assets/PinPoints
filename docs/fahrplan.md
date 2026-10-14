@@ -16,6 +16,15 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **14.10.2026 – Finance Phase F6 (Migration 94, Service Worker v152).** Auswertungen: Summen und Salden mit
+  Zeitraum, Kontenblatt mit laufendem Saldo, BWA (Monat und kumuliert), EÜR nach Zahlung mit den Kennzahlen der
+  Anlage EÜR; alles als CSV. `docs/finance.md`.
+
+* **14.10.2026 – Finance Nachträge zu F2–F5 (Migration 93, Service Worker v151).** Teilzahlungen im Bankabgleich
+  (Rest an Rechnung und Beleg, Ist-Versteuerung anteilig), Kassensturz mit Ausbuchen der Differenz, § 13b Abs. 2
+  (Kz 84/85), Push-Erinnerung an die Frist der Voranmeldung. Migration 92 und v150 laut Vitali ausgeführt und
+  hochgeladen. `docs/finance.md`.
+
 * **14.10.2026 – Finance Phase F5 (Migration 92, Service Worker v150).** Steuern: Umsatzsteuer-Voranmeldung als
   Probelauf – Kennzahlen je Monat/Quartal aus dem Journal (81, 86, 41, 48, 89/61, 46/47/67, 66, 39, 83), Soll und
   Ist, Fristen mit Dauerfrist und Feiertagen, „als abgegeben festhalten“ mit Fassungen und Hinweis bei späterer
@@ -892,11 +901,10 @@ sofort in Finance › Rechnungen (vorgemerkt → zu erstellen); Ausstellen – a
 und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance.md` 4.2).
 **Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
 sind Probelauf, die Buchhaltung läuft wie bisher.
-Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 (v145, Migration 87), F1 (v146, 88), F3 (v147, 89), F2 (v148, 90)
-F4 (v149, 91) und F5 (v150, 92) erledigt.** Als Nächstes laut Plan: ein Monat Probelauf, dann **F6** (Summen- und
-Saldenliste, Kontenblätter, BWA, EÜR). Offen vor dem Echtbetrieb: Kontenliste und Kennzahlen mit dem Steuerberater
-abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen; Teilzahlungen im Bankabgleich; Kassensturz-Protokoll; Zusammenfassende
-Meldung; Erinnerung an die Voranmeldungsfrist per Push.
+Reihenfolge F0 → F1 → F3 → F2 → F4 → F5 → F6. **F0 (v145, Migration 87), F1 (v146, 88), F3 (v147, 89), F2 (v148,
+90), F4 (v149, 91), F5 (v150, 92), Nachträge (v151, 93) und F6 (v152, 94) erledigt.** Als Nächstes: Probelauf mit
+echten Vorgängen; danach **F7** (Anlagen und Abschreibungen). Offen vor dem Echtbetrieb: Kontenliste und Kennzahlen mit dem Steuerberater
+abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen; Skonto; Zusammenfassende Meldung; Umsatzsteuer-Jahreserklärung.
 
 ---
 

@@ -18,7 +18,7 @@ const L: FinLieferant = { id: "l1", name: "Tankstelle", ust_id: null, konto: nul
 describe("belegZustand", () => {
   it("Entwurf, offen, überfällig, bezahlt, storniert", () => {
     expect(belegZustand(b({ status: "entwurf" }), "2026-10-05").art).toBe("entwurf");
-    expect(belegZustand(b({}), "2026-10-05")).toEqual({ art: "offen", faellig: "2026-10-10", tage: 5 });
+    expect(belegZustand(b({}), "2026-10-05")).toEqual({ art: "offen", faellig: "2026-10-10", tage: 5, teil: 0 });
     expect(belegZustandText(belegZustand(b({}), "2026-10-12"))).toBe("überfällig seit 2 Tagen");
     expect(belegZustandText(belegZustand(b({ bezahlt_am: "2026-10-01", bezahlt_art: "bar" }), "2026-10-12"))).toBe("bar bezahlt");
     expect(belegZustand(b({ status: "storniert" }), "2026-10-12").art).toBe("storniert");
@@ -66,5 +66,14 @@ describe("Wie Migration 90", () => {
   });
   it("Belegposten werden Aufwand an Verbindlichkeit", () => {
     expect(belegAlsBuchung([{ konto: 4530, betrag: 59.5, steuer: "vst19" }], "skr04")).toEqual([{ soll: 4530, haben: 3300, betrag: 59.5, steuer: "vst19" }]);
+  });
+});
+
+describe("Teilzahlungen (Migration 93, v151)", () => {
+  it("Rest und offene Posten mit dem Rest", async () => {
+    const { belegRest } = await import("@/lib/finance/belege");
+    expect(belegRest(b({ teilbezahlt: 20 }))).toBe(39.5);
+    expect(belegZustandText(belegZustand(b({ teilbezahlt: 20 }), "2026-10-05"))).toBe("offen · fällig in 5 Tagen · 20,00 € schon bezahlt");
+    expect(belegeOffen([b({ teilbezahlt: 20 })], "2026-10-05").summe).toBe(39.5);
   });
 });

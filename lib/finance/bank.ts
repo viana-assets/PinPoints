@@ -6,8 +6,8 @@
 // Kopfzeile (Spalten werden am Namen erkannt: Buchungstag, Betrag, Verwendungszweck, Name, IBAN …).
 
 import type { FinBuchung } from "./buchung";
-import type { FinRechnungZeile } from "./rechnungen";
-import type { FinBeleg, FinLieferant } from "./belege";
+import { rechnungRest, type FinRechnungZeile } from "./rechnungen";
+import { belegRest, type FinBeleg, type FinLieferant } from "./belege";
 
 // Größe einer Kontoauszug-Datei (gelesen wird im Browser) und Umsätze je Import – wie `fin_bank_einlesen()`.
 export const FIN_BANK_MAX_BYTES = 5 * 1024 * 1024;
@@ -253,37 +253,49 @@ export function kontoauszugLesen(text: string): Kontoauszug | null {
 }
 
 // ---------------------------------------------------------------- Vorschläge
-export type Vorschlag =
-  | { art: "rechnung"; id: string; titel: string; betrag: number; passt: boolean; punkte: number }
-  | { art: "beleg"; id: string; titel: string; betrag: number; passt: boolean; punkte: number };
+// `rest`: was am Posten noch offen ist. `passt`: Umsatz = Rest (danach bezahlt); `teil`: kleiner als der Rest
+// (Teilzahlung, Migration 93). Größer als der Rest wird nicht zugeordnet.
+export type Vorschlag = {
+  art: "rechnung" | "beleg"; id: string; titel: string; betrag: number; rest: number; passt: boolean; teil: boolean; punkte: number;
+};
 
 const kompakt = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9äöüß]/g, "");
 
-// Vorschläge für einen Umsatz: gleiche Summe zählt 2, Rechnungs-/Belegnummer im Zweck 3, Name 1. Nur
-// Treffer mit Nummer oder gleichem Betrag; gebucht wird nur, was auf den Cent passt (Teilzahlung später).
+// Vorschläge für einen Umsatz: Nummer im Zweck zählt 3, gleicher Betrag wie der offene Rest 2, Name 1. Dabei ist,
+// was die Nummer im Zweck hat, auf den Cent passt oder vom selben Namen eine Teilzahlung sein kann.
 export function vorschlaege(u: Pick<FinBankumsatz, "betrag" | "zweck" | "name">, rechnungen: FinRechnungZeile[], belege: FinBeleg[], lieferanten: FinLieferant[]): Vorschlag[] {
   const zweck = kompakt(u.zweck);
   const name = kompakt(u.name);
   const liste: Vorschlag[] = [];
+  const betrag = cent(Math.abs(u.betrag));
+  const bewerten = (rest: number, nummer: boolean, wer: boolean) => {
+    const passt = cent(rest) === betrag;
+    const teil = betrag < cent(rest);
+    return { passt, teil, punkte: (passt ? 2 : 0) + (nummer ? 3 : 0) + (wer ? 1 : 0), dabei: passt || nummer || (wer && teil) };
+  };
   if (u.betrag > 0) {
     for (const r of rechnungen) {
       if (r.status !== "gebucht" || r.bezahlt_am || r.storniert) continue;
-      const passt = cent(r.brutto) === cent(u.betrag);
+      const rest = rechnungRest(r);
+      if (rest <= 0) continue;
       const nummer = !!r.nummer_text && zweck.includes(kompakt(r.nummer_text));
-      const kunde = kompakt(r.kunde).length > 3 && (name.includes(kompakt(r.kunde)) || kompakt(r.kunde).includes(name) && name.length > 3);
-      const punkte = (passt ? 2 : 0) + (nummer ? 3 : 0) + (kunde ? 1 : 0);
-      if (passt || nummer) liste.push({ art: "rechnung", id: r.rechnung_id, titel: `${r.nummer_text} · ${r.kunde}`, betrag: r.brutto, passt, punkte });
+      const k = kompakt(r.kunde);
+      const kunde = k.length > 3 && (name.includes(k) || (k.includes(name) && name.length > 3));
+      const v = bewerten(rest, nummer, kunde);
+      if (v.dabei) liste.push({ art: "rechnung", id: r.rechnung_id, titel: `${r.nummer_text} · ${r.kunde}`, betrag: r.brutto, rest, passt: v.passt, teil: v.teil, punkte: v.punkte });
     }
   } else {
     for (const b of belege) {
       if (b.status !== "gebucht" || b.bezahlt_am || b.brutto == null) continue;
-      const passt = cent(b.brutto) === cent(-u.betrag);
+      const rest = belegRest(b);
+      if (rest <= 0) continue;
       const nummer = !!b.belegnummer && kompakt(b.belegnummer).length > 2 && zweck.includes(kompakt(b.belegnummer));
       const lname = kompakt(lieferanten.find((l) => l.id === b.lieferant_id)?.name);
       const lief = lname.length > 3 && (name.includes(lname) || zweck.includes(lname));
-      const punkte = (passt ? 2 : 0) + (nummer ? 3 : 0) + (lief ? 1 : 0);
-      if (passt || nummer) {
-        liste.push({ art: "beleg", id: b.id, titel: [lieferanten.find((l) => l.id === b.lieferant_id)?.name, b.belegnummer, b.text].filter(Boolean).join(" · "), betrag: b.brutto, passt, punkte });
+      const v = bewerten(rest, nummer, lief);
+      if (v.dabei) {
+        liste.push({ art: "beleg", id: b.id, titel: [lieferanten.find((l) => l.id === b.lieferant_id)?.name, b.belegnummer, b.text].filter(Boolean).join(" · "),
+          betrag: b.brutto, rest, passt: v.passt, teil: v.teil, punkte: v.punkte });
       }
     }
   }

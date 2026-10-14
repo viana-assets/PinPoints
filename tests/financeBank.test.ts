@@ -139,6 +139,15 @@ describe("Vorschläge", () => {
     expect(v).toHaveLength(1);
     expect(v[0].passt).toBe(false);
   });
+  it("Teilzahlung: kleiner als der Rest (auch nur über den Namen), größer nur mit Nummer und nicht zuordenbar", () => {
+    const re = rechnung({ teilbezahlt: 50 });
+    expect(vorschlaege(umsatz({ betrag: 69, name: "Muster GmbH" }), [re], [], [])[0]).toMatchObject({ rest: 69, passt: true, teil: false });
+    expect(vorschlaege(umsatz({ betrag: 30, name: "Muster GmbH" }), [re], [], [])[0]).toMatchObject({ rest: 69, passt: false, teil: true, punkte: 1 });
+    expect(vorschlaege(umsatz({ betrag: 30, name: "Andere" }), [re], [], [])).toEqual([]);
+    expect(vorschlaege(umsatz({ betrag: 100, zweck: "RE-2026-0042" }), [re], [], [])[0]).toMatchObject({ passt: false, teil: false });
+    expect(vorschlaege(umsatz({ betrag: -10, name: "Reifen Nord" }), [], [beleg({ teilbezahlt: 25 })], LIEF)).toEqual([]);
+    expect(vorschlaege(umsatz({ betrag: -3, name: "Reifen Nord" }), [], [beleg({ teilbezahlt: 25 })], LIEF)[0]).toMatchObject({ rest: 5, teil: true });
+  });
   it("Abbuchung sucht Belege, Lieferantenname zählt; kurze Nummern zählen nicht", () => {
     const v = vorschlaege(umsatz({ betrag: -30, name: "Reifen Nord", zweck: "Beleg R-7710" }), [rechnung({ brutto: 30 })],
       [beleg({ belegnummer: "R-7710" }), beleg({ id: "b2", bezahlt_am: "2026-10-03" })], LIEF);

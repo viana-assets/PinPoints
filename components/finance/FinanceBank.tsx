@@ -8,14 +8,14 @@ import { fehlerText } from "@/components/FehlerHinweis";
 import { qk } from "@/lib/queries/keys";
 import {
   useFinBankimporte, useFinBankkonten, useFinBankumsaetze, useFinBelege, useFinBuchungen, useFinKonten, useFinLieferanten,
-  useFinRechnungen, useFinSteuerschluessel,
+  useFinKassenstuerze, useFinRechnungen, useFinSteuerschluessel,
 } from "@/lib/queries/hooks";
 import {
   finBankAufheben, finBankEinlesen, finBankIgnorieren, finBankImportZuruecknehmen, finBankkontoAendern, finBankkontoAnlegen,
-  finBankZuBeleg, finBankZuKonto, finBankZuRechnung,
+  finBankZuBeleg, finBankZuKonto, finBankZuRechnung, finKassensturz,
 } from "@/lib/api/finance";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
-import { buchungVorschau, kontoNr, passendeSchluessel, type FinBuchung, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
+import { betragLesen, buchungVorschau, kontoNr, passendeSchluessel, type FinBuchung, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
 import { FIN_RECHNUNG_KONTEN, type FinRechnungZeile } from "@/lib/finance/rechnungen";
 import type { FinBeleg, FinLieferant } from "@/lib/finance/belege";
 import {
@@ -163,7 +163,8 @@ export function FinanceBank({ supabase, jahr, heute, einstellungen, darfSchreibe
 
       {reiter === "kasse" && (
         buchungenSehen
-          ? <Kassenbuch buchungen={buchungen} laedt={buchungenQ.isPending} kasse={kasse} name={konten.find((k) => k.nummer === kasse)?.bezeichnung ?? "Kasse"}
+          ? <Kassenbuch supabase={supabase} heute={heute} buchungen={buchungen} laedt={buchungenQ.isPending} kasse={kasse} name={konten.find((k) => k.nummer === kasse)?.bezeichnung ?? "Kasse"}
+              darfKassensturz={darfSchreiben} onMeldung={(t) => { setFehler(null); setMeldung(t); }}
               darfBuchen={darfBuchen} onNeu={(art) => setVorlage(art === "ein"
                 ? { titel: "Kasse: Einnahme", soll: kasse }
                 : { titel: "Kasse: Ausgabe", haben: kasse })} />
@@ -297,19 +298,21 @@ function UmsatzBlatt({ supabase, umsatz: u, alle, einstellungen, bankkonten, kon
           <>
             <span className="op-gruppe-titel">{eingang ? "PASSENDE RECHNUNGEN" : "PASSENDE BELEGE"}</span>
             {liste.length === 0 ? (
-              <span className="small">{eingang ? "Keine offene Rechnung mit diesem Betrag oder dieser Nummer im Zweck." : "Kein offener Beleg mit diesem Betrag oder dieser Nummer im Zweck."}</span>
+              <span className="small">{eingang ? "Keine offene Rechnung mit diesem Betrag, dieser Nummer im Zweck oder diesem Namen." : "Kein offener Beleg mit diesem Betrag, dieser Nummer im Zweck oder diesem Namen."}</span>
             ) : (
               <div className="fi-gruppe">
                 {liste.map((v) => (
                   <div key={v.id} className="es-zeile statisch fi-vorgang">
                     <span className="db-punkt-text"><b>{v.titel}</b>
-                      <span className="small">{formatEUR(v.betrag)}{v.passt ? " · Betrag passt" : <> · <span className="fi-rot-text">Betrag weicht ab – Teilzahlungen kommen später</span></>}</span></span>
-                    {darfSchreiben && v.passt && (
+                      <span className="small">{formatEUR(v.betrag)}{v.rest !== v.betrag ? ` · offen ${formatEUR(v.rest)}` : ""}
+                        {v.passt ? " · Betrag passt" : v.teil ? " · als Teilzahlung" : <> · <span className="fi-rot-text">Umsatz größer als der offene Rest</span></>}</span></span>
+                    {darfSchreiben && (v.passt || v.teil) && (
                       <button type="button" className="es-knopf fi-primaer" disabled={laeuft}
                         onClick={() => void ausfuehren(async () => {
                           const r = v.art === "rechnung" ? await finBankZuRechnung(supabase, u.id, v.id) : await finBankZuBeleg(supabase, u.id, v.id);
-                          return `Zugeordnet und gebucht (Nr. ${r.nr}) – ${v.art === "rechnung" ? "die Rechnung" : "der Beleg"} ist bezahlt.`;
-                        })}>Zuordnen</button>
+                          const was = v.art === "rechnung" ? "die Rechnung" : "der Beleg";
+                          return r.rest > 0 ? `Teilzahlung gebucht (Nr. ${r.nr}) – offen bleiben ${formatEUR(r.rest)}.` : `Zugeordnet und gebucht (Nr. ${r.nr}) – ${was} ist bezahlt.`;
+                        })}>{v.passt ? "Zuordnen" : "Teilzahlung"}</button>
                     )}
                   </div>
                 ))}
@@ -540,24 +543,31 @@ function BankkontoBlatt({ supabase, konto, vorIban, konten, kasse, vorgabe, bank
   );
 }
 
-// ---------------------------------------------------------------- Kassenbuch
-function Kassenbuch({ buchungen, laedt, kasse, name, darfBuchen, onNeu }: {
-  buchungen: FinBuchung[]; laedt: boolean; kasse: number; name: string; darfBuchen: boolean; onNeu: (art: "ein" | "aus") => void;
+// ---------------------------------------------------------------- Kassenbuch und Kassensturz
+function Kassenbuch({ supabase, heute, buchungen, laedt, kasse, name, darfBuchen, darfKassensturz, onNeu, onMeldung }: {
+  supabase: SupabaseClient; heute: string; buchungen: FinBuchung[]; laedt: boolean; kasse: number; name: string;
+  darfBuchen: boolean; darfKassensturz: boolean; onNeu: (art: "ein" | "aus") => void; onMeldung: (t: string) => void;
 }) {
   const k = kassenbuch(buchungen, kasse);
+  const stuerzeQ = useFinKassenstuerze(supabase, true);
+  const [sturz, setSturz] = useState(false);
+  const letzter = stuerzeQ.data?.[0];
   return (
     <>
       <div className="fi-kacheln">
         <div className={"db-karte fi-kachel" + (k.bestand < 0 ? " fi-kachel-warn" : "")}><span className="small">Bestand {kontoNr(kasse)} {name}</span><b>{formatEUR(k.bestand)}</b></div>
-        <div className="db-karte fi-kachel"><span className="small">Bewegungen</span><b>{k.zeilen.length}</b></div>
+        <div className="db-karte fi-kachel"><span className="small">Letzter Kassensturz</span><b>{letzter ? datumKurz(letzter.datum) : "–"}</b>
+          {letzter && <span className={"small" + (letzter.differenz !== 0 && !letzter.buchung_id ? " fi-rot-text" : "")}>
+            {letzter.differenz === 0 ? "stimmte" : `Differenz ${formatEUR(letzter.differenz)}${letzter.buchung_id ? " (ausgebucht)" : ""}`}</span>}</div>
       </div>
       {k.negativAm && (
         <div className="fi-hinweis fi-rot" role="alert">Am {datumKurz(k.negativAm)} läge die Kasse unter null – das kann nicht sein. Fehlt eine Einnahme, der Anfangsbestand oder eine Einlage?</div>
       )}
-      {darfBuchen && (
+      {(darfBuchen || darfKassensturz) && (
         <div className="fi-werkzeug">
-          <button type="button" className="btn-primary fi-knopf" onClick={() => onNeu("ein")}>Einnahme</button>
-          <button type="button" className="btn-secondary fi-knopf" onClick={() => onNeu("aus")}>Ausgabe</button>
+          {darfBuchen && <button type="button" className="btn-primary fi-knopf" onClick={() => onNeu("ein")}>Einnahme</button>}
+          {darfBuchen && <button type="button" className="btn-secondary fi-knopf" onClick={() => onNeu("aus")}>Ausgabe</button>}
+          {darfKassensturz && <button type="button" className="btn-secondary fi-knopf" onClick={() => setSturz(true)}>Kassensturz</button>}
         </div>
       )}
       <div className="db-karte es-karte">
@@ -570,8 +580,86 @@ function Kassenbuch({ buchungen, laedt, kasse, name, darfBuchen, onNeu }: {
             </div>
           ))}
       </div>
-      <span className="small es-fuss fi-fuss">Das Kassenbuch ist das Konto {kontoNr(kasse)} im Journal: jede Bareinnahme und -ausgabe am selben Tag buchen. Ohne gebuchten Anfangsbestand beginnt es bei null.</span>
+      {(stuerzeQ.data ?? []).length > 0 && (
+        <>
+          <span className="op-gruppe-titel">KASSENSTÜRZE</span>
+          <div className="db-karte es-karte">
+            {(stuerzeQ.data ?? []).slice(0, 10).map((s) => (
+              <div key={s.id} className="es-zeile statisch fi-buchung">
+                <span className="db-punkt-text"><b>{datumKurz(s.datum)} · gezählt {formatEUR(s.gezaehlt)}</b>
+                  <span className="small">laut Buchungen {formatEUR(s.buchbestand)}{s.notiz ? ` · ${s.notiz}` : ""}{s.buchung_id ? " · Differenz ausgebucht" : ""}</span></span>
+                <span className={"fi-betrag" + (s.differenz !== 0 ? " fi-rot-text" : " fi-gruen-text")}>{s.differenz === 0 ? "stimmt" : formatEUR(s.differenz)}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <span className="small es-fuss fi-fuss">Das Kassenbuch ist das Konto {kontoNr(kasse)} im Journal: jede Bareinnahme und -ausgabe am selben Tag buchen. Ohne gebuchten Anfangsbestand beginnt es bei null.
+        Beim Kassensturz wird das Bargeld gezählt und mit dem Bestand laut Buchungen verglichen.</span>
+      {sturz && (
+        <KassensturzBlatt supabase={supabase} heute={heute} buchungen={buchungen} kasse={kasse}
+          onFertig={(t) => { setSturz(false); onMeldung(t); }} onClose={() => setSturz(false)} />
+      )}
     </>
+  );
+}
+
+function KassensturzBlatt({ supabase, heute, buchungen, kasse, onFertig, onClose }: {
+  supabase: SupabaseClient; heute: string; buchungen: FinBuchung[]; kasse: number; onFertig: (t: string) => void; onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const [datum, setDatum] = useState(heute);
+  const [gezaehlt, setGezaehlt] = useState("");
+  const [notiz, setNotiz] = useState("");
+  const [ausgleichen, setAusgleichen] = useState(true);
+  const [laeuft, setLaeuft] = useState(false);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const zahl = betragLesen(gezaehlt);
+  // Vorschau aus dem Journal dieses Jahres; den maßgeblichen Bestand (alle Jahre) rechnet die Datenbank.
+  const bestand = kontoSaldoBis(buchungen, kasse, datum);
+  const diff = zahl == null ? null : Math.round((zahl - bestand) * 100) / 100;
+  async function los() {
+    if (zahl == null) return;
+    setLaeuft(true);
+    setFehler(null);
+    try {
+      const r = await finKassensturz(supabase, datum, zahl, notiz.trim(), ausgleichen);
+      await queryClient.invalidateQueries({ queryKey: qk.finance() });
+      onFertig(r.differenz === 0 ? "Kassensturz festgehalten – die Kasse stimmt."
+        : `Kassensturz festgehalten – Differenz ${formatEUR(r.differenz)}${r.nr ? ` ausgebucht (Nr. ${r.nr})` : ""}.`);
+    } catch (e) {
+      setFehler(fehlerText(e));
+    } finally {
+      setLaeuft(false);
+    }
+  }
+  return (
+    <Blatt titel="Kassensturz" unter={`Konto ${kontoNr(kasse)}`} onClose={onClose}
+      fuss={<>
+        <button type="button" className="btn-secondary" onClick={onClose} disabled={laeuft}>Abbrechen</button>
+        <button type="button" className="btn-primary" onClick={() => void los()} disabled={laeuft || zahl == null || zahl < 0 || datum > heute}>{laeuft ? "…" : "Festhalten"}</button>
+      </>}>
+      <div className="fi-formular">
+        <div className="fi-zwei">
+          <label className="nk-feld"><span>Gezählt am</span><input type="date" value={datum} max={heute} onChange={(e) => setDatum(e.target.value)} /></label>
+          <label className="nk-feld"><span>Gezählter Bestand in €</span><input inputMode="decimal" value={gezaehlt} onChange={(e) => setGezaehlt(e.target.value)} placeholder="0,00" aria-label="Gezählter Bestand" /></label>
+        </div>
+        <div className="fi-kacheln">
+          <div className="db-karte fi-kachel"><span className="small">Laut Buchungen</span><b>{formatEUR(bestand)}</b></div>
+          <div className={"db-karte fi-kachel" + (diff ? " fi-kachel-warn" : "")}><span className="small">Differenz</span><b>{diff == null ? "–" : formatEUR(diff)}</b></div>
+        </div>
+        <label className="nk-feld"><span>Notiz</span><input value={notiz} maxLength={200} onChange={(e) => setNotiz(e.target.value)} placeholder="z. B. Abrechnung Freitag" /></label>
+        {diff != null && diff !== 0 && (
+          <button type="button" className="es-zeile" aria-pressed={ausgleichen} onClick={() => setAusgleichen(!ausgleichen)}>
+            <span className="db-punkt-text"><b>Differenz ausbuchen</b>
+              <span className="small">{diff < 0 ? "Fehlbetrag als sonstiger Aufwand" : "Überschuss als sonstiger Ertrag"} – danach stimmt der Bestand. Erst nach der Suche nach einer vergessenen Buchung.</span></span>
+            <span className={"nk-spur" + (ausgleichen ? " an" : "")} aria-hidden="true"><span /></span>
+          </button>
+        )}
+        <span className="small">Der Bestand „laut Buchungen“ ist hier aus dem Journal dieses Jahres; festgehalten wird der Bestand über alle Jahre.</span>
+        {fehler && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
+      </div>
+    </Blatt>
   );
 }
 

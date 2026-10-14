@@ -6,6 +6,7 @@ import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
 import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLieferant } from "@/lib/finance/belege";
 import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
+import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
 
 // Finance (Migration 87–92, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
 // F3 (v147): Rechnungen mit „Rechnung nötig“, Zahlungen; F2 (v148): Belege, Lieferanten, Belegdateien;
@@ -157,8 +158,14 @@ export async function fetchFinBelege(supabase: SupabaseClient, jahr: number): Pr
     supabase.from("fin_belege").select(BELEG_SPALTEN)
       .or(`status.eq.entwurf,and(belegdatum.gte.${jahr}-01-01,belegdatum.lte.${jahr}-12-31)`)
       .order("belegdatum", { ascending: false }).order("id").range(von, bis));
+  // Teilzahlungen (Migration 93) je Beleg dazu – bezahlt ist ein Beleg erst mit `bezahlt_am`.
+  const teile = await q<{ ziel_id: string; betrag: number }[]>("Die Teilzahlungen konnten nicht geladen werden",
+    supabase.from("fin_teilzahlungen").select("id, ziel_id, betrag").eq("art", "beleg").eq("storniert", false).order("id").range(0, 4999));
+  const teil = new Map<string, number>();
+  for (const t of teile ?? []) teil.set(t.ziel_id, (teil.get(t.ziel_id) ?? 0) + Number(t.betrag));
   return alle.map((b) => ({
     ...b,
+    teilbezahlt: Math.round((teil.get(b.id) ?? 0) * 100) / 100,
     brutto: b.brutto == null ? null : Number(b.brutto),
     posten: (b.posten ?? []).map((p) => ({ konto: p.konto ?? null, betrag: p.betrag == null ? null : Number(p.betrag), steuer: p.steuer ?? null })),
   }));
@@ -277,12 +284,15 @@ export async function finBankImportZuruecknehmen(supabase: SupabaseClient, impor
   return (await q<number>("Der Import wurde nicht zurückgenommen", supabase.rpc("fin_bank_import_zuruecknehmen", { p_import: importId }))) ?? 0;
 }
 
-export async function finBankZuRechnung(supabase: SupabaseClient, umsatzId: string, rechnungId: string): Promise<{ nr: number }> {
-  return (await q<{ nr: number }>("Nicht zugeordnet", supabase.rpc("fin_bank_zu_rechnung", { p_umsatz: umsatzId, p_rechnung: rechnungId }))) ?? { nr: 0 };
+// `rest`: was danach noch offen ist (0 = bezahlt; Teilzahlungen seit Migration 93).
+export async function finBankZuRechnung(supabase: SupabaseClient, umsatzId: string, rechnungId: string): Promise<{ nr: number; rest: number }> {
+  const r = await q<{ nr: number; rest?: number }>("Nicht zugeordnet", supabase.rpc("fin_bank_zu_rechnung", { p_umsatz: umsatzId, p_rechnung: rechnungId }));
+  return { nr: r?.nr ?? 0, rest: Number(r?.rest ?? 0) };
 }
 
-export async function finBankZuBeleg(supabase: SupabaseClient, umsatzId: string, belegId: string): Promise<{ nr: number }> {
-  return (await q<{ nr: number }>("Nicht zugeordnet", supabase.rpc("fin_bank_zu_beleg", { p_umsatz: umsatzId, p_beleg: belegId }))) ?? { nr: 0 };
+export async function finBankZuBeleg(supabase: SupabaseClient, umsatzId: string, belegId: string): Promise<{ nr: number; rest: number }> {
+  const r = await q<{ nr: number; rest?: number }>("Nicht zugeordnet", supabase.rpc("fin_bank_zu_beleg", { p_umsatz: umsatzId, p_beleg: belegId }));
+  return { nr: r?.nr ?? 0, rest: Number(r?.rest ?? 0) };
 }
 
 export async function finBankZuKonto(supabase: SupabaseClient, umsatzId: string, konto: number, steuer: string | null, text: string): Promise<{ nr: number }> {
@@ -312,4 +322,40 @@ export async function finUstAbgegeben(supabase: SupabaseClient, jahr: number, ze
 
 export async function finSteuerJahrSpeichern(supabase: SupabaseClient, jahr: number, felder: { umsatz_vorjahr: number | null; sondervorauszahlung: number | null }): Promise<void> {
   await qWrite("Nicht gespeichert", supabase.from("fin_steuer_jahre").upsert({ jahr, ...felder }, { onConflict: "jahr" }));
+}
+
+// ---------------------------------------------------------------- Kassensturz (Migration 93, v151)
+
+export type FinKassensturz = { id: string; datum: string; gezaehlt: number; buchbestand: number; differenz: number; notiz: string | null; buchung_id: string | null; erstellt_am: string };
+
+export async function fetchFinKassenstuerze(supabase: SupabaseClient): Promise<FinKassensturz[]> {
+  const z = await q<FinKassensturz[]>("Die Kassenstürze konnten nicht geladen werden",
+    supabase.from("fin_kassenstuerze").select("id, datum, gezaehlt, buchbestand, differenz, notiz, buchung_id, erstellt_am")
+      .order("datum", { ascending: false }).order("erstellt_am", { ascending: false }).order("id").range(0, 49));
+  return (z ?? []).map((k) => ({ ...k, gezaehlt: Number(k.gezaehlt), buchbestand: Number(k.buchbestand), differenz: Number(k.differenz) }));
+}
+
+// Die Datenbank rechnet den Buchbestand (alle Buchungen auf der Kasse bis zum Tag) und bucht auf Wunsch die Differenz aus.
+export async function finKassensturz(supabase: SupabaseClient, datum: string, gezaehlt: number, notiz: string, ausgleichen: boolean): Promise<{ buchbestand: number; differenz: number; nr: number | null }> {
+  const r = await q<{ buchbestand: number; differenz: number; nr: number | null }>("Kassensturz nicht festgehalten",
+    supabase.rpc("fin_kassensturz", { p_datum: datum, p_gezaehlt: gezaehlt, p_notiz: notiz, p_ausgleichen: ausgleichen }));
+  return { buchbestand: Number(r?.buchbestand ?? 0), differenz: Number(r?.differenz ?? 0), nr: r?.nr ?? null };
+}
+
+// ---------------------------------------------------------------- F6: Auswertungen (Migration 94, v152)
+
+export async function fetchFinSalden(supabase: SupabaseClient, jahr: number): Promise<FinSaldo[]> {
+  return saldenLesen(await q<unknown>("Die Salden konnten nicht geladen werden", supabase.rpc("fin_auswertung_salden", { p_jahr: jahr })));
+}
+
+export async function fetchFinEuer(supabase: SupabaseClient, jahr: number): Promise<FinEuerStand> {
+  return euerLesen(await q<unknown>("Die EÜR konnte nicht geladen werden", supabase.rpc("fin_euer", { p_jahr: jahr })));
+}
+
+export async function fetchFinKontenblatt(supabase: SupabaseClient, jahr: number, konto: number): Promise<FinKontenblattZeile[]> {
+  const roh = await q<Record<string, unknown>[]>("Das Kontenblatt konnte nicht geladen werden", supabase.rpc("fin_kontenblatt", { p_jahr: jahr, p_konto: konto }));
+  return (roh ?? []).map((z) => ({
+    datum: String(z.datum), nr: Number(z.nr), text: String(z.text ?? ""), beleg: (z.beleg as string | null) ?? null, seite: z.seite as "S" | "H",
+    betrag: Number(z.betrag), steuer: (z.steuer as string | null) ?? null, storno: !!z.storno, gegen: (z.gegen as string | null) ?? null,
+  }));
 }

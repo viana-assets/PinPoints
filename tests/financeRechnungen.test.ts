@@ -14,9 +14,9 @@ const r = (p: Partial<FinRechnungZeile>): FinRechnungZeile => ({
 
 describe("rechnungZustand", () => {
   it("offen, fällig heute, überfällig", () => {
-    expect(rechnungZustand(r({}), "2026-10-13")).toEqual({ art: "offen", faellig: "2026-10-15", tage: 2 });
+    expect(rechnungZustand(r({}), "2026-10-13")).toEqual({ art: "offen", faellig: "2026-10-15", tage: 2, teil: 0 });
     expect(zustandText(rechnungZustand(r({}), "2026-10-15"))).toBe("fällig heute");
-    expect(rechnungZustand(r({}), "2026-10-20")).toEqual({ art: "ueberfaellig", faellig: "2026-10-15", tage: 5 });
+    expect(rechnungZustand(r({}), "2026-10-20")).toEqual({ art: "ueberfaellig", faellig: "2026-10-15", tage: 5, teil: 0 });
     expect(zustandText(rechnungZustand(r({}), "2026-10-16"))).toBe("überfällig seit 1 Tag");
   });
   it("nicht gebucht mit Grund, oder ohne Zeile in Finance", () => {
@@ -73,5 +73,17 @@ describe("Wie Migration 89", () => {
     const k88 = readFileSync(join(__dirname, "..", "supabase", "migrations", "88_finance_buchungen.sql"), "utf8");
     for (const [rahmen, konten] of Object.entries(FIN_RECHNUNG_KONTEN))
       for (const nr of Object.values(konten)) expect(k88.includes(`('${rahmen}', ${nr}, '`), `${rahmen} ${nr}`).toBe(true);
+  });
+});
+
+describe("Teilzahlungen (Migration 93, v151)", () => {
+  it("Rest, Zustandstext und offene Posten mit dem Rest", async () => {
+    const { rechnungRest } = await import("@/lib/finance/rechnungen");
+    const t = r({ teilbezahlt: 50 });
+    expect(rechnungRest(t)).toBe(69);
+    expect(rechnungRest({ ...t, bezahlt_am: "2026-10-02" })).toBe(0);
+    expect(zustandText(rechnungZustand(t, "2026-10-13"))).toBe("offen · fällig in 2 Tagen · 50,00 € schon bezahlt");
+    expect(offenePosten([t, r({ rechnung_id: "x", faellig_am: "2026-10-01" })], "2026-10-13")).toMatchObject({ summe: 188, ueberfaellig: 119 });
+    expect(standLesen({ rechnungen: [{ ...r({}), brutto: "119.00", teilbezahlt: "50.00" }] }).rechnungen[0].teilbezahlt).toBe(50);
   });
 });

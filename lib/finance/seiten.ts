@@ -29,7 +29,7 @@ export const FINANCE_SEITEN: FinanceSeite[] = [
   { key: "buchungen", label: "Buchungen", beschreibung: "Journal, Konten mit Saldo, Monate festschreiben", recht: "finance.buchen", phase: null },
   { key: "steuern", label: "Steuern", beschreibung: "Umsatzsteuer-Voranmeldung mit Kennzahlen, Fristen und Zahllast – als Probelauf", recht: "finance.steuer", phase: null },
   { key: "anlagen", label: "Anlagen", beschreibung: "Anlagevermögen und Abschreibungen", recht: "finance.abschluss", phase: "F7" },
-  { key: "auswertungen", label: "Auswertungen", beschreibung: "BWA, EÜR oder GuV und Summen-Salden", recht: "finance.abschluss", phase: "F6" },
+  { key: "auswertungen", label: "Auswertungen", beschreibung: "Summen und Salden, Kontenblätter, BWA und EÜR – auch als CSV", recht: "finance.abschluss", phase: null },
   { key: "export", label: "Export", beschreibung: "DATEV-Buchungsstapel für den Steuerberater", recht: "finance.abschluss", phase: "F9" },
   // Sichtbar für alle mit Finance; ÄNDERN braucht „finance.einstellungen“ schreiben.
   { key: "einstellungen", label: "Einstellungen", beschreibung: "Rechtsform, EÜR oder Bilanz, Kontenrahmen, Umsatzsteuer", recht: "finance", phase: null },

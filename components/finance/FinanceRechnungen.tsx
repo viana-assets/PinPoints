@@ -9,7 +9,7 @@ import { qk } from "@/lib/queries/keys";
 import { useFinRechnungen } from "@/lib/queries/hooks";
 import { finRechnungBezahlt, finRechnungNachbuchen, finZahlungZuruecknehmen } from "@/lib/api/finance";
 import {
-  offenePosten, rechnungZustand, vorgaengeTeilen, zustandText,
+  rechnungRest,  offenePosten, rechnungZustand, vorgaengeTeilen, zustandText,
   type FinRechnungZeile, type FinVorgang, type RechnungZustand,
 } from "@/lib/finance/rechnungen";
 import { formatEUR } from "@/lib/format";
@@ -135,7 +135,7 @@ function RechnungListe({ liste, heute, laedt, leer, onOeffnen }: { liste: FinRec
               <b>{r.kunde}</b>
               <span className="small">{datumKurz(r.datum)}{r.order_number ? ` · Auftrag ${r.order_number}` : ""} · <span className={zustandKlasse(z)}>{zustandText(z)}</span></span>
             </span>
-            <span className="fi-betrag">{formatEUR(r.brutto)}</span>
+            <span className="fi-betrag">{formatEUR((z.art === "offen" || z.art === "ueberfaellig") && z.teil > 0 ? rechnungRest(r) : r.brutto)}</span>
           </button>
         );
       })}
@@ -186,8 +186,8 @@ function RechnungDetail({ supabase, r, heute, darfSchreiben, onRechnungOeffnen, 
       <button type="button" className="btn-secondary" disabled={laeuft} onClick={() => setZahlung(null)}>Zurück</button>
       <button type="button" className="btn-primary" disabled={laeuft || !datum || datum > heute} onClick={() => void bezahlt()}>{laeuft ? "erfasst …" : "Zahlung buchen"}</button>
     </> : <>
-      <button type="button" className="btn-secondary" onClick={() => setZahlung("bar")}>Bar bezahlt</button>
-      <button type="button" className="btn-primary" onClick={() => setZahlung("bank")}>Überweisung eingegangen</button>
+      <button type="button" className="btn-secondary" onClick={() => setZahlung("bar")}>{z.teil > 0 ? "Rest bar bezahlt" : "Bar bezahlt"}</button>
+      <button type="button" className="btn-primary" onClick={() => setZahlung("bank")}>{z.teil > 0 ? "Rest überwiesen" : "Überweisung eingegangen"}</button>
     </>;
   } else if (darfSchreiben && (z.art === "bezahlt" || (z.art === "storniert" && z.bezahlt))) {
     fuss = zurueck ? <>
@@ -217,7 +217,10 @@ function RechnungDetail({ supabase, r, heute, darfSchreiben, onRechnungOeffnen, 
             <input type="date" value={datum} max={heute} onChange={(e) => setDatum(e.target.value)} />
           </label>
         )}
-        {zahlung && <span className="small">Gebucht wird {zahlung === "bar" ? "Kasse" : "Bank"} an Forderung über den ganzen Betrag.</span>}
+        {zahlung && <span className="small">Gebucht wird {zahlung === "bar" ? "Kasse" : "Bank"} an Forderung über den offenen Rest ({formatEUR(rechnungRest(r))}).</span>}
+        {(z.art === "offen" || z.art === "ueberfaellig") && z.teil > 0 && !zahlung && (
+          <span className="small">Teilzahlungen aus dem Bankabgleich: {formatEUR(z.teil)} – offen {formatEUR(rechnungRest(r))}. Zurückgenommen wird eine Teilzahlung unter Bank & Kasse (Aufheben).</span>
+        )}
         {zurueck && (
           <label className="nk-feld"><span>Grund</span><input value={grund} maxLength={200} onChange={(e) => setGrund(e.target.value)} placeholder="z. B. doch nicht bezahlt" autoFocus /></label>
         )}
