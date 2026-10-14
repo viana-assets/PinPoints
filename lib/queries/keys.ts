@@ -74,6 +74,10 @@ export const qk = {
   // F2 (Migration 90): Lieferanten und Belege (Entwürfe + Jahr).
   finLieferanten: () => ["finance", "lieferanten"] as const,
   finBelege: (jahr: number) => ["finance", "belege", jahr] as const,
+  // F4 (Migration 91): Bankkonten, Umsätze (offene + Jahr), Importe.
+  finBankkonten: () => ["finance", "bankkonten"] as const,
+  finBankumsaetze: (jahr: number) => ["finance", "bankumsaetze", jahr] as const,
+  finBankimporte: () => ["finance", "bankimporte"] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

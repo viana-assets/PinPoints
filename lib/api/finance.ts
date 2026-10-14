@@ -4,9 +4,11 @@ import type { FinEinstellungen, Kontenrahmen } from "@/lib/finance/einstellungen
 import type { FinBuchung, FinFestschreibung, FinKonto, FinPosten, FinSteuerschluessel } from "@/lib/finance/buchung";
 import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
 import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLieferant } from "@/lib/finance/belege";
+import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 
-// Finance (Migration 87–89, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
-// F3 (v147): Rechnungen mit „Rechnung nötig“, Zahlungen; F2 (v148): Belege, Lieferanten, Belegdateien.
+// Finance (Migration 87–91, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
+// F3 (v147): Rechnungen mit „Rechnung nötig“, Zahlungen; F2 (v148): Belege, Lieferanten, Belegdateien;
+// F4 (v149): Bankkonten, Kontoauszüge, Abgleich.
 // Lesen mit dem Recht „finance“, schreiben mit „finance.einstellungen“ – durchgesetzt von RLS.
 
 export type FinEinstellungenStand =
@@ -222,4 +224,75 @@ export async function finBelegZahlungZuruecknehmen(supabase: SupabaseClient, id:
 
 export async function finBelegStornieren(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
   await q("Nicht storniert", supabase.rpc("fin_beleg_stornieren", { p_beleg: id, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------- F4: Bank, Kasse (Migration 91, v149)
+
+const BANKUMSATZ_SPALTEN = "id, bankkonto_id, import_id, datum, valuta, betrag, zweck, name, iban, referenz, status, zuordnung, zuordnung_id, buchung_id, notiz";
+
+export async function fetchFinBankkonten(supabase: SupabaseClient): Promise<FinBankkonto[]> {
+  return (await q<FinBankkonto[]>("Die Bankkonten konnten nicht geladen werden",
+    supabase.from("fin_bankkonten").select("id, name, iban, konto, aktiv").order("name").order("id"))) ?? [];
+}
+
+export async function finBankkontoAnlegen(supabase: SupabaseClient, k: Pick<FinBankkonto, "name" | "iban" | "konto">): Promise<FinBankkonto> {
+  return qOne<FinBankkonto>("Das Bankkonto konnte nicht angelegt werden",
+    supabase.from("fin_bankkonten").insert({ ...k, name: k.name.trim() }).select("id, name, iban, konto, aktiv").single());
+}
+
+export async function finBankkontoAendern(supabase: SupabaseClient, id: string, felder: Partial<Pick<FinBankkonto, "name" | "iban" | "konto" | "aktiv">>): Promise<void> {
+  await qWrite("Das Bankkonto konnte nicht geändert werden", supabase.from("fin_bankkonten").update(felder).eq("id", id));
+}
+
+// Alle offenen Umsätze (egal wie alt – sie sind Arbeit) und alle des Jahres.
+export async function fetchFinBankumsaetze(supabase: SupabaseClient, jahr: number): Promise<FinBankumsatz[]> {
+  const alle = await fetchPaged<FinBankumsatz>("Die Bankumsätze konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_bankumsaetze").select(BANKUMSATZ_SPALTEN)
+      .or(`status.eq.offen,and(datum.gte.${jahr}-01-01,datum.lte.${jahr}-12-31)`)
+      .order("datum", { ascending: false }).order("id").range(von, bis));
+  return alle.map((u) => ({ ...u, betrag: Number(u.betrag) }));
+}
+
+export async function fetchFinBankimporte(supabase: SupabaseClient): Promise<FinBankimport[]> {
+  const zeilen = await q<FinBankimport[]>("Die Importe konnten nicht geladen werden",
+    supabase.from("fin_bankimporte").select("id, bankkonto_id, dateiname, format, anzahl, neu, von, bis, endsaldo, endsaldo_am, erstellt_am")
+      .order("erstellt_am", { ascending: false }).order("id").range(0, 199));
+  return (zeilen ?? []).map((i) => ({ ...i, endsaldo: i.endsaldo == null ? null : Number(i.endsaldo) }));
+}
+
+export type FinBankEingelesen = { import_id: string; anzahl: number; neu: number; doppelt: number };
+
+export async function finBankEinlesen(supabase: SupabaseClient, bankkontoId: string, dateiname: string, a: Kontoauszug): Promise<FinBankEingelesen> {
+  const r = await q<FinBankEingelesen>("Der Kontoauszug wurde nicht eingelesen",
+    supabase.rpc("fin_bank_einlesen", {
+      p_bankkonto: bankkontoId, p_dateiname: dateiname.slice(0, 120), p_format: a.format, p_umsaetze: a.umsaetze,
+      p_endsaldo: a.endsaldo, p_endsaldo_am: a.endsaldoAm,
+    }));
+  if (!r) throw new ApiError("Der Kontoauszug wurde nicht eingelesen", { message: "Die Datenbank hat nichts zurückgegeben." });
+  return r;
+}
+
+export async function finBankImportZuruecknehmen(supabase: SupabaseClient, importId: string): Promise<number> {
+  return (await q<number>("Der Import wurde nicht zurückgenommen", supabase.rpc("fin_bank_import_zuruecknehmen", { p_import: importId }))) ?? 0;
+}
+
+export async function finBankZuRechnung(supabase: SupabaseClient, umsatzId: string, rechnungId: string): Promise<{ nr: number }> {
+  return (await q<{ nr: number }>("Nicht zugeordnet", supabase.rpc("fin_bank_zu_rechnung", { p_umsatz: umsatzId, p_rechnung: rechnungId }))) ?? { nr: 0 };
+}
+
+export async function finBankZuBeleg(supabase: SupabaseClient, umsatzId: string, belegId: string): Promise<{ nr: number }> {
+  return (await q<{ nr: number }>("Nicht zugeordnet", supabase.rpc("fin_bank_zu_beleg", { p_umsatz: umsatzId, p_beleg: belegId }))) ?? { nr: 0 };
+}
+
+export async function finBankZuKonto(supabase: SupabaseClient, umsatzId: string, konto: number, steuer: string | null, text: string): Promise<{ nr: number }> {
+  return (await q<{ nr: number }>("Nicht gebucht",
+    supabase.rpc("fin_bank_zu_konto", { p_umsatz: umsatzId, p_konto: konto, p_steuer: steuer, p_text: text }))) ?? { nr: 0 };
+}
+
+export async function finBankIgnorieren(supabase: SupabaseClient, umsatzId: string, grund: string): Promise<void> {
+  await q("Nicht geändert", supabase.rpc("fin_bank_ignorieren", { p_umsatz: umsatzId, p_grund: grund }));
+}
+
+export async function finBankAufheben(supabase: SupabaseClient, umsatzId: string, grund: string): Promise<void> {
+  await q("Nicht aufgehoben", supabase.rpc("fin_bank_aufheben", { p_umsatz: umsatzId, p_grund: grund }));
 }

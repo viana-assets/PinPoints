@@ -5,12 +5,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Verb } from "@/lib/constants";
 import { qk } from "@/lib/queries/keys";
-import { useFinBelege, useFinEinstellungen, useFinRechnungen } from "@/lib/queries/hooks";
+import { useFinBankumsaetze, useFinBelege, useFinEinstellungen, useFinRechnungen } from "@/lib/queries/hooks";
 import { belegZustand } from "@/lib/finance/belege";
 import { saveFinEinstellungen } from "@/lib/api/finance";
 import { FinanceBuchungen } from "./FinanceBuchungen";
 import { FinanceRechnungen } from "./FinanceRechnungen";
 import { BelegeOffenePosten, FinanceBelege } from "./FinanceBelege";
+import { FinanceBank } from "./FinanceBank";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
 import {
@@ -102,6 +103,7 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             onSeite={onSeite}
             rechnungenSehen={darf("finance.rechnungen", "lesen")}
             belegeSehen={darf("finance.belege", "lesen")}
+            bankSehen={darf("finance.bank", "lesen")}
           />
         )}
         {aktiv === "einstellungen" && (
@@ -136,6 +138,14 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             darfSchreiben={darf("finance.belege", "schreiben")} darfLoeschen={darf("finance.belege", "loeschen")}
             onEinstellungen={() => onSeite("einstellungen")} />
         )}
+        {aktiv === "bank" && (
+          <FinanceBank supabase={supabase} jahr={jahr} heute={heute}
+            einstellungen={stand?.status === "da" ? stand.einstellungen : null}
+            darfSchreiben={darf("finance.bank", "schreiben")} darfLoeschen={darf("finance.bank", "loeschen")}
+            rechnungenSehen={darf("finance.rechnungen", "lesen")} belegeSehen={darf("finance.belege", "lesen")}
+            buchungenSehen={darf("finance.buchen", "lesen")} darfBuchen={darf("finance.buchen", "schreiben")}
+            onEinstellungen={() => onSeite("einstellungen")} />
+        )}
         {aktiv === "buchungen" && (
           <FinanceBuchungen supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
@@ -149,7 +159,7 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
 }
 
 // ---------------------------------------------------------------- Übersicht
-function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten, onSeite, rechnungenSehen, belegeSehen }: {
+function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten, onSeite, rechnungenSehen, belegeSehen, bankSehen }: {
   supabase: SupabaseClient;
   jahr: number;
   heute: string;
@@ -159,10 +169,13 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
   onSeite: (s: FinanceAnsicht) => void;
   rechnungenSehen: boolean;
   belegeSehen: boolean;
+  bankSehen: boolean;
 }) {
   const kommend = seiten.filter((s) => s.phase);
   const rechnungenQ = useFinRechnungen(supabase, jahr, rechnungenSehen);
   const belegeQ = useFinBelege(supabase, jahr, belegeSehen && !!einstellungen);
+  const bankQ = useFinBankumsaetze(supabase, jahr, bankSehen && !!einstellungen);
+  const bankOffen = (bankQ.data ?? []).filter((u) => u.status === "offen").length;
   const zu = rechnungenQ.data ? rechnungenZuErledigen(rechnungenQ.data, heute) : null;
   const belege = (belegeQ.data ?? []).map((b) => belegZustand(b, heute));
   const entwuerfe = belege.filter((b) => b.art === "entwurf").length;
@@ -175,11 +188,13 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
     ] : []),
     { n: entwuerfe, text: entwuerfe === 1 ? "Beleg im Entwurf" : "Belege im Entwurf", seite: "belege" as const },
     { n: belegeUeber, text: belegeUeber === 1 ? "Lieferantenbeleg überfällig" : "Lieferantenbelege überfällig", seite: "op" as const },
+    { n: bankOffen, text: bankOffen === 1 ? "Bankumsatz zuzuordnen" : "Bankumsätze zuzuordnen", seite: "bank" as const },
   ].filter((p) => p.n > 0);
-  const laedtZu = (rechnungenSehen && !zu && !rechnungenQ.isError) || (belegeSehen && !!einstellungen && belegeQ.isPending);
+  const laedtZu = (rechnungenSehen && !zu && !rechnungenQ.isError) || (belegeSehen && !!einstellungen && belegeQ.isPending)
+    || (bankSehen && !!einstellungen && bankQ.isPending);
   return (
     <>
-      {(rechnungenSehen || belegeSehen) && (
+      {(rechnungenSehen || belegeSehen || bankSehen) && (
         <>
           <span className="op-gruppe-titel">ZU ERLEDIGEN</span>
           <div className="db-karte es-karte">
@@ -238,7 +253,7 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
               );
             })}
           </div>
-          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten. Als Nächstes laut Plan: F4 Bank & Kasse → F5 Steuern.</span>
+          <span className="small es-fuss fi-fuss">Fertig: F1 Buchungen, F3 Rechnungen, F2 Belege, offene Posten, F4 Bank & Kasse. Als Nächstes laut Plan: F5 Steuern.</span>
         </>
       )}
     </>

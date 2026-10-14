@@ -77,7 +77,7 @@ import { SystemMarke } from "@/components/system/SystemMarke";
 import { SystemWahl } from "@/components/system/SystemWahl";
 import { FINANCE_ICONS, FinanceBereich, type FinanceAnsicht } from "@/components/finance/FinanceBereich";
 import { sichtbareFinanceSeiten } from "@/lib/finance/seiten";
-import { SYSTEME, aktivesSystem, istWechselbar, sichtbareSysteme, systemMerken, systemStartwert, type SystemKey } from "@/lib/systeme";
+import { SYSTEME, aktivesSystem, istWechselbar, sichtbareSysteme, systemStartwert, type SystemKey } from "@/lib/systeme";
 import { NavItem } from "@/components/NavItem";
 import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
 import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
@@ -221,10 +221,10 @@ export default function HomePage() {
   const [meineId, setMeineId] = useState<string | null>(null);
   // Startet in der Einsatzplanung (START_TAB in lib/module.ts), nicht mehr im Dashboard.
   const [tab, setTab] = useState<TabKey>(START_TAB);
-  // Das gewünschte System (v145, Finance F0, lib/systeme.ts): Link `?system=` oder Merker des Geräts.
-  // Was wirklich läuft, entscheidet `aktivesSystem()` weiter unten aus den Rechten – ohne Recht FSM.
-  // Der Startwert liest Fenster und Speicher; das ist unschädlich, weil vor dem ersten echten Bild
-  // ohnehin „Lädt…“ steht (`loading`).
+  // Das gewünschte System (v145, Finance F0, lib/systeme.ts): beim Öffnen immer FSM, nur ein Link
+  // `?system=` öffnet anders (seit v149 kein Merker je Gerät mehr). Was wirklich läuft, entscheidet
+  // `aktivesSystem()` weiter unten aus den Rechten – ohne Recht FSM. Der Startwert liest das Fenster;
+  // das ist unschädlich, weil vor dem ersten echten Bild ohnehin „Lädt…“ steht (`loading`).
   const [systemWunsch, setSystemWunsch] = useState<SystemKey>(() => systemStartwert());
   const [systemWahlOffen, setSystemWahlOffen] = useState(false);
   const [finSeite, setFinSeite] = useState<FinanceAnsicht>("uebersicht");
@@ -232,7 +232,6 @@ export default function HomePage() {
   // eine Push-Meldung, Sprung aus dem Chat), geht es zurück nach FSM – sonst stünde das Ziel unsichtbar
   // hinter Finance.
   const [tabBeiFinance, setTabBeiFinance] = useState<TabKey | null>(null);
-  useEffect(() => { systemMerken(systemWunsch); }, [systemWunsch]);
   // Vollseiten-Module: hier ergibt die Karte keinen Sinn, der Inhalt bekommt die volle Breite.
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos

@@ -159,7 +159,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('87', 'Finance: Rechte und Einstellungen', to_regclass('public.fin_einstellungen') is not null and exists (select 1 from public.module_permissions where module_key = 'finance')),
     ('88', 'Finance: Konten, Journal, Festschreibung', to_regprocedure('public.fin_buchen(date,text,text,jsonb)') is not null and to_regclass('public.fin_konten') is not null),
     ('89', 'Finance: Rechnungen buchen, Zahlungen', to_regclass('public.fin_rechnungen') is not null and to_regprocedure('public.fin_rechnungen_stand(integer)') is not null),
-    ('90', 'Finance: Belege und Lieferanten', to_regclass('public.fin_belege') is not null and exists (select 1 from storage.buckets where id = 'fin-belege'))
+    ('90', 'Finance: Belege und Lieferanten', to_regclass('public.fin_belege') is not null and exists (select 1 from storage.buckets where id = 'fin-belege')),
+    ('91', 'Finance: Bank und Kasse', to_regclass('public.fin_bankumsaetze') is not null and to_regprocedure('public.fin_bank_einlesen(uuid,text,text,jsonb,numeric,date)') is not null)
 )
 select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen
 union all

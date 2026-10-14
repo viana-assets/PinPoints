@@ -2,8 +2,9 @@
 
 Stand: 13.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rechte, Navigation, Übersicht,
 Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung – und
-**F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten – und **F2 (v148,
-Migration 90)** – Belege und Lieferanten („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+**F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten –, **F2 (v148,
+Migration 90)** – Belege und Lieferanten – und **F4 (v149, Migration 91)** – Bank & Kasse („So ist … gebaut“ in
+Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -62,8 +63,10 @@ Systemauswahl:
 
 ### So ist F0 gebaut (v145)
 
-- `lib/systeme.ts`: `SYSTEME`, `sichtbareSysteme()`, `aktivesSystem()`, Startwert aus `?system=` oder dem Merker
-  `mr-system` im Gerät. Ohne Recht `finance` läuft immer FSM, egal was gemerkt ist.
+- `lib/systeme.ts`: `SYSTEME`, `sichtbareSysteme()`, `aktivesSystem()`, Startwert aus `?system=`, sonst FSM. Ohne
+  Recht `finance` läuft immer FSM. Bis v148 merkte sich jedes Gerät das zuletzt gewählte System (`mr-system`) und
+  öffnete danach immer Finance; seit v149 startet die App wieder immer in FSM › Einsatzplanung (Wunsch Vitali
+  14.10.2026).
 - `components/system/SystemMarke.tsx` (Marke mit Systemname, als Knopf nur bei mehr als einem System) und
   `SystemWahl.tsx` (Blatt mit FSM, Finance, CRM „bald“).
 - `app/page.tsx`: In Finance stehen die Finance-Seiten in der Navigation (`FINANCE_SEITEN`, am Handy vier unten,
@@ -373,7 +376,39 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
 - **Offene Posten** zeigen jetzt beide Seiten: Kunden (F3) und Lieferanten (F2).
 - „Alle Daten löschen“ leert Belege und Lieferanten und entfernt die Dateien (`app/api/alle-daten/fotos`).
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3 und F2 erledigt**, als Nächstes F4.
+### So ist F4 gebaut (v149, Migration 91)
+
+- **Finance › Bank & Kasse**, Reiter Offen · Zugeordnet · Kasse · Konten & Importe.
+- **Bankkonten:** Name, IBAN (geprüft, je IBAN ein Konto) und Sachkonto aus „Kasse und Bank“ (Vorgabe 1200 bzw.
+  1800; ein zweites Konto bekommt ein eigenes Sachkonto, unter Buchungen › Konten anzulegen). Ausblenden statt löschen.
+- **Kontoauszug einlesen:** CAMT.053 (XML) oder CSV aus dem Online-Banking, höchstens 5 MB und 5.000 Umsätze. Gelesen
+  wird im Browser (`lib/finance/bank.ts`): CAMT nur gebuchte Umsätze (vorgemerkte übersprungen), Sammelbuchungen
+  einzeln, Endsaldo laut Bank; CSV mit Kopfzeile (Spalten am Namen erkannt, auch getrennte Soll/Haben-Spalten,
+  deutsche Zahlen und Daten, UTF-8 oder Windows-1252, Vorspann mit IBAN). Vorschau mit Summen und Zeitraum, das Konto
+  wird an der IBAN erkannt. Doppelte Umsätze erkennt die Datenbank (Prüfsumme aus Datum, Betrag, Zweck, Name, IBAN,
+  Referenz – Groß/Klein und Leerzeichen egal; gleiche Umsätze im selben Auszug zählen einzeln).
+- **Abgleich:** je Umsatz Vorschläge – Eingänge aus offenen Rechnungen, Abbuchungen aus offenen Belegen; Nummer im
+  Zweck zählt 3, gleicher Betrag 2, Name 1. Zuordnen nur bei gleichem Betrag (Teilzahlungen später): Bank an Forderung
+  bzw. Verbindlichkeit an Bank, Rechnung/Beleg gilt als bezahlt. Sonst **auf ein Konto** (Gebühren, Miete, Privat,
+  Umbuchung) mit Steuerschlüssel – derselbe Weg wie eine Buchung von Hand. Wurde ein Umsatz desselben Namens schon
+  auf ein Konto gebucht, stehen Konto und Steuer schon da (eine eigene Regeltabelle gibt es nicht). Oder
+  **ignorieren** mit Grund (z. B. schon von Hand gebucht).
+- **Aufheben** bucht gegen und macht den Umsatz wieder offen, Rechnung oder Beleg wieder unbezahlt. Wird die Zahlung
+  an der Rechnung oder am Beleg zurückgenommen, wird der Umsatz ebenfalls wieder offen. Bankbuchungen lassen sich
+  unter Buchungen nicht von Hand stornieren.
+- **Import zurücknehmen** (Recht „löschen“), solange nichts daraus zugeordnet ist. Je Import der Kontostand laut Bank
+  neben dem Saldo in Finance – eine Differenz zeigt offene Umsätze, fehlenden Anfangsbestand oder Buchungen von Hand.
+- **Kassenbuch:** alle Bewegungen auf 1000 bzw. 1600 nach Datum mit laufendem Bestand; Warnung, wenn er unter null
+  fiele. „Einnahme“ und „Ausgabe“ öffnen die Buchung mit der Kasse schon im Soll bzw. Haben. Bar bezahlte Rechnungen
+  und Belege stehen von selbst darin. Ein Kassensturz-Protokoll und Sperren je Tag kommen später; bis dahin schützt
+  die Festschreibung je Monat.
+- **Übersicht › Zu erledigen:** zusätzlich „Bankumsätze zuzuordnen“.
+- **Datenschutz:** Kontoauszüge enthalten Namen und IBANs der Zahlenden. Gespeichert werden nur Datum, Betrag, Zweck,
+  Name, IBAN und Referenz – nötig für den Abgleich, sichtbar nur mit „Finance › Bank“, an keinen Dritten, in keiner
+  Fehlermeldung. „Alle Daten löschen“ leert Bankkonten, Importe und Umsätze. Ein automatischer Bankabruf (PSD2/FinTS)
+  bleibt „später“ (4.3).
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2 und F4 erledigt**, als Nächstes F5.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den
 Umsatz liefern und heute schon täglich entstehen; nach F5 laufen Rechnungen, Belege, Bank und UStVA

@@ -147,6 +147,8 @@ viana-pinpoints/
                                      ausgestellt; Jetzt buchen, bar bezahlt, Überweisung, Zahlung zurücknehmen
       FinanceBelege.tsx              Belege und Lieferanten (Migration 90, v148): Entwurf mit Datei/E-Rechnung,
                                      Kontovorschlag, buchen (auf Wunsch gleich bezahlt), Storno; offene Posten Lieferanten
+      FinanceBank.tsx                Bank & Kasse (Migration 91, v149): Bankkonten, Kontoauszug einlesen mit Vorschau,
+                                     Umsätze zuordnen (Rechnung, Beleg, Konto), ignorieren, aufheben; Importe; Kassenbuch
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
       ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
@@ -323,7 +325,7 @@ viana-pinpoints/
     zeiterfassung.ts              Regeln der Stempeluhr: zählen, Woche, Monat, Urlaub, Hinweise (ArbZG), Formular,
                                   Korrekturtexte, CSV-Export (Migration 82/83, v131/v136)
     download.ts                   Eine Datei aus dem Browser speichern – für alle Exporte (v136)
-    systeme.ts                    Die Systeme FSM · Finance · CRM, wer was sieht, Startwert und Merker je Gerät (v145)
+    systeme.ts                    Die Systeme FSM · Finance · CRM, wer was sieht, Startwert (immer FSM, außer `?system=`; v145/v149)
     finance/
       einstellungen.ts            Finance-Einstellungen: Wahllisten, Vorgabe, Prüfung, Kurztext (Migration 87, v145)
       seiten.ts                   Die Seiten von Finance mit Recht und Phase (v145)
@@ -331,6 +333,7 @@ viana-pinpoints/
       rechnungen.ts               Vorgänge teilen, Zustand einer Rechnung, offene Posten, Zahlungsziel (Migration 89, v147)
       belege.ts                   Belege: Zustand, Kontovorschlag, offene Posten, Dateipfad und -prüfung (Migration 90, v148)
       erechnung.ts                E-Rechnung lesen (XRechnung UBL/CII, ZUGFeRD-XML) und in Posten übersetzen (v148)
+      bank.ts                     Kontoauszug lesen (CAMT.053, CSV, Zeichensatz), Vorschläge, Kassenbuch, Saldo (Migration 91, v149)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
                                   Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -379,7 +382,8 @@ viana-pinpoints/
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
       finance.ts                   Finance: Einstellungen (v145); Konten, Steuerschlüssel, Journal, buchen, stornieren,
-                                   festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148)
+                                   festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148);
+                                   Bankkonten, Kontoauszüge, Abgleich (v149)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -881,6 +885,10 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **90** – Finance, Phase F2: `fin_lieferanten`, `fin_belege` (Entwurf direkt, gebucht nur über Funktionen,
   Trigger `fin_beleg_pruefen`), Bucket `fin-belege` (Foto/PDF/XML, gebuchte Dateien nicht löschbar),
   `fin_beleg_buchen()` / `_bezahlt()` / `_zahlung_zuruecknehmen()` / `_stornieren()`.
+- **91** – Finance, Phase F4: `fin_bankkonten`, `fin_bankimporte`, `fin_bankumsaetze` (nur lesen; Namen und IBANs
+  der Zahlenden, Recht `finance.bank`). `fin_bank_einlesen()` (doppelte über Prüfsumme), `fin_bank_zu_rechnung()` /
+  `_zu_beleg()` / `_zu_konto()` / `_ignorieren()` / `_aufheben()`, `fin_bank_import_zuruecknehmen()`, Trigger
+  `fin_bank_nach_storno` (Umsatz wieder offen). Quelle `bank`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

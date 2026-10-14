@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **13.10.2026 – Finance Phase F4 (Migration 91, Service Worker v149).** Bank & Kasse: Bankkonten, Kontoauszug
+  als CAMT.053 oder CSV einlesen (doppelte erkannt), Umsätze Rechnungen, Belegen oder Konten zuordnen (Vorschläge
+  nach Nummer, Betrag, Name; Konto wie beim letzten Mal), ignorieren, aufheben, Import zurücknehmen; Kassenbuch mit
+  laufendem Bestand. Dazu: Die App startet wieder immer in FSM › Einsatzplanung (v145–v148 öffneten nach einmal
+  Finance immer Finance). Migrationen 88–90 und v146–v148 laut Vitali ausgeführt und hochgeladen. `docs/finance.md`.
+
 * **13.10.2026 – Finance Phase F2 (Migration 90, Service Worker v148).** Belege und Lieferanten: Entwurf mit Foto,
   PDF oder E-Rechnung (XRechnung UBL/CII liest Lieferant, Nummer, Datum, Beträge), Kontovorschlag je Lieferant,
   buchen (Vorsteuer, § 13b, gleich bar/Bank bezahlt), Storno; offene Posten der Lieferanten. `docs/finance.md`.
@@ -880,9 +886,10 @@ sofort in Finance › Rechnungen (vorgemerkt → zu erstellen); Ausstellen – a
 und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance.md` 4.2).
 **Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
 sind Probelauf, die Buchhaltung läuft wie bisher.
-Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 (v145, Migration 87), F1 (v146, 88), F3 (v147, 89) und F2 (v148, 90)
-erledigt.** Als Nächstes **F4**: Bank-Import (CAMT.053/CSV), Abgleich mit offenen Posten, Kassenbuch. Offen vor dem
-Echtbetrieb: Kontenliste mit dem Steuerberater abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen.
+Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 (v145, Migration 87), F1 (v146, 88), F3 (v147, 89), F2 (v148, 90)
+und F4 (v149, 91) erledigt.** Als Nächstes **F5**: Umsatzsteuer-Voranmeldung als Probelauf, Fristen, § 13b, ig.
+Erwerb, Kleinunternehmer-Grenzen, Sondervorauszahlung. Offen vor dem Echtbetrieb: Kontenliste mit dem Steuerberater
+abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen; Teilzahlungen im Bankabgleich; Kassensturz-Protokoll.
 
 ---
 

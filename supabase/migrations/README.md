@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen (soweit nicht gemeldet): `88_finance_buchungen.sql`, `89_finance_rechnungen.sql`, `90_finance_belege.sql`** – in dieser Reihenfolge (Abschnitte unten, je vor den Dateien von v146/v147/v148). **Stand 13.10.2026: Die Migrationen 01–87 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen) –
+**Noch auszuführen: `91_finance_bank.sql`** – vor den Dateien von v149 (Abschnitt unten). **Stand 13.10.2026: Die Migrationen 01–90 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1211,7 +1211,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Stellen (eine Tabelle mehr in der Sicherung, acht Rechtezeilen mehr). Ausgeführt, zweimal, zurückgenommen,
   zweimal, erneut ausgeführt.
 
-- `88_finance_buchungen.sql` – **noch auszuführen**, vor den Dateien von v146.
+- `88_finance_buchungen.sql` – **ausgeführt** (13.10.2026).
   Finance, Phase F1 (`docs/finance.md`): `fin_konten` (72 Konten je SKR03/SKR04 nach DATEV-Nummern, eigene
   Bezeichnungen – mit dem Steuerberater abgleichen; eigene Konten anlegen und ausblenden mit
   `finance.einstellungen`, kein Löschen, Spaltenrechte nur Bezeichnung/aktiv), `fin_steuerschluessel` (9 je
@@ -1235,7 +1235,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   gleiche Ausgabe bis auf die gewollte Stelle (sechs Tabellen mehr in der Sicherung). Ausgeführt, zweimal,
   zurückgenommen, zweimal, erneut ausgeführt.
 
-- `89_finance_rechnungen.sql` – **noch auszuführen**, nach 88 und vor den Dateien von v147.
+- `89_finance_rechnungen.sql` – **ausgeführt** (13.10.2026).
   Finance, Phase F3 (`docs/finance.md` 4.2): Tabelle `fin_rechnungen` (Stand je Rechnung: gebucht / fehler mit
   Grund / storniert, Fälligkeit, Zahlung; nur lesen mit `finance.rechnungen`). Trigger `trg_zz_fin_rechnung`
   (AFTER INSERT auf `rechnungen`, nach `trg_rechnung_am_auftrag`): Rechnung zu einem Auftrag mit „Rechnung nötig“
@@ -1258,7 +1258,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   löschen“ leert `fin_rechnungen`. `t72`, `t86`, `t87`, `t88` gegen 88 und 89: gleiche Ausgabe bis auf die gewollte
   Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `90_finance_belege.sql` – **noch auszuführen**, nach 89 und vor den Dateien von v148.
+- `90_finance_belege.sql` – **ausgeführt** (13.10.2026).
   Finance, Phase F2 (`docs/finance.md` 4.1): `fin_lieferanten` (Name eindeutig ohne Groß/Klein, USt-IdNr.,
   Konto- und Steuervorschlag; lesen/schreiben `finance.belege`, kein Löschen; Spaltenrechte), `fin_belege`
   (Entwurf direkt änderbar, Posten als jsonb, Datei; gebucht/storniert nur über Funktionen – Trigger
@@ -1279,3 +1279,29 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   löschen“ leert Belege und Lieferanten. `t72`, `t86`–`t89` gegen 89 und 90: gleiche Ausgabe bis auf die gewollten
   Stellen (zwei Tabellen mehr in der Sicherung; Meldung zum Stornieren einer Zahlung allgemeiner). Ausgeführt,
   zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `91_finance_bank.sql` – **noch auszuführen**, nach 90 und vor den Dateien von v149.
+  Finance, Phase F4 (`docs/finance.md` 4.3): `fin_bankkonten` (Name, IBAN geprüft und eindeutig, Sachkonto;
+  lesen/schreiben `finance.bank`, kein Löschen, ausblenden; Spaltenrechte), `fin_bankimporte` (Datei, Format,
+  Zeitraum, Zahl neu/gesamt, Endsaldo laut Bank), `fin_bankumsaetze` (Datum, Wertstellung, Betrag mit Vorzeichen,
+  Zweck, Name, IBAN, Referenz, Prüfsumme je Konto, Status offen/zugeordnet/ignoriert; nur lesen). Gelesen wird der
+  Kontoauszug im Browser (`lib/finance/bank.ts`); `fin_bank_einlesen()` erkennt Umsätze, die schon da sind (gleiche
+  Umsätze im selben Auszug werden mitgezählt), höchstens 5.000 je Datei. Abgleich: `fin_bank_zu_rechnung()` (Bank
+  an Forderung, Rechnung bezahlt – nur bei gleichem Betrag), `fin_bank_zu_beleg()` (Verbindlichkeit an Bank, Beleg
+  bezahlt), `fin_bank_zu_konto()` (über `fin_posten_schreiben()`, mit Steuerschlüssel, Quelle `bank`),
+  `fin_bank_ignorieren()` (Grund Pflicht), `fin_bank_aufheben()` (Gegenbuchung, Rechnung/Beleg wieder offen).
+  Trigger `fin_bank_nach_storno` setzt den Umsatz zurück, wenn seine Buchung anderswo storniert wird (Zahlung
+  zurücknehmen an Rechnung oder Beleg). `fin_bank_import_zuruecknehmen()` (Recht „löschen“, nur ohne Zuordnung).
+  `fin_stornieren()` lehnt Bankbuchungen ab. Wache: bricht ohne 90 ab. Ergebnistabelle mit vier Zeilen. Zweiter
+  Lauf folgenlos. Rücknahme: `rollback/91_rollback.sql` (Trigger, Funktionen, Tabellen weg, Journal bleibt;
+  `fin_stornieren` wie 90; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 90, `pgtest/t91.sql`): Admin ohne Recht legt kein Konto an, liest nicht ein;
+  falsche IBAN abgelehnt; erster Import 6 neu, zweiter mit anders geschriebenem Zweck/Namen 1 neu von 4 (drei
+  Bäckerei-Umsätze: zwei schon da, einer neu); Umsatz ohne Betrag abgelehnt; Abbuchung zu Rechnung, doppelt,
+  Betrag zu Beleg falsch, Gegenkonto = Bankkonto → abgelehnt; Rechnung 1200 an 1400, Beleg 1600 an 1200, Miete
+  4210 an 1200, Werkstatt mit Vorsteuer 4540 100 + 1576 19 an 1200; Ignorieren ohne Grund abgelehnt, mit Grund und
+  wieder geöffnet; Aufheben → Rechnung wieder offen, Umsatz offen; Zahlung am Beleg zurücknehmen → Umsatz offen;
+  von Hand stornieren und Import mit Zuordnung zurücknehmen abgelehnt, nach dem Aufheben erlaubt (6 entfernt);
+  Techniker sieht nichts; überall Soll = Haben, Nummern lückenlos; „Alle Daten löschen“ leert Bankkonten und Umsätze.
+  `t72`, `t86`–`t90` gegen 90 und 91: gleiche Ausgabe bis auf die gewollte Stelle (drei Tabellen mehr in der
+  Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

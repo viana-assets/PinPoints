@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it } from "vitest";
 import {
-  SYSTEME, SYSTEM_PARAMETER, SYSTEM_SPEICHER_SCHLUESSEL,
-  aktivesSystem, istWechselbar, sichtbareSysteme, systemMerken, systemStartwert,
+  SYSTEME, SYSTEM_PARAMETER,
+  aktivesSystem, istWechselbar, sichtbareSysteme, systemStartwert,
 } from "@/lib/systeme";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten } from "@/lib/finance/seiten";
 import { RECHTE_KATALOG, RECHTE_VORGABE } from "@/lib/constants";
@@ -41,19 +41,17 @@ describe("aktivesSystem", () => {
   });
 });
 
-describe("systemStartwert / systemMerken", () => {
-  it("ohne Link und Merker: FSM", () => {
+describe("systemStartwert", () => {
+  it("ohne Link: FSM", () => {
     expect(systemStartwert()).toBe("fsm");
   });
-  it("liest den Merker des Geräts", () => {
-    systemMerken("finance");
-    expect(window.localStorage.getItem(SYSTEM_SPEICHER_SCHLUESSEL)).toBe("finance");
+  it("ein alter Merker im Gerät öffnet NICHT mehr Finance (v149) – Start ist immer FSM", () => {
+    window.localStorage.setItem("mr-system", "finance");
+    expect(systemStartwert()).toBe("fsm");
+  });
+  it("der Link öffnet Finance", () => {
+    window.history.replaceState(null, "", `/?${SYSTEM_PARAMETER}=finance`);
     expect(systemStartwert()).toBe("finance");
-  });
-  it("der Link schlägt den Merker", () => {
-    systemMerken("finance");
-    window.history.replaceState(null, "", `/?${SYSTEM_PARAMETER}=fsm`);
-    expect(systemStartwert()).toBe("fsm");
   });
   it("unbekannter Wert im Link: FSM", () => {
     window.history.replaceState(null, "", `/?${SYSTEM_PARAMETER}=xyz`);

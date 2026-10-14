@@ -275,7 +275,13 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   `finance.belege` · L = Belege, Lieferanten und Belegdateien sehen, S = Entwürfe und Lieferanten anlegen/ändern,
   Dateien hochladen, buchen, bezahlen, stornieren; X = einen Entwurf verwerfen (gebuchte nie –
   `fin_beleg_pruefen()` begründet). Gebuchte Belegdateien löscht niemand (Speicher-Richtlinie).
-  Kein Löschen. Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
+  **F4 (Migration 91, v149):** `finance.bank` · L = Bankkonten, Importe und Umsätze sehen (mit Namen und IBANs der
+  Zahlenden – nur wer den Abgleich macht, sollte das haben), S = Bankkonten anlegen/ändern/ausblenden, Kontoauszüge
+  einlesen, zuordnen, ignorieren, aufheben; X = einen Import zurücknehmen, solange nichts daraus zugeordnet ist.
+  Vorschläge zeigen nur Rechnungen und Belege, die man mit `finance.rechnungen` bzw. `finance.belege` sieht; das
+  Kassenbuch und der Vergleich mit dem Kontostand brauchen `finance.buchen` L, „Einnahme“/„Ausgabe“ dort
+  `finance.buchen` S. Bankbuchungen storniert niemand von Hand (`fin_stornieren()`), nur über „Aufheben“.
+  Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,
   `chat_ungelesen()`, Empfänger in `lib/chatVersand.ts`); S = schreiben (Richtlinie „Chat schreiben“,

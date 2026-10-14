@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v148";
+export const APP_VERSION = "v149";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v149", datum: "2026-10-13", titel: "Finance: Bank & Kasse",
+    punkte: [
+      "Unter Finance › Bank & Kasse lässt sich der Kontoauszug aus dem Online-Banking einlesen (CAMT.053 oder CSV). Umsätze, die schon da sind, werden erkannt.",
+      "Jeder Umsatz wird zugeordnet: Zahlungseingang zur passenden Rechnung, Abbuchung zum Beleg – oder auf ein Konto wie Miete oder Gebühren. Beim nächsten Mal steht das Konto schon da.",
+      "Das Kassenbuch zeigt alle Barzahlungen mit laufendem Bestand; „Einnahme“ und „Ausgabe“ buchen direkt auf die Kasse.",
+      "Beim Öffnen startet die App wieder immer in FSM mit der Einsatzplanung – auch wenn zuletzt Finance offen war.",
+    ],
+  },
   {
     version: "v148", datum: "2026-10-13", titel: "Finance: Belege",
     punkte: [

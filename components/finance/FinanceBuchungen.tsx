@@ -176,16 +176,19 @@ export function KontoWahl({ wert, konten, onWert, label, nur, disabled }: {
   );
 }
 
-export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schluessel, onGebucht, onClose }: {
+// Vorbelegung, z. B. aus dem Kassenbuch (FinanceBank.tsx): Einnahme = Kasse im Soll, Ausgabe = Kasse im Haben.
+export type BuchungVorlage = { titel?: string; text?: string; soll?: number; haben?: number };
+
+export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schluessel, vorlage, onGebucht, onClose }: {
   supabase: SupabaseClient; heute: string; jahr: number; einstellungen: FinEinstellungen;
-  konten: FinKonto[]; schluessel: FinSteuerschluessel[];
+  konten: FinKonto[]; schluessel: FinSteuerschluessel[]; vorlage?: BuchungVorlage;
   onGebucht: (nr: number) => void; onClose: () => void;
 }) {
   const queryClient = useQueryClient();
   const [datum, setDatum] = useState(heute.slice(0, 4) === String(jahr) ? heute : `${jahr}-01-01`);
-  const [text, setText] = useState("");
+  const [text, setText] = useState(vorlage?.text ?? "");
   const [beleg, setBeleg] = useState("");
-  const [posten, setPosten] = useState<PostenEingabe[]>([LEER]);
+  const [posten, setPosten] = useState<PostenEingabe[]>([{ ...LEER, soll: vorlage?.soll ? String(vorlage.soll) : "", haben: vorlage?.haben ? String(vorlage.haben) : "" }]);
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   const passend = passendeSchluessel(schluessel, einstellungen);
@@ -214,7 +217,7 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
   }
 
   return (
-    <Blatt titel="Neue Buchung" unter={`${einstellungen.kontenrahmen.toUpperCase()} · Wirtschaftsjahr ${jahr}`} breite="breit" onClose={onClose}
+    <Blatt titel={vorlage?.titel ?? "Neue Buchung"} unter={`${einstellungen.kontenrahmen.toUpperCase()} · Wirtschaftsjahr ${jahr}`} breite="breit" onClose={onClose}
       fuss={<>
         <button type="button" className="btn-secondary" onClick={onClose} disabled={laeuft}>Abbrechen</button>
         <button type="button" className="btn-primary" onClick={() => void buchen()} disabled={laeuft || !!pruefung}>{laeuft ? "bucht …" : "Buchen"}</button>
@@ -261,7 +264,9 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
           );
         })}
         {posten.length < 50 && (
-          <button type="button" className="btn-secondary fi-mehr" onClick={() => setPosten([...posten, { ...LEER, steuer: posten[posten.length - 1]?.steuer ?? "" }])}>+ Weiterer Posten</button>
+          <button type="button" className="btn-secondary fi-mehr" onClick={() => setPosten([...posten, {
+            ...LEER, soll: vorlage?.soll ? String(vorlage.soll) : "", haben: vorlage?.haben ? String(vorlage.haben) : "", steuer: posten[posten.length - 1]?.steuer ?? "",
+          }])}>+ Weiterer Posten</button>
         )}
 
         <span className="op-gruppe-titel">SO WIRD GEBUCHT</span>
