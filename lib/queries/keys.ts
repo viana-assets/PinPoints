@@ -78,6 +78,8 @@ export const qk = {
   finBankkonten: () => ["finance", "bankkonten"] as const,
   finBankumsaetze: (jahr: number) => ["finance", "bankumsaetze", jahr] as const,
   finBankimporte: () => ["finance", "bankimporte"] as const,
+  // F5 (Migration 92): Voranmeldungs-Stand je Jahr (Kennzahlen je Zeitraum, Abgaben).
+  finUst: (jahr: number) => ["finance", "ust", jahr] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

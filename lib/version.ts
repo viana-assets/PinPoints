@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v149";
+export const APP_VERSION = "v150";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v150", datum: "2026-10-14", titel: "Finance: Umsatzsteuer-Voranmeldung (Probelauf)",
+    punkte: [
+      "Unter Finance › Steuern steht für jeden Monat (oder jedes Quartal) die Voranmeldung, wie sie aus den Buchungen in Finance folgt: Kennzahlen, Frist und Zahllast.",
+      "Ist die Voranmeldung abgegeben, lässt sie sich festhalten. Wird danach im Zeitraum noch gebucht, zeigt Finance, dass eine Berichtigung nötig ist.",
+      "Dazu: Sondervorauszahlung bei Dauerfristverlängerung und für Kleinunternehmer die Umsatzgrenzen. Abgegeben wird weiterhin über den Steuerberater oder ELSTER.",
+    ],
+  },
   {
     version: "v149", datum: "2026-10-13", titel: "Finance: Bank & Kasse",
     punkte: [

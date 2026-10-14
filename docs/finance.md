@@ -3,8 +3,8 @@
 Stand: 13.10.2026 · **Gebaut: F0 (v145, Migration 87)** – Systemwechsel, Rechte, Navigation, Übersicht,
 Einstellungen –, **F1 (v146, Migration 88)** – Konten, Steuerschlüssel, Journal, Storno, Festschreibung – und
 **F3 (v147, Migration 89)** – Rechnungen mit „Rechnung nötig“, Zahlungen, offene Posten –, **F2 (v148,
-Migration 90)** – Belege und Lieferanten – und **F4 (v149, Migration 91)** – Bank & Kasse („So ist … gebaut“ in
-Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
+Migration 90)** – Belege und Lieferanten –, **F4 (v149, Migration 91)** – Bank & Kasse – und **F5 (v150, Migration
+92)** – Umsatzsteuer-Voranmeldung als Probelauf („So ist … gebaut“ in Abschnitt 7). Alles Weitere ist Konzept. Klickbarer Mockup:
 `PinPoints\Claude outputs\Mockup_Finance_v3.html` (nur Beispieldaten).
 
 Wunsch Vitali (13.10.2026): ein vollständiges Buchhaltungsmodul „wie Lexware oder DATEV“, zuerst
@@ -408,7 +408,42 @@ Bewusst schlank, damit F3 (Rechnungen) bald folgt:
   Fehlermeldung. „Alle Daten löschen“ leert Bankkonten, Importe und Umsätze. Ein automatischer Bankabruf (PSD2/FinTS)
   bleibt „später“ (4.3).
 
-Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2 und F4 erledigt**, als Nächstes F5.
+### So ist F5 gebaut (v150, Migration 92)
+
+- **Finance › Steuern:** oben die Art der Anmeldung aus den Einstellungen, darunter je Zeitraum (Monat, Quartal oder
+  bei Befreiung nur das Jahr) Frist, Zustand und Zahllast. Kommende Zeiträume nur auf Wunsch.
+- **Kennzahlen** rechnet die Datenbank aus dem Journal (`fin_ust_kennzahlen()`): jede Zeile mit Steuerschlüssel, je
+  Posten – Bemessung vom Erlös- bzw. Aufwandskonto, Steuer vom Steuerkonto. 81/86 (USt 19/7), 41 (ig. Lieferung),
+  48 (steuerfrei, nur Erlöse – je nach Art auch 43, mit dem Steuerberater klären), 89 + 61 (ig. Erwerb), 46/47 + 67
+  (§ 13b, sonstige Leistungen aus dem EU-Ausland; Bauleistungen nach § 13b Abs. 2 – Kz 84/85 – gibt es als Schlüssel
+  noch nicht), 66 (Vorsteuer), 39 (Sondervorauszahlung im Dezember), 83 (Ergebnis). Kleinunternehmer-Umsätze (`ku`)
+  und Umsätze ohne Schlüssel stehen nicht drin. Vordruck 2026: Kennzahlen wie 2025, nur Kz 23 heißt jetzt Kz 500
+  (ergänzende Angaben – hier nicht gebraucht).
+- **Formularansicht** (`lib/finance/steuern.ts`): Bemessungsgrundlagen in vollen Euro, die Steuer zu 81/86/89 rechnet
+  das Formular selbst daraus; daneben „laut Buchhaltung“, wenn Rundungscent abweichen.
+- **Ist-Versteuerung:** Rechnungen aus FSM zählen im Zeitraum der Zahlung (bar, Überweisung oder Bankabgleich), ihr
+  Storno nur, wenn die Rechnung bezahlt war. Von Hand gebuchte Ausgangsrechnungen zählen am Buchungsdatum.
+- **Frist:** 10. Tag nach Ende des Zeitraums, mit Dauerfristverlängerung einen Monat später; Samstag, Sonntag und
+  bundesweite Feiertage schieben auf den nächsten Werktag (§ 108 Abs. 3 AO). Landesfeiertage am Sitz des Finanzamts
+  fehlen – die angezeigte Frist ist dadurch höchstens früher, nie später.
+- **Als abgegeben festhalten** (Recht `finance.steuer` schreiben): Datum (nach Zeitraumende, nicht in der Zukunft) und
+  Notiz; die Datenbank legt die Kennzahlen dieses Augenblicks als Fassung ab. Wird danach im Zeitraum gebucht oder
+  storniert, steht der Zeitraum auf „seit der Abgabe geändert – Berichtigung nötig“ (in ELSTER Kz 10 = 1); die
+  Berichtigung ist die nächste Fassung. Gelöscht wird keine. **Abweichung vom Konzept (4.6):** Der Zeitraum wird nicht
+  gesperrt – dafür gibt es „Monat festschreiben“ unter Buchungen (Recht `finance.abschluss`); nach der Abgabe
+  festschreiben, dann kann sich nichts mehr ändern.
+- **Sondervorauszahlung** (monatlich mit Dauerfrist): Betrag laut Finanzamt je Jahr eintragen; Vorschlag ein Elftel der
+  festgehaltenen Vorauszahlungen des Vorjahres; im Dezember als Kz 39 abgezogen.
+- **Kleinunternehmer:** Umsatz des Jahres (Erlöskonten) gegen 100.000 €, Vorjahresumsatz (eintragen) gegen 25.000 €,
+  Warnung ab 80 %. Voranmeldung nur in Zeiträumen mit § 13b oder ig. Erwerb.
+- **Zahlung ans Finanzamt:** unter Bank & Kasse den Umsatz auf 1780 (SKR04 3820) Umsatzsteuer-Vorauszahlungen bzw.
+  1781 (3830) Sondervorauszahlung buchen.
+- **Übersicht › Zu erledigen:** Voranmeldungen überfällig, in 7 Tagen fällig, seit der Abgabe geändert.
+- Noch nicht: Zusammenfassende Meldung, Umsatzsteuer-Jahreserklärung, Erinnerung per Push, Abschlussbuchung der
+  USt-Konten auf 1780, § 13b Abs. 2. Übermittelt wird nie aus der App.
+
+Reihenfolge: F0 → F1 → F3 → F2 → F4 → F5. **F0, F1, F3, F2, F4 und F5 erledigt**; danach laut Plan ein Monat
+Probelauf mit Rechnungen, Belegen, Bank und Voranmeldung, bevor F6 (Auswertungen) folgt.
 
 Vorschlag zur Reihenfolge (ursprünglich): F0 → F1 → F3 → F2 → F4 → F5. Die Rechnungen kommen früh, weil sie den
 Umsatz liefern und heute schon täglich entstehen; nach F5 laufen Rechnungen, Belege, Bank und UStVA

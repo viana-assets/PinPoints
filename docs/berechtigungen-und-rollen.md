@@ -281,6 +281,10 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   Vorschläge zeigen nur Rechnungen und Belege, die man mit `finance.rechnungen` bzw. `finance.belege` sieht; das
   Kassenbuch und der Vergleich mit dem Kontostand brauchen `finance.buchen` L, „Einnahme“/„Ausgabe“ dort
   `finance.buchen` S. Bankbuchungen storniert niemand von Hand (`fin_stornieren()`), nur über „Aufheben“.
+  **F5 (Migration 92, v150):** `finance.steuer` · L = Finance › Steuern (Kennzahlen je Zeitraum über `fin_ust_stand()` –
+  Summen aus dem ganzen Journal, auch ohne `finance.buchen`), S = Abgabe festhalten (`fin_ust_abgegeben()`),
+  Vorjahresumsatz und Sondervorauszahlung eintragen. Kein Löschen: Eine Voranmeldung wird nie gelöscht, eine
+  Berichtigung ist die nächste Fassung.
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

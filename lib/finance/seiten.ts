@@ -27,7 +27,7 @@ export const FINANCE_SEITEN: FinanceSeite[] = [
   { key: "bank", label: "Bank & Kasse", beschreibung: "Kontoauszug (CAMT oder CSV) einlesen, Umsätze Rechnungen, Belegen oder Konten zuordnen; Kassenbuch", recht: "finance.bank", phase: null, primaer: true },
   { key: "op", label: "Offene Posten", beschreibung: "Wer noch zahlen muss und was wir schulden", recht: "finance.rechnungen", phase: null },
   { key: "buchungen", label: "Buchungen", beschreibung: "Journal, Konten mit Saldo, Monate festschreiben", recht: "finance.buchen", phase: null },
-  { key: "steuern", label: "Steuern", beschreibung: "Umsatzsteuer-Voranmeldung und Zahllast – als Probelauf", recht: "finance.steuer", phase: "F5" },
+  { key: "steuern", label: "Steuern", beschreibung: "Umsatzsteuer-Voranmeldung mit Kennzahlen, Fristen und Zahllast – als Probelauf", recht: "finance.steuer", phase: null },
   { key: "anlagen", label: "Anlagen", beschreibung: "Anlagevermögen und Abschreibungen", recht: "finance.abschluss", phase: "F7" },
   { key: "auswertungen", label: "Auswertungen", beschreibung: "BWA, EÜR oder GuV und Summen-Salden", recht: "finance.abschluss", phase: "F6" },
   { key: "export", label: "Export", beschreibung: "DATEV-Buchungsstapel für den Steuerberater", recht: "finance.abschluss", phase: "F9" },

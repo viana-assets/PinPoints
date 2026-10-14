@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **14.10.2026 – Finance Phase F5 (Migration 92, Service Worker v150).** Steuern: Umsatzsteuer-Voranmeldung als
+  Probelauf – Kennzahlen je Monat/Quartal aus dem Journal (81, 86, 41, 48, 89/61, 46/47/67, 66, 39, 83), Soll und
+  Ist, Fristen mit Dauerfrist und Feiertagen, „als abgegeben festhalten“ mit Fassungen und Hinweis bei späterer
+  Änderung, Sondervorauszahlung, Kleinunternehmer-Grenzen. Migration 91 und v149 laut Vitali ausgeführt und
+  hochgeladen. `docs/finance.md`.
+
 * **13.10.2026 – Finance Phase F4 (Migration 91, Service Worker v149).** Bank & Kasse: Bankkonten, Kontoauszug
   als CAMT.053 oder CSV einlesen (doppelte erkannt), Umsätze Rechnungen, Belegen oder Konten zuordnen (Vorschläge
   nach Nummer, Betrag, Name; Konto wie beim letzten Mal), ignorieren, aufheben, Import zurücknehmen; Kassenbuch mit
@@ -887,9 +893,10 @@ und offenen Posten. Ohne Haken geht nichts nach Finance (Phase F3, `docs/finance
 **Pilot, additiv:** FSM bleibt unverändert; Finance erfasst zum Testen nur diesen Teilbereich, seine Zahlen
 sind Probelauf, die Buchhaltung läuft wie bisher.
 Reihenfolge F0 → F1 → F3 → F2 → F4 → F5. **F0 (v145, Migration 87), F1 (v146, 88), F3 (v147, 89), F2 (v148, 90)
-und F4 (v149, 91) erledigt.** Als Nächstes **F5**: Umsatzsteuer-Voranmeldung als Probelauf, Fristen, § 13b, ig.
-Erwerb, Kleinunternehmer-Grenzen, Sondervorauszahlung. Offen vor dem Echtbetrieb: Kontenliste mit dem Steuerberater
-abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen; Teilzahlungen im Bankabgleich; Kassensturz-Protokoll.
+F4 (v149, 91) und F5 (v150, 92) erledigt.** Als Nächstes laut Plan: ein Monat Probelauf, dann **F6** (Summen- und
+Saldenliste, Kontenblätter, BWA, EÜR). Offen vor dem Echtbetrieb: Kontenliste und Kennzahlen mit dem Steuerberater
+abgleichen; ZUGFeRD-PDF (XML im Anhang) lesen; Teilzahlungen im Bankabgleich; Kassensturz-Protokoll; Zusammenfassende
+Meldung; Erinnerung an die Voranmeldungsfrist per Push.
 
 ---
 

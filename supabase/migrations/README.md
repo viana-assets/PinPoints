@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `91_finance_bank.sql`** – vor den Dateien von v149 (Abschnitt unten). **Stand 13.10.2026: Die Migrationen 01–90 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026) –
+**Noch auszuführen: `92_finance_steuern.sql`** – vor den Dateien von v150 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–91 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91 am 14.10.2026) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1280,7 +1280,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Stellen (zwei Tabellen mehr in der Sicherung; Meldung zum Stornieren einer Zahlung allgemeiner). Ausgeführt,
   zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `91_finance_bank.sql` – **noch auszuführen**, nach 90 und vor den Dateien von v149.
+- `91_finance_bank.sql` – **ausgeführt** (14.10.2026).
   Finance, Phase F4 (`docs/finance.md` 4.3): `fin_bankkonten` (Name, IBAN geprüft und eindeutig, Sachkonto;
   lesen/schreiben `finance.bank`, kein Löschen, ausblenden; Spaltenrechte), `fin_bankimporte` (Datei, Format,
   Zeitraum, Zahl neu/gesamt, Endsaldo laut Bank), `fin_bankumsaetze` (Datum, Wertstellung, Betrag mit Vorzeichen,
@@ -1305,3 +1305,26 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Techniker sieht nichts; überall Soll = Haben, Nummern lückenlos; „Alle Daten löschen“ leert Bankkonten und Umsätze.
   `t72`, `t86`–`t90` gegen 90 und 91: gleiche Ausgabe bis auf die gewollte Stelle (drei Tabellen mehr in der
   Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `92_finance_steuern.sql` – **noch auszuführen**, nach 91 und vor den Dateien von v150.
+  Finance, Phase F5 (`docs/finance.md` 4.6): Umsatzsteuer-Voranmeldung als Probelauf. `fin_ust_kennzahlen()` (intern)
+  rechnet je Zeitraum aus jeder Buchungszeile mit Steuerschlüssel, je Posten: Kz 81/86 (USt 19/7 – Bemessung vom
+  Erlöskonto, Steuer vom USt-Konto), 41 (ig. Lieferung), 48 (steuerfrei, nur Erlöse), 89/61 (ig. Erwerb), 46/47/67
+  (§ 13b; beim Kleinunternehmer ohne 67, Bemessung zurück auf netto), 66 (Vorsteuer). Ist-Versteuerung: Rechnungen
+  aus FSM zählen am Zahltag (`fin_rechnungen.bezahlt_am`), ihr Storno nur, wenn sie bezahlt waren.
+  `fin_ust_zeitraeume()` (Monat/Quartal/Jahr nach den Einstellungen), `fin_ust_stand(jahr)` (lesen
+  `finance.steuer`: Zeiträume mit Kennzahlen und abgegebenen Fassungen, Umsatz des Jahres, Vorjahresumsatz,
+  Sondervorauszahlung), `fin_ust_abgegeben()` (schreiben `finance.steuer`: nächste Fassung mit den Kennzahlen dieses
+  Augenblicks, Kz 39 im Dezember bei Dauerfrist; nur nach Zeitraumende, nicht in der Zukunft). Tabellen
+  `fin_voranmeldungen` (nur lesen, kein Ändern/Löschen) und `fin_steuer_jahre` (Vorjahresumsatz, Sondervorauszahlung;
+  Spaltenrechte inkl. `jahr` fürs Upsert, Stempel-Trigger). Wache: bricht ohne 91 ab. Ergebnistabelle mit drei
+  Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/92_rollback.sql` (zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 91, `pgtest/t92.sql`): August mit acht Buchungen → 81 150/28,50, 66 9,50, 46/47
+  100/19, 67 19, 89 200/38, 61 38, 41 500; steuerfreier Einkauf nicht drin; Gutschrift 7 % und Barverkauf 7 % heben
+  sich auf, nach Storno der Gutschrift 86 10/0,70; Rechnung aus FSM im September (Soll), bei Ist erst im Oktober nach
+  Zahlung; Abgabe vor Zeitraumende, in der Zukunft, falscher Zeitraum abgelehnt; zwei Fassungen mit unterschiedlichem
+  Stand; Kz 39 nur im Dezember; Quartal Q1–Q4, befreit J; ohne Einstellungen „nicht eingerichtet“; Umsatz des Jahres
+  788 €; Admin ohne Recht: Stand, Abgabe, Steuerjahr abgelehnt, sieht nichts; Baustein nicht aufrufbar; direktes
+  Schreiben in `fin_voranmeldungen` für alle verweigert; Upsert auf `fin_steuer_jahre` zweimal; „Alle Daten löschen“
+  leert beide Tabellen. `t72`, `t86`–`t91` gegen 91 und 92: gleiche Ausgabe bis auf die gewollte Stelle (zwei Tabellen
+  mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.

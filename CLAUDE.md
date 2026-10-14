@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 13.10.2026 (Migrationen bis 91, 91 noch auszuführen soweit nicht gemeldet; Service Worker v149; Regeln seit der Projektdurchsicht vom
+Stand: 14.10.2026 (Migrationen bis 92, 92 noch auszuführen soweit nicht gemeldet; Service Worker v150; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -417,7 +417,7 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
 | Wie funktionieren Artikelstammdaten und Leistungen? | `docs/artikelstammdaten.md` |
 | Wie funktioniert die Rechnungsstellung? | `docs/rechnungen.md` |
 | Was ist offen, was ist als Nächstes dran? | `docs/fahrplan.md` |
-| Was soll Finance (Buchhaltung) werden? | `docs/finance.md` (Konzept und Phasen; gebaut: F0 Systemwechsel/Rechte/Einstellungen, F1 Konten/Journal/Festschreibung, F3 Rechnungen/offene Posten, F2 Belege/Lieferanten, F4 Bank/Kasse) |
+| Was soll Finance (Buchhaltung) werden? | `docs/finance.md` (Konzept und Phasen; gebaut: F0 Systemwechsel/Rechte/Einstellungen, F1 Konten/Journal/Festschreibung, F3 Rechnungen/offene Posten, F2 Belege/Lieferanten, F4 Bank/Kasse, F5 Voranmeldung als Probelauf) |
 | Wie ist die PWA aufgebaut, was fehlt offline? | `docs/pwa-plan.md` |
 | Wie funktioniert die Terminerinnerung per Push? | `docs/benachrichtigungen-plan.md` |
 | Wie funktioniert die Stempeluhr? | `docs/zeiterfassung.md` |

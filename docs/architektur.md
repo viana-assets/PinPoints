@@ -149,6 +149,8 @@ viana-pinpoints/
                                      Kontovorschlag, buchen (auf Wunsch gleich bezahlt), Storno; offene Posten Lieferanten
       FinanceBank.tsx                Bank & Kasse (Migration 91, v149): Bankkonten, Kontoauszug einlesen mit Vorschau,
                                      Umsätze zuordnen (Rechnung, Beleg, Konto), ignorieren, aufheben; Importe; Kassenbuch
+      FinanceSteuern.tsx             Steuern (Migration 92, v150): Voranmeldungen je Zeitraum mit Frist und Zustand,
+                                     Formularansicht, Abgabe festhalten, Sondervorauszahlung, Kleinunternehmer-Grenzen
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
       ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
@@ -334,6 +336,7 @@ viana-pinpoints/
       belege.ts                   Belege: Zustand, Kontovorschlag, offene Posten, Dateipfad und -prüfung (Migration 90, v148)
       erechnung.ts                E-Rechnung lesen (XRechnung UBL/CII, ZUGFeRD-XML) und in Posten übersetzen (v148)
       bank.ts                     Kontoauszug lesen (CAMT.053, CSV, Zeichensatz), Vorschläge, Kassenbuch, Saldo (Migration 91, v149)
+      steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
                                   Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -383,7 +386,7 @@ viana-pinpoints/
       verfuegbarkeit.ts            Verfügbarkeit eintragen, austragen, Vorlage (Migration 68)
       finance.ts                   Finance: Einstellungen (v145); Konten, Steuerschlüssel, Journal, buchen, stornieren,
                                    festschreiben (v146); Rechnungen, Zahlungen (v147); Belege, Lieferanten, Belegdateien (v148);
-                                   Bankkonten, Kontoauszüge, Abgleich (v149)
+                                   Bankkonten, Kontoauszüge, Abgleich (v149); Voranmeldung, Steuerjahr (v150)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
@@ -889,6 +892,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   der Zahlenden, Recht `finance.bank`). `fin_bank_einlesen()` (doppelte über Prüfsumme), `fin_bank_zu_rechnung()` /
   `_zu_beleg()` / `_zu_konto()` / `_ignorieren()` / `_aufheben()`, `fin_bank_import_zuruecknehmen()`, Trigger
   `fin_bank_nach_storno` (Umsatz wieder offen). Quelle `bank`.
+- **92** – Finance, Phase F5: `fin_ust_kennzahlen()` (intern, Kennzahlen aus dem Journal, Soll/Ist),
+  `fin_ust_zeitraeume()`, `fin_ust_stand(jahr)`, `fin_ust_abgegeben()` (Fassungen in `fin_voranmeldungen`),
+  `fin_steuer_jahre` (Vorjahresumsatz, Sondervorauszahlung). Recht `finance.steuer`.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

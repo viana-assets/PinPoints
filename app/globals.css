@@ -4537,6 +4537,10 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .fi-datei{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--bg);border-radius:12px;padding:8px 10px;}
 .fi-dateiwahl{position:relative;overflow:hidden;display:inline-flex;align-items:center;}
 .fi-dateiwahl input{position:absolute;inset:0;opacity:0;cursor:pointer;}
+/* Steuern (F5, v150): components/finance/FinanceSteuern.tsx */
+.fi-kachel-nahe b{color:#b26a00;}
+.fi-ust td:first-child,.fi-ust th:first-child{width:52px;white-space:nowrap;}
+.fi-ust td:nth-child(2){font-size:13px;}
 @media (max-width:700px){
   .fi-zwei{grid-template-columns:1fr;}
   .fi-wahl button{flex-basis:100%;}

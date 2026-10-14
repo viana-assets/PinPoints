@@ -5,10 +5,11 @@ import type { FinBuchung, FinFestschreibung, FinKonto, FinPosten, FinSteuerschlu
 import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
 import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLieferant } from "@/lib/finance/belege";
 import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
+import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 
-// Finance (Migration 87–91, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
+// Finance (Migration 87–92, docs/finance.md). F0 (v145): Einstellungen je Wirtschaftsjahr; F1 (v146): Konten, Journal;
 // F3 (v147): Rechnungen mit „Rechnung nötig“, Zahlungen; F2 (v148): Belege, Lieferanten, Belegdateien;
-// F4 (v149): Bankkonten, Kontoauszüge, Abgleich.
+// F4 (v149): Bankkonten, Kontoauszüge, Abgleich; F5 (v150): Umsatzsteuer-Voranmeldung (Probelauf).
 // Lesen mit dem Recht „finance“, schreiben mit „finance.einstellungen“ – durchgesetzt von RLS.
 
 export type FinEinstellungenStand =
@@ -295,4 +296,20 @@ export async function finBankIgnorieren(supabase: SupabaseClient, umsatzId: stri
 
 export async function finBankAufheben(supabase: SupabaseClient, umsatzId: string, grund: string): Promise<void> {
   await q("Nicht aufgehoben", supabase.rpc("fin_bank_aufheben", { p_umsatz: umsatzId, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------- F5: Steuern (Migration 92, v150)
+
+export async function fetchFinUstStand(supabase: SupabaseClient, jahr: number): Promise<FinUstStand> {
+  return ustStandLesen(await q<unknown>("Finance › Steuern konnte nicht geladen werden", supabase.rpc("fin_ust_stand", { p_jahr: jahr })));
+}
+
+// Hält die Abgabe fest – die Kennzahlen dieses Augenblicks legt die Datenbank ab (nächste Fassung).
+export async function finUstAbgegeben(supabase: SupabaseClient, jahr: number, zeitraum: string, am: string, notiz: string): Promise<{ fassung: number }> {
+  return (await q<{ fassung: number }>("Nicht festgehalten",
+    supabase.rpc("fin_ust_abgegeben", { p_jahr: jahr, p_zeitraum: zeitraum, p_am: am, p_notiz: notiz }))) ?? { fassung: 0 };
+}
+
+export async function finSteuerJahrSpeichern(supabase: SupabaseClient, jahr: number, felder: { umsatz_vorjahr: number | null; sondervorauszahlung: number | null }): Promise<void> {
+  await qWrite("Nicht gespeichert", supabase.from("fin_steuer_jahre").upsert({ jahr, ...felder }, { onConflict: "jahr" }));
 }
