@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **16.10.2026 – Endpreis und Menge ohne Stocken (Service Worker v163, ohne Migration).** Beide Felder speichern
+  erst beim Verlassen bzw. mit Enter; vorher überschrieb die Antwort jeder einzelnen Speicherung das Feld beim
+  Weitertippen („65“ wurde „5“). Endpreis mit Komma, markiert beim Antippen. Wunsch Vitali mit Bildschirmfoto.
+
 * **16.10.2026 – Finance › Weitere als Kacheln in Gruppen (Service Worker v162, ohne Migration).** Wie „Weitere“ in FSM:
   Zahlungen, Buchführung, Steuern und Auswertungen, Jahresende und Kanzlei, System (mit „System wechseln“); kurze Texte
   je Kachel. Wunsch Vitali mit Bildschirmfoto. `docs/finance.md`.

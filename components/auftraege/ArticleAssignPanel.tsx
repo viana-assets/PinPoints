@@ -194,8 +194,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                     <MengeFeld wert={r.quantity} gesperrt={festeGebuehr} onWert={(n) => void onUpdateQty(r.id, n)} />
                   </label>
                   <label className="nk-feld"><span>Endpreis netto (ganze Position)</span>
-                    <input
-                      type="number" min={0} step="0.01" inputMode="decimal"
+                    <PreisFeld
                       // Leeres Feld = kein Sonderpreis. Deshalb hier bewusst der leere String
                       // und nicht der errechnete Betrag als Vorbelegung: Stünde der Listenpreis
                       // drin, wäre jede Position sofort ein „Sonderpreis" in Höhe des
@@ -203,11 +202,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                       placeholder={listenwert.toFixed(2)}
                       disabled={!darfEndpreis || festeGebuehr}
                       title={darfEndpreis ? undefined : "Den Endpreis ändert, wer „Endpreis überschreiben“ darf."}
-                      value={r.endpreis_netto ?? ""}
-                      onChange={(e) => {
-                        const t = e.target.value.trim();
-                        void onUpdateEndpreis(r.id, t === "" ? null : (parseFloat(t.replace(",", ".")) || 0));
-                      }}
+                      wert={r.endpreis_netto}
+                      onWert={(n) => void onUpdateEndpreis(r.id, n)}
                     />
                   </label>
                 </div>
@@ -331,10 +327,11 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   );
 }
 
-// Das Mengenfeld (v159, Wunsch Vitali 16.10.2026). Mengen sind Stückzahlen – halbe Reifenwechsel gibt es
-// nicht –, also ganze Zahlen ab 1. Beim Antippen ist die Zahl markiert, die erste Ziffer
+// Das Mengenfeld (v160, Wunsch Vitali 16.10.2026). Mengen sind Stückzahlen – halbe Reifenwechsel gibt es
+// nicht –, also ganze Zahlen ab 1. Seit v163 wird erst beim Verlassen (oder Enter) gespeichert, wie beim
+// Endpreis: Jeder Tastendruck als eigene Speicherung ließ die Eingabe stocken. Beim Antippen ist die Zahl markiert, die erste Ziffer
 // ersetzt sie also („5“ statt „15“). Während der Eingabe darf das Feld leer sein; gespeichert wird jede
-// gültige ganze Zahl ab 1, beim Verlassen springt ein leeres oder ungültiges Feld auf den gespeicherten Wert
+// gültige ganze Zahl ab 1 beim Verlassen; ein leeres oder ungültiges Feld springt auf den gespeicherten Wert
 // zurück. Textfeld mit Ziffernblock statt `type="number"`, weil iOS dort keine Markierung setzen lässt.
 export function MengeFeld({ wert, gesperrt, onWert }: { wert: number; gesperrt?: boolean; onWert: (n: number) => void }) {
   const [text, setText] = useState<string | null>(null);
@@ -349,13 +346,49 @@ export function MengeFeld({ wert, gesperrt, onWert }: { wert: number; gesperrt?:
         el.select();
         window.setTimeout(() => { if (document.activeElement === el) el.select(); }, 0);
       }}
-      onChange={(e) => {
-        const t = e.target.value.replace(/\D/g, "");
-        setText(t);
-        const n = Number(t);
-        if (t && Number.isInteger(n) && n >= 1 && n !== wert) onWert(n);
+      onChange={(e) => setText(e.target.value.replace(/\D/g, ""))}
+      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+      onBlur={() => {
+        const n = Number(text);
+        if (text && Number.isInteger(n) && n >= 1 && n !== wert) onWert(n);
+        setText(null);
       }}
-      onBlur={() => setText(null)}
+    />
+  );
+}
+
+// Der Endpreis netto einer Position (v163, Wunsch Vitali 16.10.2026): Vorher wurde jeder Tastendruck sofort
+// gespeichert und das Feld mit dem gespeicherten Wert neu gefüllt – kam die Antwort, während man schon die
+// nächste Ziffer tippte, verschwand eine Ziffer („65“ wurde „5“) und die Eingabe stockte. Jetzt gehört der
+// Text dem Feld, solange man tippt; gespeichert wird beim Verlassen oder mit Enter (das „Fertig“ der Tastatur
+// verlässt das Feld auch). Leer = kein Sonderpreis (`null`), Komma oder Punkt, höchstens zwei Nachkommastellen.
+export function PreisFeld({ wert, onWert, placeholder, disabled, title }: {
+  wert: number | null; onWert: (n: number | null) => void; placeholder?: string; disabled?: boolean; title?: string;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const anzeige = wert == null ? "" : String(Number(wert)).replace(".", ",");
+  return (
+    <input
+      type="text" inputMode="decimal" autoComplete="off" aria-label="Endpreis netto"
+      placeholder={placeholder?.replace(".", ",")} disabled={disabled} title={title}
+      value={text ?? anzeige}
+      onFocus={(e) => {
+        const el = e.currentTarget;
+        setText(anzeige);
+        el.select();
+        window.setTimeout(() => { if (document.activeElement === el) el.select(); }, 0);
+      }}
+      onChange={(e) => setText(e.target.value.replace(/[^0-9.,]/g, ""))}
+      onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+      onBlur={() => {
+        const t = (text ?? "").trim();
+        setText(null);
+        if (t === "") { if (wert != null) onWert(null); return; }
+        const n = Number(t.replace(",", "."));
+        if (!Number.isFinite(n) || n < 0) return;
+        const gerundet = Math.round(n * 100) / 100;
+        if (wert == null || gerundet !== Number(wert)) onWert(gerundet);
+      }}
     />
   );
 }

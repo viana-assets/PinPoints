@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v162";
+export const APP_VERSION = "v163";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v163", datum: "2026-10-16", titel: "Endpreis schnell eintippen",
+    punkte: [
+      "Beim Endpreis einer Leistung geht beim schnellen Tippen keine Ziffer mehr verloren – gespeichert wird, sobald man das Feld verlässt oder auf „Fertig“ tippt.",
+      "Der Endpreis nimmt jetzt auch ein Komma; beim Antippen ist der alte Wert markiert und wird gleich überschrieben.",
+    ],
+  },
   {
     version: "v162", datum: "2026-10-16", titel: "Finance: „Weitere“ übersichtlich",
     punkte: [

@@ -527,6 +527,10 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
   klappt zu), und das Mengenfeld (`MengeFeld` in `ArticleAssignPanel.tsx`) markiert beim Antippen die
   Zahl – „5“ ersetzt die 1, statt „15“ zu ergeben; leer darf es beim Tippen sein, beim Verlassen springt
   es auf den gespeicherten Wert zurück. Ziffernblock statt Zahlenfeld, weil iOS dort nicht markiert.
+  **Seit v163** speichern Menge und Endpreis (`PreisFeld`) erst beim Verlassen des Feldes oder mit Enter:
+  Vorher ging jeder Tastendruck einzeln an die Datenbank, und die Antwort überschrieb das Feld, während man
+  schon weitertippte – aus „65“ wurde „5“, die Eingabe stockte. Der Endpreis nimmt Komma oder Punkt, leer
+  heißt kein Sonderpreis; die Mengenfelder der Auftragsvorlagen nutzen dasselbe `MengeFeld`.
 - **Der Fuß** trägt die eine Handlung, die dran ist. Stornieren, Löschen/Verwerfen,
   Wiedereröffnen und „Historie" stehen im Menü „⋯"; Storno- und Wiedereröffnungsgrund sowie die
   Altreifen-Rückfrage sind Blätter. **Seit v93/v94 (Wunsch 29.09., Entscheidung 01.10.2026)

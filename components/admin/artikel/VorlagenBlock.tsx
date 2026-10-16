@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Article, Auftragsvorlage } from "@/lib/types";
 import type { VorlageFelder } from "@/lib/api/vorlagen";
+import { MengeFeld } from "@/components/auftraege/ArticleAssignPanel";
 
 // Auftragsvorlagen pflegen (Migration 63, E6) – unter der Artikelliste, weil eine Vorlage nichts
 // anderes ist als eine Auswahl von Artikeln mit Menge. „Saisonwechsel mobil" = Räderwechsel +
@@ -82,11 +83,9 @@ function VorlageBlatt({ vorlage, articles, onClose, onSpeichern, onLoeschen }: {
         <div className="vl-positionen">
           {zeilen.map((z, i) => (
             <div key={i} className="vl-position">
-              <input type="number" min={1} max={99} value={z.quantity} aria-label="Menge"
-                onChange={(e) => {
-                  const n = Math.max(1, Math.min(99, Math.round(Number(e.target.value) || 1)));
-                  setZeilen(zeilen.map((x, j) => (j === i ? { ...x, quantity: n } : x)));
-                }} />
+              {/* Dasselbe Mengenfeld wie am Auftrag (v163): markiert beim Antippen, leer erlaubt beim Tippen. */}
+              <MengeFeld wert={z.quantity}
+                onWert={(m) => { const n = Math.min(99, m); setZeilen(zeilen.map((x, j) => (j === i ? { ...x, quantity: n } : x))); }} />
               <span>{articles.find((a) => a.id === z.article_id)?.short_name ?? "unbekannter Artikel"}</span>
               <button type="button" className="btn-secondary btn-rand ag-klein" onClick={() => setZeilen(zeilen.filter((_, j) => j !== i))}>Entfernen</button>
             </div>

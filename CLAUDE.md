@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 16.10.2026 (Migrationen bis 100, 100 noch auszuführen soweit nicht gemeldet; Service Worker v162; Regeln seit der Projektdurchsicht vom
+Stand: 16.10.2026 (Migrationen bis 100, 100 noch auszuführen soweit nicht gemeldet; Service Worker v163; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -352,6 +352,12 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   bereinigt und schien „nicht zu wirken" (02.10.2026, v103). Seit v106 übersteht der Sprung das
   Neuladen (`lib/sprungMerker.ts`, D19); wer nur den Sprung selbst prüfen will, öffnet den Kontext
   weiter mit `serviceWorkers: "block"`.
+- **Ein Eingabefeld, das bei jedem Tastendruck speichert und seinen Wert aus dem Gespeicherten zieht,
+  verliert Ziffern.** Der Endpreis am Auftrag tat das: Kam die Antwort der ersten Speicherung, während man
+  schon die zweite Ziffer tippte, stand wieder der alte Wert drin – aus „65“ wurde „5“ (16.10.2026, v163).
+  Zahlen- und Textfelder halten ihren Text selbst, solange sie den Fokus haben, und speichern beim Verlassen
+  (`MengeFeld`, `PreisFeld` in `ArticleAssignPanel.tsx`). Und `type="number"` lässt sich auf iOS nicht
+  markieren – Textfeld mit `inputMode`.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 
