@@ -325,8 +325,11 @@ mit dem Knopf **Rückgängig** und – falls der Mitarbeiter oder Transporter da
 Termin ließ sich nicht mehr zurückholen, weil niemand wusste, wo er gestanden hatte. Mehrere
 Verschiebungen hintereinander nimmt „Noch einen zurück" Schritt für Schritt zurück (bis zu zehn,
 solange die Einsatzplanung offen ist). Schreibweise des Termins: `terminText()` in
-`lib/terminAenderung.ts`, dieselbe wie in der Historie (`terminUeberschneidungen()`, Hinweis statt Sperre wie im Auftragsfenster). Erledigte
-und stornierte Termine bleiben fest. Wer ziehen darf, entscheidet `auftraege.auftrag · schreiben`
+`lib/terminAenderung.ts`, dieselbe wie in der Historie (`terminUeberschneidungen()`, Hinweis statt Sperre wie im Auftragsfenster). Stornierte
+Termine bleiben fest. **Erledigte seit v164** (Wunsch Vitali 16.10.2026) nur am selben Tag: Uhrzeit und Dauer
+lassen sich ziehen – ein Techniker ist oft früher fertig, dann wird der Termin kürzer und ein anderer passt
+dazwischen –, ein Zug in eine andere Tagesspalte bleibt am ursprünglichen Tag (`data-nurtag`, `Zug.nurTag`).
+Die Datenbank sperrt Uhrzeiten erledigter Aufträge nicht; die Tagesgrenze ist eine Regel der Oberfläche. Wer ziehen darf, entscheidet `auftraege.auftrag · schreiben`
 (auch Techniker, Migration 41). War das Ende nur angenommen, bleibt es beim reinen Verschieben
 angenommen. Am Rand rollt die Seite (und in der Woche am Handy das Raster seitlich) mit. Die
 Listener hängen nativ und einmalig am Raster, Bewegung/Loslassen beim Finger am berührten

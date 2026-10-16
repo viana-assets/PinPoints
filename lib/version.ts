@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v163";
+export const APP_VERSION = "v164";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,12 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v164", datum: "2026-10-16", titel: "Erledigte Termine am Tag verschieben",
+    punkte: [
+      "Erledigte Termine lassen sich in der Einsatzplanung (Woche und Tag) wieder ziehen – innerhalb desselben Tages. So wird ein Termin kürzer, wenn der Techniker früher fertig war, und ein weiterer passt dazwischen.",
+    ],
+  },
   {
     version: "v163", datum: "2026-10-16", titel: "Endpreis schnell eintippen",
     punkte: [

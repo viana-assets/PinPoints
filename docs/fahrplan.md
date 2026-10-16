@@ -16,6 +16,9 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **16.10.2026 – Erledigte Termine am selben Tag verschieben (Service Worker v164, ohne Migration).** Im Stundenraster
+  lassen sich erledigte Termine ziehen und kürzer/länger machen, der Tag bleibt. Wunsch Vitali. `docs/auftraege.md`.
+
 * **16.10.2026 – Endpreis und Menge ohne Stocken (Service Worker v163, ohne Migration).** Beide Felder speichern
   erst beim Verlassen bzw. mit Enter; vorher überschrieb die Antwort jeder einzelnen Speicherung das Feld beim
   Weitertippen („65“ wurde „5“). Endpreis mit Komma, markiert beim Antippen. Wunsch Vitali mit Bildschirmfoto.

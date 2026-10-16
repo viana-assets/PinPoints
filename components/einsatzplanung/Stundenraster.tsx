@@ -51,7 +51,7 @@ function statusKlasse(status: string): string {
 // Ein Termin im Raster. Absichtlich ein div mit role="button": In den Block passt bei kurzen
 // Terminen kaum Text, und ein echter Knopf brächte eigene Innenabstände mit, die die Höhe
 // verfälschen – die Höhe ist hier aber die Aussage.
-function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehbar, zieht, geradeGezogen, warnung = null }: {
+function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehbar, nurTag = false, zieht, geradeGezogen, warnung = null }: {
   auftrag: RasterAuftrag & { start: number; ende: number; geschaetzt: boolean; spalte: number; spalten: number };
   employees: Employee[];
   vonMinute: number;
@@ -61,6 +61,9 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
   // ändern)? Die Bewegung selbst steuert das Raster – der Block trägt nur die Angaben, die es
   // dafür braucht, als data-Attribute.
   ziehbar: boolean;
+  // Erledigt (v164, Wunsch Vitali 16.10.2026): Uhrzeit und Dauer lassen sich noch ändern – ein Techniker ist
+  // oft früher fertig, dann wird der Termin kürzer und ein anderer passt dazwischen –, aber nur am selben Tag.
+  nurTag?: boolean;
   zieht: boolean;
   // Ein Loslassen nach dem Ziehen löst im Browser oft noch einen Klick aus. Der darf den
   // Auftrag nicht öffnen – man wollte verschieben, nicht nachsehen.
@@ -81,6 +84,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
       role="button"
       tabIndex={0}
       data-ziehbar={ziehbar ? "1" : undefined}
+      data-nurtag={ziehbar && nurTag ? "1" : undefined}
       data-id={auftrag.id}
       data-datum={auftrag.order_date}
       data-start={auftrag.start}
@@ -97,6 +101,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
         auftrag.title,
         namen || "niemandem zugeteilt",
         ORDER_STATUS_LABEL[auftrag.status],
+        ziehbar && nurTag ? "nur am selben Tag verschiebbar" : null,
         warnung,
       ].filter(Boolean).join(" · ")}
       style={{
@@ -152,6 +157,7 @@ type Zug = {
   start: number;          // Ausgangslage in Minuten
   ende: number;
   geschaetzt: boolean;    // Ende nur angenommen – beim reinen Verschieben bleibt es das
+  nurTag: boolean;        // erledigt: nur die Uhrzeit, der Tag bleibt (v164)
   griffAbstand: number;   // Minuten zwischen Terminbeginn und Anfasspunkt
   x0: number; y0: number; // wo angefasst wurde
   x: number; y: number;   // wo der Zeiger jetzt ist
@@ -351,7 +357,7 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
       zugRef.current = {
         id: el.dataset.id || "",
         modus: (ziel as Element).closest?.("[data-griff]") ? "dauer" : "verschieben",
-        datum, start, ende, geschaetzt: el.dataset.geschaetzt === "1",
+        datum, start, ende, geschaetzt: el.dataset.geschaetzt === "1", nurTag: el.dataset.nurtag === "1",
         griffAbstand: spalte ? minuteBei(y, spalte.top) - start : 0,
         x0: x, y0: y, x, y, aktiv: false, timer: null, ziel: null,
       };
@@ -370,10 +376,11 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
       const z = zugRef.current;
       if (!z || !z.aktiv) return;
       z.x = x; z.y = y;
-      const spalte = (z.modus === "verschieben" ? spalteBei(x) : null) ?? spalteVon(z.ziel?.datum ?? z.datum);
+      const andererTag = z.modus === "verschieben" && !z.nurTag;
+      const spalte = (andererTag ? spalteBei(x) : null) ?? spalteVon(z.ziel?.datum ?? z.datum);
       if (!spalte) return;
       const neu = gezogenerTermin(z.modus, minuteBei(y, spalte.top), z.griffAbstand, z.start, z.ende);
-      const datum = z.modus === "verschieben" ? spalte.datum : z.datum;
+      const datum = andererTag ? spalte.datum : z.datum;
       if (z.ziel && z.ziel.datum === datum && z.ziel.start === neu.start && z.ziel.ende === neu.ende) return;
       z.ziel = { datum, ...neu };
       setZug({ id: z.id, datum, start: neu.start, ende: neu.ende });
@@ -670,7 +677,8 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
               <TerminBlock
                 key={a.id} auftrag={a} employees={employees}
                 vonMinute={vonMinute} stundePx={stundePx} onOeffnen={onOeffnen}
-                ziehbar={!!onVerschieben && (a.status === "offen" || a.status === "in_arbeit")}
+                ziehbar={!!onVerschieben && (a.status === "offen" || a.status === "in_arbeit" || a.status === "erledigt")}
+                nurTag={a.status === "erledigt"}
                 zieht={zug?.id === a.id}
                 geradeGezogen={geradeGezogen}
                 warnung={warnungFuer ? warnungFuer(a) : null}
@@ -707,7 +715,7 @@ export function RasterLegende({ employees, sichtbareIds, ziehen = false }: {
       <span><i className="leg-ohne" /> niemandem zugeteilt</span>
       <span className="rl-form">Form: ▶ in Arbeit · ✓ erledigt · ✕ storniert · gestricheltes Ende = angenommen</span>
       {ziehen && (
-        <span className="rl-form">Verschieben: Termin ziehen (am Handy lange drücken) · Dauer: an der Unterkante ziehen</span>
+        <span className="rl-form">Verschieben: Termin ziehen (am Handy lange drücken) · Dauer: an der Unterkante ziehen · erledigte nur am selben Tag</span>
       )}
     </div>
   );
