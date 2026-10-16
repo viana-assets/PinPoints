@@ -14,6 +14,12 @@ laden“ – Abschnitt „Einzelchats, Bearbeiten, Fotos“ unten.
   darüber; ist die Karte am Handy offen, verschwindet sie (dort liegen Bedienknöpfe und
   Kundenblatt). Am Rechner rückt sie neben die Bedienknöpfe der Karte. Sie liegt unter allen
   Fenstern (Ebene 960): über dem Auftragsfenster verdeckte sie dessen Knöpfe.
+  **Am Handy seit v159 im Schnellmenü** (`components/SchnellMenue.tsx`, Wunsch Vitali 16.10.2026): Blase und
+  Stoppuhr schweben dort nicht mehr unten rechts, sondern stehen hinter einem runden Knopf mit drei Punkten
+  oben rechts; ein Tipp klappt sie darunter auf (mit Beschriftung), ein Tipp daneben, Escape oder ein Eintrag
+  klappt zu. Die rote Zahl steht dann am Knopf (Summe aller Einträge – heute nur der Chat). Bei offenem
+  Chat, beim Setzen eines Kartenpunkts und bei offener Karte am Handy ist der Knopf nicht da. Am Rechner
+  bleibt alles unten rechts; Blase und Stoppuhr sind dort jetzt gleich groß (56 px).
 - **Das Chatfenster** (`components/chat/ChatFenster.tsx`): am Handy über den ganzen Bildschirm, am
   Rechner als Spalte rechts, Ebene 10003 – also auch über dem Auftrags- oder Kundenfenster, aus dem
   heraus es mit „In den Chat“ geöffnet wurde. Nachrichten nach Tagen (HEUTE, GESTERN, Datum), eigene

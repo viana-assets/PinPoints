@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { kuerzesteReihenfolge, luftlinieKm, mapsRoutenUrl, routenvorschlag, streckeKm, UMWEG_FAKTOR } from "@/lib/route";
+import { kuerzesteReihenfolge, luftlinieKm, mapsRoutenUrl, routenvorschlag, streckeKm, uhrzeitReihenfolge, UMWEG_FAKTOR } from "@/lib/route";
 
 // Tagesroute (E5, v104). Punkte auf einer Linie, damit das Ergebnis von Hand nachprüfbar ist.
 
@@ -52,6 +52,25 @@ describe("routenvorschlag", () => {
     const r = routenvorschlag(FIRMA, [{ eintrag: 1, punkt: p(0.1) }, { eintrag: 2, punkt: p(0.2) }]);
     expect(r.andersAlsUhrzeit).toBe(false);
     expect(r.kmVorschlag).toBe(r.kmNachUhrzeit);
+  });
+});
+
+describe("nach Uhrzeit (v161)", () => {
+  it("Termine mit Uhrzeit in ihrer Reihenfolge, ohne Uhrzeit mit dem kleinsten Umweg eingereiht", () => {
+    // 09:00 weit draußen, 10:00 nah, ohne Uhrzeit dazwischen auf dem Weg
+    const punkte = [p(0.3), p(0.1), p(0.2)];
+    expect(uhrzeitReihenfolge(FIRMA, punkte, [true, true, false])).toEqual([0, 2, 1]);
+    expect(uhrzeitReihenfolge(FIRMA, punkte, [true, true, true])).toEqual([0, 1, 2]);
+    expect(uhrzeitReihenfolge(FIRMA, [p(0.1), p(0.2)], [false, false])).toEqual([0, 1]);
+  });
+  it("das Routenblatt bekommt beide Reihenfolgen; die Abweichung zählt gegen die eingereihte", () => {
+    const r = routenvorschlag(FIRMA, [
+      { eintrag: "09:00", punkt: p(0.3), fest: true }, { eintrag: "10:00", punkt: p(0.1), fest: true }, { eintrag: "ohne", punkt: p(0.2), fest: false },
+    ]);
+    expect(r.nachUhrzeit).toEqual(["09:00", "ohne", "10:00"]);
+    expect(r.reihenfolge).toEqual(["10:00", "ohne", "09:00"]);
+    expect(r.kmNachUhrzeit).toBe(r.kmVorschlag); // auf einer Linie ist hin = zurück
+    expect(r.andersAlsUhrzeit).toBe(true);
   });
 });
 

@@ -21,7 +21,7 @@ import { mahnZuErledigen } from "@/lib/finance/mahnung";
 import { ustZuErledigen } from "@/lib/finance/steuern";
 import { MONATSNAMEN } from "@/lib/finance/auswertungen";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
-import { FINANCE_SEITEN, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
+import { FINANCE_SEITEN, financeWeitereGruppen, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
 import {
   FIN_BESTEUERUNG, FIN_GEWINNERMITTLUNG, FIN_KONTENRAHMEN, FIN_RECHTSFORMEN, FIN_VERSTEUERUNG, FIN_VORANMELDUNG,
   KLEINUNTERNEHMER_GRENZE_LAUFEND, KLEINUNTERNEHMER_GRENZE_VORJAHR,
@@ -29,7 +29,7 @@ import {
 } from "@/lib/finance/einstellungen";
 import {
   IconAbschluss, IconAnlage, IconAuswertung, IconBank, IconBeleg, IconBuchen, IconDashboard, IconExport, IconOffen, IconRechnung,
-  IconSettings, IconSteuer,
+  IconSettings, IconSteuer, IconWechsel,
 } from "@/components/icons";
 
 // Finance (v145, Phase F0, docs/finance.md). Alles, was im System „Finance“ im Inhaltsbereich steht:
@@ -488,29 +488,48 @@ function FinancePlatzhalter({ seite }: { seite: FinanceSeite }) {
   );
 }
 
+// „Weitere“ am Handy (v162): Kacheln nach Gruppen wie in FSM (components/WeiterePanel.tsx), statt einer langen
+// Liste. „System wechseln“ steht als Kachel bei „System“ – bei Bedarf als eigene Gruppe.
 function FinanceMehr({ seiten, onSeite, wechselbar, onSystemWahl }: {
   seiten: FinanceSeite[];
   onSeite: (s: FinanceAnsicht) => void;
   wechselbar: boolean;
   onSystemWahl: () => void;
 }) {
+  const gruppen = financeWeitereGruppen(seiten);
+  const system = gruppen.find((g) => g.titel === "System");
+  const wechsel = wechselbar && (
+    <button key="wechsel" type="button" className="wt-kachel" onClick={onSystemWahl}>
+      <span className="wt-symbol" aria-hidden="true"><IconWechsel /></span>
+      <span className="wt-titel">System wechseln</span>
+      <span className="wt-info">zurück zu FSM</span>
+    </button>
+  );
   return (
-    <div className="db-karte es-karte">
-      {seiten.map((s) => {
-        const Icon = FINANCE_ICONS[s.key];
-        return (
-          <button key={s.key} type="button" className="es-zeile" onClick={() => onSeite(s.key)}>
-            <span className="fi-symbol" aria-hidden="true"><Icon /></span>
-            <span className="db-punkt-text"><b>{s.label}</b><span className="small">{s.beschreibung}</span></span>
-            {s.phase && <span className="fi-phase">{s.phase}</span>}
-          </button>
-        );
-      })}
-      {wechselbar && (
-        <button type="button" className="es-zeile" onClick={onSystemWahl}>
-          <span className="fi-symbol" aria-hidden="true">⇆</span>
-          <span className="db-punkt-text"><b>System wechseln</b><span className="small">zurück zu FSM</span></span>
-        </button>
+    <div className="wt-seite fi-weitere">
+      {gruppen.map((g) => (g.seiten.length || (g === system && wechsel)) ? (
+        <div key={g.titel} className="wt-gruppe">
+          <span className="op-gruppe-titel">{g.titel.toUpperCase()}</span>
+          <div className="wt-kacheln">
+            {g.seiten.map((s) => {
+              const Icon = FINANCE_ICONS[s.key];
+              return (
+                <button key={s.key} type="button" className="wt-kachel" onClick={() => onSeite(s.key)}>
+                  <span className="wt-symbol" aria-hidden="true"><Icon /></span>
+                  <span className="wt-titel">{s.label}</span>
+                  <span className="wt-info">{s.phase ? `kommt in ${s.phase}` : s.kurz ?? s.beschreibung}</span>
+                </button>
+              );
+            })}
+            {g === system && wechsel}
+          </div>
+        </div>
+      ) : null)}
+      {!system && wechsel && (
+        <div className="wt-gruppe">
+          <span className="op-gruppe-titel">SYSTEM</span>
+          <div className="wt-kacheln">{wechsel}</div>
+        </div>
       )}
     </div>
   );

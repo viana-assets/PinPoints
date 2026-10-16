@@ -14,7 +14,8 @@ vi.mock("@/lib/api/finance", () => api);
 
 import { SystemMarke } from "@/components/system/SystemMarke";
 import { SystemWahl } from "@/components/system/SystemWahl";
-import { FinanceEinstellungen } from "@/components/finance/FinanceBereich";
+import { FinanceBereich, FinanceEinstellungen } from "@/components/finance/FinanceBereich";
+import { FINANCE_SEITEN, FINANCE_WEITERE_GRUPPEN, financeWeitereGruppen } from "@/lib/finance/seiten";
 import { SYSTEME, sichtbareSysteme } from "@/lib/systeme";
 import { finVorgabe } from "@/lib/finance/einstellungen";
 
@@ -98,3 +99,26 @@ describe("FinanceEinstellungen", () => {
     expect(screen.getByRole("radio", { name: /^SKR04/ }).getAttribute("aria-checked")).toBe("true");
   });
 });
+
+describe("Finance › Weitere (v162)", () => {
+  it("jede Seite außer den vier unten steht in einer Gruppe; Fehlende landen in „Sonstiges“", () => {
+    const zweit = FINANCE_SEITEN.filter((x) => !x.primaer && x.key !== "uebersicht");
+    const vergeben = FINANCE_WEITERE_GRUPPEN.flatMap((g) => g.seiten);
+    expect([...vergeben].sort()).toEqual(zweit.map((x) => x.key).sort());
+    expect(financeWeitereGruppen([{ ...zweit[0], key: "neu" as never }]).at(-1)).toMatchObject({ titel: "Sonstiges" });
+  });
+
+  it("Kacheln nach Gruppen, System wechseln bei „System“", () => {
+    const onSeite = vi.fn();
+    const wahl = vi.fn();
+    render(mitQuery(<FinanceBereich supabase={supabase} seite="mehr" onSeite={onSeite} darf={() => true} wechselbar onSystemWahl={wahl} />));
+    const titel = screen.getAllByText(/^[A-ZÄÖÜ ]+$/).map((e) => e.textContent);
+    expect(titel).toEqual(["ZAHLUNGEN", "BUCHFÜHRUNG", "STEUERN UND AUSWERTUNGEN", "JAHRESENDE UND KANZLEI", "SYSTEM"]);
+    fireEvent.click(screen.getByRole("button", { name: /^Steuern/ }));
+    expect(onSeite).toHaveBeenCalledWith("steuern");
+    const system = screen.getByText("SYSTEM").parentElement!;
+    fireEvent.click(within(system).getByRole("button", { name: /System wechseln/ }));
+    expect(wahl).toHaveBeenCalledOnce();
+  });
+});
+

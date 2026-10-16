@@ -2985,6 +2985,8 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .wt-titel{font-weight:700;font-size:15px;}
 .wt-info{font-size:12px;color:var(--muted);line-height:1.3;}
 .wt-info.dringend{color:#c2410c;font-weight:700;}
+/* Finance › Weitere (v162): dieselben Kacheln, Symbol in der Finance-Farbe. */
+.fi-weitere .wt-symbol{background:var(--fin-bg);color:var(--fin);}
 .ik-hinweis{padding:0 2px;}
 .ik-knopf{height:34px;flex:0 0 auto;border-radius:10px;border:none;background:var(--green);color:#fff;font:inherit;font-weight:700;
   font-size:12.5px;padding:0 12px;cursor:pointer;}
@@ -4188,8 +4190,9 @@ button.zt-tag{cursor:pointer;}
 .zt-formular input{border:1px solid var(--border);border-radius:10px;padding:9px 11px;font:inherit;font-size:16px;color:var(--text);background:var(--input-bg);}
 .zt-zwei > button{min-height:44px;}
 
-/* Die Stoppuhr über der Chat-Blase (v132). Dieselbe Spalte, eine Stufe höher: Chat-Blase 56 px + 12 px Abstand. */
-.zt-blase{position:fixed;right:22px;bottom:88px;z-index:960;width:50px;height:50px;border-radius:50%;
+/* Die Stoppuhr über der Chat-Blase (v132). Dieselbe Spalte, eine Stufe höher: Chat-Blase 56 px + 12 px Abstand.
+   Seit v159 gleich groß wie die Chat-Blase (56 px); am Handy stehen beide im Schnellmenü oben rechts (`.sm-menue`). */
+.zt-blase{position:fixed;right:20px;bottom:88px;z-index:960;width:56px;height:56px;border-radius:50%;
   background:var(--panel);color:var(--marke);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
   cursor:pointer;padding:0;box-shadow:0 6px 18px rgba(9,38,51,.22);}
 .zt-blase svg{width:24px;height:24px;}
@@ -4197,17 +4200,37 @@ button.zt-tag{cursor:pointer;}
 .zt-blase.pause{background:#C77D12;color:#fff;border-color:#C77D12;}
 .zt-blase-zeit{position:absolute;top:-8px;left:50%;transform:translateX(-50%);background:var(--marke);color:#fff;
   font:800 10.5px var(--font-body);font-variant-numeric:tabular-nums;border-radius:9px;padding:1px 6px;border:2px solid #fff;white-space:nowrap;}
-.zt-blase.allein{right:23px;bottom:23px;}
-.zt-blase.bei-karte,.zt-blase.karte-offen{right:79px;bottom:96px;}
-.zt-blase.allein.bei-karte,.zt-blase.allein.karte-offen{right:79px;bottom:31px;}
+.zt-blase.allein{right:20px;bottom:20px;}
+.zt-blase.bei-karte,.zt-blase.karte-offen{right:76px;bottom:96px;}
+.zt-blase.allein.bei-karte,.zt-blase.allein.karte-offen{right:76px;bottom:28px;}
 #app.punkt-setzen .zt-blase{display:none;}
+
+/* Schnellmenü (v159): am Handy ein runder Knopf oben rechts; darunter klappen Stoppuhr und Chat auf,
+   je mit Beschriftung links. Die rote Zahl am Knopf zählt die Einträge zusammen. Am Rechner nicht da. */
+.sm-menue{display:none;}
 @media (max-width: 700px){
-  .zt-blase{right:19px;bottom:calc(142px + env(safe-area-inset-bottom, 0px));}
-  .zt-blase.allein{bottom:calc(77px + env(safe-area-inset-bottom, 0px));}
-  .zt-blase.bei-karte{right:17px;bottom:calc(206px + env(safe-area-inset-bottom, 0px));}
-  .zt-blase.allein.bei-karte{right:17px;bottom:calc(141px + env(safe-area-inset-bottom, 0px));}
-  .zt-blase.karte-offen{display:none;}
+  .ch-blase:not(.im-menue),.zt-blase:not(.im-menue){display:none !important;}
+  .sm-menue{display:block;position:fixed;top:calc(8px + env(safe-area-inset-top, 0px));right:12px;z-index:958;}
+  .sm-knopf{position:relative;width:44px;height:44px;border-radius:50%;border:1px solid var(--border);background:var(--panel);
+    color:var(--marke);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;box-shadow:0 3px 10px rgba(9,38,51,.16);}
+  .sm-knopf svg{width:22px;height:22px;fill:currentColor;stroke:currentColor;stroke-width:0;}
+  .sm-menue.offen .sm-knopf svg{fill:none;stroke-width:2.2;stroke-linecap:round;}
+  .sm-menue.offen .sm-knopf{background:var(--marke);color:#fff;border-color:var(--marke);}
+  .sm-knopf .ch-zahl{top:-5px;right:-5px;}
+  .sm-liste{position:absolute;top:54px;right:-2px;display:flex;flex-direction:column;align-items:flex-end;gap:14px;
+    animation:sm-auf .16s ease-out;}
+  .sm-eintrag{display:flex;align-items:center;gap:10px;}
+  .sm-text{background:var(--panel);color:var(--text);font:700 13px var(--font-body);padding:6px 11px;border-radius:14px;
+    box-shadow:0 3px 10px rgba(9,38,51,.16);white-space:nowrap;}
+  .ch-blase.im-menue,.zt-blase.im-menue{position:relative;right:auto;bottom:auto;top:auto;width:48px;height:48px;flex:0 0 auto;}
+  .ch-blase.im-menue svg{width:22px;height:22px;}
+  .zt-blase.im-menue svg{width:22px;height:22px;}
+  .ch-blase.im-menue .ch-zahl{top:-5px;right:-5px;}
+  /* Die laufende Uhr (UhrPille) rückt links neben den Knopf, auf dessen Mitte. */
+  .zt-schwebend.mit-menue{top:calc(17px + env(safe-area-inset-top, 0px));right:64px;}
 }
+@keyframes sm-auf{from{opacity:0;transform:translateY(-6px);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion: reduce){ .sm-liste{animation:none;} }
 
 /* ---------------------------------------------------------------- Rechner-Layout (v133, Runde 1 der Designprüfung)
    Wunsch Vitali vom 08.10.2026 (Bildschirmfoto 27 Zoll): Die Vollseiten standen mittig und schmal.

@@ -7,16 +7,18 @@ import { zahlText } from "@/lib/chat";
 // eine Karte (Kunden, Termine, Dashboard) – am Handy sitzt dann schon der runde Kartenknopf unten
 // rechts, die Blase rückt darüber; am Rechner rückt sie links neben die Bedienknöpfe der Karte.
 // `karte-offen`: Am Handy ist die Karte offen – dort liegen Bedienknöpfe und Kundenblatt genau an
-// dieser Stelle, die Blase verschwindet, bis man zur Liste zurückgeht.
-export function ChatBlase({ zahl, lage, onClick }: {
+// dieser Stelle, die Blase verschwindet, bis man zur Liste zurückgeht. `imMenue` (v159): im
+// Schnellmenü oben rechts am Handy (components/SchnellMenue.tsx) statt schwebend.
+export function ChatBlase({ zahl, lage, imMenue, onClick }: {
   zahl: number;
   lage?: "bei-karte" | "karte-offen" | null;
+  imMenue?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
-      className={"ch-blase" + (lage ? ` ${lage}` : "")}
+      className={"ch-blase" + (imMenue ? " im-menue" : lage ? ` ${lage}` : "")}
       onClick={onClick}
       aria-label={zahl > 0 ? `Team-Chat, ${zahl} ungelesen` : "Team-Chat"}
       title="Team-Chat"

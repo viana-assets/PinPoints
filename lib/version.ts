@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v158";
+export const APP_VERSION = "v162";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,34 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v162", datum: "2026-10-16", titel: "Finance: „Weitere“ übersichtlich",
+    punkte: [
+      "In Finance steht „Weitere“ am Handy jetzt wie in FSM als Kacheln in Gruppen: Zahlungen, Buchführung, Steuern und Auswertungen, Jahresende und Kanzlei, System.",
+    ],
+  },
+  {
+    version: "v161", datum: "2026-10-16", titel: "Route nach Uhrzeit",
+    punkte: [
+      "Die Tagesroute steht jetzt in der Reihenfolge der Termine – frühester zuerst; Termine ohne Uhrzeit kommen dorthin, wo sie den kleinsten Umweg machen.",
+      "Wie man am kürzesten führe, zeigt der Umschalter „Kürzeste Strecke“. Google Maps öffnet die Route in der gewählten Reihenfolge.",
+    ],
+  },
+  {
+    version: "v160", datum: "2026-10-16", titel: "Leistungen: gleich offen, Menge direkt eintippen",
+    punkte: [
+      "Eine eben hinzugefügte Leistung steht im Auftrag gleich aufgeklappt – Menge, Endpreis und Zusatz lassen sich sofort eintragen.",
+      "Beim Antippen der Menge ist die Zahl markiert: Wer „5“ tippt, bekommt 5 und nicht 15. Das Feld lässt sich auch ganz leeren.",
+    ],
+  },
+  {
+    version: "v159", datum: "2026-10-16", titel: "Handy: Stoppuhr und Chat oben rechts",
+    punkte: [
+      "Am Handy schweben Stoppuhr und Chat nicht mehr unten über der Liste. Sie stehen jetzt hinter dem runden Knopf mit den drei Punkten oben rechts – ein Tipp klappt beide auf.",
+      "Gibt es neue Chat-Nachrichten, zeigt der Knopf die rote Zahl auch im zugeklappten Zustand.",
+      "Am Rechner bleibt alles unten rechts; Stoppuhr und Chat sind dort jetzt gleich groß.",
+    ],
+  },
   {
     version: "v158", datum: "2026-10-14", titel: "Finance: Liquiditätsvorschau und Vorjahresvergleich",
     punkte: [

@@ -1,4 +1,5 @@
-// Tagesroute nach Fahrstrecke (Fahrplan E5, v104).
+// Tagesroute nach Fahrstrecke (Fahrplan E5, v104). Seit v161 zeigt das Routenblatt zuerst die Fahrt nach
+// Uhrzeit (frühester Termin zuerst) und die kürzeste Reihenfolge als Vergleich.
 //
 // Die Tagesliste steht nach Uhrzeit. Wer plant – oder einen Tag mit Terminen ohne Uhrzeit vor sich
 // hat –, will wissen: In welcher Reihenfolge fährt man am kürzesten, von der Firma los und wieder
@@ -85,11 +86,32 @@ export function kuerzesteReihenfolge(start: Punkt | null, punkte: Punkt[]): numb
   return folge;
 }
 
-export type RoutenStopp<T> = { eintrag: T; punkt: Punkt | null };
+// Nach Uhrzeit (v161, Wunsch Vitali 16.10.2026): Die Termine mit Uhrzeit stehen in ihrer Reihenfolge fest;
+// jeder ohne Uhrzeit (`fest[i] === false`) kommt dorthin, wo er am wenigsten Umweg macht (billigste
+// Einfügung, der Reihe nach). Ergebnis als Indizes in `punkte`.
+export function uhrzeitReihenfolge(start: Punkt | null, punkte: Punkt[], fest: boolean[]): number[] {
+  const folge = punkte.map((_, i) => i).filter((i) => fest[i] !== false);
+  for (const i of punkte.map((_, j) => j).filter((j) => fest[j] === false)) {
+    // Von hinten: bei gleichem Umweg bleibt der Termin weiter hinten (ohne Uhrzeit steht er am Ende der Liste).
+    let beste = folge.length, besteKm = Infinity;
+    for (let pos = folge.length; pos >= 0; pos--) {
+      const neu = [...folge.slice(0, pos), i, ...folge.slice(pos)];
+      const km = streckeKm(start, neu.map((x) => punkte[x]));
+      if (km < besteKm - 1e-9) { besteKm = km; beste = pos; }
+    }
+    folge.splice(beste, 0, i);
+  }
+  return folge;
+}
+
+// `fest`: hat eine Uhrzeit (Vorgabe ja) – nur für die Reihenfolge nach Uhrzeit.
+export type RoutenStopp<T> = { eintrag: T; punkt: Punkt | null; fest?: boolean };
 
 export type Routenvorschlag<T> = {
-  // In der vorgeschlagenen Reihenfolge.
+  // In der kürzesten Reihenfolge.
   reihenfolge: T[];
+  // Nach Uhrzeit, Termine ohne Uhrzeit mit dem kleinsten Umweg eingereiht (v161) – die Vorgabe im Routenblatt.
+  nachUhrzeit: T[];
   // Ohne Kartenposition – sie lassen sich nicht einplanen und stehen getrennt da.
   ohnePosition: T[];
   // Luftlinie mal Umwegfaktor, gerundet auf ganze Kilometer.
@@ -100,20 +122,21 @@ export type Routenvorschlag<T> = {
 };
 
 // Der Vorschlag für einen Tag. `stopps` kommen in der Reihenfolge nach Uhrzeit (so, wie die
-// Tagesliste sie zeigt) – gegen diese Reihenfolge wird verglichen.
+// Tagesliste sie zeigt; ohne Uhrzeit am Ende) – gegen diese Reihenfolge wird verglichen.
 export function routenvorschlag<T>(start: Punkt | null, stopps: RoutenStopp<T>[]): Routenvorschlag<T> {
-  const mit = stopps.filter((s): s is { eintrag: T; punkt: Punkt } => !!s.punkt);
+  const mit = stopps.filter((s): s is RoutenStopp<T> & { punkt: Punkt } => !!s.punkt);
   const ohnePosition = stopps.filter((s) => !s.punkt).map((s) => s.eintrag);
   const punkte = mit.map((s) => s.punkt);
   const folge = kuerzesteReihenfolge(start, punkte);
   const km = (f: number[]) => Math.round(streckeKm(start, f.map((i) => punkte[i])) * UMWEG_FAKTOR);
-  const nachUhrzeit = mit.map((_, i) => i);
+  const nachUhrzeit = uhrzeitReihenfolge(start, punkte, mit.map((s) => s.fest !== false));
   return {
     reihenfolge: folge.map((i) => mit[i].eintrag),
+    nachUhrzeit: nachUhrzeit.map((i) => mit[i].eintrag),
     ohnePosition,
     kmVorschlag: km(folge),
     kmNachUhrzeit: km(nachUhrzeit),
-    andersAlsUhrzeit: folge.some((i, j) => i !== j),
+    andersAlsUhrzeit: folge.some((i, j) => i !== nachUhrzeit[j]),
   };
 }
 

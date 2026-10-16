@@ -75,6 +75,13 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   const [suche, setSuche] = useState("");
   const [fuegtHinzu, setFuegtHinzu] = useState<string | null>(null);
   const [offeneZeile, setOffeneZeile] = useState<string | null>(null);
+  // Eine eben hinzugefügte Leistung steht gleich offen (v159, Wunsch Vitali 16.10.2026): Menge, Endpreis und
+  // Zusatz braucht man fast immer. `onAdd` gibt keine ID zurück – die neue Zeile ist die erste mit diesem
+  // Artikel, die vorher nicht da war. Ein Tipp auf „Fertig“ oder eine andere Zeile hebt das auf.
+  const [neu, setNeu] = useState<{ vorher: string[]; artikel: string } | null>(null);
+  const neuId = neu ? rows.find((x) => x.article_id === neu.artikel && !neu.vorher.includes(x.id))?.id ?? null : null;
+  const offenId = offeneZeile ?? neuId;
+  const zeileSetzen = (id: string | null) => { setNeu(null); setOffeneZeile(id); };
   // undefined = zu; null = alle Zustände; sonst nur neue bzw. gebrauchte
   const [reifenSuche, setReifenSuche] = useState<ReifenZustand | null | undefined>(undefined);
   const [vorlagenOffen, setVorlagenOffen] = useState(false);
@@ -98,13 +105,6 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   const totals = orderArticleTotals(rows, rechnungNoetig);
   const preisVon = (id: string) => currentArticlePrice(articlePrices.filter((p) => p.article_id === id));
 
-  // Mengen sind bei allen Leistungen Stückzahlen – halbe Reifenwechsel gibt es nicht. Deshalb
-  // ganze Zahlen, mindestens 1.
-  function ganzeMenge(text: string): number {
-    const zahl = Math.round(parseFloat(text.replace(",", ".")));
-    return isNaN(zahl) || zahl < 1 ? 1 : zahl;
-  }
-
   const s = suche.trim().toLowerCase();
   const katalog = activeArticles
     .filter((a) => !s || `${a.article_number} ${a.short_name} ${a.long_name}`.toLowerCase().includes(s))
@@ -122,6 +122,8 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
     }
     setFuegtHinzu(a.id);
     try {
+      setOffeneZeile(null);
+      setNeu({ vorher: rows.map((x) => x.id), artikel: a.id });
       await onAdd(orderId, a.id, 1, null, null);
       setBlattOffen(false);
       setSuche("");
@@ -144,7 +146,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
         // einen farbigen Rand: Auf der Rechnung stünde dann „Sonstiges". Das ist kein Fehler,
         // aber es ist nicht gemeint – gefragt wird, gesperrt nicht.
         const textFehlt = !!art?.freitext && !r.note?.trim();
-        const offen = !gesperrt && (offeneZeile === r.id || textFehlt);
+        const offen = !gesperrt && (offenId === r.id || textFehlt);
         // Reifen aus dem Lager (Migration 61): wo sie liegen – der Techniker holt sie dort ab –
         // und ob noch einer mehr frei wäre. Entscheiden tut das beim Ändern die Datenbank.
         const posten = r.verkaufsreifen_id ? reifen?.verkaufsreifen.find((v) => v.id === r.verkaufsreifen_id) ?? null : null;
@@ -163,7 +165,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
         return (
           <div key={r.id} className={"ls-zeile" + (offen ? " offen" : "")}>
             <div className="ls-haupt">
-              <button type="button" className="ls-name" disabled={gesperrt} onClick={() => setOffeneZeile(offeneZeile === r.id ? null : r.id)}
+              <button type="button" className="ls-name" disabled={gesperrt} onClick={() => zeileSetzen(offenId === r.id ? null : r.id)}
                 aria-expanded={offen} title={gesperrt ? undefined : "Endpreis und Text auf der Rechnung"}>
                 <b>{art?.freitext && r.note?.trim() ? r.note : art ? art.short_name : "(gelöschter Artikel)"}</b>
                 <span className="small">{info}</span>
@@ -189,7 +191,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
               <div className="ls-details">
                 <div className="nk-zeile">
                   <label className="nk-feld"><span>Menge</span>
-                    <input type="number" min={1} step={1} value={r.quantity} disabled={festeGebuehr} onChange={(e) => void onUpdateQty(r.id, ganzeMenge(e.target.value))} />
+                    <MengeFeld wert={r.quantity} gesperrt={festeGebuehr} onWert={(n) => void onUpdateQty(r.id, n)} />
                   </label>
                   <label className="nk-feld"><span>Endpreis netto (ganze Position)</span>
                     <input
@@ -225,9 +227,9 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                   />
                 </label>
                 <div className="ad-knoepfe">
-                  {!festeGebuehr && <button type="button" className="es-knopf ad-gefahr" onClick={() => { setOffeneZeile(null); void onRemove(r.id); }}>Entfernen</button>}
+                  {!festeGebuehr && <button type="button" className="es-knopf ad-gefahr" onClick={() => { zeileSetzen(null); void onRemove(r.id); }}>Entfernen</button>}
                   <span className="ad-luecke" />
-                  {!textFehlt && <button type="button" className="es-knopf" onClick={() => setOffeneZeile(null)}>Fertig</button>}
+                  {!textFehlt && <button type="button" className="es-knopf" onClick={() => zeileSetzen(null)}>Fertig</button>}
                 </div>
               </div>
             )}
@@ -326,5 +328,34 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
         />
       )}
     </div>
+  );
+}
+
+// Das Mengenfeld (v159, Wunsch Vitali 16.10.2026). Mengen sind Stückzahlen – halbe Reifenwechsel gibt es
+// nicht –, also ganze Zahlen ab 1. Beim Antippen ist die Zahl markiert, die erste Ziffer
+// ersetzt sie also („5“ statt „15“). Während der Eingabe darf das Feld leer sein; gespeichert wird jede
+// gültige ganze Zahl ab 1, beim Verlassen springt ein leeres oder ungültiges Feld auf den gespeicherten Wert
+// zurück. Textfeld mit Ziffernblock statt `type="number"`, weil iOS dort keine Markierung setzen lässt.
+export function MengeFeld({ wert, gesperrt, onWert }: { wert: number; gesperrt?: boolean; onWert: (n: number) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  return (
+    <input
+      type="text" inputMode="numeric" pattern="[0-9]*" autoComplete="off" aria-label="Menge"
+      value={text ?? String(wert)} disabled={gesperrt}
+      onFocus={(e) => {
+        const el = e.currentTarget;
+        setText(String(wert));
+        // Safari setzt die Markierung beim Antippen nach dem Fokus wieder zurück – deshalb einen Takt später.
+        el.select();
+        window.setTimeout(() => { if (document.activeElement === el) el.select(); }, 0);
+      }}
+      onChange={(e) => {
+        const t = e.target.value.replace(/\D/g, "");
+        setText(t);
+        const n = Number(t);
+        if (t && Number.isInteger(n) && n >= 1 && n !== wert) onWert(n);
+      }}
+      onBlur={() => setText(null)}
+    />
   );
 }

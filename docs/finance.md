@@ -72,7 +72,8 @@ Systemauswahl:
 - `components/system/SystemMarke.tsx` (Marke mit Systemname, als Knopf nur bei mehr als einem System) und
   `SystemWahl.tsx` (Blatt mit FSM, Finance, CRM „bald“).
 - `app/page.tsx`: In Finance stehen die Finance-Seiten in der Navigation (`FINANCE_SEITEN`, am Handy vier unten,
-  der Rest unter „Weitere“), der ganze FSM-Inhalt ist ausgehängt, `#app` trägt `vollseite sys-finance` (Petrol
+  der Rest unter „Weitere“ – seit v162 als Kacheln in Gruppen wie in FSM: Zahlungen, Buchführung, Steuern und
+  Auswertungen, Jahresende und Kanzlei, System; `FINANCE_WEITERE_GRUPPEN`), der ganze FSM-Inhalt ist ausgehängt, `#app` trägt `vollseite sys-finance` (Petrol
   statt Orange). Springt die App von sich aus in einen FSM-Reiter (Push-Meldung, Sprung aus dem Chat), wechselt
   sie zurück nach FSM.
 - `components/finance/FinanceBereich.tsx`: Pilot-Hinweis auf jeder Seite, Übersicht (Einrichtung, was kommt),

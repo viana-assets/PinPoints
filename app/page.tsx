@@ -56,6 +56,7 @@ import { APP_VERSION, neuigkeitenAb, neuigkeitenUngelesen } from "@/lib/version"
 import { NeuigkeitenBlatt } from "@/components/NeuigkeitenBlatt";
 import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 import { ChatBlase } from "@/components/chat/ChatBlase";
+import { SchnellMenue, type SchnellEintrag } from "@/components/SchnellMenue";
 import { ChatFenster } from "@/components/chat/ChatFenster";
 import { bezugAuftrag, bezugKunde, bezugVorschlaege, chatZielAus, type ChatBezug } from "@/lib/chat";
 import { useChat } from "./_seite/useChat";
@@ -1916,6 +1917,22 @@ export default function HomePage() {
   // hinter "Weitere" versteckt, damit die schmale Leiste dort nicht überladen wirkt.
   const isMoreActive = SEKUNDAERE_TABS.includes(tab);
 
+  // Schnellmenü oben rechts am Handy (v159): dieselben Bedingungen wie die schwebenden Blasen weiter unten.
+  // Versteckt, solange der Chat offen ist, ein Kartenpunkt gesetzt wird oder am Handy die Karte offen ist
+  // (dort liegt oben die Suchleiste der Karte).
+  const schnellVersteckt = chat.offen || !!positionSetzenFuer || (!vollseite && mobileMapVisible);
+  const schnellEintraege: SchnellEintrag[] = !sitzungBereit ? [] : [
+    ...(darfZeit && canView("zeiterfassung") && tab !== "zeit" ? [{
+      key: "zeit", text: "Zeiterfassung",
+      knopf: (zu: () => void) => <ZeitBlase schicht={zeit.schicht} versatzMs={zeit.versatzMs} imMenue
+        onClick={() => { zu(); setKarteOffenIn(null); setTab("zeit"); }} />,
+    }] : []),
+    ...(darf("chat", "lesen") ? [{
+      key: "chat", text: "Team-Chat", zahl: chat.ungelesen,
+      knopf: (zu: () => void) => <ChatBlase zahl={chat.ungelesen} imMenue onClick={() => { zu(); chat.oeffnen(); }} />,
+    }] : []),
+  ];
+
   return (
     <div
       id="app"
@@ -2500,7 +2517,7 @@ export default function HomePage() {
 
       {/* Stempeluhr (Migration 82, v131): die laufende Uhr oben rechts (am Handy) und ihr Blatt. */}
       {sitzungBereit && darfZeit && tab !== "zeit" && !positionSetzenFuer && (
-        <div className="zt-schwebend"><UhrPille schicht={zeit.schicht} versatzMs={zeit.versatzMs} onClick={() => zeit.setBlattOffen(true)} /></div>
+        <div className={"zt-schwebend" + (schnellEintraege.length && !schnellVersteckt ? " mit-menue" : "")}><UhrPille schicht={zeit.schicht} versatzMs={zeit.versatzMs} onClick={() => zeit.setBlattOffen(true)} /></div>
       )}
       {feierabendFrage && <FeierabendFrage onJa={zeit.feierabend} onClose={() => setFeierabendFrage(false)} />}
       {zeit.blattOffen && (
@@ -2519,6 +2536,9 @@ export default function HomePage() {
           onClick={() => { setKarteOffenIn(null); setTab("zeit"); }}
         />
       )}
+
+      {/* Am Handy (v159): Stoppuhr und Chat hinter dem Knopf oben rechts statt unten schwebend. */}
+      <SchnellMenue eintraege={schnellEintraege} versteckt={schnellVersteckt} />
 
       {/* Team-Chat (Migration 80, v129): die Blase auf jeder Seite, das Fenster darüber. */}
       {sitzungBereit && darf("chat", "lesen") && !chat.offen && (

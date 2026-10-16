@@ -6,12 +6,14 @@ import { useJetzt } from "./useJetzt";
 // der Arbeitszeit, solange die Uhr läuft; gelb in der Pause. Nur mit „Zeiterfassung · lesen“.
 //
 // Lage wie die Chat-Blase (`.zt-blase`, app/globals.css), eine Stufe darüber. `allein`: Es gibt
-// keine Chat-Blase (Recht fehlt) – dann sitzt sie an deren Stelle.
-export function ZeitBlase({ schicht, versatzMs, lage, allein, onClick }: {
+// keine Chat-Blase (Recht fehlt) – dann sitzt sie an deren Stelle. `imMenue` (v159): im Schnellmenü
+// oben rechts am Handy (components/SchnellMenue.tsx) statt schwebend.
+export function ZeitBlase({ schicht, versatzMs, lage, allein, imMenue, onClick }: {
   schicht: ZeitSchicht | null;
   versatzMs: number;
   lage?: "bei-karte" | "karte-offen" | null;
   allein?: boolean;
+  imMenue?: boolean;
   onClick: () => void;
 }) {
   const z = zustand(schicht);
@@ -20,7 +22,7 @@ export function ZeitBlase({ schicht, versatzMs, lage, allein, onClick }: {
   return (
     <button
       type="button"
-      className={["zt-blase", z, lage, allein ? "allein" : ""].filter(Boolean).join(" ")}
+      className={["zt-blase", z, imMenue ? "im-menue" : lage, !imMenue && allein ? "allein" : ""].filter(Boolean).join(" ")}
       onClick={onClick}
       aria-label={text ? `Zeiterfassung, ${z === "pause" ? "Pause" : "läuft"}: ${text} h` : "Zeiterfassung – einstempeln"}
       title="Zeiterfassung"

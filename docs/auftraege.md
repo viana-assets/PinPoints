@@ -390,6 +390,12 @@ nach Uhrzeit („spart ca. 14 km"), an jedem Stopp, der woanders steht als nach 
 Uhrzeit 3.", und einen Knopf „In Google Maps öffnen" mit allen Stopps (höchstens neun
 Zwischenziele, das ist Googles Grenze in einem Link).
 
+**Seit v161 (Wunsch Vitali 16.10.2026) steht die Route zuerst nach Uhrzeit:** frühester Termin zuerst,
+Termine ohne Uhrzeit dort eingereiht, wo sie den kleinsten Umweg machen (`uhrzeitReihenfolge()`), mit den
+Kilometern dieser Fahrt und dem Vergleich „kürzeste Reihenfolge ca. … km“. Der Umschalter „Nach Uhrzeit |
+Kürzeste Strecke“ (nur, wenn beide sich unterscheiden) zeigt die kürzeste Reihenfolge mit „nach Uhrzeit 3.“;
+der Google-Maps-Link folgt der gewählten Reihenfolge.
+
 - **Start und Ende** ist die Firmenadresse aus den Betriebsdaten (Briefkopf: Straße, PLZ, Ort). Sie
   wird über die eigene Geocode-Route nachgeschlagen und für die Sitzung gemerkt; fehlt sie oder ist
   sie nicht zu finden, beginnt die Route beim ersten Termin.
@@ -516,7 +522,11 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
   gespeichert wird wie immer mit „Auftrag anlegen“ bzw. „Speichern“. Gezeigt werden die geladenen
   Aufträge (Zeitraum der Einsatzplanung).
 - **Leistungen** mit −/+ je Zeile; Endpreis und Rechnungstext klappen darunter auf. Neue
-  Leistungen kommen aus einem Blatt mit Suche und werden mit Menge 1 angelegt.
+  Leistungen kommen aus einem Blatt mit Suche und werden mit Menge 1 angelegt. **Seit v160** (Wunsch
+  Vitali 16.10.2026) steht die eben hinzugefügte Leistung gleich offen (Menge, Endpreis, Zusatz; „Fertig“
+  klappt zu), und das Mengenfeld (`MengeFeld` in `ArticleAssignPanel.tsx`) markiert beim Antippen die
+  Zahl – „5“ ersetzt die 1, statt „15“ zu ergeben; leer darf es beim Tippen sein, beim Verlassen springt
+  es auf den gespeicherten Wert zurück. Ziffernblock statt Zahlenfeld, weil iOS dort nicht markiert.
 - **Der Fuß** trägt die eine Handlung, die dran ist. Stornieren, Löschen/Verwerfen,
   Wiedereröffnen und „Historie" stehen im Menü „⋯"; Storno- und Wiedereröffnungsgrund sowie die
   Altreifen-Rückfrage sind Blätter. **Seit v93/v94 (Wunsch 29.09., Entscheidung 01.10.2026)

@@ -16,6 +16,24 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **16.10.2026 – Finance › Weitere als Kacheln in Gruppen (Service Worker v162, ohne Migration).** Wie „Weitere“ in FSM:
+  Zahlungen, Buchführung, Steuern und Auswertungen, Jahresende und Kanzlei, System (mit „System wechseln“); kurze Texte
+  je Kachel. Wunsch Vitali mit Bildschirmfoto. `docs/finance.md`.
+
+* **16.10.2026 – Tagesroute nach Uhrzeit (Service Worker v161, ohne Migration).** Das Routenblatt zeigt zuerst die
+  Fahrt in der Reihenfolge der Uhrzeiten (frühester Termin zuerst, ohne Uhrzeit mit dem kleinsten Umweg eingereiht);
+  die kürzeste Reihenfolge ist ein Umschalter daneben, der Maps-Link folgt der Wahl. Wunsch Vitali mit Bildschirmfoto.
+  `docs/auftraege.md`.
+
+* **16.10.2026 – Leistungen am Auftrag (Service Worker v160, ohne Migration).** Eine neu hinzugefügte Leistung steht
+  gleich aufgeklappt; das Mengenfeld markiert beim Antippen und lässt sich leeren (vorher blieb die 1 stehen, aus „5“
+  wurde „15“). Wunsch Vitali mit Bildschirmfotos. `docs/auftraege.md`.
+
+* **16.10.2026 – Schnellmenü am Handy (Service Worker v159, ohne Migration).** Stoppuhr und Chat-Blase schweben am Handy
+  nicht mehr unten rechts über Liste und Leiste, sondern stehen hinter einem runden Knopf oben rechts (drei Punkte, rote
+  Zahl der Ungelesenen), der sie nach unten aufklappt; beide gleich groß. Wunsch Vitali mit Bildschirmfoto.
+  v158 laut Vitali hochgeladen. `docs/team-chat.md`.
+
 * **14.10.2026 – Finance Liquiditätsvorschau und BWA-Vorjahresvergleich (Migration 100, Service Worker v158).** Vorschau 13
   Wochen bzw. 6 Monate aus Geldkonten (oder Kontoauszug), offenen Rechnungen und Belegen, Aufträgen ohne Rechnung,
   Umsatzsteuer und Planposten (Miete, Leasing, Löhne …) mit tiefstem Stand und CSV; BWA mit Vorjahr (Euro und Prozent).

@@ -4,9 +4,11 @@ import { formatDate, geocodeAddress, navigationsZiel, terminZeitraum } from "@/l
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { MAPS_ZWISCHENZIELE_MAX, mapsRoutenUrl, routenvorschlag, UMWEG_FAKTOR, type Punkt } from "@/lib/route";
 
-// Die Tagesroute (Fahrplan E5, v104): in welcher Reihenfolge fährt man die Termine eines Tages am
-// kürzesten, von der Firmenadresse los und wieder zurück? Gerechnet in lib/route.ts (Luftlinie,
-// nächster Nachbar + 2-opt) – ohne Routendienst, die Kilometer stehen deshalb als „ca." da.
+// Die Tagesroute (Fahrplan E5, v104): die Termine eines Tages von der Firmenadresse los und wieder zurück.
+// Seit v161 (Wunsch Vitali 16.10.2026) zuerst NACH UHRZEIT – frühester Termin zuerst, Termine ohne Uhrzeit
+// mit dem kleinsten Umweg eingereiht; „Kürzeste Strecke“ zeigt als Vergleich, wie man am kürzesten führe.
+// Gerechnet in lib/route.ts (Luftlinie, nächster Nachbar + 2-opt) – ohne Routendienst, die Kilometer stehen
+// deshalb als „ca." da. Der Google-Maps-Link folgt der gewählten Reihenfolge.
 //
 // Ein VORSCHLAG: Die Uhrzeiten bleiben, wie sie sind – ein vereinbarter Termin ist eine Zusage an
 // den Kunden. Wer danach plant, verschiebt die Termine im Stundenraster wie sonst auch.
@@ -40,6 +42,7 @@ export function RoutenBlatt({ datum, gruppen, startGruppeId, customers, firmenad
   onClose: () => void;
 }) {
   const [gruppeId, setGruppeId] = useState(startGruppeId);
+  const [modus, setModus] = useState<"uhrzeit" | "kuerzeste">("uhrzeit");
   const gruppe = gruppen.find((g) => g.id === gruppeId) ?? gruppen[0];
 
   // undefined = wird gesucht, null = nicht gefunden / keine Adresse.
@@ -63,13 +66,13 @@ export function RoutenBlatt({ datum, gruppen, startGruppeId, customers, firmenad
     .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99") || a.order_number - b.order_number)
     .map((o) => {
       const k = kundeFuerAuftrag(o, customers);
-      return { eintrag: { o, k }, punkt: k && k.lat != null && k.lng != null ? { lat: k.lat, lng: k.lng } : null };
+      return { eintrag: { o, k }, punkt: k && k.lat != null && k.lng != null ? { lat: k.lat, lng: k.lng } : null, fest: !!o.time };
     }), [gruppe, customers]);
-  const nachUhrzeit = stopps.map((s) => s.eintrag.o.id);
   const r = useMemo(() => (start === undefined ? null : routenvorschlag(start, stopps)), [start, stopps]);
 
   const startText = start ? `${start.lat},${start.lng}` : null;
-  const ziele = r ? r.reihenfolge.map((e) => (e.k ? navigationsZiel(e.k) : "")).filter(Boolean) : [];
+  const liste = r ? (modus === "uhrzeit" ? r.nachUhrzeit : r.reihenfolge) : [];
+  const ziele = r ? liste.map((e) => (e.k ? navigationsZiel(e.k) : "")).filter(Boolean) : [];
   const url = mapsRoutenUrl(startText, ziele);
   const zuViele = ziele.length > MAPS_ZWISCHENZIELE_MAX + (startText ? 0 : 1);
 
@@ -100,19 +103,26 @@ export function RoutenBlatt({ datum, gruppen, startGruppeId, customers, firmenad
 
         {r && (
           <>
+            {r.reihenfolge.length > 1 && r.andersAlsUhrzeit && (
+              <div className="lg-lagerwahl es-segment fi-reiter-breit" role="group" aria-label="Reihenfolge">
+                <button type="button" className={modus === "uhrzeit" ? "aktiv" : ""} aria-pressed={modus === "uhrzeit"} onClick={() => setModus("uhrzeit")}>Nach Uhrzeit</button>
+                <button type="button" className={modus === "kuerzeste" ? "aktiv" : ""} aria-pressed={modus === "kuerzeste"} onClick={() => setModus("kuerzeste")}>Kürzeste Strecke</button>
+              </div>
+            )}
             <div className="ro-summe">
-              <b>ca. {r.kmVorschlag} km</b>
+              <b>ca. {modus === "uhrzeit" ? r.kmNachUhrzeit : r.kmVorschlag} km</b>
               <span className="small">
                 {r.reihenfolge.length < 2 ? "Nur ein Termin mit Kartenposition."
-                  : r.andersAlsUhrzeit
-                  ? `nach Uhrzeit ca. ${r.kmNachUhrzeit} km${r.kmNachUhrzeit > r.kmVorschlag ? ` – spart ca. ${r.kmNachUhrzeit - r.kmVorschlag} km` : ""}`
-                  : "Die Uhrzeiten passen schon zur kürzesten Reihenfolge."}
+                  : !r.andersAlsUhrzeit ? "Die Uhrzeiten passen schon zur kürzesten Reihenfolge."
+                  : modus === "uhrzeit"
+                  ? `kürzeste Reihenfolge ca. ${r.kmVorschlag} km${r.kmNachUhrzeit > r.kmVorschlag ? ` – ca. ${r.kmNachUhrzeit - r.kmVorschlag} km weniger` : ""}`
+                  : `nach Uhrzeit ca. ${r.kmNachUhrzeit} km${r.kmNachUhrzeit > r.kmVorschlag ? ` – spart ca. ${r.kmNachUhrzeit - r.kmVorschlag} km` : ""}`}
               </span>
             </div>
 
             <ol className="ro-liste">
-              {r.reihenfolge.map(({ o, k }, i) => {
-                const platz = nachUhrzeit.filter((id) => r.reihenfolge.some((x) => x.o.id === id)).indexOf(o.id) + 1;
+              {liste.map(({ o, k }, i) => {
+                const platz = r.nachUhrzeit.findIndex((x) => x.o.id === o.id) + 1;
                 const index = i + 1;
                 return (
                   <li key={o.id}>
@@ -122,7 +132,8 @@ export function RoutenBlatt({ datum, gruppen, startGruppeId, customers, firmenad
                         <b>{k?.name ?? "Kunde"}</b>
                         <span className="small">{[terminZeitraum(o) || "ohne Uhrzeit", k?.address].filter(Boolean).join(" · ")}</span>
                       </span>
-                      {r.andersAlsUhrzeit && platz !== index && <span className="ro-anders">nach Uhrzeit {platz}.</span>}
+                      {modus === "kuerzeste" && r.andersAlsUhrzeit && platz !== index && <span className="ro-anders">nach Uhrzeit {platz}.</span>}
+                      {modus === "uhrzeit" && !o.time && <span className="ro-anders">ohne Uhrzeit</span>}
                     </button>
                   </li>
                 );
@@ -144,7 +155,9 @@ export function RoutenBlatt({ datum, gruppen, startGruppeId, customers, firmenad
               <a className="am-knopf ro-maps" href={url} target="_blank" rel="noreferrer">In Google Maps öffnen</a>
             )}
             {zuViele && <span className="small">Google Maps nimmt in einem Link höchstens {MAPS_ZWISCHENZIELE_MAX} Zwischenziele – die übrigen Stopps fehlen dort.</span>}
-            <span className="small">Luftlinie mal {String(UMWEG_FAKTOR).replace(".", ",")}, also ungefähr. Die Uhrzeiten bleiben, wie sie sind – verschoben wird im Stundenraster.</span>
+            <span className="small">Luftlinie mal {String(UMWEG_FAKTOR).replace(".", ",")}, also ungefähr. {modus === "uhrzeit"
+              ? (liste.some((x) => !x.o.time) ? " Termine ohne Uhrzeit sind dort eingereiht, wo sie den kleinsten Umweg machen." : "")
+              : " Die Uhrzeiten bleiben, wie sie sind – verschoben wird im Stundenraster."}</span>
           </>
         )}
       </div>

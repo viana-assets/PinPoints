@@ -106,6 +106,7 @@ viana-pinpoints/
     icons.tsx                  Alle Icon-Komponenten (IconDashboard, IconKunden, …)
     NavItem.tsx                  Ein Eintrag in #iconNav
     Blatt.tsx                     Das gemeinsame Fenster: Kopf, ✕, Fußzeile; am Handy Blatt von unten (v134)
+    SchnellMenue.tsx              Am Handy: Knopf oben rechts mit Zahl, klappt Stoppuhr und Chat auf (v159)
     CustomerPicker.tsx            Wiederverwendbare Kundensuche (Lager & Aufträge), Suchfeld + Trefferzeilen (v134)
     AdressFeld.tsx                 Adressfeld mit Vorschlägen + Genauigkeits-Kennzeichnung
                                    (`geo_genauigkeit`, Migration 35)
@@ -232,7 +233,7 @@ viana-pinpoints/
       UnterschriftBlatt.tsx           Kunde unterschreibt mit dem Finger, ein Bild mit Satz und Name (E3, v105)
     einsatzplanung/
       EinsatzplanungPanel.tsx        Tab "Einsatzplanung" (Kalender + Listenansicht)
-      RoutenBlatt.tsx                 Tagesroute je Mitarbeiter: kürzeste Reihenfolge ab Firma (E5, v104)
+      RoutenBlatt.tsx                 Tagesroute je Mitarbeiter ab Firma: nach Uhrzeit (v161) oder kürzeste Reihenfolge (E5, v104)
       Stundenraster.tsx               Termine als Von-bis-Balken im Tages-/Wochenraster, rechts freier Streifen zum Anlegen (v141)
                                       (Migration 37)
       VerfuegbarkeitAnsicht.tsx       Reiter „Verfügbarkeit“: eigener Monat bzw. Wochenübersicht aller (Migration 68, v112)
@@ -319,7 +320,7 @@ viana-pinpoints/
     auskunft.ts                   Auskunftsauszug als Zeilen (E10, v103)
     belege.ts                     Fotos/Unterschrift: Zielmaße, Pfad, Stand, Satz unter der Unterschrift (E3, v105)
     belegBild.ts                  Foto im Browser verkleinern (Canvas, EXIF-Drehung) (E3, v105)
-    route.ts                      Tagesroute: Luftlinie, nächster Nachbar + 2-opt, Maps-Link (E5, v104)
+    route.ts                      Tagesroute: Luftlinie, nächster Nachbar + 2-opt, nach Uhrzeit mit Einreihen (v161), Maps-Link (E5, v104)
     stapelAuslagern.ts            Stapel-Auslagern: Reihenfolge des Regals, Gebührenvorschlag (E7, v104)
     terminBestaetigung.ts         Text und Links der Terminbestätigung (E9, v104)
     auftragLoeschen.ts            Darf ein Auftrag gelöscht werden, mit welcher Frage (D2, v100)

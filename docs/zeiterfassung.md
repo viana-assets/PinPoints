@@ -19,7 +19,9 @@ Heimfahrt und die Stempel-Erinnerung per Push – Abschnitt „Feierabend, Heimf
   niemand eingestempelt ist; grün mit der Arbeitszeit darüber, solange die Uhr läuft; gelb in der Pause.
   Ein Tipp führt in den Bereich „Zeiterfassung“. Sie steht in derselben Spalte wie die Chat-Blase, eine
   Stufe darüber (auf Seiten mit Karte über Kartenknopf und Chat); ohne Chat-Recht an deren Stelle; bei
-  offener Karte am Handy ausgeblendet.
+  offener Karte am Handy ausgeblendet. Seit v159 gleich groß wie die Chat-Blase; **am Handy im Schnellmenü
+  oben rechts** (`components/SchnellMenue.tsx`, siehe `docs/team-chat.md`); die laufende Anzeige rückt dann
+  links neben dessen Knopf.
 - **Die laufende Anzeige** (`components/zeit/UhrPille.tsx`): am Handy oben rechts auf jeder Seite
   (grün mit der Arbeitszeit, gelb mit der laufenden Pause), am Rechner neben „Zeiterfassung“ in der
   Seitenleiste und im Kopf des Bereichs. Antippen öffnet das Blatt mit der Stempeluhr
