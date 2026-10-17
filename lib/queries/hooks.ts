@@ -191,6 +191,19 @@ export function useKundeFahrzeuge(supabase: SupabaseClient, kundeId: string | nu
   });
 }
 
+// Kundengruppe (Migration 101): die Fahrzeuge aller Mitglieder – für einen Auftrag beim Hauptkunden, dessen
+// Autos den Unterdebitoren gehören. Der Schlüssel beginnt wie `kundeFahrzeuge`, damit dieselbe Verwerfung
+// (`queryKey[0] === "kunde" && queryKey[2] === "fahrzeuge"`) auch ihn trifft; die Mitglieder hängen hinten an,
+// damit ein neu zugeordneter Unterdebitor eine frische Abfrage auslöst.
+export function useGruppeFahrzeuge(supabase: SupabaseClient, hauptId: string | null, mitglieder: string[], aktiv: boolean) {
+  return useQuery({
+    queryKey: [...qk.kundeFahrzeuge(`gruppe:${hauptId || "-"}`), mitglieder.join(",")],
+    queryFn: () => fetchVehiclesFuerKunden(supabase, mitglieder),
+    enabled: aktiv && !!hauptId && mitglieder.length > 1,
+    staleTime: FRISCH_MS,
+  });
+}
+
 export function useKundeHistorie(supabase: SupabaseClient, kundeId: string | null, aktiv: boolean) {
   return useQuery({
     queryKey: qk.kundeHistorie(kundeId || "-"),

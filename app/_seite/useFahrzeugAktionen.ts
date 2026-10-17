@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QueryClient } from "@tanstack/react-query";
 import { addAuftragFahrzeug, removeAuftragFahrzeug, setKilometerstand } from "@/lib/api/auftragFahrzeuge";
 import { updateTireStorageDetails } from "@/lib/api/lager";
-import { deleteVehicleById, fahrzeugAngabenErgaenzen, fetchVehiclesFuerKunde, insertVehicle, updateVehicleById } from "@/lib/api/vehicles";
+import { deleteVehicleById, fahrzeugAngabenErgaenzen, fahrzeugKundeWechseln, fetchVehiclesFuerKunde, fetchVehiclesFuerKunden, insertVehicle, updateVehicleById } from "@/lib/api/vehicles";
 import { fahrzeugMitKennzeichen, kennzeichenGross } from "@/lib/kennzeichen";
 import { type Absicht, type AbsichtInhalt, auftragFahrzeugeAnwenden, fahrzeugeAnwenden, wartetAufAnlage } from "@/lib/offline/ausgang";
 import { useAuftragFahrzeuge, useEinsatzVorrat } from "@/lib/queries/hooks";
@@ -55,8 +55,13 @@ export function useFahrzeugAktionen(k: FahrzeugKontext) {
   // Ein Fahrzeug zu diesem Kennzeichen: das vorhandene des Kunden, sonst ein neues. Gelesen
   // wird frisch aus der Datenbank, nicht aus dem Zwischenspeicher – sonst entstünde die
   // Dublette genau in dem Fall, für den es diese Prüfung gibt (Liste noch nicht nachgeladen).
-  async function fahrzeugFuerKennzeichen(kundeId: string, kennzeichen: string, modell = ""): Promise<string> {
-    const vorhanden = fahrzeugMitKennzeichen(await fetchVehiclesFuerKunde(supabase, kundeId), kennzeichen);
+  //
+  // Kundengruppe (Migration 101): `gruppe` sind alle Mitglieder. Steht das Kennzeichen schon bei einem von
+  // ihnen, wird DIESES Fahrzeug genommen – es bleibt bei seinem Halter; umhängen geht ausdrücklich über
+  // „Gehört zu“.
+  async function fahrzeugFuerKennzeichen(kundeId: string, kennzeichen: string, modell = "", gruppe?: string[]): Promise<string> {
+    const kartei = gruppe && gruppe.length > 1 ? await fetchVehiclesFuerKunden(supabase, gruppe) : await fetchVehiclesFuerKunde(supabase, kundeId);
+    const vorhanden = fahrzeugMitKennzeichen(kartei, kennzeichen);
     if (vorhanden) return vorhanden.id;
     return insertVehicle(supabase, kundeId, { licensePlate: kennzeichen, makeModel: modell, tireSize: "", note: "" });
   }
@@ -97,16 +102,17 @@ export function useFahrzeugAktionen(k: FahrzeugKontext) {
   //
   // Offline Runde 2: ohne Netz entscheidet die Kartei auf dem Gerät, ob das Kennzeichen schon da
   // ist; beim Senden wird am Server noch einmal nachgesehen (lib/offline/senden.ts).
-  async function rechnungsFahrzeugAnlegen(orderId: string, kundeId: string, kennzeichen: string) {
+  async function rechnungsFahrzeugAnlegen(orderId: string, kundeId: string, kennzeichen: string, gruppe?: string[]) {
     await offlineOderDirekt(
       async () => {
-        const fahrzeugId = await fahrzeugFuerKennzeichen(kundeId, kennzeichen);
+        const fahrzeugId = await fahrzeugFuerKennzeichen(kundeId, kennzeichen, "", gruppe);
         if (!auftragFahrzeuge.some((af) => af.order_id === orderId && af.vehicle_id === fahrzeugId)) {
           await addAuftragFahrzeug(supabase, orderId, fahrzeugId, null);
         }
       },
       () => {
-        const kartei = fahrzeugeAnwenden(queryClient.getQueryData<Vehicle[]>(qk.kundeFahrzeuge(kundeId)) ?? KEINE_FAHRZEUGE, ausgang, kundeId);
+        const kartei = (gruppe && gruppe.length > 1 ? gruppe : [kundeId]).flatMap((id) =>
+          fahrzeugeAnwenden(queryClient.getQueryData<Vehicle[]>(qk.kundeFahrzeuge(id)) ?? KEINE_FAHRZEUGE, ausgang, id));
         const vorhanden = fahrzeugMitKennzeichen(kartei, kennzeichen);
         const fahrzeugId = vorhanden?.id ?? neueId();
         const absichten: { inhalt: AbsichtInhalt; titel: string }[] = [];
@@ -163,10 +169,10 @@ export function useFahrzeugAktionen(k: FahrzeugKontext) {
   // Fahrzeug aus dem Auftragsfenster heraus: anlegen UND dem eingelagerten Satz zuordnen.
   // Beides in einem Schritt, weil es fachlich einer ist – der Techniker steht am Auto und
   // sagt „das hier gehört zu diesem Satz".
-  async function fahrzeugAusAuftragAnlegen(orderId: string, kennzeichen: string, modell: string, einlagerungId?: string) {
+  async function fahrzeugAusAuftragAnlegen(orderId: string, kennzeichen: string, modell: string, einlagerungId?: string, gruppe?: string[]) {
     const auftrag = orders.find((o) => o.id === orderId);
     if (!auftrag) return;
-    const fahrzeugId = await fahrzeugFuerKennzeichen(auftrag.customer_id, kennzeichen, modell);
+    const fahrzeugId = await fahrzeugFuerKennzeichen(auftrag.customer_id, kennzeichen, modell, gruppe);
     await refreshVehicles();
     // Dem Satz zuordnen, aus dessen Block heraus das Fahrzeug angelegt wurde. Ohne diese Id
     // landete es bei zwei Sätzen im falschen – vorher gab es nur einen, da war die Frage
@@ -195,9 +201,17 @@ export function useFahrzeugAktionen(k: FahrzeugKontext) {
     await refreshVehicles();
   }
 
+  // Kundengruppe (Migration 101): ein Fahrzeug einem anderen Kunden der Gruppe zuordnen – seine Sätze im Lager
+  // ziehen mit (`fahrzeug_kunde_wechseln()`), deshalb danach auch der Lagerbestand. Nur mit Netz: Der
+  // Ausgangskorb kennt diese Absicht nicht, und offline lässt sich die Gruppe nicht prüfen.
+  async function fahrzeugHalterWechseln(fahrzeugId: string, kundeId: string) {
+    if (netzLos()) throw new Error("Ein Fahrzeug lässt sich nur mit Netz einem anderen Kunden zuordnen.");
+    await fahrzeugKundeWechseln(supabase, fahrzeugId, kundeId);
+    await Promise.all([refreshVehicles(), refreshTireStorages()]);
+  }
 
   return {
-    addVehicle, auftragFahrzeuge, deleteVehicle, fahrzeugAngabenSetzen, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
+    addVehicle, fahrzeugHalterWechseln, auftragFahrzeuge, deleteVehicle, fahrzeugAngabenSetzen, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
     kilometerstandSetzen, rechnungsFahrzeugAnlegen, refreshVehicles, updateVehicle,
   };
 }

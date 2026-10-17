@@ -10,6 +10,7 @@ import { satzUrl } from "@/lib/aufkleberCode";
 import { notizenText, radNotiz, satzPositionen } from "@/lib/lagerNotizen";
 import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, teilenOderSpeichern, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
 import { Blatt } from "@/components/Blatt";
+import { gruppenMitglieder, kundenName as gruppenName } from "@/lib/kundengruppe";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
 //
@@ -71,7 +72,7 @@ export const ETIKETT_FORMATE: EtikettFormat[] = [
 // sehen gleich aus; die Antwort steckt in der Messung, die ein halbes Jahr zurückliegt.
 export type EtikettArt = "satz" | "raeder";
 
-export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, warehouses, onClose }: {
+export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, warehouses, onClose, onKundeWechseln }: {
   // Eine Liste, auch wenn meistens genau einer darin steht: Aus dem Auftrag heraus druckt man
   // einen, beim Nachdrucken im Lager vielleicht mehrere. Ein zweites Bauteil für denselben
   // Aufkleber wären zwei Etiketten, die auseinanderlaufen.
@@ -84,6 +85,10 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   slots: StorageSlot[];
   warehouses: Warehouse[];
   onClose: () => void;
+  // Kundengruppe (Migration 101, v165): Gehört der Kunde des Satzes zu einer Gruppe, steht über dem Etikett
+  // „Für:“ – damit beim Drucken aus dem Auftrag des Hauptkunden die richtige Firma daraufkommt. Mit Fahrzeug
+  // wird das Fahrzeug umgehängt (samt seinen Sätzen), ohne nur der Satz. Fehlt der Handler, keine Wahl.
+  onKundeWechseln?: (satz: TireStorage, kundeId: string) => Promise<void>;
 }) {
   const [basis, setBasis] = useState("");
   // Vorgabe seit v123: eines je Rad (Wunsch 07.10.2026 – gedruckt wird fast immer je Rad, die Wahl
@@ -91,6 +96,18 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   const [art, setArt] = useState<EtikettArt>("raeder");
   const [teilenLaeuft, setTeilenLaeuft] = useState(false);
   const [teilenHinweis, setTeilenHinweis] = useState<string | null>(null);
+  const [wechselLaeuft, setWechselLaeuft] = useState<string | null>(null);
+  const gruppenWahl = onKundeWechseln
+    ? saetze.map((satz) => ({ satz, mitglieder: gruppenMitglieder(satz.customer_id, customers) })).filter((g) => g.mitglieder.length > 1)
+    : [];
+  async function kundeWechseln(satz: TireStorage, kundeId: string) {
+    if (!onKundeWechseln || kundeId === satz.customer_id) return;
+    setWechselLaeuft(satz.id);
+    setTeilenHinweis(null);
+    try { await onKundeWechseln(satz, kundeId); }
+    catch (fehler) { setTeilenHinweis(fehler instanceof Error ? fehler.message : "Der Kunde konnte nicht geändert werden."); }
+    finally { setWechselLaeuft(null); }
+  }
   useEffect(() => { setBasis(window.location.origin); }, []);
 
   const [format, setFormat] = useState<string>(ETIKETT_FORMATE[0].schluessel);
@@ -302,6 +319,22 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
       <style>{`@page { size: ${gewaehlt.breiteMm}mm ${gewaehlt.hoeheMm}mm; margin: 0; }`}</style>
 
       <div className="ar-karte-feld druck-weg ek-wahl">
+        {gruppenWahl.map(({ satz, mitglieder }) => (
+          <div key={satz.id} className="nk-feld ek-fuer">
+            <label htmlFor={`etikett-fuer-${satz.id}`} className="kp-label">
+              Für{saetze.length > 1 ? ` (${fahrzeugText(satz)})` : ""}
+            </label>
+            <select id={`etikett-fuer-${satz.id}`} value={satz.customer_id} disabled={wechselLaeuft === satz.id}
+              onChange={(e) => void kundeWechseln(satz, e.target.value)}>
+              {mitglieder.map((k) => <option key={k.id} value={k.id}>{gruppenName(k)}</option>)}
+            </select>
+            <span className="bl-hilfe">
+              {satz.vehicle_id
+                ? "Ordnet das Fahrzeug dieser Firma der Gruppe zu – mit allen seinen Sätzen im Lager."
+                : "Ordnet den Satz dieser Firma der Gruppe zu."}
+            </span>
+          </div>
+        ))}
         <div className="nk-feld">
           <label htmlFor="etikett-art" className="kp-label">Was wird gedruckt?</label>
           <select id="etikett-art" value={art} onChange={(e) => setArt(e.target.value as EtikettArt)}>

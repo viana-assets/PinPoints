@@ -183,6 +183,7 @@ viana-pinpoints/
       VehicleSection.tsx             Fahrzeuge je Kunde (VehicleRow, AddVehicleInline)
       KundenListePanel.tsx           Die Kundenliste mit Suche, Filtern, Buchstabenleiste (Entwurf J)
       EingelagerteReifen.tsx         Alle eingelagerten Sätze eines Kunden im Kundenfenster
+      KundengruppeKarte.tsx          Kundengruppe im Kundenfenster und „Einem Hauptkunden zuordnen …“ (Migration 101, v165)
       AnrufFenster.tsx               „Auf dem Handy anrufen": Fenster nach Antippen der Meldung
     admin/
       SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Anzeige, App)
@@ -361,6 +362,7 @@ viana-pinpoints/
                                   seit v103 Übernahme aus der Einlagerung, Etikett, Auswertung (E17/E18)
     terminAenderung.ts            Termin vorher → nachher für Rückgängig und Historie (v91)
     kennzeichen.ts                Kennzeichen vergleichen, Dubletten erkennen (v93), groß schreiben (v108)
+    kundengruppe.ts               Hauptkunde/Unterdebitoren: Gruppe, Mitglieder, Kandidaten, Anzeigezeile (Migration 101, v165)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)
@@ -760,7 +762,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 100** (14.10.2026; 100 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 101** (17.10.2026; 101 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -933,6 +935,10 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   (Stufe für Stufe, nach Fälligkeit bzw. voriger Frist, nur gebuchte offene Rechnungen), `fin_mahnung_zurueckziehen()` (nur die letzte).
 - **100** – Finance, Planposten der Liquiditätsvorschau: `fin_planposten` (Ein-/Auszahlung, Rhythmus, bis), geschrieben über
   `fin_planposten_speichern()` / `_loeschen()` mit `finance.abschluss` S. Die Vorschau selbst rechnet die App.
+- **101** – Kundengruppen: `customers.haupt_kunde_id` (eine Ebene, Regeln in `kunde_gruppe_pruefen()`), `kunde_gruppe()`.
+  Ein Satz mit Fahrzeug eines anderen Gruppenmitglieds übernimmt dessen Halter; Tausch und Vormerkung gehen innerhalb der
+  Gruppe. `fahrzeug_kunde_wechseln()` (mit den aktiven Sätzen) und `satz_kunde_wechseln()`; der Techniker auf dem Auftrag
+  des Hauptkunden sieht dessen Unterdebitoren (`ist_eigener_kunde()`).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

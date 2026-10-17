@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v164";
+export const APP_VERSION = "v165";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v165", datum: "2026-10-17", titel: "Hauptkunde mit Unterdebitoren",
+    punkte: [
+      "Firmen, die zusammengehören, lassen sich einem Hauptkunden zuordnen: im Kundenfenster über „⋯“ → „Einem Hauptkunden zuordnen …“. Der Hauptkunde zeigt dann seine Unterdebitoren, jeder Unterdebitor seinen Hauptkunden.",
+      "Ein Auftrag beim Hauptkunden bietet die Fahrzeuge aller Unterdebitoren an. An jedem Fahrzeug steht, wem es gehört – und lässt sich dort umstellen; ein neues Kennzeichen fragt, für welche Firma.",
+      "Eingelagerte Sätze und Etiketten folgen dem Halter des Fahrzeugs. Beim Etikett steht „Für:“ zur Auswahl, wenn der Kunde zu einer Gruppe gehört.",
+      "Die Rechnung je Unterdebitor kommt im nächsten Schritt.",
+    ],
+  },
   {
     version: "v164", datum: "2026-10-16", titel: "Erledigte Termine am Tag verschieben",
     punkte: [

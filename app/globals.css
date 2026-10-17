@@ -3472,7 +3472,12 @@ button.am-listen-zeile:not(:disabled):hover b:first-child{color:var(--accent);}
 .ao-fz-angaben{display:flex;flex-direction:column;gap:8px;}
 .ao-fz-hinzu select{height:42px;border-radius:12px;border:1.5px dashed #c9bfa9;background:transparent;font:inherit;font-weight:700;
   font-size:14px;color:#6f6553;padding:0 10px;cursor:pointer;}
-.ao-fz-neu{display:flex;gap:6px;}
+.ao-fz-neu{display:flex;gap:6px;flex-wrap:wrap;}
+/* Kundengruppe (Migration 101, v165): Halter des Fahrzeugs und Halter eines neuen Kennzeichens. */
+.ao-halter select{flex:1;min-width:0;max-width:280px;height:40px;border-radius:10px;border:1px solid var(--border);padding:0 8px;font:inherit;
+  font-size:14px;font-weight:700;background:var(--panel);color:var(--text);}
+.ao-halter b{color:var(--text);}
+.ao-fz-neu select{flex:1 1 100%;order:3;}
 .ao-fz-neu input{flex:1;min-width:0;height:40px;border-radius:10px;border:1px solid var(--border);padding:0 10px;font:inherit;font-size:14px;background:var(--bg);}
 .ao-schalter{background:var(--bg) !important;box-shadow:none;}
 .ao-schalter:disabled{cursor:default;opacity:.75;}

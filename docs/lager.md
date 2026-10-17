@@ -1013,3 +1013,10 @@ ebenfalls (`scanZiel` → `verkauf`).
 - Gewährleistungshinweis für gebrauchte Reifen an Privatkunden auf der Rechnung.
 - (Erledigt in v103: Übernahme aus der Einlagerung, Etikett je Posten – oben; Reifenverkauf in den
   Auswertungen – Reiter „Reifen", siehe `fahrplan.md` E18.)
+
+## Kundengruppen im Lager (Migration 101, v165)
+
+Bekommt ein Satz ein Fahrzeug eines anderen Kunden derselben Kundengruppe, übernimmt er dessen Halter – eingelagert aus dem
+Auftrag des Hauptkunden liegt der Satz damit beim Unterdebitor, dem das Fahrzeug gehört, und das Etikett nennt diese Firma.
+Vormerken und Tausch gehen innerhalb der Gruppe. Im Etikett-Fenster steht bei Gruppenkunden „Für:": mit Fahrzeug wird das
+Fahrzeug umgehängt (samt allen seinen aktiven Sätzen), ohne Fahrzeug nur der Satz. Einzelheiten: `docs/kunden-und-karte.md`.

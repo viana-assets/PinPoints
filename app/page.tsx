@@ -15,6 +15,7 @@ import {
   satzProfilMm, geocodeAddress, getPhoneNumbers, navigationUrls, navigationAppUrls, istIos, istHandy, menuLage, seitenZoom, formatEUR,
   letzterSatzFuer, orderArticleTotals, currentArticlePrice, rechnungOffen, rechnungOhneEmail,
 } from "@/lib/helpers";
+import { gruppenMitglieder, istHauptkunde, kundenName } from "@/lib/kundengruppe";
 import { LAGER_ENGPASS_AB, datumKurz } from "@/lib/dashboard";
 import {
   MAP_STYLES, MAP_STIL_REIHENFOLGE, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey,
@@ -93,6 +94,7 @@ import { AuswertungPanel } from "@/components/auswertung/AuswertungPanel";
 import { RechnungenPanel, type OffeneRechnung } from "@/components/rechnungen/RechnungenPanel";
 import { RechnungModal } from "@/components/rechnungen/RechnungModal";
 import { stelleRechnungAus, storniereRechnung } from "@/lib/api/rechnungen";
+import { satzKundeWechseln } from "@/lib/api/lager";
 import type { RechnungEntwurf } from "@/lib/rechnung";
 import { AuftragModal } from "@/components/auftraege/AuftragModal";
 import { KontaktModal } from "@/components/kunden/KontaktModal";
@@ -130,7 +132,7 @@ import { fetchOwnRole, fetchOrCreateUserSettings, updateUserSettings } from "@/l
 import { fetchBetrieb } from "@/lib/api/betrieb";
 import { qk } from "@/lib/queries/keys";
 import {
-  useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useKundeHistorie, useMitarbeiter,
+  useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useGruppeFahrzeuge, useKundeHistorie, useMitarbeiter,
   useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useAppStand, useRechnungen, useAuftragRechnungen, useLager,
   useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge, useFirmenfahrzeuge,
   useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten,
@@ -481,10 +483,25 @@ export default function HomePage() {
     (auftraegeDaten?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId) ??
     (kundeAuftraegeDaten?.orders ?? KEINE_AUFTRAEGE).find((o) => o.id === offenerAuftragId);
   const auftragFahrzeugeQuery = useKundeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, sitzungBereit);
+  // Kundengruppe (Migration 101): Läuft der Auftrag auf einen Hauptkunden, stehen die Fahrzeuge aller
+  // Unterdebitoren zur Wahl – ohne in einen anderen Auftrag zu wechseln. Läuft er auf einen Unterdebitor,
+  // bleibt es bei dessen eigenen Fahrzeugen.
+  const auftragGruppe = useMemo(() => {
+    const kid = offenerAuftrag?.customer_id;
+    const kartei = kundenQuery.data ?? KEINE_KUNDEN;
+    if (!kid || !istHauptkunde(kid, kartei)) return [];
+    return gruppenMitglieder(kid, kartei).map((k) => ({ id: k.id, name: kundenName(k) }));
+  }, [offenerAuftrag?.customer_id, kundenQuery.data]);
+  const auftragGruppeIds = useMemo(() => auftragGruppe.map((k) => k.id), [auftragGruppe]);
+  const gruppeFahrzeugeQuery = useGruppeFahrzeuge(supabase, offenerAuftrag?.customer_id ?? null, auftragGruppeIds, sitzungBereit);
   // Die Fahrzeuge des Kunden am geöffneten Auftrag – mit den offline angelegten (Runde 2, v113).
   const auftragKundenFahrzeuge = useMemo(
-    () => fahrzeugeAnwenden(auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE, ausgang, offenerAuftrag?.customer_id ?? null),
-    [auftragFahrzeugeQuery.data, ausgang, offenerAuftrag?.customer_id],
+    () => auftragGruppeIds.length > 1
+      // Bis die Gruppe geladen ist (oder ohne Netz, wenn nur der Kunde im Vorrat liegt): erst einmal seine eigenen.
+      ? auftragGruppeIds.reduce((liste, id) => fahrzeugeAnwenden(liste, ausgang, id),
+          gruppeFahrzeugeQuery.data ?? auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE)
+      : fahrzeugeAnwenden(auftragFahrzeugeQuery.data ?? KEINE_FAHRZEUGE, ausgang, offenerAuftrag?.customer_id ?? null),
+    [auftragFahrzeugeQuery.data, gruppeFahrzeugeQuery.data, auftragGruppeIds, ausgang, offenerAuftrag?.customer_id],
   );
   // Aus derselben Nachbarschaft wie `offenerAuftrag` und aus demselben Grund: die Ableitung
   // liest den Zustand, eine Deklaration danach wäre ein Zugriff vor der Initialisierung.
@@ -1094,12 +1111,20 @@ export default function HomePage() {
   // „Rechnung erstellt" abhaken oder zurücknehmen (Migration 40).
   // ---------------------------------------------------------------- Fahrzeuge (app/_seite/useFahrzeugAktionen.ts)
   const {
-    addVehicle, auftragFahrzeuge, deleteVehicle, fahrzeugAngabenSetzen, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
+    addVehicle, fahrzeugHalterWechseln, auftragFahrzeuge, deleteVehicle, fahrzeugAngabenSetzen, fahrzeugAusAuftragAnlegen, fahrzeugEntfernen, fahrzeugHinzufuegen,
     kilometerstandSetzen, rechnungsFahrzeugAnlegen, refreshVehicles, updateVehicle,
   } = useFahrzeugAktionen({
     supabase, queryClient, orders, offenerAuftragId, sitzungBereit, istOffline, netzLos, ausgang, auftragTitel,
     neuLaden, offlineOderDirekt, refreshTireStorages,
   });
+  // Etikett „Für:“ (Kundengruppe, Migration 101): Mit Fahrzeug wird das Fahrzeug umgehängt – die Sätze ziehen in
+  // der Datenbank mit –, ohne nur der Satz.
+  async function etikettKundeWechseln(satz: TireStorage, kundeId: string) {
+    if (satz.vehicle_id) { await fahrzeugHalterWechseln(satz.vehicle_id, kundeId); return; }
+    if (netzLos()) throw new Error("Der Kunde eines Satzes lässt sich nur mit Netz ändern.");
+    await satzKundeWechseln(supabase, satz.id, kundeId);
+    await refreshTireStorages();
+  }
 
   // Eine Rechnung ausstellen. Danach werden DREI Bestände nachgezogen: die Belege dieses
   // Auftrags (das Fenster zeigt sie), die Auftragsliste (der Trigger aus Migration 49 hat den
@@ -2725,6 +2750,7 @@ export default function HomePage() {
           slots={storageSlots}
           warehouses={warehouses}
           onClose={() => setEtikettSatzIds([])}
+          onKundeWechseln={darf("kunden.fahrzeuge", "schreiben") || darf("lager.einlagerung", "schreiben") ? etikettKundeWechseln : undefined}
         />
       )}
 
@@ -2813,7 +2839,7 @@ export default function HomePage() {
             const fahrzeugIds = auftragFahrzeuge
               .filter((af) => af.order_id === offenerAuftrag.id)
               .map((af) => af.vehicle_id);
-            const letzter = letzterSatzFuer(fremde, offenerAuftrag.customer_id, fahrzeugIds);
+            const letzter = letzterSatzFuer(fremde, auftragGruppeIds.length > 1 ? auftragGruppeIds : offenerAuftrag.customer_id, fahrzeugIds);
             return {
               letzterSatz: letzter,
               letzterSatzRaeder: letzter
@@ -2824,7 +2850,7 @@ export default function HomePage() {
           einlagerungen={einlagerungenZuAuftrag(offenerAuftrag.id)}
           hatLagergebuehr={auftragHatLagergebuehr(offenerAuftrag.id)}
           fremdeSaetze={tireStorages.filter(
-            (t) => t.customer_id === offenerAuftrag.customer_id && !t.removed_at && t.order_id !== offenerAuftrag.id
+            (t) => (t.customer_id === offenerAuftrag.customer_id || auftragGruppeIds.includes(t.customer_id)) && !t.removed_at && t.order_id !== offenerAuftrag.id
               && t.entnahme_order_id !== offenerAuftrag.id
           )}
           ausLagerSaetze={saetzeAusDemLager(tireStorages, offenerAuftrag.id)}
@@ -2850,7 +2876,7 @@ export default function HomePage() {
           onRadSpeichern={radSpeichern}
           onRadEntfernen={radEntfernen}
           onSatzNotizen={satzNotizenSetzen}
-          onFahrzeugAnlegen={(kennzeichen, modell, einlagerungId) => fahrzeugAusAuftragAnlegen(offenerAuftrag.id, kennzeichen, modell, einlagerungId)}
+          onFahrzeugAnlegen={(kennzeichen, modell, einlagerungId) => fahrzeugAusAuftragAnlegen(offenerAuftrag.id, kennzeichen, modell, einlagerungId, auftragGruppeIds)}
           onClose={() => { setOffenerAuftragId(null); setFrischerAuftragId(null); }}
           onSaveFields={updateOrder}
           firmenfahrzeuge={firmenfahrzeuge}
@@ -2869,7 +2895,9 @@ export default function HomePage() {
           auftragFahrzeuge={auftragFahrzeuge}
           onEmailSpeichern={kundenEmailSpeichern}
           onFahrzeugHinzufuegen={fahrzeugHinzufuegen}
-          onRechnungsFahrzeugAnlegen={rechnungsFahrzeugAnlegen}
+          onRechnungsFahrzeugAnlegen={(o, k, kz) => rechnungsFahrzeugAnlegen(o, k, kz, auftragGruppeIds)}
+          gruppe={auftragGruppe.length > 1 ? auftragGruppe : undefined}
+          onFahrzeugHalter={darf("kunden.fahrzeuge", "schreiben") ? fahrzeugHalterWechseln : undefined}
           onKilometerstand={kilometerstandSetzen}
           onFahrzeugAngaben={fahrzeugAngabenSetzen}
           onFahrzeugEntfernen={fahrzeugEntfernen}
@@ -2966,6 +2994,9 @@ export default function HomePage() {
           onTestkundeLoeschen={isSuperAdmin ? () => testkundeRestlosLoeschen(selectedId) : undefined}
           onAuskunft={isAdmin ? () => setAuskunftKundeId(selectedId) : undefined}
           darfTestkundeUmschalten={isSuperAdmin}
+          kunden={customers}
+          onKundeOeffnen={(id) => setSelectedId(id)}
+          darfGruppe={darf("kunden", "schreiben")}
           onNeuerAuftrag={darf("auftraege.anlegen", "schreiben") ? () => { void neuenAuftragAnlegen(selectedId); } : undefined}
           onUpdateOrder={updateOrder}
           onDeleteOrder={deleteOrder}

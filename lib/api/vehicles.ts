@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Vehicle } from "@/lib/types";
-import { fetchPaged, qOne, qWrite } from "./client";
+import { fetchPaged, q, qOne, qWrite } from "./client";
 
 // Datenzugriffsschicht für Fahrzeuge je Kunde. Reine Supabase-Wrapper ohne React-State –
 // siehe lib/api/employees.ts für das Muster. Ausgelagert aus app/page.tsx, siehe
@@ -84,4 +84,11 @@ export async function fahrzeugAngabenErgaenzen(supabase: SupabaseClient, id: str
     "Die Angaben zum Fahrzeug konnten nicht gespeichert werden",
     supabase.rpc("fahrzeug_angaben_ergaenzen", { p_fahrzeug: id, p_modell: modell, p_reifengroesse: reifengroesse })
   );
+}
+
+// Kundengruppen (Migration 101): das Fahrzeug einem anderen Kunden derselben Gruppe zuordnen – seine Sätze im Lager
+// gehen mit (`fahrzeug_kunde_wechseln()`). Gibt die Zahl der mitgenommenen Sätze zurück.
+export async function fahrzeugKundeWechseln(supabase: SupabaseClient, fahrzeugId: string, kundeId: string): Promise<number> {
+  const n = await q<number>("Das Fahrzeug wurde nicht umgehängt", supabase.rpc("fahrzeug_kunde_wechseln", { p_fahrzeug: fahrzeugId, p_kunde: kundeId }));
+  return Number(n ?? 0);
 }

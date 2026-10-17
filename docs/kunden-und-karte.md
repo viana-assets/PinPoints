@@ -445,6 +445,36 @@ Gespeichert wird nur der Haken; der Zustand wird abgeleitet (`effectiveColor()`)
 „Termin". Die Karte zeichnet nur Zustände aus `KUNDEN_ZUSTAND_REIHENFOLGE`, und „einmalkunde"
 steht dort mit Absicht nicht.
 
+## Kundengruppen: Hauptkunde mit Unterdebitoren (Migration 101, v165, 17.10.2026)
+
+Mehrere Firmen, die zusammengehören (gleiche Anschrift, ein Ansprechpartner, ein Fuhrpark), aber je eigene Rechnungen
+bekommen. Entschieden mit Vitali am 17.10.2026:
+
+- **Der Hauptkunde ist ein eigener Kunde** (z. B. „… Gruppe"), die Firmen werden seine Unterdebitoren. Genau eine Ebene.
+- **Wem ein Fahrzeug gehört, steht am Fahrzeug** (`vehicles.customer_id`). Der Auftrag darf auf den Hauptkunden laufen;
+  im Auftrag steht an jedem Fahrzeug „Gehört zu" und lässt sich umstellen, ohne den Auftrag zu wechseln.
+- **Rechnung je Unterdebitor** (Runde 2), **keine Sammelzahlung**: jede Firma zahlt selbst.
+
+Bedienung:
+
+1. Den Hauptkunden als normalen Kunden anlegen.
+2. In jedem Unterdebitor: Kundenfenster → „⋯" → „Einem Hauptkunden zuordnen …" und den Hauptkunden wählen. Angeboten
+   wird nur, was die Datenbank zulässt (`hauptkundeKandidaten`). Die Karte „Kundengruppe" in der Übersicht zeigt danach den
+   Hauptkunden (antippen öffnet ihn, „Lösen" nimmt die Zuordnung zurück) bzw. beim Hauptkunden alle Unterdebitoren.
+3. Auftrag beim Hauptkunden: Unter „Fahrzeug" stehen die Fahrzeuge aller Mitglieder, jeweils mit Halter. Ein neues
+   Kennzeichen fragt „Gehört zu …"; steht das Kennzeichen schon bei einem Mitglied, wird dieses Fahrzeug genommen.
+4. Einlagern: Ein Satz mit Fahrzeug bekommt automatisch dessen Halter (Trigger `tire_storage_fahrzeug_passt()`), das
+   Etikett nennt damit die richtige Firma. Im Etikett-Fenster steht „Für:" – mit Fahrzeug wird das **Fahrzeug** umgehängt
+   (samt seinen Sätzen im Lager, `fahrzeug_kunde_wechseln()`), ohne Fahrzeug nur der Satz (`satz_kunde_wechseln()`).
+
+Regeln (`kunde_gruppe_pruefen()`): keine zweite Ebene; Laufkundschaft und Einmalkunden gehören in keine Gruppe; Testkunde
+nur mit Testkunde; ein Hauptkunde mit Unterdebitoren lässt sich nicht löschen und nicht zu Laufkundschaft, Einmal- oder
+Testkunde machen – erst die Unterdebitoren lösen. Tausch und Vormerkung im Lager gehen innerhalb der Gruppe. Der Techniker
+auf einem Auftrag des Hauptkunden sieht dessen Unterdebitoren samt Fahrzeugen.
+
+Läuft ein Auftrag auf einen Unterdebitor, bleibt alles wie bei einem Einzelkunden (nur seine Fahrzeuge). Offen für Runde 2:
+die Rechnung je Unterdebitor aus einem Auftrag; Runde 3: Offene Posten je Unterdebitor mit Summe der Gruppe im Finance.
+
 ## Papierkorb und endgültiges Löschen (Migration 56, Fahrplan B2, 23.09.2026)
 
 Ein gelöschter Kunde wird weiterhin zuerst nur markiert (`deleted_at`, Migration 19) und

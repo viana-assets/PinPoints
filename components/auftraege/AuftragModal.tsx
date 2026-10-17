@@ -58,7 +58,7 @@ export function AuftragModal({
   fremdeSaetze, onAuslagern, onEtikett, ausLagerSaetze = [], fruehereEinlagerungen = [], onVormerkungZuruecknehmen, verfuegbarkeit = null, onTausch,
   terminIntervallMin, letzterSatz, letzterSatzRaeder,
   onClose, onSaveFields, onSetFirmenfahrzeug, onUpdateTechnikerNotiz, onSetStatus, onDelete, onRechnungOeffnen, rechnungAnderswo, auftragFahrzeuge,
-  onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen,
+  onEmailSpeichern, onFahrzeugHinzufuegen, onRechnungsFahrzeugAnlegen, gruppe, onFahrzeugHalter, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen,
   onAddArticle, vorlagen, onUpdateArticleQty, onUpdateArticleEndpreis, onUpdateArticleText, onRemoveArticle, onNavigate, onCall,
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
@@ -186,6 +186,10 @@ export function AuftragModal({
   // Heißt nicht `onFahrzeugAnlegen`: Den Namen gibt es schon für das Anlegen aus dem
   // Einlagerungsblock heraus, mit anderer Bedeutung und anderen Argumenten.
   onRechnungsFahrzeugAnlegen: (orderId: string, kundeId: string, kennzeichen: string) => Promise<void>;
+  // Kundengruppe (Migration 101): Läuft der Auftrag auf einen Hauptkunden, die Mitglieder der Gruppe (Hauptkunde
+  // zuerst) – dann zeigt jedes Fahrzeug, wem es gehört, und ein neues Kennzeichen fragt nach dem Halter.
+  gruppe?: { id: string; name: string }[];
+  onFahrzeugHalter?: (fahrzeugId: string, kundeId: string) => Promise<void>;
   onKilometerstand: (id: string, km: number | null) => Promise<void>;
   // Marke/Modell und Reifengröße eines Fahrzeugs (Migration 74) – auch für den Techniker.
   onFahrzeugAngaben?: (vehicleId: string, modell: string, reifengroesse: string) => Promise<void>;
@@ -1020,7 +1024,9 @@ export function AuftragModal({
               fahrzeuge={auftragsFahrzeuge}
               alleFahrzeuge={vehicles}
               onFahrzeugHinzufuegen={(vid) => onFahrzeugHinzufuegen(order.id, vid)}
-              onFahrzeugAnlegen={(kz) => onRechnungsFahrzeugAnlegen(order.id, order.customer_id, kz)}
+              onFahrzeugAnlegen={(kz, kid) => onRechnungsFahrzeugAnlegen(order.id, kid ?? order.customer_id, kz)}
+              gruppe={gruppe}
+              onFahrzeugHalter={onFahrzeugHalter}
               onKilometerstand={onKilometerstand}
               onFahrzeugAngaben={darfFahrzeuge ? onFahrzeugAngaben : undefined}
               darfAnlegen={darfFahrzeuge}

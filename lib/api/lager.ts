@@ -349,3 +349,8 @@ export async function setAnzahlRaeder(supabase: SupabaseClient, tireStorageId: s
     supabase.from("tire_storage").update({ anzahl_raeder: anzahl, updated_at: new Date().toISOString() }).eq("id", tireStorageId)
   );
 }
+
+// Kundengruppen (Migration 101): einen Satz ohne Fahrzeug einem anderen Kunden derselben Gruppe zuordnen (Etikett).
+export async function satzKundeWechseln(supabase: SupabaseClient, satzId: string, kundeId: string): Promise<void> {
+  await qWrite("Der Satz wurde nicht umgehängt", supabase.rpc("satz_kunde_wechseln", { p_satz: satzId, p_kunde: kundeId }));
+}

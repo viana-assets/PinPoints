@@ -17,9 +17,11 @@ import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 //
 // Jetzt ist es ein Ort, und er steht immer da – nicht mehr hinter dem Rechnungshaken. Welches
 // Auto bearbeitet wird, ist keine Frage der Abrechnung.
+// Kundengruppe (Migration 101, v165): siehe `gruppe` unten.
 export function FahrzeugeBlock({
   fahrzeuge, alleFahrzeuge, gesperrt,
   onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen, darfAnlegen = true,
+  gruppe, onFahrzeugHalter,
 }: {
   // Die Fahrzeuge DIESES Auftrags, angereichert um das zugehörige Fahrzeug.
   fahrzeuge: (AuftragFahrzeug & { fahrzeug: Vehicle | null })[];
@@ -27,7 +29,8 @@ export function FahrzeugeBlock({
   alleFahrzeuge: Vehicle[];
   gesperrt?: boolean;
   onFahrzeugHinzufuegen: (vehicleId: string) => Promise<void>;
-  onFahrzeugAnlegen: (kennzeichen: string) => Promise<void>;
+  // `kundeId` nur bei einer Kundengruppe: wem das neue Fahrzeug gehören soll.
+  onFahrzeugAnlegen: (kennzeichen: string, kundeId?: string) => Promise<void>;
   onKilometerstand: (id: string, km: number | null) => Promise<void>;
   // Marke/Modell und Reifengröße ergänzen (Migration 74, v119). Fehlt der Handler, gibt es den
   // Knopf nicht.
@@ -36,12 +39,33 @@ export function FahrzeugeBlock({
   // „Fahrzeuge anlegen und ändern“ (Migration 77). Ohne das Recht fehlt „Neues Kennzeichen“; ein
   // vorhandenes Fahrzeug des Kunden lässt sich weiter zuordnen.
   darfAnlegen?: boolean;
+  // Kundengruppe (Migration 101): Der Auftrag läuft auf einen Hauptkunden, die Fahrzeuge gehören den
+  // Unterdebitoren. Dann steht an jedem Fahrzeug „Gehört zu“ – Etikett, Einlagerung und (Runde 2) die Rechnung
+  // folgen dem Halter. Umhängen (`onFahrzeugHalter`) nimmt die Sätze des Fahrzeugs im Lager mit.
+  gruppe?: { id: string; name: string }[];
+  onFahrzeugHalter?: (fahrzeugId: string, kundeId: string) => Promise<void>;
 }) {
   const [neuesKennzeichen, setNeuesKennzeichen] = useState("");
   const [auswahl, setAuswahl] = useState("");
   // Welches Fahrzeug gerade seine Angaben bekommt – immer nur eins, mit eigenem Entwurf.
   const [angaben, setAngaben] = useState<{ id: string; modell: string; groesse: string } | null>(null);
   const [speichert, setSpeichert] = useState(false);
+  // Für wen ein neues Kennzeichen angelegt wird – bei einer Gruppe bewusst gewählt, nicht still beim Hauptkunden.
+  const [neuFuer, setNeuFuer] = useState("");
+  const [halterLaeuft, setHalterLaeuft] = useState<string | null>(null);
+  const gruppeAktiv = !!gruppe && gruppe.length > 1;
+  const halterName = (id: string | undefined) => gruppe?.find((k) => k.id === id)?.name ?? "anderer Kunde";
+  async function halterSetzen(fahrzeugId: string, kundeId: string) {
+    if (!onFahrzeugHalter) return;
+    setHalterLaeuft(fahrzeugId);
+    try { await onFahrzeugHalter(fahrzeugId, kundeId); } finally { setHalterLaeuft(null); }
+  }
+  function anlegen() {
+    const kz = neuesKennzeichen.trim();
+    if (!kz || (gruppeAktiv && !neuFuer)) return;
+    void onFahrzeugAnlegen(kz, gruppeAktiv ? neuFuer : undefined);
+    setNeuesKennzeichen("");
+  }
   async function angabenSpeichern() {
     if (!angaben || !onFahrzeugAngaben) return;
     setSpeichert(true);
@@ -84,6 +108,18 @@ export function FahrzeugeBlock({
                   onClick={() => void onFahrzeugEntfernen(f.id)}>×</button>
               )}
             </div>
+            {gruppeAktiv && f.fahrzeug && (
+              <label className="ao-km ao-halter">
+                <span>Gehört zu</span>
+                {onFahrzeugHalter && !gesperrt ? (
+                  <select aria-label="Halter des Fahrzeugs" value={f.fahrzeug.customer_id} disabled={halterLaeuft === f.vehicle_id}
+                    onChange={(e) => { if (e.target.value && e.target.value !== f.fahrzeug?.customer_id) void halterSetzen(f.vehicle_id, e.target.value); }}>
+                    {!gruppe!.some((k) => k.id === f.fahrzeug!.customer_id) && <option value={f.fahrzeug.customer_id}>anderer Kunde</option>}
+                    {gruppe!.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+                  </select>
+                ) : <b>{halterName(f.fahrzeug.customer_id)}</b>}
+              </label>
+            )}
             <label className="ao-km">
               <span>Kilometerstand</span>
               <input
@@ -137,7 +173,7 @@ export function FahrzeugeBlock({
               </option>
               {waehlbar.map((v) => (
                 <option key={v.id} value={v.id}>
-                  {fahrzeugAuswahlText(v, doppelt)}
+                  {fahrzeugAuswahlText(v, doppelt)}{gruppeAktiv ? ` · ${halterName(v.customer_id)}` : ""}
                 </option>
               ))}
             </select>
@@ -147,18 +183,25 @@ export function FahrzeugeBlock({
               placeholder="Neues Kennzeichen" aria-label="Neues Kennzeichen"
               value={neuesKennzeichen}
               onWert={setNeuesKennzeichen}
-              onKeyDown={(e) => { if (e.key === "Enter" && neuesKennzeichen.trim()) { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); } }}
+              onKeyDown={(e) => { if (e.key === "Enter") anlegen(); }}
             />
+            {gruppeAktiv && (
+              <select aria-label="Neues Fahrzeug gehört zu" value={neuFuer} onChange={(e) => setNeuFuer(e.target.value)}>
+                <option value="">Gehört zu …</option>
+                {gruppe!.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
+              </select>
+            )}
             <button
-              type="button" className="es-knopf" disabled={!neuesKennzeichen.trim()}
-              onClick={() => { void onFahrzeugAnlegen(neuesKennzeichen.trim()); setNeuesKennzeichen(""); }}
+              type="button" className="es-knopf" disabled={!neuesKennzeichen.trim() || (gruppeAktiv && !neuFuer)}
+              onClick={anlegen}
             >
               + anlegen
             </button>
           </span>}
           {darfAnlegen && <span className="small">
-            Neue Fahrzeuge werden beim Kunden hinterlegt. Hat der Kunde das Kennzeichen schon, wird
-            dieses Fahrzeug genommen.
+            {gruppeAktiv
+              ? "Neue Fahrzeuge werden bei der gewählten Firma der Gruppe hinterlegt. Steht das Kennzeichen schon bei einer von ihnen, wird dieses Fahrzeug genommen."
+              : "Neue Fahrzeuge werden beim Kunden hinterlegt. Hat der Kunde das Kennzeichen schon, wird dieses Fahrzeug genommen."}
             {doppelt.size > 0 && " Doppelt angelegte Fahrzeuge lassen sich im Kundenfenster unter „Fahrzeuge“ löschen."}
           </span>}
         </div>

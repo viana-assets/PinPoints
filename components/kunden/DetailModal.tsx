@@ -13,6 +13,8 @@ import { IconNavPin } from "@/components/icons";
 import { EingelagerteReifen } from "./EingelagerteReifen";
 import { CustomerOrderRow } from "./CustomerOrderRow";
 import { auftragsNr } from "@/lib/testkunde";
+import { KundengruppeKarte, HauptkundeBlatt } from "./KundengruppeKarte";
+import { istHauptkunde } from "@/lib/kundengruppe";
 
 // Das große Kunden-Detailfenster (Modal): Kundendaten, Fahrzeuge, Kontakt erfassen,
 // Aufträge & Termine (inkl. Leistungen/Artikel je Auftrag), Kontakt-Historie, sowie
@@ -79,6 +81,11 @@ export function DetailModal(props: {
   onZumLagerplatz?: (platzId: string) => void;
   onCall: (e: React.MouseEvent, cust: Customer) => void;
   onNavigate: (e: React.MouseEvent, cust: Customer) => void;
+  // Kundengruppe (Migration 101): die ganze Kartei, damit Hauptkunde und Unterdebitoren dastehen;
+  // `onKundeOeffnen` springt in deren Kundenfenster. Ohne `kunden` keine Gruppenkarte.
+  kunden?: Customer[];
+  onKundeOeffnen?: (id: string) => void;
+  darfGruppe?: boolean;
 }) {
   const { customer: cust } = props;
   const [name, setName] = useState(cust.name);
@@ -95,6 +102,7 @@ export function DetailModal(props: {
   const [istFirma, setIstFirma] = useState(!!(cust.company || "").trim());
   const [reiter, setReiter] = useState<DmReiter>("uebersicht");
   const [menueOffen, setMenueOffen] = useState(false);
+  const [gruppeWaehlen, setGruppeWaehlen] = useState(false);
 
   // Ungespeicherte Stammdaten: Wer das Fenster schließt, soll nicht still verlieren, was er
   // im Reiter „Daten" getippt hat.
@@ -305,6 +313,11 @@ export function DetailModal(props: {
                 />
               </div>
 
+              {props.kunden && (
+                <KundengruppeKarte kunde={cust} kunden={props.kunden} darfAendern={!!props.darfGruppe}
+                  onSpeichern={props.onSaveFields} onOeffnen={props.onKundeOeffnen} />
+              )}
+
               <div className="db-karte dm-kontakt">
                 <div className="db-karte-kopf">
                   <span className="db-karte-titel">Kontaktdaten</span>
@@ -472,6 +485,10 @@ export function DetailModal(props: {
         </div>
       </div>
 
+      {gruppeWaehlen && props.kunden && (
+        <HauptkundeBlatt kunde={cust} kunden={props.kunden} onSpeichern={props.onSaveFields} onClose={() => setGruppeWaehlen(false)} />
+      )}
+
       {menueOffen && (
         <div className="modal-overlay auswahl-overlay" onClick={(e) => { e.stopPropagation(); setMenueOffen(false); }}>
           <div className="auswahl-blatt dm-menue" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Weitere Aktionen">
@@ -509,6 +526,13 @@ export function DetailModal(props: {
               </span>
               <span className={"nk-spur" + (cust.laufkundschaft ? " an" : "")} aria-hidden="true"><span /></span>
             </button>
+            )}
+            {/* Kundengruppe (Migration 101): nur anbieten, solange der Kunde in keiner Gruppe steht. */}
+            {props.kunden && props.darfGruppe && !cust.haupt_kunde_id && !cust.laufkundschaft && !cust.einmalkunde
+              && !istHauptkunde(cust.id, props.kunden) && (
+              <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); setGruppeWaehlen(true); }}>
+                <span className="ab-text">Einem Hauptkunden zuordnen … <span className="small">· als Unterdebitor</span></span>
+              </button>
             )}
             {props.onInDenChat && (
               <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); props.onInDenChat?.(); }}>

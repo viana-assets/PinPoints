@@ -441,6 +441,13 @@ Recht"; was abgelehnt wird, begründet `verfuegbarkeit_pruefen()` (BEFORE-Trigge
 bewusst nicht gespeichert. Die Oberfläche zeigt Verfügbarkeit beim Einteilen nur mit L: Ein
 Techniker sähe sonst bei allen Kollegen „nicht eingetragen".
 
+**Kundengruppen** (Migration 101, v165). Den Hauptkunden zuordnen ist eine Änderung am Kunden (`kunden` S, wie
+Einmalkunde/Laufkundschaft). `fahrzeug_kunde_wechseln()` (Fahrzeug samt aktiven Sätzen einem anderen Mitglied der
+Gruppe zuordnen) verlangt `kunden.fahrzeuge` S, beim Techniker dazu `ist_eigener_kunde()`; `satz_kunde_wechseln()`
+(Satz ohne Fahrzeug) verlangt `lager.einlagerung` S. Beide sind `security definer` und prüfen selbst, dass Ziel und
+bisheriger Halter in derselben Gruppe stehen. `ist_eigener_kunde()` zählt seither auch die Unterdebitoren eines
+Hauptkunden, auf dessen Auftrag der Techniker steht – sonst sähe er im Auftrag die Fahrzeuge nicht, die er bearbeitet.
+
 **Der Abschluss friert ein** (Migration 20, unverändert). An einem erledigten oder stornierten
 Auftrag ändert auch der Techniker nichts mehr. Das ist keine Einschränkung seiner Rechte,
 sondern die Zusage, dass ein Abschluss ein Abschluss ist. In der Oberfläche spiegelt

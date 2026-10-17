@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **17.10.2026 – Kundengruppen, Runde 1 (Migration 101, Service Worker v165).** Hauptkunde mit Unterdebitoren: Zuordnen im
+  Kundenfenster, Fahrzeuge aller Unterdebitoren im Auftrag des Hauptkunden mit „Gehört zu", Sätze und Etikett folgen dem
+  Halter, „Für:" im Etikett. Offen: Runde 2 Rechnung je Unterdebitor, Runde 3 Finance-Gruppenansicht. `docs/kunden-und-karte.md`.
+
 * **16.10.2026 – Erledigte Termine am selben Tag verschieben (Service Worker v164, ohne Migration).** Im Stundenraster
   lassen sich erledigte Termine ziehen und kürzer/länger machen, der Tag bleibt. Wunsch Vitali. `docs/auftraege.md`.
 

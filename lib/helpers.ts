@@ -383,12 +383,15 @@ export function letzterSatzFuer<T extends {
   id: string; customer_id: string; vehicle_id: string | null; created_at: string;
 }>(
   saetze: T[],
-  kundeId: string | null | undefined,
+  // Ein Kunde – oder seit Migration 101 die Mitglieder seiner Kundengruppe (Auftrag beim Hauptkunden,
+  // Sätze bei den Unterdebitoren).
+  kundeId: string | readonly string[] | null | undefined,
   fahrzeugIds: readonly (string | null)[] | null | undefined
 ): T | null {
-  if (!kundeId) return null;
+  const kunden = new Set(typeof kundeId === "string" ? [kundeId] : (kundeId ?? []));
+  if (kunden.size === 0) return null;
   const desKunden = saetze
-    .filter((s) => s.customer_id === kundeId)
+    .filter((s) => kunden.has(s.customer_id))
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
   if (desKunden.length === 0) return null;
   // Erst die passenden Fahrzeuge – ein Kunde mit zwei Autos hat zwei Vorgeschichten, und die

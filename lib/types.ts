@@ -57,6 +57,9 @@ export type Customer = {
   // löschbar. Setzen nur der Superadmin, nur solange der Kunde keinen Auftrag hat – siehe
   // lib/testkunde.ts und `pruefe_testkunde()`.
   testkunde: boolean;
+  // Hauptkunde dieses Unterdebitors (Migration 101, v165): eine Ebene, die Rechnungen gehen an den Unterdebitor.
+  // Optional, weil Testgerüste den Kunden von Hand bauen; die Abfrage liefert sie mit (`select("*")`).
+  haupt_kunde_id?: string | null;
   active: boolean;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
   // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen

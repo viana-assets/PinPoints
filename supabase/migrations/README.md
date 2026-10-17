@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `100_finance_planposten.sql`** – vor den Dateien von v158 (Abschnitt unten). **Stand 14.10.2026: Die Migrationen 01–99 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026) –
+**Noch auszuführen: `101_kundengruppen.sql`** – vor den Dateien von v165 (Abschnitt unten). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1477,7 +1477,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   verweigert. `t72`, `t86`–`t98` gegen 98 und 99: gleiche Ausgabe bis auf die gewollte Stelle (eine Tabelle mehr in der
   Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `100_finance_planposten.sql` – **noch auszuführen**, nach 99 und vor den Dateien von v158.
+- `100_finance_planposten.sql` – ausgeführt (gemeldet mit v158), nach 99 und vor den Dateien von v158.
   Finance, Planposten der Liquiditätsvorschau (`docs/finance.md`, Liquiditätsvorschau v158). Tabelle `fin_planposten` (Text bis
   120 Zeichen, `art` ein/aus, Betrag > 0, erster Termin, Rhythmus einmal/monat/quartal/halbjahr/jahr, `bis` nur bei
   wiederkehrenden und nicht vor dem ersten Termin, Notiz bis 500; lesen mit `finance.abschluss` L, schreiben nur über die
@@ -1491,3 +1491,26 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   abgelehnt; direktes Schreiben, Ändern und Löschen verweigert; Techniker abgelehnt und sieht nichts, Admin ohne Finance sieht
   nichts, `anon` darf die Funktion nicht aufrufen. `t72`, `t86`–`t99` gegen 99 und 100: gleiche Ausgabe bis auf die gewollte
   Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
+
+- `101_kundengruppen.sql` – **noch auszuführen**, nach 100 und vor den Dateien von v165.
+  Kundengruppen: Hauptkunde mit Unterdebitoren (`docs/kunden-und-karte.md`, „Kundengruppen“). Spalte
+  `customers.haupt_kunde_id` (Verweis, nicht auf sich selbst, Index); Trigger `kunde_gruppe_pruefen()`: eine Ebene, keine
+  Laufkundschaft/Einmalkunden in einer Gruppe, Testkunde nur mit Testkunde, Hauptkunde mit Unterdebitoren nicht löschbar und
+  nicht zu Laufkundschaft/Einmal-/Testkunde. `kunde_gruppe(id)`. `tire_storage_fahrzeug_passt()`: Fahrzeug eines anderen
+  Gruppenmitglieds → der Satz übernimmt dessen Halter (sonst wie bisher abgelehnt). `tire_storage_tausch_pruefen()` und
+  `tire_storage_vormerkung_pruefen()` vergleichen die Gruppe. `fahrzeug_kunde_wechseln(fahrzeug, kunde)` (mit
+  `kunden.fahrzeuge` S, Techniker nur bei eigenem Kunden; zieht die aktiven Sätze mit, gibt ihre Zahl zurück) und
+  `satz_kunde_wechseln(satz, kunde)` (mit `lager.einlagerung` S, nur ohne Fahrzeug) – beide nur innerhalb der Gruppe.
+  `ist_eigener_kunde()` zählt die Unterdebitoren eines Hauptkunden mit, auf dessen Auftrag der Techniker steht. Wache: bricht
+  ohne 45 und 69 ab. Ergebnistabelle mit drei Zeilen. Zweiter Lauf folgenlos. Rücknahme: `rollback/101_rollback.sql`
+  (Funktionen aus 30, 45 und 69 zurück, neue Funktionen, Trigger, Index, Prüfbedingung und Spalte weg – die Zuordnungen gehen
+  dabei verloren; Funktionen danach gleich Stand 100; zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 100, `pgtest/t101.sql`): Kunde unter sich selbst, zweite Ebene, Hauptkunde unter einen
+  anderen, Einmalkunde in die Gruppe, Hauptkunde zur Laufkundschaft, Hauptkunde löschen, Unterdebitor zum Testkunden →
+  abgelehnt; Auftrag beim Hauptkunden mit Fahrzeug des Unterdebitors, Satz übernimmt den Halter, Fahrzeug eines Fremden
+  abgelehnt; Vormerken eines Satzes des anderen Unterdebitors für den Auftrag des Hauptkunden, Fremder abgelehnt; Fahrzeug
+  umhängen (1 Satz mit), zu einem Fremden abgelehnt, zweites Umhängen folgenlos; Satz mit Fahrzeug direkt umhängen abgelehnt,
+  Satz ohne Fahrzeug umgehängt, zu einem Fremden abgelehnt; Techniker auf dem Auftrag sieht Hauptkunde und Unterdebitoren,
+  nicht den Fremden, und darf umhängen; Hauptkunde löschen erst nach dem Lösen der Unterdebitoren. `t55`, `t67`, `t72`,
+  `t86`–`t100` gegen 100 und 101: gleiche Ausgabe (`t56` nur Kennungen und Zeitstempel). Ausgeführt, zweimal,
+  zurückgenommen, zweimal, erneut ausgeführt.
