@@ -1,3 +1,4 @@
+import { ansichtLesen, ansichtMerken, monatAusMerker, monatFuerMerker } from "@/lib/ansichtMerker";
 import { useEffect, useRef, useState } from "react";
 import type { Customer, Employee, Firmenfahrzeug, Order, Verfuegbarkeit } from "@/lib/types";
 import { todayStr, formatDate, orderDateTime, terminZeitraum } from "@/lib/helpers";
@@ -80,11 +81,14 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   darfAnlegen?: boolean;
 }) {
   const today = new Date();
-  const [monthCursor, setMonthCursor] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
+  // Nach dem Neuladen dieselbe Ansicht wie vorher (v167, lib/ansichtMerker.ts – je Fenster): zwei Fenster mit je
+  // einem Mitarbeiter am selben Tag bleiben so stehen. Ein neues Fenster startet wie bisher bei „Monat · heute · alle“.
+  const [gemerkt] = useState(() => ansichtLesen().plan ?? {});
+  const [monthCursor, setMonthCursor] = useState(() => monatAusMerker(gemerkt.monat) ?? new Date(today.getFullYear(), today.getMonth(), 1));
   // Monat, Woche oder Tag. Die drei sind derselbe Bestand in drei Auflösungen, kein eigener
   // Zustand je Ansicht: Der ausgewählte Tag gilt in allen dreien und wandert beim Umschalten
   // mit – sonst landet man beim Wechsel von „Monat, 20.9." unvermittelt wieder bei heute.
-  const [ansicht, setAnsicht] = useState<"monat" | "woche" | "tag" | "verf">("monat");
+  const [ansicht, setAnsicht] = useState<"monat" | "woche" | "tag" | "verf">(gemerkt.ansicht ?? "monat");
   // Der Reiter „Verfügbarkeit" (v112): wer alle sehen darf, bekommt die Woche aller, alle anderen
   // ihren eigenen Monat. Geblättert wird wie in der Ansicht, die dahinter steckt.
   const vf = verfuegbarkeit;
@@ -116,11 +120,11 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     beobachter.observe(leiste);
     return () => beobachter.disconnect();
   }, []);
-  const [selectedDay, setSelectedDay] = useState<string | null>(todayStr());
-  const [empFilter, setEmpFilter] = useState<"all" | string>("all");
+  const [selectedDay, setSelectedDay] = useState<string | null>(gemerkt.tag !== undefined ? gemerkt.tag : todayStr());
+  const [empFilter, setEmpFilter] = useState<"all" | string>(gemerkt.mitarbeiter ?? "all");
   // Zweiter Filter neben dem Mitarbeiter, mit derselben Bedienung. „Nicht eingeteilt" ist
   // bewusst ein eigener Knopf: Das ist die Lücke, die man vor dem Tag schließen will.
-  const [fahrzeugFilter, setFahrzeugFilter] = useState<"all" | "ohne" | string>("all");
+  const [fahrzeugFilter, setFahrzeugFilter] = useState<"all" | "ohne" | string>(gemerkt.fahrzeug ?? "all");
   // Nur die Zustände, die noch Arbeit bedeuten (24.09.2026). Erledigte und stornierte Aufträge
   // gehören in den Aufträge-Tab – in der Planung sind sie Ballast, und am Monatsende stand die
   // Liste voller grüner „Erledigt"-Zeilen, zwischen denen die offenen verschwanden. Im Raster
@@ -128,7 +132,10 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   //
   // Seit v102 (D11) dazu „Storniert" – nicht als Teil der offenen Liste, sondern als eigene
   // Sicht: Was ist aus dem Plan gefallen? Der Knopf erscheint nur, wenn es Stornos gibt.
-  const [statusFilter, setStatusFilter] = useState<"all" | "offen" | "in_arbeit" | "storniert">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "offen" | "in_arbeit" | "storniert">(gemerkt.status ?? "all");
+  useEffect(() => {
+    ansichtMerken({ plan: { ansicht, monat: monatFuerMerker(monthCursor), tag: selectedDay, mitarbeiter: empFilter, fahrzeug: fahrzeugFilter, status: statusFilter } });
+  }, [ansicht, monthCursor, selectedDay, empFilter, fahrzeugFilter, statusFilter]);
   // Der angeklickte Zeitpunkt, solange die Kundenauswahl offen ist.
   const [slot, setSlot] = useState<{ datum: string; von: string | null; bis: string | null } | null>(null);
   const [custFilter, setCustFilter] = useState("");

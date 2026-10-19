@@ -78,7 +78,8 @@ import { IconKunden, IconMap, IconMore } from "@/components/icons";
 import { SystemMarke } from "@/components/system/SystemMarke";
 import { SystemWahl } from "@/components/system/SystemWahl";
 import { FINANCE_ICONS, FinanceBereich, type FinanceAnsicht } from "@/components/finance/FinanceBereich";
-import { sichtbareFinanceSeiten } from "@/lib/finance/seiten";
+import { FINANCE_SEITEN, sichtbareFinanceSeiten } from "@/lib/finance/seiten";
+import { ansichtLesen, ansichtMerken } from "@/lib/ansichtMerker";
 import { SYSTEME, aktivesSystem, istWechselbar, sichtbareSysteme, systemStartwert, type SystemKey } from "@/lib/systeme";
 import { NavItem } from "@/components/NavItem";
 import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
@@ -222,15 +223,25 @@ export default function HomePage() {
   const [userEmail, setUserEmail] = useState("");
   // Die eigene Kennung (auth.uid) – für den Team-Chat: eigene Nachrichten rechts, Lesestand.
   const [meineId, setMeineId] = useState<string | null>(null);
-  // Startet in der Einsatzplanung (START_TAB in lib/module.ts), nicht mehr im Dashboard.
-  const [tab, setTab] = useState<TabKey>(START_TAB);
+  // Startet in der Einsatzplanung (START_TAB in lib/module.ts), nicht mehr im Dashboard. Seit v167 nach dem
+  // Neuladen dort, wo DIESES Fenster stand (lib/ansichtMerker.ts, je Fenster in sessionStorage); ob die Rolle den
+  // Reiter sehen darf, prüft die Startprüfung weiter unten.
+  const [tab, setTab] = useState<TabKey>(() => {
+    const t = ansichtLesen().tab;
+    return t && (t === "more" || MODULE.some((m) => m.tab === t)) ? (t as TabKey) : START_TAB;
+  });
   // Das gewünschte System (v145, Finance F0, lib/systeme.ts): beim Öffnen immer FSM, nur ein Link
   // `?system=` öffnet anders (seit v149 kein Merker je Gerät mehr). Was wirklich läuft, entscheidet
   // `aktivesSystem()` weiter unten aus den Rechten – ohne Recht FSM. Der Startwert liest das Fenster;
   // das ist unschädlich, weil vor dem ersten echten Bild ohnehin „Lädt…“ steht (`loading`).
-  const [systemWunsch, setSystemWunsch] = useState<SystemKey>(() => systemStartwert());
+  const [systemWunsch, setSystemWunsch] = useState<SystemKey>(() => systemStartwert(ansichtLesen().system));
   const [systemWahlOffen, setSystemWahlOffen] = useState(false);
-  const [finSeite, setFinSeite] = useState<FinanceAnsicht>("uebersicht");
+  const [finSeite, setFinSeite] = useState<FinanceAnsicht>(() => {
+    const f = ansichtLesen().finSeite;
+    return f && (f === "mehr" || FINANCE_SEITEN.some((s) => s.key === f)) ? (f as FinanceAnsicht) : "uebersicht";
+  });
+  // Wo dieses Fenster steht, für das nächste Neuladen merken (v167).
+  useEffect(() => { ansichtMerken({ tab, system: systemWunsch, finSeite }); }, [tab, systemWunsch, finSeite]);
   // Der FSM-Reiter beim Wechsel nach Finance. Springt die App von sich aus woandershin (Tipp auf
   // eine Push-Meldung, Sprung aus dem Chat), geht es zurück nach FSM – sonst stünde das Ziel unsichtbar
   // hinter Finance.
@@ -949,8 +960,10 @@ export default function HomePage() {
   const [startGeprueft, setStartGeprueft] = useState(false);
   if (!startGeprueft && sitzungBereit && modulrechteQuery.isSuccess) {
     setStartGeprueft(true);
-    const startRegel = MODULE.find((m) => m.tab === START_TAB)?.sichtbar ?? null;
-    if (tab === START_TAB && !modulSichtbar(startRegel)) setTab(START_TAB_ERSATZ);
+    const regelFuer = (t: TabKey) => MODULE.find((m) => m.tab === t)?.sichtbar ?? null;
+    // Seit v167 auch für einen gemerkten Reiter (Neuladen): Ist er für diese Rolle nicht (mehr) sichtbar, geht es in
+    // die Einsatzplanung bzw. aufs Dashboard.
+    if (!modulSichtbar(regelFuer(tab))) setTab(tab !== START_TAB && modulSichtbar(regelFuer(START_TAB)) ? START_TAB : START_TAB_ERSATZ);
   }
   // Systeme (v145): erst nach der Startprüfung, damit deren Reiterwechsel Finance nicht wieder verlässt.
   const systemAktiv: SystemKey = aktivesSystem(systemWunsch, (r) => darf(r));

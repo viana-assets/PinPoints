@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v166";
+export const APP_VERSION = "v167";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v167", datum: "2026-10-19", titel: "Neuladen bleibt, wo man ist – Fenster gleichen sich ab",
+    punkte: [
+      "Nach dem Aktualisieren (F5) steht jedes Fenster wieder dort, wo es war: derselbe Bereich, in der Einsatzplanung dieselbe Ansicht (Monat, Woche, Tag), derselbe Tag und dieselben Filter. Ein neu geöffnetes Fenster startet wie bisher.",
+      "Mehrere Fenster der App am selben Rechner gleichen sich von selbst ab: Wird im einen Fenster ein Termin einem anderen Mitarbeiter zugeordnet oder verschoben, zeigt das andere Fenster es sofort – ohne Aktualisieren.",
+    ],
+  },
   {
     version: "v166", datum: "2026-10-19", titel: "Kundengruppe vom Hauptkunden aus, Nadeln am selben Ort",
     punkte: [

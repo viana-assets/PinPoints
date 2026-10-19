@@ -300,6 +300,8 @@ viana-pinpoints/
     menuLage.ts                   Menülage bei Seitenzoom (C5, v106)
     csp.ts                        Content-Security-Policy mit Nonce (B4, v106)
     sprungMerker.ts               QR-/Benachrichtigungs-Sprung übersteht das erste Neuladen (D19, v106)
+    ansichtMerker.ts              Reiter, System und Einsatzplanungs-Ansicht je Fenster über F5 hinweg (sessionStorage, v167)
+    fensterAbgleich.ts            Fenster desselben Browsers verwerfen gemeinsam (BroadcastChannel, v167)
     wischen.ts                    Wann ein Wisch im Kalender als Blättern zählt (v107)
     auftragsAnsicht.ts / kundenAnsicht.ts / lagerAnsicht.ts / saisonAnsicht.ts / terminAnsicht.ts
                                   Die Regeln hinter den neu gestalteten Listen (Entwürfe H–L,

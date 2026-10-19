@@ -568,6 +568,23 @@ Dieselben Daten, dieselben Regeln, neu angeordnet – `AuftragModal.tsx`:
   der Speichern-Knopf weg und die Änderung still verloren. Fehlt dabei die Uhrzeit, springt das
   Fenster statt des Wechsels in die Karte „Termin & Team".
 
+### Neuladen und mehrere Fenster (v167, 19.10.2026)
+
+Wunsch Vitali: zwei Fenster der Einsatzplanung nebeneinander, je ein Mitarbeiter am selben Tag; im einen wird ein
+Termin umgehängt. Bis v166 zeigte das andere Fenster das erst nach F5 – und F5 sprang auf „Einsatzplanung · Monat“
+zurück.
+
+- **F5 bleibt stehen** (`lib/ansichtMerker.ts`): Jedes Fenster merkt sich in `sessionStorage` Reiter, System
+  (FSM/Finance, Finance-Seite) und in der Einsatzplanung Ansicht, Monat, Tag, Mitarbeiter-, Fahrzeug- und Statusfilter.
+  `sessionStorage` gilt je Fenster und endet mit dem Schließen – ein neues Fenster startet in der Vorgabe. Ist der
+  gemerkte Reiter für die Rolle nicht sichtbar, greift die Startprüfung (Einsatzplanung bzw. Dashboard). Ein Link mit
+  `?system=` und Sprünge (Push, QR) gehen vor.
+- **Fenster gleichen sich ab** (`lib/fensterAbgleich.ts`, gestartet in `app/providers.tsx`): Jede Änderung endet mit
+  dem Verwerfen der betroffenen Abfragen; dieses Verwerfen meldet das Fenster per `BroadcastChannel` an die anderen
+  Fenster desselben Browsers, die dieselben Abfragen verwerfen (gibt es die genaue nicht – anderes Zeitfenster –, alle
+  derselben Art) und Sichtbares sofort nachladen. Übertragen werden nur Abfrage-Schlüssel. Andere Geräte sehen
+  Änderungen wie bisher beim Hervorholen bzw. nach spätestens einer Minute.
+
 ## 5a. Die Auftragsliste (neu gestaltet am 26.09.2026, Entwurf „K · Aufträge")
 
 `components/auftraege/AuftraegePanel.tsx`, Regeln in `lib/auftragsAnsicht.ts`. Statt der

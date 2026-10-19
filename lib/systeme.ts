@@ -48,8 +48,11 @@ export function aktivesSystem(gewuenscht: string | null | undefined, darf: (rech
 }
 
 // Startwert beim Laden: der Link (`?system=`), sonst FSM. Ohne Fenster (Server): FSM.
-export function systemStartwert(): SystemKey {
+// `gemerkt` (v167): das System, in dem DIESES Fenster vor dem Neuladen stand (lib/ansichtMerker.ts). Ein Link mit
+// `?system=` geht vor; ein neues Fenster hat keinen Merker und startet in FSM wie bisher.
+export function systemStartwert(gemerkt?: string): SystemKey {
   if (typeof window === "undefined") return "fsm";
   const wert = new URLSearchParams(window.location.search).get(SYSTEM_PARAMETER);
-  return SYSTEME.some((s) => s.key === wert) ? (wert as SystemKey) : "fsm";
+  if (SYSTEME.some((s) => s.key === wert)) return wert as SystemKey;
+  return SYSTEME.some((s) => s.key === gemerkt) ? (gemerkt as SystemKey) : "fsm";
 }

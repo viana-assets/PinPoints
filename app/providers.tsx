@@ -1,5 +1,6 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { fensterAbgleichStarten } from "@/lib/fensterAbgleich";
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createAsyncStoragePersister } from "@tanstack/query-async-storage-persister";
@@ -78,6 +79,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       throttleTime: 2000,
     })
   );
+
+  // Mehrere Fenster derselben App auf diesem Rechner gleichen sich ab (v167, lib/fensterAbgleich.ts): Was eines
+  // ändert und verwirft, verwerfen die anderen auch – ohne F5.
+  useEffect(() => fensterAbgleichStarten(client), [client]);
 
   return (
     <PersistQueryClientProvider

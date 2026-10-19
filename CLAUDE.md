@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 19.10.2026 (Migrationen bis 101, 101 noch auszuführen soweit nicht gemeldet; Service Worker v166; Regeln seit der Projektdurchsicht vom
+Stand: 19.10.2026 (Migrationen bis 101, 101 noch auszuführen soweit nicht gemeldet; Service Worker v167; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
