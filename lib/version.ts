@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v165";
+export const APP_VERSION = "v166";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v166", datum: "2026-10-19", titel: "Kundengruppe vom Hauptkunden aus, Nadeln am selben Ort",
+    punkte: [
+      "Im Kundenfenster des Hauptkunden: Karte „Kundengruppe“ mit seinen Unterdebitoren und „+ Unterdebitor zuordnen“; im Menü „⋯“ → „Unterdebitoren zuordnen …“. Kunden unter derselben Anschrift werden dort gleich vorgeschlagen.",
+      "Steht unter einer Anschrift mehr als ein Kunde, weist die Übersicht darauf hin und bietet an, eine Gruppe zu bilden.",
+      "In der Kundenliste steht bei Gruppenkunden „Hauptkunde · n Unterdebitoren“ bzw. „Unterdebitor von …“.",
+      "Karte: Mehrere Kunden an derselben Adresse liegen nicht mehr als eine Nadel übereinander, sondern stehen nebeneinander – jeder lässt sich antippen.",
+    ],
+  },
   {
     version: "v165", datum: "2026-10-17", titel: "Hauptkunde mit Unterdebitoren",
     punkte: [

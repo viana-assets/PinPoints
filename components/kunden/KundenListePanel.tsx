@@ -1,3 +1,4 @@
+import { gruppenText } from "@/lib/kundengruppe";
 import { useState } from "react";
 import type { Customer, Order } from "@/lib/types";
 import { KUNDEN_FILTER, type KundenFilter } from "@/lib/constants";
@@ -159,11 +160,14 @@ export function KundenListePanel(p: {
                 const farbe: KundenZustand | "gray" = c.lat == null ? "gray" : p.zustand(c);
                 const titel = anzeigeName(c);
                 const firma = !!(c.company || "").trim();
+                const gruppe = gruppenText(c, p.alleKunden);
                 return (
                   <div key={c.id} className="kl-zeile" onMouseEnter={() => p.onHover(c.id)} onMouseLeave={() => p.onHover(null)}>
                     <span className={`kl-kreis ${KREIS[farbe]}`} aria-hidden="true">{initialen(titel)}</span>
                     <button type="button" className="kl-text" onClick={() => { p.onHover(null); p.onOpen(c.id); }}>
                       <span className="kl-name">{titel}{c.testkunde && <span className="test-marke">TEST</span>}</span>
+                      {/* Kundengruppe (v166): Hauptkunde bzw. „Unterdebitor von …“ gleich in der Liste. */}
+                      {gruppe && <span className="kl-kgruppe">{gruppe}</span>}
                       <span className="kl-adresse">{[firma ? c.name : null, c.address].filter(Boolean).join(" · ")}</span>
                       <span className="kl-meta">
                         <span className={`kl-status ${KREIS[farbe]}`}>{status(c, farbe)}</span>

@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **19.10.2026 – Kundengruppe vom Hauptkunden aus, Nadeln am selben Ort (Service Worker v166, ohne Migration).**
+  Unterdebitoren lassen sich jetzt im Hauptkunden zuordnen (Vorschlag gleicher Anschrift), die Kundenliste nennt die Gruppe,
+  und auf der Karte stehen Kunden derselben Adresse nebeneinander statt übereinander. Rückmeldung Vitali. `docs/kunden-und-karte.md`.
+
 * **17.10.2026 – Kundengruppen, Runde 1 (Migration 101, Service Worker v165).** Hauptkunde mit Unterdebitoren: Zuordnen im
   Kundenfenster, Fahrzeuge aller Unterdebitoren im Auftrag des Hauptkunden mit „Gehört zu", Sätze und Etikett folgen dem
   Halter, „Für:" im Etikett. Offen: Runde 2 Rechnung je Unterdebitor, Runde 3 Finance-Gruppenansicht. `docs/kunden-und-karte.md`.

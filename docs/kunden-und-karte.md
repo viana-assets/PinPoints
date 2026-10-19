@@ -458,9 +458,16 @@ bekommen. Entschieden mit Vitali am 17.10.2026:
 Bedienung:
 
 1. Den Hauptkunden als normalen Kunden anlegen.
-2. In jedem Unterdebitor: Kundenfenster → „⋯" → „Einem Hauptkunden zuordnen …" und den Hauptkunden wählen. Angeboten
-   wird nur, was die Datenbank zulässt (`hauptkundeKandidaten`). Die Karte „Kundengruppe" in der Übersicht zeigt danach den
-   Hauptkunden (antippen öffnet ihn, „Lösen" nimmt die Zuordnung zurück) bzw. beim Hauptkunden alle Unterdebitoren.
+2. Zuordnen – seit v166 von beiden Seiten:
+   - **vom Hauptkunden aus**: Kundenfenster → „⋯" → „Unterdebitoren zuordnen …" (oder in der Karte „Kundengruppe"
+     „Unterdebitoren zuordnen …" bzw. „+ Unterdebitor zuordnen"). Das Blatt schlägt die Kunden unter derselben Anschrift
+     mit je einem Knopf „Zuordnen" vor, alle anderen über die Suche, und bleibt offen bis „Fertig"; dort lassen sich
+     Unterdebitoren auch wieder lösen (`unterdebitorKandidaten`, `gleicheAnschrift`).
+   - **vom Unterdebitor aus**: „⋯" → „Einem Hauptkunden zuordnen …" (`hauptkundeKandidaten`).
+   Die Karte „Kundengruppe" in der Übersicht zeigt danach den Hauptkunden (antippen öffnet ihn, „Lösen" nimmt die
+   Zuordnung zurück) bzw. beim Hauptkunden alle Unterdebitoren. Ohne Gruppe erscheint sie nur, wo eine Gruppe naheliegt –
+   bei einer Firma oder wenn unter derselben Anschrift weitere Kunden stehen (v166, vorher erst nach dem Zuordnen; gemeldet
+   19.10.2026: „ich sehe nicht, wo die Unterkunden sind"). Die Kundenliste nennt die Gruppe unter dem Namen.
 3. Auftrag beim Hauptkunden: Unter „Fahrzeug" stehen die Fahrzeuge aller Mitglieder, jeweils mit Halter. Ein neues
    Kennzeichen fragt „Gehört zu …"; steht das Kennzeichen schon bei einem Mitglied, wird dieses Fahrzeug genommen.
 4. Einlagern: Ein Satz mit Fahrzeug bekommt automatisch dessen Halter (Trigger `tire_storage_fahrzeug_passt()`), das
@@ -658,3 +665,12 @@ angehalten, `click` nicht (daran hängen die React-Handler), und `_leaflet_disab
 Merkmal, an dem Leaflet seine eigenen Bedienelemente erkennt. In diesen Bauteilen deshalb nur
 `onClick`, keine `onPointerDown`/`onTouchStart`. Die Fläche selbst lässt Klicks durch
 (`pointer-events:none`), nur die Knöpfe fangen sie.
+
+### Mehrere Kunden an derselben Adresse (v166, 19.10.2026)
+
+Bis v165 lagen Kunden mit derselben Position als eine Nadel übereinander – sichtbar und antippbar war nur die oberste
+(gemeldet für die drei Firmen einer Kundengruppe und für mehrere Parteien in einem Haus). Jetzt fächert `nadelFaecher()`
+(lib/karte.ts) Nadeln auf, die bei der aktuellen Zoomstufe näher als `FAECHER_NAH_PX` (14 px) beieinander liegen: bis fünf
+nebeneinander im Abstand `FAECHER_ABSTAND_PX` (28 px) um ihren Mittelpunkt, ab sechs im Kreis. Verschoben wird nur, wo die
+Nadel gezeichnet wird, nicht die gespeicherte Koordinate; beim Zoomen wird neu gerechnet. Weit weg (bis `BUENDEL_BIS_ZOOM`)
+greift wie bisher das Bündel.

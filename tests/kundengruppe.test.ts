@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Customer } from "@/lib/types";
-import { gruppeVon, gruppenMitglieder, gruppenText, hauptkundeKandidaten, istHauptkunde, kundenName, unterdebitoren } from "@/lib/kundengruppe";
+import { adresseVergleich, gleicheAnschrift, gruppeVon, gruppenMitglieder, gruppenText, hauptkundeKandidaten, istHauptkunde, kundenName, unterdebitorKandidaten, unterdebitoren } from "@/lib/kundengruppe";
+import { nadelFaecher } from "@/lib/karte";
 import { letzterSatzFuer } from "@/lib/helpers";
 
 // Kundengruppen (Migration 101, v165): Hauptkunde mit Unterdebitoren, genau eine Ebene.
@@ -78,5 +79,45 @@ describe("Migration 101 – Text", () => {
       expect(MIG).toContain(`function public.${f}(`);
       expect(ROLL).toContain(`function public.${f}(`);
     }
+  });
+});
+
+describe("v166 – Gruppe vom Hauptkunden aus, gleiche Anschrift", () => {
+  it("Unterdebitor-Kandidaten: keine Unterdebitoren, keine Hauptkunden, nicht unter einem Unterdebitor", () => {
+    const lauf = k("l", { laufkundschaft: true });
+    const neu = k("n");
+    const kartei = [...ALLE, lauf, neu];
+    expect(unterdebitorKandidaten(H, kartei).map((c) => c.id).sort()).toEqual(["n", "x"]);
+    expect(unterdebitorKandidaten(X, kartei).map((c) => c.id).sort()).toEqual(["n"]);
+    expect(unterdebitorKandidaten(U1, kartei)).toEqual([]);
+    expect(unterdebitorKandidaten(lauf, kartei)).toEqual([]);
+  });
+  it("Anschrift vergleichen: Satzzeichen, Leerzeichen, Straße/Str.", () => {
+    expect(adresseVergleich("Hauptstraße 5,  90513 Zirndorf")).toBe(adresseVergleich("hauptstr. 5 90513 Zirndorf"));
+    expect(adresseVergleich("")).toBe("");
+    const a = k("a", { address: "Musterweg 9, 90000 Ort" } as Partial<Customer>);
+    const b = k("b", { address: "Musterweg 9 90000 Ort" } as Partial<Customer>);
+    const c = k("c", { address: "Musterweg 10, 90000 Ort" } as Partial<Customer>);
+    expect(gleicheAnschrift(a, [a, b, c]).map((x) => x.id)).toEqual(["b"]);
+  });
+});
+
+describe("v166 – Nadeln am selben Ort auffächern", () => {
+  it("einzelne Nadeln bleiben, wo sie sind", () => {
+    expect(nadelFaecher([{ id: "a", x: 0, y: 0 }, { id: "b", x: 100, y: 0 }]).size).toBe(0);
+  });
+  it("drei am selben Punkt stehen nebeneinander um den Mittelpunkt", () => {
+    const f = nadelFaecher([{ id: "a", x: 50, y: 50 }, { id: "b", x: 50, y: 50 }, { id: "c", x: 52, y: 50 }]);
+    const xs = ["a", "b", "c"].map((id) => f.get(id)!.x);
+    expect(xs[1] - xs[0]).toBeCloseTo(28);
+    expect(xs[2] - xs[1]).toBeCloseTo(28);
+    expect((xs[0] + xs[2]) / 2).toBeCloseTo(50 + 2 / 3);
+    expect(new Set(["a", "b", "c"].map((id) => f.get(id)!.y)).size).toBe(1);
+  });
+  it("ab sechs im Kreis, alle verschieden", () => {
+    const f = nadelFaecher(Array.from({ length: 8 }, (_, i) => ({ id: "p" + i, x: 0, y: 0 })));
+    const lagen = new Set([...f.values()].map((p) => `${Math.round(p.x)}:${Math.round(p.y)}`));
+    expect(lagen.size).toBe(8);
+    for (const p of f.values()) expect(Math.hypot(p.x, p.y)).toBeCloseTo((28 * 8) / (2 * Math.PI));
   });
 });

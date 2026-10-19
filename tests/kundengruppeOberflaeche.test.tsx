@@ -2,7 +2,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import type { AuftragFahrzeug, Customer, Vehicle } from "@/lib/types";
-import { HauptkundeBlatt, KundengruppeKarte } from "@/components/kunden/KundengruppeKarte";
+import { HauptkundeBlatt, KundengruppeKarte, UnterdebitorBlatt } from "@/components/kunden/KundengruppeKarte";
 import { FahrzeugeBlock } from "@/components/auftraege/FahrzeugeBlock";
 
 // Kundengruppen (Migration 101, v165): Karte im Kundenfenster, Zuordnen über das Menü, Halter am Fahrzeug im Auftrag.
@@ -13,7 +13,7 @@ const k = (id: string, extra: Partial<Customer> = {}): Customer => ({
 const H = k("h", { company: "Gruppe Beispiel" });
 const U1 = k("u1", { company: "Eins gGmbH", haupt_kunde_id: "h" });
 const U2 = k("u2", { company: "Zwei GmbH", haupt_kunde_id: "h" });
-const X = k("x", { name: "Fremd" });
+const X = k("x", { name: "Fremd", address: "Anderswo 3" });
 const ALLE = [H, U1, U2, X];
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
@@ -99,5 +99,45 @@ describe("FahrzeugeBlock mit Kundengruppe", () => {
     fireEvent.change(screen.getByLabelText("Neues Kennzeichen"), { target: { value: "N-XY 9" } });
     fireEvent.click(screen.getByRole("button", { name: "+ anlegen" }));
     expect(p.onFahrzeugAnlegen).toHaveBeenCalledWith(expect.stringMatching(/N-XY ?9/), undefined);
+  });
+});
+
+describe("v166 – Gruppe vom Hauptkunden aus", () => {
+  const G = k("g", { company: "Neue Gruppe", address: "Hofweg 2, 90000 Ort" });
+  const A = k("a", { company: "Alpha GmbH", address: "Hofweg 2 90000 Ort" });
+  const B = k("b", { company: "Beta GmbH", address: "Anderswo 7" });
+  const KARTEI = [G, A, B];
+  it("Karte ohne Gruppe bei gleicher Anschrift: Hinweis und beide Wege", () => {
+    const unter = vi.fn(); const haupt = vi.fn();
+    render(<KundengruppeKarte kunde={G} kunden={KARTEI} darfAendern onSpeichern={vi.fn()} onUnterWaehlen={unter} onHauptWaehlen={haupt} />);
+    expect(screen.getByText(/Unter derselben Anschrift steht ein weiterer Kunde: Alpha GmbH/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Unterdebitoren zuordnen …" }));
+    expect(unter).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Einem Hauptkunden zuordnen …" }));
+    expect(haupt).toHaveBeenCalled();
+  });
+  it("ohne Recht keine leere Karte", () => {
+    const { container } = render(<KundengruppeKarte kunde={G} kunden={KARTEI} darfAendern={false} onSpeichern={vi.fn()} onUnterWaehlen={vi.fn()} />);
+    expect(container.innerHTML).toBe("");
+  });
+  it("Hauptkunde mit Unterdebitoren: + Unterdebitor zuordnen", () => {
+    const unter = vi.fn();
+    render(<KundengruppeKarte kunde={H} kunden={ALLE} darfAendern onSpeichern={vi.fn()} onUnterWaehlen={unter} />);
+    fireEvent.click(screen.getByRole("button", { name: "+ Unterdebitor zuordnen" }));
+    expect(unter).toHaveBeenCalled();
+  });
+  it("Blatt: Vorschlag gleicher Anschrift zuordnen, andere über die Suche, Lösen", async () => {
+    const zu = vi.fn(async () => {}); const los = vi.fn(async () => {});
+    render(<UnterdebitorBlatt haupt={G} kunden={KARTEI} onZuordnen={zu} onLoesen={los} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Zuordnen" }));
+    expect(zu).toHaveBeenCalledWith("a");
+    await vi.waitFor(() => expect((screen.getByRole("button", { name: "Zuordnen" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.change(screen.getByLabelText("Kunde suchen"), { target: { value: "Beta" } });
+    fireEvent.click(screen.getByRole("option"));
+    expect(zu).toHaveBeenCalledWith("b");
+    cleanup();
+    render(<UnterdebitorBlatt haupt={H} kunden={ALLE} onZuordnen={zu} onLoesen={los} onClose={vi.fn()} />);
+    fireEvent.click(screen.getAllByRole("button", { name: "Lösen" })[0]);
+    expect(los).toHaveBeenCalledWith("u1");
   });
 });

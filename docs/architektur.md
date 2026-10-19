@@ -183,7 +183,7 @@ viana-pinpoints/
       VehicleSection.tsx             Fahrzeuge je Kunde (VehicleRow, AddVehicleInline)
       KundenListePanel.tsx           Die Kundenliste mit Suche, Filtern, Buchstabenleiste (Entwurf J)
       EingelagerteReifen.tsx         Alle eingelagerten Sätze eines Kunden im Kundenfenster
-      KundengruppeKarte.tsx          Kundengruppe im Kundenfenster und „Einem Hauptkunden zuordnen …“ (Migration 101, v165)
+      KundengruppeKarte.tsx          Kundengruppe im Kundenfenster, „Einem Hauptkunden zuordnen …“ (v165), „Unterdebitoren zuordnen …“ (v166)
       AnrufFenster.tsx               „Auf dem Handy anrufen": Fenster nach Antippen der Meldung
     admin/
       SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Anzeige, App)
@@ -305,7 +305,7 @@ viana-pinpoints/
                                   Die Regeln hinter den neu gestalteten Listen (Entwürfe H–L,
                                   reine Funktionen, je eine Testdatei)
     dashboard.ts                  Rechnungen hinter dem Dashboard (Entwurf G)
-    karte.ts                      Regeln hinter der Karte (Entwurf W); gezeichnet in app/page.tsx
+    karte.ts                      Regeln hinter der Karte (Entwurf W), Nadeln am selben Ort auffächern (v166); gezeichnet in app/_seite/useKarte.ts
     eingelagert.ts                Die eingelagerten Sätze eines Kunden als Liste
     langlieger.ts                 Langlieger-Übersicht (Fahrplan E4)
     laufkunde.ts                  Laufkunde am Auftrag (Migration 57)
@@ -362,7 +362,7 @@ viana-pinpoints/
                                   seit v103 Übernahme aus der Einlagerung, Etikett, Auswertung (E17/E18)
     terminAenderung.ts            Termin vorher → nachher für Rückgängig und Historie (v91)
     kennzeichen.ts                Kennzeichen vergleichen, Dubletten erkennen (v93), groß schreiben (v108)
-    kundengruppe.ts               Hauptkunde/Unterdebitoren: Gruppe, Mitglieder, Kandidaten, Anzeigezeile (Migration 101, v165)
+    kundengruppe.ts               Hauptkunde/Unterdebitoren: Gruppe, Mitglieder, Kandidaten beider Richtungen, gleiche Anschrift (Migration 101, v165/v166)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)

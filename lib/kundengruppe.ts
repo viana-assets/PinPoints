@@ -6,7 +6,7 @@
 
 import type { Customer } from "./types";
 
-type K = Pick<Customer, "id" | "name" | "company" | "haupt_kunde_id" | "deleted_at" | "laufkundschaft" | "einmalkunde" | "testkunde"> & { active?: boolean };
+type K = Pick<Customer, "id" | "name" | "company" | "haupt_kunde_id" | "deleted_at" | "laufkundschaft" | "einmalkunde" | "testkunde"> & { active?: boolean; address?: string };
 
 // Die Gruppe eines Kunden = sein Hauptkunde, sonst er selbst (wie `kunde_gruppe()` in Migration 101).
 export function gruppeVon(kundeId: string | null | undefined, kunden: Pick<Customer, "id" | "haupt_kunde_id">[]): string | null {
@@ -51,4 +51,24 @@ export function hauptkundeKandidaten<T extends K>(kunde: K, kunden: T[]): T[] {
   if (kunde.laufkundschaft || kunde.einmalkunde || istHauptkunde(kunde.id, kunden)) return [];
   return kunden.filter((k) => k.id !== kunde.id && !k.deleted_at && k.active !== false && !k.haupt_kunde_id
     && !k.laufkundschaft && !k.einmalkunde && !!k.testkunde === !!kunde.testkunde);
+}
+
+// Die Gegenrichtung (v166): Wer unter `haupt` als Unterdebitor passt – dieselben Regeln wie oben. Ist `haupt` selbst
+// Unterdebitor, Laufkundschaft oder Einmalkunde, niemand.
+export function unterdebitorKandidaten<T extends K>(haupt: K, kunden: T[]): T[] {
+  if (haupt.haupt_kunde_id || haupt.laufkundschaft || haupt.einmalkunde || haupt.deleted_at) return [];
+  return kunden.filter((k) => k.id !== haupt.id && !k.deleted_at && k.active !== false && !k.haupt_kunde_id
+    && !k.laufkundschaft && !k.einmalkunde && !!k.testkunde === !!haupt.testkunde && !istHauptkunde(k.id, kunden));
+}
+
+// Anschrift zum Vergleichen: klein, ohne Satzzeichen und doppelte Leerzeichen, „Str." = „Straße“.
+export function adresseVergleich(a: string | null | undefined): string {
+  return (a || "").toLowerCase().replace(/stra(ss|ß)e\b/g, "str").replace(/[.,;]/g, " ").replace(/\s+/g, " ").trim();
+}
+
+// Andere Kunden unter derselben Anschrift – Vorschlag für eine Kundengruppe (drei Firmen, ein Haus).
+export function gleicheAnschrift<T extends K>(kunde: K, kunden: T[]): T[] {
+  const a = adresseVergleich(kunde.address);
+  if (!a) return [];
+  return kunden.filter((k) => k.id !== kunde.id && !k.deleted_at && k.active !== false && adresseVergleich(k.address) === a);
 }

@@ -2681,6 +2681,8 @@ span.db-link{cursor:inherit;}
 .kl-name{font-weight:700;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .kl-text:hover .kl-name{color:var(--accent);}
 .kl-adresse{font-size:12.5px;color:#6f6553;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* Kundengruppe in der Kundenliste (v166). */
+.kl-kgruppe{font-size:11.5px;font-weight:700;color:#b8430f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .kl-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px;}
 .kl-meta .meta{font-size:12px;color:var(--muted);margin:0;}
 .kl-status{font-size:11.5px;font-weight:700;border-radius:9px;padding:2px 8px;background:var(--bg);color:#6f6553;}
@@ -4622,3 +4624,9 @@ button.zt-m-zeile:hover{background:var(--hover);}
   .fi-vorgang .db-punkt-text{flex:1 1 0;}
   .fi-vorgang .es-knopf.fi-primaer{flex:1 1 100%;height:40px;font-size:13px;}
 }
+
+/* Kundengruppe im Kundenfenster (v166): Zeilen im Blatt „Unterdebitoren zuordnen“, Plus-Knopf in der Karte. */
+.ug-zeile{justify-content:space-between;}
+.ug-zeile .db-punkt-text{flex:1;min-width:0;}
+.dm-gruppe-plus{align-self:flex-start;margin-top:4px;}
+.dm-gruppe .pk-knoepfe{flex-wrap:wrap;}

@@ -13,7 +13,7 @@ import { IconNavPin } from "@/components/icons";
 import { EingelagerteReifen } from "./EingelagerteReifen";
 import { CustomerOrderRow } from "./CustomerOrderRow";
 import { auftragsNr } from "@/lib/testkunde";
-import { KundengruppeKarte, HauptkundeBlatt } from "./KundengruppeKarte";
+import { KundengruppeKarte, HauptkundeBlatt, UnterdebitorBlatt } from "./KundengruppeKarte";
 import { istHauptkunde } from "@/lib/kundengruppe";
 
 // Das große Kunden-Detailfenster (Modal): Kundendaten, Fahrzeuge, Kontakt erfassen,
@@ -86,6 +86,8 @@ export function DetailModal(props: {
   kunden?: Customer[];
   onKundeOeffnen?: (id: string) => void;
   darfGruppe?: boolean;
+  // v166: einen ANDEREN Kunden ändern – vom Hauptkunden aus Unterdebitoren zuordnen und lösen.
+  onKundeFelder?: (id: string, f: Partial<Customer>) => Promise<void>;
 }) {
   const { customer: cust } = props;
   const [name, setName] = useState(cust.name);
@@ -103,6 +105,7 @@ export function DetailModal(props: {
   const [reiter, setReiter] = useState<DmReiter>("uebersicht");
   const [menueOffen, setMenueOffen] = useState(false);
   const [gruppeWaehlen, setGruppeWaehlen] = useState(false);
+  const [unterWaehlen, setUnterWaehlen] = useState(false);
 
   // Ungespeicherte Stammdaten: Wer das Fenster schließt, soll nicht still verlieren, was er
   // im Reiter „Daten" getippt hat.
@@ -302,6 +305,13 @@ export function DetailModal(props: {
                 </button>
               )}
 
+              {props.kunden && (
+                <KundengruppeKarte kunde={cust} kunden={props.kunden} darfAendern={!!props.darfGruppe}
+                  onSpeichern={props.onSaveFields} onOeffnen={props.onKundeOeffnen}
+                  onHauptWaehlen={() => setGruppeWaehlen(true)}
+                  onUnterWaehlen={props.onKundeFelder ? () => setUnterWaehlen(true) : undefined} />
+              )}
+
               <div className="db-karte dm-lager">
                 <EingelagerteReifen
                   saetze={props.tireStorages}
@@ -312,11 +322,6 @@ export function DetailModal(props: {
                   onZumPlatz={props.onZumLagerplatz}
                 />
               </div>
-
-              {props.kunden && (
-                <KundengruppeKarte kunde={cust} kunden={props.kunden} darfAendern={!!props.darfGruppe}
-                  onSpeichern={props.onSaveFields} onOeffnen={props.onKundeOeffnen} />
-              )}
 
               <div className="db-karte dm-kontakt">
                 <div className="db-karte-kopf">
@@ -485,6 +490,11 @@ export function DetailModal(props: {
         </div>
       </div>
 
+      {unterWaehlen && props.kunden && props.onKundeFelder && (
+        <UnterdebitorBlatt haupt={cust} kunden={props.kunden} onClose={() => setUnterWaehlen(false)}
+          onZuordnen={(id) => props.onKundeFelder!(id, { haupt_kunde_id: cust.id })}
+          onLoesen={(id) => props.onKundeFelder!(id, { haupt_kunde_id: null })} />
+      )}
       {gruppeWaehlen && props.kunden && (
         <HauptkundeBlatt kunde={cust} kunden={props.kunden} onSpeichern={props.onSaveFields} onClose={() => setGruppeWaehlen(false)} />
       )}
@@ -532,6 +542,11 @@ export function DetailModal(props: {
               && !istHauptkunde(cust.id, props.kunden) && (
               <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); setGruppeWaehlen(true); }}>
                 <span className="ab-text">Einem Hauptkunden zuordnen … <span className="small">· als Unterdebitor</span></span>
+              </button>
+            )}
+            {props.kunden && props.darfGruppe && props.onKundeFelder && !cust.haupt_kunde_id && !cust.laufkundschaft && !cust.einmalkunde && (
+              <button type="button" className="ab-option" onClick={() => { setMenueOffen(false); setUnterWaehlen(true); }}>
+                <span className="ab-text">Unterdebitoren zuordnen … <span className="small">· als Hauptkunde</span></span>
               </button>
             )}
             {props.onInDenChat && (

@@ -74,6 +74,35 @@ export function buendeln(punkte: KartenPunkt[], zellePx: number = BUENDEL_ZELLE_
   return { einzeln, buendel };
 }
 
+// Nadeln am selben Ort auffächern (v166). Mehrere Kunden unter einer Anschrift – drei Firmen einer Kundengruppe,
+// zwei Parteien im selben Haus – lagen bis v165 als EINE Nadel übereinander; zu sehen und anzutippen war nur die
+// oberste. Liegen Nadeln näher als `FAECHER_NAH_PX` beieinander (in Bildschirmpunkten der Zoomstufe), stehen sie
+// nebeneinander um ihren gemeinsamen Mittelpunkt – bis fünf in einer Reihe, darüber im Kreis. Die Koordinate am
+// Kunden bleibt unverändert; verschoben wird nur, wo die Nadel gezeichnet wird. Weit weg greift vorher das Bündel.
+export const FAECHER_NAH_PX = 14;
+export const FAECHER_ABSTAND_PX = 28;
+export function nadelFaecher(punkte: { id: string; x: number; y: number }[], nahPx: number = FAECHER_NAH_PX, abstandPx: number = FAECHER_ABSTAND_PX): Map<string, { x: number; y: number }> {
+  const gruppen: { x: number; y: number; ids: { id: string; x: number; y: number }[] }[] = [];
+  for (const p of punkte) {
+    const g = gruppen.find((z) => Math.hypot(z.x - p.x, z.y - p.y) < nahPx);
+    if (g) g.ids.push(p); else gruppen.push({ x: p.x, y: p.y, ids: [p] });
+  }
+  const ziel = new Map<string, { x: number; y: number }>();
+  for (const g of gruppen) {
+    const n = g.ids.length;
+    if (n < 2) continue;
+    const mx = g.ids.reduce((s, p) => s + p.x, 0) / n;
+    const my = g.ids.reduce((s, p) => s + p.y, 0) / n;
+    g.ids.forEach((p, i) => {
+      if (n <= 5) { ziel.set(p.id, { x: mx + (i - (n - 1) / 2) * abstandPx, y: my }); return; }
+      const r = (abstandPx * n) / (2 * Math.PI);
+      const w = -Math.PI / 2 + (2 * Math.PI * i) / n;
+      ziel.set(p.id, { x: mx + r * Math.cos(w), y: my + r * Math.sin(w) });
+    });
+  }
+  return ziel;
+}
+
 // Durchmesser des Bündelkreises: vier Stufen, damit man „ein paar" von „sehr viele" unterscheidet,
 // ohne dass ein großes Bündel die Nachbarn zudeckt.
 export function buendelGroesse(anzahl: number): number {

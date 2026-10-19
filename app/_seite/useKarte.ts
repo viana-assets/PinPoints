@@ -4,7 +4,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type MutableR
 import type { Customer, Order, UserSettings } from "@/lib/types";
 import { todayStr, nextOrder, effectiveColor, kundenMitTermin, type KundenZustand } from "@/lib/helpers";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
-import { buendeln, nadelTerminText, BUENDEL_BIS_ZOOM, BUENDEL_AUSWAHL_AB, type KartenPunkt, type TagesStation } from "@/lib/karte";
+import { buendeln, nadelFaecher, nadelTerminText, BUENDEL_BIS_ZOOM, BUENDEL_AUSWAHL_AB, type KartenPunkt, type TagesStation } from "@/lib/karte";
 import { nadelHtml, stationHtml, buendelHtml, NADEL_MASS, KREIS_MASS, STATION_MASS } from "@/components/karte/nadel";
 
 // Die Karte der Startseite (v144, Fahrplan C5 – der letzte große Block aus app/page.tsx, nach dem
@@ -357,6 +357,19 @@ export function useKarte(ctx: KartenKontext) {
       buendelListe = r.buendel;
     }
 
+    // Nadeln am selben Ort nebeneinander statt übereinander (v166, lib/karte.ts `nadelFaecher`). Sortiert nach
+    // Name, damit die Reihenfolge beim Verschieben nicht springt.
+    const gezeichnet = kandidaten.filter(({ cust }) => !einzeln || einzeln.has(cust.id)).slice(0, MAX_MARKER)
+      .sort((a, b) => (a.cust.company || a.cust.name).localeCompare(b.cust.company || b.cust.name, "de") || a.cust.id.localeCompare(b.cust.id));
+    const faecher = nadelFaecher(gezeichnet.map(({ cust }) => {
+      const pt = karte.project([cust.lat as number, cust.lng as number], zoom);
+      return { id: cust.id, x: pt.x, y: pt.y };
+    }));
+    const lage = (cust: Customer): [number, number] | { lat: number; lng: number } => {
+      const f = faecher.get(cust.id);
+      return f ? karte.unproject([f.x, f.y], zoom) : [cust.lat as number, cust.lng as number];
+    };
+
     let nadeln = 0;
     let ausgelassen = 0;
     const seen = new Set<string>();
@@ -383,11 +396,11 @@ export function useKarte(ctx: KartenKontext) {
           marker.setIcon(makeIcon(zustand, ungefaehr, schild));
           marker._pinSchluessel = schluessel;
         }
-        marker.setLatLng([cust.lat, cust.lng]);
+        marker.setLatLng(lage(cust));
         marker.setZIndexOffset(ebene);
         marker.setTooltipContent(tooltip);
       } else {
-        marker = L.marker([cust.lat, cust.lng], { icon: makeIcon(zustand, ungefaehr, schild), zIndexOffset: ebene, riseOnHover: true });
+        marker = L.marker(lage(cust), { icon: makeIcon(zustand, ungefaehr, schild), zIndexOffset: ebene, riseOnHover: true });
         marker._pinSchluessel = schluessel;
         marker.bindTooltip(tooltip, { className: "cust-tip", direction: "top", offset: [0, -30] });
         const id = cust.id;

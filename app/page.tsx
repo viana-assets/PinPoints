@@ -2997,6 +2997,7 @@ export default function HomePage() {
           kunden={customers}
           onKundeOeffnen={(id) => setSelectedId(id)}
           darfGruppe={darf("kunden", "schreiben")}
+          onKundeFelder={(id, fields) => updateCustomerFields(id, fields)}
           onNeuerAuftrag={darf("auftraege.anlegen", "schreiben") ? () => { void neuenAuftragAnlegen(selectedId); } : undefined}
           onUpdateOrder={updateOrder}
           onDeleteOrder={deleteOrder}
