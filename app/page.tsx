@@ -1,4 +1,6 @@
 "use client";
+import { LagerNavKnopf } from "@/components/LagerNavKnopf";
+import { lagerNavZiel, navigationsLager } from "@/lib/lagerNavigation";
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
@@ -95,7 +97,7 @@ import { AuswertungPanel } from "@/components/auswertung/AuswertungPanel";
 import { RechnungenPanel, type OffeneRechnung } from "@/components/rechnungen/RechnungenPanel";
 import { RechnungModal } from "@/components/rechnungen/RechnungModal";
 import { stelleRechnungAus, storniereRechnung } from "@/lib/api/rechnungen";
-import { satzKundeWechseln } from "@/lib/api/lager";
+import { fetchWarehouses, satzKundeWechseln } from "@/lib/api/lager";
 import type { RechnungEntwurf } from "@/lib/rechnung";
 import { AuftragModal } from "@/components/auftraege/AuftragModal";
 import { KontaktModal } from "@/components/kunden/KontaktModal";
@@ -395,7 +397,7 @@ export default function HomePage() {
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
-  const brauchtLager = tab === "lager" || tab === "saison" || tab === "dashboard" || kundeOffen || offenerAuftragId !== null || mitnehmenDatum !== null;
+  const brauchtLager = tab === "lager" || tab === "saison" || tab === "dashboard" || tab === "settings" || kundeOffen || offenerAuftragId !== null || mitnehmenDatum !== null;
 
   const kundenQuery = useKunden(supabase, sitzungBereit);
   // "Kein Netz" aus DREI Quellen, weil keine für sich zuverlässig ist:
@@ -637,7 +639,8 @@ export default function HomePage() {
   // Navigations-Button (Auftrag/Termin, wenn eine Adresse gepflegt ist): am Smartphone erst
   // fragen, ob mit Google Maps oder Apple Karten navigiert werden soll, statt direkt zu öffnen –
   // genau wie beim Anrufen-Button mit mehreren Nummern.
-  const [navMenuFor, setNavMenuFor] = useState<Customer | null>(null);
+  // Kunde oder (seit v169) Lager: Das Menü braucht nur das Ziel.
+  const [navMenuFor, setNavMenuFor] = useState<Pick<Customer, "lat" | "lng" | "geo_genauigkeit" | "address"> | null>(null);
   const [navMenuPos, setNavMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
   // Mitarbeiter-Zuordnung eines Auftrags (Aufträge-Tab & Einsatzplanung): Klick auf die
   // Mitarbeiter-Zelle öffnet ein kleines Menü mit Checkboxen (mehrere Mitarbeiter möglich), jeder
@@ -1857,6 +1860,18 @@ export default function HomePage() {
 
   // Navigations-Button in Auftrags-/Termin-Zeilen: fragt per kleinem Menü (wie beim
   // Anrufen-Icon), ob mit Google Maps oder Apple Karten navigiert werden soll.
+  // „Zum Lager“ aus dem Schnellmenü (v169): Lager frisch holen (sie werden beim Start nicht geladen), das eingestellte
+  // bzw. das Hauptlager nehmen und dasselbe Menü wie bei Kunden zeigen (Google Maps / Apple Karten).
+  async function zumLagerNavigieren(rect: DOMRect) {
+    const liste = await queryClient.fetchQuery({ queryKey: qk.lager(), queryFn: () => fetchWarehouses(supabase), staleTime: 60_000 });
+    const lager = navigationsLager(liste, settings.nav_lager_id);
+    if (!lager) throw new Error("Es ist noch kein Lager angelegt.");
+    const ziel = lagerNavZiel(lager);
+    if (!ziel) throw new Error(`Für das Lager „${lager.name}“ ist keine Adresse hinterlegt – unter Einstellungen › Navigation eintragen.`);
+    // Breiter gerechnet als beim Kunden: Der Knopf sitzt ganz rechts, und das Menü ist breiter als 190 px.
+    setNavMenuPos(menuAm(rect, 90, 220));
+    setNavMenuFor(ziel);
+  }
   function openNavMenu(e: React.MouseEvent, cust: Customer) {
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -1968,6 +1983,11 @@ export default function HomePage() {
     ...(darf("chat", "lesen") ? [{
       key: "chat", text: "Team-Chat", zahl: chat.ungelesen,
       knopf: (zu: () => void) => <ChatBlase zahl={chat.ungelesen} imMenue onClick={() => { zu(); chat.oeffnen(); }} />,
+    }] : []),
+    // Zum Lager navigieren (v169, Migration 102): welches Lager, steht in den Einstellungen.
+    ...(canView("lager") ? [{
+      key: "lager", text: "Zum Lager",
+      knopf: (zu: () => void) => <LagerNavKnopf onClick={(e) => { const rect = e.currentTarget.getBoundingClientRect(); zu(); void zumLagerNavigieren(rect); }} />,
     }] : []),
   ];
 
@@ -2371,6 +2391,8 @@ export default function HomePage() {
             onAktualisieren={() => { void queryClient.invalidateQueries(); }}
             laedt={kundenQuery.isFetching || auftraegeQuery.isFetching}
             onLogout={handleLogout}
+            lager={canView("lager") ? warehouses : undefined}
+            onLagerSpeichern={darf("lager.regale", "schreiben") ? updateWarehouse : undefined}
           />
         )}
 

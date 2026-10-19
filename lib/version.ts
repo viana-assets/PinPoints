@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v168";
+export const APP_VERSION = "v169";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v169", datum: "2026-10-19", titel: "Zum Lager navigieren",
+    punkte: [
+      "Im Schnellmenü oben rechts am Handy gibt es neben Stoppuhr und Chat den Knopf „Zum Lager“: ein Tipp, dann Google Maps oder Apple Karten wählen.",
+      "Zu welchem Lager er führt, stellst du unter Einstellungen › Navigation ein – ohne Auswahl ist es das Hauptlager. Dort lassen sich Name und Adresse des Lagers auch gleich ergänzen.",
+    ],
+  },
   {
     version: "v168", datum: "2026-10-19", titel: "Uhrzeit tippen oder wählen",
     punkte: [

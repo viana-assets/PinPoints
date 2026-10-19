@@ -448,6 +448,10 @@ Gruppe zuordnen) verlangt `kunden.fahrzeuge` S, beim Techniker dazu `ist_eigener
 bisheriger Halter in derselben Gruppe stehen. `ist_eigener_kunde()` zählt seither auch die Unterdebitoren eines
 Hauptkunden, auf dessen Auftrag der Techniker steht – sonst sähe er im Auftrag die Fahrzeuge nicht, die er bearbeitet.
 
+**Zum Lager navigieren** (Migration 102, v169). Der Knopf im Schnellmenü erscheint mit `lager` L; die Wahl des Lagers
+ist eine eigene Einstellung (`user_settings`, jeder nur seine Zeile). Name und Adresse des Lagers in den Einstellungen
+ändern nur mit `lager.regale` S – dieselbe Richtlinie wie im Lager-Reiter.
+
 **Der Abschluss friert ein** (Migration 20, unverändert). An einem erledigten oder stornierten
 Auftrag ändert auch der Techniker nichts mehr. Das ist keine Einschränkung seiner Rechte,
 sondern die Zusage, dass ein Abschluss ein Abschluss ist. In der Oberfläche spiegelt

@@ -159,6 +159,8 @@ export type UserSettings = {
   stempel_erinnerung_aktiv?: boolean;
   // Zuletzt gelesene Fassung auf „Was gibt es Neues" (Migration 60), z. B. "v78".
   neuigkeiten_gesehen?: string | null;
+  // Lager für den Knopf „Zum Lager“ im Schnellmenü (Migration 102). Leer: Hauptlager (lib/lagerNavigation.ts).
+  nav_lager_id?: string | null;
 };
 
 export type Warehouse = {

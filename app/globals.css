@@ -4646,3 +4646,7 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .zf-zeile:hover{background:var(--bg);}
 .zf-zeile.an{background:var(--accent-bg);color:var(--accent);}
 .zf-dauer{font-size:12px;font-weight:500;color:var(--muted);}
+
+/* Einstellungen › Navigation (v169): Hinweis ohne Adresse, Bearbeiten-Formular. */
+.es-warn{color:#b42318;font-weight:600;}
+.ln-form .nk-feld input{background:var(--bg);}

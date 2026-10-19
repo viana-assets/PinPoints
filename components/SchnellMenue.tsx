@@ -35,7 +35,7 @@ export function SchnellMenue({ eintraege, versteckt }: { eintraege: SchnellEintr
   return (
     <div className={"sm-menue" + (offen ? " offen" : "")} ref={ref}>
       <button type="button" className="sm-knopf" aria-expanded={offen} aria-haspopup="true"
-        aria-label={zahl > 0 ? `Schnellmenü, ${zahl} neu` : "Schnellmenü"} title="Zeiterfassung und Chat"
+        aria-label={zahl > 0 ? `Schnellmenü, ${zahl} neu` : "Schnellmenü"} title="Zeiterfassung, Chat, Lager"
         onClick={() => setOffen(!offen)}>
         {offen
           ? <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>

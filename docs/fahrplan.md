@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **19.10.2026 – Zum Lager navigieren (Migration 102, Service Worker v169).** Knopf „Zum Lager“ im Schnellmenü, Lager je
+  Person unter Einstellungen › Navigation wählbar (Vorgabe: Hauptlager), Name und Adresse dort ergänzbar. Wunsch Vitali.
+  `docs/lager.md`.
+
 * **19.10.2026 – Uhrzeit tippen oder wählen (Service Worker v168, ohne Migration).** Neues Zeitfeld im Auftragsfenster und
   im Blatt „Termin wählen“: freie Eingabe („930“, „14.45“) oder Liste im Viertelstundentakt. Wunsch Vitali. `docs/auftraege.md` (4).
 

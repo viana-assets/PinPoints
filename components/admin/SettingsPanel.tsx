@@ -1,5 +1,6 @@
 import { useState } from "react";
-import type { UserSettings } from "@/lib/types";
+import type { UserSettings, Warehouse } from "@/lib/types";
+import { LagerNavEinstellung } from "./LagerNavEinstellung";
 import { PwaInstallieren } from "@/components/PwaInstallieren";
 import { PushEinstellung } from "@/components/PushEinstellung";
 import { PwaFassung } from "@/components/PwaFassung";
@@ -15,7 +16,7 @@ import { ABENDHINWEIS_UHRZEIT_STANDARD, ROLE_LABEL } from "@/lib/constants";
 // dort als eigener Reiter erreichbar – ein zweiter Weg an anderer Stelle macht die
 // Einstellungen unübersichtlich und lässt offen, welcher der "richtige" ist. `isAdmin` bleibt
 // als Prop, weil die Zeile "Angemeldet als …" die Rolle mit ausweist.
-export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTechniker = false, stempelErinnerung = false, userEmail, datenStand, onAktualisieren, laedt, onLogout, onNeuigkeiten, neuigkeitenUngelesen = 0 }: {
+export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTechniker = false, stempelErinnerung = false, userEmail, datenStand, onAktualisieren, laedt, onLogout, onNeuigkeiten, neuigkeitenUngelesen = 0, lager, onLagerSpeichern }: {
   // „Was gibt es Neues" – nur für Admin und Superadmin gesetzt. Die Zahl sagt, wie viele
   // Fassungen seit dem letzten Öffnen dazugekommen sind.
   onNeuigkeiten?: () => void;
@@ -34,6 +35,9 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTec
   onAktualisieren: () => void;
   laedt?: boolean;
   onLogout: () => void;
+  // Navigation zum Lager (v169): die Lager, wenn die Rolle das Lager sehen darf; Speichern nur mit `lager.regale` S.
+  lager?: Warehouse[];
+  onLagerSpeichern?: (id: string, f: { name: string; address: string; note: string }) => Promise<void>;
 }) {
   const [abendZeit, setAbendZeit] = useState(settings.abendhinweis_uhrzeit || ABENDHINWEIS_UHRZEIT_STANDARD);
   const rolle = isSuperAdmin ? ROLE_LABEL.superadmin : isAdmin ? ROLE_LABEL.admin : isTechniker ? ROLE_LABEL.techniker : ROLE_LABEL.user;
@@ -111,6 +115,15 @@ export function SettingsPanel({ settings, onChange, isAdmin, isSuperAdmin, isTec
             </button>
             <span className="small es-fuss">30 Minuten vor deinem ersten Termin, wenn du noch nicht eingestempelt bist – und 30 Minuten nach dem geplanten Ende des letzten, wenn du noch eingestempelt bist und der Auftrag nicht erledigt ist.</span>
           </div>
+        )}
+
+        {lager && (
+          <>
+            <span className="op-gruppe-titel">NAVIGATION</span>
+            <div className="db-karte es-karte">
+              <LagerNavEinstellung lager={lager} gewaehltId={settings.nav_lager_id} onWaehlen={(id) => onChange({ nav_lager_id: id })} onSpeichern={onLagerSpeichern} />
+            </div>
+          </>
         )}
 
         <span className="op-gruppe-titel">ANZEIGE</span>

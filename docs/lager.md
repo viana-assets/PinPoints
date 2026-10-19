@@ -1020,3 +1020,18 @@ Bekommt ein Satz ein Fahrzeug eines anderen Kunden derselben Kundengruppe, über
 Auftrag des Hauptkunden liegt der Satz damit beim Unterdebitor, dem das Fahrzeug gehört, und das Etikett nennt diese Firma.
 Vormerken und Tausch gehen innerhalb der Gruppe. Im Etikett-Fenster steht bei Gruppenkunden „Für:": mit Fahrzeug wird das
 Fahrzeug umgehängt (samt allen seinen aktiven Sätzen), ohne Fahrzeug nur der Satz. Einzelheiten: `docs/kunden-und-karte.md`.
+
+## Zum Lager navigieren (Migration 102, v169, 19.10.2026)
+
+Wunsch Vitali: Meist geht es in dasselbe Lager, und der Weg zur Navigation führte jedes Mal über den Lager-Reiter. Jetzt
+steht im Schnellmenü oben rechts am Handy (neben Stoppuhr und Chat, `components/SchnellMenue.tsx`) der Knopf „Zum
+Lager“ (`LagerNavKnopf`) – für jeden, der das Lager sehen darf. Ein Tipp holt die Lager frisch (sie werden beim Start
+nicht geladen), bestimmt das Ziel (`navigationsLager`, lib/lagerNavigation.ts) und zeigt dasselbe Menü wie beim Kunden
+(Google Maps / Apple Karten). Lager haben keine Koordinate; navigiert wird zur Adresse.
+
+Welches Lager: je Person in `user_settings.nav_lager_id`, gewählt unter Einstellungen › Navigation
+(`components/admin/LagerNavEinstellung.tsx`). „Automatisch“ (leer) heißt: das Lager mit „Hauptlager“ im Namen, sonst
+das erste mit Adresse, sonst das erste. Ein gelöschtes Lager fällt auf die Vorgabe zurück (bewusst kein Fremdschlüssel,
+siehe Migration 102). Fehlt die Adresse, sagt der Knopf das im roten Band; wer Lager ändern darf (`lager.regale` S),
+ergänzt Name und Adresse direkt in den Einstellungen („Bearbeiten“).
+

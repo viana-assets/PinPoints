@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `101_kundengruppen.sql`** – vor den Dateien von v165 (Abschnitt unten). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165) **und `102_navigation_lager.sql`** (vor den Dateien von v169) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1514,3 +1514,13 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   nicht den Fremden, und darf umhängen; Hauptkunde löschen erst nach dem Lösen der Unterdebitoren. `t55`, `t67`, `t72`,
   `t86`–`t100` gegen 100 und 101: gleiche Ausgabe (`t56` nur Kennungen und Zeitstempel). Ausgeführt, zweimal,
   zurückgenommen, zweimal, erneut ausgeführt.
+
+- `102_navigation_lager.sql` – **noch auszuführen**, nach 101 und vor den Dateien von v169.
+  Navigation zum Lager (`docs/lager.md`, „Zum Lager navigieren“). Spalte `user_settings.nav_lager_id` (uuid, leer = Hauptlager
+  bzw. erstes Lager mit Adresse). Bewusst ohne Fremdschlüssel: „Alle Daten löschen“ leert `warehouses` per TRUNCATE und
+  behält `user_settings`. Wache: bricht ohne `user_settings`/`warehouses` ab. Ergebnistabelle mit zwei Zeilen (Spalte, Lager mit
+  Adresse). Zweiter Lauf folgenlos. Rücknahme: `rollback/102_rollback.sql` (Spalte weg – die Wahl je Person geht verloren;
+  zweimal lauffähig).
+  Geprüft gegen Postgres 16 (Stand 101): ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt; `t72` und `t86`
+  (darunter „Alle Daten löschen“) gegen 101 und 102: gleiche Ausgabe.
+

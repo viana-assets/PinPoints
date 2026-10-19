@@ -115,6 +115,7 @@ viana-pinpoints/
     QrScanner.tsx                   Kamera-Scan für Lagerplatz-/Reifensatz-Aufkleber
     FehlerHinweis.tsx               Zentrale Fehlermeldung oben, aus unbehandelten Ablehnungen (C5/C6, v106)
     KennzeichenFeld.tsx             Eingabefeld für Kennzeichen, schreibt immer groß (v108)
+    LagerNavKnopf.tsx             Runder Knopf „Zum Lager“ im Schnellmenü (v169)
     ZeitFeld.tsx                  Uhrzeit tippen oder aus der Viertelstundenliste wählen (v168; statt type="time")
     SuchFeld.tsx                    Suchfeld der Listen mit × zum Leeren, auch am iPhone (v110)
     PwaBereit.tsx / PwaFassung.tsx / PwaInstallieren.tsx
@@ -187,7 +188,8 @@ viana-pinpoints/
       KundengruppeKarte.tsx          Kundengruppe im Kundenfenster, „Einem Hauptkunden zuordnen …“ (v165), „Unterdebitoren zuordnen …“ (v166)
       AnrufFenster.tsx               „Auf dem Handy anrufen": Fenster nach Antippen der Meldung
     admin/
-      SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Anzeige, App)
+      SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Navigation, Anzeige, App)
+      LagerNavEinstellung.tsx        Einstellungen › Navigation: Lager für „Zum Lager“, Name/Adresse (v169)
       AdminPanel.tsx                 Tab "Admin" – Reiter Nutzer, Mitarbeiter, Transporter,
                                      Rechte (Superadmin), Betrieb, Wartung, Protokoll, Dubletten,
                                      Papierkorb
@@ -303,6 +305,7 @@ viana-pinpoints/
     sprungMerker.ts               QR-/Benachrichtigungs-Sprung übersteht das erste Neuladen (D19, v106)
     ansichtMerker.ts              Reiter, System und Einsatzplanungs-Ansicht je Fenster über F5 hinweg (sessionStorage, v167)
     fensterAbgleich.ts            Fenster desselben Browsers verwerfen gemeinsam (BroadcastChannel, v167)
+    lagerNavigation.ts            Welches Lager „Zum Lager“ ansteuert, Ziel für das Navigationsmenü (Migration 102, v169)
     zeitEingabe.ts                Uhrzeit aus freier Eingabe lesen, Auswahlliste im Viertelstundentakt (v168)
     wischen.ts                    Wann ein Wisch im Kalender als Blättern zählt (v107)
     auftragsAnsicht.ts / kundenAnsicht.ts / lagerAnsicht.ts / saisonAnsicht.ts / terminAnsicht.ts
@@ -766,7 +769,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 101** (17.10.2026; 101 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 102** (19.10.2026; 101 und 102 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -943,6 +946,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   Ein Satz mit Fahrzeug eines anderen Gruppenmitglieds übernimmt dessen Halter; Tausch und Vormerkung gehen innerhalb der
   Gruppe. `fahrzeug_kunde_wechseln()` (mit den aktiven Sätzen) und `satz_kunde_wechseln()`; der Techniker auf dem Auftrag
   des Hauptkunden sieht dessen Unterdebitoren (`ist_eigener_kunde()`).
+- **102** – `user_settings.nav_lager_id`: Lager für den Knopf „Zum Lager“ im Schnellmenü, je Person. Ohne Fremdschlüssel,
+  weil „Alle Daten löschen“ `warehouses` mit TRUNCATE leert und `user_settings` behält.
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

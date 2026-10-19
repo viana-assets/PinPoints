@@ -207,7 +207,7 @@ export function navigationsZiel(cust: Pick<Customer, "lat" | "lng" | "geo_genaui
   return punktIstGenauer ? `${cust.lat},${cust.lng}` : cust.address;
 }
 
-export function navigationUrls(cust: Customer): { google: string; apple: string } {
+export function navigationUrls(cust: Pick<Customer, "lat" | "lng" | "geo_genauigkeit" | "address">): { google: string; apple: string } {
   const hasCoords = cust.lat != null && cust.lng != null && (cust.geo_genauigkeit ?? "exakt") !== "ungefaehr";
   const dest = navigationsZiel(cust);
   const q = encodeURIComponent(dest);
@@ -225,7 +225,7 @@ export function navigationUrls(cust: Customer): { google: string; apple: string 
 // Fenster weiß stehen („Suchbegriff oder Websitenamen eingeben“, ✕). Die App-Adressen springen
 // direkt in die Karten-App, ohne dieses Fenster. `comgooglemaps://` gibt es nur mit installiertem
 // Google Maps – deshalb hält der Aufrufer den https-Link als Rückfall bereit (lib/navigationOeffnen.ts).
-export function navigationAppUrls(cust: Customer): { google: string; apple: string } {
+export function navigationAppUrls(cust: Pick<Customer, "lat" | "lng" | "geo_genauigkeit" | "address">): { google: string; apple: string } {
   const q = encodeURIComponent(navigationsZiel(cust));
   return {
     google: `comgooglemaps://?daddr=${q}&directionsmode=driving`,
