@@ -1,3 +1,4 @@
+import { ZeitFeld } from "@/components/ZeitFeld";
 import type { SatzNotizen } from "@/lib/lagerNotizen";
 import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useAusgang } from "@/lib/offline/speicher";
@@ -895,10 +896,10 @@ export function AuftragModal({
                     <input type="date" value={datum} onChange={(e) => setDatum(e.target.value)} />
                   </label>
                   <label className="nk-feld"><span>Von</span>
-                    <input ref={zeitRef} type="time" value={zeit} onChange={(e) => anfangAendern(e.target.value)} aria-invalid={zeitFehlt} className={zeitFehlt ? "feld-fehlt" : undefined} />
+                    <ZeitFeld inputRef={zeitRef} wert={zeit} onWert={anfangAendern} ariaLabel="Von" ungueltig={zeitFehlt} />
                   </label>
                   <label className="nk-feld"><span>Bis (optional)</span>
-                    <input type="time" value={zeitBis} onChange={(e) => endeAendern(e.target.value)} aria-invalid={endeVorAnfang} className={endeVorAnfang ? "feld-fehlt" : undefined} />
+                    <ZeitFeld wert={zeitBis} onWert={endeAendern} ab={zeit || null} ariaLabel="Bis" ungueltig={endeVorAnfang} />
                   </label>
                 </div>
                 {endeVorAnfang && (

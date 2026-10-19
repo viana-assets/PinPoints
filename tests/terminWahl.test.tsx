@@ -27,6 +27,13 @@ function blatt(onUebernehmen = vi.fn()) {
   return onUebernehmen;
 }
 
+// v168: Von/Bis sind ZeitFelder – getippt wird mit Fokus, übernommen beim Verlassen.
+function zeitTippen(feld: HTMLElement, wert: string) {
+  fireEvent.focus(feld);
+  fireEvent.change(feld, { target: { value: wert } });
+  fireEvent.blur(feld);
+}
+
 describe("Termin aus dem Kalender", () => {
   it("zeigt den Monat mit Punkten für geplante Termine; blättern mit ‹ ›", () => {
     blatt();
@@ -44,7 +51,7 @@ describe("Termin aus dem Kalender", () => {
     fireEvent.click(screen.getByRole("button", { name: /^20\. Oktober/ }));
     expect(screen.getByText("Dienstag, 20. Oktober 2026")).toBeTruthy();
     const dialog = screen.getByRole("dialog", { name: "Termin wählen" });
-    fireEvent.change(within(dialog).getByLabelText("Von"), { target: { value: "10:30" } });
+    zeitTippen(within(dialog).getByLabelText("Von"), "10:30");
     expect((within(dialog).getByLabelText("Bis") as HTMLInputElement).value).toBe("11:00");
     fireEvent.click(screen.getByRole("button", { name: "Fertig" }));
     expect(onUebernehmen).toHaveBeenCalledWith({ datum: "2026-10-20", von: "10:30", bis: "11:00" });
@@ -54,10 +61,10 @@ describe("Termin aus dem Kalender", () => {
     const onUebernehmen = blatt();
     fireEvent.click(screen.getByRole("button", { name: /^21\. Oktober/ }));
     const dialog = screen.getByRole("dialog", { name: "Termin wählen" });
-    fireEvent.change(within(dialog).getByLabelText("Von"), { target: { value: "10:00" } });
-    fireEvent.change(within(dialog).getByLabelText("Bis"), { target: { value: "09:00" } });
+    zeitTippen(within(dialog).getByLabelText("Von"), "10:00");
+    zeitTippen(within(dialog).getByLabelText("Bis"), "09:00");
     expect((screen.getByRole("button", { name: "Fertig" }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(within(dialog).getByLabelText("Von"), { target: { value: "" } });
+    zeitTippen(within(dialog).getByLabelText("Von"), "");
     fireEvent.click(screen.getByRole("button", { name: "Fertig" }));
     expect(onUebernehmen).toHaveBeenCalledWith({ datum: "2026-10-21", von: null, bis: null });
     expect(terminWahlText({ datum: "2026-10-21", von: "10:00", bis: "10:30" })).toBe("Mi 21.10.2026 · 10:00 – 10:30 Uhr");

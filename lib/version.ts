@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v167";
+export const APP_VERSION = "v168";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v168", datum: "2026-10-19", titel: "Uhrzeit tippen oder wählen",
+    punkte: [
+      "Beim Termin lässt sich die Uhrzeit jetzt einfach tippen – „9“, „930“, „14:45“ oder „14.45“ – oder aus einer Liste im Viertelstundentakt wählen. Am Rechner wie am Handy.",
+      "Beim „bis“-Feld zeigt die Liste nur Zeiten nach dem Beginn, jeweils mit der Dauer daneben.",
+    ],
+  },
   {
     version: "v167", datum: "2026-10-19", titel: "Neuladen bleibt, wo man ist – Fenster gleichen sich ab",
     punkte: [

@@ -115,6 +115,7 @@ viana-pinpoints/
     QrScanner.tsx                   Kamera-Scan für Lagerplatz-/Reifensatz-Aufkleber
     FehlerHinweis.tsx               Zentrale Fehlermeldung oben, aus unbehandelten Ablehnungen (C5/C6, v106)
     KennzeichenFeld.tsx             Eingabefeld für Kennzeichen, schreibt immer groß (v108)
+    ZeitFeld.tsx                  Uhrzeit tippen oder aus der Viertelstundenliste wählen (v168; statt type="time")
     SuchFeld.tsx                    Suchfeld der Listen mit × zum Leeren, auch am iPhone (v110)
     PwaBereit.tsx / PwaFassung.tsx / PwaInstallieren.tsx
                                     Installations-/Update-Mechanik der PWA
@@ -302,6 +303,7 @@ viana-pinpoints/
     sprungMerker.ts               QR-/Benachrichtigungs-Sprung übersteht das erste Neuladen (D19, v106)
     ansichtMerker.ts              Reiter, System und Einsatzplanungs-Ansicht je Fenster über F5 hinweg (sessionStorage, v167)
     fensterAbgleich.ts            Fenster desselben Browsers verwerfen gemeinsam (BroadcastChannel, v167)
+    zeitEingabe.ts                Uhrzeit aus freier Eingabe lesen, Auswahlliste im Viertelstundentakt (v168)
     wischen.ts                    Wann ein Wisch im Kalender als Blättern zählt (v107)
     auftragsAnsicht.ts / kundenAnsicht.ts / lagerAnsicht.ts / saisonAnsicht.ts / terminAnsicht.ts
                                   Die Regeln hinter den neu gestalteten Listen (Entwürfe H–L,

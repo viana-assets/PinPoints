@@ -16,6 +16,9 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **19.10.2026 – Uhrzeit tippen oder wählen (Service Worker v168, ohne Migration).** Neues Zeitfeld im Auftragsfenster und
+  im Blatt „Termin wählen“: freie Eingabe („930“, „14.45“) oder Liste im Viertelstundentakt. Wunsch Vitali. `docs/auftraege.md` (4).
+
 * **19.10.2026 – F5 bleibt, wo man ist; Fenster gleichen sich ab (Service Worker v167, ohne Migration).** Reiter und
   Einsatzplanungs-Ansicht je Fenster über das Neuladen, Änderungen erscheinen sofort in den anderen Fenstern desselben
   Browsers. Wunsch Vitali. `docs/auftraege.md` (Abschnitt 5, „Neuladen und mehrere Fenster“).

@@ -1,3 +1,4 @@
+import { ZeitFeld } from "@/components/ZeitFeld";
 import { useRef, useState } from "react";
 import type { Customer, Employee, Order } from "@/lib/types";
 import { addDays, employeeColorFor, isoWeekNumber, startOfWeekMonday, toDateStr } from "@/lib/calendar";
@@ -180,8 +181,8 @@ export function TerminWahlBlatt({ order, start, auftraege, zuordnungen, customer
             <button type="button" onClick={() => tagBlaettern(1)} aria-label="Tag vor">›</button>
           </div>
           <div className="tw-wahl">
-            <label className="nk-feld"><span>Von</span><input type="time" value={von} onChange={(e) => vonAendern(e.target.value)} aria-label="Von" /></label>
-            <label className="nk-feld"><span>Bis</span><input type="time" value={bis} disabled={!von} onChange={(e) => setBis(e.target.value)} aria-label="Bis" /></label>
+            <label className="nk-feld"><span>Von</span><ZeitFeld wert={von} onWert={vonAendern} ariaLabel="Von" /></label>
+            <label className="nk-feld"><span>Bis</span><ZeitFeld wert={bis} disabled={!von} onWert={setBis} ab={von || null} ariaLabel="Bis" /></label>
           </div>
           <p className="bl-hilfe">
             {von ? (bisOk ? terminWahlText({ datum: tag, von, bis: bis || null }) : "„Bis“ muss nach „Von“ liegen.") : "In den Tagesplan tippen – dort, wo der Termin beginnen soll."}

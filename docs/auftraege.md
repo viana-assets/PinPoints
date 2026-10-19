@@ -238,6 +238,16 @@ eine NOT-NULL-Regel würde genau diesen Weg verbauen). Sie gilt für jeden, der 
 darf – seit Migration 41 also auch für den Techniker an seinen eigenen Aufträgen (bis 04.10.2026
 stand hier „nicht für Techniker"; das galt nur, solange er ausschließlich die Notiz schreiben durfte).
 
+### Uhrzeit eingeben (v168, 19.10.2026)
+
+Von und bis sind im Auftragsfenster und im Blatt „Termin wählen“ kein `<input type="time">` mehr, sondern
+`components/ZeitFeld.tsx`: ein Textfeld, das „9“, „930“, „0930“, „9:30“, „9.30“, „9 30“, „14 Uhr“ versteht
+(`zeitAusEingabe`, lib/zeitEingabe.ts) und beim Verlassen bzw. mit Enter übernimmt, dazu eine Liste im
+Viertelstundentakt von 6 bis 21 Uhr (`ZEIT_WAHL`), mit Pfeiltasten, Enter oder Klick. Im „bis“-Feld nur Zeiten nach dem
+Beginn, mit Dauer. Nicht Lesbares wird verworfen. Anlass: Edge bot am Rechner eine Minutenrolle mit 60 Einträgen, Tippen
+ging nur Stelle für Stelle (Bildschirmfoto Vitali). Die Liste schließt per `preventDefault` am Klick, weil das Feld in
+einem `<label>` steht, dessen Klick sonst den Fokus zurückholte.
+
 ## 5. Einsatzplanung: Monats-, Wochen- und Tagesansicht
 
 **Neugestaltung am 25.09.2026 (Service Worker v69)** nach Entwurf „F · Gleiche Funktionen, neu
