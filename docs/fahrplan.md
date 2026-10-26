@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.10.2026 – Packliste als eigene Seite (Service Worker v171, ohne Migration).** Neuer Reiter „Packliste“ zwischen
+  Saisonliste und Zeiterfassung (Entwurf Mockup_Packliste_v1, abgenommen): Zeitraum bis drei Monate, je Tag Sätze aus dem
+  Lager mit dem Dashboard-Haken, reservierte Verkaufsreifen, Leistungen, Größen; „Gesamt“ nach Lagerplatz und Größen je
+  Kalenderwoche; Drucken, CSV; im Dashboard „Ganze Packliste ›“. Wunsch Vitali. `docs/auftraege.md` (5c).
+
 * **26.10.2026 – Rückfrage beim Auslagern ohne Einlagerung (Service Worker v170, ohne Migration).** Vor dem Abschluss
   eines Auftrags, mit dem Reifen aus dem Lager gehen und auf dem nichts eingelagert ist: Tausch, anderer Platz oder
   bewusst freigeben. `docs/auftraege.md` (8 d).

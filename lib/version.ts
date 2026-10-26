@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v170";
+export const APP_VERSION = "v171";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v171", datum: "2026-10-26", titel: "Packliste als eigene Seite",
+    punkte: [
+      "Neu im Menü unter Saisonliste: „Packliste“. Sie zeigt nicht nur heute und morgen, sondern beliebig weit voraus – Diese Woche, Nächste Woche, 14 Tage oder alle anstehenden (bis drei Monate).",
+      "Je Tag: welche Sätze aus dem Lager mitmüssen (zum Abhaken, derselbe Haken wie im Dashboard), reservierte Verkaufsreifen, Leistungen und Reifengrößen. Filter je Mitarbeiter.",
+      "„Gesamt“: alle Sätze nach Lagerplatz sortiert – einmal durchs Regal – und die Reifengrößen je Kalenderwoche zum Vorbestellen. Drucken und CSV gehen auch.",
+    ],
+  },
   {
     version: "v170", datum: "2026-10-26", titel: "Rückfrage beim Auslagern ohne Einlagerung",
     punkte: [

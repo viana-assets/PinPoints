@@ -4650,3 +4650,89 @@ button.zt-m-zeile:hover{background:var(--hover);}
 /* Einstellungen › Navigation (v169): Hinweis ohne Adresse, Bearbeiten-Formular. */
 .es-warn{color:#b42318;font-weight:600;}
 .ln-form .nk-feld input{background:var(--bg);}
+
+/* ---------------------------------------------------------------- Packliste (v171)
+   Eigene Seite statt nur der beiden Dashboard-Karten (Entwurf Mockup_Packliste_v1). Die Zeilen der Sätze
+   sind dieselben wie im Dashboard (`.db-mit-zeile`, `.db-haken`, `.db-platz`), Leistungen und Größen
+   kommen aus `PacklisteBlock` (`.pk-*`). Hier steht nur, was die Seite zusätzlich braucht. */
+.pa-seite{display:flex;flex-direction:column;gap:12px;padding-bottom:12px;}
+.pa-knoepfe{display:flex;gap:6px;flex:0 0 auto;}
+.pa-reihe{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+.pa-reihe > .pl-filter{min-width:0;}
+.pa-segment{flex:0 0 auto;}
+.pa-kacheln{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;}
+.pa-kachel{background:var(--panel);border-radius:16px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;}
+.pa-kachel b{font-family:var(--font-brand);font-size:24px;line-height:1.1;}
+.pa-kachel > span{font-size:13px;color:var(--muted);}
+.pa-kachel.warn b{color:var(--red);}
+.pa-balken{display:block;height:6px;border-radius:3px;background:var(--bg);margin-top:6px;overflow:hidden;}
+.pa-balken i{display:block;height:100%;background:var(--green);}
+.pa-tage{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(440px,100%),1fr));gap:12px;align-items:start;}
+.pa-woche{grid-column:1 / -1;font-family:var(--font-brand);font-weight:700;font-size:13px;letter-spacing:.06em;color:var(--muted);
+  text-transform:uppercase;padding:6px 4px 0;}
+.pa-woche .small{text-transform:none;letter-spacing:0;font-family:var(--font-body);font-weight:500;}
+.pa-tag-kopf{display:flex;align-items:center;gap:10px;width:100%;background:none;border:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer;}
+.pa-datum{width:46px;height:50px;border-radius:14px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;flex:0 0 auto;}
+.pa-datum small{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;}
+.pa-datum b{font-family:var(--font-brand);font-size:20px;line-height:1;}
+.pa-tag.heute .pa-datum{background:var(--accent);color:#fff;}
+.pa-tag.heute .pa-datum small{color:#fff;}
+.pa-tag-titel{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0;}
+.pa-tag-titel .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pa-marke{font-family:var(--font-body);font-size:11px;font-weight:700;border-radius:6px;padding:2px 6px;margin-left:6px;vertical-align:2px;}
+.pa-marke.heute{background:var(--accent-bg);color:var(--accent);}
+.pa-marke.morgen{background:var(--blau-bg);color:var(--blau);}
+.pa-pfeil{width:30px;height:30px;border-radius:50%;background:var(--bg);display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:transform .15s;}
+.pa-tag.offen .pa-pfeil{transform:rotate(180deg);}
+.pa-kurz{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+.pa-kurz span{background:var(--bg);border-radius:8px;padding:3px 8px;font-size:12.5px;font-weight:600;}
+.pa-kurz span.gruen{background:var(--green-bg);color:var(--green);}
+.pa-kurz span.rot{background:var(--red-bg);color:var(--red);}
+.pa-abschnitt{border-top:1px solid var(--border);margin-top:10px;padding-top:8px;}
+.pa-abschnitt .pk-block{margin-top:0;}
+.pa-abschnitt-kopf{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+.pa-stand{font-size:12.5px;font-weight:700;color:#c2410c;white-space:nowrap;}
+.pa-stand.fertig{color:var(--green);}
+.pa-leer{padding:6px 0;}
+.pa-verkauf{cursor:default;}
+.pa-haken-leer{border-style:dashed;}
+.db-platz.pa-platz-vk{background:var(--accent-bg);color:#a33a10;}
+.pa-auftraege{border-top:1px solid var(--border);margin-top:10px;padding-top:8px;display:flex;flex-wrap:wrap;gap:6px;}
+.pa-auftrag{background:none;border:1px solid var(--border);border-radius:999px;padding:4px 10px;font:inherit;font-size:12.5px;color:var(--text);cursor:pointer;}
+.pa-auftrag:hover{background:var(--hover);}
+.pa-gesamt{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(520px,100%),1fr));gap:12px;align-items:start;}
+.pa-spalte{display:flex;flex-direction:column;gap:12px;min-width:0;}
+/* Ein Rasterkind ist sonst mindestens so breit wie seine Tabelle – am Handy schob das die ganze Seite zur Seite. */
+.pa-gesamt > *,.pa-tage > *{min-width:0;}
+.pa-unter{display:block;margin:2px 0 8px;}
+.pa-tabelle-rolle{overflow-x:auto;}
+.pa-tabelle{width:100%;border-collapse:collapse;font-size:13.5px;}
+.pa-tabelle th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:left;padding:6px;border-bottom:1px solid var(--border);}
+.pa-tabelle td{padding:6px;border-bottom:1px solid #f1ece2;vertical-align:middle;}
+.pa-tabelle .z{text-align:right;font-variant-numeric:tabular-nums;}
+.pa-tabelle .db-platz{font-size:14px;padding:3px 8px;}
+.pa-lager td{background:var(--bg);font-family:var(--font-brand);font-weight:700;}
+.pa-ok{color:var(--green);font-weight:700;font-size:12.5px;}
+.pa-zelle{display:inline-block;min-width:26px;text-align:center;border-radius:7px;padding:2px 5px;font-weight:700;background:var(--accent-bg);}
+.pa-null{color:var(--frei-linie);}
+.pa-leistungen{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+.pa-leistung{display:grid;grid-template-columns:1fr 45%;gap:10px;align-items:center;font-size:13.5px;}
+.pa-leistung-balken{display:flex;align-items:center;gap:8px;}
+.pa-leistung-balken i{display:block;height:8px;border-radius:4px;background:var(--accent);opacity:.85;}
+.db-pk-weiter{margin-top:10px;}
+.druckbogen.pa-dokument{display:block;max-height:none;overflow:visible;background:#ffffff;color:#000000;padding:18px 20px;}
+.pa-dokument h1{font-size:17px;margin:0 0 8px;}
+.pa-dokument h2{font-size:14px;margin:14px 0 4px;}
+.pa-dokument p{margin:3px 0;font-size:12px;}
+.pa-druck-tag{break-inside:avoid;page-break-inside:avoid;}
+.pa-kaestchen{width:18px;font-size:14px;}
+@media (max-width:700px){
+  .pa-reihe{flex-direction:column;align-items:stretch;flex-wrap:nowrap;}
+  .pa-reihe > .pl-filter,.pa-seite .lg-leiste > .pl-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .pa-kacheln{grid-template-columns:repeat(3,1fr);gap:8px;}
+  .pa-kachel{padding:9px 10px;border-radius:14px;}
+  .pa-kachel b{font-size:20px;}
+  .pa-kachel > span{font-size:11.5px;}
+  .pa-knoepfe .es-knopf{height:34px;padding:0 10px;}
+  .pa-satz-spalte{display:none;}
+}

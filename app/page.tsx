@@ -116,6 +116,7 @@ import { TerminePanel } from "@/components/termine/TerminePanel";
 import { imZeitraum, terminPhase } from "@/lib/terminAnsicht";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { DashboardPanel } from "@/components/dashboard/DashboardPanel";
+import { PacklistePanel } from "@/components/packliste/PacklistePanel";
 import { KundenListePanel } from "@/components/kunden/KundenListePanel";
 import { anfangsbuchstabe, anzeigeName, kundenArtPasst, kundenArtZahlen, rueckrufFaellig, type KundenArt } from "@/lib/kundenAnsicht";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
@@ -252,7 +253,7 @@ export default function HomePage() {
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
   // darauf verlassen kann (Hooks dürfen nicht erst nach einem bedingten Return kommen).
-  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung" || tab === "rechnungen" || tab === "zeit";
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung" || tab === "rechnungen" || tab === "zeit" || tab === "packliste";
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), die
   // Oberfläche blendet zusätzlich Anlegen/Löschen/Mitarbeiter- und Leistungen-Zuordnung aus –
   // siehe AuftraegePanel/EinsatzplanungPanel.
@@ -391,13 +392,13 @@ export default function HomePage() {
   // beim Tabwechsel zu holen würde nur flackern, ohne etwas zu sparen. Alles andere kommt beim
   // Öffnen des jeweiligen Moduls bzw. des Kundendetails.
   const kundeOffen = selectedId !== null;
-  const brauchtMitarbeiter = tab === "auftraege" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || tab === "auswertung" || kundeOffen;
+  const brauchtMitarbeiter = tab === "auftraege" || tab === "packliste" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || tab === "auswertung" || kundeOffen;
   // Dashboard und Mitnehmen-Fenster seit v100 auch: Die Packliste nennt die Leistungen beim Namen (E2).
-  const brauchtArtikel = tab === "artikel" || tab === "more" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || tab === "dashboard" || kundeOffen || mitnehmenDatum !== null;
+  const brauchtArtikel = tab === "artikel" || tab === "more" || tab === "packliste" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || tab === "dashboard" || kundeOffen || mitnehmenDatum !== null;
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
   // Lagerplätze, Lager und Einlagerungen – auch dann, wenn es aus dem Aufträge-Tab heraus
   // geöffnet wurde und gar kein Kundendetail offen ist.
-  const brauchtLager = tab === "lager" || tab === "saison" || tab === "dashboard" || tab === "settings" || kundeOffen || offenerAuftragId !== null || mitnehmenDatum !== null;
+  const brauchtLager = tab === "lager" || tab === "saison" || tab === "dashboard" || tab === "packliste" || tab === "settings" || kundeOffen || offenerAuftragId !== null || mitnehmenDatum !== null;
 
   const kundenQuery = useKunden(supabase, sitzungBereit);
   // "Kein Netz" aus DREI Quellen, weil keine für sich zuverlässig ist:
@@ -434,7 +435,7 @@ export default function HomePage() {
   // (Migration 30).
   // Auch für die Artikelauswertung: „wie viel geht auf ein Fahrzeug" braucht die Kennzeichen
   // aller Fahrzeuge, nicht nur die des geöffneten Kunden.
-  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison" || tab === "dashboard" || tab === "auswertung" || mitnehmenDatum !== null));
+  const alleFahrzeugeQuery = useFahrzeuge(supabase, sitzungBereit && (tab === "lager" || tab === "saison" || tab === "dashboard" || tab === "packliste" || tab === "auswertung" || mitnehmenDatum !== null));
   // Die eigenen Transporter: kleine Stammdatenliste, gebraucht überall dort, wo ein Auftrag
   // gezeigt oder eingeteilt wird (Migration 32).
   const firmenfahrzeugeQuery = useFirmenfahrzeuge(
@@ -2132,6 +2133,7 @@ export default function HomePage() {
             onZuAnrufliste={() => { setFilter("offen"); setTab("list"); }}
             onZuRueckrufe={() => { setFilter("rueckruf"); setTab("list"); }}
             onZuRechnungen={canView("rechnungen") ? () => setTab("rechnungen") : undefined}
+            onZuPackliste={canView("auftraege") ? () => setTab("packliste") : undefined}
           />
         )}
 
@@ -2222,6 +2224,30 @@ export default function HomePage() {
             darfAnlegen={darf("auftraege.anlegen", "schreiben")}
           />
           </>
+        )}
+
+        {/* Packliste (v171): was wann mit muss, für einen wählbaren Zeitraum. Dieselben Regeln wie die
+            Karten im Dashboard (lib/packlisteAnsicht.ts). */}
+        {tab === "packliste" && canView("auftraege") && (
+          <PacklistePanel
+            supabase={supabase}
+            orders={orders}
+            orderEmployees={orderEmployees}
+            customers={customers}
+            employees={employees}
+            filterMitarbeiter={sichtbareMitarbeiter}
+            tireStorages={tireStorages}
+            storageSlots={storageSlots}
+            warehouses={warehouses}
+            vehicles={alleFahrzeuge}
+            orderArticles={orderArticles}
+            articles={articles}
+            verkaufsreifen={verkaufsreifen}
+            darfLager={canView("lager") && darf("lager.einlagerung", "lesen")}
+            lagerLaedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
+            isTechniker={isTechniker}
+            onOpenOrder={setOffenerAuftragId}
+          />
         )}
 
         {tab === "saison" && canView("saison") && (

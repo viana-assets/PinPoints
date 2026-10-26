@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import {
   IconDashboard, IconKunden, IconAuftraege, IconTermine, IconLager, IconSaison,
-  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconRechnung, IconAdmin, IconSettings, IconZeit,
+  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconRechnung, IconAdmin, IconSettings, IconZeit, IconPackliste,
 } from "@/components/icons";
 
 // Die Module der Anwendung – EINE Liste für beide Navigationen.
@@ -17,7 +17,7 @@ import {
 
 export type TabKey =
   | "dashboard" | "list" | "termine" | "lager" | "saison" | "einsatzplanung"
-  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "rechnungen" | "zeit" | "more";
+  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "rechnungen" | "zeit" | "packliste" | "more";
 
 export type ModulEintrag = {
   tab: TabKey;
@@ -53,6 +53,9 @@ export const MODULE: ModulEintrag[] = [
   { tab: "termine",        label: "Termine",          beschreibung: "Chronologische Terminübersicht (Aufträge mit Uhrzeit)",     Icon: IconTermine,        sichtbar: "termine",           trennerDavor: "linie" },
   { tab: "lager",          label: "Lager",            beschreibung: "Lager & Lagerplätze verwalten, Reifen zuordnen",            Icon: IconLager,          sichtbar: "lager" },
   { tab: "saison",         label: "Saisonliste",      beschreibung: "Wer hat welche Reifen bei uns liegen – die Anrufliste",     Icon: IconSaison,         sichtbar: "saison" },
+  // Packliste (v171): was wann mit muss, für einen wählbaren Zeitraum. Kein eigenes Recht – sie zeigt
+  // nur Aufträge, also „Aufträge · lesen“; die Lagerplätze darin nur mit Lagerrecht.
+  { tab: "packliste",      label: "Packliste",        beschreibung: "Was wann mit muss – Reifen, Leistungen, Größen",             Icon: IconPackliste,      sichtbar: "auftraege" },
   // Stempeluhr (Migration 82, v131). Ohne „Zeiterfassung · lesen“ unsichtbar – so sind die
   // Techniker ab Werk eingestellt.
   { tab: "zeit",           label: "Zeiterfassung",    beschreibung: "Stempeluhr, Tag und Woche – für dich und das Team",         Icon: IconZeit,           sichtbar: "zeiterfassung" },
@@ -81,7 +84,7 @@ export const SEKUNDAERE_TABS: TabKey[] = MODULE.filter((m) => !m.primaer).map((m
 // hier fehlt, landet in „Sonstiges" – es verschwindet nicht, wenn jemand ein neues Modul ergänzt
 // und diese Liste vergisst (`weitereGruppen`).
 export const WEITERE_GRUPPEN: { titel: string; tabs: TabKey[] }[] = [
-  { titel: "Unterwegs", tabs: ["termine", "saison"] },
+  { titel: "Unterwegs", tabs: ["termine", "saison", "packliste"] },
   { titel: "Team", tabs: ["zeit"] },
   { titel: "Lager", tabs: ["lager"] },
   { titel: "Kunden", tabs: ["add", "inactive"] },

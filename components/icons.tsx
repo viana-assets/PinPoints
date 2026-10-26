@@ -97,6 +97,17 @@ export function IconSaison() {
   );
 }
 
+// Packliste (v171): Klemmbrett mit zwei abgehakten Zeilen.
+export function IconPackliste() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="4.5" width="14" height="16.5" rx="2.5" />
+      <path d="M9.5 3h5v3h-5z" />
+      <path d="m8.5 11 1.3 1.3 2.2-2.4M14 11h2M8.5 16l1.3 1.3 2.2-2.4M14 16h2" />
+    </svg>
+  );
+}
+
 export function IconAuftraege() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">

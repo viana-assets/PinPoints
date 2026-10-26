@@ -170,6 +170,8 @@ viana-pinpoints/
       ChatFoto.tsx                   Foto im Verlauf (Seitenverhältnis vorab) und groß (Ebene 10004, v137)
     termine/
       TerminePanel.tsx               Reiter „Termine" als Zeitleiste je Tag (Entwurf L)
+    packliste/
+      PacklistePanel.tsx             Reiter „Packliste“: was wann mit muss, Zeitraum, je Tag / Gesamt, Drucken, CSV (v171)
     WeiterePanel.tsx                Handy-Seite „Weitere": Kacheln nach `WEITERE_GRUPPEN`, je
                                     Kachel ein Hinweis, ob dort etwas wartet (Entwurf V)
     kunden/
@@ -324,6 +326,7 @@ viana-pinpoints/
       speicher.ts                 Der Ausgangskorb in der IndexedDB, `useAusgang()`
       senden.ts                   Übertragen der Reihe nach, Konflikt entscheiden
     packliste.ts                  Packliste des Tages: Leistungen und Reifengrößen (E2, v100)
+    packlisteAnsicht.ts           Seite „Packliste“: Zeiträume, Tage mit Sätzen/Verkaufsreifen, Gesamt je KW, nach Platz (v171)
     telefon.ts                    Telefonnummern in Vergleichsform, Suche (D10, v102)
     dubletten.ts                  Dubletten finden: Gründe, Paare, Vorschlag fürs Zusammenführen (E1, v103)
     auskunft.ts                   Auskunftsauszug als Zeilen (E10, v103)

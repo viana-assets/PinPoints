@@ -653,6 +653,30 @@ Kartennadeln steuert (`terminKundenIds`).
   in der ersten Zeile „⋯" mit Auftrag öffnen, Kunde öffnen, Mitarbeiter zuteilen (nicht für
   Techniker). Ein Tippen auf die Karte öffnet das Auftragsfenster – wie seit 29.08.2026.
 
+## 5c. Die Packliste (v171, eigene Seite)
+
+Wunsch Vitali 26.10.2026: Die Packliste im Dashboard gibt es nur für heute und morgen; gebraucht wird der Blick weiter
+voraus – was muss wann mit. Entwurf `Claude outputs/Mockup_Packliste_v1.html`, abgenommen mit „ja passt“.
+
+- **Wo:** eigener Reiter „Packliste“ zwischen Saisonliste und Zeiterfassung (`lib/module.ts`), am Handy unter „Weitere ›
+  Unterwegs“. Sichtbar mit „Aufträge · lesen“ – kein eigenes Recht, die Seite zeigt nur Aufträge.
+- **Zeitraum:** Heute, Morgen, Diese Woche (ab heute bis Sonntag), Nächste Woche, 14 Tage (Vorgabe), Alle anstehenden –
+  höchstens drei Monate (`PACKLISTE_HORIZONT_TAGE`). Vergangene Tage gehören nicht dazu.
+- **Filter:** je Mitarbeiter und „Ohne Mitarbeiter“ (nur wer im Horizont Aufträge hat; ein Techniker sieht nur sich).
+- **Je Tag** (nach Kalenderwochen gruppiert, die ersten beiden Tage aufgeklappt, die übrigen mit Kurzzeile): Sätze aus
+  dem Lager mit Haken „eingeladen“, reservierte Verkaufsreifen (`order_articles.verkaufsreifen_id`), Leistungen und
+  Reifengrößen (`PacklisteBlock`), darunter die Aufträge des Tages zum Öffnen.
+- **Gesamt:** „Im Lager vorbereiten“ – alle Sätze nach Lager und Platz in natürlicher Reihenfolge (`nachPlatz`);
+  Reifengrößen je Kalenderwoche; Leistungen im Zeitraum; reservierte Verkaufsreifen.
+- **Drucken** (Blatt `druck-fenster`, A4, Kästchen zum Abhaken) und **CSV** (Semikolon, für Excel).
+- **Dieselben Regeln wie im Dashboard** (`lib/packlisteAnsicht.ts`): Sätze nach `mitnehmenListe()`, Leistungen/Größen nach
+  `packliste()`. Neu nur: Über mehrere Tage steht ein Satz nur beim ERSTEN Termin des Kunden. Der Haken ist derselbe
+  (`mitnehmen_gepackt`, Migration 58, je Satz und Tag) – im Dashboard abgehakt heißt hier abgehakt.
+- **Rechte im Inhalt:** Sätze und „Im Lager vorbereiten“ nur mit Lagerrecht (`lager` und `lager.einlagerung` lesen, wie
+  im Dashboard). Verkaufsreifen liefert die Datenbank nur mit „Reifenverkauf · lesen“.
+- **Laden:** Aufträge aus dem Fenster „Aktuell“ (enthält alle offenen, auch künftige); die Fahrzeuge am Auftrag einmal für
+  alle offenen Aufträge bis zum Horizont. Im Dashboard steht unter der Packliste „Ganze Packliste – alle Tage ›“.
+
 ## 6. Das geladene Zeitfenster
 
 Aufträge wachsen anders als der Kundenstamm unbegrenzt mit jedem Betriebsjahr. Deshalb lädt die

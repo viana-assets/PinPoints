@@ -272,7 +272,7 @@ Eine Struktur, zwei Layouts (`#iconNav` in `app/page.tsx` + `globals.css`):
 
 - **Desktop**: `#iconNav` ist eine breite (232px), beschriftete Seitenleiste wie in einem
   ERP-System – Icon + Textlabel nebeneinander, alle Punkte direkt sichtbar (Dashboard,
-  Einsatzplanung, Aufträge, Kunden, Trenner, Termine/Lager/Saisonliste/Neuer Kunde/Inaktive/…,
+  Einsatzplanung, Aufträge, Kunden, Trenner, Termine/Lager/Saisonliste/Packliste/Zeiterfassung/Neuer Kunde/Inaktive/…,
   Abstandshalter, Admin/Einstellungen unten). Reihenfolge seit 23.09.2026 in der Reihenfolge
   des Tages: erst der Plan, dann die Arbeit, dann die Kartei. **Beim Öffnen** steht die App in
   der Einsatzplanung (`START_TAB` in `lib/module.ts`); ohne Leserecht dort fällt sie auf das

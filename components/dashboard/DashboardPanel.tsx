@@ -69,6 +69,8 @@ export function DashboardPanel(p: {
   // Nur die fälligen Rückrufe in der Kundenliste (Filter „rueckruf", 26.09.2026).
   onZuRueckrufe?: () => void;
   onZuRechnungen?: () => void;
+  // Die eigene Seite „Packliste“ (v171) – alle Tage statt nur heute und morgen.
+  onZuPackliste?: () => void;
   // Die Stempeluhr (Migration 82, v131) – ganz oben, nur mit dem Recht „Zeiterfassung“.
   stempeluhr?: React.ReactNode;
 }) {
@@ -299,6 +301,9 @@ export function DashboardPanel(p: {
             </span>
           </div>
           {fahrzeuge !== null && <PacklisteBlock liste={pack} />}
+          {p.onZuPackliste && (
+            <div className="db-pk-weiter"><button type="button" className="db-link" onClick={p.onZuPackliste}>Ganze Packliste – alle Tage ›</button></div>
+          )}
         </div>
 
         {punkte.length > 0 && (
