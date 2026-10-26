@@ -46,3 +46,12 @@ export function frueherEingelagert(saetze: TireStorage[], auftragId: string): Ti
     .filter((t) => t.order_id === auftragId && !!t.removed_at)
     .sort((a, b) => a.created_at.localeCompare(b.created_at) || a.id.localeCompare(b.id));
 }
+
+// v170: Die Sätze, die mit diesem Auftrag aus dem Lager GEHEN, während auf ihm NICHTS eingelagert ist. Für sie fragt das
+// Auftragsfenster vor dem Abschluss, ob die abmontierten Reifen wirklich nicht ins Regal sollen – sonst wird der Platz
+// frei und die andere Saison steht nirgends (meist ein vergessener Tausch). Ist schon ein Satz eingelagert (Tausch oder
+// neuer Platz), wird nicht gefragt. Geprüft in tests/lagerVormerkung.test.ts.
+export function gehenOhneEinlagerung<T extends Pick<TireStorage, "removed_at" | "entnahme_order_id">>(ausLager: T[], einlagerungen: unknown[]): T[] {
+  return einlagerungen.length ? [] : ausLager.filter((a) => istVorgemerkt(a));
+}
+

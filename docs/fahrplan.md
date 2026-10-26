@@ -16,6 +16,10 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **26.10.2026 – Rückfrage beim Auslagern ohne Einlagerung (Service Worker v170, ohne Migration).** Vor dem Abschluss
+  eines Auftrags, mit dem Reifen aus dem Lager gehen und auf dem nichts eingelagert ist: Tausch, anderer Platz oder
+  bewusst freigeben. `docs/auftraege.md` (8 d).
+
 * **19.10.2026 – Zum Lager navigieren (Migration 102, Service Worker v169).** Knopf „Zum Lager“ im Schnellmenü, Lager je
   Person unter Einstellungen › Navigation wählbar (Vorgabe: Hauptlager), Name und Adresse dort ergänzbar. Wunsch Vitali.
   `docs/lager.md`.

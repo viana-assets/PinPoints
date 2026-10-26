@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { frueherEingelagert, istVorgemerkt, lagerBis, saetzeAusDemLager, satzZustand } from "@/lib/lagerVormerkung";
+import { frueherEingelagert, gehenOhneEinlagerung, istVorgemerkt, lagerBis, saetzeAusDemLager, satzZustand } from "@/lib/lagerVormerkung";
 import type { TireStorage } from "@/lib/types";
 
 function satz(teil: Partial<TireStorage>): TireStorage {
@@ -43,5 +43,19 @@ describe("Sätze am Auftrag", () => {
   });
   it("zeigt, was hier eingelagert und später wieder herausgegeben wurde", () => {
     expect(frueherEingelagert(liste, "o1").map((t) => t.id)).toEqual(["d"]);
+  });
+});
+
+// v170: Frage vor dem Abschluss, wenn Reifen gehen und nichts kommt.
+describe("gehenOhneEinlagerung", () => {
+  const s = (id: string, removed_at: string | null, entnahme_order_id: string | null) => ({ id, removed_at, entnahme_order_id });
+  it("vorgemerkte Sätze ohne Einlagerung", () => {
+    expect(gehenOhneEinlagerung([s("a", null, "o"), s("b", "2026-10-01", "o")], []).map((x) => x.id)).toEqual(["a"]);
+  });
+  it("mit Einlagerung keine Frage", () => {
+    expect(gehenOhneEinlagerung([s("a", null, "o")], [{ id: "neu" }])).toEqual([]);
+  });
+  it("nichts vorgemerkt, nichts zu fragen", () => {
+    expect(gehenOhneEinlagerung([], [])).toEqual([]);
   });
 });

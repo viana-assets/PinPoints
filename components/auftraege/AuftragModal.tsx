@@ -26,7 +26,8 @@ import { IconNavPin } from "@/components/icons";
 import { ReifenNotizenAnzeige } from "@/components/lager/ReifenNotizen";
 import { EinlagerungBlock } from "./EinlagerungBlock";
 import { LagerSaetzeAmAuftrag } from "./LagerSaetzeAmAuftrag";
-import { istVorgemerkt } from "@/lib/lagerVormerkung";
+import { istVorgemerkt, gehenOhneEinlagerung } from "@/lib/lagerVormerkung";
+import { AuslagerFrage } from "./AuslagerFrage";
 import { RechnungsdatenBlock } from "./RechnungsdatenBlock";
 import { FahrzeugeBlock } from "./FahrzeugeBlock";
 import { AuftragProtokoll } from "./AuftragProtokoll";
@@ -398,6 +399,21 @@ export function AuftragModal({
   // Gefragt wird nur, wenn die Frage offen IST: kein Satz im Regal aus diesem Auftrag, und
   // niemand hat den Block schon von Hand aufgeklappt.
   const altreifenOffen = fragtAltreifen && einlagerungen.length === 0 && !gesperrt && !altreifenGefragt;
+  // v170 (Wunsch 26.10.2026): Gehen mit diesem Auftrag Reifen aus dem Lager, aber kommt nichts hinein, wird ihr Platz
+  // beim Abschluss frei – und die abmontierten Reifen der anderen Saison stehen nirgends. Meist ist das ein vergessener
+  // Tausch. Deshalb vor dem Abschluss EINMAL fragen (wie bei den Altreifen, sperrt nichts); diese Frage ersetzt die
+  // Altreifen-Frage, weil sie genauer ist.
+  const [auslagerFrage, setAuslagerFrage] = useState(false);
+  const [auslagerGefragt, setAuslagerGefragt] = useState(false);
+  const gehenRaus = gehenOhneEinlagerung(ausLagerSaetze, einlagerungen);
+  const auslagerOffen = !gesperrt && gehenRaus.length > 0 && !auslagerGefragt;
+  const platzText = (satzId: string) => {
+    const satz = ausLagerSaetze.find((a) => a.id === satzId);
+    const platz = storageSlots.find((sl) => sl.id === satz?.storage_slot_id);
+    if (!platz) return "ein Platz";
+    const lager = warehouses.find((w) => w.id === platz.warehouse_id);
+    return [lager?.name, platz.code].filter(Boolean).join(" · ");
+  };
 
   const aktiveFirmenfahrzeuge = firmenfahrzeuge.filter((f) => f.aktiv);
 
@@ -586,9 +602,14 @@ export function AuftragModal({
   function abschliessen() {
     // Die Frage schiebt sich EINMAL dazwischen und sperrt nichts: Wer sie beantwortet, ist im
     // selben Klick fertig.
+    if (auslagerOffen) { setAuslagerFrage(true); setAuslagerGefragt(true); setAltreifenGefragt(true); return; }
     if (altreifenOffen) { setAltreifenFrage(true); setAltreifenGefragt(true); return; }
     // D13: Ohne eine einzige Leistung abzuschließen ist fast immer ein Versehen – danach sind die
     // Positionen eingefroren. Einmal fragen, nicht sperren: Eine Kulanzfahrt ohne Berechnung gibt es.
+    abschliessenOhneFragen();
+  }
+  // Nach den Fragen: nur noch die Rückfrage ohne Leistung, dann abschließen.
+  function abschliessenOhneFragen() {
     if (orderArticles.length === 0 && !confirm("Für diesen Auftrag ist keine Leistung eingetragen. Trotzdem als erledigt abschließen? Danach lassen sich keine Leistungen mehr eintragen.")) return;
     void statusSetzen("erledigt");
   }
@@ -1418,6 +1439,20 @@ export function AuftragModal({
             </button>
           </div>
         </div>
+      )}
+
+      {/* ---------------------------------------------------------------- Blatt: Reifen gehen raus, nichts kommt rein */}
+      {/* v170: Eine Frage, keine Sperre. Erste Wahl ist der Tausch auf denselben Platz – so bleibt der Platz belegt
+          und die andere Saison liegt, wo die alte lag. */}
+      {auslagerFrage && (
+        <AuslagerFrage
+          saetze={gehenRaus.map((a) => ({ id: a.id, platz: platzText(a.id) }))}
+          laeuft={tauschLaeuft}
+          onTausch={onTausch ? async (id) => { setAuslagerFrage(false); setTauschLaeuft(true); try { await onTausch(id); } finally { setTauschLaeuft(false); } } : undefined}
+          onAndererPlatz={() => { setAuslagerFrage(false); setEinlagerungOffen(true); }}
+          onAbschliessen={() => { setAuslagerFrage(false); abschliessenOhneFragen(); }}
+          onClose={() => setAuslagerFrage(false)}
+        />
       )}
 
       {/* ---------------------------------------------------------------- Blatt: Stornieren */}

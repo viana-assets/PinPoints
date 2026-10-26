@@ -223,6 +223,7 @@ viana-pinpoints/
                                      aufklappbar, Blatt „Leistung hinzufügen" (Migration 38/50)
       EinlagerungBlock.tsx            Reifen ein-/auslagern direkt am Auftrag
       LagerSaetzeAmAuftrag.tsx        „Aus dem Lager“ / „Hier eingelagert“ – Platz am Auftrag, auch nach dem Auslagern (v111)
+      AuslagerFrage.tsx               Rückfrage vor dem Abschluss: Reifen gehen raus, nichts kommt rein (v170)
       FahrzeugeBlock.tsx              Fahrzeuge am Auftrag inkl. Kilometerstand, immer sichtbar
                                       (Migration 44/51)
       RechnungsdatenBlock.tsx         Rechnungs-Checkliste am Auftrag, prüft die Fahrzeuge nur

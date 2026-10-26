@@ -790,6 +790,13 @@ Leistung, bei der alte Reifen anfallen … Nimmt der Kunde die alten Reifen mit?
 über `articles.fragt_einlagerung`, höchstens einmal gestellt und ohne den Abschluss zu
 blockieren.
 
+**Seit v170 (Wunsch 26.10.2026) die genauere Frage zuerst:** Gehen mit dem Auftrag Sätze aus dem Lager
+(vorgemerkt), ist auf ihm aber nichts eingelagert (`gehenOhneEinlagerung`, lib/lagerVormerkung.ts), fragt das
+Fenster vor dem Abschluss „Abmontierte Reifen nicht einlagern?“ und nennt die Plätze, die frei würden
+(`components/auftraege/AuslagerFrage.tsx`). Wahl: Tausch auf denselben Platz (mit Recht `lager.tausch`), anderer
+Platz (öffnet die Einlagerung) oder „Kunde behält sie – Platz freigeben und abschließen“. Einmal gefragt, sperrt
+nichts, und sie ersetzt die Altreifen-Frage für diesen Auftrag.
+
 Bestehen bleibt eine andere, im Auftragsfenster clientseitig geprüfte Vorschau (Migration 30,
 nicht Teil von Migration 22): jede an diesem Auftrag hängende Einlagerung sollte Fahrzeug und
 Saison tragen; fehlt eines, steht „Fehlt noch: Fahrzeug/Saison" am Abschließen-Knopf – der
