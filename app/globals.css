@@ -837,7 +837,12 @@
    einer Reparatur.
 
    Steht am Dateiende, weil einzelne spätere Regeln (.login-box input) dieselbe Spezifität
-   haben – bei Gleichstand gewinnt die zuletzt notierte Regel. */
+   haben – bei Gleichstand gewinnt die zuletzt notierte Regel.
+   NACHTRAG v174: Für Textfelder (input) trägt die lange Ausschlussliste unten die Regel. Für textarea
+   und select hat sie das NICHT getan – die Datei ist über diese Stelle hinausgewachsen, und spätere
+   Regeln wie `.nk-feld textarea` (14,5px) gewannen. Folge: „Was fehlt?“ zoomte am iPhone hinein und
+   blieb vergrößert (gemeldet 29.10.2026). Die Regel für textarea/select steht deshalb jetzt ganz am
+   Dateiende, mit einer Klasse mehr Gewicht; tests/eingabeZoom.test.ts wacht darüber. */
 @media (max-width: 700px){
   /* Formularzeilen MIT Datums- oder Uhrzeitfeld brechen um, statt überzulaufen.
      Der Fall: Datum + Uhrzeit nebeneinander im Auftragsfenster. Safari gibt diesen beiden
@@ -3961,6 +3966,13 @@ button.ch-bezug:hover{background:#efe8da;}
 .ch-bezug-text .ch-oeffnen{font-size:12px;font-weight:700;color:#b33d0d;margin-top:2px;}
 .ch-bezug.lager .ch-oeffnen{color:var(--blau);}
 .ch-bezug.kunde .ch-oeffnen{color:var(--green);}
+/* v174 (Migration 105): Karten „Bestellung“ und „Packliste“. */
+.ch-bezug.bestellung{border-left-color:#a86a00;}
+.ch-bezug.bestellung .ch-sym{background:#a86a00;}
+.ch-bezug.bestellung .ch-oeffnen{color:#8a5700;}
+.ch-bezug.packliste{border-left-color:var(--navy);}
+.ch-bezug.packliste .ch-sym{background:var(--navy);}
+.ch-bezug.packliste .ch-oeffnen{color:var(--navy);}
 .ch-bezug.klein{margin-bottom:7px;}
 .ch-bezug.klein .ch-sym{width:22px;height:22px;border-radius:6px;font-size:11px;}
 .ch-weg{border:none;background:transparent;font-weight:800;color:var(--muted);font-size:15px;cursor:pointer;padding:2px 4px;margin-left:auto;}
@@ -4804,3 +4816,18 @@ button.zt-m-zeile:hover{background:var(--hover);}
 }
 .bw-blase svg{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
 .bw-blase svg circle{fill:#fff;stroke:none;}
+
+/* v174: Name des Eintragenden in der Bestellliste; Packliste aus einer Chat-Karte und „In den Chat“ je Tag. */
+.bw-text .bw-wer{font-size:inherit;font-weight:700;color:var(--text);}
+.pa-tag.ziel{box-shadow:0 0 0 2px var(--navy);}
+.pa-ziel-hinweis{background:var(--blau-bg, #eef3fb);color:var(--navy);border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px;}
+.pa-auftraege .pa-chat{margin-left:auto;}
+
+/* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
+   textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
+   „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen
+   `.nk-feld textarea`, `.fi-feld select` & Co., die sonst mit kleinerer Schrift gewinnen. Neue Regeln
+   gehören ÜBER diesen Block; tests/eingabeZoom.test.ts prüft das. */
+@media (max-width: 700px){
+  textarea:not(.rm-feld), select:not(.rm-feld){font-size:16px;}
+}

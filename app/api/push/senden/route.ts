@@ -6,7 +6,7 @@ import { AUFTRAG_PARAMETER, VORLAUF_MINUTEN, ZEITZONE } from "@/lib/constants";
 import { pushNutzlast } from "@/lib/pushInhalt";
 import { abendhinweiseVersenden, type AbendhinweisErgebnis } from "@/lib/abendhinweisVersand";
 import { chatFotosAufraeumen, chatNachrichtenVersenden, type ChatVersandErgebnis } from "@/lib/chatVersand";
-import { bestellungenVersenden, type BestellVersandErgebnis } from "@/lib/bestellVersand";
+import { bestellFotosAufraeumen, bestellungenVersenden, type BestellVersandErgebnis } from "@/lib/bestellVersand";
 import { stempelErinnerungenVersenden, type StempelErinnerungErgebnis } from "@/lib/stempelErinnerungVersand";
 import { steuerErinnerungenVersenden, type SteuerErinnerungErgebnis } from "@/lib/steuerErinnerungVersand";
 import { anzeigeName } from "@/lib/kundenAnsicht";
@@ -112,6 +112,13 @@ export async function POST(request: Request) {
   } catch (e) {
     chatFotos = { fehler: e instanceof Error ? e.message : String(e) };
   }
+  // Ebenso die Fotos gelöschter Bestellwünsche (Migration 105).
+  let bestellFotos: { entfernt: number } | { fehler: string };
+  try {
+    bestellFotos = await bestellFotosAufraeumen(supabase);
+  } catch (e) {
+    bestellFotos = { fehler: e instanceof Error ? e.message : String(e) };
+  }
 
   // Stempel-Erinnerung (Migration 85) – ebenfalls für sich.
   let stempel: StempelErinnerungErgebnis | { fehler: string };
@@ -139,7 +146,7 @@ export async function POST(request: Request) {
     abendhinweis = { fehler: e instanceof Error ? e.message : String(e) };
   }
   const antwort = (daten: Record<string, unknown>, init?: ResponseInit) =>
-    NextResponse.json({ ...daten, abendhinweis, chat, chatFotos, stempel, steuer, bestellung }, init);
+    NextResponse.json({ ...daten, abendhinweis, chat, chatFotos, bestellFotos, stempel, steuer, bestellung }, init);
 
   // Nur der heutige Tag: ein Termin um 00:02 würde eine Erinnerung um 23:57 des Vortages
   // brauchen und fiele durch dieses Raster. Für einen Reifenwechsel-Betrieb ist das kein

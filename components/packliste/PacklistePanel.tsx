@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Article, AuftragFahrzeug, Customer, Employee, Order, OrderArticle, StorageSlot, TireStorage, Vehicle, Verkaufsreifen, Warehouse } from "@/lib/types";
@@ -8,7 +8,7 @@ import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { datumKurz, WOCHENTAG_KURZ } from "@/lib/dashboard";
 import { groesseText, reifenName } from "@/lib/reifenverkauf";
 import {
-  nachPlatz, packlisteGesamt, packlisteSpanne, packlisteTage, PACKLISTE_HORIZONT_TAGE, PACKLISTE_ZEITRAEUME,
+  nachPlatz, packlisteGesamt, packlisteSpanne, packlisteTage, packlisteZielZeitraum, PACKLISTE_HORIZONT_TAGE, PACKLISTE_ZEITRAEUME,
   type PacklisteTag, type PacklisteZeitraum,
 } from "@/lib/packlisteAnsicht";
 import { csv } from "@/lib/datev";
@@ -20,6 +20,7 @@ import { qk } from "@/lib/queries/keys";
 import { PacklisteBlock } from "@/components/auftraege/PacklisteBlock";
 import { Blatt } from "@/components/Blatt";
 import { anzeigeName } from "@/lib/kundenAnsicht";
+import { bezugPacklisteTag, type ChatBezug } from "@/lib/chat";
 
 // Die Seite „Packliste“ (v171, Entwurf Mockup_Packliste_v1, abgenommen 26.10.2026): was wann mit muss,
 // für einen wählbaren Zeitraum statt nur heute/morgen wie im Dashboard. Gerechnet wird in
@@ -51,15 +52,35 @@ export function PacklistePanel(p: {
   lagerLaedt: boolean;
   isTechniker: boolean;
   onOpenOrder: (id: string) => void;
+  // Seit v174: einen Tag als Karte in den Chat (Migration 105) …
+  onInDenChat?: (b: ChatBezug) => void;
+  // … und aus so einer Karte heraus geöffnet: diesen Tag zeigen. Die Seite liest ihn beim ersten Zeichnen und
+  // meldet das zurück (`onZielUebernommen`) – wer später selbst zur Packliste geht, sieht die übliche Ansicht.
+  zielTag?: string | null;
+  onZielUebernommen?: () => void;
 }) {
   const queryClient = useQueryClient();
   const heute = toDateStr(new Date());
-  const [zeitraum, setZeitraum] = useState<PacklisteZeitraum>("14");
+  const [ziel] = useState(() => (p.zielTag ? { tag: p.zielTag, ...packlisteZielZeitraum(p.zielTag, toDateStr(new Date())) } : null));
+  const [zeitraum, setZeitraum] = useState<PacklisteZeitraum>(ziel?.zeitraum ?? "14");
   const [ansicht, setAnsicht] = useState<Ansicht>("tag");
   const [person, setPerson] = useState<Person>("alle");
-  // Aufgeklappte Tage. Vorgabe: die ersten beiden Tage mit Aufträgen (meist heute und morgen).
-  const [offen, setOffen] = useState<Set<string> | null>(null);
+  // Aufgeklappte Tage. Vorgabe: die ersten beiden Tage mit Aufträgen (meist heute und morgen); aus dem Chat
+  // nur der Tag der Karte.
+  const [offen, setOffen] = useState<Set<string> | null>(ziel?.sichtbar ? new Set([ziel.tag]) : null);
   const [druck, setDruck] = useState(false);
+  const { onZielUebernommen } = p;
+  const zielGemeldet = useRef(false);
+  useEffect(() => {
+    if (!ziel || zielGemeldet.current) return;
+    zielGemeldet.current = true;
+    onZielUebernommen?.();
+  }, [ziel, onZielUebernommen]);
+  useEffect(() => {
+    if (!ziel?.sichtbar) return;
+    const t = setTimeout(() => document.getElementById("pa-tag-" + ziel.tag)?.scrollIntoView({ block: "start", behavior: "smooth" }), 150);
+    return () => clearTimeout(t);
+  }, [ziel]);
 
   // Die Fahrzeuge am Auftrag für ALLE offenen Aufträge bis zum Horizont – einmal geladen, damit das
   // Umschalten des Zeitraums nicht jedes Mal neu lädt.
@@ -211,7 +232,7 @@ export function PacklistePanel(p: {
     const gepackt = t.saetze.filter((s) => istGepackt(s.satz.id, t.datum)).length;
     const d = new Date(t.datum + "T12:00:00");
     return (
-      <div key={t.datum} className={"db-karte pa-tag" + (t.datum === heute ? " heute" : "") + (auf ? " offen" : "")}>
+      <div key={t.datum} id={"pa-tag-" + t.datum} className={"db-karte pa-tag" + (t.datum === heute ? " heute" : "") + (auf ? " offen" : "") + (ziel?.tag === t.datum ? " ziel" : "")}>
         <button type="button" className="pa-tag-kopf" aria-expanded={auf}
           onClick={() => setOffen(() => { const n = new Set(aufgeklappt); if (n.has(t.datum)) n.delete(t.datum); else n.add(t.datum); return n; })}>
           <span className="pa-datum"><small>{WOCHENTAG_KURZ[d.getDay()]}</small><b>{d.getDate()}</b></span>
@@ -253,6 +274,12 @@ export function PacklistePanel(p: {
                   {zeit(o) || "ohne Uhrzeit"} · {kundeName(o)} ›
                 </button>
               ))}
+              {p.onInDenChat && (
+                <button type="button" className="es-knopf pa-chat" onClick={() => p.onInDenChat!(bezugPacklisteTag(t.datum, {
+                  auftraege: t.auftraege.length, saetze: p.darfLager ? t.saetze.length : 0,
+                  verkauf: t.verkauf.reduce((n, v) => n + v.position.quantity, 0),
+                }))}>In den Chat</button>
+              )}
             </div>
           </>
         )}
@@ -333,6 +360,15 @@ export function PacklistePanel(p: {
           <div className={"pa-kachel" + (gesamt.ohneGroesse > 0 ? " warn" : "")}><b>{gesamt.ohneGroesse}</b><span>{gesamt.ohneGroesse === 1 ? "Auftrag" : "Aufträge"} ohne Reifengröße</span></div>
         </div>
 
+        {ziel && !laedt && (!ziel.sichtbar || !tage.some((t) => t.datum === ziel.tag)) && (
+          <div className="pa-ziel-hinweis" role="status">
+            {ziel.tag < heute
+              ? `Die Packliste vom ${datumKurz(ziel.tag)} aus dem Chat liegt hinter uns – gezeigt werden die nächsten 14 Tage.`
+              : !ziel.sichtbar
+                ? `Der ${datumKurz(ziel.tag)} liegt weiter voraus, als die Packliste reicht (${Math.floor(PACKLISTE_HORIZONT_TAGE / 30)} Monate).`
+                : `Am ${datumKurz(ziel.tag)} steht kein offener Auftrag (mehr)${person !== "alle" ? " für diese Auswahl" : ""}.`}
+          </div>
+        )}
         {laedt && <div className="db-karte"><div className="db-leer">lädt …</div></div>}
         {!laedt && tage.length === 0 && (
           <div className="db-karte"><div className="db-leer">Im gewählten Zeitraum stehen keine offenen Aufträge.</div></div>

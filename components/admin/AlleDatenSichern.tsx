@@ -38,8 +38,9 @@ export function AlleDatenSichern({ supabase }: { supabase: SupabaseClient }) {
       <b className="ad-aktion-titel">Alle Daten sichern</b>
       <span className="small">
         Ein Backup bei Bedarf: alle Daten als eine Datei – Kunden, Aufträge, Rechnungen, Lager, Artikel,
-        Mitarbeiter, Chat, Stempelzeiten, Protokoll, Einstellungen. Gelöscht wird dabei nichts. Fotos und
-        Unterschriften sind nur als Liste enthalten, nicht als Bild. Nur für den Superadmin.
+        Mitarbeiter, Chat, Stempelzeiten, Bestellliste, Packliste-Haken, Finance, Protokoll, Einstellungen –
+        jede Tabelle, auch künftige. Gelöscht wird dabei nichts. Fotos, Unterschriften und Belegdateien sind nur
+        als Liste enthalten, nicht als Bild. Nur für den Superadmin.
       </span>
       <div className="ad-alles-schritt">
         <button type="button" className="btn-secondary btn-rand" style={{ marginTop: 8 }} disabled={laeuft} onClick={() => void sichern()}>

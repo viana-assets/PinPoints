@@ -756,9 +756,14 @@ export type Bestellwunsch = {
   notiz: string | null;
   grund: string | null;
   erstellt_von: string | null;
+  // Seit Migration 105 (v174): Name dessen, der eingetragen hat – von der Datenbank aus der Anmeldung
+  // gesetzt (Mitarbeitername, sonst Teil der E-Mail), nicht änderbar. Leer vor Migration 105.
+  erstellt_name?: string | null;
   created_at: string;
   geaendert_am: string;
   status_am: string | null;
   status_von: string | null;
   plus: string[];
+  // Die Namen zu `plus`, gleiche Reihenfolge (Migration 105; vorher leere Einträge).
+  plus_namen: string[];
 };

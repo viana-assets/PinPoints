@@ -20,6 +20,8 @@ import { CustomerPicker } from "@/components/CustomerPicker";
 export function BestellBlatt(p: {
   supabase: SupabaseClient;
   ich: string;
+  // Wer einträgt – nur zur Anzeige; gespeichert wird der Name von der Datenbank aus der Anmeldung (Migration 105).
+  meinName?: string | null;
   wuensche: Bestellwunsch[];
   transporter: Firmenfahrzeug[];
   kunden: Customer[];
@@ -119,7 +121,7 @@ export function BestellBlatt(p: {
   const altesFoto = alt?.foto_pfad && !fotoWeg && !foto;
 
   return (
-    <Blatt titel={alt ? "Bestellwunsch ändern" : "Was fehlt?"} unter={alt ? undefined : "Frei eintragen – das Büro kümmert sich."}
+    <Blatt titel={alt ? "Bestellwunsch ändern" : "Was fehlt?"} unter={alt ? undefined : p.meinName ? `Frei eintragen – das Büro sieht, dass es von ${p.meinName} kommt.` : "Frei eintragen – das Büro kümmert sich."}
       breite="mittel" ebene="modal-bestaetigung" className="bw-blatt" onClose={() => { if (!laeuft) p.onClose(); }}
       fuss={<button type="button" className="am-knopf" disabled={laeuft || !text.trim()} onClick={() => void speichern()}>
         {laeuft ? "speichert …" : alt ? "Änderung speichern" : "Auf die Bestellliste"}</button>}>

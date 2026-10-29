@@ -60,6 +60,14 @@ export function packlisteSpanne(zeitraum: PacklisteZeitraum, heute: string): { v
   }
 }
 
+// Aus einer Chat-Karte „Packliste Do 30.10.“ (v174): Welcher Zeitraum zeigt diesen Tag? Ein vergangener Tag
+// wird nicht mehr gepackt – dann die nächsten 14 Tage und ein Hinweis; ebenso jenseits des Horizonts.
+export function packlisteZielZeitraum(tag: string, heute: string): { zeitraum: PacklisteZeitraum; sichtbar: boolean } {
+  if (tag < heute) return { zeitraum: "14", sichtbar: false };
+  if (tag <= packlisteSpanne("14", heute).bis) return { zeitraum: "14", sichtbar: true };
+  return { zeitraum: "alle", sichtbar: tag <= packlisteSpanne("alle", heute).bis };
+}
+
 export type PacklisteSatz = { auftrag: Order; satz: TireStorage };
 export type PacklisteVerkauf = { auftrag: Order; position: OrderArticle; reifen: Verkaufsreifen | null };
 

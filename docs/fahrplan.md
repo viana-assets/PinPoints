@@ -16,6 +16,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **29.10.2026 – Kein Hineinzoomen am iPhone in Textbereichen und Auswahlfeldern (Service Worker v175, ohne Migration).**
+  „Was fehlt?“ vergrößerte die Seite beim Antippen und blieb vergrößert (gemeldet Vitali mit Bildschirmfoto). Ursache: die
+  16px-Regel für Handys griff für textarea/select nicht mehr (spätere `.nk-feld`-Regel mit 14,5px). Regel ans Dateiende,
+  Wächter `tests/eingabeZoom.test.ts`. Betraf auch Auswahlfelder im Auftrag (Halter, Fahrzeug) und in Finance.
+
+* **29.10.2026 – Bestellliste im Löschkonzept, Name des Eintragenden, Chat-Karten (Migration 105, Service Worker v174).**
+  Durchsicht auf Frage Vitali: „Alle Daten löschen/sichern“ deckten schon alles ab; Lücken waren Kunde endgültig löschen,
+  Zusammenführen, Auskunft und Aufbewahrung der Bestellliste – geschlossen (12 Monate nach Erledigen, Fotos im Minutentakt).
+  Name des Eintragenden aus der Anmeldung (auch bei „+1“). Bestellwunsch und Packliste-Tag als Karte in den Chat.
+  `docs/bestellliste.md`, `docs/team-chat.md`.
+
 * **29.10.2026 – Bestellliste „Fehlt was?“ (Migration 104, Service Worker v173).** Techniker tragen vor Ort per Freitext ein,
   was fehlt (Menge, dringend, Transporter/Lager, optional Kunde/Auftrag, Foto, „+1“); den Stand (bestellt/da/nicht nötig)
   setzt nur der Admin; Push dringend → Büro, da/nicht nötig → Techniker. Wunsch Vitali, Mockup Bestellliste v1. `docs/bestellliste.md`.

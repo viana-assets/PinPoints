@@ -4,8 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { BestellStatus, Bestellwunsch, Customer, Employee, Firmenfahrzeug, Order } from "@/lib/types";
 import {
-  bestellListeText, bestellSortierung, bestellZahlen, BESTELL_FUER_LABEL, BESTELL_GRENZEN, BESTELL_STATUS_LABEL,
-  darfAendern, istMeiner, type BestellFilter,
+  bestellListeText, bestellPlusText, bestellSortierung, bestellWer, bestellZahlen, BESTELL_FUER_LABEL, BESTELL_GRENZEN,
+  BESTELL_STATUS_LABEL, darfAendern, istMeiner, type BestellFilter,
 } from "@/lib/bestellung";
 import { bestellPlusSetzen, bestellStandSetzen, bestellwunschLoeschen } from "@/lib/api/bestellungen";
 import { useBestellFotoLinks } from "@/lib/queries/hooks";
@@ -14,6 +14,7 @@ import { anzeigeName } from "@/lib/kundenAnsicht";
 import { auftragsNr } from "@/lib/testkunde";
 import { formatDate } from "@/lib/helpers";
 import { Blatt } from "@/components/Blatt";
+import { bezugBestellwunsch, type ChatBezug } from "@/lib/chat";
 
 // Die Seite „Bestellliste“ (Migration 104, v173, Mockup_Bestellliste_v1). Für alle mit „Bestellliste sehen“:
 // eigene Einträge ändern/löschen, solange offen, bei fremden „+1 – brauche ich auch“. Wer verwalten darf
@@ -43,6 +44,8 @@ export function BestellPanel(p: {
   onBearbeiten: (w: Bestellwunsch) => void;
   onOpenOrder: (id: string) => void;
   onOpenCustomer: (id: string) => void;
+  // Seit v174 (Migration 105): einen Eintrag als Karte in den Chat – wie einen Auftrag.
+  onInDenChat?: (b: ChatBezug) => void;
 }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<BestellFilter>("offen");
@@ -76,11 +79,8 @@ export function BestellPanel(p: {
   const fotoPfade = sichtbar.map((w) => w.foto_pfad).filter((x): x is string => !!x);
   const links = useBestellFotoLinks(p.supabase, fotoPfade, fotoPfade.length > 0).data ?? {};
 
-  const wer = (id: string | null) => {
-    if (!id) return "unbekannt";
-    if (id === p.ich) return "dir";
-    return p.employees.find((e) => e.profile_id === id)?.name?.trim() || "Büro";
-  };
+  // Seit v174 (Migration 105) der Name aus der Anmeldung – vorher stand bei Zugängen ohne Mitarbeiter „Büro“.
+  const wer = (w: Bestellwunsch) => (p.ich && w.erstellt_von === p.ich ? "dir" : bestellWer(w, p.employees));
   const fuerText = (w: Bestellwunsch) => {
     if (w.fuer !== "transporter") return BESTELL_FUER_LABEL[w.fuer];
     const t = p.transporter.find((x) => x.id === w.firmenfahrzeug_id);
@@ -190,8 +190,8 @@ export function BestellPanel(p: {
                   <div className="bw-text">
                     <b>{w.text}{w.menge ? <span className="bw-menge"> · {w.menge}</span> : null}</b>
                     <span className="small">
-                      {fuerText(w)} · von {wer(w.erstellt_von)} · {formatDate(w.created_at.slice(0, 10))}
-                      {w.plus.length > 0 ? ` · +${w.plus.length} ${w.plus.length === 1 ? "weiterer" : "weitere"}` : ""}
+                      {fuerText(w)} · von <b className="bw-wer">{wer(w)}</b> · {formatDate(w.created_at.slice(0, 10))}
+                      {bestellPlusText(w, p.ich) ? ` · ${bestellPlusText(w, p.ich)}` : ""}
                     </span>
                     {(kunde || auftrag) && (
                       <span className="bw-bezug">
@@ -230,6 +230,12 @@ export function BestellPanel(p: {
                     <button type="button" className="es-knopf" disabled={laeuft}
                       onClick={() => { if (window.confirm(`„${w.text}“ von der Bestellliste löschen?`)) void ausfuehren(() => bestellwunschLoeschen(p.supabase, w), "Gelöscht."); }}>Löschen</button>
                   </>}
+                  {p.onInDenChat && (
+                    <button type="button" className="es-knopf" onClick={() => p.onInDenChat!(bezugBestellwunsch(w, {
+                      fuer: fuerText(w), von: bestellWer(w, p.employees),
+                      stand: BESTELL_STATUS_LABEL[w.status] + (w.dringend && w.status === "offen" ? ", dringend" : ""),
+                    }))}>In den Chat</button>
+                  )}
                   {p.darfSchreiben && !eigen && p.ich && (w.status === "offen" || w.status === "bestellt") && (
                     <button type="button" className={"es-knopf" + (meinPlus ? " bw-plus-an" : "")} disabled={laeuft} aria-pressed={meinPlus}
                       onClick={() => void ausfuehren(() => bestellPlusSetzen(p.supabase, w.id, p.ich!, !meinPlus), meinPlus ? "„+1“ zurückgenommen." : "„+1“ vermerkt.")}>

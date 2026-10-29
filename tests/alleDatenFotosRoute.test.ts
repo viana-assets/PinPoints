@@ -7,6 +7,7 @@ const z = vi.hoisted(() => ({
   nachrichten: 0,
   belege: 0 as number | null,
   runden: [] as number[],
+  bestellRunden: [] as number[],
   ordner: {} as Record<string, { name: string }[]>,
   dateien: {} as Record<string, { name: string; id: string | null }[]>,
   entfernt: [] as string[][],
@@ -15,6 +16,10 @@ const z = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/chatVersand", () => ({
   chatFotosAufraeumen: vi.fn(async () => ({ entfernt: z.runden.shift() ?? 0 })),
+}));
+// Seit v174 (Migration 105): die vorgemerkten Fotos der Bestellliste ebenso.
+vi.mock("@/lib/bestellVersand", () => ({
+  bestellFotosAufraeumen: vi.fn(async () => ({ entfernt: z.bestellRunden.shift() ?? 0 })),
 }));
 vi.mock("@/lib/supabaseServer", () => ({
   createClient: async () => ({
@@ -37,7 +42,7 @@ vi.mock("@/lib/supabaseServer", () => ({
 import { POST } from "@/app/api/alle-daten/fotos/route";
 
 beforeEach(() => {
-  z.rolle = "superadmin"; z.nachrichten = 0; z.belege = 0; z.runden = []; z.entfernt = [];
+  z.rolle = "superadmin"; z.nachrichten = 0; z.belege = 0; z.runden = []; z.bestellRunden = []; z.entfernt = [];
   z.ordner = { "chat-fotos": [{ name: "a" }, { name: "b" }], "fin-belege": [{ name: "b1" }] };
   z.dateien = {
     "chat-fotos:a": [{ name: "1.jpg", id: "x" }], "chat-fotos:b": [{ name: "2.jpg", id: "y" }, { name: "unterordner", id: null }],
@@ -60,6 +65,12 @@ describe("POST /api/alle-daten/fotos", () => {
     expect(antwort.status).toBe(200);
     expect(z.entfernt).toEqual([["chat-fotos:a/1.jpg"], ["chat-fotos:b/2.jpg"], ["fin-belege:b1/q.pdf"]]);
     expect(await antwort.json()).toEqual({ ok: true, entfernt: 240 });
+  });
+
+  it("arbeitet auch die vorgemerkten Bestellfotos ab (Migration 105)", async () => {
+    z.bestellRunden = [200, 5];
+    const antwort = await POST();
+    expect(await antwort.json()).toEqual({ ok: true, entfernt: 205 + 3 });
   });
 
   it("lässt den Speicher in Ruhe, solange noch Nachrichten bzw. Belege da sind", async () => {

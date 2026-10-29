@@ -504,7 +504,7 @@ export function ChatFenster(p: Props) {
                   <BezugKarte b={b} klein />
                 </button>
               ))}
-            <span className="small">Lagerplätze und Verkaufsreifen über „In den Chat“ im Lager.</span>
+            <span className="small">Lagerplätze, Verkaufsreifen, Bestellungen und Packliste-Tage über „In den Chat“ auf der jeweiligen Seite.</span>
           </div>
         )}
 

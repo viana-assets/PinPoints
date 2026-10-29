@@ -9,7 +9,7 @@ import type { Bestellwunsch } from "@/lib/types";
 const w = (id: string, text: string, z: Partial<Bestellwunsch> = {}): Bestellwunsch => ({
   id, text, menge: null, dringend: false, fuer: "allgemein", firmenfahrzeug_id: null, kunde_id: null, auftrag_id: null,
   foto_pfad: null, foto_breite: null, foto_hoehe: null, status: "offen", notiz: null, grund: null,
-  erstellt_von: "p1", created_at: "2026-10-28T08:00:00Z", geaendert_am: "2026-10-28T08:00:00Z", status_am: null, status_von: null, plus: [], ...z,
+  erstellt_von: "p1", created_at: "2026-10-28T08:00:00Z", geaendert_am: "2026-10-28T08:00:00Z", status_am: null, status_von: null, plus: [], plus_namen: [], ...z,
 });
 
 describe("aehnlicheWuensche", () => {

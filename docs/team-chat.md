@@ -36,6 +36,13 @@ laden“ – Abschnitt „Einzelchats, Bearbeiten, Fotos“ unten.
 - **„+“** an der Eingabe hängt eine Karte an, ohne erst in den Auftrag zu gehen: Suche nach
   Auftragsnummer, Titel, Kunde; ohne Suchtext die Termine ab heute (`bezugVorschlaege()`). Plätze
   und Verkaufsreifen nur über „In den Chat“ im Lager.
+- **Bestellung und Packliste (v174, Migration 105).** „In den Chat“ steht auch an jedem Eintrag der Bestellliste
+  (Karte braun, „Bestellung: Ventile · 1 Beutel“, darunter Wofür · von wem · Stand) und an jedem aufgeklappten Tag der
+  Packliste (dunkelblau, „Packliste Fr 30.10.“, darunter Aufträge · Sätze aus dem Lager · Verkaufsreifen – keine
+  Kundennamen). Antippen öffnet die Bestellliste an diesem Eintrag bzw. die Packliste mit diesem Tag aufgeklappt; ein
+  vergangener Tag zeigt einen Hinweis und die nächsten 14 Tage. Die Packliste hat keine eigene Zeile: Ihre Karte trägt
+  den Tag in der Kennung `00000000-0000-4000-8000-0000JJJJMMTT` (`packlisteKennung`/`packlisteTagAus`, Prüfregel
+  `chat_bezug_packliste`). Ein gelöschter Bestellwunsch macht die Karte zu „Bestellung gelöscht“.
 - **@-Erwähnung.** Nach „@“ erscheinen die Personen mit Zugang (`chat_personen()`: Name des
   verknüpften Mitarbeiters, sonst der Teil der E-Mail vor dem @). Erwähnt ist, wessen „@Name“ beim
   Absenden noch im Text steht. Erwähnte bekommen „… hat dich erwähnt“ als Push-Titel, und die

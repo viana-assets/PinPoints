@@ -27,7 +27,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 const w = (id: string, text: string, z: Partial<Bestellwunsch> = {}): Bestellwunsch => ({
   id, text, menge: null, dringend: false, fuer: "allgemein", firmenfahrzeug_id: null, kunde_id: null, auftrag_id: null,
   foto_pfad: null, foto_breite: null, foto_hoehe: null, status: "offen", notiz: null, grund: null,
-  erstellt_von: "tech", created_at: "2026-10-28T08:00:00Z", geaendert_am: "2026-10-28T08:00:00Z", status_am: null, status_von: null, plus: [], ...z,
+  erstellt_von: "tech", created_at: "2026-10-28T08:00:00Z", geaendert_am: "2026-10-28T08:00:00Z", status_am: null, status_von: null, plus: [], plus_namen: [], ...z,
 });
 const transporter = [{ id: "t1", kennzeichen: "N-MR 1", bezeichnung: "Transporter 1", aktiv: true }] as Firmenfahrzeug[];
 const kunden = [{ id: "k1", name: "Artur", company: "Muster GmbH", address: "Weg 1" }] as Customer[];
@@ -68,9 +68,9 @@ describe("Blatt „Fehlt was?“", () => {
 describe("Seite Bestellliste", () => {
   const employees = [{ id: "e1", name: "Paul", profile_id: "tech" }] as Employee[];
   const liste = [w("a", "Nuss 17 mm", { dringend: true }), w("b", "Ventile", { erstellt_von: "andere" }), w("c", "Handschuhe", { status: "bestellt", notiz: "Würth" })];
-  const zeigen = (ich: string, verwalter: boolean) => mit(<BestellPanel supabase={supabase} ich={ich} verwalter={verwalter} darfSchreiben
+  const zeigen = (ich: string, verwalter: boolean, extra: Partial<React.ComponentProps<typeof BestellPanel>> = {}) => mit(<BestellPanel supabase={supabase} ich={ich} verwalter={verwalter} darfSchreiben
     wuensche={liste} laedt={false} fehler={null} employees={employees} kunden={kunden} orders={orders} transporter={transporter}
-    onNeu={vi.fn()} onBearbeiten={vi.fn()} onOpenOrder={vi.fn()} onOpenCustomer={vi.fn()} />);
+    onNeu={vi.fn()} onBearbeiten={vi.fn()} onOpenOrder={vi.fn()} onOpenCustomer={vi.fn()} {...extra} />);
 
   it("Techniker: nur meine offenen, ändern/löschen eigener, kein Stand", () => {
     zeigen("tech", false);
@@ -105,5 +105,28 @@ describe("Seite Bestellliste", () => {
     fireEvent.change(screen.getByPlaceholderText("z. B. liegt noch im Lager"), { target: { value: "liegt im Lager" } });
     fireEvent.click(ok);
     await waitFor(() => expect(api.bestellStandSetzen).toHaveBeenCalledWith(supabase, ["b"], "nicht_noetig", { grund: "liegt im Lager" }));
+  });
+
+  // v174 (Migration 105): Wer hat es eingetragen – aus der Anmeldung; und als Karte in den Chat.
+  it("zeigt den Namen aus der Anmeldung, auch ohne Mitarbeiter, und die Namen zu „+1“", () => {
+    mit(<BestellPanel supabase={supabase} ich="admin" verwalter darfSchreiben laedt={false} fehler={null} employees={employees}
+      kunden={kunden} orders={orders} transporter={transporter} onNeu={vi.fn()} onBearbeiten={vi.fn()} onOpenOrder={vi.fn()} onOpenCustomer={vi.fn()}
+      wuensche={[w("x", "Kabelbinder", { erstellt_von: "buero", erstellt_name: "buero.frau", plus: ["tech", "admin"], plus_namen: ["Paul", "Admin"] })]} />);
+    const karte = screen.getByText("Kabelbinder").closest(".bw-karte") as HTMLElement;
+    expect(within(karte).getByText("buero.frau").tagName).toBe("B");
+    expect(karte.textContent).toContain("+1 von Paul, dir");
+  });
+
+  it("„In den Chat“ schickt eine Bestellkarte mit Wofür, Wer und Stand", () => {
+    const onInDenChat = vi.fn();
+    zeigen("admin", true, { onInDenChat });
+    const karte = screen.getByText("Nuss 17 mm").closest(".bw-karte") as HTMLElement;
+    fireEvent.click(within(karte).getByRole("button", { name: "In den Chat" }));
+    expect(onInDenChat).toHaveBeenCalledWith({ art: "bestellung", id: "a", titel: "Bestellung: Nuss 17 mm", unter: "allgemein · von Paul · Offen, dringend" });
+  });
+
+  it("ohne Chat-Recht kein Knopf", () => {
+    zeigen("admin", true);
+    expect(screen.queryByRole("button", { name: "In den Chat" })).toBeNull();
   });
 });

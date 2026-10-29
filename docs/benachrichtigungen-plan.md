@@ -589,3 +589,6 @@ immer), nicht an den Eintragenden; **da / nicht nötig** an den Eintragenden und
 gesetzt hat. Einmal je Anlass über `push_buero_am` / `push_ersteller_am`, ältere als eine Stunde werden nur abgehakt.
 Ohne Kundennamen; ein Tippen öffnet `/?bestellung=<id>`. Das Ergebnis steht in der Antwort der Route unter `bestellung`.
 Einzelheiten: `docs/bestellliste.md`.
+
+Seit v174 (Migration 105) räumt der Minutenlauf außerdem die Fotodateien gelöschter Bestellwünsche ab
+(`bestellFotosAufraeumen()`, Ergebnis unter `bestellFotos`) – wie die Chat-Fotos.

@@ -1,5 +1,6 @@
-import type { BelegArt, Customer, OrderStatus, Saison } from "./types";
+import type { BelegArt, BestellStatus, Customer, OrderStatus, Saison } from "./types";
 import { BELEG_ART_LABEL, ORDER_STATUS_LABEL, SAISON_LABEL } from "./constants";
+import { BESTELL_STATUS_LABEL } from "./bestellung";
 import { auftragsNr } from "./testkunde";
 
 // Der Auskunftsauszug je Kunde (Fahrplan E10, v103) – „was ist über mich gespeichert?"
@@ -34,6 +35,9 @@ export type AuskunftDaten = {
   belege?: { auftrag: number; art: BelegArt; beschriftung: string | null; aufgenommen: string }[];
   // Seit Migration 71 (v115): die Notizen je Rad an den eingelagerten Sätzen. Optional wie oben.
   reifen_notizen?: { eingelagert: string; platz: string | null; position: string; notiz: string }[];
+  // Seit Migration 105 (v174): Bestellwünsche zu diesem Kunden oder seinen Aufträgen. Ohne den Namen des
+  // Mitarbeiters – der Auszug gilt dem Kunden. Optional wie oben.
+  bestellungen?: { eingetragen: string; text: string; menge: string | null; status: BestellStatus; notiz: string | null; grund: string | null; foto: boolean }[];
 };
 
 export type Zeile = [string, string];
@@ -115,6 +119,13 @@ export function reifenNotizZeile(n: NonNullable<AuskunftDaten["reifen_notizen"]>
   return [[tag(n.eingelagert), n.platz ? `Platz ${n.platz}` : null, n.position].filter(Boolean).join(" · "), n.notiz];
 }
 
+// Ein Bestellwunsch (Migration 105): „29.10.2026 · Bestellt“ – „Ventile (4 Stück) · Würth · mit Foto“.
+export function bestellZeile(b: NonNullable<AuskunftDaten["bestellungen"]>[number]): Zeile {
+  const was = [`${b.text}${b.menge ? ` (${b.menge})` : ""}`, text(b.notiz), b.grund ? `nicht nötig: ${b.grund}` : null, b.foto ? "mit Foto" : null]
+    .filter(Boolean).join(" · ");
+  return [`${tag(b.eingetragen)} · ${BESTELL_STATUS_LABEL[b.status] ?? b.status}`, was];
+}
+
 // Wie viele Einträge in jedem Abschnitt stehen – für die Übersicht oben im Auszug.
 export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
   return [
@@ -125,6 +136,7 @@ export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
     ["Rechnungen", String(d.rechnungen.length)],
     ...(d.belege ? [["Fotos und Unterschriften", String(d.belege.length)] as Zeile] : []),
     ...(d.reifen_notizen ? [["Notizen zu einzelnen Reifen", String(d.reifen_notizen.length)] as Zeile] : []),
+    ...(d.bestellungen ? [["Bestellwünsche (Bestellliste)", String(d.bestellungen.length)] as Zeile] : []),
     ["Einträge im Änderungsprotokoll", String(d.protokoll.eintraege)],
   ];
 }

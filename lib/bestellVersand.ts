@@ -2,7 +2,7 @@ import "server-only";
 import webpush from "web-push";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { RECHTE_VORGABE } from "./constants";
-import { bestellPushDringend, bestellPushStand } from "./bestellung";
+import { BESTELL_FOTO_BUCKET, bestellPushDringend, bestellPushStand } from "./bestellung";
 import { pushNutzlast } from "./pushInhalt";
 import type { BestellStatus } from "./types";
 
@@ -105,4 +105,24 @@ export async function bestellungenVersenden(supabase: SupabaseClient): Promise<B
 
   if (verwaist.length > 0) await supabase.from("push_geraete").delete().in("endpoint", verwaist);
   return { dringend: frischD.length, stand: frischS.length, gesendet };
+}
+
+// Fotodateien gelöschter Bestellwünsche (Migration 105, v174) – wie beim Chat (`chatFotosAufraeumen`): Die
+// Datenbank merkt den Pfad vor, wenn ein Wunsch gelöscht oder sein Foto ersetzt wird – auch beim endgültigen
+// Löschen eines Kunden und beim nächtlichen Aufräumen. Der Minutentakt löscht die Datei mit dem
+// Dienstschlüssel (SQL darf Storage nicht löschen, Migration 65) und hakt sie ab.
+export async function bestellFotosAufraeumen(supabase: SupabaseClient): Promise<{ entfernt: number }> {
+  const { data, error } = await supabase.rpc("bestell_fotos_weg_liste", { p_anzahl: 200 });
+  if (error) {
+    // Vor Migration 105 gibt es die Funktion nicht.
+    if (error.code === "PGRST202" || error.code === "42883") return { entfernt: 0 };
+    throw new Error(error.message);
+  }
+  const pfade = ((data as string[] | null) || []).filter(Boolean);
+  if (pfade.length === 0) return { entfernt: 0 };
+  const { error: speicherFehler } = await supabase.storage.from(BESTELL_FOTO_BUCKET).remove(pfade);
+  if (speicherFehler) throw new Error(speicherFehler.message);
+  const { error: hakenFehler } = await supabase.rpc("bestell_fotos_weg_erledigt", { p_pfade: pfade });
+  if (hakenFehler) throw new Error(hakenFehler.message);
+  return { entfernt: pfade.length };
 }

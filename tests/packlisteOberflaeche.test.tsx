@@ -26,7 +26,7 @@ const supabase = {} as SupabaseClient;
 beforeEach(() => { vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date(2026, 9, 26, 10, 0)); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.useRealTimers(); });
 
-function zeigen(darfLager = true) {
+function zeigen(darfLager = true, extra: Partial<React.ComponentProps<typeof PacklistePanel>> = {}) {
   const employees = [{ id: "e1", name: "Roman", profile_id: "p1" }, { id: "e2", name: "Paul", profile_id: "p2" }] as unknown as Employee[];
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -48,6 +48,7 @@ function zeigen(darfLager = true) {
         lagerLaedt={false}
         isTechniker={false}
         onOpenOrder={() => {}}
+        {...extra}
       />
     </QueryClientProvider>,
   );
@@ -89,5 +90,32 @@ describe("PacklistePanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Gesamt" }));
     expect(screen.queryByText("Im Lager vorbereiten")).toBeNull();
     expect(screen.getByText("Reifengrößen je Woche")).toBeTruthy();
+  });
+
+  // v174 (Migration 105): ein Tag als Chat-Karte – und aus der Karte zurück auf genau diesen Tag.
+  it("„In den Chat“ je Tag schickt eine Packliste-Karte mit dem Tag in der Kennung", async () => {
+    const onInDenChat = vi.fn();
+    zeigen(true, { onInDenChat });
+    await screen.findByText("Montag, 26.10.");
+    fireEvent.click(screen.getAllByRole("button", { name: "In den Chat" })[0]);
+    expect(onInDenChat).toHaveBeenCalledWith({
+      art: "packliste", id: "00000000-0000-4000-8000-000020261026", titel: "Packliste Mo 26.10.", unter: "1 Auftrag · 1 Satz aus dem Lager",
+    });
+  });
+
+  it("aus der Chat-Karte: der Tag ist aufgeklappt und markiert, die Seite meldet die Übernahme", async () => {
+    const onZielUebernommen = vi.fn();
+    zeigen(true, { zielTag: "2026-11-03", onZielUebernommen });
+    await screen.findByText("Dienstag, 03.11.");
+    expect(onZielUebernommen).toHaveBeenCalledTimes(1);
+    expect(document.getElementById("pa-tag-2026-11-03")?.className).toContain("ziel");
+    expect(document.getElementById("pa-tag-2026-11-03")?.className).toContain("offen");
+    expect(document.getElementById("pa-tag-2026-10-26")?.className).not.toContain("offen");
+  });
+
+  it("ein vergangener Tag aus dem Chat: Hinweis statt leerer Seite", async () => {
+    zeigen(true, { zielTag: "2026-10-20" });
+    expect(await screen.findByText(/Die Packliste vom Di 20\.10\. aus dem Chat liegt hinter uns/)).toBeTruthy();
+    expect(screen.getByText("Montag, 26.10.")).toBeTruthy();
   });
 });

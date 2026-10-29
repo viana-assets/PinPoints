@@ -1,4 +1,4 @@
-# Bestellliste – „Fehlt was?“ (Migration 104, v173)
+# Bestellliste – „Fehlt was?“ (Migration 104, v173; Migration 105, v174)
 
 Wunsch Vitali 29.10.2026: Techniker sollen vor Ort eintragen, was fehlt – eine Nuss, ein Werkzeug,
 Verbrauchsmaterial – und zwar **als Freitext**: Eine vorgegebene Auswahl hätte genau die Dinge nicht, die gerade
@@ -58,9 +58,47 @@ anfangs „Nur meine“ (selbst eingetragen oder +1), können aber alle sehen, u
   `bestellungen lesen`, löschen prüft nur lesen (der Trigger entscheidet, CLAUDE.md §2).
 - „Alle Daten löschen“ leert beide Tabellen; die Fotos räumt `app/api/alle-daten/fotos` ab, sobald die Tabelle leer ist.
 
+## Wer hat es eingetragen (Migration 105, v174)
+
+Wunsch Vitali 29.10.2026: „Sonst weiß ich nie, wer gesagt hat, dass es noch fehlt.“ Der Name kommt **aus der
+Anmeldung**, nicht vom Gerät: `bestellwunsch_wer()` (BEFORE, security definer, läuft nach `bestellwunsch_pruefen()`)
+setzt `erstellt_name` beim Eintragen aus `zugang_anzeigename()` – Mitarbeitername zum Zugang, sonst der Teil der
+E-Mail vor dem @ (wie `chat_personen()`); danach ist er nicht änderbar. Bis v173 stand bei Zugängen ohne Mitarbeiter
+(Büro) „von Büro“. Ebenso `bestellwunsch_plus.name` – die Liste zeigt „+1 von Paul, dir“. Der Name ist ein
+Schnappschuss und bleibt lesbar, wenn der Zugang später entfernt wird. Das Blatt „Fehlt was?“ sagt vorher, unter
+welchem Namen eingetragen wird (`meinBestellName`). Regeln: `bestellWer`, `bestellPlusText` in `lib/bestellung.ts`.
+
+## In den Chat (v174)
+
+Jeder Eintrag hat „In den Chat“ – wie ein Auftrag kommt er als Karte an die Eingabe: „Bestellung: Ventile · 1 Beutel“,
+darunter Wofür, von wem, Stand (beim Schreiben). Antippen öffnet die Bestellliste an diesem Eintrag (wie die
+Push-Meldung). Wird der Eintrag gelöscht, heißt die Karte „Bestellung gelöscht“ (`bestellwunsch_nachlauf()`).
+Gleiches gibt es für einen Tag der Packliste – siehe `docs/team-chat.md`.
+
+## Löschkonzept und Aufbewahrung (Migration 105, v174)
+
+Durchsicht 29.10.2026 auf Frage Vitali („Beinhaltet das Löschkonzept alles?“):
+
+| Weg | Bestellliste |
+|---|---|
+| Alle Daten löschen | beide Tabellen geleert (geht über alle Tabellen); Fotos: vorgemerkt beim Leeren, dann `app/api/alle-daten/fotos` |
+| Alle Daten sichern | enthalten (geht über alle Tabellen); Fotos wie alle Bilder nur als Pfad, nicht als Datei |
+| Kunde endgültig löschen | **seit 105**: Wünsche zu diesem Kunden oder seinen Aufträgen gehen mit (vorher nur der Verweis – Text, Notiz und Foto blieben) |
+| Kunden zusammenführen | **seit 105**: die Wünsche wandern zum Kunden, der bleibt |
+| Auskunftsauszug (Art. 15) | **seit 105**: Abschnitt „Bestellwünsche“ (Text, Menge, Stand, Notiz/Grund, ob Foto) – ohne Mitarbeiternamen |
+| Aufbewahrung | **seit 105**: „da“ und „nicht nötig“ 12 Monate nach dem Erledigen gelöscht (`bestell_aufraeumen()`, pg_cron 03:45 UTC) – dieselbe Frist wie im Chat. Offene und bestellte bleiben. |
+| Fotodateien | **seit 105**: Löschen eines Wunsches oder Ersetzen des Fotos merkt den Pfad in `private.bestell_fotos_weg` vor; der Minutentakt (`bestellFotosAufraeumen()`) löscht die Datei mit dem Dienstschlüssel. Der App-Weg „Löschen“ entfernt die Datei wie bisher sofort mit. |
+
+`kunde_endgueltig_loeschen()` und `kunden_zusammenfuehren()` sind seit 105 Hüllen: die bisherigen Funktionen heißen
+`…_grund` (unverändert, nicht von außen aufrufbar), die Hülle ruft sie und erledigt danach die Bestellliste – Vorbild
+`kunde_auskunft_grund` (Migration 65). Prüfungen und Meldungen kommen weiter aus `…_grund`.
+
+Packliste und Saisonliste sind Ansichten auf Aufträge und Lager; eigene Daten hat nur die Packliste
+(`mitnehmen_gepackt`, der Haken „eingeladen“) – die hängt per Kaskade am Satz und geht mit ihm.
+
 ## Bewusst (noch) nicht
 
 - Kein Artikelkatalog, keine Preise, keine Lieferantenstammdaten – Freitext und Notiz genügen vorerst.
-- Keine Aufbewahrungsfrist: erledigte Einträge bleiben (Filter „Da“, „Nicht nötig“). Bei Bedarf später ein Aufräumen
-  nach 12 Monaten wie beim Chat.
+- Keine Bestellwünsche in den Vorschlägen unter „+“ im Chat – sie kommen über „In den Chat“ auf der Seite (wie
+  Lagerplätze und Verkaufsreifen).
 - Nicht offline: Eintragen braucht Netz (wie das Abschließen eines Auftrags).

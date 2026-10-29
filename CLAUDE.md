@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 29.10.2026 (Migrationen bis 104, 101–104 noch auszuführen soweit nicht gemeldet; Service Worker v173; Regeln seit der Projektdurchsicht vom
+Stand: 29.10.2026 (Migrationen bis 105, 101–105 noch auszuführen soweit nicht gemeldet; Service Worker v175; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -150,6 +150,12 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
   `alle_daten_behalten()` (Profile, Rechte, Einstellungen, Push-Geräte, seit Migration 86 `app_stand`, seit 88 `fin_konten` und `fin_steuerschluessel`). Eine neue Tabelle wird
   also automatisch mitgelöscht – richtig für Fachdaten. Soll eine neue EINSTELLUNGS-Tabelle das
   Löschen überstehen, kommt sie mit einer neuen Migration in diese Liste.
+- **Das gilt NICHT für „Kunde endgültig löschen“ und den Auskunftsauszug.** Beide zählen ihre Tabellen
+  einzeln auf (`kunde_endgueltig_loeschen()`, `kunde_auskunft()`). Eine neue Tabelle mit Bezug auf Kunde
+  oder Auftrag (Freitext, Foto) gehört dort hinein – sonst bleibt sie nach dem Löschen stehen und fehlt in
+  der Auskunft. So war es bei der Bestellliste (104), nachgezogen mit Migration 105. Dazu jedes Mal die
+  Frage: Wie lange wird das aufbewahrt (Chat und Bestellliste: 12 Monate)? Und Fotos: Pfad beim Löschen
+  vormerken (`private.*_fotos_weg`), der Minutentakt löscht die Datei.
 - **Ein Prüftrigger, der Funktionen mit eigener Prüfung durchlassen soll, läuft OHNE `security
   definer` und fragt `current_user`.** Direkt aus der App ist das `authenticated`; aus einer
   `security definer`-Funktion (etwa `kunde_email_ergaenzen()`) der Eigentümer. Mit `security definer`
@@ -358,6 +364,10 @@ Jeder Punkt hier hat einmal Zeit gekostet.
   Zahlen- und Textfelder halten ihren Text selbst, solange sie den Fokus haben, und speichern beim Verlassen
   (`MengeFeld`, `PreisFeld` in `ArticleAssignPanel.tsx`). Und `type="number"` lässt sich auf iOS nicht
   markieren – Textfeld mit `inputMode`.
+- **iOS zoomt in jedes Eingabefeld unter 16px hinein und nie zurück.** Die 16px-Regel für Handys stand
+  einmal „am Dateiende“ von `app/globals.css` – die Datei wuchs darüber hinaus, und `.nk-feld textarea` (14,5px)
+  gewann wieder: „Was fehlt?“ blieb am iPhone vergrößert (29.10.2026, v175). Die Regel für textarea/select ist
+  jetzt die letzte der Datei; neue Regeln gehören darüber, `tests/eingabeZoom.test.ts` prüft es.
 - **Wenn Vitali eine Ja/Nein-Frage stellt, will er eine Ja/Nein-Antwort** – kurz, in
   einfachen Worten, nicht den Architekturaufsatz dazu.
 

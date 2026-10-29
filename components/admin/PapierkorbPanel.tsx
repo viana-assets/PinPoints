@@ -192,8 +192,8 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
             {bestaetigen === k.id && !k.testkunde && (
               <div className="hinweis-pflicht">
                 <b>Endgültig löschen ist nicht rückgängig zu machen.</b> Entfernt werden der
-                Kunde, seine Fahrzeuge, Aufträge, Kontakte, früheren Einlagerungen und alle
-                Protokolleinträge dazu. Ausgestellte Rechnungen bleiben als Beleg erhalten –
+                Kunde, seine Fahrzeuge, Aufträge, Kontakte, früheren Einlagerungen, Bestellwünsche
+                zu ihm und alle Protokolleinträge dazu. Ausgestellte Rechnungen bleiben als Beleg erhalten –
                 dazu besteht eine Aufbewahrungspflicht.
                 <div className="pk-knoepfe" style={{ marginTop: 8 }}>
                   <button type="button" className="btn-danger" disabled={laeuft !== null} onClick={() => void endgueltig(k)}>

@@ -6,13 +6,17 @@ import { ApiError, fetchPaged, qWrite } from "./client";
 // Bestellliste (Migration 104, v173). Was erlaubt ist, entscheidet die Datenbank (`bestellwunsch_pruefen()`);
 // ihre Meldungen kommen so, wie sie sind, beim Nutzer an.
 
-type Zeile = Omit<Bestellwunsch, "plus"> & { bestellwunsch_plus: { profile_id: string }[] | null };
+type Zeile = Omit<Bestellwunsch, "plus" | "plus_namen"> & { bestellwunsch_plus: { profile_id: string; name?: string | null }[] | null };
 
 export async function fetchBestellwuensche(supabase: SupabaseClient): Promise<Bestellwunsch[]> {
   const zeilen = await fetchPaged<Zeile>("Die Bestellliste konnte nicht geladen werden", (von, bis) =>
-    supabase.from("bestellwuensche").select("*, bestellwunsch_plus(profile_id)")
+    supabase.from("bestellwuensche").select("*, bestellwunsch_plus(*)")
       .order("created_at", { ascending: false }).order("id").range(von, bis));
-  return zeilen.map(({ bestellwunsch_plus, ...w }) => ({ ...w, plus: (bestellwunsch_plus || []).map((p) => p.profile_id) }));
+  // `bestellwunsch_plus(*)`: Vor Migration 105 gibt es die Spalte `name` nicht – mit `*` lädt die Liste trotzdem.
+  return zeilen.map(({ bestellwunsch_plus, ...w }) => {
+    const plus = [...(bestellwunsch_plus || [])].sort((a, b) => a.profile_id.localeCompare(b.profile_id));
+    return { ...w, plus: plus.map((x) => x.profile_id), plus_namen: plus.map((x) => x.name?.trim() || "") };
+  });
 }
 
 export type BestellFelder = {

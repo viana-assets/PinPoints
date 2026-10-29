@@ -499,7 +499,8 @@ alle gelöschten Kunden mit Löschdatum (`components/admin/PapierkorbPanel.tsx`)
   Trigger aus Migration 19 mit zurück – genau die, nicht die, die schon vorher gelöscht waren.
 - **Endgültig löschen** nur der Superadmin, mit ausdrücklicher Bestätigung, über
   `kunde_endgueltig_loeschen()`. Unumkehrbar. Weg sind danach Kunde, Fahrzeuge, Aufträge samt
-  Positionen, Kontakte, frühere Einlagerungen samt Rädern und alle Protokolleinträge dazu –
+  Positionen, Kontakte, frühere Einlagerungen samt Rädern, seit Migration 105 die Bestellwünsche zu ihm oder
+  seinen Aufträgen (samt Foto, `docs/bestellliste.md`) und alle Protokolleinträge dazu –
   auch die, die das Löschen selbst gerade erzeugt hat. Übrig bleibt ein einziger
   Protokolleintrag ohne Personenbezug (Kundennummer, „endgültig gelöscht", wer, wann).
 - **Nicht** endgültig löschbar: ein Kunde, der nicht im Papierkorb liegt, einer mit Reifen im
@@ -557,7 +558,8 @@ Hausverwaltung) und erzeugt keine Paare. Je Paar:
 Kundenfenster → „⋯" → **Auskunft (DSGVO)**, nur Admin und Superadmin (`kunde_auskunft()` prüft
 es; die Laufkundschaft ist ein Sammelkunde und hat keine Auskunft). Ein Abruf liefert alles in
 einem Stand: Stammdaten, Kontakte, Fahrzeuge, Aufträge mit Positionen und Fahrzeugen, Reifensätze
-mit Rädern und Platz, Rechnungen, und wie viele Einträge das Änderungsprotokoll zu ihm hat (die
+mit Rädern und Platz, Rechnungen, Fotos/Unterschriften (65), Notizen je Rad (71), Bestellwünsche zu ihm oder
+seinen Aufträgen (105, ohne Mitarbeiternamen), und wie viele Einträge das Änderungsprotokoll zu ihm hat (die
 Einträge selbst nicht – frühere Fassungen und interne Kennungen gehören nicht in den Brief).
 `AuskunftFenster.tsx` setzt daraus ein A4-Schriftstück (`lib/auskunft.ts`), „Drucken / als PDF
 sichern" über die Druckfunktion des Browsers wie bei der Rechnung, und „Als Datei (JSON)" für eine

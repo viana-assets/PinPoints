@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v173";
+export const APP_VERSION = "v175";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,20 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v175", datum: "2026-10-29", titel: "Kein Hineinzoomen mehr am iPhone",
+    punkte: [
+      "Beim Tippen in „Was fehlt?“ und in einige Auswahlfelder (z. B. Halter im Auftrag, Finance) hat das iPhone die Seite vergrößert und blieb danach vergrößert. Diese Felder haben jetzt am Handy die Schriftgröße, bei der das iPhone nicht mehr hineinzoomt.",
+    ],
+  },
+  {
+    version: "v174", datum: "2026-10-29", titel: "Bestellliste und Packliste im Chat",
+    punkte: [
+      "In der Bestellliste steht bei jedem Eintrag fett, wer ihn eingetragen hat – der Name kommt aus der Anmeldung, auch bei Zugängen ohne Mitarbeiter. Bei „+1“ stehen jetzt die Namen dazu.",
+      "Bestellwünsche und einzelne Tage der Packliste lassen sich wie ein Auftrag als Karte in den Chat schicken („In den Chat“). Antippen öffnet den Eintrag bzw. den Tag.",
+      "Datenschutz: Wird ein Kunde endgültig gelöscht, gehen Bestellwünsche zu ihm mit; im Auskunftsauszug stehen sie mit drin. Erledigte Bestellwünsche werden nach 12 Monaten automatisch gelöscht, ihre Fotos ebenso.",
+    ],
+  },
   {
     version: "v173", datum: "2026-10-29", titel: "Bestellliste: Fehlt was?",
     punkte: [

@@ -13,7 +13,8 @@ import type { PushInhalt } from "./pushInhalt";
 // Ein gemeinsamer Chat für alle mit dem Recht „chat · lesen“ – seit Migration 84 (v137) dazu
 // Einzelchats zwischen zwei Personen, Bearbeiten/Löschen der eigenen Nachricht und Fotos (unten,
 // „Einzelchats, Bearbeiten/Löschen, Fotos“). Eine Nachricht kann eine KARTE
-// tragen – Auftrag, Kunde, Lagerplatz oder Verkaufsreifen. Die Karte ist ein Schnappschuss
+// tragen – Auftrag, Kunde, Lagerplatz oder Verkaufsreifen, seit v174 (Migration 105) auch ein Bestellwunsch
+// oder ein Tag der Packliste. Die Karte ist ein Schnappschuss
 // (Titel und Unterzeile, wie sie beim Schreiben galten) plus die Kennung, über die das Antippen
 // den aktuellen Stand öffnet.
 
@@ -38,7 +39,8 @@ export const CHAT_ABFRAGE_MS = 20_000;
 // zählt, dass man sie erkennt.
 export const CHAT_BEZUG_MAX = 120;
 
-export type ChatBezugArt = "auftrag" | "kunde" | "platz" | "verkaufsreifen";
+// Dieselbe Liste prüft die Datenbank (`chat_bezug_bekannt`, Migration 80/105). Wer eine Stelle ändert, ändert beide.
+export type ChatBezugArt = "auftrag" | "kunde" | "platz" | "verkaufsreifen" | "bestellung" | "packliste";
 
 export type ChatBezug = { art: ChatBezugArt; id: string; titel: string; unter: string | null };
 
@@ -92,6 +94,8 @@ export const CHAT_BEZUG_ANSICHT: Record<ChatBezugArt, { zeichen: string; oeffnen
   kunde:          { zeichen: "K", oeffnen: "Kunde öffnen ›", klasse: "kunde" },
   platz:          { zeichen: "L", oeffnen: "Im Lager öffnen ›", klasse: "lager" },
   verkaufsreifen: { zeichen: "R", oeffnen: "Im Lager öffnen ›", klasse: "lager" },
+  bestellung:     { zeichen: "B", oeffnen: "In der Bestellliste öffnen ›", klasse: "bestellung" },
+  packliste:      { zeichen: "P", oeffnen: "Packliste öffnen ›", klasse: "packliste" },
 };
 
 export function kuerzen(text: string, max: number): string {
@@ -154,6 +158,46 @@ export function bezugVerkaufsreifen(
   };
 }
 
+// „Bestellung: Nuss 17 mm · 2 Stück“ – darunter, wofür, wer es eingetragen hat und der Stand beim Schreiben.
+// Den Kunden nennt die Karte nicht (der steht am Eintrag, wenn man ihn öffnet).
+export function bezugBestellwunsch(
+  w: { id: string; text: string; menge: string | null; status: string },
+  zusatz: { fuer?: string | null; von?: string | null; stand?: string | null } = {}
+): ChatBezug {
+  return {
+    art: "bestellung",
+    id: w.id,
+    titel: kuerzen(`Bestellung: ${w.text}${w.menge?.trim() ? ` · ${w.menge.trim()}` : ""}`, CHAT_BEZUG_MAX),
+    unter: zusammen([zusatz.fuer, zusatz.von ? `von ${zusatz.von}` : null, zusatz.stand]),
+  };
+}
+
+// Die Packliste hat keine eigene Zeile, auf die eine Karte zeigen könnte – ihre Karte meint einen TAG. Weil
+// `bezug_id` in der Datenbank eine uuid ist, steht der Tag in einer festen Kennung:
+// 00000000-0000-4000-8000-0000JJJJMMTT. Dasselbe Muster prüft die Datenbank (`chat_bezug_packliste`,
+// Migration 105). Wer eine Stelle ändert, ändert beide.
+const PACKLISTE_KENNUNG_VORN = "00000000-0000-4000-8000-0000";
+export function packlisteKennung(tag: string): string {
+  return PACKLISTE_KENNUNG_VORN + tag.replace(/-/g, "");
+}
+export function packlisteTagAus(kennung: string): string | null {
+  const m = new RegExp(`^${PACKLISTE_KENNUNG_VORN}(\\d{4})(\\d{2})(\\d{2})$`).exec(kennung);
+  if (!m) return null;
+  const tag = `${m[1]}-${m[2]}-${m[3]}`;
+  const d = new Date(`${tag}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === tag ? tag : null;
+}
+
+// „Packliste Do 30.10.“ – darunter, was an dem Tag mit muss.
+export function bezugPacklisteTag(tag: string, zahlen: { auftraege: number; saetze: number; verkauf: number }): ChatBezug {
+  const teile = [
+    `${zahlen.auftraege} ${zahlen.auftraege === 1 ? "Auftrag" : "Aufträge"}`,
+    zahlen.saetze ? `${zahlen.saetze} ${zahlen.saetze === 1 ? "Satz" : "Sätze"} aus dem Lager` : null,
+    zahlen.verkauf ? `${zahlen.verkauf} Verkaufsreifen` : null,
+  ];
+  return { art: "packliste", id: packlisteKennung(tag), titel: `Packliste ${datumKurz(tag)}`, unter: zusammen(teile) };
+}
+
 export function bezugAus(n: Pick<ChatNachricht, "bezug_art" | "bezug_id" | "bezug_titel" | "bezug_unter">): ChatBezug | null {
   if (!n.bezug_art || !n.bezug_id) return null;
   return { art: n.bezug_art, id: n.bezug_id, titel: n.bezug_titel || "", unter: n.bezug_unter };
@@ -162,7 +206,8 @@ export function bezugAus(n: Pick<ChatNachricht, "bezug_art" | "bezug_id" | "bezu
 // Eine Karte, deren Sache endgültig gelöscht wurde (Migration 80, `chat_bezug_vergessen`), öffnet
 // nichts mehr.
 // Die Texte setzt die Datenbank; hier stehen dieselben drei.
-const GELOESCHT = new Set(["Kunde gelöscht", "Auftrag gelöscht", "gelöscht"]);
+// „Bestellung gelöscht“ setzt seit Migration 105 `bestellwunsch_nachlauf()`.
+const GELOESCHT = new Set(["Kunde gelöscht", "Auftrag gelöscht", "Bestellung gelöscht", "gelöscht"]);
 export function bezugGeloescht(b: ChatBezug): boolean {
   return GELOESCHT.has(b.titel);
 }

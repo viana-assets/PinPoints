@@ -61,7 +61,7 @@ import { AnrufFenster } from "@/components/kunden/AnrufFenster";
 import { ChatBlase } from "@/components/chat/ChatBlase";
 import { SchnellMenue, type SchnellEintrag } from "@/components/SchnellMenue";
 import { ChatFenster } from "@/components/chat/ChatFenster";
-import { bezugAuftrag, bezugKunde, bezugVorschlaege, chatZielAus, type ChatBezug } from "@/lib/chat";
+import { bezugAuftrag, bezugKunde, bezugVorschlaege, chatZielAus, packlisteTagAus, type ChatBezug } from "@/lib/chat";
 import { useChat } from "./_seite/useChat";
 import { useZeiterfassung } from "./_seite/useZeiterfassung";
 import { useKarte } from "./_seite/useKarte";
@@ -120,7 +120,7 @@ import { PacklistePanel } from "@/components/packliste/PacklistePanel";
 import { BestellPanel } from "@/components/bestellung/BestellPanel";
 import { BestellBlatt } from "@/components/bestellung/BestellBlatt";
 import { BestellKnopf } from "@/components/bestellung/BestellKnopf";
-import { BESTELLUNG_PARAMETER } from "@/lib/bestellung";
+import { BESTELLUNG_PARAMETER, meinBestellName } from "@/lib/bestellung";
 import { bestellPlusSetzen } from "@/lib/api/bestellungen";
 import { KundenListePanel } from "@/components/kunden/KundenListePanel";
 import { anfangsbuchstabe, anzeigeName, kundenArtPasst, kundenArtZahlen, rueckrufFaellig, type KundenArt } from "@/lib/kundenAnsicht";
@@ -236,6 +236,9 @@ export default function HomePage() {
   // und der Eintrag, auf den eine Push-Meldung zeigt.
   const [bestellBlatt, setBestellBlatt] = useState<{ kundeId?: string | null; auftragId?: string | null; bearbeite?: Bestellwunsch | null } | null>(null);
   const [bestellHervor, setBestellHervor] = useState<string | null>(null);
+  // Packliste aus einer Chat-Karte (v174): dieser Tag; die Nummer erzwingt ein frisches Zeichnen der Seite.
+  const [packlisteZiel, setPacklisteZiel] = useState<string | null>(null);
+  const [packlisteZielNr, setPacklisteZielNr] = useState(0);
   const [bestellMeldung, setBestellMeldung] = useState<string | null>(null);
   useEffect(() => {
     if (!bestellMeldung) return;
@@ -1065,6 +1068,8 @@ export default function HomePage() {
     if (b.art === "auftrag") return canView("auftraege");
     if (b.art === "kunde") return true;
     if (b.art === "platz") return canView("lager");
+    if (b.art === "bestellung") return canView("bestellungen");
+    if (b.art === "packliste") return canView("auftraege") && packlisteTagAus(b.id) !== null;
     return canView("lager") && darf("lager.verkauf", "lesen");
   }
   function chatBezugOeffnen(b: ChatBezug) {
@@ -1082,6 +1087,19 @@ export default function HomePage() {
         return;
       }
       openDetail(b.id);
+      return;
+    }
+    // Seit v174 (Migration 105): Bestellwunsch und Packliste-Tag.
+    if (b.art === "bestellung") {
+      setBestellHervor(b.id);
+      setTab("bestellungen");
+      void neuLaden(qk.bestellungen());
+      return;
+    }
+    if (b.art === "packliste") {
+      setPacklisteZiel(packlisteTagAus(b.id));
+      setPacklisteZielNr((n) => n + 1);
+      setTab("packliste");
       return;
     }
     if (b.art === "platz") setGescannterLagerplatzId(b.id);
@@ -2284,6 +2302,10 @@ export default function HomePage() {
             lagerLaedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
             isTechniker={isTechniker}
             onOpenOrder={setOffenerAuftragId}
+            key={packlisteZielNr}
+            zielTag={packlisteZiel}
+            onZielUebernommen={() => setPacklisteZiel(null)}
+            onInDenChat={inDenChat}
           />
         )}
 
@@ -2306,6 +2328,7 @@ export default function HomePage() {
             onBearbeiten={(w) => setBestellBlatt({ bearbeite: w })}
             onOpenOrder={setOffenerAuftragId}
             onOpenCustomer={openDetail}
+            onInDenChat={inDenChat}
           />
         )}
 
@@ -2690,6 +2713,7 @@ export default function HomePage() {
         <BestellBlatt
           supabase={supabase}
           ich={meineId}
+          meinName={meinBestellName(meineId, employees, userEmail)}
           wuensche={bestellwuensche}
           transporter={firmenfahrzeuge}
           kunden={customers}

@@ -481,7 +481,15 @@ input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit
 textarea, select{font-size:16px;}
 ```
 
-Zwei Fallstricke, die dabei aufgefallen sind und beim nächsten Mal wieder auftreten würden:
+Seit v175 (29.10.2026) steht der Teil für `textarea, select` in einem eigenen Block als **letzte Regel der
+Datei** (`textarea:not(.rm-feld), select:not(.rm-feld)`): Die Datei war über die alte Stelle hinausgewachsen, und
+`.nk-feld textarea` (14,5px) gewann – „Was fehlt?“ blieb am iPhone vergrößert. `tests/eingabeZoom.test.ts` prüft,
+dass der Block zuletzt steht und keine stärkere Regel ihn überstimmt.
+
+Drei Fallstricke, die dabei aufgefallen sind und beim nächsten Mal wieder auftreten würden:
+
+* **„Am Dateiende“ ist kein Zustand, sondern eine Pflicht.** Was danach angehängt wird, gewinnt bei gleicher
+  Spezifität – siehe oben.
 
 * Eine **Aufzählung der Typen** (`input[type=text], …`) lässt die 16 Felder aus, die im
   Projekt ohne `type`-Angabe geschrieben sind – unter anderem die im Lager. Deshalb die

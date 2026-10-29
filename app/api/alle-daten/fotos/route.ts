@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient, createAdminClient } from "@/lib/supabaseServer";
 import { chatFotosAufraeumen } from "@/lib/chatVersand";
+import { bestellFotosAufraeumen } from "@/lib/bestellVersand";
 import { CHAT_FOTO_BUCKET } from "@/lib/chat";
 import { FIN_BELEG_BUCKET } from "@/lib/finance/belege";
 import { BESTELL_FOTO_BUCKET } from "@/lib/bestellung";
@@ -46,6 +47,12 @@ export async function POST() {
     // Fehlt die Tabelle (Migration 90 nicht gelaufen), kommt ein Fehler – dann bleibt der Speicher, wie er ist.
     const belege = await admin.from("fin_belege").select("id", { count: "exact", head: true });
     if (!belege.error && belege.count === 0) entfernt += await bucketLeeren(admin, FIN_BELEG_BUCKET);
+    // Seit Migration 105 merkt das Leeren die Bestellfotos vor – erst abarbeiten, dann (bei leerer Liste) den Rest.
+    for (let i = 0; i < RUNDEN; i++) {
+      const runde = await bestellFotosAufraeumen(admin);
+      entfernt += runde.entfernt;
+      if (runde.entfernt === 0) break;
+    }
     const bestellungen = await admin.from("bestellwuensche").select("id", { count: "exact", head: true });
     if (!bestellungen.error && bestellungen.count === 0) entfernt += await bucketLeeren(admin, BESTELL_FOTO_BUCKET);
   } catch (e) {

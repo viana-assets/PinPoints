@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import { fetchKundeAuskunft } from "@/lib/api/customers";
-import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, reifenNotizZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
+import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, bestellZeile, reifenNotizZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
 import { formatEUR } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { PROTOKOLL_SCHWAERZEN_MONATE, RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -104,6 +104,11 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
               <Tabelle zeilen={daten.reifen_notizen.map(reifenNotizZeile)} />
             </>)}
 
+            {daten.bestellungen && daten.bestellungen.length > 0 && (<>
+              <h2>Bestellwünsche</h2>
+              <Tabelle zeilen={daten.bestellungen.map(bestellZeile)} />
+            </>)}
+
             {daten.rechnungen.length > 0 && (<>
               <h2>Rechnungen</h2>
               <Tabelle zeilen={daten.rechnungen.map((r) => [`${r.nummer} · ${datum(r.datum)}`, `${r.art === "storno" ? "Stornorechnung" : "Rechnung"} · ${formatEUR(r.brutto)} brutto`])} />
@@ -135,6 +140,7 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
               lit. c DSGVO). Die Daten stammen von Ihnen selbst. Sie werden gespeichert, solange die
               Geschäftsbeziehung besteht; Rechnungen für die Dauer der gesetzlichen Aufbewahrungsfristen.
               {daten.belege && daten.belege.length > 0 && " Fotos und Ihre Unterschrift halten den Zustand Ihres Fahrzeugs und die ausgeführte Arbeit fest, damit sich bei einer Reklamation nachvollziehen lässt, was gemacht wurde."}
+              {daten.bestellungen && daten.bestellungen.length > 0 && " Bestellwünsche halten fest, welches Material für Ihren Auftrag beschafft werden musste; erledigte werden nach 12 Monaten gelöscht."}
             </p>
             <p>
               Empfänger: Dienstleister, die für uns Hosting und Datenbank betreiben (Auftragsverarbeitung). Zur

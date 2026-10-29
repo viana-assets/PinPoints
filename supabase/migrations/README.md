@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **und `104_bestellliste.sql`** (vor den Dateien von v173) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **`104_bestellliste.sql`** (vor den Dateien von v173) **und `105_bestellliste_loeschkonzept_chatkarten.sql`** (nach 104, vor den Dateien von v174) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1554,3 +1554,24 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 
 Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auch die neuere Fassung
 `alle_daten_loeschen(text, text)` aus Migration 86 – vorher stand dort fälschlich „NEIN“. Zeile 104 neu.
+
+- `105_bestellliste_loeschkonzept_chatkarten.sql` – **noch auszuführen**, nach 104 und vor den Dateien von v174.
+  Anlass: Frage Vitali 29.10.2026, ob das Löschkonzept alles enthält, und Wunsch „Name des Eintragenden an der Bestellung“
+  (`docs/bestellliste.md`, Abschnitte „Wer hat es eingetragen“ und „Löschkonzept und Aufbewahrung“). Inhalt:
+  `bestellwuensche.erstellt_name` und `bestellwunsch_plus.name` aus der Anmeldung (`zugang_anzeigename()`, Trigger
+  `bestellwunsch_wer()` und `bestellwunsch_plus_wer()`, bestehende Einträge nachgetragen); Fotos vormerken
+  (`private.bestell_fotos_weg`, `bestellwunsch_nachlauf()`, vor TRUNCATE `bestell_fotos_vor_leeren()`, Liste/Abhaken nur
+  Dienstschlüssel); `bestell_aufraeumen()` + pg_cron `pinpoints-bestell-aufraeumen` 03:45 UTC (erledigte nach 12 Monaten);
+  `kunde_endgueltig_loeschen()` und `kunden_zusammenfuehren()` umbenannt zu `…_grund`, neue Hüllen mit der Bestellliste;
+  `kunde_auskunft()` mit `bestellungen`; Chat: `chat_bezug_bekannt` um `bestellung`/`packliste` erweitert, neue Prüfregel
+  `chat_bezug_packliste`. Wache: bricht ohne 104 bzw. ohne Chat/Auskunft/Zusammenführen ab. Ergebnistabelle mit sechs Zeilen.
+  Zweiter Lauf folgenlos. Rücknahme: `rollback/105_rollback.sql` (Karten „Bestellung“/„Packliste“ verschwinden aus den
+  Nachrichten, der Text bleibt; Namen weg; noch vorgemerkte Fotodateien nennt die Tabelle – dann bleibt die Liste stehen,
+  bis sie von Hand geleert ist; zweimal lauffähig).
+  Geprüft gegen Postgres 16 mit 01–104 als Vorstufe: zweimal ausgeführt; 12 Fälle (Name aus Mitarbeiter bzw. E-Mail, Fälschen
+  beim Anlegen und Ändern wirkungslos; „+1“ mit Namen; Hilfsfunktionen nicht von außen; Packliste-Karte nur mit gültiger
+  Kennung; Kunde endgültig löschen nimmt Wünsche zu Kunde und Auftrag mit, Foto vorgemerkt, Chat-Karte „Bestellung
+  gelöscht“, ein fremder Wunsch bleibt; Techniker weiter abgelehnt mit der alten Meldung; Zusammenführen hängt um; Auskunft
+  ohne Mitarbeiternamen; Aufräumen löscht nur erledigte nach 12 Monaten; Foto ersetzen merkt den alten Pfad vor;
+  Dienstschlüssel holt und hakt ab; „Alle Daten löschen“ merkt alle Fotos vor). Die Testskripte von 104 laufen gegen den
+  Stand 105 mit gleicher Ausgabe wie gegen 104. Zweimal zurückgenommen (Schema danach gleich dem Stand 104), erneut ausgeführt.

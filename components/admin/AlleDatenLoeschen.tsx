@@ -29,6 +29,8 @@ const BEREICHE: [string, string][] = [
   // Seit Migration 80–85 (genannt seit v142, gelöscht wurden sie schon vorher): Chat und Stempeluhr.
   ["chat_nachrichten", "Chat-Nachrichten (Team- und Einzelchats)"], ["zeit_schichten", "Stempelzeiten (mit Pausen, Heimfahrten, Korrekturen)"],
   ["zeit_abwesenheiten", "Urlaube und Abwesenheiten"],
+  // Seit v174 genannt (gelöscht seit Migration 104): die Bestellliste samt „+1“ und Fotos.
+  ["bestellwuensche", "Bestellwünsche (mit „+1“ und Fotos)"],
 ];
 
 export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
@@ -81,7 +83,7 @@ export function AlleDatenLoeschen({ supabase }: { supabase: SupabaseClient }) {
       <span className="small">
         Stellt die App auf null, wie bei einem frischen Unternehmen: Kunden, Aufträge, Rechnungen, Lager,
         Artikel und Preise, Mitarbeiter, Transporter, Briefkopf, Fotos, Chat, Stempelzeiten und Urlaube,
-        Protokoll und der Verlauf „Was gibt es Neues“. Übrig bleiben nur die
+        Bestellliste, Packliste-Haken, Protokoll und der Verlauf „Was gibt es Neues“. Übrig bleiben nur die
         Zugänge mit der Rolle Admin oder Superadmin und die Rechte. Nur für den Superadmin.
       </span>
       {!offen ? (

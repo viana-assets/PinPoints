@@ -1,4 +1,4 @@
-import type { BestellFuer, BestellStatus, Bestellwunsch } from "./types";
+import type { BestellFuer, BestellStatus, Bestellwunsch, Employee } from "./types";
 import type { PushInhalt } from "./pushInhalt";
 
 // Die Bestellliste (Migration 104, v173, Wunsch Vitali 29.10.2026, Mockup Claude outputs/Mockup_Bestellliste_v1.html):
@@ -73,6 +73,36 @@ export function bestellZahlen(wuensche: Bestellwunsch[]): Record<BestellFilter, 
 // Meine: selbst eingetragen oder „+1“ gedrückt.
 export function istMeiner(x: Bestellwunsch, ich: string | null): boolean {
   return !!ich && (x.erstellt_von === ich || x.plus.includes(ich));
+}
+
+// Wer hat es eingetragen? Wunsch Vitali 29.10.2026: „sonst weiß ich nie, wer gesagt hat, dass es fehlt.“
+// Seit Migration 105 steht der Name am Eintrag – gesetzt von der Datenbank aus der Anmeldung
+// (`bestellwunsch_wer()`: Mitarbeitername, sonst Teil der E-Mail), nicht vom Gerät. Für Einträge von vor 105
+// (Name leer) der Mitarbeitername zum Zugang. Dieselbe Regel wie `zugang_anzeigename()` – wer eine ändert,
+// ändert beide.
+export function bestellWer(
+  x: Pick<Bestellwunsch, "erstellt_von" | "erstellt_name">,
+  mitarbeiter: Pick<Employee, "profile_id" | "name">[]
+): string {
+  return x.erstellt_name?.trim()
+    || (x.erstellt_von ? mitarbeiter.find((e) => e.profile_id === x.erstellt_von)?.name?.trim() : "")
+    || "unbekannt";
+}
+
+// Mein eigener Name, wie ihn die Datenbank beim Eintragen setzen wird (für den Hinweis im Blatt).
+export function meinBestellName(ich: string | null, mitarbeiter: Pick<Employee, "profile_id" | "name">[], email: string | null): string | null {
+  const name = ich ? mitarbeiter.find((e) => e.profile_id === ich)?.name?.trim() : "";
+  return name || (email || "").split("@")[0].trim() || null;
+}
+
+// „+1 von Paul, dir“ – wer es außerdem braucht. Namen fehlen nur bei „+1“ von vor Migration 105; die
+// werden gezählt („und 1 weiterer“).
+export function bestellPlusText(x: Pick<Bestellwunsch, "plus" | "plus_namen">, ich: string | null): string | null {
+  if (!x.plus.length) return null;
+  const namen = x.plus.map((id, i) => (id === ich ? "dir" : (x.plus_namen[i] || "").trim())).filter(Boolean);
+  const rest = x.plus.length - namen.length;
+  if (!namen.length) return `+${rest} ${rest === 1 ? "weiterer" : "weitere"}`;
+  return `+1 von ${namen.join(", ")}${rest ? ` und ${rest} weiteren` : ""}`;
 }
 
 // Darf ich Text, Menge, Foto … ändern bzw. löschen? Spiegel von `bestellwunsch_pruefen()`.
