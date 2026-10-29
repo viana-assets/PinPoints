@@ -1032,3 +1032,21 @@ es keine der Zustandsfarben (rot, orange, grün, blau, navy) belegen darf. Der S
 „Was gibt es Neues" (`.nw-*`) ist ein Blatt mit einer Karte je Fassung; ungelesene tragen den
 orangen Rand und „neu". Im Dashboard steht für Admin und Superadmin ein Hinweis, solange die
 neueste Fassung ungelesen ist.
+
+## Seitlich scrollende Leisten (v177)
+
+Filterpillen (`.pl-filter`, `.au-filter`, `.am-filter`, `.ad-filter`), Umschalter (`.lg-lagerwahl`) und Reiter
+(`.am-reiter`, `.ad-reiter`) scrollen seitlich, wenn sie nicht in die Breite passen. Bis v176 war der Balken dafür
+überall versteckt – am Handy wischt man, am Rechner mit Maus kam man an die hinteren Einträge nicht heran
+(Bildschirmfoto Vitali 29.10.2026, Termine in der 380-px-Spalte). Seitdem:
+
+- ein dünner Balken (6 px, Farbe der Linien), nur wenn es etwas zu scrollen gibt – Regel am Ende von
+  `app/globals.css` mit `#app` davor, damit sie die verstreuten `scrollbar-width:none` schlägt;
+- das Mausrad über so einer Leiste schiebt sie zur Seite (`lib/querRad.ts`, einmal in `app/page.tsx` angemeldet);
+  am Ende der Leiste scrollt die Seite normal weiter, Strg+Rad bleibt Vergrößern;
+- die Zeitraum-Leiste der Termine ist so eng gesetzt, dass „Heute … Alle“ mit Zahl in 352 px passen (gemessen mit
+  Karla und vierstelliger Zahl).
+
+Wer eine neue seitlich scrollende Leiste mit eigener Klasse baut, trägt sie in beide Listen ein (CSS und
+`QUER_LEISTEN`); `tests/querRad.test.ts` vergleicht sie. Die Kacheln und Pillen auf der Karte (`kt-*`) bleiben bewusst
+ohne Balken.

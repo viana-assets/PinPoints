@@ -290,6 +290,7 @@ viana-pinpoints/
     module.ts                    Die Modul-/Navigationsliste (`MODULE`), einmal für
                                  Seitenleiste UND die Handy-Kachelseite „Weitere"; dazu
                                  `WEITERE_GRUPPEN`/`weitereGruppen()` (seit v176 auch die Bereiche der Seitenleiste)
+    querRad.ts                   Mausrad über seitlich scrollenden Leisten (v177; tests/querRad.test.ts)
     navGruppen.ts                Seitenleiste in Bereichen: Aufbau, Ein-/Ausklappen, Merker (v176; tests/navGruppen.test.ts)
     version.ts                    `APP_VERSION` und `NEUIGKEITEN` (gleichlaufend mit public/sw.js)
     rechteAnsicht.ts              Rechtematrix: Gruppen, „x von y“, Hinweise, „Ansehen als …“ (v124)

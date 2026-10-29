@@ -82,6 +82,7 @@ import { SystemWahl } from "@/components/system/SystemWahl";
 import { FINANCE_ICONS, FinanceBereich, type FinanceAnsicht } from "@/components/finance/FinanceBereich";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten } from "@/lib/finance/seiten";
 import { ansichtLesen, ansichtMerken } from "@/lib/ansichtMerker";
+import { querRadAktivieren } from "@/lib/querRad";
 import { SYSTEME, aktivesSystem, istWechselbar, sichtbareSysteme, systemStartwert, type SystemKey } from "@/lib/systeme";
 import { NavItem } from "@/components/NavItem";
 import { FsmNavigation } from "@/components/FsmNavigation";
@@ -265,6 +266,8 @@ export default function HomePage() {
   });
   // Wo dieses Fenster steht, für das nächste Neuladen merken (v167).
   useEffect(() => { ansichtMerken({ tab, system: systemWunsch, finSeite }); }, [tab, systemWunsch, finSeite]);
+  // Mausrad über Filterpillen und Umschaltern scrollt sie seitlich (v177, lib/querRad.ts).
+  useEffect(() => querRadAktivieren(document), []);
   // Der FSM-Reiter beim Wechsel nach Finance. Springt die App von sich aus woandershin (Tipp auf
   // eine Push-Meldung, Sprung aus dem Chat), geht es zurück nach FSM – sonst stünde das Ziel unsichtbar
   // hinter Finance.

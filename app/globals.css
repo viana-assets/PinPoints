@@ -2773,10 +2773,13 @@ span.db-link{cursor:inherit;}
 .te-seite{display:flex;flex-direction:column;gap:10px;padding-bottom:12px;flex:0 0 auto;}
 .te-seite .pl-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
 .te-seite .pl-filter::-webkit-scrollbar{display:none;}
-/* Fünf Zeiträume mit Zahl müssen in die 352 px der Seitenleiste passen – enger als im Lager. */
-.te-seite .lg-lagerwahl{gap:2px;}
-.te-seite .lg-lagerwahl button{padding:0 6px;font-size:13px;}
-.te-seite .lg-lagerwahl-zahl{margin-left:3px;font-size:11.5px;}
+/* Fünf Zeiträume mit Zahl müssen in die 352 px der Seitenleiste passen – enger als im Lager. Nachgemessen v177
+   (Bildschirmfoto Vitali 29.10.2026: „Alle“ samt Zahl abgeschnitten): mit Karla und „Alle 412“ waren es 380 px.
+   Jetzt dürfen die Knöpfe schrumpfen und sind enger; reicht es trotzdem nicht, zeigt die Leiste den Balken
+   zum Seitwärtsscrollen (Abschnitt „Seitlich scrollende Leisten“ am Dateiende). */
+.te-seite .lg-lagerwahl{gap:1px;}
+.te-seite .lg-lagerwahl button{flex:1 1 auto;padding:0 4px;font-size:12.5px;}
+.te-seite .lg-lagerwahl-zahl{margin-left:2px;font-size:11px;}
 .te-tag{display:flex;flex-direction:column;}
 .te-tag > .au-gruppe-kopf{padding-bottom:6px;}
 .te-eintrag{display:flex;flex-direction:column;}
@@ -4843,6 +4846,20 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .nav-gruppe-punkt{width:7px;height:7px;border-radius:50%;background:var(--red);}
 .icon-nav-item.nav-eingerueckt{padding-left:22px;}
 .nav-unten{border-top:1px solid var(--border);margin-top:8px;padding-top:6px;display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+
+/* ---------------- Seitlich scrollende Leisten (v177) ----------------
+   Filterpillen, Umschalter und Reiter scrollen seitlich, wenn sie nicht in die Breite passen – den Balken dafür
+   hatten alle versteckt (`scrollbar-width:none`). Am Handy wischt man; am Rechner mit Maus kam man an das Ende nicht
+   heran (Bildschirmfoto Vitali 29.10.2026: Termine, „Alle“ und ein Mitarbeiter abgeschnitten). Jetzt ein dünner Balken,
+   der nur erscheint, wenn es etwas zu scrollen gibt; dazu dreht `lib/querRad.ts` das Mausrad über so einer Leiste zur
+   Seite. Dieselbe Liste steht dort als `QUER_LEISTEN` – wer eine ändert, ändert beide. `#app` davor, damit es gegen
+   die verstreuten `… .pl-filter{scrollbar-width:none}` gewinnt. Die Kacheln und Pillen auf der Karte (`kt-*`) bleiben
+   ohne Balken: Sie liegen über der Karte und werden gewischt. */
+#app :is(.pl-filter,.lg-lagerwahl,.au-filter,.am-reiter,.am-filter,.ad-reiter,.ad-filter){
+  scrollbar-width:thin;scrollbar-color:#cdc3ae transparent;}
+#app :is(.pl-filter,.lg-lagerwahl,.au-filter,.am-reiter,.am-filter,.ad-reiter,.ad-filter)::-webkit-scrollbar{display:block;height:6px;}
+#app :is(.pl-filter,.lg-lagerwahl,.au-filter,.am-reiter,.am-filter,.ad-reiter,.ad-filter)::-webkit-scrollbar-thumb{background:#cdc3ae;border-radius:3px;}
+#app :is(.pl-filter,.au-filter,.am-filter,.ad-filter){padding-bottom:2px;}
 
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei

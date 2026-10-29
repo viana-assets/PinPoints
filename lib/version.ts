@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v176";
+export const APP_VERSION = "v177";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,13 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v177", datum: "2026-10-29", titel: "Nichts mehr abgeschnitten in Filterleisten",
+    punkte: [
+      "Bei den Terminen passen die Zeiträume (Heute bis Alle) samt Zahl jetzt in die Leiste.",
+      "Passt eine Leiste mit Filtern oder Mitarbeitern nicht in die Breite, steht am Rechner ein dünner Balken darunter zum Seitwärtsscrollen – und das Mausrad über der Leiste schiebt sie zur Seite.",
+    ],
+  },
   {
     version: "v176", datum: "2026-10-29", titel: "Seitenleiste am Rechner in Bereichen",
     punkte: [

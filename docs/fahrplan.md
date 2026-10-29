@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **29.10.2026 – Seitlich scrollende Leisten am Rechner bedienbar (Service Worker v177, ohne Migration).** Bildschirmfoto
+  Vitali: bei den Terminen „Alle“ samt Zahl und ein Mitarbeiter abgeschnitten, kein Weg nach rechts. Zeitraum-Umschalter
+  der Termine passt jetzt (gemessen 352 px), alle Filter-/Reiterleisten zeigen bei Überstand einen dünnen Balken, das
+  Mausrad schiebt sie seitlich (`lib/querRad.ts`). `docs/design-system.md`.
+
 * **29.10.2026 – Seitenleiste am Rechner in Bereichen (Service Worker v176, ohne Migration).** Wie „Weitere“ am Handy:
   Unterwegs, Team, Lager, Kunden, Büro, System unten; Überschrift klappt ein und aus, „Alle zu/auf“, der Browser merkt
   es sich, aktive Seite bleibt sichtbar, roter Punkt bei dringendem Hinweis. Wunsch Vitali, Mockup Navigation v1 (Variante A).
