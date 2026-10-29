@@ -4823,6 +4823,27 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .pa-ziel-hinweis{background:var(--blau-bg, #eef3fb);color:var(--navy);border-radius:10px;padding:9px 12px;font-size:13px;margin-bottom:10px;}
 .pa-auftraege .pa-chat{margin-left:auto;}
 
+/* ---------------- Seitenleiste in Bereichen (v176, components/FsmNavigation.tsx) ----------------
+   Überschrift je Bereich zum Ein- und Ausklappen, die Seiten darunter eingerückt; „Bereiche · Alle zu“
+   darüber, „System“ unten mit Linie. Am Handy ist alles davon `nav-secondary` und damit ausgeblendet. */
+.nav-bereiche{display:flex;align-items:center;justify-content:space-between;margin:0 2px 2px 10px;flex-shrink:0;}
+.nav-bereiche > span{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#b0a690;}
+.nav-alle{border:0;background:none;font:inherit;font-family:var(--font-body);font-size:12px;font-weight:700;color:var(--muted);
+  cursor:pointer;padding:4px 6px;border-radius:7px;display:flex;align-items:center;gap:4px;}
+.nav-alle:hover{background:var(--hover);color:var(--text);}
+.nav-alle svg{width:14px;height:14px;}
+.nav-gruppe-kopf{width:100%;border:0;background:none;display:flex;align-items:center;gap:8px;cursor:pointer;flex-shrink:0;
+  font-family:var(--font-body);padding:7px 8px 7px 10px;border-radius:9px;color:var(--text);text-align:left;}
+.nav-gruppe-kopf:hover{background:var(--hover);}
+.nav-gruppe-pfeil{width:14px;height:14px;color:var(--muted);transition:transform .18s ease;flex:0 0 auto;}
+.nav-gruppe-kopf.zu .nav-gruppe-pfeil{transform:rotate(-90deg);}
+.nav-gruppe-titel{font-size:12.5px;font-weight:700;}
+.nav-gruppe-rechts{margin-left:auto;display:flex;align-items:center;gap:6px;}
+.nav-gruppe-anz{font-size:11.5px;font-weight:700;color:#b0a690;}
+.nav-gruppe-punkt{width:7px;height:7px;border-radius:50%;background:var(--red);}
+.icon-nav-item.nav-eingerueckt{padding-left:22px;}
+.nav-unten{border-top:1px solid var(--border);margin-top:8px;padding-top:6px;display:flex;flex-direction:column;gap:2px;flex-shrink:0;}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

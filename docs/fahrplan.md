@@ -16,6 +16,11 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **29.10.2026 – Seitenleiste am Rechner in Bereichen (Service Worker v176, ohne Migration).** Wie „Weitere“ am Handy:
+  Unterwegs, Team, Lager, Kunden, Büro, System unten; Überschrift klappt ein und aus, „Alle zu/auf“, der Browser merkt
+  es sich, aktive Seite bleibt sichtbar, roter Punkt bei dringendem Hinweis. Wunsch Vitali, Mockup Navigation v1 (Variante A).
+  `docs/design-system.md`.
+
 * **29.10.2026 – Kein Hineinzoomen am iPhone in Textbereichen und Auswahlfeldern (Service Worker v175, ohne Migration).**
   „Was fehlt?“ vergrößerte die Seite beim Antippen und blieb vergrößert (gemeldet Vitali mit Bildschirmfoto). Ursache: die
   16px-Regel für Handys griff für textarea/select nicht mehr (spätere `.nk-feld`-Regel mit 14,5px). Regel ans Dateiende,

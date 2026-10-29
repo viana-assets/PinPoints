@@ -105,6 +105,7 @@ viana-pinpoints/
   components/
     icons.tsx                  Alle Icon-Komponenten (IconDashboard, IconKunden, …)
     NavItem.tsx                  Ein Eintrag in #iconNav
+    FsmNavigation.tsx            FSM-Seitenleiste in Bereichen zum Ein-/Ausklappen (v176; tests/fsmNavigation.test.tsx)
     Blatt.tsx                     Das gemeinsame Fenster: Kopf, ✕, Fußzeile; am Handy Blatt von unten (v134)
     SchnellMenue.tsx              Am Handy: Knopf oben rechts mit Zahl, klappt Stoppuhr und Chat auf (v159)
     CustomerPicker.tsx            Wiederverwendbare Kundensuche (Lager & Aufträge), Suchfeld + Trefferzeilen (v134)
@@ -288,7 +289,8 @@ viana-pinpoints/
                                  `TERMIN_INTERVALLE` – siehe konstanten-register.md
     module.ts                    Die Modul-/Navigationsliste (`MODULE`), einmal für
                                  Seitenleiste UND die Handy-Kachelseite „Weitere"; dazu
-                                 `WEITERE_GRUPPEN`/`weitereGruppen()`
+                                 `WEITERE_GRUPPEN`/`weitereGruppen()` (seit v176 auch die Bereiche der Seitenleiste)
+    navGruppen.ts                Seitenleiste in Bereichen: Aufbau, Ein-/Ausklappen, Merker (v176; tests/navGruppen.test.ts)
     version.ts                    `APP_VERSION` und `NEUIGKEITEN` (gleichlaufend mit public/sw.js)
     rechteAnsicht.ts              Rechtematrix: Gruppen, „x von y“, Hinweise, „Ansehen als …“ (v124)
     testkunde.ts                  Testkunden lesen: `auftragsNr()` („T3"), `istTestauftrag`,

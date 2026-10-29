@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v175";
+export const APP_VERSION = "v176";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,14 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v176", datum: "2026-10-29", titel: "Seitenleiste am Rechner in Bereichen",
+    punkte: [
+      "Links in der Leiste stehen die Seiten jetzt in Bereichen wie unter „Weitere“ am Handy: Unterwegs, Team, Lager, Kunden, Büro – System mit Admin und Einstellungen unten.",
+      "Ein Klick auf die Überschrift klappt einen Bereich ein oder aus; „Alle zu“ bzw. „Alle auf“ steht darüber. Der Rechner merkt sich, was zu ist. Die Seite, auf der du gerade bist, bleibt immer sichtbar.",
+      "Zugeklappt steht rechts, wie viele Seiten darin sind; ein roter Punkt heißt, dass darin etwas wartet (etwa Rechnungen, die noch auszustellen sind).",
+    ],
+  },
   {
     version: "v175", datum: "2026-10-29", titel: "Kein Hineinzoomen mehr am iPhone",
     punkte: [

@@ -84,6 +84,7 @@ import { FINANCE_SEITEN, sichtbareFinanceSeiten } from "@/lib/finance/seiten";
 import { ansichtLesen, ansichtMerken } from "@/lib/ansichtMerker";
 import { SYSTEME, aktivesSystem, istWechselbar, sichtbareSysteme, systemStartwert, type SystemKey } from "@/lib/systeme";
 import { NavItem } from "@/components/NavItem";
+import { FsmNavigation } from "@/components/FsmNavigation";
 import { MODULE, SEKUNDAERE_TABS, START_TAB, START_TAB_ERSATZ, type TabKey } from "@/lib/module";
 import { CustomerRowMeta } from "@/components/kunden/CustomerRowMeta";
 import { OfflineHinweis, useIstOffline } from "@/components/OfflineHinweis";
@@ -2085,26 +2086,19 @@ export default function HomePage() {
         )}
         {/* Aus der Modulliste erzeugt (lib/module.ts). Vorher stand dieselbe Aufzählung hier
             UND weiter unten auf der Kachelseite „Weitere" – zweimal von Hand gepflegt, und
-            genau deshalb fehlten am 10.09.2026 zwei Module auf dem Handy. */}
-        {systemAktiv === "fsm" && MODULE.map((m) => {
-          if (!modulSichtbar(m.sichtbar)) return null;
-          return (
-            <Fragment key={m.tab}>
-              {m.trennerDavor === "linie" && <div className="nav-divider nav-secondary" />}
-              {m.trennerDavor === "abstand" && <div className="nav-spacer nav-secondary" />}
-              <NavItem
-                className={m.primaer ? undefined : "nav-secondary"}
-                active={tab === m.tab}
-                // Auch ein Tipp auf den Reiter, in dem man schon ist, schließt die Karte am Handy:
-                // „Kunden" antippen heißt dort „zur Liste".
-                onClick={() => { setKarteOffenIn(null); setTab(m.tab); }}
-                icon={<m.Icon />}
-                label={m.label}
-                zusatz={m.tab === "zeit" ? <UhrPille schicht={zeit.schicht} versatzMs={zeit.versatzMs} eingebettet /> : undefined}
-              />
-            </Fragment>
-          );
-        })}
+            genau deshalb fehlten am 10.09.2026 zwei Module auf dem Handy. Seit v176 in Bereichen
+            wie „Weitere“ (components/FsmNavigation.tsx, lib/navGruppen.ts). */}
+        {systemAktiv === "fsm" && (
+          <FsmNavigation
+            module={MODULE.filter((m) => modulSichtbar(m.sichtbar))}
+            tab={tab}
+            hinweisDa={(t) => !!weitereHinweise[t]?.dringend}
+            zusatz={(t) => (t === "zeit" ? <UhrPille schicht={zeit.schicht} versatzMs={zeit.versatzMs} eingebettet /> : undefined)}
+            // Auch ein Tipp auf den Reiter, in dem man schon ist, schließt die Karte am Handy:
+            // „Kunden" antippen heißt dort „zur Liste".
+            onTab={(t) => { setKarteOffenIn(null); setTab(t); }}
+          />
+        )}
 
         {systemAktiv === "fsm" && (
           <NavItem className="nav-more-btn" active={isMoreActive} onClick={() => { setKarteOffenIn(null); setTab("more"); }} icon={<IconMore />} label="Weitere" />

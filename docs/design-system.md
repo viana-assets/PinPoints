@@ -271,9 +271,16 @@ Kachel, auf einer weißen Karte oder in einem Fenster nur fetter Text – Vitali
 Eine Struktur, zwei Layouts (`#iconNav` in `app/page.tsx` + `globals.css`):
 
 - **Desktop**: `#iconNav` ist eine breite (232px), beschriftete Seitenleiste wie in einem
-  ERP-System – Icon + Textlabel nebeneinander, alle Punkte direkt sichtbar (Dashboard,
-  Einsatzplanung, Aufträge, Kunden, Trenner, Termine/Lager/Saisonliste/Packliste/Bestellliste/Zeiterfassung/Neuer Kunde/Inaktive/…,
-  Abstandshalter, Admin/Einstellungen unten). Reihenfolge seit 23.09.2026 in der Reihenfolge
+  ERP-System – Icon + Textlabel nebeneinander. Oben die vier Hauptseiten (Dashboard,
+  Einsatzplanung, Aufträge, Kunden), darunter **seit v176 die Bereiche wie „Weitere“ am Handy**
+  (`WEITERE_GRUPPEN`: Unterwegs, Team, Lager, Kunden, Büro), jeder mit Überschrift zum Ein- und
+  Ausklappen und den Seiten eingerückt darunter, darüber „Bereiche · Alle zu/auf“; „System“
+  (Admin, Einstellungen) unten angeheftet. Zugeklappt stehen rechts die Zahl der Seiten und ein
+  roter Punkt, wenn eine davon einen dringenden Hinweis hat (dieselben wie auf „Weitere“); die
+  aktive Seite bleibt auch im zugeklappten Bereich sichtbar. Was zu ist, merkt sich der Browser
+  (`localStorage`, `NAV_ZU_MERKER`). Gebaut in `components/FsmNavigation.tsx`, Regeln in
+  `lib/navGruppen.ts` (Entwurf `Claude outputs/Mockup_Navigation_v1.html`, Variante A; Wunsch
+  Vitali 29.10.2026: „es werden immer mehr Schaltflächen“). Reihenfolge seit 23.09.2026 in der Reihenfolge
   des Tages: erst der Plan, dann die Arbeit, dann die Kartei. **Beim Öffnen** steht die App in
   der Einsatzplanung (`START_TAB` in `lib/module.ts`); ohne Leserecht dort fällt sie auf das
   Dashboard zurück (`START_TAB_ERSATZ`), das für alle sichtbar ist.
@@ -874,8 +881,8 @@ Kachelseite „Weitere" (Handy). Das ging so lange gut, bis jemand ein Modul erg
 10.09.2026 fehlten **Saisonliste und Artikelstamm auf dem Handy**, wochenlang unbemerkt, weil
 am Schreibtisch alles da war.
 
-Seitdem gibt es `lib/module.ts`: Reiter, Beschriftung, Kachelsatz, Symbol, Sichtbarkeitsregel
-und Trenner stehen einmal da; Seitenleiste und Kachelseite erzeugen sich daraus. Das ist die
+Seitdem gibt es `lib/module.ts`: Reiter, Beschriftung, Kachelsatz, Symbol und Sichtbarkeitsregel
+stehen einmal da (die Trenner sind seit v176 durch die Bereiche ersetzt); Seitenleiste und Kachelseite erzeugen sich daraus. Das ist die
 Konstanten-Regel aus `README.md`, angewandt auf die Navigation.
 
 `tests/navigation.test.ts` hält vier Zusagen fest: keine doppelten Reiter, jedes Modul hat

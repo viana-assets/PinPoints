@@ -37,8 +37,6 @@ export type ModulEintrag = {
   // Die vier wichtigsten Module stehen am Handy in der unteren Leiste, alles andere hinter
   // „Weitere" (seit 23.09.2026 vier statt drei: Einsatzplanung kam dazu). Am Desktop ist beides dieselbe, breite Seitenleiste.
   primaer?: boolean;
-  // Trennlinie bzw. Abstandhalter VOR diesem Eintrag (nur Seitenleiste).
-  trennerDavor?: "linie" | "abstand";
 };
 
 export const MODULE: ModulEintrag[] = [
@@ -50,7 +48,7 @@ export const MODULE: ModulEintrag[] = [
   { tab: "auftraege",      label: "Aufträge",         beschreibung: "Alle Aufträge, Leistungen und Zustände",                    Icon: IconAuftraege,      sichtbar: "auftraege",         primaer: true },
   { tab: "list",           label: "Kunden",           beschreibung: "Kundenliste mit Karte, Filtern und Kontakt",                Icon: IconKunden,         sichtbar: "kunden",            primaer: true },
 
-  { tab: "termine",        label: "Termine",          beschreibung: "Chronologische Terminübersicht (Aufträge mit Uhrzeit)",     Icon: IconTermine,        sichtbar: "termine",           trennerDavor: "linie" },
+  { tab: "termine",        label: "Termine",          beschreibung: "Chronologische Terminübersicht (Aufträge mit Uhrzeit)",     Icon: IconTermine,        sichtbar: "termine" },
   { tab: "lager",          label: "Lager",            beschreibung: "Lager & Lagerplätze verwalten, Reifen zuordnen",            Icon: IconLager,          sichtbar: "lager" },
   { tab: "saison",         label: "Saisonliste",      beschreibung: "Wer hat welche Reifen bei uns liegen – die Anrufliste",     Icon: IconSaison,         sichtbar: "saison" },
   // Packliste (v171): was wann mit muss, für einen wählbaren Zeitraum. Kein eigenes Recht – sie zeigt
@@ -67,7 +65,7 @@ export const MODULE: ModulEintrag[] = [
   { tab: "rechnungen",     label: "Rechnungen",       beschreibung: "Alle ausgestellten Rechnungen, Nachdruck und Storno",       Icon: IconRechnung,       sichtbar: "rechnungen" },
   { tab: "auswertung",     label: "Auswertungen",     beschreibung: "Umsatz, Kunden, Einsatz, Lager, Artikel, DATEV-Export", Icon: IconAuswertung,   sichtbar: "auswertung" },
 
-  { tab: "admin",          label: "Admin",            beschreibung: "Nutzer einladen & verwalten, Mitarbeiter, Firmenfahrzeuge", Icon: IconAdmin,          sichtbar: "admin", trennerDavor: "abstand" },
+  { tab: "admin",          label: "Admin",            beschreibung: "Nutzer einladen & verwalten, Mitarbeiter, Firmenfahrzeuge", Icon: IconAdmin,          sichtbar: "admin" },
   { tab: "settings",       label: "Einstellungen",    beschreibung: "Anzeige, Wiedervorlage-Zeitraum, App, Abmelden",            Icon: IconSettings,       sichtbar: "einstellungen" },
 ];
 
@@ -82,7 +80,8 @@ export const START_TAB_ERSATZ: TabKey = "dashboard";
 // daneben gepflegt zu werden – sonst leuchtet der Knopf irgendwann beim falschen Modul.
 export const SEKUNDAERE_TABS: TabKey[] = MODULE.filter((m) => !m.primaer).map((m) => m.tab);
 
-// Die Gruppen der Kachelseite „Weitere" (26.09.2026, Entwurf „V · Weitere"). Ein Modul, das
+// Die Gruppen der Kachelseite „Weitere" (26.09.2026, Entwurf „V · Weitere") – seit v176 auch die Bereiche der
+// Seitenleiste am Rechner (lib/navGruppen.ts; „System“ steht dort unten angeheftet). Ein Modul, das
 // hier fehlt, landet in „Sonstiges" – es verschwindet nicht, wenn jemand ein neues Modul ergänzt
 // und diese Liste vergisst (`weitereGruppen`).
 export const WEITERE_GRUPPEN: { titel: string; tabs: TabKey[] }[] = [
