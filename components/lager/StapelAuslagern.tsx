@@ -8,6 +8,7 @@ import { lagerplatzIdAusCode, satzIdAusCode } from "@/lib/aufkleberCode";
 import { auftragsNr } from "@/lib/testkunde";
 import { lagerBis } from "@/lib/lagerVormerkung";
 import { QrScanner } from "@/components/QrScanner";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Stapel-Auslagern für den Saisonwechsel (Fahrplan E7, v104): die Sätze eines Tages der Reihe nach,
 // in der Reihenfolge des Regals (`stapelSchritte`, lib/stapelAuslagern.ts).
@@ -121,7 +122,7 @@ export function StapelAuslagern({ datum, schritte, customers, vehicles, gebuehrA
               <span className="st-wo"><b>{s.lagerName}</b><span className="small">Satz {index + 1} von {schritte.length}</span></span>
             </div>
             <div className="lg-felder">
-              <span className="lg-feld"><span className="lg-feld-titel">Kunde</span><span>{kunde?.name ?? "Unbekannter Kunde"}</span></span>
+              <span className="lg-feld"><span className="lg-feld-titel">Kunde</span><span>{kunde ? anzeigeName(kunde) : "Unbekannter Kunde"}</span></span>
               <span className="lg-feld"><span className="lg-feld-titel">Fahrzeug</span><span>{fz ? [fz.license_plate, fz.make_model].filter(Boolean).join(" · ") || "ohne Kennzeichen" : "nicht zugeordnet"}</span></span>
               <span className="lg-feld"><span className="lg-feld-titel">Saison</span><span>{s.satz.saison ? SAISON_LABEL[s.satz.saison] : "offen"}{s.satz.anzahl_raeder !== 4 ? ` · ${s.satz.anzahl_raeder} Räder` : ""}</span></span>
               <span className="lg-feld"><span className="lg-feld-titel">Termin</span><span>{s.auftrag.time ? `${s.auftrag.time.slice(0, 5)} Uhr` : "ohne Uhrzeit"} · Auftrag {auftragsNr(s.auftrag.order_number)}</span></span>

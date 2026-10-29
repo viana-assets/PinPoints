@@ -6,6 +6,7 @@ import { employeeColorFor } from "@/lib/calendar";
 import { alsNaechstes } from "@/lib/dashboard";
 import { lueckeText, naechsterWann, terminTage, terminTagTitel, uhrzeit } from "@/lib/terminAnsicht";
 import { IconNavPin } from "@/components/icons";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Der Reiter „Termine" (neu gestaltet am 26.09.2026, Entwurf „L · Termine") – vorher als
 // Tabelle direkt in app/page.tsx: Zeitraum-Knöpfe, darunter vier Spalten Datum/Kunde/Auftrag/
@@ -118,7 +119,7 @@ export function TerminePanel(p: {
               {namen(naechsterZeile.order.id) && <span className="db-n-wer">{namen(naechsterZeile.order.id)}</span>}
             </div>
             <button type="button" className="db-n-titel" onClick={() => p.onOpenOrder(naechsterZeile.order.id)}>
-              {naechsterZeile.order.time ? naechsterZeile.order.time.slice(0, 5) + " " : ""}{naechsterZeile.cust.name}
+              {naechsterZeile.order.time ? naechsterZeile.order.time.slice(0, 5) + " " : ""}{anzeigeName(naechsterZeile.cust)}
             </button>
             <span className="db-n-unter">{[naechsterZeile.cust.address, p.leistungenText(naechsterZeile.order.id)].filter(Boolean).join(" · ")}</span>
             <div className="db-n-knoepfe">
@@ -171,7 +172,7 @@ export function TerminePanel(p: {
                       onClick={() => p.onOpenOrder(order.id)} onKeyDown={(ev) => { if (ev.key === "Enter") p.onOpenOrder(order.id); }}>
                       <span className="au-text">
                         <span className="au-zeile1">
-                          <span className="au-kunde">{cust.name}</span>
+                          <span className="au-kunde">{anzeigeName(cust)}</span>
                           <span className="au-menue-platz" onClick={(ev) => ev.stopPropagation()}>
                             <span className="op-menue-anker au-menue">
                               <button type="button" className="op-mehr-knopf" aria-label="Weitere Aktionen" onClick={() => setMenuFuer(menuFuer === order.id ? null : order.id)}>

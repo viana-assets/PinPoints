@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v171";
+export const APP_VERSION = "v173";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,22 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v173", datum: "2026-10-29", titel: "Bestellliste: Fehlt was?",
+    punkte: [
+      "Fehlt unterwegs eine Nuss, Werkzeug oder Material? Am Handy im Schnellmenü „Fehlt was?“ – oder im Auftrag unter ⋯ – einfach frei eintragen, mit Menge, „dringend“, für welchen Transporter, auf Wunsch mit Kunde, Auftrag und Foto.",
+      "Steht dasselbe schon auf der Liste, gibt es „+1 – brauche ich auch“ statt eines zweiten Eintrags.",
+      "Im Büro unter Bestellliste: als bestellt markieren (auch mehrere auf einmal, mit Lieferant), „ist da“ oder „nicht nötig“ mit Grund. Dringendes meldet sich sofort per Push, und wer eingetragen hat, bekommt Bescheid, wenn es da ist.",
+    ],
+  },
+  {
+    version: "v172", datum: "2026-10-29", titel: "Firma vor Ansprechpartner",
+    punkte: [
+      "Bei Firmenkunden steht im Lager, in der Planung, bei den Terminen, in Saison- und Packliste und in den Erinnerungen jetzt die Firma – nicht mehr der Ansprechpartner.",
+      "Neuer Kunde als Firma: Die Firma ist Pflicht, der Ansprechpartner freiwillig. Dasselbe gilt im Kundenfenster unter „Daten“.",
+      "Für die Rechnung genügt der Firmenname; ohne Ansprechpartner steht in der Anschrift nur die Firma.",
+    ],
+  },
   {
     version: "v171", datum: "2026-10-26", titel: "Packliste als eigene Seite",
     punkte: [

@@ -3,6 +3,7 @@ import webpush from "web-push";
 import { createClient } from "@/lib/supabaseServer";
 import { ANRUF_PARAMETER } from "@/lib/constants";
 import { pushNutzlast } from "@/lib/pushInhalt";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // „Auf dem Handy anrufen": Der Rechner schickt eine Meldung an die EIGENEN Geräte, das Antippen
 // öffnet in der App ein kleines Fenster mit den Rufnummern dieses Kunden.
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
   // darf, kann sich über diese Route auch keine Meldung über ihn schicken lassen.
   const { data: kunde, error: kundenFehler } = await supabase
     .from("customers")
-    .select("id,name,address,phone_mobile,phone_landline")
+    .select("id,name,company,address,phone_mobile,phone_landline")
     .eq("id", kundeId)
     .maybeSingle();
   if (kundenFehler) return NextResponse.json({ error: kundenFehler.message }, { status: 500 });
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
   webpush.setVapidDetails(process.env.VAPID_SUBJECT || "mailto:vhermann@samhammer.de", oeffentlich, geheim);
 
   const inhalt = pushNutzlast({
-    titel: `Anrufen: ${kunde.name}`,
+    titel: `Anrufen: ${anzeigeName(kunde)}`,
     // Die Nummern gehören in den Text: Auf dem Sperrbildschirm ist die Meldung oft das Einzige,
     // was gelesen wird – genau wie bei der Terminerinnerung.
     text: nummern.join(" · "),

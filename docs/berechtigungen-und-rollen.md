@@ -209,6 +209,8 @@ Spalte nicht vorkommt, gibt es in diesem Bereich nicht (graue Zelle).
 | `chat` | Team-Chat (80) | L S | L S | L S |
 | `zeiterfassung` | Zeiterfassung (82) | L S | – | L S |
 | `zeiterfassung.alle` | – Zeiten aller (82) | L S | – | – |
+| `bestellungen` | Bestellliste (104): sehen, eintragen, +1 | L S | L S | L S |
+| `bestellungen.verwalten` | – Stand setzen, jeden Eintrag ändern/löschen (104) | L S | – | – |
 | `finance` | Finance öffnen (87) | – | – | – |
 | `finance.rechnungen` … `finance.abschluss` | – Rechnungen, Belege, Bank, Buchungen, Steuern, Abschluss (87) | – | – | – |
 | `finance.einstellungen` | – Finance-Einstellungen ändern (87) | – | – | – |

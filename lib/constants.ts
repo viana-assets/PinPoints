@@ -263,6 +263,13 @@ export const RECHTE_KATALOG: RechtBereich[] = [
     klartext: { lesen: "die Arbeitszeiten aller Mitarbeiter sehen", schreiben: "Zeiten aller korrigieren, nachtragen und löschen (immer mit Grund)" },
     erklaerung: "Die Wochentabelle aller Mitarbeiter und deren Tage (Migration 82). „Schreiben“: vergessene Stempelungen beenden, Schichten nachtragen, ändern oder löschen – jeweils mit Pflicht-Grund; Vorher und Nachher werden festgehalten, die Person sieht den Vermerk „korrigiert“.",
     warumNicht: "Löschen gehört hier zu „Schreiben“: Auch das Löschen einer Schicht ist eine Korrektur mit Grund." },
+  { schluessel: "bestellungen", klartext: { lesen: "die Bestellliste sehen", schreiben: "eintragen, was fehlt (Freitext, Foto) und „brauche ich auch“ drücken" }, label: "Bestellliste", verben: ["lesen", "schreiben"],
+    erklaerung: "Was Techniker und Büro brauchen (Migration 104): Werkzeug, Verbrauchsmaterial, Ersatzteile – als Freitext mit Menge, dringend, für Transporter/Lager, optional Kunde, Auftrag und Foto. Eigene Einträge ändern und löschen, solange sie offen sind.",
+    warumNicht: "Gelöscht wird nur der eigene, noch offene Eintrag – das entscheidet die Zeile selbst, kein eigenes Recht." },
+  { schluessel: "bestellungen.verwalten", label: "– Bestellliste verwalten", unter: true, verben: ["lesen", "schreiben"],
+    klartext: { lesen: "(wie Bestellliste sehen)", schreiben: "Stand setzen: bestellt (mit Lieferant/Notiz), da, nicht nötig (mit Grund); jeden Eintrag ändern oder löschen" },
+    erklaerung: "Das Büro bestellt und hakt ab (Migration 104). Wer das darf, bekommt bei einem dringenden Eintrag eine Push-Meldung; wer eingetragen hat, eine bei „da“ oder „nicht nötig“.",
+    warumNicht: "Löschen gehört zu „Schreiben“ – meist ist „nicht nötig“ mit Grund der bessere Weg." },
   // Finance (Migration 87, v145) – ein eigenes System neben FSM (docs/finance.md). Ab Werk für
   // NIEMANDEN außer dem Superadmin (alle Vorgaben leer); freischalten hier in der Matrix.
   { schluessel: "finance", klartext: { lesen: "zu Finance wechseln (Buchhaltung, Pilot)" }, label: "Finance", verben: ["lesen"],
@@ -355,6 +362,9 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
   // Techniker bewusst aus (Wunsch Vitali 08.10.2026): Sie bekommen die Haken, wenn es für sie losgeht.
   zeiterfassung:          { lesen: ["admin", "user"], schreiben: ["admin", "user"] },
   "zeiterfassung.alle":   { lesen: ["admin"], schreiben: ["admin"] },
+  // Bestellliste (Migration 104): eintragen alle, den Stand setzt nur der Admin (Wunsch Vitali 29.10.2026).
+  bestellungen:            { lesen: ["admin", "techniker", "user"], schreiben: ["admin", "techniker", "user"] },
+  "bestellungen.verwalten": { lesen: ["admin"], schreiben: ["admin"] },
   // Finance (Migration 87): ab Werk niemand außer dem Superadmin.
   finance:                 { lesen: [] },
   "finance.rechnungen":    { lesen: [], schreiben: [] },
@@ -375,6 +385,8 @@ export const RECHTE_VORGABE: Record<string, Partial<Record<Verb, Role[]>>> = {
 // eingerückte Zeile ihren Reiter, prüft `rechteHinweise()` (lib/rechteAnsicht.ts) ohne Eintrag hier.
 export type RechtAbhaengigkeit = { bereich: string; verb: Verb; braucht: { bereich: string; verb: Verb }[]; grund: string };
 export const RECHTE_ABHAENGIGKEITEN: RechtAbhaengigkeit[] = [
+  { bereich: "bestellungen.verwalten", verb: "schreiben", braucht: [{ bereich: "bestellungen", verb: "lesen" }],
+    grund: "Der Stand wird in der Bestellliste gesetzt – ohne „Bestellliste sehen“ erscheint sie nicht." },
   { bereich: "finance.rechnungen", verb: "lesen", braucht: [{ bereich: "finance", verb: "lesen" }],
     grund: "Ohne „Finance“ gibt es keinen Weg dorthin – der Wechsler an der Marke erscheint erst damit." },
   { bereich: "finance.belege", verb: "lesen", braucht: [{ bereich: "finance", verb: "lesen" }],

@@ -9,6 +9,7 @@ import { packliste } from "@/lib/packliste";
 import { PacklisteBlock } from "./PacklisteBlock";
 import { fetchAuftragFahrzeuge } from "@/lib/api/auftragFahrzeuge";
 import { Blatt } from "@/components/Blatt";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Das Fenster hinter dem Abendhinweis „Morgen 3 Sätze mitnehmen" (Migration 55).
 //
@@ -101,7 +102,7 @@ export function MitnehmenFenster({ supabase, datum, orders, tireStorages, custom
           <button key={auftrag.id} type="button" className="mitnehmen-zeile" onClick={() => onAuftragOeffnen(auftrag.id)}>
             <span className="mz-zeit">{auftrag.time || "–"}</span>
             <span className="mz-inhalt">
-              <b>{kunde?.name ?? "Kunde"}</b>
+              <b>{kunde ? anzeigeName(kunde) : "Kunde"}</b>
               {liste.map((s) => (
                 <span key={s.id} className="mz-satz">
                   <b>{platzText(s.storage_slot_id)}</b>

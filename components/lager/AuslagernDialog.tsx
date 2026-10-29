@@ -6,6 +6,7 @@ import { currentArticlePrice, formatDate, formatEUR, istLanglieger, lagermonate,
 import { auftragsNr } from "@/lib/testkunde";
 import { lagerBis } from "@/lib/lagerVormerkung";
 import { Blatt } from "@/components/Blatt";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Was beim Auslagern passieren soll. Der Aufrufer entscheidet nicht selbst, sondern bekommt
 // die Wahl des Nutzers als ein Stück – sonst müsste jede Aufrufstelle dieselben vier Fälle
@@ -147,7 +148,7 @@ export function AuslagernDialog({
   const satzKarte = (
     <div className="kp-gewaehlt auslagern-satz">
       <span className="kp-text">
-        <b>{kunde?.name ?? "Unbekannter Kunde"}{fahrzeug ? ` · ${[fahrzeug.license_plate, fahrzeug.make_model].filter(Boolean).join(" ")}` : ""}</b>
+        <b>{kunde ? anzeigeName(kunde) : "Unbekannter Kunde"}{fahrzeug ? ` · ${[fahrzeug.license_plate, fahrzeug.make_model].filter(Boolean).join(" ")}` : ""}</b>
         <span>{platz} · eingelagert {formatDate(satz.created_at.slice(0, 10))}</span>
       </span>
     </div>

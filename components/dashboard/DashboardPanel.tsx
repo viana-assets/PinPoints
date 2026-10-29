@@ -18,6 +18,7 @@ import { setzeGepackt } from "@/lib/api/mitnehmen";
 import { useGepackt } from "@/lib/queries/hooks";
 import { qk } from "@/lib/queries/keys";
 import { IconNavPin } from "@/components/icons";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Das Dashboard (25.09.2026, Entwurf „G · Dashboard"). Die Frage, die es beantwortet:
 // „Was steht heute und morgen an – und was muss ich noch tun?"
@@ -84,7 +85,7 @@ export function DashboardPanel(p: {
   const gruss = jetzt.getHours() < 11 ? "Guten Morgen" : jetzt.getHours() < 18 ? "Guten Tag" : "Guten Abend";
 
   const kundeVon = (o: Order) => kundeFuerAuftrag(o, p.customers);
-  const kundeName = (o: Order) => kundeVon(o)?.name || o.title;
+  const kundeName = (o: Order) => { const k = kundeVon(o); return (k && anzeigeName(k)) || o.title; };
   const nichtStorniert = (o: Order) => o.status !== "storniert" && !o.deleted_at;
   const nachZeit = (a: Order, b: Order) => (a.time ?? "99").localeCompare(b.time ?? "99");
   const heuteListe = p.orders.filter((o) => o.order_date === heute && nichtStorniert(o)).sort(nachZeit);

@@ -3,6 +3,7 @@ import type { Customer, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/l
 import { SAISON_LABEL } from "@/lib/constants";
 import { LANGLIEGER_EURO, LANGLIEGER_MONATE, formatDate, formatEUR, todayStr } from "@/lib/helpers";
 import { langlieger } from "@/lib/langlieger";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Langlieger-Übersicht (Fahrplan E4). Die Rechnung steht in lib/langlieger.ts; hier wird nur
 // gefiltert und angezeigt.
@@ -80,7 +81,7 @@ export function LangliegerListe({ tireStorages, customers, vehicles, storageSlot
               <button key={satz.id} type="button" className="lg-zeile" disabled={!platz} onClick={() => { if (platz) onOpenPlatz(platz.id); }}>
                 <span className="lg-code">{platz?.code ?? "–"}</span>
                 <span className="lg-zeile-text">
-                  <span className="lg-zeile-kunde">{kunde?.name ?? "Unbekannter Kunde"}</span>
+                  <span className="lg-zeile-kunde">{kunde ? anzeigeName(kunde) : "Unbekannter Kunde"}</span>
                   <span className="lg-zeile-info">
                     {[
                       `seit ${monate} Monaten`,

@@ -461,7 +461,7 @@ export function terminZeitraum(o: { time: string | null; end_time: string | null
 export type RechnungsMangel = { schluessel: string; text: string; behebbarHier: boolean; pflicht: boolean };
 
 export function rechnungsdatenMaengel(
-  kunde: { name: string; address: string; email: string | null; laufkundschaft?: boolean } | null,
+  kunde: { name: string; company?: string | null; address: string; email: string | null; laufkundschaft?: boolean } | null,
   fahrzeuge: { kennzeichen: string | null; kilometerstand: number | null }[]
 ): RechnungsMangel[] {
   const leer = (t: string | null | undefined) => (t ?? "").trim() === "";
@@ -474,8 +474,9 @@ export function rechnungsdatenMaengel(
   // ändert, ändert beide.
   if (kunde?.laufkundschaft) return maengel;
 
-  if (!kunde || leer(kunde.name)) {
-    maengel.push({ schluessel: "name", text: "Name des Kunden", behebbarHier: false, pflicht: true });
+  // Seit v172 (Migration 103): Name ODER Firma – bei einer Firma ist der Ansprechpartner freiwillig.
+  if (!kunde || (leer(kunde.name) && leer(kunde.company))) {
+    maengel.push({ schluessel: "name", text: "Name oder Firma des Kunden", behebbarHier: false, pflicht: true });
   }
   if (!kunde || leer(kunde.address)) {
     maengel.push({ schluessel: "adresse", text: "Anschrift des Kunden", behebbarHier: false, pflicht: true });

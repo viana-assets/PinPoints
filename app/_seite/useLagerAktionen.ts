@@ -15,6 +15,7 @@ import { type StapelSchritt, stapelSchritte } from "@/lib/stapelAuslagern";
 import { auftragsNr } from "@/lib/testkunde";
 import { type Erfassungsart, type Order, type PlatzGroesse, type RadPosition, type Saison, type TireStorage } from "@/lib/types";
 import { useState } from "react";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 export type LagerKontext = {
   supabase: SupabaseClient;
@@ -162,7 +163,7 @@ export function useLagerAktionen(k: LagerKontext) {
     if (wahl.neuerAuftrag && satz) {
       const kunde = customers.find((c) => c.id === satz.customer_id);
       auftragId = await addOrder({
-        customerId: satz.customer_id, title: terminTitel(kunde?.name), description: "",
+        customerId: satz.customer_id, title: terminTitel(kunde ? anzeigeName(kunde) : undefined), description: "",
         orderDate: todayStr(), time: "", status: "offen", assignedEmployeeIds: [],
       });
     }

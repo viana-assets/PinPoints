@@ -5,6 +5,7 @@ import type { AuftragFahrzeug, Order, TireStorage } from "./types";
 import { MITNEHMEN_PARAMETER } from "./constants";
 import { abendhinweisFaellig, folgetag, mitnehmenListe, mitnehmenText, type MitnehmenEintrag } from "./mitnehmen";
 import { pushNutzlast } from "./pushInhalt";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Der Versand des Abendhinweises „Reifen mitnehmen" (Migration 55, 23.09.2026).
 //
@@ -121,10 +122,10 @@ export async function abendhinweiseVersenden(
   // Namen und Plätze erst jetzt – nur für das, was wirklich hinausgeht.
   const alleSaetze = eintraege.flatMap((e) => e.saetze);
   const [{ data: kunden }, { data: plaetze }] = await Promise.all([
-    supabase.from("customers").select("id,name").in("id", Array.from(new Set(eintraege.map((e) => e.auftrag.customer_id)))),
+    supabase.from("customers").select("id,name,company").in("id", Array.from(new Set(eintraege.map((e) => e.auftrag.customer_id)))),
     supabase.from("storage_slots").select("id,code").in("id", Array.from(new Set(alleSaetze.map((s) => s.storage_slot_id)))),
   ]);
-  const nameVon = new Map((kunden || []).map((k) => [k.id as string, k.name as string]));
+  const nameVon = new Map((kunden || []).map((k) => [k.id as string, anzeigeName(k as { name: string; company: string | null })]));
   const platzVon = new Map((plaetze || []).map((p) => [p.id as string, p.code as string]));
 
   const geraeteVon = new Map<string, Geraet[]>();

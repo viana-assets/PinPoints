@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AdressFeld } from "@/components/AdressFeld";
 import type { Customer } from "@/lib/types";
 import { aehnlicheKunden, DUBLETTEN_GRUND_LABEL, starkerGrund } from "@/lib/dubletten";
+import { pflichtText, stammdatenFehlen } from "@/lib/kundenAnsicht";
 
 // Formular "Neuer Kunde".
 //
@@ -80,13 +81,16 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
     setLaufkundschaft(false); setEinmalkunde(false); setTestkunde(false); setFirma(false); setLaufAnsicht(false);
   }
 
+  const fehlt = stammdatenFehlen({ firma: firma && !laufkundschaft, name, company, address, ohneAdresse: laufkundschaft });
+
   async function speichern() {
     // Die Adresse ist Pflicht – außer bei der Laufkundschaft. Sie ist der eine Kunde, der
     // definitionsgemäß keine hat: der Anruf von der Autobahn, der jedes Mal woanders steht.
     // Ohne diese Ausnahme müsste man eine erfundene Adresse eintippen, und die stünde dann
     // für immer im Datensatz – vermutlich sogar mit einer Nadel irgendwo auf der Karte.
-    if (!name.trim() || (!address.trim() && !laufkundschaft)) {
-      setStatus({ text: "Bitte Name und Adresse angeben.", ok: false });
+    // v172: Bei einer Firma ist die Firma Pflicht und der Ansprechpartner freiwillig (`stammdatenFehlen`).
+    if (fehlt.length > 0) {
+      setStatus({ text: `Bitte ${fehlt.join(" und ")} angeben.`, ok: false });
       return;
     }
     // E1: Spricht etwas Handfestes dafür, dass es den Kunden schon gibt (Nummer, E-Mail, Name mit
@@ -152,7 +156,7 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
     einmal: "Mit Anschrift wie jeder andere, aber ohne Nadel und ohne Platz in der Anrufliste – außer solange ein Termin vor ihm liegt. Kommt er doch wieder, im Kundenfenster umstellen.",
     lauf: "Sammelkunde für Barverkäufe ohne Kundenanlage (§ 33 UStDV, bis 250 € brutto): keine Adresse, keine Nadel, beim Abschließen keine Pflicht zu Anschrift oder Fahrzeug. Es gibt ihn nur einmal.",
   };
-  const bereit = !!name.trim() && (!!address.trim() || laufkundschaft);
+  const bereit = fehlt.length === 0;
 
   // Neu gestaltet am 26.09.2026 (Entwurf „R · Neuer Kunde"): Die Art des Kunden steht als
   // Umschalter oben statt als zwei Ankreuzfelder unten, Privat/Firma als zweiter Umschalter,
@@ -193,7 +197,7 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
                 </div>
               )}
               {firma && (
-                <label className="nk-feld"><span>Firma</span>
+                <label className="nk-feld"><span>Firma *</span>
                   <input type="text" value={company} onChange={(e) => setCompany(e.target.value)} placeholder="z. B. Müller GmbH" />
                 </label>
               )}
@@ -205,7 +209,7 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
                     <option value="Frau">Frau</option>
                   </select>
                 </label>
-                <label className="nk-feld"><span>{firma ? "Ansprechpartner *" : "Name *"}</span>
+                <label className="nk-feld"><span>{firma ? "Ansprechpartner" : "Name *"}</span>
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Vor- und Nachname" />
                 </label>
               </div>
@@ -268,7 +272,7 @@ export function AddCustomerForm({ onAdd, terminText, laufkundschaftName = null, 
 
         {!zeigeLaufGibtEs && (
           <div className="nk-fuss">
-            {!bereit && <span className="small">Name{laufkundschaft ? "" : " und Adresse"} sind Pflicht</span>}
+            {!bereit && <span className="small">{pflichtText(fehlt)}</span>}
             <button type="button" className="am-knopf nk-knopf" disabled={busy} onClick={speichern}>
               {busy ? "Wird angelegt …" : laufkundschaft ? "Laufkundschaft anlegen" : testkunde && darfTestkunde ? (auftragAnlegen ? "Testkunde anlegen & Auftrag öffnen" : "Testkunde anlegen") : auftragAnlegen ? "Kunde anlegen & Auftrag öffnen" : "Kunde anlegen"}
             </button>

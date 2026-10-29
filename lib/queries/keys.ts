@@ -133,4 +133,7 @@ export const qk = {
   // Haken bei „Reifen mitnehmen" (Migration 58), je Liste von Einsatztagen.
   gepackt: (daten: string[]) => ["mitnehmen-gepackt", ...daten] as const,
   gepacktAlle: () => ["mitnehmen-gepackt"] as const,
+  // Bestellliste (Migration 104). Die Fotolinks wie die Chatfotos: nicht in den Offline-Speicher (providers.tsx).
+  bestellungen: () => ["bestellungen"] as const,
+  bestellFotoLinks: (pfade: string[]) => ["bestellfotolinks", ...pfade] as const,
 };

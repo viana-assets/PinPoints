@@ -789,7 +789,7 @@ Oberfläche.
 **(c) Vollständige Rechnungsdaten** – `pruefe_rechnungsdaten()` (Migration 44), läuft **nach**
 dem Statuswechsel-Trigger (Funktionsname beginnt mit `trg_p`, extra so gewählt, damit er nach
 `trg_enforce_…` läuft). Greift nur, wenn `rechnung_noetig = true` **und** der Übergang nach
-`erledigt` führt. Verlangt: Kundenname, -anschrift (die E-Mail seit Migration 79 nicht mehr –
+`erledigt` führt. Verlangt: Kundenname oder Firma (seit Migration 103/v172 – bei Firmen ist der Ansprechpartner freiwillig), -anschrift (die E-Mail seit Migration 79 nicht mehr –
 dann steht in „Rechnungen noch nicht ausgestellt“ der rote Hinweis „E-Mail hinterlegen“), mindestens ein Fahrzeug in
 `auftrag_fahrzeuge`, und an jedem davon ein Kennzeichen (am verknüpften `vehicles`-Datensatz)
 sowie einen Kilometerstand. Die Fehlermeldung nennt **alle** fehlenden Punkte auf einmal, nicht

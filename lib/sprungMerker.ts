@@ -1,5 +1,6 @@
 import { LAGERPLATZ_PARAMETER, SATZ_PARAMETER, VERKAUFSREIFEN_PARAMETER } from "./aufkleberCode";
 import { ANRUF_PARAMETER, AUFTRAG_PARAMETER, CHAT_PARAMETER, KUNDE_PARAMETER, MITNEHMEN_PARAMETER, STEMPEL_PARAMETER } from "./constants";
+import { BESTELLUNG_PARAMETER } from "./bestellung";
 
 // Ein Sprung über die Adresse (QR-Aufkleber `?lagerplatz=`/`?satz=`/`?reifen=`, Terminerinnerung
 // `?auftrag=`, …) übersteht das erste Neuladen durch den Service Worker (Fahrplan D19, v106).
@@ -19,7 +20,7 @@ import { ANRUF_PARAMETER, AUFTRAG_PARAMETER, CHAT_PARAMETER, KUNDE_PARAMETER, MI
 
 export const SPRUNG_PARAMETER = [
   LAGERPLATZ_PARAMETER, SATZ_PARAMETER, VERKAUFSREIFEN_PARAMETER,
-  AUFTRAG_PARAMETER, KUNDE_PARAMETER, ANRUF_PARAMETER, MITNEHMEN_PARAMETER, CHAT_PARAMETER, STEMPEL_PARAMETER,
+  AUFTRAG_PARAMETER, KUNDE_PARAMETER, ANRUF_PARAMETER, MITNEHMEN_PARAMETER, CHAT_PARAMETER, STEMPEL_PARAMETER, BESTELLUNG_PARAMETER,
 ] as const;
 
 // Länger als ein Neuladen dauert, kürzer als „ich lade später selbst neu und wundere mich".

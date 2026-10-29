@@ -16,6 +16,7 @@ import { RoutenBlatt, type RoutenGruppe } from "./RoutenBlatt";
 import { seitlichRollbar, wischRichtung } from "@/lib/wischen";
 import { VerfuegbarkeitAnsicht } from "./VerfuegbarkeitAnsicht";
 import { eintragAm, fensterText, nichtEingetragen, verfuegbareAm, type Fenster } from "@/lib/verfuegbarkeit";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Was die Einsatzplanung über die Verfügbarkeit wissen muss (Migration 68). Null: Die Tabelle ist
 // (noch) nicht da oder nicht geladen – dann gibt es weder den Reiter noch die Punkte.
@@ -170,7 +171,8 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     } finally {
       setSchwebend((s) => { const n = { ...s }; delete n[id]; return n; });
     }
-    const kunde = kundeFuerAuftrag(vorher, customers)?.name || vorher.title;
+    const kv = kundeFuerAuftrag(vorher, customers);
+    const kunde = (kv && anzeigeName(kv)) || vorher.title;
     const nachher: TerminStand = { datum, von, bis };
     if (rueckgaengig) {
       setHinweis({ titel: "Zurückgesetzt", kunde, vorher: null, jetzt: terminText(nachher), warnung: null });
@@ -286,15 +288,17 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
     .filter((o) => {
       if (!custFilter.trim()) return true;
       const cust = kundeFuerAuftrag(o, customers);
-      return !!cust && cust.name.toLowerCase().includes(custFilter.toLowerCase());
+      return !!cust && [cust.name, cust.company ?? ""].some((n) => n.toLowerCase().includes(custFilter.toLowerCase()));
     })
     .slice()
     .sort((a, b) => {
       let cmp = 0;
       if (sortBy === "date") cmp = orderDateTime(a).getTime() - orderDateTime(b).getTime();
       else if (sortBy === "kunde") {
-        const an = kundeFuerAuftrag(a, customers)?.name || "";
-        const bn = kundeFuerAuftrag(b, customers)?.name || "";
+        const ka = kundeFuerAuftrag(a, customers);
+        const an = ka ? anzeigeName(ka) : "";
+        const kb = kundeFuerAuftrag(b, customers);
+        const bn = kb ? anzeigeName(kb) : "";
         cmp = an.localeCompare(bn);
       } else cmp = a.status.localeCompare(b.status);
       return sortDir === "asc" ? cmp : -cmp;
@@ -429,6 +433,8 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   function eingeplantAnzahl(employeeId: string, ds: string): number {
     return orders.filter((o) => o.order_date === ds && laeuftNoch(o) && (orderEmployees[o.id] || []).includes(employeeId)).length;
   }
+  // Firma vor Ansprechpartner (v172, wie in der Kundenliste).
+  const kundeText = (o: Order) => { const k = kundeFuerAuftrag(o, customers); return (k && anzeigeName(k)) || o.title; };
   function warnungAmTermin(o: Order): string | null {
     if (!vf || !laeuftNoch(o) || o.order_date < heuteStr) return null;
     const fehlt = nichtEingetragen(orderEmployees[o.id] || [], o.order_date, vf.eintraege);
@@ -438,7 +444,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
   const meineTermine = vf?.ich
     ? orders.filter((o) => laeuftNoch(o) && o.order_date >= heuteStr && (orderEmployees[o.id] || []).includes(vf.ich!.id))
       .sort((a, b) => orderDateTime(a).getTime() - orderDateTime(b).getTime()).slice(0, 8)
-      .map((o) => ({ datum: o.order_date, text: `${terminZeitraum(o) || "ohne Uhrzeit"} · ${kundeFuerAuftrag(o, customers)?.name || o.title}` }))
+      .map((o) => ({ datum: o.order_date, text: `${terminZeitraum(o) || "ohne Uhrzeit"} · ${kundeText(o)}` }))
     : [];
   const wochenLuecken = vf?.alleSehen && ansicht === "verf"
     ? orders.filter((o) => laeuftNoch(o) && o.order_date >= heuteStr && o.order_date >= toDateStr(wochenStart) && o.order_date <= toDateStr(addDays(wochenStart, 6)))
@@ -447,7 +453,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
         const fehlt = nichtEingetragen(orderEmployees[o.id] || [], o.order_date, vf.eintraege);
         if (fehlt.length === 0) return [];
         const d = new Date(o.order_date + "T12:00:00");
-        return [`${WOCHENTAG[d.getDay()].slice(0, 2)} ${d.getDate()}.${d.getMonth() + 1}. ${terminZeitraum(o) || ""} · ${kundeFuerAuftrag(o, customers)?.name || o.title}: ${fehlt.map((x) => employees.find((e) => e.id === x)?.name || "?").join(", ")}`];
+        return [`${WOCHENTAG[d.getDay()].slice(0, 2)} ${d.getDate()}.${d.getMonth() + 1}. ${terminZeitraum(o) || ""} · ${kundeText(o)}: ${fehlt.map((x) => employees.find((e) => e.id === x)?.name || "?").join(", ")}`];
       })
     : [];
 
@@ -673,7 +679,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                       <span className="tk-text">
                         <span className="tk-zeit">{terminZeitraum(o) || "ohne Uhrzeit"}</span>
                         {cust ? (
-                          <button type="button" className="tk-kunde" onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}>{cust.name}</button>
+                          <button type="button" className="tk-kunde" onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}>{anzeigeName(cust)}</button>
                         ) : <span className="tk-kunde">–</span>}
                       </span>
                       <span className={"tk-fahrzeug" + (o.firmenfahrzeug_id ? "" : " leer")}>{fahrzeugText(o.firmenfahrzeug_id)}</span>
@@ -748,7 +754,7 @@ export function EinsatzplanungPanel({ customers, orders, employees, firmenfahrze
                     <span className="op-text">
                       <span className="op-zeile1">
                         {cust ? (
-                          <button type="button" className="op-kunde" onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}>{cust.name}</button>
+                          <button type="button" className="op-kunde" onClick={(e) => { e.stopPropagation(); onOpenCustomer(cust.id); }}>{anzeigeName(cust)}</button>
                         ) : <span className="op-kunde">–</span>}
                         {cust?.address.trim() && (
                           <button className="call-icon-btn small nav-icon-btn" title="Navigation starten (Google Maps / Apple Karten)" onClick={(e) => { e.stopPropagation(); onNavigate(e, cust); }}>

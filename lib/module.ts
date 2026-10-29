@@ -1,7 +1,7 @@
 import type { ComponentType } from "react";
 import {
   IconDashboard, IconKunden, IconAuftraege, IconTermine, IconLager, IconSaison,
-  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconRechnung, IconAdmin, IconSettings, IconZeit, IconPackliste,
+  IconEinsatzplanung, IconNeu, IconInaktiv, IconArtikel, IconAuswertung, IconRechnung, IconAdmin, IconSettings, IconZeit, IconPackliste, IconBestellung,
 } from "@/components/icons";
 
 // Die Module der Anwendung – EINE Liste für beide Navigationen.
@@ -17,7 +17,7 @@ import {
 
 export type TabKey =
   | "dashboard" | "list" | "termine" | "lager" | "saison" | "einsatzplanung"
-  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "rechnungen" | "zeit" | "packliste" | "more";
+  | "auftraege" | "inactive" | "add" | "settings" | "admin" | "artikel" | "auswertung" | "rechnungen" | "zeit" | "packliste" | "bestellungen" | "more";
 
 export type ModulEintrag = {
   tab: TabKey;
@@ -56,6 +56,8 @@ export const MODULE: ModulEintrag[] = [
   // Packliste (v171): was wann mit muss, für einen wählbaren Zeitraum. Kein eigenes Recht – sie zeigt
   // nur Aufträge, also „Aufträge · lesen“; die Lagerplätze darin nur mit Lagerrecht.
   { tab: "packliste",      label: "Packliste",        beschreibung: "Was wann mit muss – Reifen, Leistungen, Größen",             Icon: IconPackliste,      sichtbar: "auftraege" },
+  // Bestellliste (Migration 104, v173): eintragen, was fehlt; das Büro bestellt und hakt ab.
+  { tab: "bestellungen",   label: "Bestellliste",     beschreibung: "Was fehlt – Werkzeug, Material; das Büro bestellt",          Icon: IconBestellung,     sichtbar: "bestellungen" },
   // Stempeluhr (Migration 82, v131). Ohne „Zeiterfassung · lesen“ unsichtbar – so sind die
   // Techniker ab Werk eingestellt.
   { tab: "zeit",           label: "Zeiterfassung",    beschreibung: "Stempeluhr, Tag und Woche – für dich und das Team",         Icon: IconZeit,           sichtbar: "zeiterfassung" },
@@ -86,7 +88,7 @@ export const SEKUNDAERE_TABS: TabKey[] = MODULE.filter((m) => !m.primaer).map((m
 export const WEITERE_GRUPPEN: { titel: string; tabs: TabKey[] }[] = [
   { titel: "Unterwegs", tabs: ["termine", "saison", "packliste"] },
   { titel: "Team", tabs: ["zeit"] },
-  { titel: "Lager", tabs: ["lager"] },
+  { titel: "Lager", tabs: ["lager", "bestellungen"] },
   { titel: "Kunden", tabs: ["add", "inactive"] },
   { titel: "Büro", tabs: ["rechnungen", "auswertung", "artikel"] },
   { titel: "System", tabs: ["admin", "settings"] },

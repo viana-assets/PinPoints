@@ -93,12 +93,13 @@ export type AehnlicherKunde = { kunde: Customer; gruende: DublettenGrund[] };
 // Beim Anlegen: welche vorhandenen Kunden der Eingabe ähneln. Die Laufkundschaft ist ein
 // Sammelkunde und nie gemeint. Deaktivierte zählen mit – gerade die werden neu angelegt.
 export function aehnlicheKunden(eingabe: Vergleichbar, kunden: Customer[], hoechstens = 3): AehnlicherKunde[] {
-  const q = eingabe.name.trim().toLowerCase();
+  // Getippt wird bei Firmen seit v172 oft nur die Firma (der Ansprechpartner ist dort freiwillig).
+  const qs = [eingabe.name, eingabe.company ?? ""].map((x) => (x ?? "").trim().toLowerCase()).filter((x) => x.length >= 4);
   const treffer: AehnlicherKunde[] = [];
   for (const k of kunden) {
     if (k.laufkundschaft || k.deleted_at) continue;
     const gruende = dublettenGruende(eingabe, k);
-    if (q.length >= 4 && gruende.length === 0 && [k.name, k.company ?? ""].some((x) => x.toLowerCase().includes(q))) gruende.push("name");
+    if (gruende.length === 0 && qs.some((q) => [k.name, k.company ?? ""].some((x) => x.toLowerCase().includes(q)))) gruende.push("name");
     if (gruende.length > 0) treffer.push({ kunde: k, gruende });
   }
   return treffer

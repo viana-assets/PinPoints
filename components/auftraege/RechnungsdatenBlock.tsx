@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { AuftragFahrzeug, Customer, Vehicle } from "@/lib/types";
 import { rechnungsdatenMaengel } from "@/lib/helpers";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Die Abhakliste, die erscheint, sobald „Rechnung benötigt" gesetzt ist (Migration 44).
 //
@@ -97,7 +98,7 @@ export function RechnungsdatenBlock({
           : `Für die Rechnung fehlt noch: ${pflichtMaengel.map((m) => m.text).join(", ")}.`}
       </div>
 
-      <Zeile erfuellt={!fehlt("name")} titel="Name" wert={kunde?.name || null} />
+      <Zeile erfuellt={!fehlt("name")} titel={(kunde?.company || "").trim() ? "Firma" : "Name"} wert={kunde ? anzeigeName(kunde) || null : null} />
       <Zeile erfuellt={!fehlt("adresse")} titel="Anschrift" wert={kunde?.address || null}>
         {fehlt("adresse") && <span className="small">Im Kundenfenster ergänzen – dort hängt auch die Karte daran.</span>}
       </Zeile>

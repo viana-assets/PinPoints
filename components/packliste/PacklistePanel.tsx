@@ -19,6 +19,7 @@ import { useGepackt } from "@/lib/queries/hooks";
 import { qk } from "@/lib/queries/keys";
 import { PacklisteBlock } from "@/components/auftraege/PacklisteBlock";
 import { Blatt } from "@/components/Blatt";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Die Seite „Packliste“ (v171, Entwurf Mockup_Packliste_v1, abgenommen 26.10.2026): was wann mit muss,
 // für einen wählbaren Zeitraum statt nur heute/morgen wie im Dashboard. Gerechnet wird in
@@ -128,7 +129,7 @@ export function PacklistePanel(p: {
   }
 
   // ---------------------------------------------------------------- Texte
-  const kundeName = (o: Order) => kundeFuerAuftrag(o, p.customers)?.name || o.title;
+  const kundeName = (o: Order) => { const k = kundeFuerAuftrag(o, p.customers); return (k && anzeigeName(k)) || o.title; };
   const platzVon = (slotId: string | null) => {
     const platz = slotId ? p.storageSlots.find((s) => s.id === slotId) : null;
     const lager = platz ? p.warehouses.find((w) => w.id === platz.warehouse_id) : null;

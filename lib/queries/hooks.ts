@@ -9,6 +9,7 @@ import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsd
 import { fetchEmployees } from "@/lib/api/employees";
 import { fetchFirmenfahrzeuge } from "@/lib/api/firmenfahrzeuge";
 import { fetchVerfuegbarkeiten } from "@/lib/api/verfuegbarkeit";
+import { bestellFotoLinks, fetchBestellwuensche } from "@/lib/api/bestellungen";
 import { chatEmpfangen, chatFotoLinks, fetchChatHaken, fetchChatNachrichten, fetchChatPersonen, fetchChatUngelesen, fetchChatUnterhaltungen } from "@/lib/api/chat";
 import { CHAT_ABFRAGE_MS } from "@/lib/chat";
 import { fetchZeitAbwesenheiten, fetchZeitKorrekturen, fetchZeitOffene, fetchZeitPersonen, fetchZeitSchichten, fetchZeitStatus } from "@/lib/api/zeiterfassung";
@@ -618,4 +619,26 @@ export function useFinKassenstuerze(supabase: SupabaseClient, aktiv: boolean) {
 }
 export function useFinUst(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
   return useQuery({ queryKey: qk.finUst(jahr), queryFn: () => fetchFinUstStand(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });
+}
+
+// Bestellliste (Migration 104, v173). Jede Minute frisch, solange die Seite oder das Blatt offen ist – ein
+// dringender Wunsch soll im Büro nicht erst nach dem nächsten Neuladen auftauchen.
+export function useBestellwuensche(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.bestellungen(),
+    queryFn: () => fetchBestellwuensche(supabase),
+    enabled: aktiv,
+    staleTime: 30_000,
+    refetchInterval: aktiv ? 60_000 : false,
+  });
+}
+
+export function useBestellFotoLinks(supabase: SupabaseClient, pfade: string[], aktiv: boolean) {
+  return useQuery({
+    queryKey: qk.bestellFotoLinks(pfade),
+    queryFn: () => bestellFotoLinks(supabase, pfade),
+    enabled: aktiv && pfade.length > 0,
+    staleTime: BELEG_LINK_FRISCH_MS,
+    gcTime: BELEG_LINK_FRISCH_MS + 5 * 60_000,
+  });
 }

@@ -161,6 +161,10 @@ viana-pinpoints/
       FinanceLiquiditaet.tsx         Liquiditätsvorschau (Migration 100, v158): Wochen/Monate, Säulenbild, Planposten
       FinanceSteuern.tsx             Steuern (Migration 92, v150): Voranmeldungen je Zeitraum mit Frist und Zustand,
                                      Formularansicht, Abgabe festhalten, Sondervorauszahlung, Kleinunternehmer-Grenzen
+    bestellung/
+      BestellPanel.tsx               Reiter „Bestellliste“: Filter, Stand setzen (auch mehrere), +1, Foto groß, Liste kopieren (Migration 104, v173)
+      BestellBlatt.tsx               Blatt „Fehlt was?“: Freitext, Menge, dringend, Für, Kunde/Auftrag, Foto, Vorschläge, „schon offen“ (v173)
+      BestellKnopf.tsx               Runder Knopf „Fehlt was?“ im Schnellmenü (v173)
     chat/
       ChatBlase.tsx                  Die schwebende Chat-Blase mit der roten Zahl (Migration 80, v129)
       ChatFenster.tsx                Der Team-Chat: Verlauf nach Tagen, Karten, @-Auswahl, „+“ (Karte anhängen),
@@ -366,6 +370,8 @@ viana-pinpoints/
       liquiditaet.ts              Liquiditätsvorschau: Planposten-Termine, Zahlungen aus OP/Aufträgen/USt, Wochen/Monate, Bestand (Migration 100, v158)
       steuern.ts                  Voranmeldung: Formularzeilen, Fristen (Feiertage, § 108 AO), Zustand, § 19, Sondervorauszahlung (Migration 92, v150);
                                   Frist-Erinnerung (v151)
+    bestellung.ts                 Bestellliste: Stand/Für-Texte, Grenzen, „schon offen“, Vorschläge, Sortierung, Push-Inhalt (Migration 104, v173)
+    bestellVersand.ts             Push zur Bestellliste: dringend → Büro, da/nicht nötig → Eintragender (aus app/api/push/senden, v173)
     chatVersand.ts                Push bei jeder Chatnachricht, Zahl fürs App-Symbol (aus app/api/push/senden);
                                   Fotodateien gelöschter Nachrichten entfernen (Migration 84)
     ueberschneidung.ts            Doppelbuchungen von Mitarbeiter/Transporter erkennen (D1)
@@ -421,6 +427,7 @@ viana-pinpoints/
                                    Abschlussbuchungen, Saldenvortrag (v154); Export-Journal, Belegliste, Protokoll (v155); Skonto (v156); Mahnungen (v157); Planposten (v158)
       zeiterfassung.ts             Stempeluhr: Stand, Schichten, Personen, Stempeln, Korrigieren (Migration 82);
                                    Urlaub, Korrekturen (Migration 83)
+      bestellungen.ts              Bestellliste: laden mit +1, eintragen, ändern, löschen, Stand, +1, Fotos (Migration 104, v173)
       chat.ts                      Team-Chat: Verlauf, senden, Lesestand, Ungelesene, Personen (Migration 80);
                                    Einzelchats, Bearbeiten/Löschen, Fotos, Unterhaltungen (Migration 84)
       permissions.ts                Modul-Berechtigungen (module_permissions, `darf()`)
@@ -773,7 +780,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 102** (19.10.2026; 101 und 102 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 104** (29.10.2026; 101–104 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -952,6 +959,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   des Hauptkunden sieht dessen Unterdebitoren (`ist_eigener_kunde()`).
 - **102** – `user_settings.nav_lager_id`: Lager für den Knopf „Zum Lager“ im Schnellmenü, je Person. Ohne Fremdschlüssel,
   weil „Alle Daten löschen“ `warehouses` mit TRUNCATE leert und `user_settings` behält.
+- **103** – `pruefe_rechnungsdaten()`: Name ODER Firma genügt – bei Firmenkunden ist der Ansprechpartner freiwillig (v172).
+- **104** – Bestellliste: `bestellwuensche`, `bestellwunsch_plus`, `bestellwunsch_pruefen()`, Rechte `bestellungen`/`bestellungen.verwalten`,
+  Bucket `bestell-fotos`, Push-Anstoß (`docs/bestellliste.md`).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

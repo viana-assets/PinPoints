@@ -579,3 +579,13 @@ und ein Gerät angemeldet hat. Einmal je Zeitraum und Stufe („bald“, „heut
 eintragen, dann senden. Die Meldung nennt Zeitraum und Frist, keinen Betrag; ein Tippen öffnet `/?system=finance`.
 Kleinunternehmer und „befreit“ bekommen nichts. Das Ergebnis steht in der Antwort der Route unter `steuer`.
 
+
+## Siebte Nutzung: die Bestellliste (29.10.2026, Migration 104, v173)
+
+`lib/bestellVersand.ts` im selben Weg wie der Chat: Ein Trigger auf `bestellwuensche` stößt `app/api/push/senden` mit
+`{"anlass":"bestellung"}` sofort an (dringend eingetragen oder nachträglich dringend gestellt; Stand „da“ oder „nicht
+nötig“), der Minutenlauf holt nach. **Dringend** geht an alle mit „Bestellliste verwalten · schreiben“ (Superadmin
+immer), nicht an den Eintragenden; **da / nicht nötig** an den Eintragenden und alle mit „+1“, nicht an den, der den Stand
+gesetzt hat. Einmal je Anlass über `push_buero_am` / `push_ersteller_am`, ältere als eine Stunde werden nur abgehakt.
+Ohne Kundennamen; ein Tippen öffnet `/?bestellung=<id>`. Das Ergebnis steht in der Antwort der Route unter `bestellung`.
+Einzelheiten: `docs/bestellliste.md`.

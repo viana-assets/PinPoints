@@ -6,6 +6,7 @@ import { inWochen, ortAus, plzVorschlaege, saisonGruppen } from "@/lib/saisonAns
 import { datumKurz } from "@/lib/dashboard";
 import { IconNavPin } from "@/components/icons";
 import { ProfilMarke } from "@/components/lager/ProfilMarke";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Die Saisonliste (docs/lager-ausbaukonzept.md, D1; neu gestaltet am 26.09.2026, Entwurf
 // „I · Saisonliste").
@@ -200,7 +201,7 @@ export function SaisonPanel({
                 <div key={kunde.id} className="sl-kunde">
                   <div className="sl-kunde-kopf">
                     <button type="button" className="sl-kunde-name" onClick={() => onOpenCustomer(kunde.id)} title="Kundenfenster öffnen">
-                      <b>{kunde.name}</b>
+                      <b>{anzeigeName(kunde)}</b>
                       <span className="small">{ortAus(kunde.address) ?? kunde.address}</span>
                     </button>
                     {st.text && <span className={`sl-status ${st.art}`}>{st.text}</span>}

@@ -4,6 +4,7 @@ import type {
   StorageSlot, TireStorage, Vehicle, Warehouse,
 } from "@/lib/types";
 import { todayStr, formatDate, formatEUR, effectiveColor, kundenMitTermin, KUNDEN_ZUSTAND_LABEL, getPhoneNumbers, orderArticleTotals } from "@/lib/helpers";
+import { pflichtText, stammdatenFehlen } from "@/lib/kundenAnsicht";
 import { istAbgeschlossen } from "@/lib/constants";
 import { employeeColorFor } from "@/lib/calendar";
 import { datumKurz } from "@/lib/dashboard";
@@ -113,6 +114,8 @@ export function DetailModal(props: {
     name !== cust.name || company !== (cust.company || "") || anrede !== (cust.anrede || "") ||
     email !== (cust.email || "") || address !== cust.address || mobile !== (cust.phone_mobile || "") ||
     landline !== (cust.phone_landline || "") || note !== (cust.note || "");
+  // v172: Firma bzw. Name und die Adresse sind Pflicht (`stammdatenFehlen`) – vorher ließ sich hier alles leeren.
+  const datenFehlen = stammdatenFehlen({ firma: istFirma, name, company, address, ohneAdresse: !!cust.laufkundschaft });
   function schliessen() {
     if (datenGeaendert && !window.confirm("Die Änderungen an den Kundendaten sind noch nicht gespeichert. Verwerfen?")) return;
     props.onClose();
@@ -409,7 +412,7 @@ export function DetailModal(props: {
                 <button type="button" className={istFirma ? "aktiv" : ""} aria-pressed={istFirma} onClick={() => setIstFirma(true)}>Firma</button>
               </div>
               {istFirma && (
-                <label className="nk-feld"><span>Firma</span><input type="text" value={company} onChange={(e) => setCompany(e.target.value)} /></label>
+                <label className="nk-feld"><span>Firma *</span><input type="text" value={company} onChange={(e) => setCompany(e.target.value)} /></label>
               )}
               <div className="nk-zeile">
                 <label className="nk-feld nk-anrede"><span>Anrede</span>
@@ -419,7 +422,7 @@ export function DetailModal(props: {
                     <option value="Frau">Frau</option>
                   </select>
                 </label>
-                <label className="nk-feld"><span>{istFirma ? "Ansprechpartner" : "Name"}</span><input type="text" value={name} onChange={(e) => setName(e.target.value)} /></label>
+                <label className="nk-feld"><span>{istFirma ? "Ansprechpartner" : "Name *"}</span><input type="text" value={name} onChange={(e) => setName(e.target.value)} /></label>
               </div>
               {/* Wird ein Vorschlag angenommen, kommt die Koordinate gleich mit und wird zusammen
                   mit den übrigen Feldern gespeichert. Ohne das würde beim Speichern erneut
@@ -478,12 +481,12 @@ export function DetailModal(props: {
               <button
                 type="button"
                 className={"am-knopf" + (speicherStand === "gespeichert" ? " ist-gespeichert" : "")}
-                disabled={speicherStand === "speichert" || (!datenGeaendert && speicherStand !== "gespeichert")}
+                disabled={speicherStand === "speichert" || (!datenGeaendert && speicherStand !== "gespeichert") || (datenGeaendert && datenFehlen.length > 0)}
                 onClick={() => { void speichern(); }}
               >
                 {speicherStand === "speichert" ? "Speichert …"
                   : speicherStand === "gespeichert" ? "Gespeichert ✓"
-                  : datenGeaendert ? "Kundendaten speichern" : "Nichts geändert"}
+                  : datenGeaendert ? (datenFehlen.length ? pflichtText(datenFehlen) : "Kundendaten speichern") : "Nichts geändert"}
               </button>
             </div>
           )}

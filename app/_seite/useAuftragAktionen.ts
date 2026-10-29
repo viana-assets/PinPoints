@@ -14,6 +14,7 @@ import { aenderungen, AUFTRAG_OFFLINE_FELDER, type AuftragFeld } from "@/lib/off
 import { ausgangAufnehmen } from "@/lib/offline/speicher";
 import type { Article, ArticlePrice, Customer, Order, OrderArticle, OrderStatus, TireStorage } from "@/lib/types";
 import type { Nachladen, NeuerTermin, OfflineOderDirekt } from "./typen";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Die Handlungen am Auftrag (v127, Fahrplan C5 – aus app/page.tsx herausgelöst, nach dem Muster von
 // useLagerAktionen und useFahrzeugAktionen): anlegen, ändern, Termin verschieben, Status, Notiz,
@@ -114,7 +115,7 @@ export function useAuftragAktionen(k: AuftragKontext) {
     // eingesetzt. Die Masken belegen ihn zwar vor, aber so hängt es nicht daran, dass jede
     // einzelne daran denkt.
     const kunde = customers.find((c) => c.id === fields.customerId);
-    const id = await insertOrder(supabase, { ...fields, title: fields.title.trim() || terminTitel(kunde?.name) });
+    const id = await insertOrder(supabase, { ...fields, title: fields.title.trim() || terminTitel(kunde ? anzeigeName(kunde) : undefined) });
     // Nur mit Auswahl: Ein Techniker, der anlegt (Migration 78), steht danach schon selbst darauf
     // (`auftrag_techniker_einteilen()`), und das Einteilen anderer ist nicht sein Recht.
     if (id && fields.assignedEmployeeIds.length > 0) await setOrderEmployees(id, fields.assignedEmployeeIds);
@@ -135,7 +136,7 @@ export function useAuftragAktionen(k: AuftragKontext) {
   async function neuenAuftragAnlegen(kundenId: string, termin?: NeuerTermin | null) {
     const kunde = customers.find((c) => c.id === kundenId);
     const id = await addOrder({
-      customerId: kundenId, title: terminTitel(kunde?.name), description: "",
+      customerId: kundenId, title: terminTitel(kunde ? anzeigeName(kunde) : undefined), description: "",
       // Ohne Vorgabe wie bisher: heute, ohne Uhrzeit. Kommt der Auftrag aus dem Kalender, steht
       // der angeklickte Zeitpunkt schon drin – und der Block sitzt sofort dort, wohin geklickt
       // wurde, statt in der Leiste „ohne Uhrzeit" zu landen.

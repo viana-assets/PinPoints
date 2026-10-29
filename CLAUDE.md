@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 26.10.2026 (Migrationen bis 102, 101 und 102 noch auszuführen soweit nicht gemeldet; Service Worker v171; Regeln seit der Projektdurchsicht vom
+Stand: 29.10.2026 (Migrationen bis 104, 101–104 noch auszuführen soweit nicht gemeldet; Service Worker v173; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -427,5 +427,6 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
 | Wie ist die PWA aufgebaut, was fehlt offline? | `docs/pwa-plan.md` |
 | Wie funktioniert die Terminerinnerung per Push? | `docs/benachrichtigungen-plan.md` |
 | Wie funktioniert die Stempeluhr? | `docs/zeiterfassung.md` |
+| Wie funktioniert die Bestellliste („Fehlt was?“)? | `docs/bestellliste.md` |
 | Wie funktioniert der Team-Chat? | `docs/team-chat.md` (Push: `docs/benachrichtigungen-plan.md`, „Vierte Nutzung“) |
 | Welcher Etikettendrucker, wie wird gedruckt? | `docs/lager.md` („Brother QL-820NWBc", „Zwei Wege aufs Papier"), `docs/prompt-etikettendrucker.md` |

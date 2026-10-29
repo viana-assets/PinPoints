@@ -97,6 +97,17 @@ export function IconSaison() {
   );
 }
 
+// Bestellliste (v173): Einkaufswagen.
+export function IconBestellung() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4h2.2l2.1 10.2a1.6 1.6 0 0 0 1.6 1.3h7.9a1.6 1.6 0 0 0 1.5-1.2L20 8H6.2" />
+      <circle cx="9.5" cy="19.5" r="1.4" />
+      <circle cx="17" cy="19.5" r="1.4" />
+    </svg>
+  );
+}
+
 // Packliste (v171): Klemmbrett mit zwei abgehakten Zeilen.
 export function IconPackliste() {
   return (

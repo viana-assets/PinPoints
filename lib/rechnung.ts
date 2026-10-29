@@ -133,7 +133,8 @@ export function rechnungSummen(
 export function anschriftZeilen(e: RechnungEmpfaenger): string[] {
   const kopf: string[] = [];
   if (e.company?.trim()) kopf.push(e.company.trim());
-  const person = [e.anrede?.trim(), e.name?.trim()].filter(Boolean).join(" ");
+  // Ohne Ansprechpartner (seit v172 bei Firmen erlaubt) keine einzelne Anrede „Herr“ als Zeile.
+  const person = e.name?.trim() ? [e.anrede?.trim(), e.name.trim()].filter(Boolean).join(" ") : "";
   if (person) kopf.push(person);
 
   const roh = (e.address || "").trim();

@@ -8,8 +8,27 @@ import type { KundenZustand } from "./helpers";
 // Ansprechpartner (Migration 24). Seit der Neugestaltung richten sich danach auch Sortierung,
 // Buchstabengruppen und der A–Z-Filter – vorher sortierte die Liste nach dem Ansprechpartner
 // und zeigte die Firma, sodass „Hofmann GmbH" unter „E" wie „Elke" stand.
-export function anzeigeName(c: Pick<Customer, "name" | "company">): string {
-  return (c.company || "").trim() || c.name.trim();
+//
+// Seit v172 überall dort, wo ein Kunde mit Namen erscheint (Lager, Planung, Termine, Packliste,
+// Erinnerungen …): Im Lager stand bei Firmen der Ansprechpartner. Und seit v172 darf der
+// Ansprechpartner bei einer Firma leer sein – dann trägt nur die Firma.
+export function anzeigeName(c: { name: string | null; company?: string | null }): string {
+  return (c.company || "").trim() || (c.name || "").trim();
+}
+
+// Was beim Anlegen und im Reiter „Daten“ Pflicht ist (v172, Wunsch Vitali 29.10.2026): bei einer Firma
+// der Firmenname – der Ansprechpartner ist freiwillig –, bei Privatkunden der Name; dazu die Adresse,
+// außer bei der Laufkundschaft. Dieselbe Regel „Name oder Firma“ steht für die Rechnung in
+// `rechnungsdatenMaengel()` (lib/helpers.ts) und in `pruefe_rechnungsdaten()` (Migration 103).
+export function stammdatenFehlen(e: { firma: boolean; name: string; company: string; address: string; ohneAdresse?: boolean }): string[] {
+  const fehlt: string[] = [];
+  if (e.firma ? !e.company.trim() : !e.name.trim()) fehlt.push(e.firma ? "Firma" : "Name");
+  if (!e.ohneAdresse && !e.address.trim()) fehlt.push("Adresse");
+  return fehlt;
+}
+
+export function pflichtText(fehlt: string[]): string {
+  return fehlt.length === 0 ? "" : `${fehlt.join(" und ")} ${fehlt.length === 1 ? "ist" : "sind"} Pflicht`;
 }
 
 export function anfangsbuchstabe(c: Pick<Customer, "name" | "company">): string {

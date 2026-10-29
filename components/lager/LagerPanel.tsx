@@ -19,6 +19,7 @@ import { SatzZumVerkaufBlatt } from "./SatzZumVerkaufBlatt";
 import { TireAssignModal } from "./TireAssignModal";
 import { groessenAbweichung, groesseText, reifenFrei, reifenName } from "@/lib/reifenverkauf";
 import { SuchFeld } from "@/components/SuchFeld";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Lager-Modul, neu gestaltet am 26.09.2026 (Entwurf „H · Lager", docs/lager.md).
 //
@@ -434,7 +435,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
         <span className={"lg-code" + (satz ? "" : " frei") + (gruende.length ? " pruefen" : "") + (platzGroesse(slot) === "gross" ? " fach-gross" : "")}
           title={platzGroesse(slot) === "gross" ? "großes Fach" : undefined}>{slot.code}</span>
         <span className="lg-zeile-text">
-          <span className="lg-zeile-kunde">{satz ? (kunde?.name ?? "Unbekannter Kunde") : "frei"}</span>
+          <span className="lg-zeile-kunde">{satz ? (kunde ? anzeigeName(kunde) : "Unbekannter Kunde") : "frei"}</span>
           {satz && vormerkung?.(satz) && <span className="vm-marke">{vormerkung(satz)}</span>}
           {info && <span className="lg-zeile-info">{info}</span>}
           {/* Wie gemessen wurde – ein Wert für den Satz oder je Rad (v98). */}
@@ -701,7 +702,7 @@ export function LagerPanel({ customers, vehicles, warehouses, storageSlots, tire
             const fz = blattSatz?.vehicle_id ? vehicles.find((v) => v.id === blattSatz.vehicle_id) : null;
             setBlattSlotId(null);
             onInDenChat(bezugPlatz(blattSlot, blattSatz
-              ? { kundenName: kunde?.name ?? null, saison: blattSatz.saison, groesse: fz?.tire_size ?? null }
+              ? { kundenName: kunde ? anzeigeName(kunde) : null, saison: blattSatz.saison, groesse: fz?.tire_size ?? null }
               : { lager: "frei" }));
           } : undefined}
         />

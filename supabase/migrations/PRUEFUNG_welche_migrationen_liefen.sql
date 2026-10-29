@@ -135,7 +135,7 @@ with pruefungen(nr, was, vorhanden) as (
                                                   and to_regclass('public.tire_storage_ein_satz_im_regal_je_platz') is not null),
     ('70', 'Unterschrift steht fest', to_regprocedure('public.auftrag_unterschrift_pruefen()') is not null),
     ('71', 'Notiz je Rad am Satz', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'tire_storage' and column_name = 'notiz_hr')),
-    ('72', 'Alle Daten löschen (Superadmin)', to_regprocedure('public.alle_daten_loeschen(text)') is not null),
+    ('72', 'Alle Daten löschen (Superadmin)', to_regprocedure('public.alle_daten_loeschen(text)') is not null or to_regprocedure('public.alle_daten_loeschen(text,text)') is not null),
     -- 73: Migration 77 ersetzt die Richtlinie durch „Bereich fahrzeuge schreiben“ – beides heißt „gelaufen“.
     ('73', 'Techniker legt Kennzeichen an', exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'vehicles'
                                                   and policyname in ('Techniker legt Fahrzeug eigener Kunden an', 'Bereich fahrzeuge schreiben'))),
@@ -171,7 +171,9 @@ with pruefungen(nr, was, vorhanden) as (
     ('99', 'Finance: Mahnwesen', to_regclass('public.fin_mahnungen') is not null and to_regprocedure('public.fin_mahnung_erstellen(uuid,integer,date,date,numeric,numeric,numeric,text)') is not null),
     ('100', 'Finance: Planposten (Liquiditätsvorschau)', to_regclass('public.fin_planposten') is not null and to_regprocedure('public.fin_planposten_speichern(uuid,text,text,numeric,date,text,date,text)') is not null),
     ('101', 'Kundengruppen (Hauptkunde, Unterdebitoren)', to_regprocedure('public.kunde_gruppe(uuid)') is not null and to_regprocedure('public.fahrzeug_kunde_wechseln(uuid,uuid)') is not null),
-    ('102', 'Navigation zum Lager (user_settings.nav_lager_id)', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'user_settings' and column_name = 'nav_lager_id'))
+    ('102', 'Navigation zum Lager (user_settings.nav_lager_id)', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'user_settings' and column_name = 'nav_lager_id')),
+    ('103', 'Firma ohne Ansprechpartner (Rechnungsprüfung Name oder Firma)', position('Name oder Firma des Kunden' in pg_get_functiondef('public.pruefe_rechnungsdaten()'::regprocedure)) > 0),
+    ('104', 'Bestellliste (bestellwuensche, Recht bestellungen)', to_regclass('public.bestellwuensche') is not null and exists (select 1 from public.module_permissions where module_key = 'bestellungen.verwalten'))
 )
 select migration, woran_erkennbar, gelaufen from (
   select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen

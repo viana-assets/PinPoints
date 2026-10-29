@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Customer, KontaktErgebnis } from "@/lib/types";
 import { todayStr, formatDate } from "@/lib/helpers";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Was ist bei dem Kontakt herausgekommen? (Migration 23, siehe docs/kunden-und-karte.md)
 //
@@ -74,7 +75,7 @@ export function KontaktModal({ customer, periodMonths, onClose, onSpeichern }: {
     //
     // Seit 26.09.2026 (Entwurf O) als Blatt von unten, im Stil der übrigen Auswahlblätter.
     <div className="modal-overlay modal-kontakt auswahl-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="auswahl-blatt kt-blatt" role="dialog" aria-label={`Kontakt mit ${customer.name}`}>
+      <div className="auswahl-blatt kt-blatt" role="dialog" aria-label={`Kontakt mit ${anzeigeName(customer)}`}>
         <div className="ab-griff" />
         <div className="ar-blatt-kopf">
           <div className="ab-titel">Wie ist das Gespräch ausgegangen?</div>

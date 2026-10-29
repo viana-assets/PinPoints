@@ -4,6 +4,7 @@ import { ORDER_STATUS_LABEL } from "@/lib/constants";
 import { KALENDER_VON_STUNDE, KALENDER_BIS_STUNDE } from "@/lib/constants";
 import { auftragsZeitraum, employeeColorFor, gezogenerTermin, hhmmAus, layoutSpalten, terminAusKlick, toDateStr, zeitfenster } from "@/lib/calendar";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Tages- und Wochenansicht als Stundenraster (Block B).
 //
@@ -97,7 +98,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); onOeffnen(auftrag.id); } }}
       title={[
         `${hhmmAus(auftrag.start)}–${hhmmAus(auftrag.ende)}${auftrag.geschaetzt ? " (Ende angenommen)" : ""}`,
-        auftrag.kunde?.name,
+        auftrag.kunde ? anzeigeName(auftrag.kunde) : null,
         auftrag.title,
         namen || "niemandem zugeteilt",
         ORDER_STATUS_LABEL[auftrag.status],
@@ -131,7 +132,7 @@ function TerminBlock({ auftrag, employees, vonMinute, stundePx, onOeffnen, ziehb
         {auftrag.status === "erledigt" && <span aria-hidden="true"> ✓</span>}
         {auftrag.status === "storniert" && <span aria-hidden="true"> ✕</span>}
       </span>
-      <span className="tm-wer">{auftrag.kunde?.name || auftrag.title}</span>
+      <span className="tm-wer">{(auftrag.kunde && anzeigeName(auftrag.kunde)) || auftrag.title}</span>
       {warnung && <span className="tm-warnmarke" aria-label={warnung}>!</span>}
       {/* Die Unterkante zum Länger- und Kürzerziehen. Nur bei ziehbaren Terminen. */}
       {ziehbar && <span className="tm-griff" data-griff="ende" aria-hidden="true" />}
@@ -643,10 +644,10 @@ export function Stundenraster({ tage, auftraege, customers, employees, orderEmpl
               {ohneZeit.map((o) => (
                 <button
                   key={o.id} type="button" className="roz-chip"
-                  title={`${o.kunde?.name || o.title} – keine Uhrzeit gepflegt`}
+                  title={`${(o.kunde && anzeigeName(o.kunde)) || o.title} – keine Uhrzeit gepflegt`}
                   onClick={(e) => { e.stopPropagation(); onOeffnen(o.id); }}
                 >
-                  {o.kunde?.name || o.title}
+                  {(o.kunde && anzeigeName(o.kunde)) || o.title}
                 </button>
               ))}
             </div>

@@ -5,6 +5,7 @@ import { PROFIL_HINWEIS_MM, PROFIL_KRITISCH_MM, RAD_POSITION_LABEL, RAD_POSITION
 import { dotJahr, formatDate, formatEUR, lagermonate, profilLage, profilText, satzProfilMm, todayStr } from "@/lib/helpers";
 import { ProfilMarke } from "./ProfilMarke";
 import { platzGroesse } from "@/lib/lagerAnsicht";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Das Blatt zu einem Lagerplatz (26.09.2026, Entwurf „H · Lager").
 //
@@ -135,7 +136,7 @@ export function PlatzBlatt({
             <div className="lg-blatt-kopf">
               <span className="lg-code gross">{slot.code}</span>
               <span className="lg-blatt-titel">
-                <b>{kunde ? kunde.name : "Unbekannter Kunde"}</b>
+                <b>{kunde ? anzeigeName(kunde) : "Unbekannter Kunde"}</b>
                 <span className="small">{ort}</span>
                 {vormerkung && <span className="vm-marke">{vormerkung}</span>}
               </span>

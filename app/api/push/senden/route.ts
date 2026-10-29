@@ -6,8 +6,10 @@ import { AUFTRAG_PARAMETER, VORLAUF_MINUTEN, ZEITZONE } from "@/lib/constants";
 import { pushNutzlast } from "@/lib/pushInhalt";
 import { abendhinweiseVersenden, type AbendhinweisErgebnis } from "@/lib/abendhinweisVersand";
 import { chatFotosAufraeumen, chatNachrichtenVersenden, type ChatVersandErgebnis } from "@/lib/chatVersand";
+import { bestellungenVersenden, type BestellVersandErgebnis } from "@/lib/bestellVersand";
 import { stempelErinnerungenVersenden, type StempelErinnerungErgebnis } from "@/lib/stempelErinnerungVersand";
 import { steuerErinnerungenVersenden, type SteuerErinnerungErgebnis } from "@/lib/steuerErinnerungVersand";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Terminerinnerung: verschickt die Meldung „Termin in 5 Minuten" an die zugeordneten
 // Techniker (docs/benachrichtigungen-plan.md, Teile 3 bis 5).
@@ -94,6 +96,15 @@ export async function POST(request: Request) {
   const rumpf = await request.json().catch(() => null) as { anlass?: unknown } | null;
   if (rumpf?.anlass === "chat") return NextResponse.json({ chat });
 
+  // Bestellliste (Migration 104, v173): dringend → Büro, da / nicht nötig → wer eingetragen hat. Für sich.
+  let bestellung: BestellVersandErgebnis | { fehler: string };
+  try {
+    bestellung = await bestellungenVersenden(supabase);
+  } catch (e) {
+    bestellung = { fehler: e instanceof Error ? e.message : String(e) };
+  }
+  if (rumpf?.anlass === "bestellung") return NextResponse.json({ bestellung });
+
   // Fotodateien gelöschter Chatnachrichten (Migration 84) – nur im Minutentakt, für sich.
   let chatFotos: { entfernt: number } | { fehler: string };
   try {
@@ -128,7 +139,7 @@ export async function POST(request: Request) {
     abendhinweis = { fehler: e instanceof Error ? e.message : String(e) };
   }
   const antwort = (daten: Record<string, unknown>, init?: ResponseInit) =>
-    NextResponse.json({ ...daten, abendhinweis, chat, chatFotos, stempel, steuer }, init);
+    NextResponse.json({ ...daten, abendhinweis, chat, chatFotos, stempel, steuer, bestellung }, init);
 
   // Nur der heutige Tag: ein Termin um 00:02 würde eine Erinnerung um 23:57 des Vortages
   // brauchen und fiele durch dieses Raster. Für einen Reifenwechsel-Betrieb ist das kein
@@ -207,7 +218,7 @@ export async function POST(request: Request) {
 
   const { data: kunden } = await supabase
     .from("customers")
-    .select("id,name,address,laufkundschaft")
+    .select("id,name,company,address,laufkundschaft")
     .in("id", Array.from(new Set(faellig.map((a) => a.customer_id))));
   const kundeNach = new Map((kunden || []).map((k) => [k.id, k]));
 
@@ -238,7 +249,7 @@ export async function POST(request: Request) {
         // Einsatzort und die Nummer – „Laufkundschaft" sagte im Auto nichts.
         text: (kunde?.laufkundschaft
           ? [auftrag.laufkunde_name || kunde.name, auftrag.laufkunde_ort, auftrag.laufkunde_telefon, auftrag.title]
-          : [kunde?.name, kunde?.address, auftrag.title]
+          : [kunde ? anzeigeName(kunde) : null, kunde?.address, auftrag.title]
         ).filter(Boolean).join(" · "),
         // Antippen führt direkt in das Auftragsfenster (app/page.tsx wertet den Parameter
         // aus): dort stehen Fahrzeug, Leistungen und die Knöpfe für Navigation und Anruf.

@@ -4736,3 +4736,71 @@ button.zt-m-zeile:hover{background:var(--hover);}
   .pa-knoepfe .es-knopf{height:34px;padding:0 10px;}
   .pa-satz-spalte{display:none;}
 }
+
+/* ---------------------------------------------------------------- Bestellliste (v173, Migration 104)
+   Seite „Bestellliste“ (BestellPanel) und Blatt „Fehlt was?“ (BestellBlatt), Entwurf Mockup_Bestellliste_v1.
+   Karten wie im Dashboard (`.db-karte`), Pillen und Umschalter wie überall (`.pl-pille`, `.lg-lagerwahl`). */
+.bw-seite{display:flex;flex-direction:column;gap:12px;padding-bottom:96px;}
+.bw-kopf-knoepfe{display:flex;gap:8px;align-items:center;flex:0 0 auto;}
+.bw-liste{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(460px,100%),1fr));gap:12px;align-items:start;}
+.bw-liste > *{min-width:0;}
+.bw-karte{gap:8px;}
+.bw-karte.dringend{box-shadow:inset 4px 0 0 var(--red);}
+.bw-karte.hervor{outline:3px solid var(--accent);outline-offset:-3px;}
+.bw-zeile{display:flex;gap:10px;align-items:flex-start;}
+.bw-text{display:flex;flex-direction:column;gap:3px;flex:1;min-width:0;}
+.bw-text b{font-size:15px;overflow-wrap:anywhere;}
+.bw-menge{font-weight:500;color:var(--muted);}
+.bw-bezug{display:flex;flex-wrap:wrap;gap:4px 10px;}
+.bw-notiz{color:var(--text);}
+.bw-marken{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto;}
+.bw-pille{font-size:11.5px;font-weight:700;border-radius:999px;padding:3px 9px;white-space:nowrap;background:var(--bg);}
+.bw-pille.dringend{background:var(--red-bg);color:var(--red);}
+.bw-pille.bestellt{background:var(--blau-bg);color:var(--blau);}
+.bw-pille.da{background:var(--green-bg);color:var(--green);}
+.bw-pille.nicht_noetig{background:#eeeeea;color:#7a7468;text-decoration:line-through;}
+.bw-box{width:26px;height:26px;border-radius:8px;border:2px solid var(--frei-linie);background:var(--panel);flex:0 0 auto;
+  color:#fff;font-weight:700;cursor:pointer;padding:0;}
+.bw-box.an{background:var(--navy);border-color:var(--navy);}
+.bw-daumen{width:52px;height:52px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg);
+  padding:0;cursor:pointer;flex:0 0 auto;display:flex;align-items:center;justify-content:center;}
+.bw-daumen img{width:100%;height:100%;object-fit:cover;}
+.bw-aktionen{display:flex;flex-wrap:wrap;gap:6px;justify-content:flex-end;}
+.bw-aktionen:empty{display:none;}
+.bw-aktionen .es-knopf{height:34px;padding:0 12px;}
+.es-knopf.bw-haupt{background:var(--accent);border-color:var(--accent);color:#fff;}
+.es-knopf.bw-plus-an{background:var(--green-bg);border-color:var(--green);color:var(--green);}
+.bw-link{background:none;border:none;padding:0;font:inherit;font-size:13px;font-weight:700;color:#c2410c;cursor:pointer;text-align:left;}
+.bw-meldung{background:var(--green-bg);color:var(--green);border-radius:12px;padding:9px 12px;font-weight:600;}
+.bw-sammel{position:sticky;bottom:12px;z-index:15;display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--panel);
+  border:1px solid var(--border);border-radius:16px;padding:10px 14px;box-shadow:0 6px 20px rgba(36,29,19,.15);}
+.bw-sammel b{margin-right:auto;}
+.bw-foto-gross{display:flex;align-items:center;justify-content:center;padding:16px;cursor:zoom-out;}
+.bw-foto-gross img{max-width:100%;max-height:calc(90vh / var(--z));border-radius:12px;}
+.bw-foto-laedt{color:#fff;}
+.bw-toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(24px + env(safe-area-inset-bottom, 0px));z-index:10010;
+  background:var(--marke);color:#fff;border-radius:14px;padding:12px 16px;font-weight:600;max-width:calc(100% - 32px);
+  box-shadow:0 8px 24px rgba(0,0,0,.2);}
+/* Blatt „Fehlt was?“ */
+.bw-blatt textarea{width:100%;min-height:76px;resize:vertical;}
+.bw-vorschlaege{display:flex;flex-wrap:wrap;gap:6px;margin:-4px 0 4px;}
+.bw-vorschlaege button{border:1px dashed var(--border);background:var(--panel);border-radius:999px;padding:4px 10px;font:inherit;font-size:12.5px;cursor:pointer;}
+.bw-aehnlich{background:#fdf3dc;border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;font-size:13px;}
+.bw-aehnlich b{color:#7a4f0c;}
+.bw-aehnlich-zeile{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;}
+.bw-segment{max-width:none;}
+.bw-segment button.bw-dringend{background:var(--red);color:#fff;}
+.bw-fuer{flex-wrap:wrap;}
+.bw-kunde{display:flex;flex-direction:column;gap:8px;}
+.bw-foto{width:100%;border:1px dashed var(--border);border-radius:12px;padding:12px;background:var(--bg);color:var(--muted);font:inherit;cursor:pointer;}
+.bw-foto-knoepfe{display:flex;flex-direction:column;gap:6px;align-items:flex-start;}
+.bw-foto-vorschau{display:flex;gap:10px;align-items:flex-end;}
+.bw-foto-vorschau img{max-width:160px;max-height:160px;border-radius:10px;border:1px solid var(--border);}
+@media (max-width:700px){
+  .bw-seite .pl-filter{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;}
+  .bw-aktionen{justify-content:flex-start;}
+  .bw-sammel{bottom:calc(76px + env(safe-area-inset-bottom, 0px));}
+  .bw-kopf-knoepfe .es-knopf{display:none;}
+}
+.bw-blase svg{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+.bw-blase svg circle{fill:#fff;stroke:none;}

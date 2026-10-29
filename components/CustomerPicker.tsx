@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Customer } from "@/lib/types";
 import { SuchFeld } from "@/components/SuchFeld";
 import { gruppenText } from "@/lib/kundengruppe";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Wiederverwendbare Kundenauswahl (Suche + Liste), für Lager- und Aufträge-Modul.
 // Ausgelagert aus app/page.tsx, siehe docs/roadmap.md Phase 2.
@@ -16,7 +17,8 @@ export function CustomerPicker({ customers, value, onChange, placeholder, alle, 
 }) {
   const kartei = alle ?? customers;
   // Die Firma mit in die Zeile (v165): Bei Kundengruppen sucht man nach dem Firmennamen, fett steht der Ansprechpartner.
-  const unter = (c: Customer) => [(c.company || "").trim() || null, gruppenText(c, kartei), c.address].filter(Boolean).join(" · ");
+  // Seit v173 fett die Firma (wie überall seit v172), darunter der Ansprechpartner.
+  const unter = (c: Customer) => [(c.company || "").trim() ? c.name.trim() || null : null, gruppenText(c, kartei), c.address].filter(Boolean).join(" · ");
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const selected = customers.find((c) => c.id === value) || null;
@@ -30,7 +32,7 @@ export function CustomerPicker({ customers, value, onChange, placeholder, alle, 
       <div className="kp-feld">
         <span className="kp-label">{label}</span>
         <div className="kp-gewaehlt">
-          <span className="kp-text"><b>{selected.name}</b>{unter(selected) && <span>{unter(selected)}</span>}</span>
+          <span className="kp-text"><b>{anzeigeName(selected)}</b>{unter(selected) && <span>{unter(selected)}</span>}</span>
           <button type="button" className="kp-aendern" onClick={() => { setOpen(true); setQuery(""); }}>Ändern</button>
         </div>
       </div>
@@ -46,12 +48,12 @@ export function CustomerPicker({ customers, value, onChange, placeholder, alle, 
         {matches.map((c) => (
           <button key={c.id} type="button" role="option" aria-selected={c.id === value} className={"kp-treffer" + (c.id === value ? " aktiv" : "")}
             onClick={() => { onChange(c.id); setOpen(false); setQuery(""); }}>
-            <b>{c.name}</b>
+            <b>{anzeigeName(c)}</b>
             {unter(c) && <span>{unter(c)}</span>}
           </button>
         ))}
       </div>}
-      {selected && <button type="button" className="kp-aendern kp-zurueck" onClick={() => setOpen(false)}>Bei {selected.name} bleiben</button>}
+      {selected && <button type="button" className="kp-aendern kp-zurueck" onClick={() => setOpen(false)}>Bei {anzeigeName(selected)} bleiben</button>}
     </div>
   );
 }

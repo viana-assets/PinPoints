@@ -1,4 +1,5 @@
 import { plzAus } from "./helpers";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Die Regeln hinter der neu gestalteten Saisonliste (26.09.2026, Entwurf „I · Saisonliste").
 //
@@ -44,7 +45,7 @@ export function saisonGruppen<Z extends MitKunde>(zeilen: Z[]): SaisonGruppe<Z>[
     else gruppen.set(schluessel, { plz, ort: ortAus(k.kunde.address), kunden: [k] });
   }
   return [...gruppen.values()]
-    .map((g) => ({ ...g, kunden: g.kunden.sort((a, b) => a.kunde.name.localeCompare(b.kunde.name, "de")) }))
+    .map((g) => ({ ...g, kunden: g.kunden.sort((a, b) => anzeigeName(a.kunde).localeCompare(anzeigeName(b.kunde), "de")) }))
     .sort((a, b) => (a.plz == null ? 1 : b.plz == null ? -1 : a.plz.localeCompare(b.plz)));
 }
 

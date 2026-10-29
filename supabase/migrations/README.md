@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165) **und `102_navigation_lager.sql`** (vor den Dateien von v169) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **und `104_bestellliste.sql`** (vor den Dateien von v173) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1524,3 +1524,33 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Geprüft gegen Postgres 16 (Stand 101): ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt; `t72` und `t86`
   (darunter „Alle Daten löschen“) gegen 101 und 102: gleiche Ausgabe.
 
+- `103_firma_ohne_ansprechpartner.sql` – **noch auszuführen**, nach 102 und vor den Dateien von v172.
+  Bei Firmenkunden ist der Ansprechpartner (`customers.name`) freiwillig (`docs/kunden-und-karte.md`, „Firma, Ansprechpartner …“).
+  `pruefe_rechnungsdaten()` verlangt beim Abschließen mit „Rechnung nötig“ jetzt Name ODER Firma; sonst wie nach 79 (Anschrift,
+  Fahrzeug, Kennzeichen, Kilometerstand; keine E-Mail). Steht die Funktion noch auf dem Stand vor 79, nimmt 103 die E-Mail-Pflicht
+  gleich mit heraus (Meldung 26.10.2026). Wache: bricht ohne `orders`/`customers` ab. Ergebnistabelle mit drei Zeilen (Name oder
+  Firma: true; E-Mail verlangt: false; Zahl der Firmen ohne Ansprechpartner). Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/103_rollback.sql` (Funktion wie nach 79, zweimal lauffähig).
+  Geprüft gegen Postgres 16 – die Vorlagen der früheren Prüfungen gingen beim Zurücksetzen der Arbeitsumgebung verloren, deshalb
+  in einem kleinen Gerüst (Kunden, Aufträge, Fahrzeuge, Trigger) mit Migration 79 als Vorstufe: Firma ohne Ansprechpartner nach
+  79 abgelehnt, nach 103 abgeschlossen; ohne Name und Firma weiter abgelehnt („Name oder Firma des Kunden“); Privatkunde ohne
+  E-Mail abgeschlossen. Zweimal ausgeführt, zweimal zurückgenommen (Funktion danach md5-gleich zu 79), erneut ausgeführt.
+
+- `104_bestellliste.sql` – **noch auszuführen**, nach 103 und vor den Dateien von v173.
+  Bestellliste „Fehlt was?“ (`docs/bestellliste.md`). Rechte `bestellungen` (L/S admin, techniker, user) und
+  `bestellungen.verwalten` (L/S admin); Tabellen `bestellwuensche` und `bestellwunsch_plus` mit Zeilenrechten;
+  `bestellwunsch_pruefen()` (BEFORE, ohne security definer, current_user-Weiche); privater Bucket `bestell-fotos` (3 MB, eigener
+  Ordner) mit drei Speicher-Richtlinien „MR Bestellfotos …“; Push-Anstoß wie beim Chat (`{"anlass":"bestellung"}`). Wache: bricht
+  ohne `profiles`/`firmenfahrzeuge`/`orders` oder ohne Storage ab. Ergebnistabelle mit vier Zeilen (Rechte 2 von 2, Tabellen da,
+  Bucket privat, Richtlinien). Zweiter Lauf folgenlos. Rücknahme: `rollback/104_rollback.sql` (alle Einträge weg; der Bucket nur,
+  wenn leer – sonst sagt die Tabelle, wie viele Dateien im Dashboard zu löschen sind; zweimal lauffähig).
+  Geprüft gegen Postgres 16 – **seit dieser Runde wieder mit allen Migrationen 01–103 als Vorstufe** (Prüfumgebung mit
+  Supabase-Nachbau neu aufgebaut, `PRUEFUNG` dort jede Zeile „ja“): zweimal ausgeführt; 15 Fälle (Techniker trägt ein und ändert
+  eigenen offenen; Stand beim Anlegen, Stand durch Techniker oder Büro-Nutzer, fremdes Ändern/Löschen, Löschen nach „bestellt“
+  abgelehnt; Admin setzt bestellt mit Notiz, „nicht nötig“ nur mit Grund; Push-Stempel nur durch den Versand; Transporter nur bei
+  „für Transporter“; Fotos nur im eigenen Ordner, fremde nicht löschbar; ohne Recht nichts zu sehen; Push-Anstoß nur bei
+  dringend bzw. da/nicht nötig; „Alle Daten löschen“ leert beide Tabellen und behält die Rechte); zweimal zurückgenommen
+  (Schema danach gleich dem Stand 103), erneut ausgeführt.
+
+Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auch die neuere Fassung
+`alle_daten_loeschen(text, text)` aus Migration 86 – vorher stand dort fälschlich „NEIN“. Zeile 104 neu.

@@ -735,3 +735,30 @@ export type AuftragBeleg = {
   created_at: string;
   created_by: string | null;
 };
+
+// Bestellliste (Migration 104, v173): was Techniker und Büro brauchen – als Freitext. Den Stand setzt nur,
+// wer „Bestellliste verwalten“ darf; `plus` sind die Konten, die „brauche ich auch“ gedrückt haben.
+export type BestellStatus = "offen" | "bestellt" | "da" | "nicht_noetig";
+export type BestellFuer = "transporter" | "lager" | "allgemein";
+export type Bestellwunsch = {
+  id: string;
+  text: string;
+  menge: string | null;
+  dringend: boolean;
+  fuer: BestellFuer;
+  firmenfahrzeug_id: string | null;
+  kunde_id: string | null;
+  auftrag_id: string | null;
+  foto_pfad: string | null;
+  foto_breite: number | null;
+  foto_hoehe: number | null;
+  status: BestellStatus;
+  notiz: string | null;
+  grund: string | null;
+  erstellt_von: string | null;
+  created_at: string;
+  geaendert_am: string;
+  status_am: string | null;
+  status_von: string | null;
+  plus: string[];
+};

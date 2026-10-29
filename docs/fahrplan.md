@@ -16,6 +16,14 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **29.10.2026 – Bestellliste „Fehlt was?“ (Migration 104, Service Worker v173).** Techniker tragen vor Ort per Freitext ein,
+  was fehlt (Menge, dringend, Transporter/Lager, optional Kunde/Auftrag, Foto, „+1“); den Stand (bestellt/da/nicht nötig)
+  setzt nur der Admin; Push dringend → Büro, da/nicht nötig → Techniker. Wunsch Vitali, Mockup Bestellliste v1. `docs/bestellliste.md`.
+
+* **29.10.2026 – Firma vor Ansprechpartner, Ansprechpartner freiwillig (Migration 103, Service Worker v172).** Im Lager und
+  überall sonst steht bei Firmenkunden die Firma statt des Ansprechpartners; bei „Neuer Kunde“ und im Reiter „Daten“ ist bei
+  Firma die Firma Pflicht, der Ansprechpartner nicht; Rechnungsprüfung Name oder Firma. Wunsch Vitali. `docs/kunden-und-karte.md`.
+
 * **26.10.2026 – Packliste als eigene Seite (Service Worker v171, ohne Migration).** Neuer Reiter „Packliste“ zwischen
   Saisonliste und Zeiterfassung (Entwurf Mockup_Packliste_v1, abgenommen): Zeitraum bis drei Monate, je Tag Sätze aus dem
   Lager mit dem Dashboard-Haken, reservierte Verkaufsreifen, Leistungen, Größen; „Gesamt“ nach Lagerplatz und Größen je

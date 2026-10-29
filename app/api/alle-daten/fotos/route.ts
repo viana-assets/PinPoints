@@ -3,6 +3,7 @@ import { createClient, createAdminClient } from "@/lib/supabaseServer";
 import { chatFotosAufraeumen } from "@/lib/chatVersand";
 import { CHAT_FOTO_BUCKET } from "@/lib/chat";
 import { FIN_BELEG_BUCKET } from "@/lib/finance/belege";
+import { BESTELL_FOTO_BUCKET } from "@/lib/bestellung";
 
 // Chat-Fotos nach „Alle Daten löschen“ sofort entfernen (Migration 86, v142). Nur der Superadmin.
 //
@@ -17,7 +18,7 @@ import { FIN_BELEG_BUCKET } from "@/lib/finance/belege";
 
 //
 // Seit v148 (Migration 90) genauso die Belegdateien von Finance (`fin-belege`): Ist `fin_belege` leer,
-// gehört dort keine Datei mehr hin.
+// gehört dort keine Datei mehr hin. Seit v173 (Migration 104) ebenso die Fotos der Bestellliste (`bestell-fotos`).
 
 // So viele Runden zu je 200 Pfaden (`chat_fotos_weg_liste`) höchstens – reicht für 10 000 Fotos.
 const RUNDEN = 50;
@@ -45,6 +46,8 @@ export async function POST() {
     // Fehlt die Tabelle (Migration 90 nicht gelaufen), kommt ein Fehler – dann bleibt der Speicher, wie er ist.
     const belege = await admin.from("fin_belege").select("id", { count: "exact", head: true });
     if (!belege.error && belege.count === 0) entfernt += await bucketLeeren(admin, FIN_BELEG_BUCKET);
+    const bestellungen = await admin.from("bestellwuensche").select("id", { count: "exact", head: true });
+    if (!bestellungen.error && bestellungen.count === 0) entfernt += await bucketLeeren(admin, BESTELL_FOTO_BUCKET);
   } catch (e) {
     // Keine Pfade oder Inhalte in die Meldung – nur, dass es nicht ganz geklappt hat.
     return NextResponse.json({ error: e instanceof Error ? "Fotos und Belegdateien nicht vollständig gelöscht." : "Fehler", entfernt }, { status: 500 });

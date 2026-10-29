@@ -150,12 +150,19 @@ Die Kundenliste hat passend dazu zwei neue Filter: **Wiedervorlage** und **Kein 
 
 ## Firma, Ansprechpartner, E-Mail, Anrede (Migration 24)
 
-Vier Felder am Kunden, alle optional:
+Vier Felder am Kunden. Seit v172 (Migration 103, Wunsch Vitali 29.10.2026) gilt beim Anlegen und im Reiter „Daten“: bei
+**Firma** ist der Firmenname Pflicht und der **Ansprechpartner freiwillig**, bei **Privat** der Name; dazu die Adresse
+(außer Laufkundschaft) – `stammdatenFehlen()` in `lib/kundenAnsicht.ts`. Für die Rechnung genügt Name ODER Firma
+(`rechnungsdatenMaengel()`, `pruefe_rechnungsdaten()`); ohne Ansprechpartner steht im Anschriftenblock nur die Firma
+(keine einzelne Anrede). Und **überall, wo ein Kunde mit Namen erscheint** – Lager (Liste, Platz-Blatt, Langlieger,
+Auslagern, Stapel), Einsatzplanung, Termine, Saisonliste, Packliste, Dashboard, Mitnehmen, Anruf, Push-Erinnerungen,
+Auftragstitel – steht bei Firmen die Firma (`anzeigeName()`); vorher stand im Lager der Ansprechpartner
+(gemeldet 29.10.2026). Die Felder im Einzelnen:
 
 | Feld | Bedeutung |
 |---|---|
 | `company` | Firmenname. Leer bei Privatpersonen. |
-| `name` | Anzeigename – bei Firmen der **Ansprechpartner**. |
+| `name` | Name – bei Firmen der **Ansprechpartner** (seit v172 freiwillig, darf leer sein). |
 | `email` | gab es bis dahin überhaupt nicht. |
 | `anrede` | „Herr" / „Frau", getrennt vom Namen. |
 

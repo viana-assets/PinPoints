@@ -3,6 +3,7 @@ import type { Customer, EingelagertesRad, TireStorage, Vehicle } from "@/lib/typ
 import { SAISON_LABEL, SAISON_LISTE } from "@/lib/constants";
 import { notizenText } from "@/lib/lagerNotizen";
 import { entwurfAlsPosten, entwurfFehler, groesseAusText, groesseText, postenAusSatz, profilMmText, type PostenEntwurf } from "@/lib/reifenverkauf";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 
 // Ein eingelagerter Satz wird zum Verkaufsposten (Fahrplan E17, v103).
 //
@@ -67,7 +68,7 @@ export function SatzZumVerkaufBlatt({ satz, raeder, fahrzeug, kunde, platzText, 
           <button type="button" className="modal-close" onClick={onClose} aria-label="Schließen">×</button>
         </div>
         <span className="small">
-          Der Satz {kunde ? `von ${kunde.name}` : ""}{fahrzeug?.license_plate ? ` (${fahrzeug.license_plate})` : ""} wird ausgelagert. Die Reifen
+          Der Satz {kunde ? `von ${anzeigeName(kunde)}` : ""}{fahrzeug?.license_plate ? ` (${fahrzeug.license_plate})` : ""} wird ausgelagert. Die Reifen
           bleiben, wo sie sind ({platzText || "ohne Platz"}), und stehen danach im Reiter „Verkauf“ – {stueck} Stück
           in {entwuerfe.length} {entwuerfe.length === 1 ? "Posten" : "Posten"}. Eine Lagergebühr wird dabei nicht berechnet.
         </span>

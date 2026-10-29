@@ -9,7 +9,7 @@ import type {
   Customer, ContactHistoryEntry, UserSettings, Warehouse, StorageSlot, TireStorage, Order,
   Vehicle, Role, Employee, Article, ArticlePrice, ArtikelFelder, OrderArticle, Saison,
   Firmenfahrzeug, EingelagertesRad, Rechnung, Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
-  AuftragBeleg, OrderStatus,
+  AuftragBeleg, OrderStatus, Bestellwunsch,
 } from "@/lib/types";
 import {
   todayStr, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
@@ -117,6 +117,11 @@ import { imZeitraum, terminPhase } from "@/lib/terminAnsicht";
 import { EinsatzplanungPanel } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { DashboardPanel } from "@/components/dashboard/DashboardPanel";
 import { PacklistePanel } from "@/components/packliste/PacklistePanel";
+import { BestellPanel } from "@/components/bestellung/BestellPanel";
+import { BestellBlatt } from "@/components/bestellung/BestellBlatt";
+import { BestellKnopf } from "@/components/bestellung/BestellKnopf";
+import { BESTELLUNG_PARAMETER } from "@/lib/bestellung";
+import { bestellPlusSetzen } from "@/lib/api/bestellungen";
 import { KundenListePanel } from "@/components/kunden/KundenListePanel";
 import { anfangsbuchstabe, anzeigeName, kundenArtPasst, kundenArtZahlen, rueckrufFaellig, type KundenArt } from "@/lib/kundenAnsicht";
 import { insertEmployee, deleteEmployeeById, updateEmployeeProfileId } from "@/lib/api/employees";
@@ -139,7 +144,7 @@ import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useGruppeFahrzeuge, useKundeHistorie, useMitarbeiter,
   useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useAppStand, useRechnungen, useAuftragRechnungen, useLager,
   useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge, useFirmenfahrzeuge,
-  useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten,
+  useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten, useBestellwuensche,
 } from "@/lib/queries/hooks";
 import { verfuegbarkeitAustragen, verfuegbarkeitSetzen, verfuegbarkeitVorlage } from "@/lib/api/verfuegbarkeit";
 import type { VerfuegbarkeitImPlan } from "@/components/einsatzplanung/EinsatzplanungPanel";
@@ -169,6 +174,7 @@ const KEINE_LAGERPLAETZE: StorageSlot[] = [];
 const KEINE_EINLAGERUNGEN: TireStorage[] = [];
 const KEINE_FAHRZEUGE: Vehicle[] = [];
 const KEINE_FIRMENFAHRZEUGE: Firmenfahrzeug[] = [];
+const KEINE_BESTELLWUENSCHE: Bestellwunsch[] = [];
 const KEINE_RAEDER: EingelagertesRad[] = [];
 const KEINE_VERKAUFSREIFEN: Verkaufsreifen[] = [];
 const KEINE_HISTORIE: ContactHistoryEntry[] = [];
@@ -226,6 +232,16 @@ export default function HomePage() {
   const [userEmail, setUserEmail] = useState("");
   // Die eigene Kennung (auth.uid) – für den Team-Chat: eigene Nachrichten rechts, Lesestand.
   const [meineId, setMeineId] = useState<string | null>(null);
+  // Bestellliste (Migration 104, v173): das Blatt „Fehlt was?“ (neu, aus dem Auftrag vorbelegt oder zum Ändern)
+  // und der Eintrag, auf den eine Push-Meldung zeigt.
+  const [bestellBlatt, setBestellBlatt] = useState<{ kundeId?: string | null; auftragId?: string | null; bearbeite?: Bestellwunsch | null } | null>(null);
+  const [bestellHervor, setBestellHervor] = useState<string | null>(null);
+  const [bestellMeldung, setBestellMeldung] = useState<string | null>(null);
+  useEffect(() => {
+    if (!bestellMeldung) return;
+    const t = setTimeout(() => setBestellMeldung(null), 3000);
+    return () => clearTimeout(t);
+  }, [bestellMeldung]);
   // Startet in der Einsatzplanung (START_TAB in lib/module.ts), nicht mehr im Dashboard. Seit v167 nach dem
   // Neuladen dort, wo DIESES Fenster stand (lib/ansichtMerker.ts, je Fenster in sessionStorage); ob die Rolle den
   // Reiter sehen darf, prüft die Startprüfung weiter unten.
@@ -253,7 +269,7 @@ export default function HomePage() {
   // Weit oben berechnet (statt erst kurz vor dem Rendern), damit ein Effekt weiter unten, der
   // beim Wechsel zwischen Vollseiten- und normalem Tab einen Reflow erzwingt, sich problemlos
   // darauf verlassen kann (Hooks dürfen nicht erst nach einem bedingten Return kommen).
-  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung" || tab === "rechnungen" || tab === "zeit" || tab === "packliste";
+  const fullPageTabs = tab === "lager" || tab === "einsatzplanung" || tab === "admin" || tab === "auftraege" || tab === "artikel" || tab === "auswertung" || tab === "rechnungen" || tab === "zeit" || tab === "packliste" || tab === "bestellungen";
   // Techniker-Rolle (Phase 4): sieht per RLS ohnehin nur eigene Aufträge (Migration 13), die
   // Oberfläche blendet zusätzlich Anlegen/Löschen/Mitarbeiter- und Leistungen-Zuordnung aus –
   // siehe AuftraegePanel/EinsatzplanungPanel.
@@ -392,7 +408,7 @@ export default function HomePage() {
   // beim Tabwechsel zu holen würde nur flackern, ohne etwas zu sparen. Alles andere kommt beim
   // Öffnen des jeweiligen Moduls bzw. des Kundendetails.
   const kundeOffen = selectedId !== null;
-  const brauchtMitarbeiter = tab === "auftraege" || tab === "packliste" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || tab === "auswertung" || kundeOffen;
+  const brauchtMitarbeiter = tab === "auftraege" || tab === "packliste" || tab === "bestellungen" || tab === "einsatzplanung" || tab === "admin" || tab === "add" || tab === "auswertung" || kundeOffen;
   // Dashboard und Mitnehmen-Fenster seit v100 auch: Die Packliste nennt die Leistungen beim Namen (E2).
   const brauchtArtikel = tab === "artikel" || tab === "more" || tab === "packliste" || tab === "auftraege" || tab === "einsatzplanung" || tab === "auswertung" || tab === "dashboard" || kundeOffen || mitnehmenDatum !== null;
   // Das Auftragsfenster zeigt seit Migration 22 einen Einlagerungs-Block und braucht dafür
@@ -440,7 +456,7 @@ export default function HomePage() {
   // gezeigt oder eingeteilt wird (Migration 32).
   const firmenfahrzeugeQuery = useFirmenfahrzeuge(
     supabase,
-    sitzungBereit && (brauchtMitarbeiter || offenerAuftragId !== null)
+    sitzungBereit && (brauchtMitarbeiter || offenerAuftragId !== null || bestellBlatt !== null)
   );
   // Verfügbarkeit der Mitarbeiter (Migration 68): für die Einsatzplanung und die Teamauswahl im
   // Auftragsfenster. Fehlt die Tabelle noch (Migration nicht ausgeführt), bleibt die Abfrage
@@ -1078,6 +1094,12 @@ export default function HomePage() {
   // keine Anzeige oben rechts, keinen Reiter.
   const darfZeit = darf("zeiterfassung", "lesen");
   const zeit = useZeiterfassung({ supabase, aktiv: sitzungBereit && darfZeit, meineId });
+  // Bestellliste (Migration 104, v173): geladen auf der Seite, im Blatt „Fehlt was?“ (Vorschläge, „schon offen“)
+  // und auf „Weitere“ (Hinweis „x offen“).
+  const darfBestellen = darf("bestellungen", "schreiben");
+  const bestellQuery = useBestellwuensche(supabase,
+    sitzungBereit && darf("bestellungen", "lesen") && (tab === "bestellungen" || tab === "more" || bestellBlatt !== null));
+  const bestellwuensche = bestellQuery.data ?? KEINE_BESTELLWUENSCHE;
   const darfStempeln = darf("zeiterfassung", "schreiben");
   // „Für heute fertig?“ nach dem letzten Auftrag des Tages (Migration 85, v138).
   const [feierabendFrage, setFeierabendFrage] = useState(false);
@@ -1626,6 +1648,13 @@ export default function HomePage() {
       chat.oeffnen(chatZielAus(parameter.get(CHAT_PARAMETER)));
       return;
     }
+    // Bestellliste (Migration 104): die Seite an diesem Eintrag.
+    if (parameter.get(BESTELLUNG_PARAMETER)) {
+      setBestellHervor(parameter.get(BESTELLUNG_PARAMETER));
+      setTab("bestellungen");
+      void neuLaden(qk.bestellungen());
+      return;
+    }
     // Stempel-Erinnerung (Migration 85): die Stempeluhr öffnen.
     if (parameter.get(STEMPEL_PARAMETER)) {
       zeit.setBlattOffen(true);
@@ -1677,7 +1706,8 @@ export default function HomePage() {
   useEffect(() => {
     const parameter = sprungDieserLadung();
     if (!parameter.get(AUFTRAG_PARAMETER) && !parameter.get(KUNDE_PARAMETER) && !parameter.get(ANRUF_PARAMETER)
-      && !parameter.get(MITNEHMEN_PARAMETER) && !parameter.get(CHAT_PARAMETER) && !parameter.get(STEMPEL_PARAMETER)) return;
+      && !parameter.get(MITNEHMEN_PARAMETER) && !parameter.get(CHAT_PARAMETER) && !parameter.get(STEMPEL_PARAMETER)
+      && !parameter.get(BESTELLUNG_PARAMETER)) return;
     zielOeffnen(parameter);
   }, []);
 
@@ -1789,7 +1819,7 @@ export default function HomePage() {
     // Nachfragen, weil ein Fehltipper auf einer Karte schnell passiert – und weil die Angabe
     // danach die genaueste im System ist und von keinem Sammellauf mehr überschrieben wird.
     const sicher = window.confirm(
-      `Position für ${kunde ? kunde.name : "diesen Kunden"} hier setzen?\n\n` +
+      `Position für ${kunde ? anzeigeName(kunde) : "diesen Kunden"} hier setzen?\n\n` +
       "Sie gilt ab dann als von Hand gesetzt und wird bei keinem Geokodier-Lauf mehr verändert."
     );
     if (!sicher) return;
@@ -1951,6 +1981,8 @@ export default function HomePage() {
     if (ohnePreis > 0) h.artikel = { text: `${ohnePreis} ohne Preis`, dringend: true };
     const k = lagerKennzahlenQuery.data;
     if (k && k.gesamt > 0) h.lager = { text: `${k.belegt} von ${k.gesamt} belegt`, dringend: k.gesamt - k.belegt < LAGER_ENGPASS_AB };
+    const bwOffen = bestellwuensche.filter((w) => w.status === "offen");
+    if (bwOffen.length) h.bestellungen = { text: `${bwOffen.length} offen`, dringend: bwOffen.some((w) => w.dringend) };
     if (zeit.schicht && zeit.zustand !== "aus") h.zeit = { text: zeit.zustand === "pause" ? "Pause läuft" : `eingestempelt seit ${uhrzeitVon(zeit.schicht.beginn)}` };
     return h;
   })();
@@ -1984,6 +2016,11 @@ export default function HomePage() {
     ...(darf("chat", "lesen") ? [{
       key: "chat", text: "Team-Chat", zahl: chat.ungelesen,
       knopf: (zu: () => void) => <ChatBlase zahl={chat.ungelesen} imMenue onClick={() => { zu(); chat.oeffnen(); }} />,
+    }] : []),
+    // „Fehlt was?“ (v173, Migration 104): sofort auf die Bestellliste.
+    ...(darfBestellen && canView("bestellungen") ? [{
+      key: "bestellen", text: "Fehlt was?",
+      knopf: (zu: () => void) => <BestellKnopf onClick={() => { zu(); setBestellBlatt({}); }} />,
     }] : []),
     // Zum Lager navigieren (v169, Migration 102): welches Lager, steht in den Einstellungen.
     ...(canView("lager") ? [{
@@ -2247,6 +2284,28 @@ export default function HomePage() {
             lagerLaedt={einlagerungenQuery.isPending || lagerplaetzeQuery.isPending}
             isTechniker={isTechniker}
             onOpenOrder={setOffenerAuftragId}
+          />
+        )}
+
+        {/* Bestellliste (Migration 104, v173): was fehlt; den Stand setzt, wer verwalten darf. */}
+        {tab === "bestellungen" && canView("bestellungen") && (
+          <BestellPanel
+            supabase={supabase}
+            ich={meineId}
+            verwalter={darf("bestellungen.verwalten", "schreiben")}
+            darfSchreiben={darfBestellen}
+            wuensche={bestellwuensche}
+            laedt={bestellQuery.isPending}
+            fehler={bestellQuery.error ? (bestellQuery.error as Error).message : null}
+            employees={employees}
+            kunden={customers}
+            orders={orders}
+            transporter={firmenfahrzeuge}
+            hervor={bestellHervor}
+            onNeu={() => setBestellBlatt({})}
+            onBearbeiten={(w) => setBestellBlatt({ bearbeite: w })}
+            onOpenOrder={setOffenerAuftragId}
+            onOpenCustomer={openDetail}
           />
         )}
 
@@ -2625,6 +2684,23 @@ export default function HomePage() {
 
       {/* Am Handy (v159): Stoppuhr und Chat hinter dem Knopf oben rechts statt unten schwebend. */}
       <SchnellMenue eintraege={schnellEintraege} versteckt={schnellVersteckt} />
+      {bestellMeldung && <div className="bw-toast" role="status">{bestellMeldung}</div>}
+      {/* „Fehlt was?“ (Migration 104): aus dem Schnellmenü, dem Auftrag oder der Bestellliste. Ebene 10002. */}
+      {bestellBlatt && meineId && (
+        <BestellBlatt
+          supabase={supabase}
+          ich={meineId}
+          wuensche={bestellwuensche}
+          transporter={firmenfahrzeuge}
+          kunden={customers}
+          orders={orders}
+          vorbelegung={bestellBlatt}
+          bearbeite={bestellBlatt.bearbeite ?? null}
+          onPlus={async (id) => { await bestellPlusSetzen(supabase, id, meineId, true); await neuLaden(qk.bestellungen()); }}
+          onFertig={(text) => { setBestellBlatt(null); setBestellMeldung(text); void neuLaden(qk.bestellungen()); }}
+          onClose={() => setBestellBlatt(null)}
+        />
+      )}
 
       {/* Team-Chat (Migration 80, v129): die Blase auf jeder Seite, das Fenster darüber. */}
       {sitzungBereit && darf("chat", "lesen") && !chat.offen && (
@@ -2872,6 +2948,7 @@ export default function HomePage() {
             const k = customers.find((c) => c.id === offenerAuftrag.customer_id);
             inDenChat(bezugAuftrag(offenerAuftrag, k?.laufkundschaft ? offenerAuftrag.laufkunde_name || k.name : k ? anzeigeName(k) : null));
           } : undefined}
+          onBestellen={darfBestellen && canView("bestellungen") ? () => setBestellBlatt({ kundeId: offenerAuftrag.customer_id, auftragId: offenerAuftrag.id }) : undefined}
           darfTransporter={darf("auftraege.transporter", "schreiben")}
           darfAuslagern={darf("lager.auslagern", "schreiben")}
           darfTausch={darf("lager.tausch", "schreiben")}
@@ -3081,7 +3158,7 @@ export default function HomePage() {
         return (
           <div className="karte-banner" role="status">
             <span>
-              <b>Position setzen: {kunde?.name || "Kunde"}</b>
+              <b>Position setzen: {kunde ? anzeigeName(kunde) : "Kunde"}</b>
               <br />
               {kunde?.address || "ohne Adresse"}
               <br />
