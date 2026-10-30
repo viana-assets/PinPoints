@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v184";
+export const APP_VERSION = "v185";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,17 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v185", datum: "2026-10-30", titel: "Finance: Bankregeln, Sammelzuordnung mit Skonto und Differenz, Geldtransit",
+    punkte: [
+      "Bankregeln: Für wiederkehrende Umsätze (Miete, Telefon, Tanken, Bankgebühren) merkt sich Finance das Konto – mit Name, Verwendungszweck oder IBAN als Bedingung, dazu Steuer, Buchungstext und Kostenstellen. Anlegen unter Bank & Kasse › Konten & Importe oder beim Buchen mit „Als Regel merken“.",
+      "Regeln buchen nichts von selbst: Sie füllen das Konto vor. „Nach Regeln buchen“ zeigt alle passenden offenen Umsätze als Liste zum Abhaken – gebucht wird erst nach der Bestätigung.",
+      "Ein Umsatz für mehrere Rechnungen bzw. Belege: „Mehrere / Differenz …“ verteilt ihn, je Posten mit Betrag und Skonto. Bleibt etwas übrig (Gebühr, Überzahlung), kommt der Rest auf ein Konto. „Mit Differenz …“ bei einer Rechnung zieht z. B. das Skonto mit einem Klick ab. Aufheben bucht alles gegen.",
+      "Beim Buchen eines Umsatzes auf ein Aufwands- oder Erlöskonto lassen sich Transporter (KOST1) und Leistung (KOST2) wählen.",
+      "Kasse: „Zur Bank gebracht“ bucht die Bareinzahlung über Geldtransit. Solange sie nicht auf dem Kontoauszug zugeordnet ist, zeigt das Kassenbuch den Betrag als „unterwegs zur Bank“. Unter Konten & Importe gibt es dazu eine fertige Regel.",
+      "Braucht Migration 112 im Supabase-SQL-Editor (nach 111).",
+    ],
+  },
   {
     version: "v184", datum: "2026-10-30", titel: "Finance: Debitoren und Kreditoren, alle Rechnungen, Leistungsart aus dem Artikel",
     punkte: [

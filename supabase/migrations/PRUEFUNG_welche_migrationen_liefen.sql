@@ -180,7 +180,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('108', 'Finance: Kostenstellen (fin_kostenstellen, kost1/kost2 an den Buchungszeilen)', to_regclass('public.fin_kostenstellen') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_buchungszeilen' and column_name = 'kost1')),
     ('109', 'Finance: Splitt im Stapel, Abhaken (fin_stapel_teil_speichern, fin_abgehakt)', to_regclass('public.fin_abgehakt') is not null and to_regprocedure('public.fin_stapel_teil_speichern(uuid,uuid,integer,integer,numeric,text,text,text)') is not null),
     ('110', 'Finance: Personenkonten (fin_personenkonten, personenkonto an den Buchungszeilen)', to_regclass('public.fin_personenkonten') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_buchungszeilen' and column_name = 'personenkonto')),
-    ('111', 'Finance: alle Rechnungen, Leistungsart aus dem Artikel (fin_artikel_kost, rechnungen_umfang)', to_regclass('public.fin_artikel_kost') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_einstellungen' and column_name = 'rechnungen_umfang'))
+    ('111', 'Finance: alle Rechnungen, Leistungsart aus dem Artikel (fin_artikel_kost, rechnungen_umfang)', to_regclass('public.fin_artikel_kost') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_einstellungen' and column_name = 'rechnungen_umfang')),
+    ('112', 'Finance: Bankregeln und Sammelzuordnung (fin_bankregeln, fin_bank_sammeln)', to_regclass('public.fin_bankregeln') is not null and to_regprocedure('public.fin_bank_sammeln(uuid,jsonb,integer,text,text)') is not null)
 )
 select migration, woran_erkennbar, gelaufen from (
   select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen

@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **und `111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **und `112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1670,3 +1670,19 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   abgelehnt; ausgeblendete Leistungsart → Zeile ohne, Rechnung gebucht; Storno übernimmt KOST und Debitor; Kleinunternehmer ohne
   Ausweis auf 8195. `t106`–`t110` gegen 111 gleich. Zweiter Lauf folgenlos. Rücknahme: `rollback/111_rollback.sql` (Buchung
   wie vor 111, Spalten und Tabelle weg; zweimal lauffähig), danach erneut ausgeführt.
+
+- `112_finance_bankregeln_sammeln.sql` – **noch auszuführen**, nach 111 und vor den Dateien von v185 (Finance Stufe E, Teil 1,
+  `docs/finance.md` Abschnitt 17). Inhalt: Tabelle `fin_bankregeln` (RLS nur lesen mit „Finance › Bank“) mit
+  `fin_bankregel_speichern()`/`fin_bankregel_loeschen()`; `fin_kost_an_buchung()`; `fin_bank_zu_konto()` mit `p_kost1`/`p_kost2`
+  (die Fassung mit vier Parametern wird erst entfernt, wenn die neue steht); `fin_bankumsaetze.zuordnung` erlaubt 'mehrere';
+  Tabelle `fin_bank_teile` und `fin_bank_sammeln()` (mehrere Rechnungen bzw. Belege je Umsatz, Skonto je Posten, Rest auf ein
+  Konto); `fin_bank_aufheben()` bucht bei 'mehrere' alle Teile gegen; Trigger `fin_bank_teile_schutz` gegen das Stornieren
+  eines einzelnen Teils. Regeln buchen nichts von selbst. Wache: bricht ohne 111 ab. Ergebnistabelle mit vier Zeilen
+  (Tabellen mit RLS, „4 von 4“ Funktionen, alte Fassung entfernt „ja“, Schutz „ja“). Geprüft gegen PG 16
+  (`/tmp/pgt/t112.sql`): Regel speichern, ohne Bedingung abgelehnt, Techniker abgelehnt; Kontobuchung mit KOST1/KOST2 auf
+  dem Aufwandsposten, Aufruf ohne KOST weiter gültig; Umsatz 350 auf zwei Rechnungen (238 ganz, 119 mit 112 + 7 Skonto) →
+  beide bezahlt, drei Teile; einzelnes Storno verweigert, Aufheben bucht alles gegen und öffnet beide Rechnungen; zu viel,
+  doppelt, Beleg bei Eingang, Rest ohne Konto abgelehnt; Überzahlung als Rest auf 2700; Techniker darf nicht sammeln; „Alle
+  Daten löschen“ leert Regeln und Teile. `t106`–`t111` gegen 112 gleich. Zweiter Lauf folgenlos. Rücknahme:
+  `rollback/112_rollback.sql` (weigert sich bei Sammelzuordnungen, stellt die Fassungen aus 91 wieder her; zweimal lauffähig),
+  danach erneut ausgeführt.

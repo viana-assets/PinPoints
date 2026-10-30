@@ -111,6 +111,8 @@ export const qk = {
   finAbgehakt: (jahr: number) => ["finance", "abgehakt", jahr] as const,
   finPersonenkonten: (jahr: number) => ["finance", "personenkonten", jahr] as const,
   finArtikelLeistungsarten: () => ["finance", "artikel-leistungsarten"] as const,
+  // Stufe E Teil 1 (Migration 112): Bankregeln.
+  finBankregeln: () => ["finance", "bankregeln"] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

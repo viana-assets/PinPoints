@@ -1085,4 +1085,9 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
 - **Liste → Blatt** (Personenkonten, v184): Enter auf einer Zeile ersetzt die Liste durch das Blatt (ohne Detailspalte,
   `.ap-rahmen-voll`), „← Personenkonten“ führt zurück; zwei Tabellen untereinander mit `.ap-unterkopf` dazwischen.
   Ein Filterknopf, der an/aus ist („nur mit Saldo“), trägt `aria-pressed` und ist dann petrol hinterlegt.
+- **Bestätigungsliste vor Massenbuchungen** (Bank, v185): Was eine Regel vorschlägt, wird nie still gebucht. Ein Knopf mit
+  Zahl („Nach Regeln buchen (3)“) öffnet ein `Blatt` mit einer Zeile je Umsatz (`.fi-sammel-zeile`, Kästchen links, gewählt
+  mit `--accent-bg` hinterlegt); Zweifelsfälle sind vorab abgewählt und rot begründet. Der Hauptknopf nennt die Zahl
+  („3 Umsätze buchen“) und zählt während des Buchens mit. Dasselbe Muster für die Auswahl mehrerer Posten mit Betrag und
+  Skonto je Zeile (`.fi-sammel-felder`, am Handy volle Breite).
 

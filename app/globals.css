@@ -5023,6 +5023,27 @@ span.ap-haken{cursor:default;}
   .ap-detail{position:static;max-height:none;}
 }
 
+/* ---------------- Bank: Regeln und Sammelzuordnung (v185, Migration 112) ---------------- */
+.fi-regel{color:var(--accent);font-weight:600;}
+.fi-block{display:block;margin-top:4px;}
+.fi-sammel{max-height:min(48vh,520px);overflow:auto;}
+.fi-sammel-zeile{flex-wrap:wrap;gap:8px 12px;align-items:center;}
+.fi-sammel-zeile.gewaehlt{background:var(--accent-bg);}
+.fi-sammel-kopf{display:flex;align-items:center;gap:10px;flex:1 1 280px;min-width:0;cursor:pointer;}
+.fi-sammel-kopf input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;margin:0;}
+.fi-sammel-felder{display:flex;align-items:end;gap:8px;flex-wrap:wrap;}
+.fi-sammel-kopf b{color:var(--text);}
+.fi-sammel-kopf .small{color:var(--muted);}
+.fi-kacheln.fi-drei{grid-template-columns:repeat(3,minmax(0,1fr));}
+.fi-sammel-felder .nk-feld{width:110px;}
+.fi-sammel-felder .nk-feld input{text-align:right;}
+@media (max-width:640px){
+  .fi-sammel{max-height:none;}
+  .fi-sammel-felder{width:100%;}
+  .fi-sammel-felder .nk-feld{flex:1 1 0;width:auto;}
+  .fi-kacheln.fi-drei{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

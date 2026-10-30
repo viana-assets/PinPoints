@@ -4,7 +4,7 @@ import type { FinEinstellungen, Kontenrahmen } from "@/lib/finance/einstellungen
 import type { FinBuchung, FinFestschreibung, FinKonto, FinPosten, FinSteuerschluessel } from "@/lib/finance/buchung";
 import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
 import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLieferant } from "@/lib/finance/belege";
-import type { FinBankimport, FinBankkonto, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
+import type { FinBankimport, FinBankkonto, FinBankregel, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 import type { FinAnlage } from "@/lib/finance/anlagen";
 import type { FinMahnung } from "@/lib/finance/mahnung";
@@ -251,7 +251,8 @@ export async function finBelegStornieren(supabase: SupabaseClient, id: string, g
 
 // ---------------------------------------------------------------- F4: Bank, Kasse (Migration 91, v149)
 
-const BANKUMSATZ_SPALTEN = "id, bankkonto_id, import_id, datum, valuta, betrag, zweck, name, iban, referenz, status, zuordnung, zuordnung_id, buchung_id, notiz";
+// Mit den Teilen einer Sammelzuordnung (Migration 112).
+const BANKUMSATZ_SPALTEN = "id, bankkonto_id, import_id, datum, valuta, betrag, zweck, name, iban, referenz, status, zuordnung, zuordnung_id, buchung_id, notiz, fin_bank_teile(art, ziel_id, betrag, buchung_id)";
 
 export async function fetchFinBankkonten(supabase: SupabaseClient): Promise<FinBankkonto[]> {
   return (await q<FinBankkonto[]>("Die Bankkonten konnten nicht geladen werden",
@@ -273,7 +274,7 @@ export async function fetchFinBankumsaetze(supabase: SupabaseClient, jahr: numbe
     supabase.from("fin_bankumsaetze").select(BANKUMSATZ_SPALTEN)
       .or(`status.eq.offen,and(datum.gte.${jahr}-01-01,datum.lte.${jahr}-12-31)`)
       .order("datum", { ascending: false }).order("id").range(von, bis));
-  return alle.map((u) => ({ ...u, betrag: Number(u.betrag) }));
+  return alle.map((u) => ({ ...u, betrag: Number(u.betrag), fin_bank_teile: (u.fin_bank_teile ?? []).map((t) => ({ ...t, betrag: Number(t.betrag) })) }));
 }
 
 export async function fetchFinBankimporte(supabase: SupabaseClient): Promise<FinBankimport[]> {
@@ -310,9 +311,36 @@ export async function finBankZuBeleg(supabase: SupabaseClient, umsatzId: string,
   return { nr: r?.nr ?? 0, rest: Number(r?.rest ?? 0) };
 }
 
-export async function finBankZuKonto(supabase: SupabaseClient, umsatzId: string, konto: number, steuer: string | null, text: string): Promise<{ nr: number }> {
+export async function finBankZuKonto(supabase: SupabaseClient, umsatzId: string, konto: number, steuer: string | null, text: string,
+  kost?: { kost1?: string | null; kost2?: string | null }): Promise<{ nr: number }> {
   return (await q<{ nr: number }>("Nicht gebucht",
-    supabase.rpc("fin_bank_zu_konto", { p_umsatz: umsatzId, p_konto: konto, p_steuer: steuer, p_text: text }))) ?? { nr: 0 };
+    supabase.rpc("fin_bank_zu_konto", { p_umsatz: umsatzId, p_konto: konto, p_steuer: steuer, p_text: text,
+      p_kost1: kost?.kost1 || null, p_kost2: kost?.kost2 || null }))) ?? { nr: 0 };
+}
+
+// Sammelzuordnung (Migration 112): mehrere Rechnungen bzw. Belege, je mit Betrag und Skonto, Rest auf ein Konto.
+export type FinSammelZiel = { art: "rechnung" | "beleg"; id: string; betrag: number; skonto?: number };
+export async function finBankSammeln(supabase: SupabaseClient, umsatzId: string, ziele: FinSammelZiel[],
+  rest: { konto: number; steuer: string | null; text: string } | null): Promise<{ posten: number; rest: number; von: number }> {
+  const r = await q<{ posten: number; rest: number; von: number }>("Nicht zugeordnet", supabase.rpc("fin_bank_sammeln", {
+    p_umsatz: umsatzId, p_ziele: ziele, p_rest_konto: rest?.konto ?? null, p_rest_steuer: rest?.steuer ?? null, p_rest_text: rest?.text ?? null }));
+  return { posten: Number(r?.posten ?? 0), rest: Number(r?.rest ?? 0), von: Number(r?.von ?? 0) };
+}
+
+// Bankregeln (Migration 112).
+export async function fetchFinBankregeln(supabase: SupabaseClient): Promise<FinBankregel[]> {
+  return fetchPaged<FinBankregel>("Die Bankregeln konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_bankregeln").select("id, bezeichnung, richtung, name_enthaelt, zweck_enthaelt, iban, konto, steuer, text, kost1, kost2, aktiv")
+      .order("bezeichnung").order("id").range(von, bis));
+}
+export type FinBankregelFelder = Omit<FinBankregel, "id">;
+export async function finBankregelSpeichern(supabase: SupabaseClient, id: string | null, f: FinBankregelFelder): Promise<string> {
+  return String(await q<string>("Die Regel wurde nicht gespeichert", supabase.rpc("fin_bankregel_speichern", {
+    p_id: id, p_bezeichnung: f.bezeichnung, p_richtung: f.richtung, p_name: f.name_enthaelt, p_zweck: f.zweck_enthaelt, p_iban: f.iban,
+    p_konto: f.konto, p_steuer: f.steuer, p_text: f.text, p_kost1: f.kost1, p_kost2: f.kost2, p_aktiv: f.aktiv })));
+}
+export async function finBankregelLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Die Regel wurde nicht gelöscht", supabase.rpc("fin_bankregel_loeschen", { p_id: id }));
 }
 
 export async function finBankIgnorieren(supabase: SupabaseClient, umsatzId: string, grund: string): Promise<void> {

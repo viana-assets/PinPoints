@@ -923,3 +923,39 @@ in der Oberfläche steht „Transporter“ und „Leistung“.
   (Personenkonto im DATEV-Satz), `tests/financeKostenstellen.test.ts` (Vorgabe wie SQL),
   `tests/financeKostenstellenOberflaeche.test.tsx` (Leistungsart je Artikel); Datenbank `/tmp/pgt/t110.sql`, `/tmp/pgt/t111.sql`.
 
+
+## 17. So ist Stufe E Teil 1 gebaut: Bankregeln, Sammelzuordnung, Geldtransit (v185, Migration 112)
+
+- **Bankregeln** (`fin_bankregeln`, Recht „Finance › Bank“): Bezeichnung, Richtung (Eingänge, Abbuchungen, beides),
+  Bedingungen Name enthält, Verwendungszweck enthält, IBAN genau – mindestens eine, alle angegebenen müssen stimmen
+  (Groß/Klein, Leer- und Satzzeichen egal). Ergebnis: Konto, Steuerschlüssel, Buchungstext, KOST1/KOST2. Passen mehrere,
+  gilt die mit den meisten Bedingungen (`regelFuer()` in `lib/finance/bank.ts`). Pflege unter Bank & Kasse › Konten &
+  Importe, beim Buchen auf ein Konto auch über „Als Regel merken“; dort gibt es eine fertige Regel „Bareinzahlung“.
+- **Nichts wird von selbst gebucht** (Organisationsvorgabe: keine irreversible Aktion ohne Kontrolle): Eine Regel füllt im
+  Umsatzfenster das Konto vor; passt zugleich eine Rechnung bzw. ein Beleg auf den Cent, bleibt die Auswahl vorn.
+  „Nach Regeln buchen (n)“ im Reiter „Offen“ zeigt alle Treffer als Liste mit Haken (Umsätze, zu denen auch eine Rechnung
+  passt, sind abgewählt) – gebucht wird erst mit „n Umsätze buchen“, einzeln über `fin_bank_zu_konto()`. Was nicht geht,
+  steht danach in der Liste.
+- **Kostenstellen bei der Kontobuchung:** `fin_bank_zu_konto()` hat zwei neue Parameter `p_kost1`/`p_kost2` (die alte
+  Fassung mit vier Parametern ist entfernt). Die Felder erscheinen nur bei Erlös-, Aufwands- und Anlagekonten
+  (`fin_kost_an_buchung()` prüft dasselbe).
+- **Sammelzuordnung** (`fin_bank_sammeln()`, `fin_bank_teile`, Zuordnung „mehrere“): Ein Umsatz wird auf bis zu 50
+  Rechnungen (Eingang) bzw. Belege (Abbuchung) verteilt, je Posten mit Betrag und Skonto. Je Posten entsteht eine
+  Zahlungsbuchung wie bei der einzelnen Zuordnung (mit Teilzahlung, wenn etwas offen bleibt), das Skonto über
+  `fin_skonto_buchen()`, ein Rest (Gebühr, Überzahlung, Differenz) als Bankbuchung auf das gewählte Konto. Mehr als der
+  Umsatz geht nicht; bleibt etwas übrig, braucht es das Konto. Im Fenster: „Mehrere / Differenz …“ mit allen offenen
+  Posten (Nummer im Zweck und Name zuerst), bei einer vorgeschlagenen Rechnung „Mit Differenz …“ und ein Klick für
+  „Differenz als Skonto“.
+- **Aufheben** (`fin_bank_aufheben()`): bei „mehrere“ wird erst der Umsatz geöffnet, dann jeder Teil gegengebucht (Skonto
+  zuerst), dann werden die Teile gelöscht. Einen einzelnen Teil zu stornieren, solange der Umsatz zugeordnet ist, verhindert
+  ein Trigger.
+- **Geldtransit:** „Zur Bank gebracht“ im Kassenbuch öffnet eine Buchung Geldtransit (SKR03 1360, SKR04 1460) an Kasse.
+  Der Eingang auf dem Kontoauszug wird auf Geldtransit gebucht (am besten mit der Regel „Bareinzahlung“). Steht auf dem
+  Geldtransit ein Saldo, zeigt das Kassenbuch „Unterwegs zur Bank“.
+- Rücknahme: `rollback/112_rollback.sql` weigert sich, solange es Sammelzuordnungen gibt, und stellt `fin_bank_zu_konto()`
+  und `fin_bank_aufheben()` aus Migration 91 wieder her.
+- Tests: `tests/financeBankregeln.test.ts` (Regeln, Sammeln, Richtungen und Geldtransit wie SQL),
+  `tests/financeBankOberflaeche.test.tsx` (Sammeln, Skonto, Rest, Regeln, „Als Regel merken“, Geldtransit); Datenbank
+  `/tmp/pgt/t112.sql`.
+- **Teil 2 (als Nächstes):** Bankdaten und Zahlungsbedingungen je Lieferant, Zahlungsvorschlag für fällige Belege,
+  SEPA-Überweisungsdatei (pain.001) zum Hochladen ins Online-Banking.

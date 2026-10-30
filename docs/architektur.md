@@ -176,7 +176,9 @@ viana-pinpoints/
       FinanceBelege.tsx              Belege und Lieferanten (Migration 90, v148): Entwurf mit Datei/E-Rechnung,
                                      Kontovorschlag, buchen (auf Wunsch gleich bezahlt), Storno; offene Posten Lieferanten
       FinanceBank.tsx                Bank & Kasse (Migration 91, v149): Bankkonten, Kontoauszug einlesen mit Vorschau,
-                                     Umsätze zuordnen (Rechnung, Beleg, Konto), ignorieren, aufheben; Importe; Kassenbuch
+                                     Umsätze zuordnen (Rechnung, Beleg, Konto), ignorieren, aufheben; Importe; Kassenbuch;
+                                     v185 (Migration 112): Bankregeln mit Bestätigungsliste, Sammelzuordnung mit Skonto
+                                     und Rest, KOST bei der Kontobuchung, Geldtransit (tests/financeBankOberflaeche.test.tsx)
       FinanceAnlagen.tsx             Anlagen (Migration 95, v153): Verzeichnis, Abschreibungsplan, Abschreibungen buchen, Abgang
       FinanceAbschluss.tsx           Jahresabschluss (Migration 96, v154): Schritte, GuV, Bilanz, Anlagenspiegel, Rückstellungen/Abgrenzungen, Saldenvortrag
       FinanceExport.tsx              Export (Migration 97, v155): DATEV-Buchungsstapel, GoBD-ZIP, Verfahrensdokumentation, Protokoll
@@ -401,7 +403,8 @@ viana-pinpoints/
       rechnungen.ts               Vorgänge teilen, Zustand einer Rechnung, offene Posten, Zahlungsziel (Migration 89, v147)
       belege.ts                   Belege: Zustand, Kontovorschlag, offene Posten, Dateipfad und -prüfung (Migration 90, v148)
       erechnung.ts                E-Rechnung lesen (XRechnung UBL/CII, ZUGFeRD-XML) und in Posten übersetzen (v148)
-      bank.ts                     Kontoauszug lesen (CAMT.053, CSV, Zeichensatz), Vorschläge, Kassenbuch, Saldo (Migration 91, v149)
+      bank.ts                     Kontoauszug lesen (CAMT.053, CSV, Zeichensatz), Vorschläge, Kassenbuch, Saldo (Migration 91, v149);
+                                  Bankregeln und Sammelzuordnung (Migration 112, v185; tests/financeBankregeln.test.ts)
       anlagen.ts                  Abschreibung wie fin_afa_bis() (linear, degressiv, GWG, Sammelposten, E-Fahrzeug), Plan, Regeln (Migration 95, v153)
       abschluss.ts                GuV (§ 275 HGB), Bilanz (§ 266 HGB), Anlagenspiegel, Saldenvortrag lesen, Schritte zum Abschluss (Migration 96, v154)
       export.ts                   DATEV-Sätze aus dem Journal (brutto, Automatik/BU), GoBD index.xml + CSV, ZIP, Verfahrensdokumentation (Migration 97, v155)
@@ -823,7 +826,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 111** (30.10.2026; 101–107 ausgeführt, 108–111 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 112** (30.10.2026; 101–107 ausgeführt, 108–112 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -1022,6 +1025,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   70000), `fin_buchungszeilen.personenkonto` als Nebenbuch, Trigger `trg_fin_zeile_personenkonto`, `fin_personenkonten_stand()`.
 - **111** – Finance alle Rechnungen: `fin_einstellungen.rechnungen_umfang`/`ohne_ausweis`, `fin_artikel_kost`,
   `fin_rechnung_buchen_kern()` je Steuersatz und Leistungsart mit KOST1/KOST2, `fin_rechnungen_nachbuchen_alle()` (Abschnitt 16).
+- **112** – Finance Bankregeln und Sammelzuordnung: `fin_bankregeln` mit `fin_bankregel_speichern()`/`_loeschen()`,
+  `fin_bank_zu_konto()` mit KOST1/KOST2, `fin_bank_teile` und `fin_bank_sammeln()` (mehrere Posten, Skonto, Rest auf Konto),
+  `fin_bank_aufheben()` bucht alle Teile gegen (Abschnitt 17).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.10.2026 – Finance Stufe E, Teil 1: Bankregeln, Sammelzuordnung, Geldtransit (Service Worker v185, Migration 112).**
+  Bankregeln (Name, Zweck, IBAN → Konto, Steuer, Text, KOST1/KOST2) füllen das Konto vor; „Nach Regeln buchen“ bucht erst
+  nach der Bestätigungsliste, nie von selbst. Ein Umsatz lässt sich auf mehrere Rechnungen bzw. Belege verteilen, je Posten
+  mit Skonto, ein Rest geht auf ein Konto; Aufheben bucht alle Teile gegen. Kontobuchung mit Kostenstellen; Kasse „Zur Bank
+  gebracht“ über Geldtransit mit Anzeige „unterwegs“. `docs/finance.md` Abschnitt 17. Als Nächstes Teil 2:
+  Zahlungsvorschlag und SEPA-Überweisungsdatei.
 * **30.10.2026 – Finance Stufe D: Personenkonten, alle Rechnungen, Leistungsart aus dem Artikel (Service Worker v184,
   Migrationen 110 und 111).** Debitoren = Kundennummer (wie der DATEV-Export des Rechnungsbuchs), Laufkundschaft auf dem
   Sammeldebitor, Kreditoren ab 70000 – als Nebenbuch an der Forderungs-/Verbindlichkeitszeile, angelegt von selbst. Reiter
@@ -1052,8 +1058,10 @@ Kontoblatt und Konten (Abschnitt 11). **Stufe C Teil 1 gebaut (v180, Migration 1
 **Teil 2 gebaut (v181, Migration 107):** Vorlagen und wiederkehrende Buchungen (Abschnitt 13). **Teil 3 gebaut (v182,
 Migration 108):** Kostenstellen KOST1 Transporter und KOST2 Leistungsart (Abschnitt 14). **Stufe C abgeschlossen (v183,
 Migration 109):** Stapel am Handy, Splitt, Abhaken (Abschnitt 15). **Stufe D gebaut (v184, Migrationen 110/111):**
-Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel (Abschnitt 16). Vor dem Echtbetrieb: Kontenliste,
-Kennzahlen und Rechnungen ohne Steuerausweis mit dem Steuerberater, Eröffnungsbilanz. Als Nächstes: Stufe E (Zahlungsverkehr).
+Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel (Abschnitt 16). **Stufe E Teil 1 gebaut (v185,
+Migration 112):** Bankregeln, Sammelzuordnung mit Skonto und Differenz, Geldtransit (Abschnitt 17). Vor dem Echtbetrieb:
+Kontenliste, Kennzahlen und Rechnungen ohne Steuerausweis mit dem Steuerberater, Eröffnungsbilanz. Als Nächstes: Stufe E
+Teil 2 (Zahlungsvorschlag für fällige Lieferantenrechnungen, SEPA-Datei pain.001).
 
 Konzept, Entscheidungen und Phasen F0–F9 in **`docs/finance.md`**, klickbarer Mockup
 `Claude outputs\Mockup_Finance_v3.html`. Kurz: Systemwechsel an der Marke („MR Assistent · FSM“ ↔

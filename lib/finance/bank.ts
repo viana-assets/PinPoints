@@ -40,11 +40,16 @@ export type FinBankumsatz = BankUmsatzEingang & {
   bankkonto_id: string;
   import_id: string | null;
   status: "offen" | "zugeordnet" | "ignoriert";
-  zuordnung: "rechnung" | "beleg" | "konto" | null;
+  // "mehrere": Sammelzuordnung (Migration 112), die Teile stehen in `fin_bank_teile`.
+  zuordnung: "rechnung" | "beleg" | "konto" | "mehrere" | null;
   zuordnung_id: string | null;
   buchung_id: string | null;
   notiz: string | null;
+  fin_bank_teile?: FinBankTeil[];
 };
+
+// Ein Teil einer Sammelzuordnung (Migration 112).
+export type FinBankTeil = { art: "rechnung" | "beleg" | "skonto" | "konto"; ziel_id: string | null; betrag: number; buchung_id: string };
 
 export type FinBankimport = {
   id: string; bankkonto_id: string; dateiname: string | null; format: "camt" | "csv";
@@ -259,7 +264,90 @@ export type Vorschlag = {
   art: "rechnung" | "beleg"; id: string; titel: string; betrag: number; rest: number; passt: boolean; teil: boolean; punkte: number;
 };
 
+// ---------------------------------------------------------------- Bankregeln (Migration 112, v185)
+export type BankRichtung = "ein" | "aus" | "beide";
+export type FinBankregel = {
+  id: string; bezeichnung: string; richtung: BankRichtung; name_enthaelt: string | null; zweck_enthaelt: string | null; iban: string | null;
+  konto: number; steuer: string | null; text: string | null; kost1: string | null; kost2: string | null; aktiv: boolean;
+};
+// Wie die Prüfregel `fin_br_richtung` (Migration 112).
+export const FIN_BANKREGEL_RICHTUNGEN: { wert: BankRichtung; text: string }[] = [
+  { wert: "beide", text: "Eingänge und Abbuchungen" }, { wert: "ein", text: "nur Eingänge" }, { wert: "aus", text: "nur Abbuchungen" },
+];
+// Geldtransit für Bareinzahlungen (Kasse → Bank): SKR03 1360, SKR04 1460 (Migration 88).
+export const FIN_GELDTRANSIT: Record<"skr03" | "skr04", number> = { skr03: 1360, skr04: 1460 };
+
+// Vergleichsform: klein, ohne Leer- und Satzzeichen.
 const kompakt = (s: string | null | undefined) => (s ?? "").toLowerCase().replace(/[^a-z0-9äöüß]/g, "");
+const ibanKurz = (s: string | null | undefined) => (s ?? "").toUpperCase().replace(/\s/g, "");
+
+// Passt eine Regel? Alle angegebenen Bedingungen müssen stimmen (Groß/Klein, Leer- und Satzzeichen egal; IBAN genau).
+export function regelPasst(r: FinBankregel, u: Pick<FinBankumsatz, "betrag" | "name" | "zweck" | "iban">): boolean {
+  if (!r.aktiv) return false;
+  if (r.richtung === "ein" && u.betrag <= 0) return false;
+  if (r.richtung === "aus" && u.betrag >= 0) return false;
+  const n = kompakt(r.name_enthaelt), z = kompakt(r.zweck_enthaelt), i = ibanKurz(r.iban);
+  if (!n && !z && !i) return false;
+  if (n && !kompakt(u.name).includes(n)) return false;
+  if (z && !kompakt(u.zweck).includes(z)) return false;
+  if (i && ibanKurz(u.iban) !== i) return false;
+  return true;
+}
+
+// Die Regel für einen Umsatz: von den passenden die mit den meisten Bedingungen, dann nach Bezeichnung.
+export function regelFuer(u: Pick<FinBankumsatz, "betrag" | "name" | "zweck" | "iban">, regeln: readonly FinBankregel[]): FinBankregel | null {
+  const zahl = (r: FinBankregel) => [r.name_enthaelt, r.zweck_enthaelt, r.iban].filter((x) => kompakt(x)).length + (r.richtung === "beide" ? 0 : 0.5);
+  return [...regeln].filter((r) => regelPasst(r, u)).sort((a, b) => zahl(b) - zahl(a) || a.bezeichnung.localeCompare(b.bezeichnung, "de"))[0] ?? null;
+}
+
+// ---------------------------------------------------------------- Sammelzuordnung (Migration 112, v185)
+export type SammelKandidat = { art: "rechnung" | "beleg"; id: string; titel: string; datum: string; rest: number; nummerImZweck: boolean; namePasst: boolean };
+
+// Offene Rechnungen (Eingang) bzw. Belege (Abbuchung) zur Auswahl: Nummer im Zweck zuerst, dann Name, dann nach Datum.
+export function sammelKandidaten(u: Pick<FinBankumsatz, "betrag" | "zweck" | "name">, rechnungen: FinRechnungZeile[], belege: FinBeleg[], lieferanten: FinLieferant[]): SammelKandidat[] {
+  const zweck = kompakt(u.zweck), name = kompakt(u.name);
+  const liste: SammelKandidat[] = [];
+  if (u.betrag > 0) {
+    for (const r of rechnungen) {
+      if (r.status !== "gebucht" || r.bezahlt_am || r.storniert) continue;
+      const rest = rechnungRest(r);
+      if (rest <= 0) continue;
+      const k = kompakt(r.kunde);
+      liste.push({ art: "rechnung", id: r.rechnung_id, titel: `${r.nummer_text} · ${r.kunde}`, datum: r.datum, rest,
+        nummerImZweck: !!r.nummer_text && zweck.includes(kompakt(r.nummer_text)), namePasst: k.length > 3 && (name.includes(k) || (k.includes(name) && name.length > 3)) });
+    }
+  } else {
+    for (const b of belege) {
+      if (b.status !== "gebucht" || b.bezahlt_am || b.brutto == null) continue;
+      const rest = belegRest(b);
+      if (rest <= 0) continue;
+      const lname = lieferanten.find((l) => l.id === b.lieferant_id)?.name;
+      const k = kompakt(lname);
+      liste.push({ art: "beleg", id: b.id, titel: [lname, b.belegnummer, b.text].filter(Boolean).join(" · "), datum: b.belegdatum, rest,
+        nummerImZweck: !!b.belegnummer && kompakt(b.belegnummer).length > 2 && zweck.includes(kompakt(b.belegnummer)), namePasst: k.length > 3 && (name.includes(k) || zweck.includes(k)) });
+    }
+  }
+  const punkte = (k: SammelKandidat) => (k.nummerImZweck ? 2 : 0) + (k.namePasst ? 1 : 0);
+  return liste.sort((a, b) => punkte(b) - punkte(a) || a.datum.localeCompare(b.datum));
+}
+
+// Den Umsatz auf die gewählten Posten verteilen: der Reihe nach je bis zum offenen Rest.
+export function sammelVerteilen(gesamt: number, gewaehlt: readonly Pick<SammelKandidat, "id" | "rest">[]): Map<string, number> {
+  const m = new Map<string, number>();
+  let bleibt = cent(Math.abs(gesamt));
+  for (const g of gewaehlt) {
+    const b = cent(Math.min(g.rest, bleibt));
+    m.set(g.id, b);
+    bleibt = cent(bleibt - b);
+  }
+  return m;
+}
+
+// Was vom Umsatz nach den Posten bleibt (Skonto zählt nicht – das ist kein Geld vom Konto). Negativ: zu viel gewählt.
+export function sammelRest(gesamt: number, posten: readonly { betrag: number }[]): number {
+  const r = cent(Math.abs(gesamt) - posten.reduce((s, p) => s + p.betrag, 0));
+  return r === 0 ? 0 : r; // kein „-0,00 €“
+}
 
 // Vorschläge für einen Umsatz: Nummer im Zweck zählt 3, gleicher Betrag wie der offene Rest 2, Name 1. Dabei ist,
 // was die Nummer im Zweck hat, auf den Cent passt oder vom selben Namen eine Teilzahlung sein kann.
