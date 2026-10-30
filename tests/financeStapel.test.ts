@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { betragLesen, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
 import { finVorgabe } from "@/lib/finance/einstellungen";
 import {
-  belegWeiter, datumAusEingabe, datumKurz, eingabeAlsZeile, stapelReihenfolge, stapelSumme, stapelZeilePruefen, type FinStapelZeile,
+  belegWeiter, datumAusEingabe, datumKurz, eingabeAlsZeile, stapelBuchungen, stapelPositionen, stapelReihenfolge, stapelSumme, stapelTeile, stapelZeilePruefen, type FinStapelZeile,
 } from "@/lib/finance/stapel";
 
 // Buchungsstapel (Migration 106, v180): Datum kurz, Beleg weiter, Prüfung wie fin_buchen(), Reihenfolge.
@@ -66,3 +66,17 @@ describe("Prüfen wie beim Buchen", () => {
     expect(stapelSumme(l)).toBe(6.6);
   });
 });
+
+describe("Splitt im Stapel (Migration 109, v183)", () => {
+  const z1 = (id: string, datum: string, lfd: number, teil_von: string | null = null): FinStapelZeile =>
+    ({ id, stapel_id: "s", lfd, datum, beleg: null, text: "t", soll: 4530, haben: 1200, betrag: 1, steuer: null, buchung_id: null, teil_von });
+  const l = [z1("k2", "2027-02-10", 1), z1("t2b", "2027-02-10", 5, "k2"), z1("k1", "2027-02-03", 2), z1("t2a", "2027-02-10", 3, "k2"), z1("k3", "2027-02-10", 4)];
+  it("Teile gleich hinter ihrer Kopfzeile, in Erfassungsreihenfolge; Positionen 2.1, 2.2", () => {
+    const g = stapelReihenfolge(l);
+    expect(g.map((x) => x.id)).toEqual(["k1", "k2", "t2a", "t2b", "k3"]);
+    expect([...stapelPositionen(g).values()]).toEqual(["1", "2", "2.1", "2.2", "3"]);
+    expect(stapelBuchungen(l)).toBe(3);
+    expect(stapelTeile(l, "k2").map((x) => x.id)).toEqual(["t2a", "t2b"]);
+  });
+});
+

@@ -7,9 +7,9 @@ import { Blatt } from "@/components/Blatt";
 import { fehlerText } from "@/components/FehlerHinweis";
 import { qk } from "@/lib/queries/keys";
 import { useFinMahnungen, useFinRechnungen } from "@/lib/queries/hooks";
-import { finRechnungBezahlt, finRechnungNachbuchen, finZahlungZuruecknehmen } from "@/lib/api/finance";
+import { finRechnungBezahlt, finRechnungNachbuchen, finRechnungenNachbuchenAlle, finZahlungZuruecknehmen } from "@/lib/api/finance";
 import {
-  rechnungRest,  offenePosten, rechnungZustand, vorgaengeTeilen, zustandText,
+  nichtGebucht, rechnungRest,  offenePosten, rechnungZustand, vorgaengeTeilen, zustandText,
   type FinRechnungZeile, type FinVorgang, type RechnungZustand,
 } from "@/lib/finance/rechnungen";
 import { formatEUR } from "@/lib/format";
@@ -21,7 +21,8 @@ import { FIN_MAHNSTUFEN, aktiveMahnungen, type FinMahnung } from "@/lib/finance/
 //
 // Die Rechnung selbst entsteht wie immer in FSM (RechnungModal, ein Nummernkreis). „Rechnung erstellen“
 // öffnet genau dieses Fenster (`onRechnungOeffnen`, app/page.tsx); beim Ausstellen bucht die Datenbank
-// sie, wenn der Auftrag „Rechnung nötig“ trägt. Scheitert die Buchung, ist die Rechnung trotzdem da –
+// sie, wenn der Auftrag „Rechnung nötig“ trägt oder das Jahr auf „alle Rechnungen“ steht (Migration 111, v184). Scheitert
+// die Buchung, ist die Rechnung trotzdem da –
 // hier steht dann „nicht gebucht“ mit dem Grund und „Jetzt buchen“.
 
 type Reiter = "erstellen" | "vorgemerkt" | "ausgestellt";
@@ -40,7 +41,25 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
   const [reiter, setReiter] = useState<Reiter>("erstellen");
   const [detail, setDetail] = useState<string | null>(null);
   const [meldung, setMeldung] = useState<string | null>(null);
-  const stand = q.data ?? { vorgaenge: [], rechnungen: [], anderswo: [] };
+  const stand = q.data ?? { vorgaenge: [], rechnungen: [], anderswo: [], umfang: "pilot" as const };
+  const alle = stand.umfang === "alle";
+  const offenGebucht = nichtGebucht(stand.rechnungen);
+  const [laeuft, setLaeuft] = useState(false);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+  // Stufe D (Migration 111): alle noch nicht gebuchten Rechnungen des Jahres auf einmal.
+  async function alleNachbuchen() {
+    setLaeuft(true); setFehler(null); setMeldung(null);
+    try {
+      const r = await finRechnungenNachbuchenAlle(supabase, jahr);
+      await queryClient.invalidateQueries({ queryKey: qk.finance() });
+      setMeldung(`${r.gebucht === 1 ? "1 Rechnung" : `${r.gebucht} Rechnungen`} gebucht${r.stornos ? `, ${r.stornos} Storno${r.stornos === 1 ? "" : "s"} dazu` : ""}${r.fehler ? ` – ${r.fehler} mit Fehler, Grund an der Rechnung` : ""}.`);
+    } catch (e) {
+      setFehler(fehlerText(e));
+    } finally {
+      setLaeuft(false);
+    }
+  }
   const { zuErstellen, vorgemerkt } = vorgaengeTeilen(stand.vorgaenge);
   const offen = offenePosten(stand.rechnungen, heute);
   const gewaehlt = stand.rechnungen.find((r) => r.rechnung_id === detail) ?? null;
@@ -52,6 +71,13 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
   return (
     <>
       {meldung && <div className="fi-hinweis fi-ok" role="status">{meldung}</div>}
+      {fehler && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
+      {modus === "rechnungen" && darfSchreiben && offenGebucht.length > 0 && (
+        <div className="fi-hinweis fi-warn fi-nachbuchen">
+          <span>{offenGebucht.length === 1 ? "1 Rechnung" : `${offenGebucht.length} Rechnungen`} {jahr} {offenGebucht.length === 1 ? "ist" : "sind"} noch nicht gebucht.</span>
+          <button type="button" className="es-knopf fi-primaer" disabled={laeuft} onClick={() => void alleNachbuchen()}>{laeuft ? "bucht …" : "Alle nachbuchen"}</button>
+        </div>
+      )}
       {modus === "rechnungen" ? (
         <>
           <div className="lg-lagerwahl es-segment fi-reiter fi-reiter-breit" role="tablist" aria-label="Rechnungen">
@@ -73,7 +99,7 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
           {reiter === "ausgestellt" && (
             <>
               <RechnungListe liste={stand.rechnungen} heute={heute} laedt={q.isPending} mahnungen={mahnQ.data} onOeffnen={setDetail}
-                leer={`Noch keine Rechnung ${jahr} zu einem Auftrag mit „Rechnung nötig“.`} />
+                leer={alle ? `Noch keine Rechnung ${jahr}.` : `Noch keine Rechnung ${jahr} zu einem Auftrag mit „Rechnung nötig“.`} />
               {stand.anderswo.length > 0 && (
                 <div className="fi-hinweis fi-info">
                   {stand.anderswo.length === 1 ? "1 Auftrag" : `${stand.anderswo.length} Aufträge`} mit „Rechnung nötig“ wurden anderswo abgerechnet
@@ -82,7 +108,7 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
               )}
             </>
           )}
-          <span className="small es-fuss fi-fuss">Nur Aufträge mit „Rechnung nötig“. Die Rechnung entsteht wie immer in FSM; beim Ausstellen bucht Finance Forderung an Erlöse und Umsatzsteuer, fällig nach 14 Tagen.</span>
+          <span className="small es-fuss fi-fuss">{alle ? `${jahr}: alle Rechnungen aus FSM. „Zu erstellen“ und „Vorgemerkt“ zeigen weiter die Aufträge mit „Rechnung nötig“.` : "Nur Aufträge mit „Rechnung nötig“ (Pilot)."} Die Rechnung entsteht wie immer in FSM; beim Ausstellen bucht Finance Forderung an Erlöse und Umsatzsteuer – je Leistungsart, mit Debitor –, fällig nach 14 Tagen.</span>
         </>
       ) : (
         <>
@@ -92,7 +118,7 @@ export function FinanceRechnungen({ supabase, jahr, heute, modus, darfSchreiben,
               <span className="small">{anzahl(offen.posten.filter((p) => p.zustand.art === "ueberfaellig").length)}</span></div>
           </div>
           <RechnungListe liste={offen.posten} heute={heute} laedt={q.isPending} mahnungen={mahnQ.data} onOeffnen={setDetail} leer="Keine offenen Posten – alles bezahlt." />
-          <span className="small es-fuss fi-fuss">Aus den Rechnungen mit „Rechnung nötig“, fällig nach 14 Tagen.</span>
+          <span className="small es-fuss fi-fuss">{alle ? "Aus allen gebuchten Rechnungen" : "Aus den Rechnungen mit „Rechnung nötig“"}, fällig nach 14 Tagen. Je Kunde: Finance › Buchungen › Personen.</span>
         </>
       )}
 
@@ -211,7 +237,7 @@ function RechnungDetail({ supabase, r, heute, darfSchreiben, onRechnungOeffnen, 
         </div>
         {z.art === "nicht_gebucht" && (
           <div className="fi-hinweis fi-warn">
-            {z.grund ?? "Finance hat diese Rechnung noch nicht gebucht – ihr Auftrag bekam „Rechnung nötig“ wohl erst danach."}
+            {z.grund ?? "Finance hat diese Rechnung noch nicht gebucht – sie entstand vor dem Umstellen auf „alle Rechnungen“, oder ihr Auftrag bekam „Rechnung nötig“ erst danach."}
             {einstellungenFehlen && <> <button type="button" className="es-knopf" onClick={onEinstellungen}>Zu den Einstellungen</button></>}
           </div>
         )}

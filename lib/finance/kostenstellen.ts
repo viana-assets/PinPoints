@@ -67,6 +67,19 @@ export function kostenAuswertung(buchungen: readonly FinBuchung[], konten: reado
   return [...m.values()].sort((a, b) => a.art.localeCompare(b.art) || (a.nummer == null ? 1 : b.nummer == null ? -1 : a.nummer.localeCompare(b.nummer, "de", { numeric: true })));
 }
 
+// ---------------------------------------------------------------- Leistungsart je Artikel (Migration 111, v184)
+// Vorgabe aus der Abrechnungsart des Artikels – wie `fin_leistungsart_vorgabe()` (Migration 111, Test vergleicht).
+export const FIN_LEISTUNGSART_VORGABE: Record<string, string> = {
+  normal: "100", lagergebuehr: "200", reifenverkauf_neu: "300", reifenverkauf_gebraucht: "300",
+};
+export const leistungsartVorgabe = (abrechnungsart: string) => FIN_LEISTUNGSART_VORGABE[abrechnungsart] ?? "100";
+
+export type FinArtikelLeistungsart = {
+  id: string; artikelnummer: number; name: string; abrechnungsart: string; aktiv: boolean;
+  // Vorgabe aus der Abrechnungsart, `kost2` die abweichende Wahl (null = Vorgabe).
+  vorgabe: string; kost2: string | null;
+};
+
 // Nummer für eine neue Kostenstelle prüfen (wie `fin_ks_nummer`).
 export function kostNummerFehler(nummer: string): string | null {
   return /^[A-Za-z0-9]{1,8}$/.test(nummer.trim()) ? null : "Die Nummer: Buchstaben und Ziffern, höchstens 8 Zeichen.";

@@ -25,6 +25,8 @@ export type FinStapelZeile = {
   // Kostenstellen (Migration 108).
   kost1?: string | null;
   kost2?: string | null;
+  // Splitt (Migration 109): Teil dieser Kopfzeile – ein weiterer Posten derselben Buchung, Datum/Beleg/Text wie der Kopf.
+  teil_von?: string | null;
 };
 
 export type FinStapel = {
@@ -107,9 +109,33 @@ export function eingabeAlsZeile(e: StapelEingabe, jahr: number, betragLesen: (t:
     ...(e.kost1 !== undefined || e.kost2 !== undefined ? { kost1: e.kost1 || null, kost2: e.kost2 || null } : {}) } };
 }
 
-// In der Reihenfolge, in der „Stapel buchen“ bucht: Datum, dann Erfassung.
+// In der Reihenfolge, in der „Stapel buchen“ bucht: Datum, dann Erfassung – Teile (Migration 109) gleich hinter ihrer
+// Kopfzeile, in der Reihenfolge ihrer Erfassung (wie `fin_stapel_buchen()`).
 export function stapelReihenfolge(zeilen: readonly FinStapelZeile[]): FinStapelZeile[] {
-  return [...zeilen].sort((a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : a.lfd - b.lfd));
+  const koepfe = zeilen.filter((z) => !z.teil_von).sort((a, b) => (a.datum < b.datum ? -1 : a.datum > b.datum ? 1 : a.lfd - b.lfd));
+  const teile = (id: string) => zeilen.filter((z) => z.teil_von === id).sort((a, b) => a.lfd - b.lfd);
+  return koepfe.flatMap((k) => [k, ...teile(k.id)]);
+}
+
+// Positionen wie im Stapel gezeigt: Kopfzeilen 1, 2, 3 …, ihre Teile 3.1, 3.2 … (erwartet `stapelReihenfolge`).
+export function stapelPositionen(geordnet: readonly FinStapelZeile[]): Map<string, string> {
+  const m = new Map<string, string>();
+  let kopf = 0, teil = 0;
+  for (const z of geordnet) {
+    if (z.teil_von) { teil += 1; m.set(z.id, `${kopf}.${teil}`); }
+    else { kopf += 1; teil = 0; m.set(z.id, String(kopf)); }
+  }
+  return m;
+}
+
+// Wie viele Buchungen der Stapel ergibt: eine je Kopfzeile, Teile zählen nicht extra.
+export function stapelBuchungen(zeilen: readonly Pick<FinStapelZeile, "teil_von">[]): number {
+  return zeilen.filter((z) => !z.teil_von).length;
+}
+
+// Die Teile einer Kopfzeile.
+export function stapelTeile(zeilen: readonly FinStapelZeile[], kopf: string): FinStapelZeile[] {
+  return zeilen.filter((z) => z.teil_von === kopf).sort((a, b) => a.lfd - b.lfd);
 }
 
 export function stapelSumme(zeilen: readonly Pick<FinStapelZeile, "betrag">[]): number {

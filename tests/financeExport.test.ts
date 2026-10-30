@@ -55,6 +55,14 @@ describe("Finance-Buchung → DATEV-Sätze (brutto, Steuer über Automatik oder 
     expect(kurz(x)).toEqual(["100 S 1400/8400 BU40", "19.01 S 1400/1776"]);
     expect(x.hinweise[0]).toMatch(/Nr\. 7 .*ohne Automatik/);
   });
+  it("Personenkonto (Migration 110): Forderung und Verbindlichkeit gehen auf Debitor bzw. Kreditor statt Sammelkonto", () => {
+    expect(kurz(datevSaetze(b(30, "2026-09-03", "Rechnung RE5", [{ ...z(0, "S", 1400, 119), personenkonto: 10042 }, z(1, "H", 8400, 100, "ust19"),
+      z(1, "H", 1776, 19, "ust19", true)], "RE5", "rechnung"), ctx))).toEqual(["119 S 10042/8400"]);
+    expect(kurz(datevSaetze(b(31, "2026-09-04", "Zahlung", [z(1, "S", 1200, 119), { ...z(1, "H", 1400, 119), personenkonto: 10042 }], "RE5", "zahlung"), ctx)))
+      .toEqual(["119 S 1200/10042"]);
+    expect(kurz(datevSaetze(b(32, "2026-09-05", "Beleg", [z(1, "S", 3200, 200, "vst19"), { ...z(1, "H", 1600, 238, "vst19"), personenkonto: 70000 },
+      z(1, "S", 1576, 38, "vst19", true)], "LR-1", "beleg"), ctx))).toEqual(["238 H 70000/3200 BU9"]);
+  });
   it("Storno: vertauschte Seiten", () => {
     expect(kurz(datevSaetze(b(8, "2026-09-08", "Storno", [z(1, "H", 1400, 119, "ust19"), z(1, "S", 8400, 100, "ust19"), z(1, "S", 1776, 19, "ust19", true)]), ctx))).toEqual(["119 H 1400/8400"]);
   });
@@ -133,7 +141,7 @@ describe("GoBD-Datenexport, ZIP, Verfahrensdokumentation", () => {
     expect([...buch]).toContain(0xfc);
     const zeilen = new TextDecoder("windows-1252").decode(d[2].daten).trim().split("\r\n");
     expect(zeilen).toHaveLength(4);
-    expect(zeilen[1]).toBe("2026-1-1;2026-1;1;S;1400;119;ust19;nein;;");
+    expect(zeilen[1]).toBe("2026-1-1;2026-1;1;S;1400;119;ust19;nein;;;");
   });
   it("ZIP: Prüfsumme und Aufbau", () => {
     expect(crc32(new TextEncoder().encode("123456789")).toString(16)).toBe("cbf43926");

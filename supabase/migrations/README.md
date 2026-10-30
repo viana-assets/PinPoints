@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) – Abschnitt unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **und `111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1620,3 +1620,53 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   Ausgabe. „Alle Daten löschen“ leert `fin_kostenstellen` (übernehmen legt die Leistungsarten wieder an). Zweiter Lauf
   folgenlos. Rücknahme: `rollback/108_rollback.sql` (Kostenstellen und Spalten weg, Funktionen wieder im Stand 107;
   zweimal lauffähig).
+
+- `109_finance_splitt_abhaken.sql` – **noch auszuführen**, nach 108 und vor den Dateien von v183 (Finance Stufe C, Teil 4,
+  `docs/finance.md` Abschnitt 15). Inhalt: Spalte `fin_stapel_zeilen.teil_von` (Teil = weiterer Posten einer Kopfzeile,
+  Löschen des Kopfes nimmt die Teile mit); `fin_stapel_teil_speichern()` (Datum, Beleg, Text vom Kopf; kein Teil am Teil;
+  höchstens 50 Posten); `fin_stapel_zeile_speichern()` neu in gleicher Fassung (lehnt einen Teil ab, gibt Datum/Beleg/Text an
+  die Teile weiter); `fin_stapel_buchen()` bucht Kopf und Teile als eine Buchung. Tabelle `fin_abgehakt` (je Buchungszeile
+  ein Haken, RLS nur lesen mit „Finance › Buchungen“ lesen) und `fin_abhaken(zeilen, an)` mit „Finance › Buchungen“
+  schreiben. Wache: bricht ohne 108 ab. Ergebnistabelle mit fünf Zeilen (Spalte „da“, Funktion „da“, Stapel buchen mit
+  Teilen „ja“, „da, RLS an“, `fin_abhaken()` „da“). Geprüft gegen PG 16 (`/tmp/pgt/t109.sql`): Kopf mit zwei Teilen;
+  Teil am Teil, Teil als Kopf ändern, unbekannter Kopf, Betrag 0 abgelehnt; Kopf ändern → Teile mit neuem Datum/Beleg/Text;
+  Techniker abgelehnt; buchen → zwei Buchungen in Datumsfolge, die Splittbuchung mit drei Posten (Vorsteuer je Posten,
+  Kostenstelle am Aufwand), alle Zeilen verknüpft; gebuchter Stapel nimmt keinen Teil mehr; kaputter Teil → nichts
+  gebucht, Stapel offen; Kopf löschen löscht Teile; Abhaken 4, zweimal 0, leer/unbekannt 0, entfernen; direktes Schreiben
+  verweigert, Techniker sieht nichts; „Alle Daten löschen“ leert `fin_abgehakt` und die Stapel. `t106`–`t108` gegen 109:
+  gleiche Ausgabe (nur Zeilennummern in Fehlerkontexten). Zweiter Lauf folgenlos. Rücknahme: `rollback/109_rollback.sql`
+  (Haken weg; Teile in offenen Stapeln bleiben als eigene Zeilen; zweimal lauffähig), danach erneut ausgeführt.
+
+- `110_finance_personenkonten.sql` – **noch auszuführen**, nach 109 und vor den Dateien von v184 (Finance Stufe D, Teil 1,
+  `docs/finance.md` Abschnitt 16). Inhalt: Tabelle `fin_personenkonten` (Debitoren 10000–69999 = Kundennummer +
+  `betrieb.datev_debitor_basis`, Sammeldebitor `betrieb.datev_sammeldebitor` für Laufkundschaft und Rechnungen ohne
+  Kundennummer, Kreditoren ab 70000 je Lieferant; RLS nur lesen mit „Finance › Buchungen“ lesen); Spalte
+  `fin_buchungszeilen.personenkonto` (Nebenbuch, gebucht bleibt auf dem Sammelkonto); `fin_debitor()`, `fin_kreditor()`,
+  `fin_personenkonto_fuer()` und der Trigger `trg_fin_zeile_personenkonto` (setzt das Personenkonto an Forderungs- und
+  Verbindlichkeitszeilen aus Rechnung, Zahlung, Skonto, Beleg – wirft nie); einmaliges Nachtragen der vorhandenen Zeilen
+  (nur die neue Spalte); `fin_personenkonten_stand(jahr)` mit Name, Kundennummer, Anschrift und Vortrag. Wache: bricht ohne
+  109 ab. Ergebnistabelle mit sechs Zeilen (RLS an, Spalte da, Trigger ja, Anzahl Debitoren/Kreditoren, Zeilen mit
+  Personenkonto, die letzte Zeile „0“ = nichts vergessen). Geprüft gegen PG 16 (`/tmp/pgt/t110.sql`): Rechnung → Debitor
+  10000 (Kundennummer), Laufkundschaft → 69999; Zahlung und Stornorechnung tragen den Debitor; Beleg mit Lieferant →
+  Kreditor 70000 an Verbindlichkeit und Zahlung; von Hand gebucht ohne; Stand mit Name/Anschrift, Vortrag ins Folgejahr
+  11,90; Techniker abgelehnt, direktes Schreiben verweigert; Debitorbasis 20000 → 30001; zweiter Lauf trägt gelöschte
+  Zuordnungen nach; „Alle Daten löschen“ leert alles. `t106`–`t109` gegen 110 gleich. Rücknahme: `rollback/110_rollback.sql`
+  (Zuordnung weg, Buchungen unverändert; zweimal lauffähig), danach erneut ausgeführt.
+
+- `111_finance_alle_rechnungen.sql` – **noch auszuführen**, nach 110 und vor den Dateien von v184 (Finance Stufe D, Teil 2,
+  `docs/finance.md` Abschnitt 16). Inhalt: `fin_einstellungen.rechnungen_umfang` ('pilot'/'alle'; beim ersten Lauf Jahre vor
+  2027 'pilot', sonst 'alle') und `ohne_ausweis` ('herausrechnen'/'steuerfrei'); `fin_umfang()`; Tabelle `fin_artikel_kost`
+  (abweichende Leistungsart je Artikel, RLS nur lesen) mit `fin_artikel_kost_setzen()` und `fin_artikel_leistungsarten()`;
+  `fin_leistungsart_vorgabe()`, `fin_artikel_leistungsart()`, `fin_auftrag_transporter()`; `fin_rechnung_buchen_kern()` neu
+  (Erlöse je Steuersatz und Leistungsart, Steuer je Satz verteilt, KOST1/KOST2, Herausrechnen ohne Ausweis);
+  `fin_rechnung_erfassen()`/`fin_rechnung_nachbuchen()` mit Umfang; `fin_rechnungen_stand()` mit `umfang`;
+  `fin_rechnungen_nachbuchen_alle(jahr)`. Wache: bricht ohne 110 ab. Ergebnistabelle mit sechs Zeilen (Umfang je Jahr, ohne
+  Steuerausweis je Jahr, RLS an, Leistungsarten der Artikel, „6 von 6“, „ja“). **Vor dem Buchen 2027 mit dem Steuerberater
+  klären, wie Rechnungen ohne Steuerausweis zu behandeln sind (Finance › Einstellungen).** Geprüft gegen PG 16
+  (`/tmp/pgt/t111.sql`): vier Positionen mit Nachlass → Posten 100 (90,00 + 17,10), 200 (33,33 + 6,33), 300 (0,01, Rest 0),
+  Steuer 23,43 wie der Beleg, KOST1 T1 vom Firmenfahrzeug; ohne Ausweis 159,50 € → 50,00 + 9,50 und 84,03 + 15,97; 2026 Pilot
+  ohne Haken nicht gebucht, Begründung beim Nachbuchen; Stand 2027 mit beiden, 2026 ohne; auf „alle“/„steuerfrei“ umgestellt →
+  „Alle nachbuchen“ bucht 1 auf 8200 mit KOST2, zweites Mal 0; Leistungsart je Artikel setzen/ungültig/zurück; Techniker
+  abgelehnt; ausgeblendete Leistungsart → Zeile ohne, Rechnung gebucht; Storno übernimmt KOST und Debitor; Kleinunternehmer ohne
+  Ausweis auf 8195. `t106`–`t110` gegen 111 gleich. Zweiter Lauf folgenlos. Rücknahme: `rollback/111_rollback.sql` (Buchung
+  wie vor 111, Spalten und Tabelle weg; zweimal lauffähig), danach erneut ausgeführt.

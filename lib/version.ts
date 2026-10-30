@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v182";
+export const APP_VERSION = "v184";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,27 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v184", datum: "2026-10-30", titel: "Finance: Debitoren und Kreditoren, alle Rechnungen, Leistungsart aus dem Artikel",
+    punkte: [
+      "Personenkonten: Jede gebuchte Rechnung, Zahlung, jedes Skonto und jeder Beleg steht jetzt auch beim Kunden bzw. Lieferanten. Debitor = Kundennummer (wie im DATEV-Export des Rechnungsbuchs), die Laufkundschaft auf dem Sammeldebitor, Kreditoren je Lieferant ab 70000. Angelegt wird das von selbst.",
+      "Neuer Reiter „Personen“ unter Finance › Buchungen (auch am Handy): Saldo je Kunde und Lieferant, am Rechner mit Personenkontoblatt und offenen Posten je Rechnungsnummer.",
+      "Finance bucht ab 2027 alle Rechnungen aus FSM, nicht nur die mit „Rechnung nötig“ (Finance › Einstellungen › Rechnungen aus FSM; 2026 bleibt Pilot). „Alle nachbuchen“ unter Finance › Rechnungen holt noch nicht gebuchte Rechnungen des Jahres nach. In FSM ändert sich nichts.",
+      "Rechnungen ohne Umsatzsteuerausweis: Bei Regelbesteuerung wird die Steuer aus dem Betrag herausgerechnet (umstellbar auf „steuerfrei“ – mit dem Steuerberater klären).",
+      "Jede Rechnungszeile bekommt die Leistungsart ihres Artikels (Montage, Einlagerung, Reifenverkauf) und den Transporter des Auftrags. Abweichende Leistungsarten je Artikel unter Finance › Buchungen › Kostenstellen.",
+      "Der DATEV-Export bucht auf die Personenkonten; unter Finance › Export gibt es die Liste der Personenkonten für die Kanzlei.",
+      "Braucht die Migrationen 110 und 111 im Supabase-SQL-Editor (nach 109).",
+    ],
+  },
+  {
+    version: "v183", datum: "2026-10-30", titel: "Finance: Stapel am Handy, Splittbuchung im Stapel, Abhaken",
+    punkte: [
+      "Unter Finance › Buchungen gibt es den Reiter „Stapel“ jetzt auch am Handy: mit „+ Zeile“ eine Buchung vorläufig erfassen (Vorlage, Datum, Betrag, Konten, Steuer, Text, Transporter und Leistung), antippen ändert oder löscht, „Stapel buchen“ schreibt alles ins Journal.",
+      "Splittbuchung im Stapel: An eine Zeile lassen sich Teile hängen – weitere Posten mit eigenen Konten, Betrag und Steuer, aber Datum, Beleg und Text der Zeile. Am Rechner mit „+ Teil“ oder der Taste T, am Handy im Fenster der Zeile. Gebucht wird daraus eine Buchung.",
+      "Abhaken im Kontoblatt: Jede Zeile hat ein Kästchen (oder Taste H, auch für mehrere markierte). Oben steht, was noch nicht abgehakt ist, mit Saldo – zum Abstimmen etwa des Bankkontos. Der Haken ändert keine Buchung.",
+      "Braucht Migration 109 im Supabase-SQL-Editor (nach 108).",
+    ],
+  },
   {
     version: "v182", datum: "2026-10-30", titel: "Finance: Kostenstellen (Transporter und Leistungsart)",
     punkte: [

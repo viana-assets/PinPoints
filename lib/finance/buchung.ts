@@ -56,6 +56,8 @@ export type FinZeile = {
   // Kostenstelle (Transporter) und Kostenträger (Leistungsart), Migration 108 – nur an Erlös-, Aufwands- oder Anlagezeilen.
   kost1?: string | null;
   kost2?: string | null;
+  // Debitor bzw. Kreditor der Forderungs-/Verbindlichkeitszeile (Migration 110, Nebenbuch; gebucht ist auf dem Sammelkonto).
+  personenkonto?: number | null;
 };
 
 export type FinBuchung = {

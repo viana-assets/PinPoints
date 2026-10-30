@@ -11,6 +11,8 @@ export type Kontenrahmen = "skr03" | "skr04";
 export type Besteuerung = "regel" | "klein";
 export type Versteuerung = "soll" | "ist";
 export type Voranmeldung = "monat" | "quartal" | "keine";
+export type RechnungenUmfang = "pilot" | "alle";
+export type OhneAusweis = "herausrechnen" | "steuerfrei";
 
 export type FinEinstellungen = {
   wirtschaftsjahr: number;
@@ -27,6 +29,9 @@ export type FinEinstellungen = {
   start_datum: string;
   // Geringwertige Güter über 250 € bis 1.000 € in den Sammelposten (§ 6 Abs. 2a EStG, Migration 95) – einheitlich je Jahr.
   sammelposten: boolean;
+  // Stufe D (Migration 111): welche FSM-Rechnungen gebucht werden, und wie eine Rechnung ohne Umsatzsteuerausweis.
+  rechnungen_umfang: RechnungenUmfang;
+  ohne_ausweis: OhneAusweis;
   aktualisiert_am?: string | null;
 };
 
@@ -66,6 +71,18 @@ export const FIN_VORANMELDUNG: Wahl<Voranmeldung>[] = [
   { wert: "keine", text: "Befreit", hinweis: "Vorjahressteuer bis 2.000 €, auf Antrag: nur die Jahreserklärung." },
 ];
 
+// Stufe D (Migration 111, Prüfregeln `fin_einst_umfang` und `fin_einst_ohne_ausweis`).
+export const FIN_RECHNUNGEN_UMFANG: Wahl<RechnungenUmfang>[] = [
+  { wert: "alle", text: "Alle Rechnungen", hinweis: "Jede Rechnung aus FSM wird gebucht – Finance führt die Buchhaltung vollständig (ab 2027)." },
+  { wert: "pilot", text: "Pilot", hinweis: "Nur Aufträge mit „Rechnung nötig“; alles andere bucht die Kanzlei wie bisher." },
+];
+export const FIN_OHNE_AUSWEIS: Wahl<OhneAusweis>[] = [
+  { wert: "herausrechnen", text: "Steuer herausrechnen", hinweis: "Die Umsatzsteuer steckt im Betrag (19 % aus 119 €) und wird abgeführt." },
+  { wert: "steuerfrei", text: "Steuerfrei buchen", hinweis: "Auf das Erlöskonto 0 % (8200/4200), ohne Umsatzsteuer – nur, wenn der Steuerberater das so sieht." },
+];
+// Ab diesem Jahr ist „alle Rechnungen“ die Vorgabe (Entscheidung 2: vollständig ab 01.01.2027); davor der Pilot.
+export const FIN_ALLE_RECHNUNGEN_AB = 2027;
+
 // Kleinunternehmer (§ 19 UStG, Stand 2026): Vorjahr höchstens, laufendes Jahr höchstens.
 export const KLEINUNTERNEHMER_GRENZE_VORJAHR = 25_000;
 export const KLEINUNTERNEHMER_GRENZE_LAUFEND = 100_000;
@@ -77,6 +94,7 @@ export function finVorgabe(jahr: number, heute: string): FinEinstellungen {
     wirtschaftsjahr: jahr, rechtsform: "einzel", gewinnermittlung: "euer", kontenrahmen: "skr03",
     besteuerung: "regel", versteuerung: "soll", voranmeldung: "monat", dauerfrist: false,
     r13b_empfaenger: true, innergemeinschaftlich: false, wj_beginn_monat: 1, start_datum: heute, sammelposten: false,
+    rechnungen_umfang: jahr >= FIN_ALLE_RECHNUNGEN_AB ? "alle" : "pilot", ohne_ausweis: "herausrechnen",
   };
 }
 

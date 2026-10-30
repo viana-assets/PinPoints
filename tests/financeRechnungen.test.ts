@@ -58,7 +58,8 @@ describe("Vorgänge und Übersicht", () => {
     expect(t.zuErstellen[0].betrag).toBe(140.4);
   });
   it("zählt, was zu erledigen ist", () => expect(rechnungenZuErledigen(stand, "2026-10-13")).toEqual({ zuErstellen: 1, nichtGebucht: 1, ueberfaellig: 1 }));
-  it("leerer Stand", () => expect(standLesen(null)).toEqual({ vorgaenge: [], rechnungen: [], anderswo: [] }));
+  it("leerer Stand", () => expect(standLesen(null)).toEqual({ vorgaenge: [], rechnungen: [], anderswo: [], umfang: "pilot" }));
+  it("Umfang (Migration 111)", () => expect(standLesen({ umfang: "alle" }).umfang).toBe("alle"));
 });
 
 describe("Wie Migration 89", () => {

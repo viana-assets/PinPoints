@@ -7,7 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // Buchungsstapel am Rechner (Migration 106, v180): erfassen mit Enter, ändern, löschen, Prüfung, Strg+S bucht.
 const api = vi.hoisted(() => ({
   finStapelAnlegen: vi.fn(async () => "s-neu"), finStapelZeileSpeichern: vi.fn(async () => "z-neu"), finStapelZeileLoeschen: vi.fn(async () => undefined),
-  finStapelLoeschen: vi.fn(async () => undefined), finStapelBuchen: vi.fn(async () => ({ anzahl: 2, jahr: 2027, von: 5, bis: 6 })),
+  finStapelLoeschen: vi.fn(async () => undefined), finStapelTeilSpeichern: vi.fn(async () => "t-neu"), finStapelBuchen: vi.fn(async () => ({ anzahl: 2, jahr: 2027, von: 5, bis: 6 })),
   finBuchen: vi.fn(), finStornieren: vi.fn(), finMonatFestschreiben: vi.fn(), finKontoAnlegen: vi.fn(), finKontoAktiv: vi.fn(),
 }));
 vi.mock("@/lib/api/finance", () => api);
@@ -126,5 +126,31 @@ describe("Buchungsstapel", () => {
     fireEvent.keyDown(tabelle, { key: "Home" });
     fireEvent.keyDown(tabelle, { key: "Enter" });
     expect(onOeffnen).toHaveBeenCalledWith(b);
+  });
+
+  it("Splitt: T hängt einen Teil an, Datum/Text gesperrt, gespeichert als Teil; Teile stehen als 1.1 und zählen nicht als Buchung", async () => {
+    const kopf = zeile("a", 1, "2027-02-03", 4530, 1200, 119, "Werkstatt");
+    const teil = { ...zeile("t", 2, "2027-02-03", 4530, 1200, 20, "Werkstatt"), teil_von: "a" };
+    zeigen([stapel("offen", [kopf, teil, zeile("b", 3, "2027-02-05", 4530, 1200, 5, "Wasser")])]);
+    expect(zeilen().map((r) => within(r).getAllByRole("cell")[1].textContent)).toEqual(["1", "1.1", "2"]);
+    expect(screen.getByText(/\(2 Buchungen\)/)).toBeTruthy();
+    const tabelle = screen.getByRole("region", { name: "Stapel Februar 2027" });
+    fireEvent.keyDown(tabelle, { key: "Home" });
+    fireEvent.keyDown(tabelle, { key: "t" });
+    expect(screen.getByRole("group", { name: "Teil zu Zeile 1 erfassen" })).toBeTruthy();
+    expect((screen.getByLabelText("Buchungstext") as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Buchungstext") as HTMLInputElement).value).toBe("Werkstatt");
+    fireEvent.change(screen.getByLabelText("Soll-Konto"), { target: { value: "4530" } });
+    fireEvent.change(screen.getByLabelText("Haben-Konto"), { target: { value: "1200" } });
+    fireEvent.change(screen.getByLabelText("Betrag"), { target: { value: "10" } });
+    await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Teil ⏎" })); });
+    expect(api.finStapelTeilSpeichern).toHaveBeenCalledWith(expect.anything(), "a", null, { soll: 4530, haben: 1200, betrag: 10, steuer: null, kost1: null, kost2: null });
+    expect(api.finStapelZeileSpeichern).not.toHaveBeenCalled();
+    // gleich der nächste Teil
+    expect(screen.getByRole("group", { name: "Teil zu Zeile 1 erfassen" })).toBeTruthy();
+    fireEvent.keyDown(screen.getByLabelText("Betrag"), { key: "Escape" });
+    expect(screen.getByRole("group", { name: "Neue Zeile erfassen" })).toBeTruthy();
+    fireEvent.keyDown(document.body, { key: "s", ctrlKey: true });
+    expect(screen.getByRole("button", { name: "2 Buchungen buchen" })).toBeTruthy();
   });
 });

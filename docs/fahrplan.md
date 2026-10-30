@@ -16,6 +16,16 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.10.2026 – Finance Stufe D: Personenkonten, alle Rechnungen, Leistungsart aus dem Artikel (Service Worker v184,
+  Migrationen 110 und 111).** Debitoren = Kundennummer (wie der DATEV-Export des Rechnungsbuchs), Laufkundschaft auf dem
+  Sammeldebitor, Kreditoren ab 70000 – als Nebenbuch an der Forderungs-/Verbindlichkeitszeile, angelegt von selbst. Reiter
+  „Personen“ (Rechner und Handy) mit Personenkontoblatt und offenen Posten; DATEV bucht auf die Personenkonten, Liste für
+  die Kanzlei. Ab 2027 bucht Finance alle Rechnungen aus FSM (Einstellung je Jahr, „Alle nachbuchen“), ohne Steuerausweis
+  wird die Steuer herausgerechnet (mit dem Steuerberater klären), KOST2 aus dem Artikel, KOST1 aus dem Auftrag.
+  `docs/finance.md` Abschnitt 16.
+* **30.10.2026 – Finance Stufe C abgeschlossen: Stapel am Handy, Splitt, Abhaken (Service Worker v183, Migration 109).**
+  Reiter „Stapel“ am Handy mit schlanker Maske (Entscheidung 5); Splittbuchung im Stapel über Teile einer Zeile (Taste T,
+  eine Buchung mit mehreren Posten); Abhaken im Kontoblatt mit Saldo der offenen Zeilen. `docs/finance.md` Abschnitt 15.
 * **30.10.2026 – Finance Stufe C, Teil 3: Kostenstellen (Service Worker v182, Migration 108).** Reiter „Kostenstellen“ unter
   Finance › Buchungen: KOST1 je Transporter (aus den Firmenfahrzeugen übernommen), KOST2 je Leistungsart (100 Montage,
   200 Einlagerung, 300 Reifenverkauf) mit Erlösen, Aufwand und Ergebnis im Zeitraum. Setzen je Posten im Buchungsfenster,
@@ -1040,8 +1050,10 @@ Transporter + Kostenträger Leistungsart, Buchen auch am Handy, DATEV monatlich.
 Arbeitsplatz am Rechner, Kontofeld, Tastatur, Leiste in Bereichen (`docs/finance.md` Abschnitt 10). **Stufe B gebaut (v179):**
 Kontoblatt und Konten (Abschnitt 11). **Stufe C Teil 1 gebaut (v180, Migration 106):** Buchungsstapel (Abschnitt 12).
 **Teil 2 gebaut (v181, Migration 107):** Vorlagen und wiederkehrende Buchungen (Abschnitt 13). **Teil 3 gebaut (v182,
-Migration 108):** Kostenstellen KOST1 Transporter und KOST2 Leistungsart (Abschnitt 14). Als Nächstes: Erfassen am Handy,
-dann Stufe D (alle FSM-Rechnungen, Debitor je Kunde, Leistungsart aus dem Artikel).
+Migration 108):** Kostenstellen KOST1 Transporter und KOST2 Leistungsart (Abschnitt 14). **Stufe C abgeschlossen (v183,
+Migration 109):** Stapel am Handy, Splitt, Abhaken (Abschnitt 15). **Stufe D gebaut (v184, Migrationen 110/111):**
+Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel (Abschnitt 16). Vor dem Echtbetrieb: Kontenliste,
+Kennzahlen und Rechnungen ohne Steuerausweis mit dem Steuerberater, Eröffnungsbilanz. Als Nächstes: Stufe E (Zahlungsverkehr).
 
 Konzept, Entscheidungen und Phasen F0–F9 in **`docs/finance.md`**, klickbarer Mockup
 `Claude outputs\Mockup_Finance_v3.html`. Kurz: Systemwechsel an der Marke („MR Assistent · FSM“ ↔

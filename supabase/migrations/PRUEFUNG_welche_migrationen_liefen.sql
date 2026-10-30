@@ -177,7 +177,10 @@ with pruefungen(nr, was, vorhanden) as (
     ('105', 'Bestellliste im Löschkonzept, Chat-Karten (bestell_aufraeumen, kunde_endgueltig_loeschen_grund)', to_regprocedure('public.bestell_aufraeumen(interval)') is not null and to_regprocedure('public.kunde_endgueltig_loeschen_grund(uuid)') is not null),
     ('106', 'Finance: Buchungsstapel (fin_stapel, fin_stapel_buchen)', to_regclass('public.fin_stapel_zeilen') is not null and to_regprocedure('public.fin_stapel_buchen(uuid)') is not null),
     ('107', 'Finance: Vorlagen und wiederkehrende Buchungen (fin_wiederkehrend_holen)', to_regclass('public.fin_vorlagen') is not null and to_regprocedure('public.fin_wiederkehrend_holen(uuid,date)') is not null),
-    ('108', 'Finance: Kostenstellen (fin_kostenstellen, kost1/kost2 an den Buchungszeilen)', to_regclass('public.fin_kostenstellen') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_buchungszeilen' and column_name = 'kost1'))
+    ('108', 'Finance: Kostenstellen (fin_kostenstellen, kost1/kost2 an den Buchungszeilen)', to_regclass('public.fin_kostenstellen') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_buchungszeilen' and column_name = 'kost1')),
+    ('109', 'Finance: Splitt im Stapel, Abhaken (fin_stapel_teil_speichern, fin_abgehakt)', to_regclass('public.fin_abgehakt') is not null and to_regprocedure('public.fin_stapel_teil_speichern(uuid,uuid,integer,integer,numeric,text,text,text)') is not null),
+    ('110', 'Finance: Personenkonten (fin_personenkonten, personenkonto an den Buchungszeilen)', to_regclass('public.fin_personenkonten') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_buchungszeilen' and column_name = 'personenkonto')),
+    ('111', 'Finance: alle Rechnungen, Leistungsart aus dem Artikel (fin_artikel_kost, rechnungen_umfang)', to_regclass('public.fin_artikel_kost') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_einstellungen' and column_name = 'rechnungen_umfang'))
 )
 select migration, woran_erkennbar, gelaufen from (
   select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen

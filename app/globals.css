@@ -4574,6 +4574,14 @@ button.zt-m-zeile:hover{background:var(--hover);}
 .fi-kachel b{font-family:var(--font-brand);font-size:22px;font-variant-numeric:tabular-nums;}
 .fi-kachel-warn b{color:var(--red);}
 .fi-rot-text{color:var(--red);font-weight:700;}
+/* Alle nachbuchen (v184). */
+.fi-tabelle select.fi-tab-wahl{height:30px;font-size:13px;padding:0 6px;border:1px solid var(--border);border-radius:7px;background:var(--panel);max-width:260px;}
+.fi-nachbuchen{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+/* Stapel am Handy (v183): Buchen-Knopf unter der Liste, gebuchte Zeilen ohne Grau. */
+.fi-stapel-buchen{width:100%;margin-top:10px;}
+.es-zeile.fi-buchung:disabled{opacity:1;color:inherit;cursor:default;}
+.es-zeile.fi-teil{padding-left:28px;}
+.fi-teile{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px dashed var(--border);border-radius:10px;}
 .fi-gruen-text{color:var(--green);font-weight:700;}
 .fi-zahl{flex:0 0 auto;min-width:30px;height:30px;border-radius:15px;background:var(--accent-bg);color:var(--accent);font-weight:800;
   display:flex;align-items:center;justify-content:center;padding:0 8px;}
@@ -4867,6 +4875,13 @@ button.zt-m-zeile:hover{background:var(--hover);}
    Entwurf: Claude outputs/Mockup_Finance_StufeA_v1.html. Nur am Rechner zu sehen (`useAmRechner`). */
 .fi-seite.fi-breit{max-width:none;}
 .ap-rahmen{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:start;}
+/* Personenkonten (v184): Kontoblatt ohne Detailspalte, Unterüberschrift zwischen zwei Tabellen, gedrückter Filterknopf. */
+.ap-rahmen.ap-rahmen-voll{grid-template-columns:minmax(0,1fr);}
+.ap-unterkopf{margin:14px 2px 6px;font-size:14px;}
+.ap-filter .es-knopf[aria-pressed="true"]{background:var(--fin-bg);border-color:var(--fin);color:var(--fin);}
+.fi-anschrift{white-space:pre-line;margin:2px 0 8px;}
+.fi-haken-zeile{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);}
+.fi-haken-zeile input{width:18px;height:18px;}
 .ap-mitte{display:flex;flex-direction:column;gap:8px;min-width:0;}
 .ap-filter{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
 .ap-chip{display:inline-flex;align-items:center;gap:6px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--panel);
@@ -4914,6 +4929,12 @@ th.ap-zahl .ap-kopf{justify-content:flex-end;}
 .ap-cb input{width:14px;height:14px;margin:0;vertical-align:middle;}
 .ap-leer{padding:24px !important;text-align:center;color:var(--muted);white-space:normal !important;}
 .ap-marke{margin-left:6px;font-size:10.5px;font-weight:700;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:0 4px;}
+/* Splitt im Stapel (v183): Teile leicht hinterlegt unter ihrer Kopfzeile. */
+.ap-tabelle tr.ap-teil td{background:color-mix(in srgb, var(--fin-bg) 45%, transparent);}
+/* Abhaken im Kontoblatt (v183): kleines Kästchen, abgehakt in der Akzentfarbe. */
+.ap-haken{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;padding:0;border:1.5px solid var(--border);border-radius:5px;background:var(--panel);color:#fff;font-size:12px;font-weight:800;line-height:1;cursor:pointer;}
+.ap-haken.an{background:var(--accent);border-color:var(--accent);}
+span.ap-haken{cursor:default;}
 .ap-zustand{font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--accent-bg);color:var(--accent);}
 .ap-z-festgeschrieben{background:#ece6da;color:#6b6252;}
 .ap-z-storno{background:var(--blau-bg);color:#2b5a8a;}
@@ -4967,6 +4988,8 @@ th.ap-zahl .ap-kopf{justify-content:flex-end;}
 .ap-erfassung > label{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:11px;font-weight:700;color:var(--muted);}
 .ap-erfassung input,.ap-erfassung select{height:32px;border:1px solid var(--border);border-radius:7px;padding:0 7px;font:inherit;font-size:13px;
   font-weight:500;color:var(--text);background:#fff;width:100%;min-width:0;box-sizing:border-box;}
+/* Teil (Splitt, v183): Datum, Beleg, Text kommen von der Kopfzeile – sichtbar gesperrt. */
+.ap-erfassung input:disabled{background:var(--bg);color:var(--muted);}
 .ap-erfassung input:focus,.ap-erfassung select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent);}
 .ap-erfassung .ap-konto{display:flex;flex-direction:column;align-items:stretch;gap:0;}
 .ap-erfassung .ap-kontoname{font-size:10.5px;min-height:13px;}

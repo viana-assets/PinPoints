@@ -45,6 +45,8 @@ export function zeitraumFehler(jahr: number, z: Zeitraum): string | null {
 export type KontoblattZeile = {
   // Buchung und Zeile: eine Buchung kann ein Konto mehrfach berühren (Splitt).
   key: string;
+  // Die Buchungszeile (fin_buchungszeilen.id) – fürs Abhaken (Migration 109); null nur in alten Testdaten.
+  zeileId: number | null;
   buchung: FinBuchung;
   datum: string;
   nr: number;
@@ -61,6 +63,8 @@ export type KontoblattZeile = {
   // Kostenstellen der Zeile (Migration 108).
   kost1: string | null;
   kost2: string | null;
+  // Debitor/Kreditor der Zeile (Migration 110).
+  personenkonto: number | null;
 };
 
 export type Kontoblatt = { eroeffnung: number; zeilen: KontoblattZeile[]; soll: number; haben: number; ende: number };
@@ -72,25 +76,31 @@ function zustandVon(b: FinBuchung, fest: FinFestschreibung[]): JournalZustand {
   return z.storniert ? "storniert" : z.storno ? "storno" : z.festgeschrieben ? "festgeschrieben" : "gebucht";
 }
 
-export function kontoblatt(buchungen: readonly FinBuchung[], konto: number, z: Zeitraum, fest: readonly FinFestschreibung[]): Kontoblatt {
-  let eroeffnung = 0;
+// Mit `person` (Migration 110, v184): das Blatt eines Personenkontos – die Zeilen mit diesem Debitor/Kreditor statt
+// eines Sachkontos, die Eröffnung beginnt beim Saldo aus den Vorjahren (`vortrag`).
+export function kontoblatt(buchungen: readonly FinBuchung[], konto: number, z: Zeitraum, fest: readonly FinFestschreibung[],
+  person?: { vortrag: number }): Kontoblatt {
+  let eroeffnung = person ? cent(person.vortrag) : 0;
   const zeilen: KontoblattZeile[] = [];
   for (const b of [...buchungen].sort(frueher)) {
     if (b.datum > z.bis) continue;
     b.fin_buchungszeilen.forEach((x, i) => {
-      if (x.konto !== konto) return;
+      if (person ? x.personenkonto !== konto : x.konto !== konto) return;
       const wirkung = (x.seite === "S" ? 1 : -1) * Number(x.betrag);
       if (b.datum < z.von) { eroeffnung = cent(eroeffnung + wirkung); return; }
       // Gegenkonto: im selben Posten die andere Seite ohne Steuerzeile. Steht hier die Steuerzeile selbst, ist es das
       // Konto auf der anderen Seite (die Rechnung oder der Lieferant).
-      const andere = [...new Set(b.fin_buchungszeilen
-        .filter((y) => y.posten === x.posten && y.seite !== x.seite && !y.ist_steuer && y.konto !== konto).map((y) => y.konto))];
+      // Ohne Treffer im Posten (die Forderung einer Rechnung steht in Posten 0, die Erlöse in 1, 2 …): alle Posten.
+      const gegenseite = (nurPosten: boolean) => [...new Set(b.fin_buchungszeilen
+        .filter((y) => (!nurPosten || y.posten === x.posten) && y.seite !== x.seite && !y.ist_steuer && y.konto !== x.konto).map((y) => y.konto))];
+      const imPosten = gegenseite(true);
+      const andere = imPosten.length ? imPosten : gegenseite(false);
       zeilen.push({
-        key: `${b.id}:${x.id ?? i}`, buchung: b, datum: b.datum, nr: b.nr, beleg: b.beleg ?? "", text: b.text,
+        key: `${b.id}:${x.id ?? i}`, zeileId: x.id ?? null, buchung: b, datum: b.datum, nr: b.nr, beleg: b.beleg ?? "", text: b.text,
         gegen: andere.length === 1 ? andere[0] : null,
         soll: x.seite === "S" ? Number(x.betrag) : 0, haben: x.seite === "H" ? Number(x.betrag) : 0, saldo: 0,
         steuer: x.steuerschluessel, istSteuer: x.ist_steuer, zustand: zustandVon(b, fest as FinFestschreibung[]),
-        kost1: x.kost1 ?? null, kost2: x.kost2 ?? null,
+        kost1: x.kost1 ?? null, kost2: x.kost2 ?? null, personenkonto: x.personenkonto ?? null,
       });
     });
   }

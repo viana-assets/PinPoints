@@ -1077,4 +1077,12 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
 - **Erfassungszeile** (Stapel, seit v180; `.ap-erfassung`): alle Felder in einer Reihe, Enter springt weiter. Mit
   Kostenstellen (v182, `.ap-mit-kost`) stehen über den Auswahlen die DATEV-Kurzformen KOST1/KOST2 (der volle Name im
   Hinweis). Bis 1400 px Breite rutschen Buchungstext und Knopf in eine zweite Reihe, damit Soll und Haben lesbar bleiben.
+  Beim Teil einer Splittbuchung (v183) sind Datum, Beleg und Text gesperrt und grau hinterlegt; Teile stehen in der Liste
+  hell petrol hinterlegt unter ihrer Kopfzeile („1.1“, „↳ Teil“).
+- **Abhaken** (v183, `.ap-haken`): ein 18-px-Kästchen in der ersten Spalte, abgehakt gefüllt in der Akzentfarbe; Taste H.
+- **Am Handy** bleibt es bei Kartenlisten (`.es-zeile.fi-buchung`) und Fenstern (`Blatt`) mit Auswahllisten statt
+  Kontofeld; Teile eingerückt (`.fi-teil`).
+- **Liste → Blatt** (Personenkonten, v184): Enter auf einer Zeile ersetzt die Liste durch das Blatt (ohne Detailspalte,
+  `.ap-rahmen-voll`), „← Personenkonten“ führt zurück; zwei Tabellen untereinander mit `.ap-unterkopf` dazwischen.
+  Ein Filterknopf, der an/aus ist („nur mit Saldo“), trägt `aria-pressed` und ist dann petrol hinterlegt.
 

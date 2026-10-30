@@ -5,12 +5,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fehlerText } from "@/components/FehlerHinweis";
 import { qk } from "@/lib/queries/keys";
-import { useBetrieb, useFinEinstellungen, useFinExportProtokolle, useFinFestschreibungen, useFinKonten, useFinSteuerschluessel } from "@/lib/queries/hooks";
+import { useBetrieb, useFinEinstellungen, useFinExportProtokolle, useFinFestschreibungen, useFinKonten, useFinPersonenkonten, useFinSteuerschluessel } from "@/lib/queries/hooks";
 import { fetchFinExportBelege, fetchFinExportJournal, finExportProtokollieren } from "@/lib/api/finance";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import { exportGeaendert, exportZeitraeume, finDatevStapel, gobdDateien, verfahrensdokumentation, zipDateien } from "@/lib/finance/export";
 import { windows1252 } from "@/lib/datev";
 import { dateiHerunterladen } from "@/lib/download";
+import { personenCsv } from "@/lib/finance/personen";
 import type { FinanceAnsicht } from "./FinanceBereich";
 
 // Finance › Export (Phase F9, Migration 97, v155): DATEV-Buchungsstapel des Journals, GoBD-Datenexport für die
@@ -62,6 +63,9 @@ function ExportJahr({ supabase, jahr, heute, e }: { supabase: SupabaseClient; ja
   const schlQ = useFinSteuerschluessel(supabase, e.kontenrahmen, true);
   const festQ = useFinFestschreibungen(supabase, jahr, true);
   const protQ = useFinExportProtokolle(supabase, jahr, true);
+  // Personenkonten (Migration 110, v184) für die Liste an die Kanzlei.
+  const personenQ = useFinPersonenkonten(supabase, jahr, true);
+  const personen = personenQ.data ?? [];
   const journalQ = useQuery({ queryKey: qk.finExportJournal(z.von, z.bis), queryFn: () => fetchFinExportJournal(supabase, z.von, z.bis), staleTime: 30_000 });
   const betrieb = betriebQ.data ?? null;
   const journal = journalQ.data ?? [];
@@ -120,8 +124,9 @@ function ExportJahr({ supabase, jahr, heute, e }: { supabase: SupabaseClient; ja
 
       <span className="op-gruppe-titel">DATEV-BUCHUNGSSTAPEL</span>
       <div className="db-karte es-karte">
-        <span className="small">Das ganze Journal des Zeitraums für die Kanzlei: Bruttobeträge, die Steuer über Automatikkonten oder BU-Schlüssel, Sachkonten
-          (offene Posten auf den Sammelkonten), Belegnummer und Finance-Nummer je Satz. Nicht festgeschrieben – die Kanzlei prüft vor dem Festschreiben.</span>
+        <span className="small">Das ganze Journal des Zeitraums für die Kanzlei: Bruttobeträge, die Steuer über Automatikkonten oder BU-Schlüssel, Rechnungen,
+          Zahlungen und Belege auf den Personenkonten (Debitor bzw. Kreditor, seit Migration 110), Belegnummer und Finance-Nummer je Satz. Nicht festgeschrieben –
+          die Kanzlei prüft vor dem Festschreiben.</span>
         {stapel && stapel.fehler.length > 0 && <div className="fi-hinweis fi-rot" role="alert">{stapel.fehler.map((f) => <div key={f}>{f}</div>)}</div>}
         <button type="button" className="es-zeile" aria-pressed={ohneVortrag} onClick={() => setOhneVortrag(!ohneVortrag)}>
           <span className="db-punkt-text"><b>Saldenvorträge weglassen</b><span className="small">Buchungen mit Konto 9000 – den Vortrag macht die Kanzlei meist selbst</span></span>
@@ -131,11 +136,23 @@ function ExportJahr({ supabase, jahr, heute, e }: { supabase: SupabaseClient; ja
           <div className="fi-hinweis fi-warn">{stapel.hinweise.slice(0, 5).map((h) => <div key={h}>{h}</div>)}
             {stapel.hinweise.length > 5 && <div>… und {stapel.hinweise.length - 5} weitere.</div>}</div>
         )}
-        <div className="fi-hinweis fi-info">Rechnungen nicht zusätzlich aus FSM › Auswertungen als DATEV-Datei einlesen – die mit „Rechnung nötig“ sind hier schon enthalten.
-          Im Pilot enthält Finance nur diese; alles andere bucht die Kanzlei wie bisher.</div>
+        <div className="fi-hinweis fi-info">{e.rechnungen_umfang === "alle"
+          ? <>Rechnungen nicht zusätzlich aus FSM › Auswertungen als DATEV-Datei einlesen – alle Rechnungen aus FSM sind hier schon enthalten.</>
+          : <>Rechnungen nicht zusätzlich aus FSM › Auswertungen als DATEV-Datei einlesen – die mit „Rechnung nötig“ sind hier schon enthalten.
+            Im Pilot enthält Finance nur diese; alles andere bucht die Kanzlei wie bisher.</>}</div>
         <div className="fi-aktion">
           <button type="button" className="btn-primary" disabled={!stapel || stapel.fehler.length > 0 || stapel.saetze === 0 || !!laeuft} onClick={() => void datev()}>
             {laeuft === "datev" ? "…" : stapel ? `DATEV-Datei (${stapel.saetze === 1 ? "1 Satz" : `${stapel.saetze} Sätze`})` : "DATEV-Datei"}</button>
+        </div>
+      </div>
+
+      <span className="op-gruppe-titel">PERSONENKONTEN</span>
+      <div className="db-karte es-karte">
+        <span className="small">Debitoren und Kreditoren mit Name, Kundennummer und Anschrift als CSV – damit legt die Kanzlei die Personenkonten an, bevor sie den
+          Buchungsstapel einliest. {personenQ.isError ? "Fehlt noch: Migration 110." : personen.length === 1 ? "1 Konto." : `${personen.length} Konten.`}</span>
+        <div className="fi-aktion">
+          <button type="button" className="btn-secondary" disabled={!personen.length}
+            onClick={() => dateiHerunterladen(`personenkonten_${jahr}.csv`, personenCsv(personen), "text/csv;charset=utf-8")}>Liste herunterladen</button>
         </div>
       </div>
 

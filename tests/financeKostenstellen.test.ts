@@ -6,7 +6,7 @@ import { finVorgabe } from "@/lib/finance/einstellungen";
 import { DATEV_SPALTEN } from "@/lib/datev";
 import { finDatevStapel } from "@/lib/finance/export";
 import { JOURNAL_FILTER_LEER, filterAnzahl, journalFiltern, journalZeilen } from "@/lib/finance/arbeitsplatz";
-import { FIN_KOST_ARTEN, buchungKost, kostAuswahl, kostNummerFehler, kostText, kostenAuswertung, type FinKostenstelle } from "@/lib/finance/kostenstellen";
+import { FIN_KOST_ARTEN, FIN_LEISTUNGSART_VORGABE, buchungKost, leistungsartVorgabe, kostAuswahl, kostNummerFehler, kostText, kostenAuswertung, type FinKostenstelle } from "@/lib/finance/kostenstellen";
 import { stapelZeilePruefen } from "@/lib/finance/stapel";
 
 // Kostenstellen (Migration 108, v182): wohin sie beim Buchen kommen (wie fin_buchen(), Fälle aus /tmp/pgt/t108.sql),
@@ -93,3 +93,15 @@ describe("Auswahl, Anzeige, Auswertung", () => {
       ["1200", "4530", '"T1"', ""], ["1200", "1576", "", ""], ["1400", "8400", '"T1"', '"100"'], ["1400", "1776", "", ""]]);
   });
 });
+
+describe("Leistungsart je Artikel (Migration 111, v184)", () => {
+  it("Vorgabe wie fin_leistungsart_vorgabe() in der Migration", () => {
+    const sql = readFileSync(join(__dirname, "..", "supabase", "migrations", "111_finance_alle_rechnungen.sql"), "utf8");
+    const m = /select case p_abrechnungsart (.*?) else '(\d+)' end/.exec(sql);
+    expect(m).toBeTruthy();
+    const paare = Object.fromEntries([...m![1].matchAll(/when '(\w+)' then '(\d+)'/g)].map((x) => [x[1], x[2]]));
+    for (const [art, nr] of Object.entries(FIN_LEISTUNGSART_VORGABE)) expect(paare[art] ?? m![2]).toBe(nr);
+    expect(leistungsartVorgabe("unbekannt")).toBe(m![2]);
+  });
+});
+

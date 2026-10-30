@@ -7,17 +7,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // Kostenstellen am Rechner (Migration 108, v182): Seite mit Auswertung und Pflege, Auswahl im Stapel und im Buchungsfenster.
 const api = vi.hoisted(() => ({
-  finKostenstelleSpeichern: vi.fn(async () => "k-neu"), finKostenstellenUebernehmen: vi.fn(async () => 1),
+  finKostenstelleSpeichern: vi.fn(async () => "k-neu"), finKostenstellenUebernehmen: vi.fn(async () => 1), finArtikelKostSetzen: vi.fn(async () => undefined),
   finStapelAnlegen: vi.fn(), finStapelZeileSpeichern: vi.fn(async () => "z"), finStapelZeileLoeschen: vi.fn(), finStapelLoeschen: vi.fn(), finStapelBuchen: vi.fn(),
   finWiederkehrendHolen: vi.fn(), finVorlageSpeichern: vi.fn(), finVorlageLoeschen: vi.fn(), finWiederkehrendSpeichern: vi.fn(), finWiederkehrendLoeschen: vi.fn(),
   finBuchen: vi.fn(async () => ({ id: "b", jahr: 2027, nr: 4 })), finStornieren: vi.fn(), finMonatFestschreiben: vi.fn(), finKontoAnlegen: vi.fn(), finKontoAktiv: vi.fn(),
 }));
 vi.mock("@/lib/api/finance", () => api);
-const daten = vi.hoisted(() => ({ stapel: [] as unknown[] }));
+const daten = vi.hoisted(() => ({ stapel: [] as unknown[], artikel: [] as unknown[] }));
 vi.mock("@/lib/queries/hooks", () => ({
   useFinStapel: () => ({ data: daten.stapel, isError: false, isPending: false }),
   useFinVorlagen: () => ({ data: [], isError: false, isPending: false }),
   useFinWiederkehrend: () => ({ data: [], isError: false, isPending: false }),
+  useFinArtikelLeistungsarten: () => ({ data: daten.artikel, isError: false, isPending: false }),
 }));
 
 import { FinanceKostenstellen } from "@/components/finance/FinanceKostenstellen";
@@ -90,4 +91,21 @@ describe("Auswahl beim Erfassen", () => {
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Buchen" })); });
     expect(api.finBuchen).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ posten: [{ soll: 1400, haben: 8400, betrag: 200, steuer: null, kost2: "100" }] }));
   });
+
+  it("Leistungsart je Artikel: Vorgabe aus der Abrechnungsart, abweichend wählen, zurück zur Vorgabe", async () => {
+    daten.artikel = [{ id: "a1", artikelnummer: 501, name: "Wechsel", abrechnungsart: "normal", aktiv: true, vorgabe: "100", kost2: null },
+      { id: "a2", artikelnummer: 502, name: "Lager", abrechnungsart: "lagergebuehr", aktiv: true, vorgabe: "200", kost2: "100" }];
+    render(<QueryClientProvider client={new QueryClient()}>
+      <FinanceKostenstellen supabase={{} as SupabaseClient} jahr={2027} buchungen={[]} konten={[]} kostenstellen={KS} laedt={false} fehlt={false} darfPflegen />
+    </QueryClientProvider>);
+    const w = screen.getByLabelText("Leistungsart Wechsel") as HTMLSelectElement;
+    expect(w.value).toBe("");
+    expect(w.options[0].textContent).toBe("Vorgabe: 100 · Montage");
+    await act(async () => { fireEvent.change(w, { target: { value: "100" } }); });
+    expect(api.finArtikelKostSetzen).toHaveBeenCalledWith(expect.anything(), "a1", "100");
+    await act(async () => { fireEvent.change(screen.getByLabelText("Leistungsart Lager"), { target: { value: "" } }); });
+    expect(api.finArtikelKostSetzen).toHaveBeenCalledWith(expect.anything(), "a2", null);
+    daten.artikel = [];
+  });
 });
+

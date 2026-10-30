@@ -10,8 +10,9 @@ import type { FinAnlage } from "@/lib/finance/anlagen";
 import type { FinMahnung } from "@/lib/finance/mahnung";
 import type { FinPlanposten } from "@/lib/finance/liquiditaet";
 import type { FinStapel, FinStapelZeile } from "@/lib/finance/stapel";
+import type { FinPersonenkonto } from "@/lib/finance/personen";
 import type { FinVorlage, FinWiederkehrend } from "@/lib/finance/vorlagen";
-import type { FinKostenstelle, KostArt } from "@/lib/finance/kostenstellen";
+import type { FinArtikelLeistungsart, FinKostenstelle, KostArt } from "@/lib/finance/kostenstellen";
 import { protokolleLesen, type FinExportBeleg, type FinExportProtokoll } from "@/lib/finance/export";
 import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
@@ -31,7 +32,7 @@ export type FinEinstellungenStand =
 const TABELLE_FEHLT = new Set(["42P01", "PGRST205"]);
 
 const SPALTEN =
-  "wirtschaftsjahr, rechtsform, gewinnermittlung, kontenrahmen, besteuerung, versteuerung, voranmeldung, dauerfrist, r13b_empfaenger, innergemeinschaftlich, wj_beginn_monat, start_datum, sammelposten, aktualisiert_am";
+  "wirtschaftsjahr, rechtsform, gewinnermittlung, kontenrahmen, besteuerung, versteuerung, voranmeldung, dauerfrist, r13b_empfaenger, innergemeinschaftlich, wj_beginn_monat, start_datum, sammelposten, rechnungen_umfang, ohne_ausweis, aktualisiert_am";
 
 export async function fetchFinEinstellungen(supabase: SupabaseClient, jahr: number): Promise<FinEinstellungenStand> {
   try {
@@ -77,7 +78,7 @@ export async function fetchFinSteuerschluessel(supabase: SupabaseClient, rahmen:
 export async function fetchFinBuchungen(supabase: SupabaseClient, jahr: number): Promise<FinBuchung[]> {
   const alle = await fetchPaged<FinBuchung>("Die Buchungen konnten nicht geladen werden", (von, bis) =>
     supabase.from("fin_buchungen")
-      .select("id, jahr, nr, datum, text, beleg, quelle, quelle_id, storno_von, storniert_durch, grund, erstellt_am, fin_buchungszeilen(id, posten, seite, konto, betrag, steuerschluessel, ist_steuer, kost1, kost2)")
+      .select("id, jahr, nr, datum, text, beleg, quelle, quelle_id, storno_von, storniert_durch, grund, erstellt_am, fin_buchungszeilen(id, posten, seite, konto, betrag, steuerschluessel, ist_steuer, kost1, kost2, personenkonto)")
       .eq("jahr", jahr).order("nr").order("id").range(von, bis));
   return alle.map((b) => ({
     ...b,
@@ -131,6 +132,12 @@ export async function fetchFinRechnungenStand(supabase: SupabaseClient, jahr: nu
 
 export async function finRechnungNachbuchen(supabase: SupabaseClient, rechnungId: string): Promise<void> {
   await q("Nicht gebucht", supabase.rpc("fin_rechnung_nachbuchen", { p_rechnung: rechnungId }));
+}
+
+// Alle noch nicht gebuchten Rechnungen eines Jahres (Migration 111): Anzahl gebucht, mit Fehler, Stornos mitgebucht.
+export async function finRechnungenNachbuchenAlle(supabase: SupabaseClient, jahr: number): Promise<{ gebucht: number; fehler: number; stornos: number }> {
+  const r = await q<{ gebucht: number; fehler: number; stornos: number }>("Die Rechnungen wurden nicht gebucht", supabase.rpc("fin_rechnungen_nachbuchen_alle", { p_jahr: jahr }));
+  return { gebucht: Number(r?.gebucht ?? 0), fehler: Number(r?.fehler ?? 0), stornos: Number(r?.stornos ?? 0) };
 }
 
 export async function finRechnungBezahlt(supabase: SupabaseClient, rechnungId: string, art: "bar" | "bank", datum: string): Promise<{ nr: number }> {
@@ -528,7 +535,7 @@ export async function finPlanpostenLoeschen(supabase: SupabaseClient, id: string
 export async function fetchFinStapel(supabase: SupabaseClient, jahr: number): Promise<FinStapel[]> {
   const alle = await fetchPaged<FinStapel>("Die Buchungsstapel konnten nicht geladen werden", (von, bis) =>
     supabase.from("fin_stapel")
-      .select("id, jahr, bezeichnung, zustand, erstellt_am, gebucht_am, fin_stapel_zeilen(id, stapel_id, lfd, datum, beleg, text, soll, haben, betrag, steuer, buchung_id, wiederkehrend_id, termin, kost1, kost2)")
+      .select("id, jahr, bezeichnung, zustand, erstellt_am, gebucht_am, fin_stapel_zeilen(id, stapel_id, lfd, datum, beleg, text, soll, haben, betrag, steuer, buchung_id, wiederkehrend_id, termin, kost1, kost2, teil_von)")
       .eq("jahr", jahr).order("erstellt_am").order("id").range(von, bis));
   return alle.map((st) => ({
     ...st,
@@ -543,6 +550,12 @@ export async function finStapelZeileSpeichern(supabase: SupabaseClient, stapel: 
   return String(await q<string>("Die Zeile wurde nicht gespeichert", supabase.rpc("fin_stapel_zeile_speichern", {
     p_id: id, p_stapel: stapel, p_datum: f.datum, p_beleg: f.beleg, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer,
     p_kost1: f.kost1 ?? null, p_kost2: f.kost2 ?? null })));
+}
+// Splitt (Migration 109): ein Teil an einer Kopfzeile, neu (id null) oder ändern. Datum, Beleg, Text kommen vom Kopf.
+export type FinStapelTeilFelder = Pick<FinStapelZeile, "soll" | "haben" | "betrag" | "steuer"> & { kost1?: string | null; kost2?: string | null };
+export async function finStapelTeilSpeichern(supabase: SupabaseClient, kopf: string, id: string | null, f: FinStapelTeilFelder): Promise<string> {
+  return String(await q<string>("Der Teil wurde nicht gespeichert", supabase.rpc("fin_stapel_teil_speichern", {
+    p_id: id, p_kopf: kopf, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer, p_kost1: f.kost1 ?? null, p_kost2: f.kost2 ?? null })));
 }
 export async function finStapelZeileLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
   await q("Die Zeile wurde nicht gelöscht", supabase.rpc("fin_stapel_zeile_loeschen", { p_id: id }));
@@ -601,5 +614,31 @@ export async function finKostenstelleSpeichern(supabase: SupabaseClient, id: str
 }
 export async function finKostenstellenUebernehmen(supabase: SupabaseClient): Promise<number> {
   return Number(await q<number>("Die Kostenstellen wurden nicht übernommen", supabase.rpc("fin_kostenstellen_uebernehmen")) ?? 0);
+}
+
+// ---------------------------------------------------------------- Personenkonten (Migration 110, v184)
+export async function fetchFinPersonenkonten(supabase: SupabaseClient, jahr: number): Promise<FinPersonenkonto[]> {
+  const r = await q<FinPersonenkonto[]>("Die Personenkonten konnten nicht geladen werden", supabase.rpc("fin_personenkonten_stand", { p_jahr: jahr }));
+  return (r ?? []).map((p) => ({ ...p, nummer: Number(p.nummer), vortrag: Number(p.vortrag) }));
+}
+
+// Leistungsart je Artikel (Migration 111, v184).
+export async function fetchFinArtikelLeistungsarten(supabase: SupabaseClient): Promise<FinArtikelLeistungsart[]> {
+  return (await q<FinArtikelLeistungsart[]>("Die Artikel konnten nicht geladen werden", supabase.rpc("fin_artikel_leistungsarten"))) ?? [];
+}
+export async function finArtikelKostSetzen(supabase: SupabaseClient, artikel: string, kost2: string | null): Promise<void> {
+  await q("Die Leistungsart wurde nicht gespeichert", supabase.rpc("fin_artikel_kost_setzen", { p_article: artikel, p_kost2: kost2 }));
+}
+
+// ---------------------------------------------------------------- Abhaken (Migration 109, v183)
+// Die abgehakten Buchungszeilen eines Jahres (IDs von fin_buchungszeilen).
+export async function fetchFinAbgehakt(supabase: SupabaseClient, jahr: number): Promise<number[]> {
+  const alle = await fetchPaged<{ zeile_id: number }>("Die Haken konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_abgehakt").select("zeile_id").eq("jahr", jahr).order("zeile_id").range(von, bis));
+  return alle.map((x) => Number(x.zeile_id));
+}
+export async function finAbhaken(supabase: SupabaseClient, zeilen: number[], an: boolean): Promise<number> {
+  return Number(await q<number>(an ? "Die Zeilen wurden nicht abgehakt" : "Die Haken wurden nicht entfernt",
+    supabase.rpc("fin_abhaken", { p_zeilen: zeilen, p_an: an })) ?? 0);
 }
 

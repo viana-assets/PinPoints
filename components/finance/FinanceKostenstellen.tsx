@@ -6,11 +6,13 @@ import { fehlerText } from "@/components/FehlerHinweis";
 import { DatenTabelle, type Spalte } from "./arbeitsplatz/DatenTabelle";
 import { ZeitraumWahl } from "./arbeitsplatz/Werkzeuge";
 import { qk } from "@/lib/queries/keys";
-import { finKostenstelleSpeichern, finKostenstellenUebernehmen } from "@/lib/api/finance";
+import { finArtikelKostSetzen, finKostenstelleSpeichern, finKostenstellenUebernehmen } from "@/lib/api/finance";
+import { useFinArtikelLeistungsarten } from "@/lib/queries/hooks";
+import { ABRECHNUNGSART_LABEL } from "@/lib/constants";
 import type { FinBuchung, FinKonto } from "@/lib/finance/buchung";
 import { betragText, type Sortierung } from "@/lib/finance/arbeitsplatz";
 import { zeitraumVorgaben, type Zeitraum } from "@/lib/finance/kontoblatt";
-import { FIN_KOST_ARTEN, kostNummerFehler, kostenAuswertung, type FinKostenstelle, type KostArt } from "@/lib/finance/kostenstellen";
+import { FIN_KOST_ARTEN, kostAuswahl, kostNummerFehler, kostText, kostenAuswertung, type FinKostenstelle, type KostArt } from "@/lib/finance/kostenstellen";
 
 // Finance › Buchungen › Kostenstellen am Rechner (Migration 108, v182, docs/finance.md Abschnitt 14): die Transporter
 // (KOST1) und Leistungsarten (KOST2) mit Erlösen, Aufwand und Ergebnis im Zeitraum – dazu je Art, was ohne Kostenstelle
@@ -101,6 +103,7 @@ export function FinanceKostenstellen({ supabase, jahr, buchungen, konten, kosten
         <div className="ap-status">
           <span>Erlöse und Aufwand ohne Steuer; Anlagekonten zählen nicht (die Abschreibung schon).</span>
         </div>
+        <ArtikelLeistungsarten supabase={supabase} kostenstellen={kostenstellen} darfPflegen={darfPflegen} />
       </div>
       <aside className="ap-detail" aria-label="Gewählte Kostenstelle">
         {neu ? <KostFormular key="neu" supabase={supabase} k={null} darf={darfPflegen} onFertig={(t) => { setNeu(false); setMeldung(t); }} />
@@ -156,3 +159,55 @@ function KostFormular({ supabase, k, darf, onFertig }: { supabase: SupabaseClien
     </div>
   );
 }
+
+// Leistungsart je Artikel (Migration 111, v184, Entscheidung 4 „ohne Handarbeit“): Rechnungen aus FSM bekommen je Position
+// die Leistungsart ihres Artikels – Vorgabe aus der Abrechnungsart, hier je Artikel abweichend wählbar.
+function ArtikelLeistungsarten({ supabase, kostenstellen, darfPflegen }: { supabase: SupabaseClient; kostenstellen: FinKostenstelle[]; darfPflegen: boolean }) {
+  const queryClient = useQueryClient();
+  const q = useFinArtikelLeistungsarten(supabase, true);
+  const [fehler, setFehler] = useState<string | null>(null);
+  const kost2 = kostAuswahl(kostenstellen, "kost2");
+  const text = (n: string) => kostText(kostenstellen, "kost2", n) || n;
+  async function setzen(id: string, wert: string | null) {
+    setFehler(null);
+    try {
+      await finArtikelKostSetzen(supabase, id, wert);
+      await queryClient.invalidateQueries({ queryKey: qk.finArtikelLeistungsarten() });
+    } catch (e) {
+      setFehler(fehlerText(e));
+    }
+  }
+  if (q.isError) return null;
+  const liste = q.data ?? [];
+  return (
+    <>
+      <h3 className="ap-unterkopf">Leistungsart je Artikel</h3>
+      {fehler && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
+      <div className="db-karte es-karte">
+        {q.isPending ? <span className="small">Lädt …</span> : liste.length === 0 ? <span className="small">Keine Artikel.</span> : (
+          <table className="fi-tabelle" aria-label="Leistungsart je Artikel">
+            <thead><tr><th className="zahl">Nr.</th><th>Artikel</th><th>Abrechnungsart</th><th>Leistungsart (KOST2)</th></tr></thead>
+            <tbody>
+              {liste.map((a) => (
+                <tr key={a.id} className={a.aktiv ? undefined : "ap-leise"}>
+                  <td className="zahl">{a.artikelnummer}</td>
+                  <td>{a.name}{!a.aktiv && <span className="ap-marke">inaktiv</span>}</td>
+                  <td>{ABRECHNUNGSART_LABEL[a.abrechnungsart as keyof typeof ABRECHNUNGSART_LABEL] ?? a.abrechnungsart}</td>
+                  <td>
+                    <select className="fi-tab-wahl" aria-label={`Leistungsart ${a.name}`} value={a.kost2 ?? ""} disabled={!darfPflegen} onChange={(e) => void setzen(a.id, e.target.value || null)}>
+                      <option value="">Vorgabe: {text(a.vorgabe)}</option>
+                      {kost2.map((k) => <option key={k.id} value={k.nummer}>{k.nummer} · {k.bezeichnung}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      <span className="small es-fuss fi-fuss">Eine Nachlasszeile folgt ihrer Position. Der Transporter (KOST1) kommt aus dem Firmenfahrzeug des Auftrags. Gibt es eine
+        Leistungsart nicht (mehr) oder ist sie ausgeblendet, bleibt die Rechnungszeile ohne.</span>
+    </>
+  );
+}
+

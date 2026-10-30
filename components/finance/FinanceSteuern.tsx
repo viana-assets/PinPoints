@@ -56,8 +56,8 @@ export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchre
       {standQ.isError && <div className="fi-hinweis fi-rot" role="alert">Finance › Steuern konnte nicht geladen werden. Ist Migration 92 ausgeführt?</div>}
       {meldung && <div className="fi-hinweis fi-ok" role="status">{meldung}</div>}
       <div className="fi-hinweis fi-warn" role="note">
-        <b>Probelauf</b> · Die Zahlen kommen aus den Buchungen in Finance – im Pilot nur ein Teil des Geschäfts. Nicht ungeprüft in ELSTER
-        übernehmen; abgegeben wird wie bisher über den Steuerberater oder das ELSTER-Portal.
+        <b>Probelauf</b> · Die Zahlen kommen aus den Buchungen in Finance{e?.rechnungen_umfang === "alle" ? "" : " – im Pilot nur ein Teil des Geschäfts"}. Nicht
+        ungeprüft in ELSTER übernehmen; abgegeben wird wie bisher über den Steuerberater oder das ELSTER-Portal.
       </div>
 
       <span className="op-gruppe-titel">SO WIRD ANGEMELDET</span>
@@ -96,7 +96,7 @@ export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchre
 
       {e.besteuerung === "klein" && stand?.eingerichtet && (
         <Kleinunternehmer supabase={supabase} jahr={jahr} umsatzJahr={stand.umsatz_jahr} umsatzVorjahr={stand.umsatz_vorjahr} svz={stand.sondervorauszahlung}
-          darfSchreiben={darfSchreiben} onGespeichert={setMeldung} />
+          darfSchreiben={darfSchreiben} onGespeichert={setMeldung} alle={e.rechnungen_umfang === "alle"} />
       )}
       {svzGilt && stand?.eingerichtet && (
         <Sondervorauszahlung supabase={supabase} jahr={jahr} wert={stand.sondervorauszahlung} umsatzVorjahr={stand.umsatz_vorjahr}
@@ -245,9 +245,11 @@ function UstBlatt({ supabase, jahr, heute, einstellungen: e, z, kennzahlen, darf
 }
 
 // ---------------------------------------------------------------- Kleinunternehmer und Sondervorauszahlung
-function Kleinunternehmer({ supabase, jahr, umsatzJahr, umsatzVorjahr, svz, darfSchreiben, onGespeichert }: {
+function Kleinunternehmer({ supabase, jahr, umsatzJahr, umsatzVorjahr, svz, darfSchreiben, onGespeichert, alle }: {
   supabase: SupabaseClient; jahr: number; umsatzJahr: number; umsatzVorjahr: number | null; svz: number | null;
   darfSchreiben: boolean; onGespeichert: (t: string) => void;
+  // Stufe D (Migration 111): bucht Finance alle Rechnungen, ist der Umsatz vollständig.
+  alle: boolean;
 }) {
   const k = kuPruefung(umsatzJahr, umsatzVorjahr);
   const klasse = (st: "ok" | "nahe" | "ueber") => "db-karte fi-kachel" + (st === "ueber" ? " fi-kachel-warn" : st === "nahe" ? " fi-kachel-nahe" : "");
@@ -263,7 +265,7 @@ function Kleinunternehmer({ supabase, jahr, umsatzJahr, umsatzVorjahr, svz, darf
       {k.laufend.stufe === "ueber" && <div className="fi-hinweis fi-rot" role="alert">Die Grenze von {formatEUR(KLEINUNTERNEHMER_GRENZE_LAUFEND)} ist überschritten: Ab dem Umsatz, mit dem sie überschritten wurde, gilt die Regelbesteuerung – sofort mit dem Steuerberater klären.</div>}
       {k.laufend.stufe === "nahe" && <div className="fi-hinweis fi-warn">Der Umsatz {jahr} nähert sich der Grenze von {formatEUR(KLEINUNTERNEHMER_GRENZE_LAUFEND)}.</div>}
       {k.vorjahr?.stufe === "ueber" && <div className="fi-hinweis fi-rot" role="alert">Der Umsatz {jahr - 1} lag über {formatEUR(KLEINUNTERNEHMER_GRENZE_VORJAHR)} – für {jahr} gilt die Kleinunternehmerregelung nicht.</div>}
-      <span className="small es-fuss fi-fuss">Der Umsatz {jahr} zählt nur, was in Finance gebucht ist – im Pilot nicht alles.</span>
+      <span className="small es-fuss fi-fuss">Der Umsatz {jahr} zählt nur, was in Finance gebucht ist{alle ? "." : " – im Pilot nicht alles."}</span>
       <BetragFeld jahr={jahr} titel={`Umsatz ${jahr - 1}`} hinweis="Gesamtumsatz des Vorjahres laut Steuerberater oder Jahreserklärung."
         wert={umsatzVorjahr} darfSchreiben={darfSchreiben} speichern={(w) => finSteuerJahrSpeichern(supabase, jahr, { umsatz_vorjahr: w, sondervorauszahlung: svz })}
         onGespeichert={onGespeichert} />

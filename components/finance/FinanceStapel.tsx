@@ -13,13 +13,13 @@ import { useFinStapel, useFinVorlagen, useFinWiederkehrend } from "@/lib/queries
 import { VorlageFormular } from "./FinanceVorlagen";
 import { KostWahl } from "./arbeitsplatz/KostWahl";
 import { FIN_KOST_ARTEN, kostText, type FinKostenstelle } from "@/lib/finance/kostenstellen";
-import { finStapelAnlegen, finStapelBuchen, finStapelLoeschen, finStapelZeileLoeschen, finStapelZeileSpeichern, finWiederkehrendHolen } from "@/lib/api/finance";
+import { finStapelAnlegen, finStapelBuchen, finStapelLoeschen, finStapelTeilSpeichern, finStapelZeileLoeschen, finStapelZeileSpeichern, finWiederkehrendHolen } from "@/lib/api/finance";
 import { vorlageInEingabe, vorlagenSortiert, wiederkehrendOffen } from "@/lib/finance/vorlagen";
 import { betragLesen, kontoNr, passendeSchluessel, type FinBuchung, type FinFestschreibung, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import { betragText, datumDe, type Sortierung } from "@/lib/finance/arbeitsplatz";
 import {
-  belegWeiter, datumAusEingabe, datumKurz, eingabeAlsZeile, stapelReihenfolge, stapelSumme, stapelZeilePruefen,
+  belegWeiter, datumAusEingabe, datumKurz, eingabeAlsZeile, stapelBuchungen, stapelPositionen, stapelReihenfolge, stapelSumme, stapelTeile, stapelZeilePruefen,
   type FinStapelZeile, type StapelEingabe,
 } from "@/lib/finance/stapel";
 
@@ -28,6 +28,8 @@ import {
 // Erfassungszeile wie bei DATEV: Datum (TTMM), Beleg, Soll, Haben, Betrag, Steuer, Text; Enter springt ins nächste Feld,
 // im letzten übernimmt es die Zeile. Jede Zeile wird gleich so geprüft, wie `fin_buchen()` sie beim Buchen prüfen
 // wird (`stapelZeilePruefen`, lib/finance/stapel.ts); gebucht wird nur, wenn alle stimmen – alle oder keine.
+// Splitt (Migration 109, v183): „+ Teil“ an einer Zeile erfasst einen weiteren Posten derselben Buchung – Datum, Beleg
+// und Text bleiben die der Kopfzeile, Konten, Betrag, Steuer und Kostenstellen sind eigene. Teile stehen als 3.1, 3.2 …
 
 const LEER: StapelEingabe = { datum: "", beleg: "", soll: null, haben: null, betrag: "", steuer: "", text: "" };
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
@@ -63,6 +65,8 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
 
   const [eingabe, setEingabe] = useState<StapelEingabe>(() => ({ ...LEER, datum: heute.slice(0, 4) === String(jahr) ? datumKurz(heute) : "" }));
   const [bearbeite, setBearbeite] = useState<string | null>(null);
+  // Splitt: die Kopfzeile, an die gerade ein Teil kommt (oder deren Teil geändert wird).
+  const [teilVon, setTeilVon] = useState<string | null>(null);
   const [formNr, setFormNr] = useState(0);
   const [hinweis, setHinweis] = useState<string | null>(null);
   const [laeuft, setLaeuft] = useState(false);
@@ -83,15 +87,22 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
     stapelZeilePruefen(z, jahr, konten, schluessel, einstellungen, fest);
 
   const zeilenRoh = stapel ? stapelReihenfolge(stapel.fin_stapel_zeilen) : [];
+  const pos = stapelPositionen(zeilenRoh);
+  const anzahlBuchungen = stapelBuchungen(zeilenRoh);
+  const kopf = teilVon ? zeilenRoh.find((z) => z.id === teilVon) ?? null : null;
   const pruefungen = new Map(zeilenRoh.map((z) => [z.id, pruefe(z)]));
   const mitFehler = stapel?.zustand === "offen" ? zeilenRoh.filter((z) => pruefungen.get(z.id)?.fehler).length : 0;
   const nrVon = (id: string | null) => (id ? buchungen.find((b) => b.id === id) ?? null : null);
   const gewaehlt = zeilenRoh.find((z) => z.id === auswahl) ?? null;
   const gewPruefung = gewaehlt ? pruefungen.get(gewaehlt.id) : undefined;
   const gewBuchung = gewaehlt ? nrVon(gewaehlt.buchung_id) : null;
+  // Vorschau der ganzen Buchung: Kopf und seine Teile (gewählt sei Kopf oder Teil).
+  const gewKopfId = gewaehlt ? gewaehlt.teil_von ?? gewaehlt.id : null;
+  const gewTeile = gewKopfId ? stapelTeile(zeilenRoh, gewKopfId).length : 0;
+  const gewVorschau = gewKopfId ? zeilenRoh.filter((z) => z.id === gewKopfId || z.teil_von === gewKopfId).flatMap((z) => pruefungen.get(z.id)?.zeilen ?? []) : [];
 
   const spalten: Spalte<FinStapelZeile>[] = [
-    { key: "pos", titel: "Pos.", zahl: true, wert: (z) => zeilenRoh.indexOf(z) + 1, fest: true },
+    { key: "pos", titel: "Pos.", zahl: true, wert: (z) => zeilenRoh.indexOf(z) + 1, zeige: (z) => pos.get(z.id) ?? "", fest: true },
     { key: "datum", titel: "Datum", wert: (z) => z.datum, zeige: (z) => datumKurz(z.datum) },
     { key: "beleg", titel: "Beleg", wert: (z) => z.beleg },
     { key: "soll", titel: "Soll", wert: (z) => z.soll, zeige: (z) => <span title={name(z.soll)}>{kontoNr(z.soll)}</span> },
@@ -100,7 +111,7 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
     ...(kostenstellen.length ? FIN_KOST_ARTEN.map((a): Spalte<FinStapelZeile> => ({ key: a.wert, titel: a.text, wert: (z) => z[a.wert] ?? null,
       zeige: (z) => (z[a.wert] ? <span title={kostText(kostenstellen, a.wert, z[a.wert])}>{z[a.wert]}</span> : "") })) : []),
     { key: "betrag", titel: "Betrag", zahl: true, wert: (z) => z.betrag, zeige: (z) => betragText(z.betrag), fest: true },
-    { key: "text", titel: "Buchungstext", wert: (z) => z.text, fest: true, max: 260 },
+    { key: "text", titel: "Buchungstext", wert: (z) => z.text, fest: true, max: 260, zeige: (z) => (z.teil_von ? <span className="ap-leise-text">↳ Teil</span> : z.text) },
     stapel?.zustand === "gebucht"
       ? { key: "buchung", titel: "Buchung", wert: (z) => nrVon(z.buchung_id)?.nr ?? null,
           zeige: (z) => { const b = nrVon(z.buchung_id); return b ? `${b.jahr}-${b.nr}` : ""; } }
@@ -126,10 +137,18 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
       if (el instanceof HTMLInputElement) el.select();
     });
   };
-  const leeren = (naechsterBeleg: string) => {
-    setEingabe({ ...LEER, datum: eingabe.datum, beleg: naechsterBeleg, steuer: eingabe.steuer });
+  // Nach dem Übernehmen: neue Zeile (Datum und Steuer bleiben, Beleg zählt weiter) – oder nach einem neuen Teil gleich
+  // der nächste Teil derselben Kopfzeile (Esc beendet das).
+  const leeren = (naechsterBeleg: string, nochEinTeil = false) => {
     setBearbeite(null);
     setFormNr(formNr + 1);
+    if (nochEinTeil && kopf) {
+      setEingabe({ ...LEER, datum: datumKurz(kopf.datum), beleg: kopf.beleg ?? "", text: kopf.text, steuer: eingabe.steuer });
+      fokusFeld("soll");
+      return;
+    }
+    setEingabe({ ...LEER, datum: eingabe.datum, beleg: naechsterBeleg, steuer: eingabe.steuer });
+    setTeilVon(null);
     fokusFeld("datum");
   };
 
@@ -140,9 +159,12 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
     setLaeuft(true);
     setHinweis(null);
     try {
-      await finStapelZeileSpeichern(supabase, stapel.id, bearbeite, r.zeile);
+      if (kopf) await finStapelTeilSpeichern(supabase, kopf.id, bearbeite, { soll: r.zeile.soll, haben: r.zeile.haben, betrag: r.zeile.betrag, steuer: r.zeile.steuer,
+        kost1: r.zeile.kost1 ?? null, kost2: r.zeile.kost2 ?? null });
+      else await finStapelZeileSpeichern(supabase, stapel.id, bearbeite, r.zeile);
       await neuLaden();
-      leeren(bearbeite ? "" : r.zeile.beleg ? belegWeiter(r.zeile.beleg) : "");
+      if (kopf) leeren("", !bearbeite);
+      else leeren(bearbeite ? "" : r.zeile.beleg ? belegWeiter(r.zeile.beleg) : "");
     } catch (e) {
       setHinweis(fehlerText(e));
     } finally {
@@ -155,9 +177,21 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
     setEingabe({ datum: datumKurz(z.datum), beleg: z.beleg ?? "", soll: z.soll, haben: z.haben, betrag: betragText(z.betrag), steuer: z.steuer ?? "", text: z.text,
       kost1: z.kost1 ?? "", kost2: z.kost2 ?? "" });
     setBearbeite(z.id);
+    setTeilVon(z.teil_von ?? null);
     setFormNr(formNr + 1);
     setHinweis(null);
-    fokusFeld("datum");
+    fokusFeld(z.teil_von ? "soll" : "datum");
+  }
+
+  // „+ Teil“: Datum, Beleg und Text von der Kopfzeile, der Rest leer; der Cursor springt ins Soll.
+  function teilNeu(k: FinStapelZeile) {
+    if (!offen || k.teil_von) return;
+    setEingabe({ ...LEER, datum: datumKurz(k.datum), beleg: k.beleg ?? "", text: k.text, steuer: k.steuer ?? "" });
+    setBearbeite(null);
+    setTeilVon(k.id);
+    setFormNr(formNr + 1);
+    setHinweis(null);
+    fokusFeld("soll");
   }
 
   async function zeileLoeschen(z: FinStapelZeile) {
@@ -165,7 +199,7 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
     setFehler(null);
     try {
       await finStapelZeileLoeschen(supabase, z.id);
-      if (bearbeite === z.id) leeren("");
+      if (bearbeite === z.id || teilVon === z.id || teilVon === z.teil_von) leeren("");
       await neuLaden();
     } catch (e) {
       setFehler(fehlerText(e));
@@ -264,9 +298,9 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
 
   // Enter springt ins nächste Feld; im letzten übernimmt es. Ein offenes Vorschlagsfeld (Konto) nimmt Enter selbst.
   function erfassungTaste(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key === "Escape" && bearbeite) { e.preventDefault(); leeren(""); return; }
+    if (e.key === "Escape" && (bearbeite || teilVon)) { e.preventDefault(); leeren(""); return; }
     if (e.key !== "Enter" || e.ctrlKey || e.metaKey || e.isDefaultPrevented()) return;
-    const felder = [...(erfassungRef.current?.querySelectorAll<HTMLElement>("input, select") ?? [])];
+    const felder = [...(erfassungRef.current?.querySelectorAll<HTMLElement>("input:not(:disabled), select:not(:disabled)") ?? [])];
     const i = felder.indexOf(e.target as HTMLElement);
     if (i < 0) return;
     e.preventDefault();
@@ -338,14 +372,14 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
           <>
             {offen && (
               <div className={"ap-erfassung" + (kostenstellen.length ? " ap-mit-kost" : "") + (bearbeite ? " ap-bearbeite" : "")} ref={erfassungRef} onKeyDown={erfassungTaste} role="group"
-                aria-label={bearbeite ? "Zeile ändern" : "Neue Zeile erfassen"}>
+                aria-label={kopf ? `Teil zu Zeile ${pos.get(kopf.id)} ${bearbeite ? "ändern" : "erfassen"}` : bearbeite ? "Zeile ändern" : "Neue Zeile erfassen"}>
                 <label><span>Datum</span>
-                  <input data-feld="datum" value={eingabe.datum} placeholder="TTMM" aria-label="Datum" inputMode="numeric" autoComplete="off"
+                  <input data-feld="datum" value={eingabe.datum} placeholder="TTMM" aria-label="Datum" inputMode="numeric" autoComplete="off" disabled={!!kopf}
                     onChange={(e) => setze({ datum: e.target.value })}
                     onBlur={() => { const d = datumAusEingabe(eingabe.datum, jahr); if (d) setze({ datum: datumKurz(d) }); }} />
                 </label>
                 <label><span>Beleg</span>
-                  <input data-feld="beleg" value={eingabe.beleg} maxLength={60} aria-label="Beleg" autoComplete="off" onChange={(e) => setze({ beleg: e.target.value })} />
+                  <input data-feld="beleg" value={eingabe.beleg} maxLength={60} aria-label="Beleg" autoComplete="off" disabled={!!kopf} onChange={(e) => setze({ beleg: e.target.value })} />
                 </label>
                 <label data-feld="soll"><span>Soll</span>
                   <KontoFeld key={`s${formNr}`} konten={konten} wert={eingabe.soll} onWert={(n) => setze({ soll: n })} label="Soll-Konto" />
@@ -368,17 +402,18 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
                   </label>
                 ))}
                 <label className="ap-erf-text"><span>Buchungstext</span>
-                  <input data-feld="text" value={eingabe.text} maxLength={200} aria-label="Buchungstext" autoComplete="off" onChange={(e) => setze({ text: e.target.value })} />
+                  <input data-feld="text" value={eingabe.text} maxLength={200} aria-label="Buchungstext" autoComplete="off" disabled={!!kopf} onChange={(e) => setze({ text: e.target.value })} />
                 </label>
                 <button type="button" className="btn-primary ap-erf-knopf" onClick={() => void uebernehmen()} disabled={laeuft}>
-                  {bearbeite ? "Ändern ⏎" : "Übernehmen ⏎"}
+                  {bearbeite ? "Ändern ⏎" : kopf ? "Teil ⏎" : "Übernehmen ⏎"}
                 </button>
                 <div className="ap-erf-fuss">
                   {hinweis ? <span className="ap-rot" role="alert">{hinweis}</span>
                     : vorschau?.fehler ? <span className="ap-rot">Beim Buchen: {vorschau.fehler}</span>
                     : vorschau ? <span>So wird gebucht: {vorschau.zeilen.map((x) => `${x.seite} ${kontoNr(x.konto)} ${betragText(x.betrag)}`).join(" · ")}</span>
+                    : kopf ? <span className="small">Teil zu Zeile {pos.get(kopf.id)} „{kopf.text}“ – Datum, Beleg und Text wie dort · Enter im letzten Feld übernimmt · Esc beendet</span>
                     : <span className="small">Enter springt weiter, im Text übernimmt es die Zeile{bearbeite ? " · Esc bricht das Ändern ab" : ""} · Datum als TTMM</span>}
-                  {eingabe.soll != null && eingabe.haben != null && eingabe.text.trim() !== "" && (
+                  {!kopf && eingabe.soll != null && eingabe.haben != null && eingabe.text.trim() !== "" && (
                     <button type="button" className="ap-link ap-erf-vorlage" onClick={() => setAlsVorlage(true)}>Als Vorlage …</button>
                   )}
                 </div>
@@ -390,20 +425,24 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
                 e.preventDefault();
                 void zeileLoeschen(gewaehlt);
               }
+              if (e.key.toLowerCase() === "t" && !e.ctrlKey && !e.metaKey && gewaehlt && offen && !(e.target as HTMLElement).closest("input, select")) {
+                e.preventDefault();
+                teilNeu(gewaehlt.teil_von ? zeilenRoh.find((z) => z.id === gewaehlt.teil_von) ?? gewaehlt : gewaehlt);
+              }
             }}>
               <DatenTabelle label={`Stapel ${stapel.bezeichnung}`} spalten={spalten} zeilen={zeilen} schluessel={(z) => z.id}
                 auswahl={gewaehlt?.id ?? null} onAuswahl={setAuswahl}
                 onOeffnen={(z) => { if (offen) bearbeiten(z); else { const b = nrVon(z.buchung_id); if (b) onOeffnen(b); } }}
                 markiert={markiert} onMarkiert={setMarkiert} sortierung={sortierung} onSortierung={setSortierung}
-                zeilenKlasse={(z) => (z.id === bearbeite ? "ap-markiert" : undefined)}
-                summe={<><b>{zeilenRoh.length === 1 ? "1 Zeile" : `${zeilenRoh.length} Zeilen`}</b> · Summe <b>{betragText(summe)}</b>
+                zeilenKlasse={(z) => (z.id === bearbeite ? "ap-markiert" : z.teil_von ? "ap-teil" : undefined)}
+                summe={<><b>{zeilenRoh.length === 1 ? "1 Zeile" : `${zeilenRoh.length} Zeilen`}</b>{anzahlBuchungen !== zeilenRoh.length ? ` (${anzahlBuchungen === 1 ? "1 Buchung" : `${anzahlBuchungen} Buchungen`})` : ""} · Summe <b>{betragText(summe)}</b>
                   {mitFehler > 0 && <b className="ap-rot"> · {mitFehler} mit Fehler</b>}</>}
                 leer={stapelQ.isPending ? "Lädt …" : offen ? "Noch keine Zeile – oben erfassen." : "Keine Zeile."} />
             </div>
 
             <div className="ap-status">
               <span>{stapel.zustand === "gebucht" ? `gebucht am ${datumDe((stapel.gebucht_am ?? "").slice(0, 10))}` : "offen – vorläufig, noch nicht im Journal"}</span>
-              <span className="ap-tasten">Enter im Feld: weiter · Enter in der Liste: ändern · Entf löscht die Zeile · Strg+S bucht den Stapel · N neue Zeile</span>
+              <span className="ap-tasten">Enter im Feld: weiter · Enter in der Liste: ändern · Entf löscht die Zeile · T Teil (Splitt) · Strg+S bucht den Stapel · N neue Zeile</span>
             </div>
           </>
         )}
@@ -412,15 +451,17 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
       <aside className="ap-detail" aria-label="Gewählte Zeile">
         {gewaehlt && stapel ? (
             <>
-              <h3>Zeile {zeilenRoh.indexOf(gewaehlt) + 1}</h3>
+              <h3>{gewaehlt.teil_von ? `Teil ${pos.get(gewaehlt.id)}` : `Zeile ${pos.get(gewaehlt.id)}`}</h3>
               <div className="small">{datumDe(gewaehlt.datum)}{gewaehlt.beleg ? ` · Beleg ${gewaehlt.beleg}` : ""}</div>
               <p className="ap-text"><b>{gewaehlt.text}</b></p>
               {gewBuchung ? <div className="fi-hinweis fi-info">Gebucht als Nr. {gewBuchung.jahr}-{gewBuchung.nr}.</div>
                 : gewPruefung?.fehler ? <div className="fi-hinweis fi-rot">{gewPruefung.fehler}</div> : null}
-              <ZeilenTabelle zeilen={gewBuchung ? gewBuchung.fin_buchungszeilen : gewPruefung?.zeilen ?? []} name={name} />
+              <ZeilenTabelle zeilen={gewBuchung ? gewBuchung.fin_buchungszeilen : gewVorschau} name={name} />
+              {!gewBuchung && gewTeile > 0 && <span className="small">Die ganze Buchung mit {gewTeile === 1 ? "1 Teil" : `${gewTeile} Teilen`}.</span>}
               <div className="ap-links">
                 {offen && <button type="button" className="es-knopf" onClick={() => bearbeiten(gewaehlt)}>Ändern (Enter)</button>}
-                {offen && <button type="button" className="es-knopf" onClick={() => void zeileLoeschen(gewaehlt)}>Löschen (Entf)</button>}
+                {offen && !gewaehlt.teil_von && <button type="button" className="es-knopf" onClick={() => teilNeu(gewaehlt)}>+ Teil (T)</button>}
+                {offen && <button type="button" className="es-knopf" onClick={() => void zeileLoeschen(gewaehlt)}>{!gewaehlt.teil_von && gewTeile ? "Löschen mit Teilen (Entf)" : "Löschen (Entf)"}</button>}
                 {gewBuchung && <button type="button" className="es-knopf" onClick={() => onOeffnen(gewBuchung)}>Buchung öffnen</button>}
                 <button type="button" className="es-knopf" onClick={() => onKontoblatt(gewaehlt.soll)}>Kontoblatt {kontoNr(gewaehlt.soll)} (F3)</button>
               </div>
@@ -495,12 +536,12 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
           fuss={<>
             <button type="button" className="btn-secondary" onClick={() => setFrage(null)} disabled={laeuft}>Abbrechen</button>
             {frage === "buchen"
-              ? <button type="button" className="btn-primary" onClick={() => void buchen()} disabled={laeuft}>{laeuft ? "bucht …" : `${zeilenRoh.length} Buchungen buchen`}</button>
+              ? <button type="button" className="btn-primary" onClick={() => void buchen()} disabled={laeuft}>{laeuft ? "bucht …" : anzahlBuchungen === 1 ? "1 Buchung buchen" : `${anzahlBuchungen} Buchungen buchen`}</button>
               : <button type="button" className="btn-danger" onClick={() => void stapelLoeschen()} disabled={laeuft}>{laeuft ? "löscht …" : "Stapel löschen"}</button>}
           </>}>
           <div className="fi-formular">
             {frage === "buchen" ? (
-              <span>{zeilenRoh.length === 1 ? "1 Zeile" : `${zeilenRoh.length} Zeilen`}, Summe {betragText(summe)}. Sie bekommen fortlaufende Nummern im Journal
+              <span>{zeilenRoh.length === 1 ? "1 Zeile" : `${zeilenRoh.length} Zeilen`}{anzahlBuchungen !== zeilenRoh.length ? ` in ${anzahlBuchungen === 1 ? "1 Buchung" : `${anzahlBuchungen} Buchungen`}` : ""}, Summe {betragText(summe)}. Sie bekommen fortlaufende Nummern im Journal
                 (Reihenfolge Datum, dann Erfassung) und sind danach nicht mehr änderbar – Korrekturen nur per Storno.</span>
             ) : (
               <span>Der Stapel und seine {zeilenRoh.length === 1 ? "1 Zeile" : `${zeilenRoh.length} Zeilen`} werden gelöscht. Gebucht ist davon nichts.</span>

@@ -713,8 +713,11 @@ Abschluss, Prüfung.
    gefragt wird.
 
 Offen vor dem Echtbetrieb weiterhin: Kontenliste und Kennzahlen mit dem Steuerberater abgleichen. Stufe A ist gebaut
-(Abschnitt 10), Stufe B auch (Abschnitt 11), von Stufe C der Buchungsstapel (Abschnitt 12) sowie Vorlagen und
-wiederkehrende Buchungen (Abschnitt 13); nächster Schritt: Kostenstellen und Erfassen am Handy.
+(Abschnitt 10), Stufe B auch (Abschnitt 11), Stufe C vollständig: Buchungsstapel (Abschnitt 12), Vorlagen und
+wiederkehrende Buchungen (Abschnitt 13), Kostenstellen (Abschnitt 14), Stapel am Handy, Splitt und Abhaken (Abschnitt 15).
+Stufe D gebaut (Abschnitt 16): Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel. Damit kann Finance die
+Buchhaltung ab 01.01.2027 vollständig führen (Weg B); offen vor dem Echtbetrieb bleiben Kontenliste und Kennzahlen mit dem
+Steuerberater und die Eröffnungsbilanz. Als Nächstes: Stufe E (Zahlungsverkehr).
 
 ## 10. So ist Stufe A gebaut (v178, ohne Migration)
 
@@ -846,3 +849,77 @@ in der Oberfläche steht „Transporter“ und „Leistung“.
 - **Später (Stufe D):** Bei den FSM-Rechnungen kommt die Leistungsart „ohne Handarbeit“ aus dem Artikel, der Transporter aus
   dem Auftrag.
 - Tests: `tests/financeKostenstellen.test.ts`, `tests/financeKostenstellenOberflaeche.test.tsx`; Datenbank `/tmp/pgt/t108.sql`.
+
+## 15. Stufe C abgeschlossen: Stapel am Handy, Splitt, Abhaken (v183, Migration 109)
+
+- **Stapel am Handy** (Entscheidung 5, `components/finance/FinanceStapelHandy.tsx`): Reiter „Stapel“ auch am Handy, als
+  Kartenliste. „+ Zeile“ öffnet die schlanke Maske – Vorlage, Datum (Kalender), Betrag, Text, Soll, Haben (Auswahllisten
+  nach Kontoart), Steuer, Beleg, Transporter und Leistung –, darunter „So wird gebucht“. „+ Nächste“ speichert und lässt
+  Datum und Steuer stehen, der Beleg zählt weiter. Antippen einer Zeile ändert oder löscht sie; „Stapel buchen“ mit
+  Rückfrage. Dieselben Zeilen und dieselbe Prüfung wie am Rechner; ohne „Finance › Buchungen“ schreiben nur ansehen.
+- **Splitt im Stapel** (`fin_stapel_zeilen.teil_von`): An eine Zeile (Kopf) lassen sich Teile hängen – weitere Posten
+  derselben Buchung mit eigenen Konten, Betrag, Steuer und Kostenstellen; Datum, Beleg und Text bleiben die des Kopfes
+  (`fin_stapel_teil_speichern()`, ändert sich der Kopf, ziehen die Teile mit). „Stapel buchen“ bucht Kopf und Teile als
+  eine Buchung mit mehreren Posten; ein fehlerhafter Teil hält wie jede Zeile den ganzen Stapel an. Kopf löschen löscht die
+  Teile mit. Am Rechner: Taste T oder „+ Teil“ in der Detailspalte, die Erfassungszeile sperrt dann Datum, Beleg und Text
+  und bleibt nach dem Übernehmen für den nächsten Teil offen (Esc beendet); Teile stehen als 1.1, 1.2 unter dem Kopf, die
+  Detailspalte zeigt die ganze Buchung. Am Handy: „+ Teil“ im Fenster der Zeile. Die Summenzeile nennt Zeilen und Buchungen.
+- **Abhaken** (`fin_abgehakt`, `fin_abhaken()`): Im Kontoblatt hat jede Zeile ein Kästchen; H hakt die gewählte oder alle
+  markierten ab (sind schon alle abgehakt, nimmt H die Haken weg). Filter „nur offene“/„nur abgehakte“, im Kopf „Nicht
+  abgehakt“ mit Anzahl und Saldo – zum Abstimmen von Bank-, Kassen- oder Verrechnungskonten. Der Haken ist eine Notiz
+  neben dem Journal (GoBD: die Buchung ändert sich nicht) und geht auch in festgeschriebenen Monaten. Der CSV-Export hat
+  die Spalte „Abgehakt“. Ohne Recht und ohne Haken bleibt die Spalte weg.
+- Tests: `tests/financeStapelHandy.test.tsx`, `tests/financeStapel.test.ts` (Reihenfolge und Positionen mit Teilen),
+  `tests/financeStapelOberflaeche.test.tsx` (Teil mit T), `tests/financeKontoblattOberflaeche.test.tsx` (Abhaken);
+  Datenbank `/tmp/pgt/t109.sql`.
+
+## 16. So ist Stufe D gebaut: Personenkonten und alle Rechnungen (v184, Migrationen 110 und 111)
+
+- **Personenkonten** (`fin_personenkonten`, Migration 110, Entscheidung 3): Debitoren 10000–69999, Kreditoren 70000–99999 –
+  der DATEV-Standard bei Sachkontenlänge 4. Debitor = Kundennummer + `betrieb.datev_debitor_basis`, genau wie im
+  DATEV-Export des Rechnungsbuchs (`debitorFuer()`, Migration 59), damit die Kanzlei dieselben Nummern sieht. Der
+  Sammeldebitor (`betrieb.datev_sammeldebitor`, Vorgabe 69999) nimmt die Laufkundschaft und Rechnungen ohne Kundennummer;
+  Unterdebitoren einer Kundengruppe haben ihre eigene Nummer. Kreditoren je Lieferant fortlaufend ab 70000. Angelegt wird
+  ein Personenkonto von selbst, sobald eine Buchung es braucht.
+- **Nebenbuch statt Umbuchen:** Gebucht bleibt auf dem Sammelkonto (1400/1600 bzw. 1200/3300); die Forderungs- oder
+  Verbindlichkeitszeile trägt `personenkonto`. So bleiben Summen, Bilanz, Steuer und alle Funktionen aus F1–F9 unverändert.
+  Ein Trigger (`fin_zeile_personenkonto`) setzt es beim Schreiben jeder Zeile, wenn die Buchung aus einer Rechnung, Zahlung,
+  einem Skonto oder Beleg kommt; Stornos erben es über dieselbe Quelle. Die vorhandenen Zeilen hat Migration 110 einmal
+  nachgetragen. Von Hand gebuchte Zeilen auf 1400/1600 bleiben ohne Personenkonto.
+- **Datenschutz:** Die Tabelle hält nur den Verweis auf Kunde bzw. Lieferant; Name und Anschrift kommen beim Lesen aus dem
+  Stamm (`fin_personenkonten_stand()`). Kunden mit echter Rechnung lassen sich ohnehin nicht endgültig löschen
+  (Migration 56); geht ein Kunde trotzdem, bleibt das Personenkonto ohne Namen stehen (Fremdschlüssel `on delete set null`).
+  Deshalb gehört die Tabelle weder in `kunde_endgueltig_loeschen()` noch in die Auskunft.
+- **Finance › Buchungen › Personen** (`components/finance/FinancePersonenkonten.tsx`, `lib/finance/personen.ts`): Liste mit
+  Vortrag (Saldo aus den Vorjahren), Soll, Haben und Saldo je Person, Filter nach Art, „nur mit Saldo“, Suche, CSV. Enter
+  (oder F3) öffnet das Personenkontoblatt (`kontoblatt(…, { vortrag })`) mit den offenen Posten darunter: je Belegnummer
+  aufgerechnet wie bei DATEV (Rechnung gegen Zahlung, Skonto, Storno), mit Tagen seit dem Beleg. Am Handy Karten, Antippen
+  zeigt Saldo und offene Posten. Im Kontoblatt eines Sachkontos zeigt die Spalte „Person“ den Debitor bzw. Kreditor.
+- **DATEV und GoBD:** Der Buchungsstapel bucht Forderungen und Verbindlichkeiten auf das Personenkonto (das Sammelkonto
+  ergibt sich in DATEV selbst); Finance › Export hat die Liste der Personenkonten (Konto, Art, Name, Kundennummer,
+  Anschrift, USt-IdNr.) als CSV, damit die Kanzlei sie vor dem Einlesen anlegt. Der GoBD-Export hat die Spalte
+  „Personenkonto“. Das DATEV-Stammdatenformat (Debitoren/Kreditoren) ist bewusst nicht gebaut – erst mit der Kanzlei klären.
+- **Alle Rechnungen** (Migration 111, Entscheidungen 1 und 2): `fin_einstellungen.rechnungen_umfang` je Jahr – „Alle
+  Rechnungen“ (Vorgabe ab 2027) oder „Pilot“ (nur „Rechnung nötig“; die Jahre vor 2027 hat die Migration so belassen).
+  Mit „alle“ bucht der Trigger jede Rechnung aus FSM (keine Testrechnung, kein Testauftrag); „Zu erstellen“ und
+  „Vorgemerkt“ zeigen weiter die Aufträge mit „Rechnung nötig“. „Alle nachbuchen“ (`fin_rechnungen_nachbuchen_alle`)
+  bucht die noch nicht gebuchten Rechnungen des Jahres samt ihren Stornos. Die Pilot-Hinweise auf Übersicht, Steuern und
+  Export erscheinen nur noch im Pilot. FSM bleibt unverändert.
+- **Ohne Umsatzsteuerausweis** (`ohne_ausweis`): Aufträge ohne „Rechnung nötig“ ergeben Rechnungen ohne Steuerzeile. Bei
+  Regelbesteuerung rechnet Finance die Steuer heraus (Vorgabe: 19 % aus 119 €, je Satz auf den Cent) oder bucht – nur
+  wenn der Steuerberater das so sieht – steuerfrei auf 8200/4200. Kleinunternehmer wie bisher auf 8195/4185.
+  **Mit dem Steuerberater klären, bevor 2027 gebucht wird.**
+- **Leistungsart aus dem Artikel** (Entscheidung 4): Je Rechnungsposition KOST2 über die Artikelnummer –
+  `fin_artikel_leistungsart()`: abweichende Wahl in `fin_artikel_kost`, sonst die Vorgabe aus der Abrechnungsart
+  (`FIN_LEISTUNGSART_VORGABE`: Lagergebühr → 200, Reifenverkauf neu/gebraucht → 300, sonst 100). Eine Nachlasszeile (ohne
+  Artikelnummer) folgt ihrer Position. KOST1 aus dem Firmenfahrzeug des Auftrags. Gibt es die Kostenstelle nicht oder ist
+  sie ausgeblendet, bleibt die Zeile ohne – die Rechnung wird trotzdem gebucht. Pflege unter Kostenstellen › „Leistungsart
+  je Artikel“.
+- **Rechnungsbuchung neu** (`fin_rechnung_buchen_kern()`): Erlöse je Steuersatz und Leistungsart als eigener Posten; die
+  Steuer je Satz bleibt die des Belegs und wird auf die Posten verteilt (der letzte nimmt den Rundungsrest). Weil ein
+  Posten dann eine eigene Steuer trägt, kann ein Posten mit Rundungsrest beim DATEV-Export ohne Automatik hinübergehen
+  (Hinweis auf der Exportseite).
+- Tests: `tests/financePersonen.test.ts`, `tests/financePersonenkontenOberflaeche.test.tsx`, `tests/financeExport.test.ts`
+  (Personenkonto im DATEV-Satz), `tests/financeKostenstellen.test.ts` (Vorgabe wie SQL),
+  `tests/financeKostenstellenOberflaeche.test.tsx` (Leistungsart je Artikel); Datenbank `/tmp/pgt/t110.sql`, `/tmp/pgt/t111.sql`.
+

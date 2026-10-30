@@ -152,7 +152,12 @@ viana-pinpoints/
       FinanceJournalArbeitsplatz.tsx Journal am Rechner (v178, Stufe A): Filterleiste, Datentabelle, Detail rechts mit
                                      Saldo vor/nach, Statuszeile, F2/F3/N, CSV (tests/financeArbeitsplatzOberflaeche.test.tsx)
       FinanceStapel.tsx              Buchungsstapel am Rechner (Migration 106, v180): Erfassungszeile mit Enter, Prüfung je Zeile,
-                                     ändern/löschen, Strg+S bucht alle oder keine (tests/financeStapelOberflaeche.test.tsx)
+                                     ändern/löschen, Strg+S bucht alle oder keine, Teile/Splitt mit T (Migration 109, v183)
+                                     (tests/financeStapelOberflaeche.test.tsx)
+      FinanceStapelHandy.tsx         Stapel am Handy (v183): Kartenliste, schlanke Maske, + Teil, buchen
+                                     (tests/financeStapelHandy.test.tsx)
+      FinancePersonenkonten.tsx      Debitoren/Kreditoren (Migration 110, v184): Liste, Personenkontoblatt, offene Posten, Handy-Karten
+                                     (tests/financePersonenkontenOberflaeche.test.tsx)
       FinanceVorlagen.tsx            Vorlagen und wiederkehrende Buchungen am Rechner (Migration 107, v181); `VorlageFormular` auch für
                                      „Als Vorlage“ im Stapel (tests/financeVorlagenOberflaeche.test.tsx)
       FinanceKontoblatt.tsx          Kontoblatt am Rechner (v179, Stufe B): Zeitraum, Eröffnung, laufender Saldo, Sprung übers
@@ -386,8 +391,10 @@ viana-pinpoints/
                                   v180; tests/financeStapel.test.ts)
       vorlagen.ts                 Vorlagen/wiederkehrende Buchungen: Termine wie fin_wiederkehrend_holen(), offene Termine, Vorlage in die
                                   Erfassungszeile (Migration 107, v181; tests/financeVorlagen.test.ts)
-      kostenstellen.ts            Kostenstellen: Auswahl, Anzeige, Auswertung je KOST1/KOST2 (Migration 108, v182;
-                                  tests/financeKostenstellen.test.ts)
+      kostenstellen.ts            Kostenstellen: Auswahl, Anzeige, Auswertung je KOST1/KOST2 (Migration 108, v182); Leistungsart-
+                                  Vorgabe je Artikel (Migration 111, v184; tests/financeKostenstellen.test.ts)
+      personen.ts                 Personenkonten: Salden, offene Posten je Beleg, Filter, CSV für die Kanzlei (Migration 110, v184;
+                                  tests/financePersonen.test.ts)
       kontoblatt.ts               Zeitraum (Jahr/Quartal/Monat/frei), Kontoblatt mit laufendem Saldo, Konten im Zeitraum (v179, Stufe B;
                                   tests/financeKontoblatt.test.ts)
       buchung.ts                  Buchungsregeln wie `fin_posten_schreiben()` (Vorschau), Salden, Betrag lesen (Migration 88, v146)
@@ -816,7 +823,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 108** (30.10.2026; 101–107 ausgeführt, 108 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 111** (30.10.2026; 101–107 ausgeführt, 108–111 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -1009,6 +1016,12 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **108** – Finance Kostenstellen: `fin_kostenstellen` (KOST1 je Transporter, KOST2 je Leistungsart), Spalten `kost1`/`kost2` an
   Buchungszeilen, Stapelzeilen, Vorlagen und wiederkehrenden Buchungen; `fin_buchen()` setzt sie je Posten an Erlös-, Aufwands-
   und Anlagekonten, ein Storno übernimmt sie (Abschnitt 14).
+- **109** – Finance Splitt im Stapel und Abhaken: `fin_stapel_zeilen.teil_von`, `fin_stapel_teil_speichern()`,
+  `fin_stapel_buchen()` bucht Kopf und Teile als eine Buchung; `fin_abgehakt` und `fin_abhaken()` (Abschnitt 15).
+- **110** – Finance Personenkonten: `fin_personenkonten` (Debitor = Kundennummer + DATEV-Basis, Sammeldebitor, Kreditoren ab
+  70000), `fin_buchungszeilen.personenkonto` als Nebenbuch, Trigger `trg_fin_zeile_personenkonto`, `fin_personenkonten_stand()`.
+- **111** – Finance alle Rechnungen: `fin_einstellungen.rechnungen_umfang`/`ohne_ausweis`, `fin_artikel_kost`,
+  `fin_rechnung_buchen_kern()` je Steuersatz und Leistungsart mit KOST1/KOST2, `fin_rechnungen_nachbuchen_alle()` (Abschnitt 16).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

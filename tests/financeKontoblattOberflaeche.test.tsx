@@ -8,7 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // Finance Stufe B (v179): Kontoblatt und Konten am Rechner, Sprünge aus dem Journal und über Gegenkonten.
 const api = vi.hoisted(() => ({
   finBuchen: vi.fn(), finStornieren: vi.fn(), finMonatFestschreiben: vi.fn(), finKontoAnlegen: vi.fn(),
-  finKontoAktiv: vi.fn(async () => undefined),
+  finKontoAktiv: vi.fn(async () => undefined), finAbhaken: vi.fn(async () => 1),
 }));
 vi.mock("@/lib/api/finance", () => api);
 const download = vi.hoisted(() => ({ dateiHerunterladen: vi.fn() }));
@@ -20,6 +20,8 @@ vi.mock("@/lib/queries/hooks", () => {
     useFinKonten: () => q(daten.konten), useFinSteuerschluessel: () => q([]), useFinBuchungen: () => q(daten.buchungen),
     useFinFestschreibungen: () => q([]),
     useFinKostenstellen: () => q([]),
+    useFinAbgehakt: () => q([]),
+    useFinPersonenkonten: () => q([]),
   };
 });
 
@@ -141,3 +143,35 @@ describe("Sprünge auf der Seite Buchungen", () => {
     expect(screen.getByRole("region", { name: "Konten 2027" })).toBeTruthy();
   });
 });
+
+describe("Kontoblatt: Abhaken (Migration 109, v183)", () => {
+  const mitId = BUCHUNGEN.map((x, i) => ({ ...x, fin_buchungszeilen: x.fin_buchungszeilen.map((y, j) => ({ ...y, id: (i + 1) * 10 + j })) }));
+  function blatt(abgehakt: Set<number>, onAbhaken?: (ids: number[], an: boolean) => Promise<void>) {
+    render(<FinanceKontoblatt buchungen={mitId} konten={KONTEN} fest={[]} jahr={2027} laedt={false} konto={1200} onKonto={() => {}}
+      zurueck={null} onZurueck={() => {}} darfBuchen onNeu={() => {}} onOeffnen={() => {}} abgehakt={abgehakt} onAbhaken={onAbhaken} />);
+  }
+  it("Haken-Spalte, Saldo der offenen, Filter", () => {
+    // Bank-Zeilen: Nr. 1 Soll 500 (id 10), Nr. 2 Haben 78,40 (id 21), Nr. 3 Haben 300 (id 31).
+    blatt(new Set([10]), vi.fn(async () => {}));
+    expect(screen.getByText(/Nicht abgehakt/).textContent).toMatch(/Nicht abgehakt 2 · 378,40 H/);
+    expect(screen.getAllByRole("button", { name: "Haken entfernen" })).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Haken"), { target: { value: "offen" } });
+    expect(zeilen().map((r) => r.dataset.key)).toEqual(["b2:21", "b3:31"]);
+    fireEvent.change(screen.getByLabelText("Haken"), { target: { value: "abgehakt" } });
+    expect(zeilen().map((r) => r.dataset.key)).toEqual(["b1:10"]);
+  });
+  it("Klick auf das Kästchen und H auf der gewählten Zeile haken ab", async () => {
+    const onAbhaken = vi.fn(async () => {});
+    blatt(new Set([10]), onAbhaken);
+    await act(async () => { fireEvent.click(screen.getAllByRole("button", { name: "Abhaken" })[0]); });
+    expect(onAbhaken).toHaveBeenLastCalledWith([21], true);
+    await act(async () => { fireEvent.keyDown(zeilen()[0], { key: "h" }); });
+    expect(onAbhaken).toHaveBeenCalledTimes(2);
+  });
+  it("ohne Recht nur ansehen", () => {
+    blatt(new Set([10]));
+    expect(screen.queryByRole("button", { name: "Abhaken" })).toBeNull();
+    expect(screen.getByLabelText("abgehakt")).toBeTruthy();
+  });
+});
+

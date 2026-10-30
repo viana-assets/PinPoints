@@ -346,6 +346,10 @@ Parameter `mitSteuer` ist der Schalter `orders.rechnung_noetig` zum Zeitpunkt de
 ist er `false`, bleiben alle Steuerbeträge 0 und die Rechnung zeigt „Ohne
 Umsatzsteuerausweis" statt einer Steuerzeile.
 
+**In Finance** (ab v184, Migration 111): Steht das Wirtschaftsjahr auf „alle Rechnungen“, bucht Finance auch diese
+Rechnungen – bei Regelbesteuerung mit herausgerechneter Umsatzsteuer (Einstellung `ohne_ausweis`, mit dem Steuerberater
+klären). In FSM ändert sich dadurch nichts; siehe `docs/finance.md` Abschnitt 16.
+
 ## Freitextposition
 
 Seit Migration 50 hat `articles.freitext` (Boolean, Vorgabe `false`) eine zweite Bedeutung für

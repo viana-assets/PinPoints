@@ -24,7 +24,7 @@ import { MONATSNAMEN } from "@/lib/finance/auswertungen";
 import { rechnungenZuErledigen } from "@/lib/finance/rechnungen";
 import { FINANCE_SEITEN, financeWeitereGruppen, sichtbareFinanceSeiten, type FinanceSeite, type FinanceSeiteKey } from "@/lib/finance/seiten";
 import {
-  FIN_BESTEUERUNG, FIN_GEWINNERMITTLUNG, FIN_KONTENRAHMEN, FIN_RECHTSFORMEN, FIN_VERSTEUERUNG, FIN_VORANMELDUNG,
+  FIN_BESTEUERUNG, FIN_GEWINNERMITTLUNG, FIN_KONTENRAHMEN, FIN_OHNE_AUSWEIS, FIN_RECHNUNGEN_UMFANG, FIN_RECHTSFORMEN, FIN_VERSTEUERUNG, FIN_VORANMELDUNG,
   KLEINUNTERNEHMER_GRENZE_LAUFEND, KLEINUNTERNEHMER_GRENZE_VORJAHR,
   finFeldAktiv, finKurztext, finMaengel, finVorgabe, type FinEinstellungen,
 } from "@/lib/finance/einstellungen";
@@ -90,10 +90,12 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
           </div>
         </div>
 
-        <div className="fi-hinweis fi-pilot" role="note">
-          <b>Pilot</b> · Finance enthält nur Vorgänge mit „Rechnung nötig“. Die Zahlen sind ein Probelauf und nicht zur
-          Abgabe gedacht – FSM und die bisherige Buchhaltung laufen unverändert weiter.
-        </div>
+        {stand?.status === "da" && stand.einstellungen?.rechnungen_umfang !== "alle" && (
+          <div className="fi-hinweis fi-pilot" role="note">
+            <b>Pilot</b> · Finance enthält {jahr} nur Vorgänge mit „Rechnung nötig“. Die Zahlen sind ein Probelauf und nicht zur
+            Abgabe gedacht – FSM und die bisherige Buchhaltung laufen unverändert weiter.
+          </div>
+        )}
 
         {stand?.status === "fehlt" && (
           <div className="fi-hinweis fi-rot" role="alert">
@@ -441,6 +443,18 @@ export function FinanceEinstellungen({ supabase, gespeichert, bereit, vorgabe, d
           <Schalter titel="Innergemeinschaftliche Geschäfte" text="Erwerb und Lieferung mit USt-IdNr., Zusammenfassende Meldung"
             an={e.innergemeinschaftlich} gesperrt={gesperrt} onWechsel={() => setze({ innergemeinschaftlich: !e.innergemeinschaftlich })} />
         </div>
+      </div>
+
+      <span className="op-gruppe-titel">RECHNUNGEN AUS FSM</span>
+      <div className="db-karte es-karte fi-karte">
+        <WahlGruppe titel="Welche Rechnungen bucht Finance?" liste={FIN_RECHNUNGEN_UMFANG} wert={e.rechnungen_umfang} gesperrt={gesperrt}
+          onWahl={(w) => setze({ rechnungen_umfang: w })} />
+        {!ku && (
+          <WahlGruppe titel="Rechnung ohne Umsatzsteuerausweis (Auftrag ohne „Rechnung nötig“)" liste={FIN_OHNE_AUSWEIS} wert={e.ohne_ausweis}
+            gesperrt={gesperrt} aus={e.rechnungen_umfang === "pilot"} onWahl={(w) => setze({ ohne_ausweis: w })} />
+        )}
+        <span className="small es-fuss">In FSM ändert sich nichts. Mit „Alle Rechnungen“ bucht Finance jede neue Rechnung beim Ausstellen; ältere des Jahres
+          bucht „Alle nachbuchen“ unter Finance › Rechnungen. Wie Rechnungen ohne Steuerausweis zu behandeln sind, mit dem Steuerberater klären.</span>
       </div>
 
       <span className="op-gruppe-titel">ANLAGEN</span>

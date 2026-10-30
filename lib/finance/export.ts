@@ -68,7 +68,9 @@ function elemente(z: FinBuchungszeile[], c: Ctx, netto: boolean): { els: El[]; g
   });
   z.forEach((l, i) => {
     if (benutzt.has(i)) return;
-    els.push({ posten: l.posten, seite: l.seite, konto: l.konto, betrag: cent(Number(l.betrag)), bu: am[l.konto] ? FIN_DATEV_OHNE_AUTOMATIK : "", kombi: false,
+    // Forderung/Verbindlichkeit mit Personenkonto (Migration 110): DATEV bucht auf den Debitor bzw. Kreditor, das
+    // Sammelkonto ergibt sich dort von selbst.
+    els.push({ posten: l.posten, seite: l.seite, konto: l.personenkonto ?? l.konto, betrag: cent(Number(l.betrag)), bu: am[l.konto] ? FIN_DATEV_OHNE_AUTOMATIK : "", kombi: false,
       erfolg: ERFOLG.includes(c.kat.get(l.konto) as KontoKategorie) });
   });
   return { els, getrennt, hinweis };
@@ -234,9 +236,9 @@ function gobdTabellen(buchungen: FinBuchung[], konten: FinKonto[], schluessel: F
       zeilen: buchungen.map((b) => [`${b.jahr}-${b.nr}`, b.jahr, b.nr, datumDe(b.datum), b.text, b.beleg ?? "", b.quelle,
         b.storno_von ? nrVon.get(b.storno_von) ?? b.storno_von : "", b.storniert_durch ? nrVon.get(b.storniert_durch) ?? b.storniert_durch : "", b.grund ?? "", b.erstellt_am]) },
     { url: "buchungszeilen.csv", name: "Buchungszeilen", text: "Soll- und Habenzeilen je Buchung", schluessel: a("Zeile"), verweis: { spalte: "Buchung", tabelle: "Buchungen" },
-      spalten: [a("Buchung"), n("Posten"), a("Seite"), n("Konto"), n("Betrag", 2), a("Steuerschluessel"), a("Steuerzeile"), a("KOST1"), a("KOST2")],
+      spalten: [a("Buchung"), n("Posten"), a("Seite"), n("Konto"), n("Betrag", 2), a("Steuerschluessel"), a("Steuerzeile"), a("KOST1"), a("KOST2"), a("Personenkonto")],
       zeilen: buchungen.flatMap((b) => [...b.fin_buchungszeilen].sort((x, y) => (x.id ?? 0) - (y.id ?? 0)).map((z, k) =>
-        [`${b.jahr}-${b.nr}-${k + 1}`, `${b.jahr}-${b.nr}`, z.posten, z.seite, z.konto, Number(z.betrag), z.steuerschluessel ?? "", z.ist_steuer ? "ja" : "nein", z.kost1 ?? "", z.kost2 ?? ""])) },
+        [`${b.jahr}-${b.nr}-${k + 1}`, `${b.jahr}-${b.nr}`, z.posten, z.seite, z.konto, Number(z.betrag), z.steuerschluessel ?? "", z.ist_steuer ? "ja" : "nein", z.kost1 ?? "", z.kost2 ?? "", z.personenkonto ?? ""])) },
     { url: "konten.csv", name: "Konten", text: "Kontenplan", schluessel: n("Konto"),
       spalten: [a("Bezeichnung"), a("Kategorie"), a("Eigenes_Konto"), a("Aktiv")],
       zeilen: [...konten].sort((x, y) => x.nummer - y.nummer).map((k) => [k.nummer, k.bezeichnung, k.kategorie, k.eigen ? "ja" : "nein", k.aktiv ? "ja" : "nein"]) },

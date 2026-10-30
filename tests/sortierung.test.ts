@@ -12,6 +12,8 @@ const EINDEUTIG = [
   /\.order\("kunde_a"\)\s*\.order\("kunde_b"\)\s*\.range\(/,
   // `fin_konten` (Migration 88): Primärschlüssel (kontenrahmen, nummer), abgefragt je Kontenrahmen.
   /\.eq\("kontenrahmen", rahmen\)\.order\("nummer"\)\.range\(/,
+  // `fin_abgehakt` (Migration 109): Primärschlüssel zeile_id.
+  /\.order\("zeile_id"\)\.range\(/,
 ];
 
 describe("seitenweise Abfragen sind eindeutig sortiert", () => {

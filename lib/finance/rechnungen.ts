@@ -70,7 +70,8 @@ export function skontoMangel(betrag: number | null, rest: number, brutto: number
 
 export type FinAnderswo = { order_id: string; order_number: number; datum: string; kunde: string; rechnung_nummer: string | null };
 
-export type FinRechnungenStand = { vorgaenge: FinVorgang[]; rechnungen: FinRechnungZeile[]; anderswo: FinAnderswo[] };
+// `umfang` (Migration 111): ob Finance in diesem Jahr alle Rechnungen bucht oder nur die mit „Rechnung nötig“.
+export type FinRechnungenStand = { vorgaenge: FinVorgang[]; rechnungen: FinRechnungZeile[]; anderswo: FinAnderswo[]; umfang: "pilot" | "alle" };
 
 // Vorgemerkt: Haken gesetzt, Auftrag läuft noch. Zu erstellen: erledigt, noch keine Rechnung.
 export function vorgaengeTeilen(v: FinVorgang[]): { zuErstellen: FinVorgang[]; vorgemerkt: FinVorgang[] } {
@@ -140,11 +141,17 @@ export function rechnungenZuErledigen(s: FinRechnungenStand, heute: string): { z
 }
 
 // numeric kommt aus jsonb als Zahl; zur Sicherheit einheitlich.
+// Noch nicht gebuchte Rechnungen (für „Alle nachbuchen“): ohne Finance-Stand oder mit Fehler, nicht storniert.
+export function nichtGebucht(r: readonly FinRechnungZeile[]): FinRechnungZeile[] {
+  return r.filter((x) => x.status === "offen" || x.status === "fehler");
+}
+
 export function standLesen(roh: unknown): FinRechnungenStand {
   const s = (roh ?? {}) as Partial<FinRechnungenStand>;
   return {
     vorgaenge: (s.vorgaenge ?? []).map((v) => ({ ...v, betrag: Number(v.betrag) || 0 })),
     rechnungen: (s.rechnungen ?? []).map((r) => ({ ...r, brutto: Number(r.brutto) || 0, teilbezahlt: Number(r.teilbezahlt ?? 0) || 0 })),
     anderswo: s.anderswo ?? [],
+    umfang: s.umfang === "alle" ? "alle" : "pilot",
   };
 }
