@@ -19,6 +19,9 @@ export type FinStapelZeile = {
   betrag: number;
   steuer: string | null;
   buchung_id: string | null;
+  // Geholt aus einer wiederkehrenden Buchung (Migration 107): welche und welcher Termin.
+  wiederkehrend_id?: string | null;
+  termin?: string | null;
 };
 
 export type FinStapel = {

@@ -25,7 +25,7 @@ export type Spalte<T> = {
 };
 
 export function DatenTabelle<T>({ spalten, zeilen, schluessel, auswahl, onAuswahl, onOeffnen, markiert, onMarkiert, sortierung,
-  onSortierung, summe, leer, zeilenKlasse, label }: {
+  onSortierung, summe, leer, zeilenKlasse, label, klasse }: {
   spalten: Spalte<T>[];
   zeilen: T[];
   schluessel: (z: T) => string;
@@ -41,6 +41,8 @@ export function DatenTabelle<T>({ spalten, zeilen, schluessel, auswahl, onAuswah
   leer: ReactNode;
   zeilenKlasse?: (z: T) => string | undefined;
   label: string;
+  // Zusätzliche Klasse am Kasten (etwa `ap-tabelle-kurz`, wenn zwei Tabellen untereinander stehen).
+  klasse?: string;
 }) {
   const kastenRef = useRef<HTMLDivElement>(null);
   const index = auswahl == null ? -1 : zeilen.findIndex((z) => schluessel(z) === auswahl);
@@ -75,7 +77,7 @@ export function DatenTabelle<T>({ spalten, zeilen, schluessel, auswahl, onAuswah
   }
 
   return (
-    <div className="ap-tabelle" ref={kastenRef} tabIndex={0} role="region" aria-label={label}
+    <div className={"ap-tabelle" + (klasse ? " " + klasse : "")} ref={kastenRef} tabIndex={0} role="region" aria-label={label}
       onKeyDown={taste}>
       <table>
         <thead>

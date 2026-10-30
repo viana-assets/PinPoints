@@ -11,8 +11,12 @@ const api = vi.hoisted(() => ({
   finBuchen: vi.fn(), finStornieren: vi.fn(), finMonatFestschreiben: vi.fn(), finKontoAnlegen: vi.fn(), finKontoAktiv: vi.fn(),
 }));
 vi.mock("@/lib/api/finance", () => api);
-const daten = vi.hoisted(() => ({ stapel: [] as unknown[] }));
-vi.mock("@/lib/queries/hooks", () => ({ useFinStapel: () => ({ data: daten.stapel, isError: false, isPending: false }) }));
+const daten = vi.hoisted(() => ({ stapel: [] as unknown[], vorlagen: [] as unknown[], wks: [] as unknown[] }));
+vi.mock("@/lib/queries/hooks", () => ({
+  useFinStapel: () => ({ data: daten.stapel, isError: false, isPending: false }),
+  useFinVorlagen: () => ({ data: daten.vorlagen, isError: false, isPending: false }),
+  useFinWiederkehrend: () => ({ data: daten.wks, isError: false, isPending: false }),
+}));
 
 import { FinanceStapel } from "@/components/finance/FinanceStapel";
 import { finVorgabe } from "@/lib/finance/einstellungen";

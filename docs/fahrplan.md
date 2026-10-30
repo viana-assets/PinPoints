@@ -16,6 +16,12 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.10.2026 – Finance Stufe C, Teil 2: Vorlagen und wiederkehrende Buchungen (Service Worker v181, Migration 107).** Reiter
+  „Vorlagen“ mit beiden Listen und Fenster zum Anlegen/Ändern/Löschen; im Stapel „Vorlage“ (füllt die Erfassungszeile),
+  „Als Vorlage …“ und „Wiederkehrende holen …“ (fällige Termine bis zu einem Stichtag als Zeilen, gebucht wird mit dem
+  Stapel). Noch offen in Stufe C: Kostenstellen (Transporter, Leistungsart), Erfassen am Handy, Splitt in der
+  Stapelzeile. `docs/finance.md` Abschnitt 13.
+
 * **30.10.2026 – Finance Stufe C, Teil 1: Buchungsstapel (Service Worker v180, Migration 106).** Reiter „Stapel“ am Rechner:
   Erfassungszeile mit Enter von Feld zu Feld, Datum TTMM, Beleg zählt weiter, Prüfung jeder Zeile wie `fin_buchen()`,
   ändern (Enter) und löschen (Entf), „Stapel buchen“ (Strg+S) – alle oder keine. Noch nicht: Vorlagen, wiederkehrende
@@ -1026,7 +1032,8 @@ mit Stufe D (alle FSM-Rechnungen, FSM selbst unverändert), vollständig ab 01.0
 Transporter + Kostenträger Leistungsart, Buchen auch am Handy, DATEV monatlich. **Stufe A gebaut (v178):** Journal als
 Arbeitsplatz am Rechner, Kontofeld, Tastatur, Leiste in Bereichen (`docs/finance.md` Abschnitt 10). **Stufe B gebaut (v179):**
 Kontoblatt und Konten (Abschnitt 11). **Stufe C Teil 1 gebaut (v180, Migration 106):** Buchungsstapel (Abschnitt 12).
-Als Nächstes: Stufe C Teil 2 – Vorlagen und wiederkehrende Buchungen, Kostenstellen (Transporter, Leistungsart).
+**Teil 2 gebaut (v181, Migration 107):** Vorlagen und wiederkehrende Buchungen (Abschnitt 13). Als Nächstes: Kostenstellen
+(Transporter, Leistungsart) und Erfassen am Handy.
 
 Konzept, Entscheidungen und Phasen F0–F9 in **`docs/finance.md`**, klickbarer Mockup
 `Claude outputs\Mockup_Finance_v3.html`. Kurz: Systemwechsel an der Marke („MR Assistent · FSM“ ↔

@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **`104_bestellliste.sql`** (vor den Dateien von v173) **`105_bestellliste_loeschkonzept_chatkarten.sql`** (nach 104, vor den Dateien von v174) **und `106_finance_buchungsstapel.sql`** (vor den Dateien von v180) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **`104_bestellliste.sql`** (vor den Dateien von v173) **`105_bestellliste_loeschkonzept_chatkarten.sql`** (nach 104, vor den Dateien von v174) **`106_finance_buchungsstapel.sql`** (vor den Dateien von v180) **und `107_finance_vorlagen_wiederkehrend.sql`** (nach 106, vor den Dateien von v181) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1580,6 +1580,18 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   gebucht → nichts mehr änderbar; leerer Stapel und festgeschriebener Monat abgelehnt; direktes Schreiben verweigert;
   „Alle Daten löschen“ leert beide Tabellen. Zweiter Lauf folgenlos. Rücknahme: `rollback/106_rollback.sql` (löscht die
   Stapel, Gebuchtes bleibt im Journal; zweimal lauffähig).
+
+- `107_finance_vorlagen_wiederkehrend.sql` – **noch auszuführen**, nach 106 und vor den Dateien von v181 (`docs/finance.md`
+  Abschnitt 13). Inhalt: `fin_vorlagen` (Kurzname eindeutig, Betrag frei) und `fin_wiederkehrend` (Rhythmus monatlich bis
+  jährlich, erster Termin, bis, aktiv), RLS nur lesen; `fin_stapel_zeilen` bekommt `wiederkehrend_id` und `termin` (eindeutig
+  je Termin); geschrieben über `fin_vorlage_speichern/_loeschen()`, `fin_wiederkehrend_speichern/_loeschen()` (erster Termin
+  und Rhythmus fest, sobald ein Termin geholt ist) und `fin_wiederkehrend_holen(stapel, bis)` – legt fällige Termine als
+  Zeilen in einen offenen Stapel, nichts wird gebucht. Wache: bricht ohne 106 ab. Ergebnistabelle mit vier Zeilen. Geprüft
+  gegen PG 16 (`/tmp/pgt/t107.sql`): Techniker abgelehnt; Kurzname doppelt abgelehnt; ohne Betrag/einmalig/bis vor ab
+  abgelehnt; holen bis 30.04. → sechs Zeilen (Monatsende 28.02., Vorjahr und Pausierte nicht); zweimal holen → nichts doppelt;
+  gelöschte Zeile → Termin wieder offen; Rhythmus nach dem Holen fest; Stapel mit geholten Zeilen gebucht; Löschen der
+  wiederkehrenden Buchung lässt die Zeilen stehen; direktes Schreiben verweigert; „Alle Daten löschen“ leert alles. Zweiter
+  Lauf folgenlos. Rücknahme: `rollback/107_rollback.sql` (geholte Zeilen bleiben in ihren Stapeln; zweimal lauffähig).
   Geprüft gegen Postgres 16 mit 01–104 als Vorstufe: zweimal ausgeführt; 12 Fälle (Name aus Mitarbeiter bzw. E-Mail, Fälschen
   beim Anlegen und Ändern wirkungslos; „+1“ mit Namen; Hilfsfunktionen nicht von außen; Packliste-Karte nur mit gültiger
   Kennung; Kunde endgültig löschen nimmt Wünsche zu Kunde und Auftrag mit, Foto vorgemerkt, Chat-Karte „Bestellung

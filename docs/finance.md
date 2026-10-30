@@ -713,8 +713,8 @@ Abschluss, Prüfung.
    gefragt wird.
 
 Offen vor dem Echtbetrieb weiterhin: Kontenliste und Kennzahlen mit dem Steuerberater abgleichen. Stufe A ist gebaut
-(Abschnitt 10), Stufe B auch (Abschnitt 11), von Stufe C der Buchungsstapel (Abschnitt 12); nächster Schritt: Vorlagen,
-wiederkehrende Buchungen und Kostenstellen.
+(Abschnitt 10), Stufe B auch (Abschnitt 11), von Stufe C der Buchungsstapel (Abschnitt 12) sowie Vorlagen und
+wiederkehrende Buchungen (Abschnitt 13); nächster Schritt: Kostenstellen und Erfassen am Handy.
 
 ## 10. So ist Stufe A gebaut (v178, ohne Migration)
 
@@ -797,4 +797,25 @@ Wie bei DATEV: erst erfassen, dann buchen. Ein **Stapel** gehört zu einem Wirts
 **Noch nicht:** mehrere Posten (Splitt) in einer Stapelzeile – dafür weiter das Buchungsfenster; Buchungsvorlagen und
 wiederkehrende Buchungen; Kostenstellen; vom Handy in einen Stapel erfassen (Entscheidung 5, eigene Runde); ein Belegbild
 an der Zeile.
+
+## 13. So sind Vorlagen und wiederkehrende Buchungen gebaut (Stufe C Teil 2, v181, Migration 107)
+
+- **Vorlagen** (`fin_vorlagen`): Kurzname (eindeutig, ohne Groß/klein), Text, Soll, Haben, Steuerschlüssel, Betrag frei
+  (leer = jedes Mal neu). Im Stapel füllt „Vorlage“ Konten, Steuer, Text und gegebenenfalls Betrag; Datum und Beleg bleiben,
+  der Cursor springt zum Betrag (wenn die Vorlage keinen hat) oder zum Datum (`vorlageInEingabe`). „Als Vorlage …“ unter der
+  Erfassungszeile legt aus der getippten Zeile eine neue an.
+- **Wiederkehrende Buchungen** (`fin_wiederkehrend`): Text, Konten, Steuer, fester Betrag, Rhythmus (`FIN_WK_RHYTHMEN`:
+  monatlich, vierteljährlich, halbjährlich, jährlich – die der Planposten ohne „einmalig“), erster Termin, „bis“, aktiv.
+  Termine wie bei den Planposten: ab + k × Rhythmus, gleicher Tag im Monat, am Monatsende abgeschnitten, immer vom ersten
+  Termin aus (`planTermine`, `wiederkehrendOffen`; in der Datenbank `ab + make_interval(months => …)`).
+- **Holen statt automatisch buchen:** „Wiederkehrende holen …“ im Stapel zeigt die fälligen Termine bis zu einem Stichtag
+  (Vorschlag: Monatsende) und legt sie mit `fin_wiederkehrend_holen()` als Zeilen in den offenen Stapel – Text mit Monat
+  („Leasing VW T6.1 02/2027“). Nur Termine im Jahr des Stapels, nur solche, die noch in keinem Stapel stehen (eindeutig über
+  `fin_stapel_zeilen.wiederkehrend_id` + `termin`). Wird die Zeile oder der offene Stapel gelöscht, ist der Termin wieder
+  offen. Gebucht wird mit „Stapel buchen“ wie jede andere Zeile – so bleibt jede Buchung von Hand kontrolliert.
+- **Ändern:** Text, Konten, Betrag, Steuer, „bis“ und „aktiv“ jederzeit (wirkt auf künftige Termine); erster Termin und
+  Rhythmus stehen fest, sobald ein Termin geholt ist – sonst rutschten die Termine unter den geholten weg.
+- **Oberfläche:** `components/finance/FinanceVorlagen.tsx` (Reiter „Vorlagen“ am Rechner, zwei Tabellen, „Nächster offen“
+  je wiederkehrender Buchung) und `VorlageFormular` (beide Arten, Strg+Enter speichert, Löschen mit Rückfrage).
+  Tests: `tests/financeVorlagen.test.ts`, `tests/financeVorlagenOberflaeche.test.tsx`; Datenbank `/tmp/pgt/t107.sql`.
 

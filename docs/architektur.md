@@ -153,6 +153,8 @@ viana-pinpoints/
                                      Saldo vor/nach, Statuszeile, F2/F3/N, CSV (tests/financeArbeitsplatzOberflaeche.test.tsx)
       FinanceStapel.tsx              Buchungsstapel am Rechner (Migration 106, v180): Erfassungszeile mit Enter, Prüfung je Zeile,
                                      ändern/löschen, Strg+S bucht alle oder keine (tests/financeStapelOberflaeche.test.tsx)
+      FinanceVorlagen.tsx            Vorlagen und wiederkehrende Buchungen am Rechner (Migration 107, v181); `VorlageFormular` auch für
+                                     „Als Vorlage“ im Stapel (tests/financeVorlagenOberflaeche.test.tsx)
       FinanceKontoblatt.tsx          Kontoblatt am Rechner (v179, Stufe B): Zeitraum, Eröffnung, laufender Saldo, Sprung übers
                                      Gegenkonto, Zurück, CSV (tests/financeKontoblattOberflaeche.test.tsx)
       FinanceKontenArbeitsplatz.tsx  Konten am Rechner (v179): Summen und Salden im Zeitraum, Filter, Ein-/Ausblenden, eigenes Konto
@@ -379,6 +381,8 @@ viana-pinpoints/
                                   Filter, Saldo vor/nach (v178, Stufe A; tests/financeArbeitsplatz.test.ts)
       stapel.ts                   Buchungsstapel: Datum TTMM, Beleg weiterzählen, Prüfung wie fin_buchen(), Reihenfolge (Migration 106,
                                   v180; tests/financeStapel.test.ts)
+      vorlagen.ts                 Vorlagen/wiederkehrende Buchungen: Termine wie fin_wiederkehrend_holen(), offene Termine, Vorlage in die
+                                  Erfassungszeile (Migration 107, v181; tests/financeVorlagen.test.ts)
       kontoblatt.ts               Zeitraum (Jahr/Quartal/Monat/frei), Kontoblatt mit laufendem Saldo, Konten im Zeitraum (v179, Stufe B;
                                   tests/financeKontoblatt.test.ts)
       buchung.ts                  Buchungsregeln wie `fin_posten_schreiben()` (Vorschau), Salden, Betrag lesen (Migration 88, v146)
@@ -807,7 +811,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 106** (30.10.2026; 101–106 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 107** (30.10.2026; 101–107 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -995,6 +999,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   Bestellwünschen; Chat-Karten `bestellung` und `packliste` (`docs/bestellliste.md`, `docs/team-chat.md`).
 - **106** – Finance Buchungsstapel: `fin_stapel`, `fin_stapel_zeilen`, `fin_stapel_*()`, `fin_stapel_buchen()` bucht alle Zeilen
   über `fin_buchen()` oder keine (`docs/finance.md` Abschnitt 12).
+- **107** – Finance Vorlagen und wiederkehrende Buchungen: `fin_vorlagen`, `fin_wiederkehrend`, `fin_wiederkehrend_holen()` legt
+  fällige Termine als Stapelzeilen ab (`fin_stapel_zeilen.wiederkehrend_id`/`termin`), gebucht wird mit dem Stapel (Abschnitt 13).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

@@ -4973,6 +4973,16 @@ th.ap-zahl .ap-kopf{justify-content:flex-end;}
 .ap-erfassung > label:not([data-feld="soll"]):not([data-feld="haben"])::after{content:"";height:13px;flex:0 0 13px;}
 .ap-erf-knopf{height:32px;border-radius:8px;padding:0 12px;font-size:13px;white-space:nowrap;align-self:end;margin-bottom:13px;}
 .ap-erf-fuss{grid-column:1 / -1;font-size:12px;min-height:16px;color:var(--text);}
+/* Vorlagen und wiederkehrende Buchungen (v181) */
+.nk-feld.fi-haken{flex-direction:row;align-items:center;gap:8px;align-self:end;min-height:44px;}
+.nk-feld.fi-haken input{width:20px;height:20px;min-height:0;flex:0 0 auto;margin:0;}
+.nk-feld.fi-haken span{font-size:14px;font-weight:600;color:var(--text);}
+.fi-seite.fi-breit .fi-reiter{max-width:640px;}
+.ap-tabelle.ap-tabelle-kurz{max-height:calc(40vh / var(--z));min-height:120px;}
+.ap-abschnitt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:6px;}
+.ap-abschnitt h3{margin:0;font-size:15px;}
+.ap-erf-fuss{display:flex;align-items:baseline;gap:12px;}
+.ap-erf-vorlage{margin-left:auto;font-size:12px;}
 @media (max-width:1100px){
   .ap-rahmen{grid-template-columns:minmax(0,1fr);}
   .ap-detail{position:static;max-height:none;}

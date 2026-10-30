@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v180";
+export const APP_VERSION = "v181";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v181", datum: "2026-10-30", titel: "Finance: Vorlagen und wiederkehrende Buchungen",
+    punkte: [
+      "Neuer Reiter „Vorlagen“ unter Finance › Buchungen (am Rechner): Buchungsvorlagen mit Kurzname, Konten, Steuer, Text und – wenn immer gleich – Betrag. Im Stapel füllt „Vorlage“ die Erfassungszeile; „Als Vorlage …“ speichert eine getippte Zeile als neue Vorlage.",
+      "Wiederkehrende Buchungen (Miete, Leasing, Versicherung …) mit Rhythmus, erstem Termin und optionalem Ende. Im Stapel holt „Wiederkehrende holen …“ alles, was bis zu einem Tag fällig ist, als Zeilen – gebucht wird erst mit dem Stapel, nichts von selbst.",
+      "Ein Termin kommt nur einmal in einen Stapel. Löscht man die geholte Zeile, ist er wieder offen.",
+      "Braucht Migration 107 im Supabase-SQL-Editor (nach 106).",
+    ],
+  },
   {
     version: "v180", datum: "2026-10-30", titel: "Finance: Buchungsstapel",
     punkte: [

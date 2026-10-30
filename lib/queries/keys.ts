@@ -103,6 +103,9 @@ export const qk = {
   finPlanposten: () => ["finance", "planposten"] as const,
   // Stufe C (Migration 106): Buchungsstapel eines Jahres mit ihren Zeilen.
   finStapel: (jahr: number) => ["finance", "stapel", jahr] as const,
+  // Stufe C Teil 2 (Migration 107): Buchungsvorlagen und wiederkehrende Buchungen.
+  finVorlagen: () => ["finance", "vorlagen"] as const,
+  finWiederkehrend: () => ["finance", "wiederkehrend"] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

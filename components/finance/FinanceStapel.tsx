@@ -9,8 +9,10 @@ import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
 import { useKurzbefehle } from "./arbeitsplatz/Werkzeuge";
 import { ZeilenTabelle } from "./FinanceBuchungen";
 import { qk } from "@/lib/queries/keys";
-import { useFinStapel } from "@/lib/queries/hooks";
-import { finStapelAnlegen, finStapelBuchen, finStapelLoeschen, finStapelZeileLoeschen, finStapelZeileSpeichern } from "@/lib/api/finance";
+import { useFinStapel, useFinVorlagen, useFinWiederkehrend } from "@/lib/queries/hooks";
+import { VorlageFormular } from "./FinanceVorlagen";
+import { finStapelAnlegen, finStapelBuchen, finStapelLoeschen, finStapelZeileLoeschen, finStapelZeileSpeichern, finWiederkehrendHolen } from "@/lib/api/finance";
+import { vorlageInEingabe, vorlagenSortiert, wiederkehrendOffen } from "@/lib/finance/vorlagen";
 import { betragLesen, kontoNr, passendeSchluessel, type FinBuchung, type FinFestschreibung, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import { betragText, datumDe, type Sortierung } from "@/lib/finance/arbeitsplatz";
@@ -45,6 +47,9 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
 }) {
   const queryClient = useQueryClient();
   const stapelQ = useFinStapel(supabase, jahr, true);
+  // Vorlagen und wiederkehrende Buchungen (Migration 107, v181). Fehlt die Migration, bleiben beide leer.
+  const vorlagen = vorlagenSortiert(useFinVorlagen(supabase, true).data ?? []);
+  const wks = useFinWiederkehrend(supabase, true).data ?? [];
   const alle = useMemo(() => stapelQ.data ?? [], [stapelQ.data]);
   // Offene zuerst (neueste oben), dann die gebuchten.
   const liste = [...alle].sort((a, b) => (a.zustand === b.zustand ? b.erstellt_am.localeCompare(a.erstellt_am) : a.zustand === "offen" ? -1 : 1));
@@ -59,6 +64,9 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
   const [laeuft, setLaeuft] = useState(false);
   const [frage, setFrage] = useState<"buchen" | "loeschen" | null>(null);
   const [neuName, setNeuName] = useState<string | null>(null);
+  const [alsVorlage, setAlsVorlage] = useState(false);
+  // Stichtag für „Wiederkehrende holen“ (offen = Fenster sichtbar).
+  const [holenBis, setHolenBis] = useState<string | null>(null);
   const [fehler, setFehler] = useState<string | null>(null);
   const [auswahl, setAuswahl] = useState<string | null>(null);
   const [markiert, setMarkiert] = useState<Set<string>>(() => new Set());
@@ -190,6 +198,30 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
     }
   }
 
+  // Stichtag-Vorschlag: Monatsende von heute, im Wirtschaftsjahr gehalten.
+  const holenVorgabe = (() => {
+    if (heute.slice(0, 4) !== String(jahr)) return heute < `${jahr}-01-01` ? `${jahr}-01-31` : `${jahr}-12-31`;
+    const m = Number(heute.slice(5, 7));
+    return `${jahr}-${String(m).padStart(2, "0")}-${String(new Date(Date.UTC(jahr, m, 0)).getUTCDate()).padStart(2, "0")}`;
+  })();
+  const holenListe = holenBis ? wiederkehrendOffen(wks, alle.flatMap((s) => s.fin_stapel_zeilen), jahr, holenBis) : [];
+
+  async function holen() {
+    if (!stapel || !holenBis) return;
+    setLaeuft(true);
+    setFehler(null);
+    try {
+      const n = await finWiederkehrendHolen(supabase, stapel.id, holenBis);
+      await neuLaden();
+      setHolenBis(null);
+      onMeldung(n === 1 ? "1 wiederkehrende Buchung geholt – im Stapel prüfen und buchen." : `${n} wiederkehrende Buchungen geholt – im Stapel prüfen und buchen.`);
+    } catch (e) {
+      setFehler(fehlerText(e));
+    } finally {
+      setLaeuft(false);
+    }
+  }
+
   async function stapelLoeschen() {
     if (!stapel) return;
     setLaeuft(true);
@@ -260,6 +292,24 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
           {darfBuchen && (
             <button type="button" className="es-knopf" onClick={() => { setFehler(null); setNeuName(`${MONATE[Number(heute.slice(5, 7)) - 1]} ${jahr}`); }}>+ Neuer Stapel</button>
           )}
+          {offen && vorlagen.length > 0 && (
+            <label className="ap-chip"><span>Vorlage</span>
+              <select aria-label="Vorlage" value="" onChange={(e) => {
+                const v = vorlagen.find((x) => x.id === e.target.value);
+                if (!v) return;
+                setHinweis(null);
+                setEingabe(vorlageInEingabe(v, eingabe));
+                setFormNr(formNr + 1);
+                fokusFeld(v.betrag == null ? "betrag" : "datum");
+              }}>
+                <option value="">wählen …</option>
+                {vorlagen.map((v) => <option key={v.id} value={v.id}>{v.kurz} – {v.text}</option>)}
+              </select>
+            </label>
+          )}
+          {offen && wks.some((w) => w.aktiv) && (
+            <button type="button" className="es-knopf" onClick={() => { setFehler(null); setHolenBis(holenVorgabe); }}>Wiederkehrende holen …</button>
+          )}
           <span className="ap-luft ap-luft-voll" />
           {offen && <button type="button" className="es-knopf" onClick={() => { setFehler(null); setFrage("loeschen"); }}>Stapel löschen</button>}
           {offen && (
@@ -316,6 +366,9 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
                     : vorschau?.fehler ? <span className="ap-rot">Beim Buchen: {vorschau.fehler}</span>
                     : vorschau ? <span>So wird gebucht: {vorschau.zeilen.map((x) => `${x.seite} ${kontoNr(x.konto)} ${betragText(x.betrag)}`).join(" · ")}</span>
                     : <span className="small">Enter springt weiter, im Text übernimmt es die Zeile{bearbeite ? " · Esc bricht das Ändern ab" : ""} · Datum als TTMM</span>}
+                  {eingabe.soll != null && eingabe.haben != null && eingabe.text.trim() !== "" && (
+                    <button type="button" className="ap-link ap-erf-vorlage" onClick={() => setAlsVorlage(true)}>Als Vorlage …</button>
+                  )}
                 </div>
               </div>
             )}
@@ -373,6 +426,42 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
         ) : <span className="small">Lege einen Stapel an, um zu erfassen.</span>}
       </aside>
 
+      {alsVorlage && (
+        <VorlageFormular supabase={supabase} art="vorlage" heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
+          vorbelegt={{ text: eingabe.text.trim(), soll: eingabe.soll ?? undefined, haben: eingabe.haben ?? undefined, steuer: eingabe.steuer || null,
+            betrag: betragLesen(eingabe.betrag) }}
+          onClose={() => setAlsVorlage(false)} />
+      )}
+      {holenBis !== null && stapel && (
+        <Blatt titel="Wiederkehrende Buchungen holen" unter={`in den Stapel „${stapel.bezeichnung}“`} breite="breit" onClose={() => setHolenBis(null)}
+          fuss={<>
+            <button type="button" className="btn-secondary" onClick={() => setHolenBis(null)} disabled={laeuft}>Abbrechen</button>
+            <button type="button" className="btn-primary" onClick={() => void holen()} disabled={laeuft || !holenListe.length}>
+              {laeuft ? "holt …" : holenListe.length === 1 ? "1 Zeile holen" : `${holenListe.length} Zeilen holen`}
+            </button>
+          </>}>
+          <div className="fi-formular">
+            <label className="nk-feld"><span>Fällig bis einschließlich</span>
+              <input type="date" value={holenBis} min={`${jahr}-01-01`} max={`${jahr}-12-31`} aria-label="Fällig bis"
+                onChange={(e) => setHolenBis(e.target.value)} />
+            </label>
+            {holenListe.length ? (
+              <table className="fi-tabelle">
+                <thead><tr><th>Termin</th><th>Text</th><th>Soll</th><th>Haben</th><th className="zahl">Betrag</th></tr></thead>
+                <tbody>
+                  {holenListe.map((x) => (
+                    <tr key={`${x.wk.id}|${x.termin}`}><td>{datumDe(x.termin)}</td><td>{x.text}</td><td>{kontoNr(x.wk.soll)}</td><td>{kontoNr(x.wk.haben)}</td>
+                      <td className="zahl">{betragText(x.wk.betrag)}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : <span className="small">Bis zu diesem Tag ist nichts fällig, was nicht schon in einem Stapel steht.</span>}
+            <span className="small">Die Zeilen kommen in den Stapel und werden dort wie jede andere geprüft und gebucht – nichts wird von selbst gebucht.
+              Löschst du eine geholte Zeile, ist ihr Termin wieder offen.</span>
+            {fehler && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
+          </div>
+        </Blatt>
+      )}
       {neuName !== null && (
         <Blatt titel="Neuer Buchungsstapel" unter={`Wirtschaftsjahr ${jahr}`} onClose={() => setNeuName(null)}
           fuss={<>

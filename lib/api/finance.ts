@@ -10,6 +10,7 @@ import type { FinAnlage } from "@/lib/finance/anlagen";
 import type { FinMahnung } from "@/lib/finance/mahnung";
 import type { FinPlanposten } from "@/lib/finance/liquiditaet";
 import type { FinStapel, FinStapelZeile } from "@/lib/finance/stapel";
+import type { FinVorlage, FinWiederkehrend } from "@/lib/finance/vorlagen";
 import { protokolleLesen, type FinExportBeleg, type FinExportProtokoll } from "@/lib/finance/export";
 import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
@@ -526,7 +527,7 @@ export async function finPlanpostenLoeschen(supabase: SupabaseClient, id: string
 export async function fetchFinStapel(supabase: SupabaseClient, jahr: number): Promise<FinStapel[]> {
   const alle = await fetchPaged<FinStapel>("Die Buchungsstapel konnten nicht geladen werden", (von, bis) =>
     supabase.from("fin_stapel")
-      .select("id, jahr, bezeichnung, zustand, erstellt_am, gebucht_am, fin_stapel_zeilen(id, stapel_id, lfd, datum, beleg, text, soll, haben, betrag, steuer, buchung_id)")
+      .select("id, jahr, bezeichnung, zustand, erstellt_am, gebucht_am, fin_stapel_zeilen(id, stapel_id, lfd, datum, beleg, text, soll, haben, betrag, steuer, buchung_id, wiederkehrend_id, termin)")
       .eq("jahr", jahr).order("erstellt_am").order("id").range(von, bis));
   return alle.map((st) => ({
     ...st,
@@ -551,4 +552,37 @@ export async function finStapelBuchen(supabase: SupabaseClient, id: string): Pro
   const r = await q<{ anzahl: number; jahr: number; von: number; bis: number }>("Der Stapel wurde nicht gebucht", supabase.rpc("fin_stapel_buchen", { p_stapel: id }));
   if (!r) throw new ApiError("Der Stapel wurde nicht gebucht", { message: "Die Datenbank hat keine Nummern zurückgegeben." });
   return r;
+}
+
+// ---------------------------------------------------------------- Vorlagen und wiederkehrende Buchungen (Migration 107, v181)
+export async function fetchFinVorlagen(supabase: SupabaseClient): Promise<FinVorlage[]> {
+  const z = await fetchPaged<FinVorlage>("Die Buchungsvorlagen konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_vorlagen").select("id, kurz, text, soll, haben, betrag, steuer").order("kurz").order("id").range(von, bis));
+  return z.map((v) => ({ ...v, betrag: v.betrag == null ? null : Number(v.betrag) }));
+}
+export type FinVorlageFelder = Omit<FinVorlage, "id">;
+export async function finVorlageSpeichern(supabase: SupabaseClient, id: string | null, f: FinVorlageFelder): Promise<string> {
+  return String(await q<string>("Die Vorlage wurde nicht gespeichert", supabase.rpc("fin_vorlage_speichern", {
+    p_id: id, p_kurz: f.kurz, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer })));
+}
+export async function finVorlageLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Die Vorlage wurde nicht gelöscht", supabase.rpc("fin_vorlage_loeschen", { p_id: id }));
+}
+export async function fetchFinWiederkehrend(supabase: SupabaseClient): Promise<FinWiederkehrend[]> {
+  const z = await fetchPaged<FinWiederkehrend>("Die wiederkehrenden Buchungen konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_wiederkehrend").select("id, text, soll, haben, betrag, steuer, rhythmus, ab, bis, aktiv").order("ab").order("id").range(von, bis));
+  return z.map((w) => ({ ...w, betrag: Number(w.betrag) }));
+}
+export type FinWiederkehrendFelder = Omit<FinWiederkehrend, "id">;
+export async function finWiederkehrendSpeichern(supabase: SupabaseClient, id: string | null, f: FinWiederkehrendFelder): Promise<string> {
+  return String(await q<string>("Die wiederkehrende Buchung wurde nicht gespeichert", supabase.rpc("fin_wiederkehrend_speichern", {
+    p_id: id, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer, p_rhythmus: f.rhythmus,
+    p_ab: f.ab, p_bis: f.bis, p_aktiv: f.aktiv })));
+}
+export async function finWiederkehrendLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Die wiederkehrende Buchung wurde nicht gelöscht", supabase.rpc("fin_wiederkehrend_loeschen", { p_id: id }));
+}
+export async function finWiederkehrendHolen(supabase: SupabaseClient, stapel: string, bis: string): Promise<number> {
+  const r = await q<{ anzahl: number }>("Die wiederkehrenden Buchungen wurden nicht geholt", supabase.rpc("fin_wiederkehrend_holen", { p_stapel: stapel, p_bis: bis }));
+  return r?.anzahl ?? 0;
 }
