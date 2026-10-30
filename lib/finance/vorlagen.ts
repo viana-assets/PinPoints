@@ -9,12 +9,14 @@ import type { FinStapelZeile, StapelEingabe } from "./stapel";
 
 export type FinVorlage = {
   id: string; kurz: string; text: string; soll: number; haben: number; betrag: number | null; steuer: string | null;
+  kost1?: string | null; kost2?: string | null;
 };
 
 export type FinWkRhythmus = Exclude<FinRhythmus, "einmal">;
 export type FinWiederkehrend = {
   id: string; text: string; soll: number; haben: number; betrag: number; steuer: string | null;
   rhythmus: FinWkRhythmus; ab: string; bis: string | null; aktiv: boolean;
+  kost1?: string | null; kost2?: string | null;
 };
 
 // Die Rhythmen einer wiederkehrenden Buchung: die der Planposten ohne „einmalig“ (wie `fin_wk_rhythmus`, Migration 107).
@@ -52,7 +54,8 @@ export function naechsterOffenerTermin(w: FinWiederkehrend, vergeben: Vergeben):
 // Eine Vorlage füllt die Erfassungszeile: Konten, Steuer, Text, und den Betrag, wenn sie einen hat. Datum und Beleg
 // bleiben, wie sie sind.
 export function vorlageInEingabe(v: FinVorlage, e: StapelEingabe): StapelEingabe {
-  return { ...e, soll: v.soll, haben: v.haben, steuer: v.steuer ?? "", text: v.text, betrag: v.betrag != null ? betragText(v.betrag) : "" };
+  return { ...e, soll: v.soll, haben: v.haben, steuer: v.steuer ?? "", text: v.text, betrag: v.betrag != null ? betragText(v.betrag) : "",
+    kost1: v.kost1 ?? "", kost2: v.kost2 ?? "" };
 }
 
 // Vorlagen nach Kurzname, wiederkehrende nach Text.

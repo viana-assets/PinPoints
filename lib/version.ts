@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v181";
+export const APP_VERSION = "v182";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,16 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v182", datum: "2026-10-30", titel: "Finance: Kostenstellen (Transporter und Leistungsart)",
+    punkte: [
+      "Neuer Reiter „Kostenstellen“ unter Finance › Buchungen (am Rechner): KOST1 je Transporter (T1, T2 … aus den Firmenfahrzeugen), KOST2 je Leistungsart (100 Montage, 200 Einlagerung, 300 Reifenverkauf). Je Kostenstelle stehen Erlöse, Aufwand und Ergebnis im gewählten Zeitraum.",
+      "Im Buchungsfenster, im Stapel (Felder KOST1/KOST2) und in Vorlagen lässt sich je Posten ein Transporter und eine Leistungsart setzen. Sie gehören an ein Erlös-, Aufwands- oder Anlagekonto; Bank, Kasse und Steuer bleiben ohne.",
+      "Das Journal zeigt die Spalten Transporter und Leistung und filtert nach Kostenstelle; der DATEV-Export füllt KOST1 und KOST2, der GoBD-Export hat zwei neue Spalten. Ein Storno übernimmt die Kostenstellen der Buchung.",
+      "Am schmaleren Bildschirm rutschen im Stapel Buchungstext und „Übernehmen“ in eine zweite Reihe.",
+      "Braucht Migration 108 im Supabase-SQL-Editor (nach 107).",
+    ],
+  },
   {
     version: "v181", datum: "2026-10-30", titel: "Finance: Vorlagen und wiederkehrende Buchungen",
     punkte: [

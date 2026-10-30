@@ -6,6 +6,8 @@ import { Blatt } from "@/components/Blatt";
 import { fehlerText } from "@/components/FehlerHinweis";
 import { DatenTabelle, type Spalte } from "./arbeitsplatz/DatenTabelle";
 import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
+import { KostWahl } from "./arbeitsplatz/KostWahl";
+import { FIN_KOST_ARTEN, kostText, type FinKostenstelle } from "@/lib/finance/kostenstellen";
 import { qk } from "@/lib/queries/keys";
 import { useFinStapel, useFinVorlagen, useFinWiederkehrend } from "@/lib/queries/hooks";
 import { finVorlageLoeschen, finVorlageSpeichern, finWiederkehrendLoeschen, finWiederkehrendSpeichern } from "@/lib/api/finance";
@@ -18,11 +20,19 @@ import { FIN_WK_RHYTHMEN, naechsterOffenerTermin, vorlagenSortiert, type FinVorl
 // Buchungsvorlagen (im Stapel wählbar), darunter die wiederkehrenden Buchungen (im Stapel mit „Wiederkehrende holen“
 // als Zeilen übernommen – gebucht wird nichts von selbst). Enter oder Doppelklick öffnet zum Ändern.
 
+// Spalten Transporter und Leistung, wenn es Kostenstellen gibt.
+function kostSpalten<T extends { kost1?: string | null; kost2?: string | null }>(liste: FinKostenstelle[]): Spalte<T>[] {
+  return liste.length ? FIN_KOST_ARTEN.map((a) => ({ key: a.wert, titel: a.text, wert: (z: T) => z[a.wert] ?? null,
+    zeige: (z: T) => (z[a.wert] ? <span title={kostText(liste, a.wert, z[a.wert])}>{z[a.wert]}</span> : "") })) : [];
+}
+
 const RHYTHMUS_TEXT = Object.fromEntries(FIN_WK_RHYTHMEN.map((r) => [r.wert, r.text])) as Record<FinWkRhythmus, string>;
 
-export function FinanceVorlagen({ supabase, jahr, heute, einstellungen, konten, schluessel, darfBuchen }: {
+export function FinanceVorlagen({ supabase, jahr, heute, einstellungen, konten, schluessel, darfBuchen, kostenstellen = [] }: {
   supabase: SupabaseClient; jahr: number; heute: string; einstellungen: FinEinstellungen; konten: FinKonto[];
   schluessel: FinSteuerschluessel[]; darfBuchen: boolean;
+  // Kostenstellen (Migration 108, v182).
+  kostenstellen?: FinKostenstelle[];
 }) {
   const vorlagenQ = useFinVorlagen(supabase, true);
   const wkQ = useFinWiederkehrend(supabase, true);
@@ -51,6 +61,7 @@ export function FinanceVorlagen({ supabase, jahr, heute, einstellungen, konten, 
     { key: "haben", titel: "Haben", wert: (v) => v.haben, zeige: (v) => konto(v.haben) },
     { key: "steuer", titel: "Steuer", wert: (v) => v.steuer },
     { key: "betrag", titel: "Betrag", zahl: true, wert: (v) => v.betrag, zeige: (v) => (v.betrag != null ? betragText(v.betrag) : <span className="ap-leise-text">jedes Mal</span>) },
+    ...kostSpalten<FinVorlage>(kostenstellen),
   ];
   const spaltenW: Spalte<FinWiederkehrend>[] = [
     { key: "text", titel: "Buchungstext", wert: (w) => w.text, fest: true, max: 240 },
@@ -58,6 +69,7 @@ export function FinanceVorlagen({ supabase, jahr, heute, einstellungen, konten, 
     { key: "haben", titel: "Haben", wert: (w) => w.haben, zeige: (w) => konto(w.haben) },
     { key: "steuer", titel: "Steuer", wert: (w) => w.steuer },
     { key: "betrag", titel: "Betrag", zahl: true, wert: (w) => w.betrag, zeige: (w) => betragText(w.betrag) },
+    ...kostSpalten<FinWiederkehrend>(kostenstellen),
     { key: "rhythmus", titel: "Rhythmus", wert: (w) => RHYTHMUS_TEXT[w.rhythmus] },
     { key: "ab", titel: "ab", wert: (w) => w.ab, zeige: (w) => datumDe(w.ab) },
     { key: "bis", titel: "bis", wert: (w) => w.bis, zeige: (w) => (w.bis ? datumDe(w.bis) : "") },
@@ -102,7 +114,7 @@ export function FinanceVorlagen({ supabase, jahr, heute, einstellungen, konten, 
 
       {offen && (
         <VorlageFormular supabase={supabase} art={offen.art} vorlage={offen.art === "vorlage" ? offen.v : null}
-          wk={offen.art === "wk" ? offen.w : null} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
+          wk={offen.art === "wk" ? offen.w : null} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel} kostenstellen={kostenstellen}
           onClose={() => setOffen(null)} />
       )}
     </div>
@@ -111,10 +123,11 @@ export function FinanceVorlagen({ supabase, jahr, heute, einstellungen, konten, 
 
 // Anlegen und ändern – für Vorlage und wiederkehrende Buchung dasselbe Fenster; `vorbelegt` füllt eine neue Vorlage
 // aus der Erfassungszeile des Stapels („Als Vorlage“).
-export function VorlageFormular({ supabase, art, vorlage, wk, vorbelegt, heute, einstellungen, konten, schluessel, onGespeichert, onClose }: {
+export function VorlageFormular({ supabase, art, vorlage, wk, vorbelegt, heute, einstellungen, konten, schluessel, kostenstellen = [], onGespeichert, onClose }: {
   supabase: SupabaseClient; art: "vorlage" | "wk"; vorlage?: FinVorlage | null; wk?: FinWiederkehrend | null;
   vorbelegt?: Partial<Omit<FinVorlage, "id">>;
   heute: string; einstellungen: FinEinstellungen; konten: FinKonto[]; schluessel: FinSteuerschluessel[];
+  kostenstellen?: FinKostenstelle[];
   onGespeichert?: () => void; onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -126,6 +139,8 @@ export function VorlageFormular({ supabase, art, vorlage, wk, vorbelegt, heute, 
   const [haben, setHaben] = useState<number | null>(start.haben ?? null);
   const [betrag, setBetrag] = useState(start.betrag != null ? betragText(start.betrag) : "");
   const [steuer, setSteuer] = useState(start.steuer ?? "");
+  const [kost1, setKost1] = useState(start.kost1 ?? "");
+  const [kost2, setKost2] = useState(start.kost2 ?? "");
   const [rhythmus, setRhythmus] = useState<FinWkRhythmus>(wk?.rhythmus ?? "monat");
   const [ab, setAb] = useState(wk?.ab ?? heute);
   const [bis, setBis] = useState(wk?.bis ?? "");
@@ -151,10 +166,10 @@ export function VorlageFormular({ supabase, art, vorlage, wk, vorbelegt, heute, 
     setFehler(null);
     try {
       if (art === "vorlage") {
-        await finVorlageSpeichern(supabase, vorlage?.id ?? null, { kurz: kurz.trim(), text: text.trim(), soll, haben, betrag: b, steuer: steuer || null });
+        await finVorlageSpeichern(supabase, vorlage?.id ?? null, { kurz: kurz.trim(), text: text.trim(), soll, haben, betrag: b, steuer: steuer || null, kost1: kost1 || null, kost2: kost2 || null });
         await queryClient.invalidateQueries({ queryKey: qk.finVorlagen() });
       } else {
-        await finWiederkehrendSpeichern(supabase, wk?.id ?? null, { text: text.trim(), soll, haben, betrag: b as number, steuer: steuer || null, rhythmus, ab, bis: bis || null, aktiv });
+        await finWiederkehrendSpeichern(supabase, wk?.id ?? null, { text: text.trim(), soll, haben, betrag: b as number, steuer: steuer || null, rhythmus, ab, bis: bis || null, aktiv, kost1: kost1 || null, kost2: kost2 || null });
         await queryClient.invalidateQueries({ queryKey: qk.finWiederkehrend() });
       }
       onGespeichert?.();
@@ -214,6 +229,12 @@ export function VorlageFormular({ supabase, art, vorlage, wk, vorbelegt, heute, 
             </select>
           </label>
         </div>
+        {kostenstellen.length > 0 && (
+          <div className="fi-zwei">
+            <label className="nk-feld"><span>Transporter (KOST1)</span><KostWahl art="kost1" liste={kostenstellen} wert={kost1} onWert={setKost1} /></label>
+            <label className="nk-feld"><span>Leistung (KOST2)</span><KostWahl art="kost2" liste={kostenstellen} wert={kost2} onWert={setKost2} /></label>
+          </div>
+        )}
         {art === "wk" && (
           <>
             <div className="fi-zwei">

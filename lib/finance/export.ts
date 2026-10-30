@@ -27,7 +27,8 @@ export const FIN_DATEV_AUTOMATIK: Record<Kontenrahmen, Record<number, string>> =
 // „Aufhebung der Automatik“: Ein Automatikkonto ohne Steuer (Netto-Satz, Abgrenzung, Umbuchung).
 export const FIN_DATEV_OHNE_AUTOMATIK = "40";
 
-export type DatevSatz = { umsatz: number; sh: "S" | "H"; konto: number; gegenkonto: number; bu: string; datum: string; beleg: string; text: string; finNr: string };
+// `kost1`/`kost2`: Kostenstelle und Kostenträger (Migration 108) – von der Erlös-/Aufwandszeile, die im Satz steht.
+export type DatevSatz = { umsatz: number; sh: "S" | "H"; konto: number; gegenkonto: number; bu: string; datum: string; beleg: string; text: string; finNr: string; kost1?: string; kost2?: string };
 
 type El = { posten: number; seite: "S" | "H"; konto: number; betrag: number; bu: string; kombi: boolean; erfolg: boolean };
 type Ctx = { kat: Map<number, KontoKategorie>; schl: Map<string, FinSteuerschluessel>; rahmen: Kontenrahmen };
@@ -125,9 +126,13 @@ export function datevSaetze(b: FinBuchung, c: Ctx): { saetze: DatevSatz[]; hinwe
   if (!roh) { e = elemente(zeilen, c, true); roh = paare(e.els); getrennt = true; }
   const hinweise = [...new Set(e.hinweis)].map((h) => `Nr. ${b.nr}: ${h}.`);
   if (getrennt && zeilen.some((z) => z.ist_steuer)) hinweise.push(`Nr. ${b.nr} (${b.text}): Steuer als eigener Satz, ohne Automatik – beim Einlesen prüfen.`);
-  const saetze = (roh ?? []).filter((r) => r.umsatz > 0).map((r) => ({
-    ...r, datum: b.datum, beleg: belegfeld(b), text: b.text.slice(0, 60), finNr: `${b.jahr}-${b.nr}`,
-  }));
+  const saetze = (roh ?? []).filter((r) => r.umsatz > 0).map((r) => {
+    const k = zeilen.find((z) => !z.ist_steuer && (z.konto === r.gegenkonto || z.konto === r.konto) && (z.kost1 || z.kost2));
+    return {
+      ...r, datum: b.datum, beleg: belegfeld(b), text: b.text.slice(0, 60), finNr: `${b.jahr}-${b.nr}`,
+      ...(k?.kost1 ? { kost1: k.kost1 } : {}), ...(k?.kost2 ? { kost2: k.kost2 } : {}),
+    };
+  });
   return { saetze, hinweise };
 }
 
@@ -162,13 +167,16 @@ export function finDatevStapel(buchungen: FinBuchung[], konten: FinKonto[], schl
     saetze.push(...x.saetze);
     hinweise.push(...x.hinweise);
   }
-  const i = { umsatz: 0, sh: 1, wkz: 2, konto: 6, gegenkonto: 7, bu: 8, belegdatum: 9, beleg1: 10, text: 13, zusatzArt: DATEV_SPALTEN.indexOf("Zusatzinformation - Art 1"), zusatzInhalt: DATEV_SPALTEN.indexOf("Zusatzinformation- Inhalt 1") };
+  const i = { umsatz: 0, sh: 1, wkz: 2, konto: 6, gegenkonto: 7, bu: 8, belegdatum: 9, beleg1: 10, text: 13, zusatzArt: DATEV_SPALTEN.indexOf("Zusatzinformation - Art 1"), zusatzInhalt: DATEV_SPALTEN.indexOf("Zusatzinformation- Inhalt 1"),
+    kost1: DATEV_SPALTEN.indexOf("KOST1 - Kostenstelle"), kost2: DATEV_SPALTEN.indexOf("KOST2 - Kostenstelle") };
   const zeilen = saetze.map((s) => {
     const f = DATEV_SPALTEN.map(() => "");
     f[i.umsatz] = datevBetrag(s.umsatz); f[i.sh] = datevText(s.sh); f[i.wkz] = datevText("EUR");
     f[i.konto] = String(s.konto); f[i.gegenkonto] = String(s.gegenkonto); f[i.bu] = s.bu ? datevText(s.bu) : "";
     f[i.belegdatum] = datevTt(s.datum); f[i.beleg1] = datevText(s.beleg); f[i.text] = datevText(s.text);
     f[i.zusatzArt] = datevText("Finance-Nr"); f[i.zusatzInhalt] = datevText(s.finNr);
+    if (s.kost1) f[i.kost1] = datevText(s.kost1);
+    if (s.kost2) f[i.kost2] = datevText(s.kost2);
     return f.join(";");
   });
   const kopf = datevKopf({
@@ -226,9 +234,9 @@ function gobdTabellen(buchungen: FinBuchung[], konten: FinKonto[], schluessel: F
       zeilen: buchungen.map((b) => [`${b.jahr}-${b.nr}`, b.jahr, b.nr, datumDe(b.datum), b.text, b.beleg ?? "", b.quelle,
         b.storno_von ? nrVon.get(b.storno_von) ?? b.storno_von : "", b.storniert_durch ? nrVon.get(b.storniert_durch) ?? b.storniert_durch : "", b.grund ?? "", b.erstellt_am]) },
     { url: "buchungszeilen.csv", name: "Buchungszeilen", text: "Soll- und Habenzeilen je Buchung", schluessel: a("Zeile"), verweis: { spalte: "Buchung", tabelle: "Buchungen" },
-      spalten: [a("Buchung"), n("Posten"), a("Seite"), n("Konto"), n("Betrag", 2), a("Steuerschluessel"), a("Steuerzeile")],
+      spalten: [a("Buchung"), n("Posten"), a("Seite"), n("Konto"), n("Betrag", 2), a("Steuerschluessel"), a("Steuerzeile"), a("KOST1"), a("KOST2")],
       zeilen: buchungen.flatMap((b) => [...b.fin_buchungszeilen].sort((x, y) => (x.id ?? 0) - (y.id ?? 0)).map((z, k) =>
-        [`${b.jahr}-${b.nr}-${k + 1}`, `${b.jahr}-${b.nr}`, z.posten, z.seite, z.konto, Number(z.betrag), z.steuerschluessel ?? "", z.ist_steuer ? "ja" : "nein"])) },
+        [`${b.jahr}-${b.nr}-${k + 1}`, `${b.jahr}-${b.nr}`, z.posten, z.seite, z.konto, Number(z.betrag), z.steuerschluessel ?? "", z.ist_steuer ? "ja" : "nein", z.kost1 ?? "", z.kost2 ?? ""])) },
     { url: "konten.csv", name: "Konten", text: "Kontenplan", schluessel: n("Konto"),
       spalten: [a("Bezeichnung"), a("Kategorie"), a("Eigenes_Konto"), a("Aktiv")],
       zeilen: [...konten].sort((x, y) => x.nummer - y.nummer).map((k) => [k.nummer, k.bezeichnung, k.kategorie, k.eigen ? "ja" : "nein", k.aktiv ? "ja" : "nein"]) },

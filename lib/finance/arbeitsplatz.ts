@@ -177,12 +177,14 @@ export type JournalFilter = {
   betragVon: number | null;
   betragBis: number | null;
   text: string;
+  // Kostenstelle als „kost1|T1“ bzw. „kost2|100“ (v182, Migration 108); null = alle.
+  kost?: string | null;
 };
-export const JOURNAL_FILTER_LEER: JournalFilter = { monat: 0, konto: null, zustand: null, betragVon: null, betragBis: null, text: "" };
+export const JOURNAL_FILTER_LEER: JournalFilter = { monat: 0, konto: null, zustand: null, betragVon: null, betragBis: null, text: "", kost: null };
 
 // Wie viele Filter gesetzt sind (für „Filter zurücksetzen“).
 export function filterAnzahl(f: JournalFilter): number {
-  return [f.monat !== 0, f.konto != null, f.zustand != null, f.betragVon != null || f.betragBis != null, f.text.trim() !== ""]
+  return [f.monat !== 0, f.konto != null, f.zustand != null, f.betragVon != null || f.betragBis != null, f.text.trim() !== "", !!f.kost]
     .filter(Boolean).length;
 }
 
@@ -194,6 +196,10 @@ export function journalFiltern(zeilen: readonly JournalZeile[], f: JournalFilter
     if (f.monat && Number(z.datum.slice(5, 7)) !== f.monat) return false;
     if (f.konto != null && !z.buchung.fin_buchungszeilen.some((x) => x.konto === f.konto)) return false;
     if (f.zustand && z.zustand !== f.zustand) return false;
+    if (f.kost) {
+      const [art, nummer] = f.kost.split("|") as ["kost1" | "kost2", string];
+      if (!z.buchung.fin_buchungszeilen.some((x) => x[art] === nummer)) return false;
+    }
     if (f.betragVon != null && z.betrag < f.betragVon) return false;
     if (f.betragBis != null && z.betrag > f.betragBis) return false;
     if (s) {

@@ -11,6 +11,8 @@ import { ZeilenTabelle } from "./FinanceBuchungen";
 import { qk } from "@/lib/queries/keys";
 import { useFinStapel, useFinVorlagen, useFinWiederkehrend } from "@/lib/queries/hooks";
 import { VorlageFormular } from "./FinanceVorlagen";
+import { KostWahl } from "./arbeitsplatz/KostWahl";
+import { FIN_KOST_ARTEN, kostText, type FinKostenstelle } from "@/lib/finance/kostenstellen";
 import { finStapelAnlegen, finStapelBuchen, finStapelLoeschen, finStapelZeileLoeschen, finStapelZeileSpeichern, finWiederkehrendHolen } from "@/lib/api/finance";
 import { vorlageInEingabe, vorlagenSortiert, wiederkehrendOffen } from "@/lib/finance/vorlagen";
 import { betragLesen, kontoNr, passendeSchluessel, type FinBuchung, type FinFestschreibung, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
@@ -30,7 +32,7 @@ import {
 const LEER: StapelEingabe = { datum: "", beleg: "", soll: null, haben: null, betrag: "", steuer: "", text: "" };
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 
-export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, schluessel, fest, buchungen, darfBuchen, onMeldung, onOeffnen, onKontoblatt }: {
+export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, schluessel, fest, buchungen, darfBuchen, onMeldung, onOeffnen, onKontoblatt, kostenstellen = [] }: {
   supabase: SupabaseClient;
   jahr: number;
   heute: string;
@@ -44,6 +46,8 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
   onMeldung: (t: string) => void;
   onOeffnen: (b: FinBuchung) => void;
   onKontoblatt: (n: number) => void;
+  // Kostenstellen (Migration 108, v182): zwei Auswahlfelder in der Erfassungszeile, zwei Spalten in der Liste.
+  kostenstellen?: FinKostenstelle[];
 }) {
   const queryClient = useQueryClient();
   const stapelQ = useFinStapel(supabase, jahr, true);
@@ -93,6 +97,8 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
     { key: "soll", titel: "Soll", wert: (z) => z.soll, zeige: (z) => <span title={name(z.soll)}>{kontoNr(z.soll)}</span> },
     { key: "haben", titel: "Haben", wert: (z) => z.haben, zeige: (z) => <span title={name(z.haben)}>{kontoNr(z.haben)}</span> },
     { key: "steuer", titel: "Steuer", wert: (z) => z.steuer },
+    ...(kostenstellen.length ? FIN_KOST_ARTEN.map((a): Spalte<FinStapelZeile> => ({ key: a.wert, titel: a.text, wert: (z) => z[a.wert] ?? null,
+      zeige: (z) => (z[a.wert] ? <span title={kostText(kostenstellen, a.wert, z[a.wert])}>{z[a.wert]}</span> : "") })) : []),
     { key: "betrag", titel: "Betrag", zahl: true, wert: (z) => z.betrag, zeige: (z) => betragText(z.betrag), fest: true },
     { key: "text", titel: "Buchungstext", wert: (z) => z.text, fest: true, max: 260 },
     stapel?.zustand === "gebucht"
@@ -146,7 +152,8 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
 
   function bearbeiten(z: FinStapelZeile) {
     if (!offen) return;
-    setEingabe({ datum: datumKurz(z.datum), beleg: z.beleg ?? "", soll: z.soll, haben: z.haben, betrag: betragText(z.betrag), steuer: z.steuer ?? "", text: z.text });
+    setEingabe({ datum: datumKurz(z.datum), beleg: z.beleg ?? "", soll: z.soll, haben: z.haben, betrag: betragText(z.betrag), steuer: z.steuer ?? "", text: z.text,
+      kost1: z.kost1 ?? "", kost2: z.kost2 ?? "" });
     setBearbeite(z.id);
     setFormNr(formNr + 1);
     setHinweis(null);
@@ -330,7 +337,7 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
         ) : (
           <>
             {offen && (
-              <div className={"ap-erfassung" + (bearbeite ? " ap-bearbeite" : "")} ref={erfassungRef} onKeyDown={erfassungTaste} role="group"
+              <div className={"ap-erfassung" + (kostenstellen.length ? " ap-mit-kost" : "") + (bearbeite ? " ap-bearbeite" : "")} ref={erfassungRef} onKeyDown={erfassungTaste} role="group"
                 aria-label={bearbeite ? "Zeile ändern" : "Neue Zeile erfassen"}>
                 <label><span>Datum</span>
                   <input data-feld="datum" value={eingabe.datum} placeholder="TTMM" aria-label="Datum" inputMode="numeric" autoComplete="off"
@@ -355,6 +362,11 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
                     {passend.map((s) => <option key={s.schluessel} value={s.schluessel} title={s.bezeichnung}>{s.schluessel}</option>)}
                   </select>
                 </label>
+                {kostenstellen.length > 0 && FIN_KOST_ARTEN.map((a) => (
+                  <label key={a.wert} data-feld={a.wert} title={a.text}><span>{a.datev}</span>
+                    <KostWahl art={a.wert} liste={kostenstellen} wert={eingabe[a.wert] ?? ""} onWert={(w) => setze({ [a.wert]: w })} kurz />
+                  </label>
+                ))}
                 <label className="ap-erf-text"><span>Buchungstext</span>
                   <input data-feld="text" value={eingabe.text} maxLength={200} aria-label="Buchungstext" autoComplete="off" onChange={(e) => setze({ text: e.target.value })} />
                 </label>
@@ -429,7 +441,8 @@ export function FinanceStapel({ supabase, jahr, heute, einstellungen, konten, sc
       {alsVorlage && (
         <VorlageFormular supabase={supabase} art="vorlage" heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
           vorbelegt={{ text: eingabe.text.trim(), soll: eingabe.soll ?? undefined, haben: eingabe.haben ?? undefined, steuer: eingabe.steuer || null,
-            betrag: betragLesen(eingabe.betrag) }}
+            betrag: betragLesen(eingabe.betrag), kost1: eingabe.kost1 || null, kost2: eingabe.kost2 || null }}
+          kostenstellen={kostenstellen}
           onClose={() => setAlsVorlage(false)} />
       )}
       {holenBis !== null && stapel && (

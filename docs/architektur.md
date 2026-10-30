@@ -158,10 +158,13 @@ viana-pinpoints/
       FinanceKontoblatt.tsx          Kontoblatt am Rechner (v179, Stufe B): Zeitraum, Eröffnung, laufender Saldo, Sprung übers
                                      Gegenkonto, Zurück, CSV (tests/financeKontoblattOberflaeche.test.tsx)
       FinanceKontenArbeitsplatz.tsx  Konten am Rechner (v179): Summen und Salden im Zeitraum, Filter, Ein-/Ausblenden, eigenes Konto
+      FinanceKostenstellen.tsx       Kostenstellen am Rechner (Migration 108, v182): KOST1 Transporter, KOST2 Leistungsart, Erlöse/
+                                     Aufwand/Ergebnis im Zeitraum, Transporter übernehmen (tests/financeKostenstellenOberflaeche.test.tsx)
       FinanceNavigation.tsx          Finance-Seitenleiste am Rechner in Bereichen, eigener Merker (v178)
       arbeitsplatz/
         DatenTabelle.tsx             Dichte Tabelle: Sortieren, Tastatur, Markieren, Summenzeile; `SpaltenWahl` (v178)
         KontoFeld.tsx                Konto per Nummer oder Name mit Vorschlägen; `BetragFeld` (v178)
+        KostWahl.tsx                 Auswahl Transporter (KOST1) bzw. Leistungsart (KOST2), kurz für den Stapel (v182)
         Werkzeuge.tsx                `useKurzbefehle` (F2/F3/N), `ZeitraumWahl` (v179)
       FinanceRechnungen.tsx          Rechnungen und offene Posten (Migration 89, v147): zu erstellen, vorgemerkt,
                                      ausgestellt; Jetzt buchen, bar bezahlt, Überweisung, Zahlung zurücknehmen
@@ -383,6 +386,8 @@ viana-pinpoints/
                                   v180; tests/financeStapel.test.ts)
       vorlagen.ts                 Vorlagen/wiederkehrende Buchungen: Termine wie fin_wiederkehrend_holen(), offene Termine, Vorlage in die
                                   Erfassungszeile (Migration 107, v181; tests/financeVorlagen.test.ts)
+      kostenstellen.ts            Kostenstellen: Auswahl, Anzeige, Auswertung je KOST1/KOST2 (Migration 108, v182;
+                                  tests/financeKostenstellen.test.ts)
       kontoblatt.ts               Zeitraum (Jahr/Quartal/Monat/frei), Kontoblatt mit laufendem Saldo, Konten im Zeitraum (v179, Stufe B;
                                   tests/financeKontoblatt.test.ts)
       buchung.ts                  Buchungsregeln wie `fin_posten_schreiben()` (Vorschau), Salden, Betrag lesen (Migration 88, v146)
@@ -811,7 +816,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 107** (30.10.2026; 101–107 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 108** (30.10.2026; 101–107 ausgeführt, 108 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -1001,6 +1006,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   über `fin_buchen()` oder keine (`docs/finance.md` Abschnitt 12).
 - **107** – Finance Vorlagen und wiederkehrende Buchungen: `fin_vorlagen`, `fin_wiederkehrend`, `fin_wiederkehrend_holen()` legt
   fällige Termine als Stapelzeilen ab (`fin_stapel_zeilen.wiederkehrend_id`/`termin`), gebucht wird mit dem Stapel (Abschnitt 13).
+- **108** – Finance Kostenstellen: `fin_kostenstellen` (KOST1 je Transporter, KOST2 je Leistungsart), Spalten `kost1`/`kost2` an
+  Buchungszeilen, Stapelzeilen, Vorlagen und wiederkehrenden Buchungen; `fin_buchen()` setzt sie je Posten an Erlös-, Aufwands-
+  und Anlagekonten, ein Storno übernimmt sie (Abschnitt 14).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { DatenTabelle, SpaltenWahl, type Spalte } from "./arbeitsplatz/DatenTabelle";
 import { KontoFeld } from "./arbeitsplatz/KontoFeld";
 import { useKurzbefehle } from "./arbeitsplatz/Werkzeuge";
+import { FIN_KOST_ARTEN, buchungKost, kostAuswahl, kostText, type FinKostenstelle } from "@/lib/finance/kostenstellen";
 import { ZeilenTabelle } from "./FinanceBuchungen";
 import { dateiHerunterladen } from "@/lib/download";
 import { betragLesen, kontoNr, type FinBuchung, type FinFestschreibung, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
@@ -24,7 +25,7 @@ import {
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
 const ZUSTAND_TEXT = Object.fromEntries(JOURNAL_ZUSTAENDE.map((z) => [z.wert, z.text])) as Record<JournalZustand, string>;
 
-export function FinanceJournalArbeitsplatz({ buchungen, konten, schluessel, fest, jahr, laedt, darfBuchen, onNeu, onOeffnen, onKontoblatt }: {
+export function FinanceJournalArbeitsplatz({ buchungen, konten, schluessel, fest, jahr, laedt, darfBuchen, onNeu, onOeffnen, onKontoblatt, kostenstellen = [] }: {
   buchungen: FinBuchung[];
   konten: FinKonto[];
   schluessel: FinSteuerschluessel[];
@@ -37,6 +38,8 @@ export function FinanceJournalArbeitsplatz({ buchungen, konten, schluessel, fest
   onOeffnen: (b: FinBuchung) => void;
   // Öffnet das Kontoblatt (v179, Stufe B); ohne diesen Weg filtert F3 das Journal auf das Konto.
   onKontoblatt?: (konto: number) => void;
+  // Kostenstellen (Migration 108, v182): Spalten Transporter und Leistung, Filter.
+  kostenstellen?: FinKostenstelle[];
 }) {
   const [filter, setFilter] = useState<JournalFilter>(JOURNAL_FILTER_LEER);
   // Neu gezählt bei „Filter zurücksetzen“ und „nur dieses Konto“: Das Kontofeld hält seinen Text selbst und fängt dann neu an.
@@ -63,6 +66,8 @@ export function FinanceJournalArbeitsplatz({ buchungen, konten, schluessel, fest
     { key: "steuer", titel: "Steuer", wert: (z) => z.steuer,
       zeige: (z) => z.steuer ? <span title={schluessel.find((s) => s.schluessel === z.steuer)?.bezeichnung}>{z.steuer}</span> : "" },
     { key: "betrag", titel: "Umsatz", zahl: true, wert: (z) => z.betrag, zeige: (z) => betragText(z.betrag), fest: true },
+    ...FIN_KOST_ARTEN.map((a): Spalte<JournalZeile> => ({ key: a.wert, titel: a.text, wert: (z) => buchungKost(z.buchung, a.wert),
+      zeige: (z) => { const n = buchungKost(z.buchung, a.wert); return n ? <span title={kostText(kostenstellen, a.wert, n)}>{n}</span> : ""; } })),
     { key: "zustand", titel: "Zustand", wert: (z) => ZUSTAND_TEXT[z.zustand],
       zeige: (z) => <span className={`ap-zustand ap-z-${z.zustand}`}>{ZUSTAND_TEXT[z.zustand]}</span> },
   ];
@@ -117,6 +122,18 @@ export function FinanceJournalArbeitsplatz({ buchungen, konten, schluessel, fest
           <label className="ap-chip ap-chip-konto"><span>Konto</span>
             <KontoFeld key={filterNr} konten={konten} wert={filter.konto} onWert={(n) => setze({ konto: n })} label="Nur Buchungen mit Konto" platzhalter="alle" />
           </label>
+          {kostenstellen.length > 0 && (
+            <label className="ap-chip"><span>Kostenstelle</span>
+              <select value={filter.kost ?? ""} onChange={(e) => setze({ kost: e.target.value || null })} aria-label="Kostenstelle">
+                <option value="">alle</option>
+                {FIN_KOST_ARTEN.map((a) => (
+                  <optgroup key={a.wert} label={a.text}>
+                    {kostAuswahl(kostenstellen, a.wert).map((k) => <option key={k.id} value={`${a.wert}|${k.nummer}`}>{k.nummer} · {k.bezeichnung}</option>)}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+          )}
           <label className="ap-chip"><span>Zustand</span>
             <select value={filter.zustand ?? ""} onChange={(e) => setze({ zustand: (e.target.value || null) as JournalZustand | null })} aria-label="Zustand">
               <option value="">alle</option>

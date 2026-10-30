@@ -44,7 +44,7 @@ describe("Vorlagen", () => {
   it("füllt die Erfassungszeile, Datum und Beleg bleiben; ohne Betrag bleibt er leer", () => {
     const e = { datum: "10.02.", beleg: "ER-7", soll: null, haben: null, betrag: "5", steuer: "", text: "" };
     expect(vorlageInEingabe({ id: "v", kurz: "Tank", text: "Tanken", soll: 4530, haben: 1000, betrag: null, steuer: "vst19" }, e))
-      .toEqual({ datum: "10.02.", beleg: "ER-7", soll: 4530, haben: 1000, betrag: "", steuer: "vst19", text: "Tanken" });
+      .toEqual({ datum: "10.02.", beleg: "ER-7", soll: 4530, haben: 1000, betrag: "", steuer: "vst19", text: "Tanken", kost1: "", kost2: "" });
     expect(vorlageInEingabe({ id: "v", kurz: "Konto", text: "Kontoführung", soll: 4970, haben: 1200, betrag: 12.9, steuer: null }, e).betrag).toBe("12,90");
   });
   it("sortiert nach Kurzname ohne Groß/klein", () => {

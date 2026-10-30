@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **`104_bestellliste.sql`** (vor den Dateien von v173) **`105_bestellliste_loeschkonzept_chatkarten.sql`** (nach 104, vor den Dateien von v174) **`106_finance_buchungsstapel.sql`** (vor den Dateien von v180) **und `107_finance_vorlagen_wiederkehrend.sql`** (nach 106, vor den Dateien von v181) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) – Abschnitt unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1492,7 +1492,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   nichts, `anon` darf die Funktion nicht aufrufen. `t72`, `t86`–`t99` gegen 99 und 100: gleiche Ausgabe bis auf die gewollte
   Stelle (eine Tabelle mehr in der Sicherung). Ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt.
 
-- `101_kundengruppen.sql` – **noch auszuführen**, nach 100 und vor den Dateien von v165.
+- `101_kundengruppen.sql` – ausgeführt (laut Vitali am 30.10.2026), nach 100 und vor den Dateien von v165.
   Kundengruppen: Hauptkunde mit Unterdebitoren (`docs/kunden-und-karte.md`, „Kundengruppen“). Spalte
   `customers.haupt_kunde_id` (Verweis, nicht auf sich selbst, Index); Trigger `kunde_gruppe_pruefen()`: eine Ebene, keine
   Laufkundschaft/Einmalkunden in einer Gruppe, Testkunde nur mit Testkunde, Hauptkunde mit Unterdebitoren nicht löschbar und
@@ -1515,7 +1515,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   `t86`–`t100` gegen 100 und 101: gleiche Ausgabe (`t56` nur Kennungen und Zeitstempel). Ausgeführt, zweimal,
   zurückgenommen, zweimal, erneut ausgeführt.
 
-- `102_navigation_lager.sql` – **noch auszuführen**, nach 101 und vor den Dateien von v169.
+- `102_navigation_lager.sql` – ausgeführt (laut Vitali am 30.10.2026), nach 101 und vor den Dateien von v169.
   Navigation zum Lager (`docs/lager.md`, „Zum Lager navigieren“). Spalte `user_settings.nav_lager_id` (uuid, leer = Hauptlager
   bzw. erstes Lager mit Adresse). Bewusst ohne Fremdschlüssel: „Alle Daten löschen“ leert `warehouses` per TRUNCATE und
   behält `user_settings`. Wache: bricht ohne `user_settings`/`warehouses` ab. Ergebnistabelle mit zwei Zeilen (Spalte, Lager mit
@@ -1524,7 +1524,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   Geprüft gegen Postgres 16 (Stand 101): ausgeführt, zweimal, zurückgenommen, zweimal, erneut ausgeführt; `t72` und `t86`
   (darunter „Alle Daten löschen“) gegen 101 und 102: gleiche Ausgabe.
 
-- `103_firma_ohne_ansprechpartner.sql` – **noch auszuführen**, nach 102 und vor den Dateien von v172.
+- `103_firma_ohne_ansprechpartner.sql` – ausgeführt (laut Vitali am 30.10.2026), nach 102 und vor den Dateien von v172.
   Bei Firmenkunden ist der Ansprechpartner (`customers.name`) freiwillig (`docs/kunden-und-karte.md`, „Firma, Ansprechpartner …“).
   `pruefe_rechnungsdaten()` verlangt beim Abschließen mit „Rechnung nötig“ jetzt Name ODER Firma; sonst wie nach 79 (Anschrift,
   Fahrzeug, Kennzeichen, Kilometerstand; keine E-Mail). Steht die Funktion noch auf dem Stand vor 79, nimmt 103 die E-Mail-Pflicht
@@ -1536,7 +1536,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
   79 abgelehnt, nach 103 abgeschlossen; ohne Name und Firma weiter abgelehnt („Name oder Firma des Kunden“); Privatkunde ohne
   E-Mail abgeschlossen. Zweimal ausgeführt, zweimal zurückgenommen (Funktion danach md5-gleich zu 79), erneut ausgeführt.
 
-- `104_bestellliste.sql` – **noch auszuführen**, nach 103 und vor den Dateien von v173.
+- `104_bestellliste.sql` – ausgeführt (laut Vitali am 30.10.2026), nach 103 und vor den Dateien von v173.
   Bestellliste „Fehlt was?“ (`docs/bestellliste.md`). Rechte `bestellungen` (L/S admin, techniker, user) und
   `bestellungen.verwalten` (L/S admin); Tabellen `bestellwuensche` und `bestellwunsch_plus` mit Zeilenrechten;
   `bestellwunsch_pruefen()` (BEFORE, ohne security definer, current_user-Weiche); privater Bucket `bestell-fotos` (3 MB, eigener
@@ -1555,7 +1555,7 @@ Schwärzungslauf ohne Wirkung, Aufruf als `authenticated` abgewiesen.
 Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auch die neuere Fassung
 `alle_daten_loeschen(text, text)` aus Migration 86 – vorher stand dort fälschlich „NEIN“. Zeile 104 neu.
 
-- `105_bestellliste_loeschkonzept_chatkarten.sql` – **noch auszuführen**, nach 104 und vor den Dateien von v174.
+- `105_bestellliste_loeschkonzept_chatkarten.sql` – ausgeführt (laut Vitali am 30.10.2026), nach 104 und vor den Dateien von v174.
   Anlass: Frage Vitali 29.10.2026, ob das Löschkonzept alles enthält, und Wunsch „Name des Eintragenden an der Bestellung“
   (`docs/bestellliste.md`, Abschnitte „Wer hat es eingetragen“ und „Löschkonzept und Aufbewahrung“). Inhalt:
   `bestellwuensche.erstellt_name` und `bestellwunsch_plus.name` aus der Anmeldung (`zugang_anzeigename()`, Trigger
@@ -1568,8 +1568,15 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   Zweiter Lauf folgenlos. Rücknahme: `rollback/105_rollback.sql` (Karten „Bestellung“/„Packliste“ verschwinden aus den
   Nachrichten, der Text bleibt; Namen weg; noch vorgemerkte Fotodateien nennt die Tabelle – dann bleibt die Liste stehen,
   bis sie von Hand geleert ist; zweimal lauffähig).
+  Geprüft gegen Postgres 16 mit 01–104 als Vorstufe: zweimal ausgeführt; 12 Fälle (Name aus Mitarbeiter bzw. E-Mail, Fälschen
+  beim Anlegen und Ändern wirkungslos; „+1“ mit Namen; Hilfsfunktionen nicht von außen; Packliste-Karte nur mit gültiger
+  Kennung; Kunde endgültig löschen nimmt Wünsche zu Kunde und Auftrag mit, Foto vorgemerkt, Chat-Karte „Bestellung
+  gelöscht“, ein fremder Wunsch bleibt; Techniker weiter abgelehnt mit der alten Meldung; Zusammenführen hängt um; Auskunft
+  ohne Mitarbeiternamen; Aufräumen löscht nur erledigte nach 12 Monaten; Foto ersetzen merkt den alten Pfad vor;
+  Dienstschlüssel holt und hakt ab; „Alle Daten löschen“ merkt alle Fotos vor). Die Testskripte von 104 laufen gegen den
+  Stand 105 mit gleicher Ausgabe wie gegen 104. Zweimal zurückgenommen (Schema danach gleich dem Stand 104), erneut ausgeführt.
 
-- `106_finance_buchungsstapel.sql` – **noch auszuführen**, vor den Dateien von v180 (Finance Stufe C, Teil 1, `docs/finance.md`
+- `106_finance_buchungsstapel.sql` – ausgeführt (laut Vitali am 30.10.2026), vor den Dateien von v180 (Finance Stufe C, Teil 1, `docs/finance.md`
   Abschnitt 12). Inhalt: Tabellen `fin_stapel` und `fin_stapel_zeilen` (RLS: nur lesen mit „Finance › Buchungen“ lesen),
   geschrieben nur über `fin_stapel_anlegen()`, `fin_stapel_zeile_speichern()`, `fin_stapel_zeile_loeschen()`,
   `fin_stapel_loeschen()` (Recht „Finance › Buchungen“ schreiben, gebuchte Stapel gesperrt) und `fin_stapel_buchen()`
@@ -1581,7 +1588,7 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   „Alle Daten löschen“ leert beide Tabellen. Zweiter Lauf folgenlos. Rücknahme: `rollback/106_rollback.sql` (löscht die
   Stapel, Gebuchtes bleibt im Journal; zweimal lauffähig).
 
-- `107_finance_vorlagen_wiederkehrend.sql` – **noch auszuführen**, nach 106 und vor den Dateien von v181 (`docs/finance.md`
+- `107_finance_vorlagen_wiederkehrend.sql` – ausgeführt (laut Vitali am 30.10.2026), nach 106 und vor den Dateien von v181 (`docs/finance.md`
   Abschnitt 13). Inhalt: `fin_vorlagen` (Kurzname eindeutig, Betrag frei) und `fin_wiederkehrend` (Rhythmus monatlich bis
   jährlich, erster Termin, bis, aktiv), RLS nur lesen; `fin_stapel_zeilen` bekommt `wiederkehrend_id` und `termin` (eindeutig
   je Termin); geschrieben über `fin_vorlage_speichern/_loeschen()`, `fin_wiederkehrend_speichern/_loeschen()` (erster Termin
@@ -1592,10 +1599,24 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   gelöschte Zeile → Termin wieder offen; Rhythmus nach dem Holen fest; Stapel mit geholten Zeilen gebucht; Löschen der
   wiederkehrenden Buchung lässt die Zeilen stehen; direktes Schreiben verweigert; „Alle Daten löschen“ leert alles. Zweiter
   Lauf folgenlos. Rücknahme: `rollback/107_rollback.sql` (geholte Zeilen bleiben in ihren Stapeln; zweimal lauffähig).
-  Geprüft gegen Postgres 16 mit 01–104 als Vorstufe: zweimal ausgeführt; 12 Fälle (Name aus Mitarbeiter bzw. E-Mail, Fälschen
-  beim Anlegen und Ändern wirkungslos; „+1“ mit Namen; Hilfsfunktionen nicht von außen; Packliste-Karte nur mit gültiger
-  Kennung; Kunde endgültig löschen nimmt Wünsche zu Kunde und Auftrag mit, Foto vorgemerkt, Chat-Karte „Bestellung
-  gelöscht“, ein fremder Wunsch bleibt; Techniker weiter abgelehnt mit der alten Meldung; Zusammenführen hängt um; Auskunft
-  ohne Mitarbeiternamen; Aufräumen löscht nur erledigte nach 12 Monaten; Foto ersetzen merkt den alten Pfad vor;
-  Dienstschlüssel holt und hakt ab; „Alle Daten löschen“ merkt alle Fotos vor). Die Testskripte von 104 laufen gegen den
-  Stand 105 mit gleicher Ausgabe wie gegen 104. Zweimal zurückgenommen (Schema danach gleich dem Stand 104), erneut ausgeführt.
+
+- `108_finance_kostenstellen.sql` – **noch auszuführen**, nach 107 und vor den Dateien von v182 (Finance Stufe C, Teil 3,
+  `docs/finance.md` Abschnitt 14). Inhalt: Tabelle `fin_kostenstellen` (Art `kost1` Transporter / `kost2` Leistungsart,
+  Nummer aus Buchstaben und Ziffern bis 8 Zeichen, Bezeichnung, aktiv, Firmenfahrzeug; RLS nur lesen mit „Finance“ lesen);
+  angelegt werden KOST2 100 Montage, 200 Einlagerung, 300 Reifenverkauf und je aktivem Firmenfahrzeug T1, T2 …;
+  geschrieben über `fin_kostenstelle_speichern()` (Art und Nummer fest, sobald gebucht) und `fin_kostenstellen_uebernehmen()`
+  (holt neue Transporter und die drei Leistungsarten nach), beide mit „Finance › Einstellungen“ schreiben. Spalten `kost1`
+  und `kost2` an `fin_buchungszeilen`, `fin_stapel_zeilen`, `fin_vorlagen` und `fin_wiederkehrend`. `fin_buchen()` neu: je
+  Posten die Kostenstellen an die Zeilen mit Erlös-, Aufwands- oder Anlagekonto, nie an Bank, Kasse, Forderung oder Steuer;
+  unbekannte oder ausgeblendete abgelehnt. Trigger `trg_fin_storno_kost`: ein Storno übernimmt die Kostenstellen.
+  `fin_stapel_zeile_speichern()`, `fin_vorlage_speichern()`, `fin_wiederkehrend_speichern()` mit `p_kost1`/`p_kost2`
+  (vorgegeben leer, alte Aufrufe gehen weiter); `fin_stapel_buchen()` und `fin_wiederkehrend_holen()` reichen sie durch. Die
+  alten Fassungen werden erst entfernt, wenn die neuen stehen. Wache: bricht ohne 107 oder ohne `firmenfahrzeuge` ab.
+  Ergebnistabelle mit sechs Zeilen (RLS an, Leistungsarten, Transporter, Spalten „8 von 8“, Storno „ja“, alte
+  Fassungen weg „ja“). Geprüft gegen PG 16 (`/tmp/pgt/t108.sql`): Techniker abgelehnt; doppelte oder ungültige Nummer
+  abgelehnt; übernehmen erst 1, dann 0; Kostenstelle an 4530, nicht an 1200 und 1576; unbekannt, ausgeblendet und nur
+  Geldkonto abgelehnt; Erlös mit KOST2 je Posten; Storno mit Kostenstellen; Nummer nach dem Buchen fest; Stapel, Vorlage
+  und wiederkehrend mit Kostenstellen; alte Aufrufe ohne Kostenstelle gehen. `t106` und `t107` gegen 108 mit gleicher
+  Ausgabe. „Alle Daten löschen“ leert `fin_kostenstellen` (übernehmen legt die Leistungsarten wieder an). Zweiter Lauf
+  folgenlos. Rücknahme: `rollback/108_rollback.sql` (Kostenstellen und Spalten weg, Funktionen wieder im Stand 107;
+  zweimal lauffähig).

@@ -133,7 +133,7 @@ describe("GoBD-Datenexport, ZIP, Verfahrensdokumentation", () => {
     expect([...buch]).toContain(0xfc);
     const zeilen = new TextDecoder("windows-1252").decode(d[2].daten).trim().split("\r\n");
     expect(zeilen).toHaveLength(4);
-    expect(zeilen[1]).toBe("2026-1-1;2026-1;1;S;1400;119;ust19;nein");
+    expect(zeilen[1]).toBe("2026-1-1;2026-1;1;S;1400;119;ust19;nein;;");
   });
   it("ZIP: Prüfsumme und Aufbau", () => {
     expect(crc32(new TextEncoder().encode("123456789")).toString(16)).toBe("cbf43926");

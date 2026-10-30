@@ -176,7 +176,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('104', 'Bestellliste (bestellwuensche, Recht bestellungen)', to_regclass('public.bestellwuensche') is not null and exists (select 1 from public.module_permissions where module_key = 'bestellungen.verwalten')),
     ('105', 'Bestellliste im Löschkonzept, Chat-Karten (bestell_aufraeumen, kunde_endgueltig_loeschen_grund)', to_regprocedure('public.bestell_aufraeumen(interval)') is not null and to_regprocedure('public.kunde_endgueltig_loeschen_grund(uuid)') is not null),
     ('106', 'Finance: Buchungsstapel (fin_stapel, fin_stapel_buchen)', to_regclass('public.fin_stapel_zeilen') is not null and to_regprocedure('public.fin_stapel_buchen(uuid)') is not null),
-    ('107', 'Finance: Vorlagen und wiederkehrende Buchungen (fin_wiederkehrend_holen)', to_regclass('public.fin_vorlagen') is not null and to_regprocedure('public.fin_wiederkehrend_holen(uuid,date)') is not null)
+    ('107', 'Finance: Vorlagen und wiederkehrende Buchungen (fin_wiederkehrend_holen)', to_regclass('public.fin_vorlagen') is not null and to_regprocedure('public.fin_wiederkehrend_holen(uuid,date)') is not null),
+    ('108', 'Finance: Kostenstellen (fin_kostenstellen, kost1/kost2 an den Buchungszeilen)', to_regclass('public.fin_kostenstellen') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'fin_buchungszeilen' and column_name = 'kost1'))
 )
 select migration, woran_erkennbar, gelaufen from (
   select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen

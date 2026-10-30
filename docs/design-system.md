@@ -1070,7 +1070,11 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
   Zeile, N Schnellbuchung (`FIN_KURZBEFEHLE`); in Eingabefeldern zählt N nicht.
 - **Kontofeld** statt Auswahlliste: Nummer oder Name tippen, Vorschläge darunter, Enter/Tab nimmt; die Bezeichnung
   steht daneben, Mehrdeutiges wird rot. **Betragsfeld** mit Komma, beim Verlassen „1.234,50“.
-- **Nur am Rechner** (`useAmRechner()`, dieselbe Weiche wie `istHandy`); am Handy bleiben die Kartenlisten.- **Sprünge** (seit v179): Kontonummern in Listen sind Verweise (`.ap-link`, gepunktet unterstrichen) und öffnen das
+- **Nur am Rechner** (`useAmRechner()`, dieselbe Weiche wie `istHandy`); am Handy bleiben die Kartenlisten.
+- **Sprünge** (seit v179): Kontonummern in Listen sind Verweise (`.ap-link`, gepunktet unterstrichen) und öffnen das
   Kontoblatt; ein „←“-Knopf vorne in der Filterleiste führt den Weg zurück. Überlange Bezeichnungen enden in der Tabelle
   mit „…“ (`max` an der Spalte), der volle Text steht im Hinweis.
+- **Erfassungszeile** (Stapel, seit v180; `.ap-erfassung`): alle Felder in einer Reihe, Enter springt weiter. Mit
+  Kostenstellen (v182, `.ap-mit-kost`) stehen über den Auswahlen die DATEV-Kurzformen KOST1/KOST2 (der volle Name im
+  Hinweis). Bis 1400 px Breite rutschen Buchungstext und Knopf in eine zweite Reihe, damit Soll und Haben lesbar bleiben.
 

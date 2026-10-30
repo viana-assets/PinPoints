@@ -11,6 +11,7 @@ import type { FinMahnung } from "@/lib/finance/mahnung";
 import type { FinPlanposten } from "@/lib/finance/liquiditaet";
 import type { FinStapel, FinStapelZeile } from "@/lib/finance/stapel";
 import type { FinVorlage, FinWiederkehrend } from "@/lib/finance/vorlagen";
+import type { FinKostenstelle, KostArt } from "@/lib/finance/kostenstellen";
 import { protokolleLesen, type FinExportBeleg, type FinExportProtokoll } from "@/lib/finance/export";
 import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
@@ -76,7 +77,7 @@ export async function fetchFinSteuerschluessel(supabase: SupabaseClient, rahmen:
 export async function fetchFinBuchungen(supabase: SupabaseClient, jahr: number): Promise<FinBuchung[]> {
   const alle = await fetchPaged<FinBuchung>("Die Buchungen konnten nicht geladen werden", (von, bis) =>
     supabase.from("fin_buchungen")
-      .select("id, jahr, nr, datum, text, beleg, quelle, quelle_id, storno_von, storniert_durch, grund, erstellt_am, fin_buchungszeilen(id, posten, seite, konto, betrag, steuerschluessel, ist_steuer)")
+      .select("id, jahr, nr, datum, text, beleg, quelle, quelle_id, storno_von, storniert_durch, grund, erstellt_am, fin_buchungszeilen(id, posten, seite, konto, betrag, steuerschluessel, ist_steuer, kost1, kost2)")
       .eq("jahr", jahr).order("nr").order("id").range(von, bis));
   return alle.map((b) => ({
     ...b,
@@ -527,7 +528,7 @@ export async function finPlanpostenLoeschen(supabase: SupabaseClient, id: string
 export async function fetchFinStapel(supabase: SupabaseClient, jahr: number): Promise<FinStapel[]> {
   const alle = await fetchPaged<FinStapel>("Die Buchungsstapel konnten nicht geladen werden", (von, bis) =>
     supabase.from("fin_stapel")
-      .select("id, jahr, bezeichnung, zustand, erstellt_am, gebucht_am, fin_stapel_zeilen(id, stapel_id, lfd, datum, beleg, text, soll, haben, betrag, steuer, buchung_id, wiederkehrend_id, termin)")
+      .select("id, jahr, bezeichnung, zustand, erstellt_am, gebucht_am, fin_stapel_zeilen(id, stapel_id, lfd, datum, beleg, text, soll, haben, betrag, steuer, buchung_id, wiederkehrend_id, termin, kost1, kost2)")
       .eq("jahr", jahr).order("erstellt_am").order("id").range(von, bis));
   return alle.map((st) => ({
     ...st,
@@ -537,10 +538,11 @@ export async function fetchFinStapel(supabase: SupabaseClient, jahr: number): Pr
 export async function finStapelAnlegen(supabase: SupabaseClient, jahr: number, bezeichnung: string): Promise<string> {
   return String(await q<string>("Der Stapel wurde nicht angelegt", supabase.rpc("fin_stapel_anlegen", { p_jahr: jahr, p_bezeichnung: bezeichnung })));
 }
-export type FinStapelZeileFelder = Pick<FinStapelZeile, "datum" | "beleg" | "text" | "soll" | "haben" | "betrag" | "steuer">;
+export type FinStapelZeileFelder = Pick<FinStapelZeile, "datum" | "beleg" | "text" | "soll" | "haben" | "betrag" | "steuer"> & { kost1?: string | null; kost2?: string | null };
 export async function finStapelZeileSpeichern(supabase: SupabaseClient, stapel: string, id: string | null, f: FinStapelZeileFelder): Promise<string> {
   return String(await q<string>("Die Zeile wurde nicht gespeichert", supabase.rpc("fin_stapel_zeile_speichern", {
-    p_id: id, p_stapel: stapel, p_datum: f.datum, p_beleg: f.beleg, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer })));
+    p_id: id, p_stapel: stapel, p_datum: f.datum, p_beleg: f.beleg, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer,
+    p_kost1: f.kost1 ?? null, p_kost2: f.kost2 ?? null })));
 }
 export async function finStapelZeileLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
   await q("Die Zeile wurde nicht gelöscht", supabase.rpc("fin_stapel_zeile_loeschen", { p_id: id }));
@@ -557,27 +559,28 @@ export async function finStapelBuchen(supabase: SupabaseClient, id: string): Pro
 // ---------------------------------------------------------------- Vorlagen und wiederkehrende Buchungen (Migration 107, v181)
 export async function fetchFinVorlagen(supabase: SupabaseClient): Promise<FinVorlage[]> {
   const z = await fetchPaged<FinVorlage>("Die Buchungsvorlagen konnten nicht geladen werden", (von, bis) =>
-    supabase.from("fin_vorlagen").select("id, kurz, text, soll, haben, betrag, steuer").order("kurz").order("id").range(von, bis));
+    supabase.from("fin_vorlagen").select("id, kurz, text, soll, haben, betrag, steuer, kost1, kost2").order("kurz").order("id").range(von, bis));
   return z.map((v) => ({ ...v, betrag: v.betrag == null ? null : Number(v.betrag) }));
 }
 export type FinVorlageFelder = Omit<FinVorlage, "id">;
 export async function finVorlageSpeichern(supabase: SupabaseClient, id: string | null, f: FinVorlageFelder): Promise<string> {
   return String(await q<string>("Die Vorlage wurde nicht gespeichert", supabase.rpc("fin_vorlage_speichern", {
-    p_id: id, p_kurz: f.kurz, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer })));
+    p_id: id, p_kurz: f.kurz, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer,
+    p_kost1: f.kost1 ?? null, p_kost2: f.kost2 ?? null })));
 }
 export async function finVorlageLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
   await q("Die Vorlage wurde nicht gelöscht", supabase.rpc("fin_vorlage_loeschen", { p_id: id }));
 }
 export async function fetchFinWiederkehrend(supabase: SupabaseClient): Promise<FinWiederkehrend[]> {
   const z = await fetchPaged<FinWiederkehrend>("Die wiederkehrenden Buchungen konnten nicht geladen werden", (von, bis) =>
-    supabase.from("fin_wiederkehrend").select("id, text, soll, haben, betrag, steuer, rhythmus, ab, bis, aktiv").order("ab").order("id").range(von, bis));
+    supabase.from("fin_wiederkehrend").select("id, text, soll, haben, betrag, steuer, rhythmus, ab, bis, aktiv, kost1, kost2").order("ab").order("id").range(von, bis));
   return z.map((w) => ({ ...w, betrag: Number(w.betrag) }));
 }
 export type FinWiederkehrendFelder = Omit<FinWiederkehrend, "id">;
 export async function finWiederkehrendSpeichern(supabase: SupabaseClient, id: string | null, f: FinWiederkehrendFelder): Promise<string> {
   return String(await q<string>("Die wiederkehrende Buchung wurde nicht gespeichert", supabase.rpc("fin_wiederkehrend_speichern", {
     p_id: id, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer, p_rhythmus: f.rhythmus,
-    p_ab: f.ab, p_bis: f.bis, p_aktiv: f.aktiv })));
+    p_ab: f.ab, p_bis: f.bis, p_aktiv: f.aktiv, p_kost1: f.kost1 ?? null, p_kost2: f.kost2 ?? null })));
 }
 export async function finWiederkehrendLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
   await q("Die wiederkehrende Buchung wurde nicht gelöscht", supabase.rpc("fin_wiederkehrend_loeschen", { p_id: id }));
@@ -586,3 +589,17 @@ export async function finWiederkehrendHolen(supabase: SupabaseClient, stapel: st
   const r = await q<{ anzahl: number }>("Die wiederkehrenden Buchungen wurden nicht geholt", supabase.rpc("fin_wiederkehrend_holen", { p_stapel: stapel, p_bis: bis }));
   return r?.anzahl ?? 0;
 }
+
+// ---------------------------------------------------------------- Kostenstellen (Migration 108, v182)
+export async function fetchFinKostenstellen(supabase: SupabaseClient): Promise<FinKostenstelle[]> {
+  return fetchPaged<FinKostenstelle>("Die Kostenstellen konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_kostenstellen").select("id, art, nummer, bezeichnung, aktiv, firmenfahrzeug_id").order("art").order("nummer").order("id").range(von, bis));
+}
+export async function finKostenstelleSpeichern(supabase: SupabaseClient, id: string | null, f: { art: KostArt; nummer: string; bezeichnung: string; aktiv: boolean }): Promise<string> {
+  return String(await q<string>("Die Kostenstelle wurde nicht gespeichert", supabase.rpc("fin_kostenstelle_speichern", {
+    p_id: id, p_art: f.art, p_nummer: f.nummer, p_bezeichnung: f.bezeichnung, p_aktiv: f.aktiv })));
+}
+export async function finKostenstellenUebernehmen(supabase: SupabaseClient): Promise<number> {
+  return Number(await q<number>("Die Kostenstellen wurden nicht übernommen", supabase.rpc("fin_kostenstellen_uebernehmen")) ?? 0);
+}
+

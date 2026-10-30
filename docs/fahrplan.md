@@ -16,6 +16,13 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.10.2026 – Finance Stufe C, Teil 3: Kostenstellen (Service Worker v182, Migration 108).** Reiter „Kostenstellen“ unter
+  Finance › Buchungen: KOST1 je Transporter (aus den Firmenfahrzeugen übernommen), KOST2 je Leistungsart (100 Montage,
+  200 Einlagerung, 300 Reifenverkauf) mit Erlösen, Aufwand und Ergebnis im Zeitraum. Setzen je Posten im Buchungsfenster,
+  im Stapel (KOST1/KOST2) und in Vorlagen; nur an Erlös-, Aufwands- und Anlagekonten (`fin_buchen()` prüft). Journal mit
+  Spalten und Filter, Kontoblatt mit Spalten, DATEV-Export füllt KOST1/KOST2, GoBD mit zwei Spalten, Storno übernimmt sie.
+  Stapel-Erfassung am schmaleren Bildschirm zweireihig. `docs/finance.md` Abschnitt 14. Leistungsart automatisch aus dem
+  Artikel der FSM-Rechnung kommt mit Stufe D.
 * **30.10.2026 – Finance Stufe C, Teil 2: Vorlagen und wiederkehrende Buchungen (Service Worker v181, Migration 107).** Reiter
   „Vorlagen“ mit beiden Listen und Fenster zum Anlegen/Ändern/Löschen; im Stapel „Vorlage“ (füllt die Erfassungszeile),
   „Als Vorlage …“ und „Wiederkehrende holen …“ (fällige Termine bis zu einem Stichtag als Zeilen, gebucht wird mit dem
@@ -1032,8 +1039,9 @@ mit Stufe D (alle FSM-Rechnungen, FSM selbst unverändert), vollständig ab 01.0
 Transporter + Kostenträger Leistungsart, Buchen auch am Handy, DATEV monatlich. **Stufe A gebaut (v178):** Journal als
 Arbeitsplatz am Rechner, Kontofeld, Tastatur, Leiste in Bereichen (`docs/finance.md` Abschnitt 10). **Stufe B gebaut (v179):**
 Kontoblatt und Konten (Abschnitt 11). **Stufe C Teil 1 gebaut (v180, Migration 106):** Buchungsstapel (Abschnitt 12).
-**Teil 2 gebaut (v181, Migration 107):** Vorlagen und wiederkehrende Buchungen (Abschnitt 13). Als Nächstes: Kostenstellen
-(Transporter, Leistungsart) und Erfassen am Handy.
+**Teil 2 gebaut (v181, Migration 107):** Vorlagen und wiederkehrende Buchungen (Abschnitt 13). **Teil 3 gebaut (v182,
+Migration 108):** Kostenstellen KOST1 Transporter und KOST2 Leistungsart (Abschnitt 14). Als Nächstes: Erfassen am Handy,
+dann Stufe D (alle FSM-Rechnungen, Debitor je Kunde, Leistungsart aus dem Artikel).
 
 Konzept, Entscheidungen und Phasen F0–F9 in **`docs/finance.md`**, klickbarer Mockup
 `Claude outputs\Mockup_Finance_v3.html`. Kurz: Systemwechsel an der Marke („MR Assistent · FSM“ ↔

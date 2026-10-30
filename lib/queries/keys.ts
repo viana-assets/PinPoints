@@ -106,6 +106,8 @@ export const qk = {
   // Stufe C Teil 2 (Migration 107): Buchungsvorlagen und wiederkehrende Buchungen.
   finVorlagen: () => ["finance", "vorlagen"] as const,
   finWiederkehrend: () => ["finance", "wiederkehrend"] as const,
+  // Stufe C Teil 3 (Migration 108): Kostenstellen (KOST1 Transporter, KOST2 Leistungsart).
+  finKostenstellen: () => ["finance", "kostenstellen"] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

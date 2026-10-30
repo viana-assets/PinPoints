@@ -8,6 +8,7 @@ import { dateiHerunterladen } from "@/lib/download";
 import { FIN_KONTO_KATEGORIEN, kontoNr, type FinBuchung, type FinFestschreibung, type FinKonto } from "@/lib/finance/buchung";
 import { JOURNAL_ZUSTAENDE, betragText, datumDe, saldoText, sortiere, tabellenCsv, type JournalZustand, type Sortierung } from "@/lib/finance/arbeitsplatz";
 import { kontoblatt, zeitraumVorgaben, type KontoblattZeile, type Zeitraum } from "@/lib/finance/kontoblatt";
+import { FIN_KOST_ARTEN, kostText, type FinKostenstelle } from "@/lib/finance/kostenstellen";
 
 // Finance › Buchungen › Kontoblatt am Rechner (v179, Stufe B, docs/finance.md Abschnitt 11): ein Konto mit freiem
 // Zeitraum, Eröffnungssaldo, jede Bewegung mit Gegenkonto, Soll, Haben und laufendem Saldo, unten Verkehrszahlen und
@@ -17,7 +18,7 @@ import { kontoblatt, zeitraumVorgaben, type KontoblattZeile, type Zeitraum } fro
 
 const ZUSTAND_TEXT = Object.fromEntries(JOURNAL_ZUSTAENDE.map((z) => [z.wert, z.text])) as Record<JournalZustand, string>;
 
-export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto, onKonto, zurueck, onZurueck, darfBuchen, onNeu, onOeffnen }: {
+export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto, onKonto, zurueck, onZurueck, darfBuchen, onNeu, onOeffnen, kostenstellen = [] }: {
   buchungen: FinBuchung[];
   konten: FinKonto[];
   fest: FinFestschreibung[];
@@ -32,6 +33,8 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
   darfBuchen: boolean;
   onNeu: () => void;
   onOeffnen: (b: FinBuchung) => void;
+  // Kostenstellen (Migration 108, v182) für die Spalten Transporter und Leistung.
+  kostenstellen?: FinKostenstelle[];
 }) {
   const [zeitraum, setZeitraum] = useState<Zeitraum>(() => zeitraumVorgaben(jahr)[0]);
   const [suche, setSuche] = useState("");
@@ -59,6 +62,8 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
     { key: "haben", titel: "Haben", zahl: true, wert: (z) => z.haben || null, zeige: (z) => (z.haben ? betragText(z.haben) : ""), fest: true },
     { key: "saldo", titel: "Saldo", zahl: true, wert: (z) => z.saldo, zeige: (z) => saldoText(z.saldo), fest: true },
     { key: "steuer", titel: "Steuer", wert: (z) => z.steuer, zeige: (z) => (z.steuer ? `${z.steuer}${z.istSteuer ? " (Steuer)" : ""}` : "") },
+    ...FIN_KOST_ARTEN.map((a): Spalte<KontoblattZeile> => ({ key: a.wert, titel: a.text, wert: (z) => z[a.wert],
+      zeige: (z) => (z[a.wert] ? <span title={kostText(kostenstellen, a.wert, z[a.wert])}>{z[a.wert]}</span> : "") })),
     { key: "zustand", titel: "Zustand", wert: (z) => ZUSTAND_TEXT[z.zustand],
       zeige: (z) => <span className={`ap-zustand ap-z-${z.zustand}`}>{ZUSTAND_TEXT[z.zustand]}</span> },
   ];

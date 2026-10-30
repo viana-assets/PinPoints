@@ -53,7 +53,7 @@ describe("Vorlagen-Seite", () => {
     fireEvent.change(screen.getByLabelText("Haben-Konto"), { target: { value: "1200" } });
     fireEvent.change(screen.getByLabelText("Betrag"), { target: { value: "12,9" } });
     await act(async () => { fireEvent.click(screen.getByRole("button", { name: "Speichern" })); });
-    expect(api.finVorlageSpeichern).toHaveBeenCalledWith(expect.anything(), null, { kurz: "Konto", text: "Kontoführung", soll: 4530, haben: 1200, betrag: 12.9, steuer: null });
+    expect(api.finVorlageSpeichern).toHaveBeenCalledWith(expect.anything(), null, { kurz: "Konto", text: "Kontoführung", soll: 4530, haben: 1200, betrag: 12.9, steuer: null, kost1: null, kost2: null });
   });
 
   it("wiederkehrende ohne Betrag geht nicht; ändern öffnet mit Werten", () => {

@@ -4973,11 +4973,23 @@ th.ap-zahl .ap-kopf{justify-content:flex-end;}
 .ap-erfassung > label:not([data-feld="soll"]):not([data-feld="haben"])::after{content:"";height:13px;flex:0 0 13px;}
 .ap-erf-knopf{height:32px;border-radius:8px;padding:0 12px;font-size:13px;white-space:nowrap;align-self:end;margin-bottom:13px;}
 .ap-erf-fuss{grid-column:1 / -1;font-size:12px;min-height:16px;color:var(--text);}
+/* Kostenstellen (v182): zwei kurze Auswahlfelder in der Erfassungszeile, Kennzeichen in der Buchungszeilen-Tabelle */
+.ap-erfassung.ap-mit-kost{grid-template-columns:62px 76px minmax(0,1fr) minmax(0,1fr) 84px 66px 54px 54px minmax(0,1.6fr) auto;}
+/* Schmalere Bildschirme (bis 1400 px): Buchungstext und Knopf in eine zweite Reihe, damit Soll/Haben lesbar bleiben. */
+@media (max-width:1400px){
+  .ap-erfassung{grid-template-columns:70px 96px minmax(0,1fr) minmax(0,1fr) 100px 76px;}
+  .ap-erfassung .ap-erf-text{grid-column:1 / 5;}
+  .ap-erfassung .ap-erf-knopf{grid-column:5 / 7;}
+  .ap-erfassung.ap-mit-kost{grid-template-columns:62px 76px minmax(0,1fr) minmax(0,1fr) 84px 66px 60px 60px;}
+  .ap-erfassung.ap-mit-kost .ap-erf-text{grid-column:1 / 7;}
+  .ap-erfassung.ap-mit-kost .ap-erf-knopf{grid-column:7 / 9;}
+}
+.fi-kost{color:var(--muted);font-size:12px;font-weight:600;}
 /* Vorlagen und wiederkehrende Buchungen (v181) */
 .nk-feld.fi-haken{flex-direction:row;align-items:center;gap:8px;align-self:end;min-height:44px;}
 .nk-feld.fi-haken input{width:20px;height:20px;min-height:0;flex:0 0 auto;margin:0;}
 .nk-feld.fi-haken span{font-size:14px;font-weight:600;color:var(--text);}
-.fi-seite.fi-breit .fi-reiter{max-width:640px;}
+.fi-seite.fi-breit .fi-reiter{max-width:780px;}
 .ap-tabelle.ap-tabelle-kurz{max-height:calc(40vh / var(--z));min-height:120px;}
 .ap-abschnitt{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:6px;}
 .ap-abschnitt h3{margin:0;font-size:15px;}

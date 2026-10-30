@@ -19,6 +19,7 @@ vi.mock("@/lib/queries/hooks", () => {
   return {
     useFinKonten: () => q(daten.konten), useFinSteuerschluessel: () => q([]), useFinBuchungen: () => q(daten.buchungen),
     useFinFestschreibungen: () => q([]),
+    useFinKostenstellen: () => q([]),
   };
 });
 

@@ -53,6 +53,9 @@ export type FinZeile = {
   betrag: number;
   steuerschluessel: string | null;
   ist_steuer: boolean;
+  // Kostenstelle (Transporter) und Kostenträger (Leistungsart), Migration 108 – nur an Erlös-, Aufwands- oder Anlagezeilen.
+  kost1?: string | null;
+  kost2?: string | null;
 };
 
 export type FinBuchung = {
@@ -74,7 +77,7 @@ export type FinBuchung = {
 export type FinFestschreibung = { jahr: number; monat: number; am: string };
 
 // Ein Posten so, wie er ins Fenster getippt und an `fin_buchen()` geschickt wird.
-export type FinPosten = { soll: number | null; haben: number | null; betrag: number | null; steuer: string | null };
+export type FinPosten = { soll: number | null; haben: number | null; betrag: number | null; steuer: string | null; kost1?: string | null; kost2?: string | null };
 
 // Konten, auf denen die Steuer abgespalten wird (Migration 88: `erfolg`).
 const STEUER_SEITE: KontoKategorie[] = ["erloes", "aufwand", "anlage"];
@@ -88,8 +91,28 @@ const cent = (x: number) => Math.round(x * 100) / 100;
 
 export type PostenErgebnis = { zeilen: FinZeile[] } | { fehler: string };
 
-// Die Zeilen eines Postens – oder der Satz, mit dem die Datenbank ablehnen würde.
+// Die Zeilen eines Postens – oder der Satz, mit dem die Datenbank ablehnen würde. Seit Migration 108 mit Kostenstellen:
+// Sie kommen an die Erlös-, Aufwands- oder Anlagezeile des Postens (nicht an Geld-, Personen- oder Steuerzeilen) –
+// dieselbe Regel wie `fin_buchen()`; ohne solche Zeile lehnt die Datenbank ab.
 export function postenZeilen(
+  p: FinPosten, nr: number, konten: FinKonto[], schluessel: FinSteuerschluessel[],
+  e: Pick<FinEinstellungen, "besteuerung" | "r13b_empfaenger" | "innergemeinschaftlich" | "kontenrahmen">,
+): PostenErgebnis {
+  const r = postenZeilenOhneKost(p, nr, konten, schluessel, e);
+  const k1 = p.kost1?.trim() || null, k2 = p.kost2?.trim() || null;
+  if ("fehler" in r || (!k1 && !k2)) return r;
+  const kat = (n: number) => konten.find((k) => k.kontenrahmen === e.kontenrahmen && k.nummer === n)?.kategorie;
+  let treffer = 0;
+  const zeilen = r.zeilen.map((z) => {
+    const k = kat(z.konto);
+    if (z.ist_steuer || !k || !STEUER_SEITE.includes(k)) return z;
+    treffer += 1;
+    return { ...z, kost1: k1, kost2: k2 };
+  });
+  return treffer ? { zeilen } : { fehler: `Posten ${nr}: Eine Kostenstelle gehört an ein Erlös-, Aufwands- oder Anlagekonto – hier ist keins.` };
+}
+
+function postenZeilenOhneKost(
   p: FinPosten, nr: number, konten: FinKonto[], schluessel: FinSteuerschluessel[],
   e: Pick<FinEinstellungen, "besteuerung" | "r13b_empfaenger" | "innergemeinschaftlich" | "kontenrahmen">,
 ): PostenErgebnis {

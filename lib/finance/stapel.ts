@@ -22,6 +22,9 @@ export type FinStapelZeile = {
   // Geholt aus einer wiederkehrenden Buchung (Migration 107): welche und welcher Termin.
   wiederkehrend_id?: string | null;
   termin?: string | null;
+  // Kostenstellen (Migration 108).
+  kost1?: string | null;
+  kost2?: string | null;
 };
 
 export type FinStapel = {
@@ -35,7 +38,7 @@ export type FinStapel = {
 };
 
 // Was in die Erfassungszeile getippt wird – Texte, bis „Übernehmen“.
-export type StapelEingabe = { datum: string; beleg: string; soll: number | null; haben: number | null; betrag: string; steuer: string; text: string };
+export type StapelEingabe = { datum: string; beleg: string; soll: number | null; haben: number | null; betrag: string; steuer: string; text: string; kost1?: string; kost2?: string };
 
 // ---------------------------------------------------------------- Datum kurz
 // „1002“, „10.2“, „10.02.“, „10.02.2027“, „10.2.27“ → ISO im Wirtschaftsjahr. Ein anderes Jahr oder ein Tag, den es
@@ -75,7 +78,7 @@ export type StapelPruefung = { zeilen: FinZeile[]; fehler: string | null };
 
 // Dieselbe Rechnung wie `fin_buchen()` (über `postenZeilen`) plus Jahr und Festschreibung (`fin_buchbar`, Migration 88).
 export function stapelZeilePruefen(
-  z: Pick<FinStapelZeile, "datum" | "soll" | "haben" | "betrag" | "steuer" | "text">, jahr: number,
+  z: Pick<FinStapelZeile, "datum" | "soll" | "haben" | "betrag" | "steuer" | "text" | "kost1" | "kost2">, jahr: number,
   konten: FinKonto[], schluessel: FinSteuerschluessel[],
   e: Pick<FinEinstellungen, "besteuerung" | "r13b_empfaenger" | "innergemeinschaftlich" | "kontenrahmen">,
   fest: readonly FinFestschreibung[],
@@ -84,7 +87,7 @@ export function stapelZeilePruefen(
   if (z.datum.slice(0, 4) !== String(jahr)) return { zeilen: [], fehler: `Das Datum liegt nicht in ${jahr}.` };
   const monat = Number(z.datum.slice(5, 7));
   if (fest.some((f) => f.jahr === jahr && f.monat === monat)) return { zeilen: [], fehler: `Der ${String(monat).padStart(2, "0")}/${jahr} ist festgeschrieben.` };
-  const r = postenZeilen({ soll: z.soll, haben: z.haben, betrag: z.betrag, steuer: z.steuer }, 1, konten, schluessel, e);
+  const r = postenZeilen({ soll: z.soll, haben: z.haben, betrag: z.betrag, steuer: z.steuer, kost1: z.kost1, kost2: z.kost2 }, 1, konten, schluessel, e);
   return "fehler" in r ? { zeilen: [], fehler: r.fehler.replace(/^Posten 1: /, "") } : { zeilen: r.zeilen, fehler: null };
 }
 
@@ -100,7 +103,8 @@ export function eingabeAlsZeile(e: StapelEingabe, jahr: number, betragLesen: (t:
   if (betrag == null || !(betrag > 0)) return { ok: false, fehler: "Betrag größer als 0.", feld: "betrag" };
   if (!e.text.trim()) return { ok: false, fehler: "Buchungstext fehlt.", feld: "text" };
   if (e.beleg.trim().length > 60) return { ok: false, fehler: "Beleg höchstens 60 Zeichen.", feld: "beleg" };
-  return { ok: true, zeile: { datum, beleg: e.beleg.trim() || null, soll: e.soll, haben: e.haben, betrag, steuer: e.steuer || null, text: e.text.trim() } };
+  return { ok: true, zeile: { datum, beleg: e.beleg.trim() || null, soll: e.soll, haben: e.haben, betrag, steuer: e.steuer || null, text: e.text.trim(),
+    ...(e.kost1 !== undefined || e.kost2 !== undefined ? { kost1: e.kost1 || null, kost2: e.kost2 || null } : {}) } };
 }
 
 // In der Reihenfolge, in der „Stapel buchen“ bucht: Datum, dann Erfassung.

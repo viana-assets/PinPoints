@@ -58,6 +58,9 @@ export type KontoblattZeile = {
   steuer: string | null;
   istSteuer: boolean;
   zustand: JournalZustand;
+  // Kostenstellen der Zeile (Migration 108).
+  kost1: string | null;
+  kost2: string | null;
 };
 
 export type Kontoblatt = { eroeffnung: number; zeilen: KontoblattZeile[]; soll: number; haben: number; ende: number };
@@ -87,6 +90,7 @@ export function kontoblatt(buchungen: readonly FinBuchung[], konto: number, z: Z
         gegen: andere.length === 1 ? andere[0] : null,
         soll: x.seite === "S" ? Number(x.betrag) : 0, haben: x.seite === "H" ? Number(x.betrag) : 0, saldo: 0,
         steuer: x.steuerschluessel, istSteuer: x.ist_steuer, zustand: zustandVon(b, fest as FinFestschreibung[]),
+        kost1: x.kost1 ?? null, kost2: x.kost2 ?? null,
       });
     });
   }

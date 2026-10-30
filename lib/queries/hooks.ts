@@ -20,7 +20,7 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
-import { fetchFinStapel, fetchFinVorlagen, fetchFinWiederkehrend, fetchFinPlanposten, fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
+import { fetchFinKostenstellen, fetchFinStapel, fetchFinVorlagen, fetchFinWiederkehrend, fetchFinPlanposten, fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
 import type { Kontenrahmen } from "@/lib/finance/einstellungen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
@@ -567,6 +567,10 @@ export function useFinVorlagen(supabase: SupabaseClient, aktiv: boolean) {
 }
 export function useFinWiederkehrend(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({ queryKey: qk.finWiederkehrend(), queryFn: () => fetchFinWiederkehrend(supabase), enabled: aktiv, staleTime: FRISCH_MS });
+}
+// Stufe C Teil 3 (Migration 108): Kostenstellen.
+export function useFinKostenstellen(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finKostenstellen(), queryFn: () => fetchFinKostenstellen(supabase), enabled: aktiv, staleTime: FRISCH_MS });
 }
 export function useFinFestschreibungen(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
   return useQuery({ queryKey: qk.finFestschreibungen(jahr), queryFn: () => fetchFinFestschreibungen(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS });

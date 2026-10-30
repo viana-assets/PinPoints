@@ -7,7 +7,7 @@ import { Blatt } from "@/components/Blatt";
 import { fehlerText } from "@/components/FehlerHinweis";
 import { SuchFeld } from "@/components/SuchFeld";
 import { qk } from "@/lib/queries/keys";
-import { useFinBuchungen, useFinFestschreibungen, useFinKonten, useFinSteuerschluessel } from "@/lib/queries/hooks";
+import { useFinBuchungen, useFinFestschreibungen, useFinKonten, useFinKostenstellen, useFinSteuerschluessel } from "@/lib/queries/hooks";
 import { finBuchen, finKontoAktiv, finKontoAnlegen, finMonatFestschreiben, finStornieren } from "@/lib/api/finance";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import {
@@ -21,8 +21,11 @@ import { FinanceJournalArbeitsplatz } from "./FinanceJournalArbeitsplatz";
 import { FinanceKontoblatt } from "./FinanceKontoblatt";
 import { FinanceStapel } from "./FinanceStapel";
 import { FinanceVorlagen } from "./FinanceVorlagen";
+import { FinanceKostenstellen } from "./FinanceKostenstellen";
 import { FinanceKontenArbeitsplatz } from "./FinanceKontenArbeitsplatz";
 import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
+import { KostWahl } from "./arbeitsplatz/KostWahl";
+import type { FinKostenstelle } from "@/lib/finance/kostenstellen";
 
 // Finance › Buchungen (Phase F1, Migration 88, v146): Journal, Konten mit Saldo, Monate festschreiben. Am Rechner seit
 // v178/v179 als Arbeitsplatz: Journal, Kontoblatt und Konten als Tabellen (FinanceJournalArbeitsplatz, FinanceKontoblatt,
@@ -32,8 +35,8 @@ import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
 // Löschen gibt es nicht: korrigiert wird mit Storno.
 
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
-// „stapel“ (v180), „vorlagen“ (v181) und „kontoblatt“ (v179) gibt es nur am Rechner.
-type Reiter = "journal" | "stapel" | "vorlagen" | "kontoblatt" | "konten" | "monate";
+// „stapel“ (v180), „vorlagen“ (v181), „kontoblatt“ (v179) und „kosten“ (v182) gibt es nur am Rechner.
+type Reiter = "journal" | "stapel" | "vorlagen" | "kontoblatt" | "konten" | "kosten" | "monate";
 
 export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuchen, darfFestschreiben, darfKonten, onEinstellungen }: {
   supabase: SupabaseClient;
@@ -51,6 +54,8 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   const schluesselQ = useFinSteuerschluessel(supabase, rahmen, bereit);
   const buchungenQ = useFinBuchungen(supabase, jahr, bereit);
   const festQ = useFinFestschreibungen(supabase, jahr, bereit);
+  // Kostenstellen (Migration 108, v182). Fehlt die Migration, bleibt die Liste leer und alles läuft ohne.
+  const kostQ = useFinKostenstellen(supabase, bereit);
   const [reiter, setReiter] = useState<Reiter>("journal");
   const [neuOffen, setNeuOffen] = useState(false);
   const [detail, setDetail] = useState<FinBuchung | null>(null);
@@ -84,12 +89,13 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   const schluessel = schluesselQ.data ?? [];
   const buchungen = buchungenQ.data ?? [];
   const fest = festQ.data ?? [];
+  const kostenstellen = kostQ.data ?? [];
   const fehlt = [kontenQ, schluesselQ, buchungenQ, festQ].some((x) => x.isError);
 
   return (
     <>
       <div className="lg-lagerwahl es-segment fi-reiter" role="tablist" aria-label="Buchungen">
-        {(amRechner ? [["journal", "Journal"], ["stapel", "Stapel"], ["vorlagen", "Vorlagen"], ["kontoblatt", "Kontoblatt"], ["konten", "Konten"], ["monate", "Monate"]] as const
+        {(amRechner ? [["journal", "Journal"], ["stapel", "Stapel"], ["vorlagen", "Vorlagen"], ["kontoblatt", "Kontoblatt"], ["konten", "Konten"], ["kosten", "Kostenstellen"], ["monate", "Monate"]] as const
           : [["journal", "Journal"], ["konten", "Konten"], ["monate", "Monate"]] as const).map(([k, t]) => (
           <button key={k} type="button" role="tab" aria-selected={reiter === k} className={reiter === k ? "aktiv" : ""} onClick={() => setReiter(k)}>{t}</button>
         ))}
@@ -98,20 +104,20 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
       {meldung && <div className="fi-hinweis fi-ok" role="status">{meldung}</div>}
 
       {reiter === "journal" && amRechner && (
-        <FinanceJournalArbeitsplatz buchungen={buchungen} konten={konten} schluessel={schluessel} fest={fest} jahr={jahr}
+        <FinanceJournalArbeitsplatz buchungen={buchungen} konten={konten} schluessel={schluessel} fest={fest} jahr={jahr} kostenstellen={kostenstellen}
           laedt={buchungenQ.isPending} darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail}
           onKontoblatt={kontoblattOeffnen} />
       )}
       {reiter === "stapel" && amRechner && (
-        <FinanceStapel supabase={supabase} jahr={jahr} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
+        <FinanceStapel supabase={supabase} jahr={jahr} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel} kostenstellen={kostenstellen}
           fest={fest} buchungen={buchungen} darfBuchen={darfBuchen} onMeldung={setMeldung} onOeffnen={setDetail} onKontoblatt={kontoblattOeffnen} />
       )}
       {reiter === "vorlagen" && amRechner && (
-        <FinanceVorlagen supabase={supabase} jahr={jahr} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
+        <FinanceVorlagen supabase={supabase} jahr={jahr} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel} kostenstellen={kostenstellen}
           darfBuchen={darfBuchen} />
       )}
       {reiter === "kontoblatt" && amRechner && (
-        <FinanceKontoblatt buchungen={buchungen} konten={konten} fest={fest} jahr={jahr} laedt={buchungenQ.isPending}
+        <FinanceKontoblatt buchungen={buchungen} konten={konten} fest={fest} jahr={jahr} laedt={buchungenQ.isPending} kostenstellen={kostenstellen}
           konto={blattKonto} onKonto={kontoblattOeffnen} zurueck={blattWeg[blattWeg.length - 1] ?? null}
           onZurueck={() => { setBlattKonto(blattWeg[blattWeg.length - 1] ?? null); setBlattWeg(blattWeg.slice(0, -1)); }}
           darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail} />
@@ -127,13 +133,17 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
       {reiter === "konten" && !amRechner && (
         <Konten supabase={supabase} rahmen={rahmen} konten={konten} buchungen={buchungen} darfKonten={darfKonten} />
       )}
+      {reiter === "kosten" && amRechner && (
+        <FinanceKostenstellen supabase={supabase} jahr={jahr} buchungen={buchungen} konten={konten} kostenstellen={kostenstellen}
+          laedt={kostQ.isPending} fehlt={kostQ.isError} darfPflegen={darfKonten} />
+      )}
       {reiter === "monate" && (
         <Monate supabase={supabase} jahr={jahr} heute={heute} buchungen={buchungen} fest={fest} darf={darfFestschreiben} onMeldung={setMeldung} />
       )}
 
       {neuOffen && (
         <BuchungNeu supabase={supabase} heute={heute} jahr={jahr} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
-          tastatur={amRechner} onGebucht={(nr) => { setNeuOffen(false); setMeldung(`Gebucht als Nr. ${jahr}-${nr}.`); }}
+          tastatur={amRechner} kostenstellen={kostenstellen} onGebucht={(nr) => { setNeuOffen(false); setMeldung(`Gebucht als Nr. ${jahr}-${nr}.`); }}
           onClose={() => setNeuOffen(false)} />
       )}
       {detail && (
@@ -199,7 +209,7 @@ function Journal({ buchungen, konten, fest, laedt, darfBuchen, onNeu, onOeffnen 
 }
 
 // ---------------------------------------------------------------- Neue Buchung
-type PostenEingabe = { soll: string; haben: string; betrag: string; steuer: string };
+type PostenEingabe = { soll: string; haben: string; betrag: string; steuer: string; kost1?: string; kost2?: string };
 const LEER: PostenEingabe = { soll: "", haben: "", betrag: "", steuer: "" };
 
 // Auch im Belegfenster (FinanceBelege.tsx), dort nur mit Aufwand und Anlagen (`nur`).
@@ -225,11 +235,13 @@ export function KontoWahl({ wert, konten, onWert, label, nur, disabled }: {
 // Vorbelegung, z. B. aus dem Kassenbuch (FinanceBank.tsx): Einnahme = Kasse im Soll, Ausgabe = Kasse im Haben.
 export type BuchungVorlage = { titel?: string; text?: string; soll?: number; haben?: number };
 
-export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schluessel, vorlage, tastatur, onGebucht, onClose }: {
+export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schluessel, vorlage, tastatur, kostenstellen, onGebucht, onClose }: {
   supabase: SupabaseClient; heute: string; jahr: number; einstellungen: FinEinstellungen;
   konten: FinKonto[]; schluessel: FinSteuerschluessel[]; vorlage?: BuchungVorlage;
   // Am Rechner (v178, Stufe A): Konten per Nummer oder Name statt Auswahlliste, Betrag mit Komma, Strg+Enter bucht.
   tastatur?: boolean;
+  // Kostenstellen (Migration 108, v182): mit Liste je Posten Transporter und Leistung wählbar.
+  kostenstellen?: FinKostenstelle[];
   onGebucht: (nr: number) => void; onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -243,6 +255,8 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
   const werte: FinPosten[] = posten.map((p) => ({
     soll: p.soll ? Number(p.soll) : null, haben: p.haben ? Number(p.haben) : null,
     betrag: betragLesen(p.betrag), steuer: p.steuer || null,
+    // Nur wenn gewählt – so bleibt der Aufruf ohne Kostenstellen wie vor Migration 108.
+    ...(p.kost1 ? { kost1: p.kost1 } : {}), ...(p.kost2 ? { kost2: p.kost2 } : {}),
   }));
   const v = buchungVorschau(werte, konten, schluessel, einstellungen);
   const pruefung = !text.trim() ? "Der Buchungstext fehlt." : datum.slice(0, 4) !== String(jahr) ? `Das Datum liegt nicht in ${jahr}.` : v.fehler;
@@ -319,6 +333,16 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
                   </select>
                 </label>
               </div>
+              {kostenstellen && kostenstellen.length > 0 && (
+                <div className="fi-zwei">
+                  <label className="nk-feld"><span>Transporter (KOST1)</span>
+                    <KostWahl art="kost1" liste={kostenstellen} wert={p.kost1 ?? ""} onWert={(w) => setze(i, { kost1: w })} />
+                  </label>
+                  <label className="nk-feld"><span>Leistung (KOST2)</span>
+                    <KostWahl art="kost2" liste={kostenstellen} wert={p.kost2 ?? ""} onWert={(w) => setze(i, { kost2: w })} />
+                  </label>
+                </div>
+              )}
               {st && (
                 <span className="small">
                   {st.art === "ust" || st.art === "vst" ? "Betrag brutto – die Steuer wird herausgerechnet."
@@ -344,7 +368,7 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
   );
 }
 
-export function ZeilenTabelle({ zeilen, name }: { zeilen: { seite: "S" | "H"; konto: number; betrag: number; ist_steuer: boolean }[]; name: (n: number) => string }) {
+export function ZeilenTabelle({ zeilen, name }: { zeilen: { seite: "S" | "H"; konto: number; betrag: number; ist_steuer: boolean; kost1?: string | null; kost2?: string | null }[]; name: (n: number) => string }) {
   if (!zeilen.length) return <span className="small">Noch nichts – Konten und Betrag eintragen.</span>;
   const soll = zeilen.filter((z) => z.seite === "S").reduce((s, z) => s + z.betrag, 0);
   const haben = zeilen.filter((z) => z.seite === "H").reduce((s, z) => s + z.betrag, 0);
@@ -354,7 +378,7 @@ export function ZeilenTabelle({ zeilen, name }: { zeilen: { seite: "S" | "H"; ko
       <tbody>
         {zeilen.map((z, i) => (
           <tr key={i} className={z.ist_steuer ? "steuer" : undefined}>
-            <td><b>{kontoNr(z.konto)}</b> {name(z.konto)}</td>
+            <td><b>{kontoNr(z.konto)}</b> {name(z.konto)}{(z.kost1 || z.kost2) && <span className="fi-kost"> · {[z.kost1, z.kost2].filter(Boolean).join(" · ")}</span>}</td>
             <td className="zahl">{z.seite === "S" ? formatEUR(z.betrag) : ""}</td>
             <td className="zahl">{z.seite === "H" ? formatEUR(z.betrag) : ""}</td>
           </tr>

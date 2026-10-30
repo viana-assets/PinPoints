@@ -819,3 +819,30 @@ an der Zeile.
   je wiederkehrender Buchung) und `VorlageFormular` (beide Arten, Strg+Enter speichert, Löschen mit Rückfrage).
   Tests: `tests/financeVorlagen.test.ts`, `tests/financeVorlagenOberflaeche.test.tsx`; Datenbank `/tmp/pgt/t107.sql`.
 
+
+## 14. So sind die Kostenstellen gebaut (Stufe C Teil 3, v182, Migration 108)
+
+Entscheidung 4 vom 30.10.2026: beides – **KOST1 je Transporter**, **KOST2 je Leistungsart**. Die DATEV-Felder heißen so;
+in der Oberfläche steht „Transporter“ und „Leistung“.
+
+- **Stammdaten** (`fin_kostenstellen`): Art (`kost1`/`kost2`), Nummer (Buchstaben und Ziffern, bis 8 Zeichen, je Art
+  eindeutig), Bezeichnung, aktiv, bei Transportern das Firmenfahrzeug. Migration 108 legt KOST2 100 Montage, 200 Einlagerung,
+  300 Reifenverkauf an und je aktivem Firmenfahrzeug T1, T2 … (Bezeichnung aus Kennzeichen und Name). „Transporter
+  übernehmen“ holt später dazugekommene Fahrzeuge und – nach „Alle Daten löschen“ – die drei Leistungsarten nach.
+  Ändern und Ausblenden mit „Finance › Einstellungen“ schreiben; Art und Nummer stehen fest, sobald damit gebucht ist.
+- **Wohin sie kommen:** je Posten. `fin_buchen()` schreibt sie an die Zeilen des Postens, deren Konto ein Erlös-, Aufwands-
+  oder Anlagekonto ist – nie an Bank, Kasse, Forderung, Verbindlichkeit oder Steuer. Hat der Posten kein solches Konto,
+  wird die Buchung abgelehnt; unbekannte oder ausgeblendete Nummern ebenso. Die Vorschau (`postenZeilen` in
+  `lib/finance/buchung.ts`) rechnet genauso. Ein Storno übernimmt die Kostenstellen (Trigger `trg_fin_storno_kost`).
+- **Erfassen:** Buchungsfenster (je Posten zwei Auswahlen), Stapel (Felder KOST1/KOST2 in der Erfassungszeile, Spalten in
+  der Liste), Vorlagen und wiederkehrende Buchungen (werden beim Holen mitgenommen). Ohne Auswahl bleibt es leer –
+  Pflicht ist nichts.
+- **Auswerten:** Reiter „Kostenstellen“ (`components/finance/FinanceKostenstellen.tsx`, `kostenAuswertung`): je Kostenstelle
+  im Zeitraum Erlöse (Haben minus Soll auf Erlöskonten), Aufwand (Soll minus Haben auf Aufwandskonten), Ergebnis und
+  Zeilen; je Art eine Zeile „ohne …“ für den Rest. Anlagekonten zählen nicht – die Abschreibung schon. Das Journal hat die
+  Spalten Transporter und Leistung und den Filter „Kostenstelle“, das Kontoblatt die Spalten.
+- **Export:** Der DATEV-Buchungsstapel füllt „KOST1 - Kostenstelle“ und „KOST2 - Kostenstelle“ (aus der Zeile mit Konto
+  oder Gegenkonto des Satzes), der GoBD-Export hat in den Buchungszeilen die Spalten KOST1 und KOST2.
+- **Später (Stufe D):** Bei den FSM-Rechnungen kommt die Leistungsart „ohne Handarbeit“ aus dem Artikel, der Transporter aus
+  dem Auftrag.
+- Tests: `tests/financeKostenstellen.test.ts`, `tests/financeKostenstellenOberflaeche.test.tsx`; Datenbank `/tmp/pgt/t108.sql`.
