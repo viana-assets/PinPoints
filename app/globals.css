@@ -4861,6 +4861,108 @@ button.zt-m-zeile:hover{background:var(--hover);}
 #app :is(.pl-filter,.lg-lagerwahl,.au-filter,.am-reiter,.am-filter,.ad-reiter,.ad-filter)::-webkit-scrollbar-thumb{background:#cdc3ae;border-radius:3px;}
 #app :is(.pl-filter,.au-filter,.am-filter,.ad-filter){padding-bottom:2px;}
 
+/* ---------------- Finance-Arbeitsplatz am Rechner (v178, Stufe A) ----------------
+   components/finance/FinanceJournalArbeitsplatz.tsx und die Bausteine in components/finance/arbeitsplatz/:
+   Filterleiste, dichte Tabelle (32 px je Zeile, fester Kopf, Summenzeile), Detail rechts, Statuszeile.
+   Entwurf: Claude outputs/Mockup_Finance_StufeA_v1.html. Nur am Rechner zu sehen (`useAmRechner`). */
+.fi-seite.fi-breit{max-width:none;}
+.ap-rahmen{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:12px;align-items:start;}
+.ap-mitte{display:flex;flex-direction:column;gap:8px;min-width:0;}
+.ap-filter{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.ap-chip{display:inline-flex;align-items:center;gap:6px;height:34px;border:1px solid var(--border);border-radius:9px;background:var(--panel);
+  padding:0 8px;font-size:12.5px;min-width:0;}
+.ap-chip > span:first-child{color:var(--muted);font-weight:600;}
+.ap-chip:focus-within{border-color:var(--accent);}
+.ap-chip select{width:auto;}
+.ap-chip select,.ap-chip input{border:0;background:transparent;font:inherit;font-weight:700;height:30px;padding:0;min-width:0;outline:none;color:var(--text);box-shadow:none;}
+.ap-chip-betrag input{width:62px;text-align:right;}
+.ap-chip-suche{flex:1 1 220px;}
+.ap-chip-suche input{flex:1;font-weight:500;}
+.ap-chip-suche svg{width:14px;height:14px;color:var(--muted);flex:0 0 auto;}
+.ap-chip-konto .ap-konto input{width:64px;}
+.ap-chip-konto .ap-kontoname{max-width:150px;}
+.ap-luft{flex:0 0 0;}
+.ap-filter .es-knopf,.ap-sammel .es-knopf,.ap-links .es-knopf{height:34px;font-size:12.5px;padding:0 10px;border-radius:9px;}
+.ap-neu{height:34px;border-radius:9px;padding:0 14px;font-size:13px;}
+.ap-spaltenwahl{position:relative;}
+.ap-spaltenwahl summary{list-style:none;display:flex;align-items:center;cursor:pointer;height:34px;font-size:12.5px;padding:0 10px;border-radius:9px;}
+.ap-spaltenwahl summary::-webkit-details-marker{display:none;}
+.ap-spaltenliste{position:absolute;right:0;top:calc(100% + 4px);z-index:20;background:#fff;border:1px solid var(--border);border-radius:10px;
+  box-shadow:0 8px 22px rgba(0,0,0,.14);padding:8px 10px;display:flex;flex-direction:column;gap:6px;min-width:170px;font-size:13px;}
+.ap-spaltenliste label{display:flex;align-items:center;gap:8px;cursor:pointer;}
+.ap-sammel{display:flex;align-items:center;gap:10px;background:var(--accent-bg);border-radius:10px;padding:5px 10px;font-size:13px;}
+.ap-tabelle{max-height:calc(100vh / var(--z) - 290px);min-height:240px;overflow:auto;background:#fff;border:1px solid var(--border);
+  border-radius:12px;outline:none;}
+.ap-tabelle:focus-visible{box-shadow:0 0 0 2px var(--accent);}
+.ap-tabelle table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;}
+.ap-tabelle thead th{position:sticky;top:0;z-index:1;background:#f6f3ee;border-bottom:1px solid var(--border);text-align:left;padding:0;white-space:nowrap;}
+.ap-kopf{border:0;background:none;font:inherit;font-weight:700;font-size:11.5px;color:#5d5546;height:30px;padding:0 6px;width:100%;
+  text-align:inherit;cursor:pointer;display:flex;align-items:center;gap:4px;}
+th.ap-zahl .ap-kopf{justify-content:flex-end;}
+.ap-pfeil{font-size:9px;color:var(--accent);}
+.ap-tabelle tbody td{height:32px;padding:0 6px;border-bottom:1px solid #efe9de;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px;}
+.ap-tabelle tbody tr{cursor:default;}
+.ap-tabelle tbody tr:hover td{background:#faf7f1;}
+.ap-tabelle tbody tr.ap-markiert td{background:#fdf6e3;}
+.ap-tabelle tbody tr.ap-gewaehlt td{background:var(--accent-bg);}
+.ap-tabelle tr.ap-gestrichen td:not(.ap-cb){text-decoration:line-through;color:var(--muted);}
+.ap-tabelle tr.ap-leise td{color:var(--muted);}
+.ap-tabelle tfoot td{position:sticky;bottom:0;background:#f6f3ee;border-top:1px solid var(--border);height:30px;padding:0 6px;font-size:12.5px;}
+.ap-zahl{text-align:right;font-variant-numeric:tabular-nums;}
+.ap-cb{width:30px;text-align:center;}
+.ap-tabelle th.ap-cb,.ap-tabelle td.ap-cb{padding:0;}
+.ap-cb input{width:14px;height:14px;margin:0;vertical-align:middle;}
+.ap-leer{padding:24px !important;text-align:center;color:var(--muted);white-space:normal !important;}
+.ap-marke{margin-left:6px;font-size:10.5px;font-weight:700;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:0 4px;}
+.ap-zustand{font-size:11px;font-weight:700;border-radius:6px;padding:1px 6px;background:var(--accent-bg);color:var(--accent);}
+.ap-z-festgeschrieben{background:#ece6da;color:#6b6252;}
+.ap-z-storno{background:var(--blau-bg);color:#2b5a8a;}
+.ap-z-storniert{background:var(--red-bg);color:var(--red);}
+.ap-status{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding:0 4px;}
+.ap-status b{color:var(--text);}
+.ap-tasten{margin-left:auto;}
+.ap-detail{position:sticky;top:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:12px 14px;
+  display:flex;flex-direction:column;gap:8px;max-height:calc(100vh / var(--z) - 180px);overflow:auto;min-width:0;}
+.ap-detail h3{margin:0;font-size:16px;}
+.ap-text{margin:0;font-size:13.5px;}
+.ap-detail .fi-tabelle{table-layout:fixed;font-size:12.5px;}
+.ap-detail .fi-tabelle .zahl{width:78px;}
+.ap-detail .fi-tabelle td:first-child{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ap-saldo{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:12.5px;background:#faf7f1;border-radius:8px;padding:8px 10px;}
+.ap-saldo b{text-align:right;font-variant-numeric:tabular-nums;}
+.ap-links{display:flex;flex-wrap:wrap;gap:6px;}
+/* Kontofeld und Betragsfeld – auch im Buchungsfenster („Schnellbuchung“). */
+.ap-konto{position:relative;display:inline-flex;align-items:center;gap:8px;min-width:0;}
+.nk-feld .ap-konto{display:flex;flex-direction:column;align-items:stretch;gap:2px;}
+.ap-kontoname{font-size:12px;color:var(--muted);min-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:500;}
+.ap-falsch .ap-kontoname{color:var(--red);}
+.ap-falsch input,input.ap-falsch{border-color:var(--red) !important;}
+.ap-vorschlaege{position:absolute;top:100%;left:0;z-index:30;min-width:280px;max-width:420px;margin:2px 0 0;padding:4px;list-style:none;
+  background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:0 8px 22px rgba(0,0,0,.14);}
+.ap-vorschlaege li{padding:6px 8px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text);}
+.ap-vorschlaege li.hell{background:var(--accent-bg);}
+.ap-betrag{text-align:right;font-variant-numeric:tabular-nums;}
+/* Kontoblatt und Konten (v179, Stufe B) */
+.ap-kontokopf{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;font-size:13px;padding:2px 4px;}
+.ap-kontokopf > b:first-child{font-size:15px;}
+.ap-kontokopf b{font-variant-numeric:tabular-nums;}
+.ap-kontokopf .ap-luft{flex:1;}
+.ap-link{border:0;background:none;padding:0;font:inherit;color:var(--accent);font-weight:700;cursor:pointer;
+  text-decoration:underline dotted;text-underline-offset:3px;}
+.ap-link:hover{text-decoration-style:solid;}
+.ap-leise-text{color:var(--muted);}
+.ap-rot{color:var(--red);}
+.ap-chip-haken{cursor:pointer;}
+.ap-chip-haken input{width:14px;height:14px;margin:0;}
+.ap-chip-haken span{color:var(--text) !important;font-weight:600 !important;}
+.ap-chip-gross .ap-konto input{width:90px;}
+.ap-chip-gross .ap-kontoname{max-width:200px;color:var(--text);}
+.ap-chip input.ap-tag{width:120px;font-weight:600;}
+@media (max-width:1100px){
+  .ap-rahmen{grid-template-columns:minmax(0,1fr);}
+  .ap-detail{position:static;max-height:none;}
+}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

@@ -105,7 +105,8 @@ viana-pinpoints/
   components/
     icons.tsx                  Alle Icon-Komponenten (IconDashboard, IconKunden, …)
     NavItem.tsx                  Ein Eintrag in #iconNav
-    FsmNavigation.tsx            FSM-Seitenleiste in Bereichen zum Ein-/Ausklappen (v176; tests/fsmNavigation.test.tsx)
+    BereichNavigation.tsx        Seitenleiste in Bereichen zum Ein-/Ausklappen, für FSM und Finance (v178)
+    FsmNavigation.tsx            FSM-Seitenleiste in Bereichen (v176; seit v178 über BereichNavigation; tests/fsmNavigation.test.tsx)
     Blatt.tsx                     Das gemeinsame Fenster: Kopf, ✕, Fußzeile; am Handy Blatt von unten (v134)
     SchnellMenue.tsx              Am Handy: Knopf oben rechts mit Zahl, klappt Stoppuhr und Chat auf (v159)
     CustomerPicker.tsx            Wiederverwendbare Kundensuche (Lager & Aufträge), Suchfeld + Trefferzeilen (v134)
@@ -146,7 +147,18 @@ viana-pinpoints/
       FinanceBereich.tsx             Finance (Pilot, Migration 87, v145): Übersicht, Einstellungen je Wirtschaftsjahr,
                                      Platzhalter je Phase, „Weitere“ am Handy; `FINANCE_ICONS`
       FinanceBuchungen.tsx           Buchungen (Migration 88, v146): Journal, neue Buchung mit Vorschau, Storno,
-                                     Konten mit Saldo, eigene Konten, Monate festschreiben
+                                     Konten mit Saldo, eigene Konten, Monate festschreiben; am Rechner Schnellbuchung
+                                     mit Kontofeld und Strg+Enter (v178)
+      FinanceJournalArbeitsplatz.tsx Journal am Rechner (v178, Stufe A): Filterleiste, Datentabelle, Detail rechts mit
+                                     Saldo vor/nach, Statuszeile, F2/F3/N, CSV (tests/financeArbeitsplatzOberflaeche.test.tsx)
+      FinanceKontoblatt.tsx          Kontoblatt am Rechner (v179, Stufe B): Zeitraum, Eröffnung, laufender Saldo, Sprung übers
+                                     Gegenkonto, Zurück, CSV (tests/financeKontoblattOberflaeche.test.tsx)
+      FinanceKontenArbeitsplatz.tsx  Konten am Rechner (v179): Summen und Salden im Zeitraum, Filter, Ein-/Ausblenden, eigenes Konto
+      FinanceNavigation.tsx          Finance-Seitenleiste am Rechner in Bereichen, eigener Merker (v178)
+      arbeitsplatz/
+        DatenTabelle.tsx             Dichte Tabelle: Sortieren, Tastatur, Markieren, Summenzeile; `SpaltenWahl` (v178)
+        KontoFeld.tsx                Konto per Nummer oder Name mit Vorschlägen; `BetragFeld` (v178)
+        Werkzeuge.tsx                `useKurzbefehle` (F2/F3/N), `ZeitraumWahl` (v179)
       FinanceRechnungen.tsx          Rechnungen und offene Posten (Migration 89, v147): zu erstellen, vorgemerkt,
                                      ausgestellt; Jetzt buchen, bar bezahlt, Überweisung, Zahlung zurücknehmen
       FinanceBelege.tsx              Belege und Lieferanten (Migration 90, v148): Entwurf mit Datei/E-Rechnung,
@@ -291,7 +303,8 @@ viana-pinpoints/
                                  Seitenleiste UND die Handy-Kachelseite „Weitere"; dazu
                                  `WEITERE_GRUPPEN`/`weitereGruppen()` (seit v176 auch die Bereiche der Seitenleiste)
     querRad.ts                   Mausrad über seitlich scrollenden Leisten (v177; tests/querRad.test.ts)
-    navGruppen.ts                Seitenleiste in Bereichen: Aufbau, Ein-/Ausklappen, Merker (v176; tests/navGruppen.test.ts)
+    navGruppen.ts                Seitenleiste in Bereichen: Aufbau, Ein-/Ausklappen, Merker je System (v176/v178; tests/navGruppen.test.ts)
+    amRechner.ts                  `useAmRechner()`: Rechner oder Handy für Ansichten (Weiche `istHandy`, v178)
     version.ts                    `APP_VERSION` und `NEUIGKEITEN` (gleichlaufend mit public/sw.js)
     rechteAnsicht.ts              Rechtematrix: Gruppen, „x von y“, Hinweise, „Ansehen als …“ (v124)
     testkunde.ts                  Testkunden lesen: `auftragsNr()` („T3"), `istTestauftrag`,
@@ -359,7 +372,11 @@ viana-pinpoints/
     systeme.ts                    Die Systeme FSM · Finance · CRM, wer was sieht, Startwert (immer FSM, außer `?system=`; v145/v149)
     finance/
       einstellungen.ts            Finance-Einstellungen: Wahllisten, Vorgabe, Prüfung, Kurztext (Migration 87, v145)
-      seiten.ts                   Die Seiten von Finance mit Recht und Phase (v145)
+      seiten.ts                   Die Seiten von Finance mit Recht und Phase (v145); Aufbau der Seitenleiste am Rechner (v178)
+      arbeitsplatz.ts             Arbeitsplatz am Rechner: Sortieren, Tastatur, Konto aus Nummer/Name, CSV, Journal-Zeilen,
+                                  Filter, Saldo vor/nach (v178, Stufe A; tests/financeArbeitsplatz.test.ts)
+      kontoblatt.ts               Zeitraum (Jahr/Quartal/Monat/frei), Kontoblatt mit laufendem Saldo, Konten im Zeitraum (v179, Stufe B;
+                                  tests/financeKontoblatt.test.ts)
       buchung.ts                  Buchungsregeln wie `fin_posten_schreiben()` (Vorschau), Salden, Betrag lesen (Migration 88, v146)
       rechnungen.ts               Vorgänge teilen, Zustand einer Rechnung, offene Posten, Zahlungsziel (Migration 89, v147)
       belege.ts                   Belege: Zustand, Kontovorschlag, offene Posten, Dateipfad und -prüfung (Migration 90, v148)

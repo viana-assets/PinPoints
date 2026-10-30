@@ -683,3 +683,91 @@ Umsatz liefern und heute schon täglich entstehen; nach F5 laufen Rechnungen, Be
    bleiben offen und werden nachgetragen, sobald sie vorliegen (Abschnitt 4.4). Übernahme älterer Daten
    wird später geprüft.
 6. **Pilot nur mit „Rechnung nötig“**, FSM unverändert (Abschnitt 4.2).
+
+## 9. Ausbau zum Buchhaltungs-Arbeitsplatz (Konzept 20.10.2026, entschieden 30.10.2026)
+
+Das Gesamtkonzept steht als lebendes Dokument „Finance-Ausbau – Gesamtkonzept“ (Claude Docs, Link in
+`claude/naechste-runde.md`): Finance wird vom Pilot zum Arbeitsplatz wie DATEV Kanzlei-Rechnungswesen oder Lexware –
+dichte Listen, Tastatur zuerst, Personenkonten, alle Umsätze – und ersetzt danach die laufende Buchhaltung
+(**Weg B** aus Abschnitt 8.3; der Steuerberater prüft und macht die Erklärungen).
+
+**Stufen:** A Arbeitsplatz am Rechner (Rahmen, Datentabelle, Konto-/Betragsfeld, Filterleiste, Tastatur, Export) ·
+B Konten und Kontoblatt · C Buchungsmaske (Stapel, Splitt, Vorlagen, wiederkehrend) · D Personenkonten und alle
+Rechnungen – ab hier vollständig möglich – · E Zahlungsverkehr · F Belegeingang · G Auswertungen · H Steuern,
+Abschluss, Prüfung.
+
+**Entscheidungen vom 30.10.2026 (Vitali):**
+
+1. **Pilot beenden: ja.** Ab Stufe D bucht Finance alle Rechnungen aus FSM, nicht nur die mit „Rechnung nötig“.
+   **FSM bleibt unverändert** – der Haken „Rechnung nötig“ bleibt dort als eigene Funktion erhalten; Finance hängt
+   nur nicht mehr davon ab. (Ersetzt Abschnitt 8.6.)
+2. **Vollständig ab 01.01.2027**, mit Eröffnungsbilanz aus der Kanzlei. (Ersetzt den Pilotstart aus 8.5 für den
+   Echtbetrieb.)
+3. **Debitoren:** eigenes Personenkonto je Kunde mit Rechnung (auch je Unterdebitor einer Kundengruppe),
+   Laufkundschaft auf einem Sammeldebitor.
+4. **Kostenrechnung: beides** – Kostenstelle je Transporter, Kostenträger je Leistungsart (Montage, Einlagerung,
+   Reifenverkauf); die Leistungsart ergibt sich aus dem Artikel, ohne Handarbeit.
+5. **Handy:** Belegfoto, Freigabe, Nachsehen **und buchen** (schlanke Buchungsmaske); der volle Arbeitsplatz bleibt
+   am Rechner.
+6. **Kanzlei:** monatliche Übergabe per DATEV-Export bleibt; ein Prüfer-Lesezugang wird erst gebaut, wenn danach
+   gefragt wird.
+
+Offen vor dem Echtbetrieb weiterhin: Kontenliste und Kennzahlen mit dem Steuerberater abgleichen. Stufe A ist gebaut
+(Abschnitt 10), Stufe B auch (Abschnitt 11); nächster Schritt: Stufe C.
+
+## 10. So ist Stufe A gebaut (v178, ohne Migration)
+
+Entwurf `Claude outputs/Mockup_Finance_StufeA_v1.html`, abgenommen 30.10.2026. Nur am Rechner (`useAmRechner()` in
+`lib/amRechner.ts`, dieselbe Weiche wie `istHandy`); am Handy bleibt Finance wie bisher.
+
+- **Seitenleiste in Bereichen** wie FSM seit v176: Übersicht, Rechnungen, Belege, Bank & Kasse oben, darunter die
+  Bereiche aus `FINANCE_WEITERE_GRUPPEN` (dieselben wie „Weitere“ am Handy), „System“ unten. Eigener Merker
+  `FIN_NAV_ZU_MERKER`, damit Zuklappen in FSM Finance nicht mitklappt. Die Leiste selbst ist jetzt eine für beide
+  Systeme: `components/BereichNavigation.tsx`.
+- **Bausteine** (`components/finance/arbeitsplatz/`, Regeln in `lib/finance/arbeitsplatz.ts`):
+  `DatenTabelle` (Sortieren, Tastatur, Markieren, Summenzeile) mit `SpaltenWahl`, `KontoFeld` (Nummer oder Name,
+  Vorschläge, Enter/Tab nimmt, Mehrdeutiges rot), `BetragFeld` (Komma, „1.234,50“ beim Verlassen), CSV für Excel
+  (`tabellenCsv`: Semikolon, Dezimalkomma, BOM, Text mit `= + - @` vorne bekommt ein Hochkomma).
+- **Journal** (`components/finance/FinanceJournalArbeitsplatz.tsx`, Finance › Buchungen › Journal): Filter Zeitraum,
+  Konto (auch als Steuerkonto in einer Zeile), Zustand, Betrag von–bis, Suche über Nr., Text, Beleg, Konten und
+  Betrag. Spalten Nr., Datum, Beleg, Buchungstext, Konto, Gegenkonto (Kennzeichen „Splitt“ bei mehreren Posten),
+  Steuer, Umsatz, Zustand. Rechts die gewählte Buchung: Soll und Haben, Saldo des Kontos vor und nach ihr
+  (`saldoVorNach`, Reihenfolge Datum, dann Nr.), „Öffnen“ (Fenster mit Storno) und „Nur Konto …“. Statuszeile:
+  Anzahl, festgeschrieben bis, Kurzbefehle.
+- **Tastatur:** ↑ ↓ Bild auf/ab Pos1 Ende, Leertaste markiert, Enter öffnet; F2 Suche, F3 nur das Konto der Zeile,
+  N Schnellbuchung (`FIN_KURZBEFEHLE`). N gilt nicht in Eingabefeldern und nicht ohne Recht „Buchen“; über einem
+  offenen Fenster gelten die Kurzbefehle nicht.
+- **Schnellbuchung:** das bisherige Buchungsfenster (`BuchungNeu`) mit `tastatur`: beginnt beim Buchungstext, Konten
+  über das Kontofeld, Betrag über das Betragsfeld, Strg+Enter bucht. Gebucht wird wie bisher über `fin_buchen()`.
+
+**Noch nicht in Stufe A:** Kostenstellen-Spalten Transporter/Leistung (brauchen eine Migration; Stufe C/D, Abschnitt 9
+Punkt 4), Buchen am Handy mit „Wofür / Bezahlt mit“ (Entscheidung 5; eigene Runde), Wahl des Wirtschaftsjahres in der
+Kopfleiste (Finance zeigt weiter das laufende Jahr), Belegbild in der Detailspalte, Export als Excel-Datei und PDF
+(CSV öffnet in Excel). Tests: `tests/financeArbeitsplatz.test.ts`, `tests/financeArbeitsplatzOberflaeche.test.tsx`.
+
+## 11. So ist Stufe B gebaut (v179, ohne Migration)
+
+Konten und Kontoblatt auf den Bausteinen aus Stufe A, nur am Rechner (Finance › Buchungen, Reiter „Kontoblatt“ und
+„Konten“; am Handy bleibt die bisherige Kontenliste). Regeln in `lib/finance/kontoblatt.ts`.
+
+- **Zeitraum** (`ZeitraumWahl` in `components/finance/arbeitsplatz/Werkzeuge.tsx`): ganzes Jahr, Quartal, Monat oder frei
+  von–bis; beide Tage müssen im Wirtschaftsjahr liegen (`zeitraumFehler`).
+- **Kontoblatt** (`components/finance/FinanceKontoblatt.tsx`): Konto per Kontofeld, Eröffnungssaldo (alle Buchungen des
+  Jahres vor dem Zeitraum – der Saldenvortrag ist eine Buchung im Januar), je berührte Buchungszeile eine Zeile mit Datum,
+  Nr., Beleg, Text, Gegenkonto (im selben Posten die andere Seite ohne Steuerzeile; „div.“ bei mehreren), Soll, Haben,
+  laufendem Saldo, Steuer, Zustand; unten Verkehrszahlen und Endsaldo. Die Suche blendet Zeilen aus, Saldo und Summen
+  bleiben die des ganzen Zeitraums. Klick auf das Gegenkonto oder F3 öffnet dessen Kontoblatt, „←“ geht den Weg zurück;
+  Enter öffnet die Buchung (Storno). CSV mit Eröffnungszeile.
+- **Konten** (`components/finance/FinanceKontenArbeitsplatz.tsx`): alle Konten nach Nummer mit Art, Eröffnung, Soll,
+  Haben, Saldo und Zahl der Bewegungen im Zeitraum; Filter Art, „nur bebuchte“ (bewegt oder mit Eröffnung),
+  „ausgeblendete zeigen“, Suche; unten die Summen aller Konten mit „stimmt überein / weicht ab“. Enter, Doppelklick oder
+  F3 öffnet das Kontoblatt; rechts Ein-/Ausblenden, oben „Eigenes Konto“.
+- **Journal:** F3 und die Knöpfe rechts öffnen jetzt das Kontoblatt statt das Journal zu filtern (der Kontofilter bleibt).
+- **Gerechnet im Browser** aus dem Journal des Jahres, das die Seite ohnehin lädt – so führt jede Zeile zur Buchung.
+  `fin_kontenblatt()` (Migration 94, Auswertungen) bleibt für Finance › Auswertungen. Bei einigen tausend Buchungen im
+  Jahr reicht das; wird es spürbar langsam, wandert die Rechnung in eine Datenbankfunktion mit Buchungs-ID.
+
+**Noch nicht in Stufe B:** Haken je Zeile für die Kontenabstimmung (braucht eine Tabelle, also eine Migration), Druck als
+PDF im Querformat, Breite der Spalten merken. Tests: `tests/financeKontoblatt.test.ts`,
+`tests/financeKontoblattOberflaeche.test.tsx`.
+

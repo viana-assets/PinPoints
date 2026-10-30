@@ -7,6 +7,7 @@ import type { Verb } from "@/lib/constants";
 import { qk } from "@/lib/queries/keys";
 import { useFinMahnungen, useFinBankumsaetze, useFinBelege, useFinEinstellungen, useFinRechnungen, useFinUst } from "@/lib/queries/hooks";
 import { belegZustand } from "@/lib/finance/belege";
+import { useAmRechner } from "@/lib/amRechner";
 import { saveFinEinstellungen } from "@/lib/api/finance";
 import { FinanceBuchungen } from "./FinanceBuchungen";
 import { FinanceRechnungen } from "./FinanceRechnungen";
@@ -73,11 +74,13 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
   const eintrag = FINANCE_SEITEN.find((s) => s.key === aktiv);
   // Neue Seite = oben anfangen (sonst bliebe die Lage der vorigen, langen Einstellungsseite stehen).
   const obenRef = useRef<HTMLDivElement>(null);
+  // Der Journal-Arbeitsplatz (v178) braucht am Rechner die ganze Breite statt der Lesespalte.
+  const breit = useAmRechner() && aktiv === "buchungen";
   useEffect(() => { obenRef.current?.scrollIntoView?.({ block: "start" }); }, [aktiv]);
 
   return (
     <div className="tabpanel active">
-      <div className="es-seite fi-seite" ref={obenRef}>
+      <div className={"es-seite fi-seite" + (breit ? " fi-breit" : "")} ref={obenRef}>
         <div className="lg-leiste">
           <div className="lg-kopf">
             <div className="lg-titel">

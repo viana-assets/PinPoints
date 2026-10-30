@@ -16,6 +16,22 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.10.2026 – Finance Stufe B: Kontoblatt und Konten am Rechner (Service Worker v179, ohne Migration).** Reiter
+  „Kontoblatt“ (freier Zeitraum, Eröffnung, laufender Saldo, Verkehrszahlen, Sprung über das Gegenkonto mit Zurück, CSV)
+  und „Konten“ als Tabelle (Summen und Salden im Zeitraum, Abgleich Soll = Haben, Ein-/Ausblenden, eigenes Konto).
+  F3 im Journal öffnet jetzt das Kontoblatt. Noch nicht: Haken je Zeile zur Abstimmung (braucht Migration), Druck als
+  PDF. `docs/finance.md` Abschnitt 11.
+
+* **30.10.2026 – Finance Stufe A: Arbeitsplatz am Rechner (Service Worker v178, ohne Migration).** Entwurf abgenommen
+  („passt so“). Journal unter Finance › Buchungen am Rechner als dichte Tabelle mit Filterleiste, Sortieren, Tastatur
+  (F2/F3/N, Pfeile, Leertaste, Enter), Detail rechts mit Saldo vor/nach, CSV; Schnellbuchung mit Kontofeld (Nummer oder
+  Name) und Strg+Enter; Finance-Leiste in Bereichen wie FSM. Bausteine in `components/finance/arbeitsplatz/`,
+  Regeln in `lib/finance/arbeitsplatz.ts`. Noch nicht: Kostenstellen-Spalten (brauchen Migration, Stufe C/D),
+  Buchen am Handy (eigene Runde), Wirtschaftsjahr wählen. `docs/finance.md` Abschnitt 10, `docs/design-system.md`.
+
+* **30.10.2026 – Finance-Ausbau entschieden (nur Doku).** Sechs Entscheidungen zum Gesamtkonzept, `docs/finance.md`
+  Abschnitt 9 und E21 unten.
+
 * **29.10.2026 – Seitlich scrollende Leisten am Rechner bedienbar (Service Worker v177, ohne Migration).** Bildschirmfoto
   Vitali: bei den Terminen „Alle“ samt Zahl und ein Mitarbeiter abgeschnitten, kein Weg nach rechts. Zeitraum-Umschalter
   der Termine passt jetzt (gemessen 352 px), alle Filter-/Reiterleisten zeigen bei Überstand einen dünnen Balken, das
@@ -999,6 +1015,13 @@ kennt die App nicht (Urlaub über einen Feiertag danach für diesen Tag entferne
 ---
 
 ### E21. Finance – Buchhaltung als eigenes System (Wunsch 13.10.2026)
+
+**Ausbau entschieden 30.10.2026** (`docs/finance.md` Abschnitt 9): Arbeitsplatz am Rechner in Stufen A–H, Pilot endet
+mit Stufe D (alle FSM-Rechnungen, FSM selbst unverändert), vollständig ab 01.01.2027, Debitor je Kunde, Kostenstelle
+Transporter + Kostenträger Leistungsart, Buchen auch am Handy, DATEV monatlich. **Stufe A gebaut (v178):** Journal als
+Arbeitsplatz am Rechner, Kontofeld, Tastatur, Leiste in Bereichen (`docs/finance.md` Abschnitt 10). **Stufe B gebaut (v179):**
+Kontoblatt und Konten (Abschnitt 11). Als Nächstes: Stufe C (Buchungsmaske: Stapel, Splitt, Vorlagen, wiederkehrend;
+Kostenstellen mit Migration).
 
 Konzept, Entscheidungen und Phasen F0–F9 in **`docs/finance.md`**, klickbarer Mockup
 `Claude outputs\Mockup_Finance_v3.html`. Kurz: Systemwechsel an der Marke („MR Assistent · FSM“ ↔

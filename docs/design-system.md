@@ -280,7 +280,10 @@ Eine Struktur, zwei Layouts (`#iconNav` in `app/page.tsx` + `globals.css`):
   aktive Seite bleibt auch im zugeklappten Bereich sichtbar. Was zu ist, merkt sich der Browser
   (`localStorage`, `NAV_ZU_MERKER`). Gebaut in `components/FsmNavigation.tsx`, Regeln in
   `lib/navGruppen.ts` (Entwurf `Claude outputs/Mockup_Navigation_v1.html`, Variante A; Wunsch
-  Vitali 29.10.2026: „es werden immer mehr Schaltflächen“). Reihenfolge seit 23.09.2026 in der Reihenfolge
+  Vitali 29.10.2026: „es werden immer mehr Schaltflächen“). Seit v178 steht die Leiste selbst in
+  `components/BereichNavigation.tsx` und gilt genauso für **Finance** (`components/finance/FinanceNavigation.tsx`:
+  Übersicht, Rechnungen, Belege, Bank oben, dann die Bereiche aus `FINANCE_WEITERE_GRUPPEN`, eigener Merker
+  `FIN_NAV_ZU_MERKER`). Reihenfolge seit 23.09.2026 in der Reihenfolge
   des Tages: erst der Plan, dann die Arbeit, dann die Kartei. **Beim Öffnen** steht die App in
   der Einsatzplanung (`START_TAB` in `lib/module.ts`); ohne Leserecht dort fällt sie auf das
   Dashboard zurück (`START_TAB_ERSATZ`), das für alle sichtbar ist.
@@ -1050,3 +1053,24 @@ Filterpillen (`.pl-filter`, `.au-filter`, `.am-filter`, `.ad-filter`), Umschalte
 Wer eine neue seitlich scrollende Leiste mit eigener Klasse baut, trägt sie in beide Listen ein (CSS und
 `QUER_LEISTEN`); `tests/querRad.test.ts` vergleicht sie. Die Kacheln und Pillen auf der Karte (`kt-*`) bleiben bewusst
 ohne Balken.
+
+## Finance-Arbeitsplatz am Rechner (v178, Stufe A)
+
+Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wie DATEV oder Lexware, abgenommen am
+30.10.2026 (Entwurf `Claude outputs/Mockup_Finance_StufeA_v1.html`). Gebaut zuerst im Journal
+(`components/finance/FinanceJournalArbeitsplatz.tsx`), gedacht für alle Listen der folgenden Stufen:
+
+- **Aufbau:** Filterleiste oben (Felder als „Chips“ mit Beschriftung links, `.ap-chip`), Tabelle in der Mitte,
+  rechts immer die gewählte Zeile im Detail (300 px, `.ap-detail`), darunter die Statuszeile mit Anzahl, Stand und
+  Kurzbefehlen. Unter 1100 px rutscht das Detail unter die Tabelle.
+- **Tabelle** (`DatenTabelle`): 32 px je Zeile, 12,5 px Schrift, fester Kopf, Summenzeile unten fest, Zahlen
+  rechtsbündig mit gleich breiten Ziffern, Datum ohne Jahr (das steht im Zeitraum). Klick auf den Spaltenkopf
+  sortiert (auf → ab → aus). Gewählte Zeile in der Akzentfarbe, markierte leicht gelb, stornierte durchgestrichen.
+- **Tastatur zuerst:** ↑ ↓ Bild auf/ab Pos1 Ende, Leertaste markiert, Enter öffnet; F2 Suche, F3 nur das Konto der
+  Zeile, N Schnellbuchung (`FIN_KURZBEFEHLE`); in Eingabefeldern zählt N nicht.
+- **Kontofeld** statt Auswahlliste: Nummer oder Name tippen, Vorschläge darunter, Enter/Tab nimmt; die Bezeichnung
+  steht daneben, Mehrdeutiges wird rot. **Betragsfeld** mit Komma, beim Verlassen „1.234,50“.
+- **Nur am Rechner** (`useAmRechner()`, dieselbe Weiche wie `istHandy`); am Handy bleiben die Kartenlisten.- **Sprünge** (seit v179): Kontonummern in Listen sind Verweise (`.ap-link`, gepunktet unterstrichen) und öffnen das
+  Kontoblatt; ein „←“-Knopf vorne in der Filterleiste führt den Weg zurück. Überlange Bezeichnungen enden in der Tabelle
+  mit „…“ (`max` an der Spalte), der volle Text steht im Hinweis.
+

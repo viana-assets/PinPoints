@@ -10,7 +10,8 @@ import { weitereGruppen, type ModulEintrag, type TabKey } from "./module";
 // bleibt auch im zugeklappten Bereich sichtbar.
 //
 // Welche Bereiche zu sind, merkt sich der Rechner (`localStorage`, je Browser) – nur die Titel, keine Daten.
-// Reine Funktionen, geprüft in tests/navGruppen.test.ts; Oberfläche in components/FsmNavigation.tsx.
+// Reine Funktionen, geprüft in tests/navGruppen.test.ts; Oberfläche in components/BereichNavigation.tsx (FSM über
+// components/FsmNavigation.tsx, seit v178 auch Finance über components/finance/FinanceNavigation.tsx).
 
 export const NAV_ZU_MERKER = "mr-nav-zu";
 // Dieser Bereich steht unten angeheftet statt in der Reihe – wie vorher Admin und Einstellungen.
@@ -60,39 +61,60 @@ export function navZuAusText(text: string | null | undefined): Set<string> {
   }
 }
 
-// Gelesen über `useSyncExternalStore` (components/FsmNavigation.tsx): Auf dem Server und beim ersten Zeichnen im
+// Gelesen über `useSyncExternalStore` (components/BereichNavigation.tsx): Auf dem Server und beim ersten Zeichnen im
 // Browser gilt „alles offen“ (`""`), danach der Merker – sonst passte das vom Server gelieferte HTML nicht zum
 // Browser (Hydration-Fehler, gefunden in der Probe v176). Ohne nutzbaren Speicher (privates Fenster, gesperrt)
 // hält ein Ersatz im Arbeitsspeicher den Zustand bis zum Neuladen – Einklappen funktioniert dann trotzdem.
-let ersatz = "";
-const zuhoerer = new Set<() => void>();
+//
+// Seit v178 je System ein eigener Merker (FSM `NAV_ZU_MERKER`, Finance `FIN_NAV_ZU_MERKER` in lib/finance/seiten.ts):
+// Beide haben einen Bereich „System“, und wer ihn in FSM zuklappt, will ihn in Finance nicht auch zu haben.
+// Die Funktionen eines Speichers entstehen einmal beim Laden der Datei – `useSyncExternalStore` braucht dieselben
+// Funktionen bei jedem Zeichnen.
+export type NavZuSpeicher = {
+  roh: () => string;
+  server: () => string;
+  abonnieren: (neu: () => void) => () => void;
+  merken: (zu: ReadonlySet<string>) => void;
+};
 
 function speicher(): Storage | null {
   try { return typeof window === "undefined" ? null : window.localStorage; } catch { return null; }
 }
-export function navZuRoh(): string {
-  try {
-    const s = speicher();
-    return s ? s.getItem(NAV_ZU_MERKER) ?? "" : ersatz;
-  } catch {
-    return ersatz;
-  }
-}
-export function navZuRohServer(): string {
-  return "";
-}
-export function navZuAbonnieren(neu: () => void): () => void {
-  zuhoerer.add(neu);
-  // Ein anderes Fenster derselben App klappt um → hier mitziehen.
-  if (typeof window !== "undefined") window.addEventListener("storage", neu);
-  return () => {
-    zuhoerer.delete(neu);
-    if (typeof window !== "undefined") window.removeEventListener("storage", neu);
+
+export function navZuSpeicher(schluessel: string): NavZuSpeicher {
+  let ersatz = "";
+  const zuhoerer = new Set<() => void>();
+  return {
+    roh() {
+      try {
+        const s = speicher();
+        return s ? s.getItem(schluessel) ?? "" : ersatz;
+      } catch {
+        return ersatz;
+      }
+    },
+    server: () => "",
+    abonnieren(neu) {
+      zuhoerer.add(neu);
+      // Ein anderes Fenster derselben App klappt um → hier mitziehen.
+      if (typeof window !== "undefined") window.addEventListener("storage", neu);
+      return () => {
+        zuhoerer.delete(neu);
+        if (typeof window !== "undefined") window.removeEventListener("storage", neu);
+      };
+    },
+    merken(zu) {
+      const text = JSON.stringify([...zu].sort());
+      ersatz = text;
+      try { speicher()?.setItem(schluessel, text); } catch { /* privat oder voll – dann gilt der Ersatz */ }
+      zuhoerer.forEach((f) => f());
+    },
   };
 }
-export function navZuMerken(zu: ReadonlySet<string>): void {
-  const text = JSON.stringify([...zu].sort());
-  ersatz = text;
-  try { speicher()?.setItem(NAV_ZU_MERKER, text); } catch { /* privat oder voll – dann gilt der Ersatz */ }
-  zuhoerer.forEach((f) => f());
-}
+
+// Der Merker der FSM-Leiste; die Funktionen darunter bleiben als kurze Namen für FSM.
+export const FSM_NAV_ZU = navZuSpeicher(NAV_ZU_MERKER);
+export function navZuRoh(): string { return FSM_NAV_ZU.roh(); }
+export function navZuRohServer(): string { return FSM_NAV_ZU.server(); }
+export function navZuAbonnieren(neu: () => void): () => void { return FSM_NAV_ZU.abonnieren(neu); }
+export function navZuMerken(zu: ReadonlySet<string>): void { FSM_NAV_ZU.merken(zu); }

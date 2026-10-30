@@ -1,7 +1,7 @@
 "use client";
 import { LagerNavKnopf } from "@/components/LagerNavKnopf";
 import { lagerNavZiel, navigationsLager } from "@/lib/lagerNavigation";
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabaseClient";
@@ -79,7 +79,8 @@ import { arbeitMs, letzterAuftragHeute, uhrzeitVon } from "@/lib/zeiterfassung";
 import { IconKunden, IconMap, IconMore } from "@/components/icons";
 import { SystemMarke } from "@/components/system/SystemMarke";
 import { SystemWahl } from "@/components/system/SystemWahl";
-import { FINANCE_ICONS, FinanceBereich, type FinanceAnsicht } from "@/components/finance/FinanceBereich";
+import { FinanceBereich, type FinanceAnsicht } from "@/components/finance/FinanceBereich";
+import { FinanceNavigation } from "@/components/finance/FinanceNavigation";
 import { FINANCE_SEITEN, sichtbareFinanceSeiten } from "@/lib/finance/seiten";
 import { ansichtLesen, ansichtMerken } from "@/lib/ansichtMerker";
 import { querRadAktivieren } from "@/lib/querRad";
@@ -2073,16 +2074,9 @@ export default function HomePage() {
             Hauptseiten unten, der Rest unter „Weitere“ (Ansicht „mehr“). */}
         {systemAktiv === "finance" && (
           <>
-            {sichtbareFinanceSeiten((r) => darf(r)).map((s) => {
-              const Icon = FINANCE_ICONS[s.key];
-              return (
-                <Fragment key={s.key}>
-                  {s.key === "einstellungen" && <div className="nav-spacer nav-secondary" />}
-                  <NavItem className={s.primaer ? undefined : "nav-secondary"} active={finSeite === s.key}
-                    onClick={() => setFinSeite(s.key)} icon={<Icon />} label={s.label} />
-                </Fragment>
-              );
-            })}
+            {/* Seit v178 in Bereichen wie FSM (components/finance/FinanceNavigation.tsx). */}
+            <FinanceNavigation seiten={sichtbareFinanceSeiten((r) => darf(r))} aktiv={finSeite === "mehr" ? null : finSeite}
+              onSeite={setFinSeite} />
             <NavItem className="nav-more-btn" active={finSeite === "mehr" || !sichtbareFinanceSeiten((r) => darf(r)).some((s) => s.key === finSeite && s.primaer)}
               onClick={() => setFinSeite("mehr")} icon={<IconMore />} label="Weitere" />
           </>

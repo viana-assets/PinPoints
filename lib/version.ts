@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v177";
+export const APP_VERSION = "v179";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,24 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v179", datum: "2026-10-30", titel: "Finance: Kontoblatt und Konten am Rechner",
+    punkte: [
+      "Unter Finance › Buchungen gibt es am Rechner den Reiter „Kontoblatt“: ein Konto mit Zeitraum nach Wahl (Jahr, Quartal, Monat oder von–bis), Eröffnungssaldo, jede Bewegung mit Gegenkonto, Soll, Haben und laufendem Saldo, unten Verkehrszahlen und Endsaldo.",
+      "Ein Klick auf das Gegenkonto öffnet dessen Kontoblatt, „←“ führt zurück. F3 im Journal öffnet das Kontoblatt zum Konto der Zeile, Enter die Buchung.",
+      "Der Reiter „Konten“ zeigt alle Konten als Liste mit Eröffnung, Soll, Haben und Saldo im Zeitraum, filterbar nach Art – mit Kontrolle, dass Soll und Haben übereinstimmen. Enter öffnet das Kontoblatt; Ausblenden und eigene Konten wie bisher.",
+      "Kontoblatt und Kontenliste gehen als CSV nach Excel.",
+    ],
+  },
+  {
+    version: "v178", datum: "2026-10-30", titel: "Finance: Buchungsjournal als Arbeitsplatz am Rechner",
+    punkte: [
+      "Am Rechner steht das Journal unter Finance › Buchungen jetzt als dichte Liste wie in DATEV: Spaltenköpfe sortieren per Klick, oben Filter für Zeitraum, Konto (Nummer oder Name), Zustand, Betrag und eine Suche. Rechts steht immer die gewählte Buchung mit Soll, Haben und dem Kontostand vor und nach ihr.",
+      "Mit der Tastatur: Pfeiltasten wählen, Leertaste markiert, Enter öffnet (dort Storno), F2 springt in die Suche, F3 zeigt nur das Konto der Zeile, N öffnet die Schnellbuchung. Markierte Zeilen oder die ganze Liste gehen als CSV nach Excel.",
+      "In der Schnellbuchung tippst du Konten als Nummer oder Name („4530“ oder „tank“) und wählst mit Enter oder Tab; Strg+Enter bucht.",
+      "Die Finance-Leiste links ist wie in FSM in Bereiche gegliedert und lässt sich ein- und ausklappen. Am Handy bleibt alles wie bisher.",
+    ],
+  },
   {
     version: "v177", datum: "2026-10-29", titel: "Nichts mehr abgeschnitten in Filterleisten",
     punkte: [

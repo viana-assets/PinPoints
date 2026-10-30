@@ -15,14 +15,23 @@ import {
   type FinBuchung, type FinFestschreibung, type FinKonto, type FinPosten, type FinSteuerschluessel, type KontoKategorie,
 } from "@/lib/finance/buchung";
 import { formatEUR } from "@/lib/format";
+import { useAmRechner } from "@/lib/amRechner";
+import { BUCHUNG_QUELLE_TEXT } from "@/lib/finance/arbeitsplatz";
+import { FinanceJournalArbeitsplatz } from "./FinanceJournalArbeitsplatz";
+import { FinanceKontoblatt } from "./FinanceKontoblatt";
+import { FinanceKontenArbeitsplatz } from "./FinanceKontenArbeitsplatz";
+import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
 
-// Finance › Buchungen (Phase F1, Migration 88, v146): Journal, Konten mit Saldo, Monate festschreiben.
+// Finance › Buchungen (Phase F1, Migration 88, v146): Journal, Konten mit Saldo, Monate festschreiben. Am Rechner seit
+// v178/v179 als Arbeitsplatz: Journal, Kontoblatt und Konten als Tabellen (FinanceJournalArbeitsplatz, FinanceKontoblatt,
+// FinanceKontenArbeitsplatz).
 // Gebucht wird über `fin_buchen()` – die Datenbank rechnet die Steuer und vergibt die Nummer; das
 // Fenster zeigt vorher dieselbe Rechnung (`buchungVorschau`, lib/finance/buchung.ts). Ändern und
 // Löschen gibt es nicht: korrigiert wird mit Storno.
 
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
-type Reiter = "journal" | "konten" | "monate";
+// „kontoblatt“ gibt es nur am Rechner (v179, Stufe B).
+type Reiter = "journal" | "kontoblatt" | "konten" | "monate";
 
 export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuchen, darfFestschreiben, darfKonten, onEinstellungen }: {
   supabase: SupabaseClient;
@@ -44,6 +53,17 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   const [neuOffen, setNeuOffen] = useState(false);
   const [detail, setDetail] = useState<FinBuchung | null>(null);
   const [meldung, setMeldung] = useState<string | null>(null);
+  // Am Rechner das Journal als Arbeitsplatz (v178, Stufe A), am Handy die Kartenliste.
+  const amRechner = useAmRechner();
+  // Kontoblatt (v179, Stufe B): welches Konto, und der Weg dorthin für „Zurück“ (Sprünge über Gegenkonten).
+  const [blattKonto, setBlattKonto] = useState<number | null>(null);
+  const [blattWeg, setBlattWeg] = useState<number[]>([]);
+  const kontoblattOeffnen = (n: number) => {
+    if (reiter === "kontoblatt" && blattKonto != null && n !== blattKonto) setBlattWeg([...blattWeg, blattKonto]);
+    else if (reiter !== "kontoblatt") setBlattWeg([]);
+    setBlattKonto(n);
+    setReiter("kontoblatt");
+  };
 
   if (!einstellungen) {
     return (
@@ -67,18 +87,34 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   return (
     <>
       <div className="lg-lagerwahl es-segment fi-reiter" role="tablist" aria-label="Buchungen">
-        {([["journal", "Journal"], ["konten", "Konten"], ["monate", "Monate"]] as const).map(([k, t]) => (
+        {(amRechner ? [["journal", "Journal"], ["kontoblatt", "Kontoblatt"], ["konten", "Konten"], ["monate", "Monate"]] as const
+          : [["journal", "Journal"], ["konten", "Konten"], ["monate", "Monate"]] as const).map(([k, t]) => (
           <button key={k} type="button" role="tab" aria-selected={reiter === k} className={reiter === k ? "aktiv" : ""} onClick={() => setReiter(k)}>{t}</button>
         ))}
       </div>
       {fehlt && <div className="fi-hinweis fi-rot" role="alert">Das Journal konnte nicht geladen werden. Ist Migration 88 ausgeführt?</div>}
       {meldung && <div className="fi-hinweis fi-ok" role="status">{meldung}</div>}
 
-      {reiter === "journal" && (
+      {reiter === "journal" && amRechner && (
+        <FinanceJournalArbeitsplatz buchungen={buchungen} konten={konten} schluessel={schluessel} fest={fest} jahr={jahr}
+          laedt={buchungenQ.isPending} darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail}
+          onKontoblatt={kontoblattOeffnen} />
+      )}
+      {reiter === "kontoblatt" && amRechner && (
+        <FinanceKontoblatt buchungen={buchungen} konten={konten} fest={fest} jahr={jahr} laedt={buchungenQ.isPending}
+          konto={blattKonto} onKonto={kontoblattOeffnen} zurueck={blattWeg[blattWeg.length - 1] ?? null}
+          onZurueck={() => { setBlattKonto(blattWeg[blattWeg.length - 1] ?? null); setBlattWeg(blattWeg.slice(0, -1)); }}
+          darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail} />
+      )}
+      {reiter === "journal" && !amRechner && (
         <Journal buchungen={buchungen} konten={konten} fest={fest} laedt={buchungenQ.isPending}
           darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail} />
       )}
-      {reiter === "konten" && (
+      {reiter === "konten" && amRechner && (
+        <FinanceKontenArbeitsplatz supabase={supabase} rahmen={rahmen} buchungen={buchungen} konten={konten} jahr={jahr}
+          laedt={kontenQ.isPending || buchungenQ.isPending} darfKonten={darfKonten} onKontoblatt={kontoblattOeffnen} />
+      )}
+      {reiter === "konten" && !amRechner && (
         <Konten supabase={supabase} rahmen={rahmen} konten={konten} buchungen={buchungen} darfKonten={darfKonten} />
       )}
       {reiter === "monate" && (
@@ -87,7 +123,7 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
 
       {neuOffen && (
         <BuchungNeu supabase={supabase} heute={heute} jahr={jahr} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
-          onGebucht={(nr) => { setNeuOffen(false); setMeldung(`Gebucht als Nr. ${jahr}-${nr}.`); }}
+          tastatur={amRechner} onGebucht={(nr) => { setNeuOffen(false); setMeldung(`Gebucht als Nr. ${jahr}-${nr}.`); }}
           onClose={() => setNeuOffen(false)} />
       )}
       {detail && (
@@ -179,9 +215,11 @@ export function KontoWahl({ wert, konten, onWert, label, nur, disabled }: {
 // Vorbelegung, z. B. aus dem Kassenbuch (FinanceBank.tsx): Einnahme = Kasse im Soll, Ausgabe = Kasse im Haben.
 export type BuchungVorlage = { titel?: string; text?: string; soll?: number; haben?: number };
 
-export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schluessel, vorlage, onGebucht, onClose }: {
+export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schluessel, vorlage, tastatur, onGebucht, onClose }: {
   supabase: SupabaseClient; heute: string; jahr: number; einstellungen: FinEinstellungen;
   konten: FinKonto[]; schluessel: FinSteuerschluessel[]; vorlage?: BuchungVorlage;
+  // Am Rechner (v178, Stufe A): Konten per Nummer oder Name statt Auswahlliste, Betrag mit Komma, Strg+Enter bucht.
+  tastatur?: boolean;
   onGebucht: (nr: number) => void; onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -217,17 +255,23 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
   }
 
   return (
-    <Blatt titel={vorlage?.titel ?? "Neue Buchung"} unter={`${einstellungen.kontenrahmen.toUpperCase()} · Wirtschaftsjahr ${jahr}`} breite="breit" onClose={onClose}
+    <Blatt titel={vorlage?.titel ?? (tastatur ? "Schnellbuchung" : "Neue Buchung")}
+      unter={`${einstellungen.kontenrahmen.toUpperCase()} · Wirtschaftsjahr ${jahr}${tastatur ? " · Tab weiter · Strg+Enter bucht · Esc schließt" : ""}`}
+      breite="breit" onClose={onClose}
       fuss={<>
         <button type="button" className="btn-secondary" onClick={onClose} disabled={laeuft}>Abbrechen</button>
         <button type="button" className="btn-primary" onClick={() => void buchen()} disabled={laeuft || !!pruefung}>{laeuft ? "bucht …" : "Buchen"}</button>
       </>}>
-      <div className="fi-formular">
+      <div className="fi-formular" onKeyDown={(e) => {
+        if (tastatur && e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); void buchen(); }
+      }}>
         <div className="nk-zeile">
           <label className="nk-feld"><span>Datum</span><input type="date" value={datum} onChange={(e) => { setFehler(null); setDatum(e.target.value); }} /></label>
           <label className="nk-feld"><span>Beleg-Nr.</span><input value={beleg} maxLength={60} onChange={(e) => setBeleg(e.target.value)} placeholder="z. B. RE-1782" /></label>
         </div>
-        <label className="nk-feld"><span>Buchungstext</span><input value={text} maxLength={200} onChange={(e) => { setFehler(null); setText(e.target.value); }} placeholder="Was ist passiert?" /></label>
+        <label className="nk-feld"><span>Buchungstext</span><input value={text} maxLength={200} onChange={(e) => { setFehler(null); setText(e.target.value); }} placeholder="Was ist passiert?"
+          // Am Rechner beginnt die Schnellbuchung beim Text; Tab führt weiter zu Soll, Haben, Betrag, Steuer.
+          autoFocus={tastatur && !vorlage} /></label>
 
         {posten.map((p, i) => {
           const st = passend.find((s) => s.schluessel === p.steuer);
@@ -238,12 +282,25 @@ export function BuchungNeu({ supabase, heute, jahr, einstellungen, konten, schlu
                 {posten.length > 1 && <button type="button" className="es-knopf" onClick={() => setPosten(posten.filter((_, j) => j !== i))}>Entfernen</button>}
               </div>
               <div className="fi-zwei">
-                <label className="nk-feld"><span>Soll</span><KontoWahl wert={p.soll} konten={konten} onWert={(w) => setze(i, { soll: w })} label={`Soll-Konto Posten ${i + 1}`} /></label>
-                <label className="nk-feld"><span>Haben</span><KontoWahl wert={p.haben} konten={konten} onWert={(w) => setze(i, { haben: w })} label={`Haben-Konto Posten ${i + 1}`} /></label>
+                {tastatur ? (<>
+                  <label className="nk-feld"><span>Soll</span>
+                    <KontoFeld konten={konten} wert={p.soll ? Number(p.soll) : null} onWert={(n) => setze(i, { soll: n == null ? "" : String(n) })}
+                      label={`Soll-Konto Posten ${i + 1}`} />
+                  </label>
+                  <label className="nk-feld"><span>Haben</span>
+                    <KontoFeld konten={konten} wert={p.haben ? Number(p.haben) : null} onWert={(n) => setze(i, { haben: n == null ? "" : String(n) })}
+                      label={`Haben-Konto Posten ${i + 1}`} />
+                  </label>
+                </>) : (<>
+                  <label className="nk-feld"><span>Soll</span><KontoWahl wert={p.soll} konten={konten} onWert={(w) => setze(i, { soll: w })} label={`Soll-Konto Posten ${i + 1}`} /></label>
+                  <label className="nk-feld"><span>Haben</span><KontoWahl wert={p.haben} konten={konten} onWert={(w) => setze(i, { haben: w })} label={`Haben-Konto Posten ${i + 1}`} /></label>
+                </>)}
               </div>
               <div className="fi-zwei">
                 <label className="nk-feld"><span>Betrag in €</span>
-                  <input inputMode="decimal" value={p.betrag} onChange={(e) => setze(i, { betrag: e.target.value })} placeholder="0,00" aria-label={`Betrag Posten ${i + 1}`} />
+                  {tastatur ? <BetragFeld text={p.betrag} onText={(t) => setze(i, { betrag: t })} label={`Betrag Posten ${i + 1}`} /> : (
+                    <input inputMode="decimal" value={p.betrag} onChange={(e) => setze(i, { betrag: e.target.value })} placeholder="0,00" aria-label={`Betrag Posten ${i + 1}`} />
+                  )}
                 </label>
                 <label className="nk-feld"><span>Steuer</span>
                   <select value={p.steuer} onChange={(e) => setze(i, { steuer: e.target.value })} aria-label={`Steuer Posten ${i + 1}`}>
@@ -340,7 +397,7 @@ function BuchungDetail({ supabase, buchung, alle, konten, schluessel, fest, darf
         <div className="db-punkt-text">
           <b>{buchung.text}</b>
           <span className="small">
-            {buchung.beleg ? `Beleg ${buchung.beleg} · ` : ""}{buchung.quelle === "rechnung" ? "aus einer Rechnung" : "von Hand"}
+            {buchung.beleg ? `Beleg ${buchung.beleg} · ` : ""}{BUCHUNG_QUELLE_TEXT[buchung.quelle] ?? "von Hand"}
             {steuern ? ` · ${steuern}` : ""}
           </span>
         </div>
@@ -419,7 +476,7 @@ function Konten({ supabase, rahmen, konten, buchungen, darfKonten }: {
   );
 }
 
-function KontoNeu({ supabase, rahmen, konten, onClose }: { supabase: SupabaseClient; rahmen: FinEinstellungen["kontenrahmen"]; konten: FinKonto[]; onClose: () => void }) {
+export function KontoNeu({ supabase, rahmen, konten, onClose }: { supabase: SupabaseClient; rahmen: FinEinstellungen["kontenrahmen"]; konten: FinKonto[]; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [nummer, setNummer] = useState("");
   const [bezeichnung, setBezeichnung] = useState("");

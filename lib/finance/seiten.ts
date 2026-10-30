@@ -60,6 +60,23 @@ export function financeWeitereGruppen(seiten: FinanceSeite[]): { titel: string; 
   return gruppen;
 }
 
+// Die Seitenleiste am Rechner (v178, Stufe A des Finance-Ausbaus, docs/finance.md Abschnitt 9): wie in FSM seit v176
+// oben die Hauptseiten, darunter dieselben Bereiche wie unter „Weitere“ am Handy zum Ein- und Ausklappen, „System“
+// unten angeheftet. Welche Bereiche zu sind, merkt sich der Rechner getrennt von FSM.
+export const FIN_NAV_ZU_MERKER = "mr-fin-nav-zu";
+export const FIN_NAV_UNTEN_GRUPPE = "System";
+
+export function financeNavAufbau(seiten: FinanceSeite[]): {
+  haupt: FinanceSeite[]; gruppen: { titel: string; seiten: FinanceSeite[] }[]; unten: { titel: string; seiten: FinanceSeite[] } | null;
+} {
+  const alle = financeWeitereGruppen(seiten.filter((x) => !x.primaer)).filter((g) => g.seiten.length > 0);
+  return {
+    haupt: seiten.filter((x) => x.primaer),
+    gruppen: alle.filter((g) => g.titel !== FIN_NAV_UNTEN_GRUPPE),
+    unten: alle.find((g) => g.titel === FIN_NAV_UNTEN_GRUPPE) ?? null,
+  };
+}
+
 export function sichtbareFinanceSeiten(darf: (recht: string) => boolean): FinanceSeite[] {
   return FINANCE_SEITEN.filter((s) => darf(s.recht));
 }
