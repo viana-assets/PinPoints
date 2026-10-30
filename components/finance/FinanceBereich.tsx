@@ -158,12 +158,13 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             darfSchreiben={darf("finance.bank", "schreiben")} darfLoeschen={darf("finance.bank", "loeschen")}
             rechnungenSehen={darf("finance.rechnungen", "lesen")} belegeSehen={darf("finance.belege", "lesen")}
             buchungenSehen={darf("finance.buchen", "lesen")} darfBuchen={darf("finance.buchen", "schreiben")}
+            zahlungenSehen={darf("finance.zahlungen", "lesen")} darfZahlen={darf("finance.zahlungen", "schreiben")}
             onEinstellungen={() => onSeite("einstellungen")} />
         )}
         {aktiv === "steuern" && (
           <FinanceSteuern supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
-            darfSchreiben={darf("finance.steuer", "schreiben")} onEinstellungen={() => onSeite("einstellungen")} />
+            darfSchreiben={darf("finance.steuer", "schreiben")} buchungenSehen={darf("finance.buchen", "lesen")} onEinstellungen={() => onSeite("einstellungen")} />
         )}
         {aktiv === "anlagen" && (
           <FinanceAnlagen supabase={supabase} jahr={jahr} heute={heute}
@@ -179,7 +180,9 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
         )}
         {aktiv === "abschluss" && (
           <FinanceAbschluss supabase={supabase} jahr={jahr} heute={heute}
-            darfSchreiben={darf("finance.abschluss", "schreiben")} onSeite={onSeite} />
+            darfSchreiben={darf("finance.abschluss", "schreiben")} onSeite={onSeite}
+            rechte={{ rechnungen: darf("finance.rechnungen", "lesen"), belege: darf("finance.belege", "lesen"), buchen: darf("finance.buchen", "lesen"),
+              steuern: darf("finance.steuer", "lesen"), zahlungen: darf("finance.zahlungen", "lesen") }} />
         )}
         {aktiv === "export" && <FinanceExport supabase={supabase} jahr={jahr} heute={heute} onSeite={onSeite} />}
         {aktiv === "buchungen" && (

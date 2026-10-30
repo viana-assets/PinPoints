@@ -12,6 +12,9 @@ const api = vi.hoisted(() => ({
   fetchFinKonten: vi.fn(async () => [konto(1200, "Bank", "geld"), konto(4210, "Miete", "aufwand"), konto(8400, "Erlöse 19 % USt", "erloes"), konto(1776, "Umsatzsteuer 19 %", "steuer")]),
   fetchFinSteuerschluessel: vi.fn(async () => [{ kontenrahmen: "skr03", schluessel: "ust19", bezeichnung: "USt 19", satz: 19, art: "ust", ust_konto: 1776, vst_konto: null }]),
   fetchFinEuer: vi.fn(async () => ({ eingerichtet: true, unklar: 0, konten: [{ konto: 8400, wirkung: 300 }, { konto: 1776, wirkung: 57 }, { konto: 4210, wirkung: -100 }] })),
+  // v186: Plan (Migration 115).
+  fetchFinPlan: vi.fn(async (): Promise<unknown[]> => []),
+  finPlanSetzen: vi.fn(async () => 12), finPlanAusVorjahr: vi.fn(async () => 3),
   fetchFinKontenblatt: vi.fn(async () => [
     { datum: "2026-10-02", nr: 4, text: "Barverkauf", beleg: null, seite: "H", betrag: 300, steuer: "ust19", storno: false, gegen: "1200" },
   ]),
@@ -28,6 +31,8 @@ function zeigen(gewinnermittlung: "euer" | "bilanz" = "euer") {
     <FinanceAuswertungen supabase={supabase} jahr={2026} heute="2026-10-14" einstellungen={{ ...finVorgabe(2026, "2026-10-14"), gewinnermittlung }} onEinstellungen={() => {}}
       rechte={{ rechnungen: false, belege: false, bank: false, steuern: false, planen: false }} />
   </QueryClientProvider>);
+  // Seit v186 steht das Cockpit vorn.
+  fireEvent.click(screen.getByRole("tab", { name: "Summen & Salden" }));
 }
 
 describe("FinanceAuswertungen", () => {

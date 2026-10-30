@@ -8,7 +8,7 @@ import { fehlerText } from "@/components/FehlerHinweis";
 import { qk } from "@/lib/queries/keys";
 import {
   useFinBankimporte, useFinBankkonten, useFinBankregeln, useFinBankumsaetze, useFinBelege, useFinBuchungen, useFinKonten, useFinKostenstellen,
-  useFinLieferanten, useFinKassenstuerze, useFinRechnungen, useFinSteuerschluessel,
+  useFinLieferanten, useFinKassenstuerze, useFinRechnungen, useFinSteuerschluessel, useFinZahlauftraege,
 } from "@/lib/queries/hooks";
 import {
   finBankAufheben, finBankEinlesen, finBankIgnorieren, finBankImportZuruecknehmen, finBankkontoAendern, finBankkontoAnlegen,
@@ -28,6 +28,8 @@ import type { FinKostenstelle } from "@/lib/finance/kostenstellen";
 import { formatEUR } from "@/lib/format";
 import { BuchungNeu, KontoWahl, ZeilenTabelle, type BuchungVorlage } from "./FinanceBuchungen";
 import { KostWahl } from "./arbeitsplatz/KostWahl";
+import { FinanceZahlungen } from "./FinanceZahlungen";
+import { zahlauftragTreffer, type FinZahlauftrag } from "@/lib/finance/zahlungen";
 
 // Finance › Bank & Kasse (Phase F4, Migration 91, v149). Kontoauszug (CAMT.053 oder CSV) im Browser lesen,
 // einlesen (doppelte Umsätze erkennt die Datenbank), jeden Umsatz zuordnen: Rechnung, Beleg, Konto – oder
@@ -40,12 +42,14 @@ import { KostWahl } from "./arbeitsplatz/KostWahl";
 // Datenschutz: Kontoauszüge enthalten Namen und IBANs der Zahlenden. Sie bleiben in Finance (Recht
 // „Finance › Bank“), gehen an keinen Dritten und stehen in keiner Fehlermeldung.
 
-type Reiter = "offen" | "erledigt" | "kasse" | "konten";
+type Reiter = "offen" | "erledigt" | "kasse" | "zahlungen" | "konten";
 const SEITE = 100;
 
-export function FinanceBank({ supabase, jahr, heute, einstellungen, darfSchreiben, darfLoeschen, rechnungenSehen, belegeSehen, buchungenSehen, darfBuchen, onEinstellungen }: {
+export function FinanceBank({ supabase, jahr, heute, einstellungen, darfSchreiben, darfLoeschen, rechnungenSehen, belegeSehen, buchungenSehen, darfBuchen, zahlungenSehen = false, darfZahlen = false, onEinstellungen }: {
   supabase: SupabaseClient; jahr: number; heute: string; einstellungen: FinEinstellungen | null;
   darfSchreiben: boolean; darfLoeschen: boolean;
+  // Zahlungsausgang (Migration 113, v186): eigenes Recht „Finance › Zahlungen“.
+  zahlungenSehen?: boolean; darfZahlen?: boolean;
   // Für Vorschläge (Rechnungen, Belege) und Kassenbuch/Saldo (Journal) – jeweils das eigene Lese-Recht.
   rechnungenSehen: boolean; belegeSehen: boolean; buchungenSehen: boolean; darfBuchen: boolean;
   onEinstellungen: () => void;
@@ -64,6 +68,7 @@ export function FinanceBank({ supabase, jahr, heute, einstellungen, darfSchreibe
   // Migration 112 bzw. 108: fehlen sie, bleiben die Listen leer und alles läuft wie vorher.
   const regelnQ = useFinBankregeln(supabase, bereit);
   const kostQ = useFinKostenstellen(supabase, bereit);
+  const auftraegeQ = useFinZahlauftraege(supabase, bereit && zahlungenSehen && belegeSehen);
   const [reiter, setReiter] = useState<Reiter>("offen");
   const [filter, setFilter] = useState("");
   const [zeigen, setZeigen] = useState(SEITE);
@@ -124,7 +129,7 @@ export function FinanceBank({ supabase, jahr, heute, einstellungen, darfSchreibe
       {meldung && <div className="fi-hinweis fi-ok" role="status">{meldung}</div>}
       {fehler && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
       <div className="lg-lagerwahl es-segment fi-reiter fi-reiter-breit" role="tablist" aria-label="Bank und Kasse">
-        {([["offen", "Offen"], ["erledigt", "Zugeordnet"], ["kasse", "Kasse"], ["konten", "Konten & Importe"]] as const).map(([k, t]) => (
+        {([["offen", "Offen"], ["erledigt", "Zugeordnet"], ["kasse", "Kasse"], ...(zahlungenSehen && belegeSehen ? [["zahlungen", "Zahlungen"] as const] : []), ["konten", "Konten & Importe"]] as const).map(([k, t]) => (
           <button key={k} type="button" role="tab" aria-selected={reiter === k} className={reiter === k ? "aktiv" : ""} onClick={() => { setReiter(k); setZeigen(SEITE); }}>
             {t}{k === "offen" && <span className="lg-lagerwahl-zahl">{offene.length}</span>}
           </button>
@@ -197,6 +202,11 @@ export function FinanceBank({ supabase, jahr, heute, einstellungen, darfSchreibe
           : <div className="fi-hinweis fi-info">Das Kassenbuch zeigt Buchungen – dafür braucht es das Recht „Finance › Buchungen“ lesen.</div>
       )}
 
+      {reiter === "zahlungen" && (
+        <FinanceZahlungen supabase={supabase} heute={heute} belege={belege} lieferanten={lieferanten} bankkonten={bankkonten} darfSchreiben={darfZahlen}
+          onMeldung={(t) => { setFehler(null); setMeldung(t); }} />
+      )}
+
       {reiter === "konten" && (
         <KontenUndImporte supabase={supabase} jahr={jahr} bankkonten={bankkonten} importe={importeQ.data ?? []} umsaetze={umsaetze}
           konten={konten} buchungen={buchungenSehen ? buchungen : null} darfSchreiben={darfSchreiben} darfLoeschen={darfLoeschen}
@@ -207,7 +217,7 @@ export function FinanceBank({ supabase, jahr, heute, einstellungen, darfSchreibe
       {offen && (
         <UmsatzBlatt supabase={supabase} umsatz={umsaetze.find((u) => u.id === offen.id) ?? offen} alle={umsaetze} einstellungen={einstellungen}
           bankkonten={bankkonten} konten={konten} schluessel={schluessel} buchungen={buchungen} rechnungen={rechnungen} belege={belege}
-          lieferanten={lieferanten} regeln={regeln} kostenstellen={kostenstellen} darfSchreiben={darfSchreiben}
+          lieferanten={lieferanten} regeln={regeln} kostenstellen={kostenstellen} auftraege={auftraegeQ.data ?? []} darfSchreiben={darfSchreiben}
           onFertig={(t) => { setOffen(null); setFehler(null); setMeldung(t); }} onClose={() => setOffen(null)} />
       )}
       {regelnBuchen && (
@@ -260,10 +270,11 @@ function erledigtText(u: FinBankumsatz, rechnungen: FinRechnungZeile[], belege: 
 type Modus = "wahl" | "konto" | "mehrere" | "ignorieren" | "aufheben";
 type SammelWahl = { id: string; betrag: string; skonto: string };
 
-function UmsatzBlatt({ supabase, umsatz: u, alle, einstellungen, bankkonten, konten, schluessel, buchungen, rechnungen, belege, lieferanten, regeln, kostenstellen, darfSchreiben, onFertig, onClose }: {
+function UmsatzBlatt({ supabase, umsatz: u, alle, einstellungen, bankkonten, konten, schluessel, buchungen, rechnungen, belege, lieferanten, regeln, kostenstellen, auftraege = [], darfSchreiben, onFertig, onClose }: {
   supabase: SupabaseClient; umsatz: FinBankumsatz; alle: FinBankumsatz[]; einstellungen: FinEinstellungen;
   bankkonten: FinBankkonto[]; konten: FinKonto[]; schluessel: FinSteuerschluessel[]; buchungen: FinBuchung[];
   rechnungen: FinRechnungZeile[]; belege: FinBeleg[]; lieferanten: FinLieferant[]; regeln: FinBankregel[]; kostenstellen: FinKostenstelle[];
+  auftraege?: FinZahlauftrag[];
   darfSchreiben: boolean; onFertig: (meldung: string) => void; onClose: () => void;
 }) {
   const queryClient = useQueryClient();
@@ -272,6 +283,8 @@ function UmsatzBlatt({ supabase, umsatz: u, alle, einstellungen, bankkonten, kon
   const offenerUmsatz = u.status === "offen";
   const liste = offenerUmsatz ? vorschlaege(u, rechnungen, belege, lieferanten) : [];
   const kandidaten = offenerUmsatz ? sammelKandidaten(u, rechnungen, belege, lieferanten) : [];
+  // Abbuchung aus einer eigenen SEPA-Datei (Migration 113): Beleg(e), Betrag und Skonto stehen im Zahlauftrag.
+  const ausAuftrag = offenerUmsatz ? zahlauftragTreffer(u, auftraege, belege) : null;
   // Vorrang: eine Regel, sonst das Konto vom letzten Umsatz desselben Namens. Passt eine Rechnung bzw. ein Beleg
   // auf den Cent, bleibt die Auswahl vorn – die Regel ist dann nur ein Vorschlag.
   const regel = offenerUmsatz ? regelFuer(u, regeln) : null;
@@ -431,6 +444,18 @@ function UmsatzBlatt({ supabase, umsatz: u, alle, einstellungen, bankkonten, kon
 
         {offenerUmsatz && modus === "wahl" && (
           <>
+            {ausAuftrag && (
+              <div className="fi-hinweis fi-ok fi-auftrag-treffer">
+                <span>Aus der SEPA-Datei vom {datumKurz(ausAuftrag.auftrag.ausfuehrung)}: {ausAuftrag.posten.map((p) => `${p.zweck} (${formatEUR(p.betrag)})`).join(", ")}</span>
+                {darfSchreiben && (
+                  <button type="button" className="es-knopf fi-primaer" disabled={laeuft}
+                    onClick={() => void ausfuehren(async () => {
+                      const r = await finBankSammeln(supabase, u.id, ausAuftrag.posten.map((p) => ({ art: "beleg" as const, id: p.beleg_id, betrag: p.betrag, ...(p.skonto > 0 ? { skonto: p.skonto } : {}) })), null);
+                      return `Wie im Zahlauftrag zugeordnet: ${r.posten === 1 ? "1 Beleg" : `${r.posten} Belege`} bezahlt (ab Nr. ${r.von}).`;
+                    })}>So zuordnen</button>
+                )}
+              </div>
+            )}
             {regel && <div className="fi-hinweis fi-info">Regel „{regel.bezeichnung}“ schlägt Konto {kontoNr(regel.konto)} {name(regel.konto)} vor – unter „Auf Konto buchen“.</div>}
             <span className="op-gruppe-titel">{eingang ? "PASSENDE RECHNUNGEN" : "PASSENDE BELEGE"}</span>
             {liste.length === 0 ? (

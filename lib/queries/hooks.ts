@@ -20,7 +20,7 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
-import { fetchFinAbgehakt, fetchFinBankregeln, fetchFinArtikelLeistungsarten, fetchFinPersonenkonten, fetchFinKostenstellen, fetchFinStapel, fetchFinVorlagen, fetchFinWiederkehrend, fetchFinPlanposten, fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
+import { fetchFinAbgehakt, fetchFinBankregeln, fetchFinBuchungDateien, fetchFinPlan, fetchFinPruefung, fetchFinZahlauftraege, fetchFinArtikelLeistungsarten, fetchFinPersonenkonten, fetchFinKostenstellen, fetchFinStapel, fetchFinVorlagen, fetchFinWiederkehrend, fetchFinPlanposten, fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
 import type { Kontenrahmen } from "@/lib/finance/einstellungen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
@@ -608,6 +608,19 @@ export function useFinBankimporte(supabase: SupabaseClient, aktiv: boolean) {
 // Bankregeln (Migration 112): vor der Migration fehlt die Tabelle – kein Wiederholen, der Bereich bleibt leer.
 export function useFinBankregeln(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({ queryKey: qk.finBankregeln(), queryFn: () => fetchFinBankregeln(supabase), enabled: aktiv, staleTime: FRISCH_MS, retry: false });
+}
+// v186 (Migrationen 113–116): vor der jeweiligen Migration fehlt die Tabelle/Funktion – kein Wiederholen, der Bereich zeigt das.
+export function useFinZahlauftraege(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finZahlauftraege(), queryFn: () => fetchFinZahlauftraege(supabase), enabled: aktiv, staleTime: FRISCH_MS, retry: false });
+}
+export function useFinBuchungDateien(supabase: SupabaseClient, buchungId: string | null, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finBuchungDateien(buchungId ?? ""), queryFn: () => fetchFinBuchungDateien(supabase, buchungId as string), enabled: aktiv && !!buchungId, staleTime: FRISCH_MS, retry: false });
+}
+export function useFinPlan(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finPlan(jahr), queryFn: () => fetchFinPlan(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS, retry: false });
+}
+export function useFinPruefung(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finPruefung(jahr), queryFn: () => fetchFinPruefung(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS, retry: false });
 }
 export function useFinAnlagen(supabase: SupabaseClient, aktiv: boolean) {
   return useQuery({ queryKey: qk.finAnlagen(), queryFn: () => fetchFinAnlagen(supabase), enabled: aktiv, staleTime: FRISCH_MS });

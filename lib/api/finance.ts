@@ -3,7 +3,10 @@ import { ApiError, fetchPaged, q, qOne, qWrite } from "./client";
 import type { FinEinstellungen, Kontenrahmen } from "@/lib/finance/einstellungen";
 import type { FinBuchung, FinFestschreibung, FinKonto, FinPosten, FinSteuerschluessel } from "@/lib/finance/buchung";
 import { standLesen, type FinRechnungenStand } from "@/lib/finance/rechnungen";
-import { FIN_BELEG_BUCKET, belegDateiPfad, istXml, type FinBeleg, type FinLieferant } from "@/lib/finance/belege";
+import { FIN_BELEG_BUCKET, belegDateiPfad, buchungDateiPfad, istXml, type FinBeleg, type FinBuchungDatei, type FinLieferant } from "@/lib/finance/belege";
+import type { FinZahlauftrag } from "@/lib/finance/zahlungen";
+import type { FinPlanWert } from "@/lib/finance/plan";
+import { pruefungLesen, type FinPruefung } from "@/lib/finance/pruefung";
 import type { FinBankimport, FinBankkonto, FinBankregel, FinBankumsatz, Kontoauszug } from "@/lib/finance/bank";
 import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 import type { FinAnlage } from "@/lib/finance/anlagen";
@@ -153,17 +156,29 @@ export async function finZahlungZuruecknehmen(supabase: SupabaseClient, rechnung
 
 const BELEG_SPALTEN = "id, lieferant_id, belegdatum, belegnummer, text, faellig_am, posten, datei_pfad, datei_typ, datei_name, status, brutto, buchung_id, bezahlt_am, bezahlt_art, erstellt_am";
 
+const LIEFERANT_SPALTEN = "id, name, ust_id, konto, steuer, aktiv";
+// Migration 113: Bankdaten und Zahlungsbedingungen. Fehlen die Spalten noch (SQL nicht ausgeführt), geht es ohne weiter.
+const LIEFERANT_SPALTEN_113 = `${LIEFERANT_SPALTEN}, iban, bic, zahlungsziel_tage, skonto_prozent, skonto_tage`;
+const spalteFehlt = (e: { code?: string; message?: string } | null) => !!e && (e.code === "42703" || /column .* does not exist/i.test(e.message ?? ""));
+
 export async function fetchFinLieferanten(supabase: SupabaseClient): Promise<FinLieferant[]> {
-  return (await q<FinLieferant[]>("Die Lieferanten konnten nicht geladen werden",
-    supabase.from("fin_lieferanten").select("id, name, ust_id, konto, steuer, aktiv").order("name").order("id").range(0, 1999))) ?? [];
+  const neu = await supabase.from("fin_lieferanten").select(LIEFERANT_SPALTEN_113).order("name").order("id").range(0, 1999);
+  const roh = spalteFehlt(neu.error)
+    ? await q<FinLieferant[]>("Die Lieferanten konnten nicht geladen werden",
+      supabase.from("fin_lieferanten").select(LIEFERANT_SPALTEN).order("name").order("id").range(0, 1999))
+    : await q<FinLieferant[]>("Die Lieferanten konnten nicht geladen werden", Promise.resolve(neu));
+  return (roh ?? []).map((l) => ({ ...l, skonto_prozent: l.skonto_prozent == null ? l.skonto_prozent : Number(l.skonto_prozent) }));
 }
 
-export async function finLieferantAnlegen(supabase: SupabaseClient, l: Pick<FinLieferant, "name" | "ust_id" | "konto" | "steuer">): Promise<FinLieferant> {
+export type FinLieferantFelder = Pick<FinLieferant, "name" | "ust_id" | "konto" | "steuer"> &
+  Partial<Pick<FinLieferant, "iban" | "bic" | "zahlungsziel_tage" | "skonto_prozent" | "skonto_tage">>;
+
+export async function finLieferantAnlegen(supabase: SupabaseClient, l: FinLieferantFelder): Promise<FinLieferant> {
   return qOne<FinLieferant>("Der Lieferant konnte nicht angelegt werden",
-    supabase.from("fin_lieferanten").insert({ ...l, name: l.name.trim() }).select("id, name, ust_id, konto, steuer, aktiv").single());
+    supabase.from("fin_lieferanten").insert({ ...l, name: l.name.trim() }).select(LIEFERANT_SPALTEN).single());
 }
 
-export async function finLieferantAendern(supabase: SupabaseClient, id: string, felder: Partial<Pick<FinLieferant, "name" | "ust_id" | "konto" | "steuer" | "aktiv">>): Promise<void> {
+export async function finLieferantAendern(supabase: SupabaseClient, id: string, felder: Partial<FinLieferantFelder & Pick<FinLieferant, "aktiv">>): Promise<void> {
   await qWrite("Der Lieferant konnte nicht geändert werden", supabase.from("fin_lieferanten").update(felder).eq("id", id));
 }
 
@@ -670,3 +685,62 @@ export async function finAbhaken(supabase: SupabaseClient, zeilen: number[], an:
     supabase.rpc("fin_abhaken", { p_zeilen: zeilen, p_an: an })) ?? 0);
 }
 
+
+// ---------------------------------------------------------------- Zahlungsausgang (Migration 113, v186)
+export async function fetchFinZahlauftraege(supabase: SupabaseClient): Promise<FinZahlauftrag[]> {
+  const roh = await fetchPaged<FinZahlauftrag>("Die Zahlaufträge konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_zahlauftraege")
+      .select("id, bankkonto_id, ausfuehrung, msg_id, anzahl, summe, status, verworfen_grund, erstellt_am, fin_zahlauftrag_posten(id, auftrag_id, beleg_id, lieferant_id, name, iban, bic, betrag, skonto, zweck, e2e)")
+      .order("erstellt_am", { ascending: false }).order("id").range(von, bis));
+  return roh.map((a) => ({
+    ...a, summe: Number(a.summe),
+    fin_zahlauftrag_posten: (a.fin_zahlauftrag_posten ?? []).map((p) => ({ ...p, betrag: Number(p.betrag), skonto: Number(p.skonto) }))
+      .sort((x, y) => x.e2e.localeCompare(y.e2e)),
+  }));
+}
+export async function finZahlauftragAnlegen(supabase: SupabaseClient, bankkonto: string, ausfuehrung: string,
+  posten: { beleg: string; betrag: number; skonto: number }[]): Promise<{ id: string; msg_id: string; anzahl: number; summe: number }> {
+  const r = await q<{ id: string; msg_id: string; anzahl: number; summe: number }>("Der Zahlauftrag wurde nicht angelegt",
+    supabase.rpc("fin_zahlauftrag_anlegen", { p_bankkonto: bankkonto, p_ausfuehrung: ausfuehrung, p_posten: posten }));
+  if (!r) throw new ApiError("Der Zahlauftrag wurde nicht angelegt", { message: "keine Antwort" });
+  return { id: r.id, msg_id: r.msg_id, anzahl: Number(r.anzahl), summe: Number(r.summe) };
+}
+export async function finZahlauftragVerwerfen(supabase: SupabaseClient, id: string, grund: string): Promise<void> {
+  await q("Der Zahlauftrag wurde nicht verworfen", supabase.rpc("fin_zahlauftrag_verwerfen", { p_id: id, p_grund: grund }));
+}
+
+// ---------------------------------------------------------------- Belegbild an Buchungen (Migration 114, v186)
+export async function fetchFinBuchungDateien(supabase: SupabaseClient, buchungId: string): Promise<FinBuchungDatei[]> {
+  return (await q<FinBuchungDatei[]>("Die Belegbilder konnten nicht geladen werden",
+    supabase.from("fin_buchung_dateien").select("id, buchung_id, pfad, name, typ, erstellt_am").eq("buchung_id", buchungId)
+      .order("erstellt_am").order("id"))) ?? [];
+}
+// Erst die Datei, dann der Eintrag – bleibt nur die Datei liegen, ist sie unsichtbar, nie umgekehrt.
+export async function finBuchungDateiHochladen(supabase: SupabaseClient, buchungId: string, datei: Blob, name: string): Promise<void> {
+  const typ = istXml({ type: datei.type, name }) ? "application/xml" : datei.type;
+  const pfad = buchungDateiPfad(buchungId, name, new Date());
+  const { error } = await supabase.storage.from(FIN_BELEG_BUCKET).upload(pfad, datei, { contentType: typ, upsert: false });
+  if (error) throw new Error(/row-level security|unauthorized|403/i.test(error.message)
+    ? "Keine Berechtigung – Belegbilder anhängen braucht „Finance › Buchungen“ schreiben (und Migration 114)." : belegSpeicherFehler(error.message));
+  await q("Die Datei ist hochgeladen, aber nicht an der Buchung eingetragen",
+    supabase.rpc("fin_buchung_datei_merken", { p_buchung: buchungId, p_pfad: pfad, p_name: name.slice(0, 200), p_typ: typ }));
+}
+
+// ---------------------------------------------------------------- Plan (Migration 115, v186)
+export async function fetchFinPlan(supabase: SupabaseClient, jahr: number): Promise<FinPlanWert[]> {
+  const alle = await fetchPaged<FinPlanWert>("Der Plan konnte nicht geladen werden", (von, bis) =>
+    supabase.from("fin_plan").select("konto, monat, betrag").eq("jahr", jahr).order("konto").order("monat").range(von, bis));
+  return alle.map((x) => ({ konto: Number(x.konto), monat: Number(x.monat), betrag: Number(x.betrag) }));
+}
+export async function finPlanSetzen(supabase: SupabaseClient, jahr: number, konto: number, werte: number[]): Promise<number> {
+  return Number(await q<number>("Der Plan wurde nicht gespeichert", supabase.rpc("fin_plan_setzen", { p_jahr: jahr, p_konto: konto, p_werte: werte })) ?? 0);
+}
+export async function finPlanAusVorjahr(supabase: SupabaseClient, jahr: number, prozent: number, ersetzen: boolean): Promise<number> {
+  return Number(await q<number>("Der Plan wurde nicht übernommen",
+    supabase.rpc("fin_plan_aus_vorjahr", { p_jahr: jahr, p_prozent: prozent, p_ersetzen: ersetzen })) ?? 0);
+}
+
+// ---------------------------------------------------------------- Prüfliste (Migration 116, v186)
+export async function fetchFinPruefung(supabase: SupabaseClient, jahr: number): Promise<FinPruefung> {
+  return pruefungLesen(await q<unknown>("Die Prüfliste konnte nicht geladen werden", supabase.rpc("fin_pruefung", { p_jahr: jahr })));
+}

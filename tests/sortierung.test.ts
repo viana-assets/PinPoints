@@ -14,6 +14,8 @@ const EINDEUTIG = [
   /\.eq\("kontenrahmen", rahmen\)\.order\("nummer"\)\.range\(/,
   // `fin_abgehakt` (Migration 109): Primärschlüssel zeile_id.
   /\.order\("zeile_id"\)\.range\(/,
+  // `fin_plan` (Migration 115): Primärschlüssel (jahr, konto, monat), abgefragt je Jahr.
+  /\.eq\("jahr", jahr\)\.order\("konto"\)\.order\("monat"\)\.range\(/,
 ];
 
 describe("seitenweise Abfragen sind eindeutig sortiert", () => {

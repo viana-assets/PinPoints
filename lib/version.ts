@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v185";
+export const APP_VERSION = "v186";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,20 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v186", datum: "2026-10-30", titel: "Finance: Überweisungen per SEPA-Datei, Belegkorb, Cockpit, Plan/Ist, Prüfliste",
+    punkte: [
+      "Zahlungen: Unter Bank & Kasse › Zahlungen stehen alle fälligen Lieferantenbelege – und die, bei denen sich Skonto noch lohnt. Abhaken, Konto und Ausführungstag wählen, „SEPA-Datei erstellen“. Die Datei im Online-Banking hochladen und dort freigeben – die App selbst überweist nichts. Steht die Abbuchung auf dem Kontoauszug, ordnet „So zuordnen“ sie samt Skonto dem Beleg zu.",
+      "Bei jedem Lieferanten lassen sich IBAN, BIC, Zahlungsziel und Skonto hinterlegen (Belege › Lieferanten); das Zahlungsziel setzt die Fälligkeit neuer Belege.",
+      "Neues Recht „Finance › Zahlungen“ für die SEPA-Dateien – ab Werk nur der Superadmin.",
+      "Belegkorb: Unter Belege „Mehrere hochladen“ – viele Fotos oder PDFs auf einmal, je Datei ein Entwurf. E-Rechnungen werden dabei gleich gelesen.",
+      "An jede Buchung lässt sich ein Belegbild hängen (Buchung öffnen › „Belegbild anhängen“) – auch an Bank-, Kassen- und Stapelbuchungen.",
+      "Auswertungen: neues Cockpit mit Umsatz, Ergebnis, Bank, Forderungen, Verbindlichkeiten und der nächsten Umsatzsteuer; „Plan/Ist“ mit Plan je Konto und Monat (auch aus dem Vorjahr übernommen); „OP-Analyse“ nach Tagen über der Fälligkeit. Jede Auswertung lässt sich drucken bzw. als PDF speichern.",
+      "Steuern: Jede Voranmeldung zeigt die Abstimmung mit den Steuerkonten; bei innergemeinschaftlichen Lieferungen die Werte für die Zusammenfassende Meldung.",
+      "Jahresabschluss › Prüfung: die Prüfliste vor Festschreiben und Kanzlei-Übergabe – Nummernlücken, Buchungen ohne Beleg, offene Bankumsätze, alte Entwürfe, nicht festgeschriebene Monate und mehr, je Punkt mit Sprung dorthin.",
+      "Braucht die Migrationen 113, 114, 115 und 116 im Supabase-SQL-Editor (der Reihe nach, nach 112).",
+    ],
+  },
   {
     version: "v185", datum: "2026-10-30", titel: "Finance: Bankregeln, Sammelzuordnung mit Skonto und Differenz, Geldtransit",
     punkte: [

@@ -62,7 +62,7 @@ describe("FinanceBelege", () => {
       <cac:TaxCategory><cbc:ID>S</cbc:ID><cbc:Percent>19</cbc:Percent></cac:TaxCategory></cac:TaxSubtotal></cac:TaxTotal>
       <cac:LegalMonetaryTotal><cbc:PayableAmount>119</cbc:PayableAmount></cac:LegalMonetaryTotal></Invoice>`;
     const datei = new File([xml], "rechnung.xml", { type: "application/xml" });
-    fireEvent.change(document.querySelector('input[type="file"]') as HTMLInputElement, { target: { files: [datei] } });
+    fireEvent.change(document.querySelector('[role="dialog"] input[type="file"]') as HTMLInputElement, { target: { files: [datei] } });
     expect(await screen.findByText(/E-Rechnung \(UBL\) gelesen/)).toBeTruthy();
     expect((screen.getByPlaceholderText("Rechnungsnummer") as HTMLInputElement).value).toBe("R-9");
     expect((screen.getByLabelText("Betrag Posten 1") as HTMLInputElement).value).toBe("119");
@@ -73,5 +73,42 @@ describe("FinanceBelege", () => {
       lieferant_id: "l2", belegnummer: "R-9", belegdatum: "2026-10-02", posten: [{ konto: null, betrag: 119, steuer: "vst19" }],
     }));
     expect(api.finBelegDateiHochladen).toHaveBeenCalledWith(supabase, "neu1", expect.anything(), "rechnung.xml", null);
+  });
+
+  it("Belegkorb: mehrere Dateien → je ein Entwurf", async () => {
+    api.finBelegSpeichern.mockResolvedValueOnce("k1").mockResolvedValueOnce("k2");
+    zeigen();
+    const pdf = (n: string) => new File(["%PDF-1.4 leer"], n, { type: "application/pdf" });
+    fireEvent.change(await screen.findByLabelText("Mehrere Belege hochladen"), { target: { files: [pdf("Tanken 1.pdf"), pdf("Tanken 2.pdf"), new File(["x"], "liste.txt", { type: "text/plain" })] } });
+    expect(await screen.findByText(/2 Entwürfe angelegt/)).toBeTruthy();
+    expect(screen.getByRole("alert").textContent).toMatch(/liste\.txt/);
+    expect(api.finBelegSpeichern).toHaveBeenCalledWith(supabase, null, expect.objectContaining({ text: "Tanken 1", belegdatum: "2026-10-13", posten: [] }));
+    expect(api.finBelegDateiHochladen).toHaveBeenCalledWith(supabase, "k2", expect.anything(), "Tanken 2.pdf", null);
+  });
+
+  it("Lieferant mit IBAN, Zahlungsziel und Skonto; das Ziel setzt die Fälligkeit", async () => {
+    zeigen();
+    fireEvent.click(await screen.findByRole("tab", { name: "Lieferanten" }));
+    fireEvent.click(screen.getByRole("button", { name: "Lieferant anlegen" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.change(dialog.querySelector("input") as HTMLInputElement, { target: { value: "Reifen Nord" } });
+    fireEvent.change(screen.getByPlaceholderText("DE.."), { target: { value: "DE12" } });
+    expect(screen.getByRole("alert").textContent).toBe("Die IBAN ist nicht gültig.");
+    fireEvent.change(screen.getByPlaceholderText("DE.."), { target: { value: "de02 1203 0000 0000 2020 51" } });
+    fireEvent.change(screen.getByPlaceholderText("z. B. 30"), { target: { value: "30" } });
+    fireEvent.change(screen.getByPlaceholderText("z. B. 2"), { target: { value: "2" } });
+    expect(screen.getByRole("alert").textContent).toMatch(/Prozent und Tage/);
+    fireEvent.change(screen.getByPlaceholderText("z. B. 10"), { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Speichern" }));
+    await waitFor(() => expect(api.finLieferantAnlegen).toHaveBeenCalledWith(supabase, expect.objectContaining({
+      name: "Reifen Nord", iban: "DE02120300000000202051", zahlungsziel_tage: 30, skonto_prozent: 2, skonto_tage: 10 })));
+  });
+
+  it("Zahlungsziel des Lieferanten füllt die Fälligkeit", async () => {
+    api.fetchFinLieferanten.mockResolvedValueOnce([{ id: "l1", name: "Tankstelle Muster", ust_id: null, konto: 4530, steuer: "vst19", aktiv: true, zahlungsziel_tage: 14 } as never]);
+    zeigen();
+    fireEvent.click(await screen.findByRole("button", { name: "Beleg erfassen" }));
+    fireEvent.change(screen.getByLabelText("Lieferant"), { target: { value: "l1" } });
+    expect((document.querySelector('[role="dialog"] input[type="date"][value="2026-10-27"]'))).toBeTruthy();
   });
 });

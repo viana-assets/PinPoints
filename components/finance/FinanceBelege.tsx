@@ -9,7 +9,7 @@ import { qk } from "@/lib/queries/keys";
 import { useFinBelege, useFinKonten, useFinLieferanten, useFinSteuerschluessel } from "@/lib/queries/hooks";
 import {
   finBelegBezahlt, finBelegBuchen, finBelegDateiHochladen, finBelegDateiLink, finBelegSpeichern, finBelegStornieren,
-  finBelegVerwerfen, finBelegZahlungZuruecknehmen, finLieferantAendern, finLieferantAnlegen,
+  finBelegVerwerfen, finBelegZahlungZuruecknehmen, finLieferantAendern, finLieferantAnlegen, type FinBelegFelder,
 } from "@/lib/api/finance";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import { betragLesen, buchungVorschau, kontoNr, passendeSchluessel, type FinKonto, type FinSteuerschluessel } from "@/lib/finance/buchung";
@@ -22,6 +22,8 @@ import { istPdf, pdfAnhangXml } from "@/lib/finance/zugferd";
 import { bildVerkleinern } from "@/lib/belegBild";
 import { formatEUR } from "@/lib/format";
 import { SkontoAbschnitt } from "./FinanceSkonto";
+import { ibanSauber } from "@/lib/finance/bank";
+import { faelligVorschlag } from "@/lib/finance/zahlungen";
 import { KontoWahl, ZeilenTabelle } from "./FinanceBuchungen";
 
 // Finance › Belege (Phase F2, Migration 90, v148): Eingangsrechnungen und Quittungen.
@@ -44,6 +46,10 @@ export function FinanceBelege({ supabase, jahr, heute, einstellungen, darfSchrei
   const [offen, setOffen] = useState<FinBeleg | "neu" | null>(null);
   const [lieferantOffen, setLieferantOffen] = useState<FinLieferant | "neu" | null>(null);
   const [meldung, setMeldung] = useState<string | null>(null);
+  // Belegkorb (Stufe F, v186): mehrere Dateien auf einmal → je ein Entwurf.
+  const [korb, setKorb] = useState<{ fertig: number; von: number } | null>(null);
+  const [korbFehler, setKorbFehler] = useState<string[]>([]);
+  const queryClient = useQueryClient();
 
   if (!einstellungen) {
     return (
@@ -64,6 +70,29 @@ export function FinanceBelege({ supabase, jahr, heute, einstellungen, darfSchrei
       : r === "bezahlt" ? b.zustand.art === "bezahlt" : b.zustand.art === "storniert");
   const fehlt = [belegeQ, lieferantenQ].some((x) => x.isError);
 
+  async function korbHochladen(dateien: File[]) {
+    setMeldung(null);
+    setKorbFehler([]);
+    const fehler: string[] = [];
+    let ok = 0, gelesen = 0;
+    for (const [i, f] of dateien.entries()) {
+      setKorb({ fertig: i, von: dateien.length });
+      const mangel = dateiMangel(f);
+      if (mangel) { fehler.push(`${f.name}: ${mangel}`); continue; }
+      try {
+        if (await belegAusDatei(supabase, f, heute, lieferanten, belege)) gelesen++;
+        ok++;
+      } catch (e) {
+        fehler.push(`${f.name}: ${fehlerText(e)}`);
+      }
+    }
+    setKorb(null);
+    setKorbFehler(fehler);
+    await queryClient.invalidateQueries({ queryKey: qk.finance() });
+    setReiter("entwurf");
+    if (ok) setMeldung(`${ok === 1 ? "1 Entwurf" : `${ok} Entwürfe`} angelegt${gelesen ? `, ${gelesen} davon als E-Rechnung gelesen` : ""} – jetzt je Beleg Lieferant und Konto prüfen und buchen.`);
+  }
+
   return (
     <>
       {fehlt && <div className="fi-hinweis fi-rot" role="alert">Die Belege konnten nicht geladen werden. Ist Migration 90 ausgeführt?</div>}
@@ -76,7 +105,17 @@ export function FinanceBelege({ supabase, jahr, heute, einstellungen, darfSchrei
         ))}
       </div>
       {darfSchreiben && reiter !== "lieferanten" && (
-        <div className="fi-werkzeug"><button type="button" className="btn-primary fi-knopf" onClick={() => { setMeldung(null); setOffen("neu"); }}>Beleg erfassen</button></div>
+        <div className="fi-werkzeug">
+          <button type="button" className="btn-primary fi-knopf" onClick={() => { setMeldung(null); setOffen("neu"); }}>Beleg erfassen</button>
+          <label className={"btn-secondary fi-knopf fi-dateiwahl" + (korb ? " deaktiviert" : "")}>
+            {korb ? `lädt ${korb.fertig + 1} von ${korb.von} …` : "Mehrere hochladen"}
+            <input type="file" multiple disabled={!!korb} accept="image/*,application/pdf,.xml,application/xml,text/xml" aria-label="Mehrere Belege hochladen"
+              onChange={(e) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; if (f.length) void korbHochladen(f.slice(0, 30)); }} />
+          </label>
+        </div>
+      )}
+      {korbFehler.length > 0 && (
+        <div className="fi-hinweis fi-rot" role="alert">Nicht angelegt:{korbFehler.map((f, i) => <span key={i} className="small fi-block">{f}</span>)}</div>
       )}
       {reiter === "lieferanten" ? (
         <>
@@ -86,7 +125,8 @@ export function FinanceBelege({ supabase, jahr, heute, einstellungen, darfSchrei
               <button key={l.id} type="button" className={"es-zeile" + (l.aktiv ? "" : " fi-aus")} onClick={() => setLieferantOffen(l)}>
                 <span className="db-punkt-text"><b>{l.name}</b>
                   <span className="small">{l.konto ? `Konto ${kontoNr(l.konto)} ${konten.find((k) => k.nummer === l.konto)?.bezeichnung ?? ""}` : "ohne Kontovorschlag"}
-                    {l.ust_id ? ` · ${l.ust_id}` : ""}{l.aktiv ? "" : " · ausgeblendet"}</span></span>
+                    {l.ust_id ? ` · ${l.ust_id}` : ""}{l.iban ? " · IBAN hinterlegt" : ""}{l.zahlungsziel_tage != null ? ` · Ziel ${l.zahlungsziel_tage} Tage` : ""}
+                    {l.skonto_prozent ? ` · ${String(l.skonto_prozent).replace(".", ",")} % Skonto in ${l.skonto_tage} Tagen` : ""}{l.aktiv ? "" : " · ausgeblendet"}</span></span>
                 <span className="fi-pfeil" aria-hidden="true">›</span>
               </button>
             ))}
@@ -110,6 +150,31 @@ export function FinanceBelege({ supabase, jahr, heute, einstellungen, darfSchrei
       )}
     </>
   );
+}
+
+// Belegkorb: eine Datei → ein Entwurf. Eine E-Rechnung (XML oder ZUGFeRD-PDF) füllt Nummer, Datum, Fälligkeit,
+// Posten und – wenn bekannt – den Lieferanten; sonst steht der Dateiname als Text da. Rückgabe: als E-Rechnung gelesen?
+async function belegAusDatei(supabase: SupabaseClient, f: File, heute: string, lieferanten: FinLieferant[], belege: FinBeleg[]): Promise<boolean> {
+  const felder: FinBelegFelder = { lieferant_id: null, belegdatum: heute, belegnummer: null, text: f.name.replace(/\.\w+$/, "").slice(0, 200) || "Beleg", faellig_am: null, posten: [] };
+  let gelesen = false;
+  const xml = istXml(f) ? await f.text() : istPdf(f) ? await pdfAnhangXml(new Uint8Array(await f.arrayBuffer())) : null;
+  const r = xml != null ? eRechnungLesen(xml) : null;
+  if (r) {
+    gelesen = true;
+    const treffer = lieferanten.find((l) => (r.ustId && l.ust_id === r.ustId) || (r.lieferant && l.name.trim().toLowerCase() === r.lieferant.trim().toLowerCase()));
+    const v = kontoVorschlag(treffer, belege);
+    felder.lieferant_id = treffer?.id ?? null;
+    if (r.datum) felder.belegdatum = r.datum;
+    felder.belegnummer = r.nummer?.slice(0, 60) ?? null;
+    felder.faellig_am = r.faellig ?? faelligVorschlag(treffer, felder.belegdatum);
+    if (!treffer && r.lieferant) felder.text = `Lieferant: ${r.lieferant}`.slice(0, 200);
+    felder.posten = eRechnungPosten(r).map((p) => ({ konto: v.konto, betrag: p.betrag, steuer: p.steuer }));
+  }
+  const id = await finBelegSpeichern(supabase, null, felder);
+  const bild = f.type.startsWith("image/");
+  const blob = bild ? (await bildVerkleinern(f)).blob : f;
+  await finBelegDateiHochladen(supabase, id, blob, bild ? f.name.replace(/\.\w+$/, "") + ".jpg" : f.name, null);
+  return gelesen;
 }
 
 // Offene Posten der Lieferanten – für Finance › Offene Posten.
@@ -214,6 +279,9 @@ function BelegFenster({ supabase, beleg, heute, einstellungen, konten, schluesse
 
   function lieferantWaehlen(wert: string) {
     setLieferantId(wert);
+    // Fälligkeit aus dem Zahlungsziel (Migration 113), wenn noch keine eingetragen ist.
+    const f = faelligVorschlag(lieferanten.find((l) => l.id === wert), datum);
+    if (f && !faellig) setFaellig(f);
     const v = kontoVorschlag(lieferanten.find((l) => l.id === wert), belege);
     if (v.konto && posten.every((p) => !p.konto)) setPosten(posten.map((p) => ({ ...p, konto: String(v.konto), steuer: p.steuer || v.steuer || "" })));
   }
@@ -459,6 +527,12 @@ function LieferantBlatt({ supabase, lieferant, konten, schluessel, darfSchreiben
   const [ust, setUst] = useState(lieferant?.ust_id ?? "");
   const [konto, setKonto] = useState(lieferant?.konto ? String(lieferant.konto) : "");
   const [steuer, setSteuer] = useState(lieferant?.steuer ?? "");
+  // Migration 113 (v186): Bankdaten und Zahlungsbedingungen.
+  const [iban, setIban] = useState(lieferant?.iban ? lieferant.iban.replace(/(.{4})/g, "$1 ").trim() : "");
+  const [bic, setBic] = useState(lieferant?.bic ?? "");
+  const [ziel, setZiel] = useState(lieferant?.zahlungsziel_tage != null ? String(lieferant.zahlungsziel_tage) : "");
+  const [skontoP, setSkontoP] = useState(lieferant?.skonto_prozent != null ? String(lieferant.skonto_prozent).replace(".", ",") : "");
+  const [skontoT, setSkontoT] = useState(lieferant?.skonto_tage != null ? String(lieferant.skonto_tage) : "");
   const [laeuft, setLaeuft] = useState(false);
   const [fehler, setFehler] = useState<string | null>(null);
   async function los(f: () => Promise<unknown>) {
@@ -467,13 +541,28 @@ function LieferantBlatt({ supabase, lieferant, konten, schluessel, darfSchreiben
     catch (e) { setFehler(/duplicate|unique|23505/i.test(String((e as Error).message)) ? "Diesen Lieferanten gibt es schon." : fehlerText(e)); }
     finally { setLaeuft(false); }
   }
-  const felder = { name: name.trim(), ust_id: ust.trim() || null, konto: konto ? Number(konto) : null, steuer: steuer || null };
+  const ibanWert = iban.trim() ? ibanSauber(iban) : null;
+  const bicWert = bic.replace(/\s/g, "").toUpperCase() || null;
+  const zielWert = ziel.trim() ? Number(ziel) : null;
+  const skPWert = skontoP.trim() ? Number(skontoP.replace(",", ".")) : null;
+  const skTWert = skontoT.trim() ? Number(skontoT) : null;
+  const bankFehler = iban.trim() && !ibanWert ? "Die IBAN ist nicht gültig."
+    : bicWert && !/^[A-Z]{6}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(bicWert) ? "Die BIC hat 8 oder 11 Zeichen."
+    : zielWert != null && !(Number.isInteger(zielWert) && zielWert >= 0 && zielWert <= 365) ? "Das Zahlungsziel in Tagen (0 bis 365)."
+    : (skPWert == null) !== (skTWert == null) ? "Für Skonto Prozent und Tage angeben – oder beides leer lassen."
+    : skPWert != null && !(skPWert > 0 && skPWert <= 10) ? "Skonto höchstens 10 %."
+    : skTWert != null && !(Number.isInteger(skTWert) && skTWert >= 1 && skTWert <= 90 && (zielWert == null || skTWert <= zielWert)) ? "Die Skontofrist in Tagen (1 bis 90, nicht länger als das Zahlungsziel)." : null;
+  // Die Bankfelder nur mitschicken, wenn es sie gibt (Migration 113) oder etwas eingetragen ist – sonst ginge vor der
+  // Migration auch das Ändern des Namens nicht.
+  const mitBank = (lieferant && "iban" in lieferant) || !!(ibanWert || bicWert || zielWert != null || skPWert != null);
+  const felder = { name: name.trim(), ust_id: ust.trim() || null, konto: konto ? Number(konto) : null, steuer: steuer || null,
+    ...(mitBank ? { iban: ibanWert, bic: bicWert, zahlungsziel_tage: zielWert, skonto_prozent: skPWert, skonto_tage: skTWert } : {}) };
   return (
     <Blatt titel={lieferant ? lieferant.name : "Lieferant anlegen"} onClose={onClose}
       fuss={darfSchreiben ? <>
         {lieferant && <button type="button" className="btn-secondary" disabled={laeuft}
           onClick={() => void los(() => finLieferantAendern(supabase, lieferant.id, { aktiv: !lieferant.aktiv }))}>{lieferant.aktiv ? "Ausblenden" : "Einblenden"}</button>}
-        <button type="button" className="btn-primary" disabled={laeuft || !felder.name}
+        <button type="button" className="btn-primary" disabled={laeuft || !felder.name || !!bankFehler}
           onClick={() => void los(() => lieferant ? finLieferantAendern(supabase, lieferant.id, felder) : finLieferantAnlegen(supabase, felder))}>Speichern</button>
       </> : undefined}>
       <div className="fi-formular">
@@ -486,6 +575,18 @@ function LieferantBlatt({ supabase, lieferant, konten, schluessel, darfSchreiben
             {schluessel.filter((s) => s.art !== "ust").map((s) => <option key={s.schluessel} value={s.schluessel}>{s.bezeichnung}</option>)}
           </select></label>
         <span className="small">Beim nächsten Beleg dieses Lieferanten stehen Konto und Steuer schon da.</span>
+        <span className="op-gruppe-titel">BANK UND ZAHLUNG</span>
+        <label className="nk-feld"><span>IBAN</span><input value={iban} maxLength={42} disabled={!darfSchreiben} autoComplete="off" onChange={(e) => setIban(e.target.value.toUpperCase())} placeholder="DE.." /></label>
+        <div className="fi-zwei">
+          <label className="nk-feld"><span>BIC (freiwillig)</span><input value={bic} maxLength={11} disabled={!darfSchreiben} autoComplete="off" onChange={(e) => setBic(e.target.value.toUpperCase())} /></label>
+          <label className="nk-feld"><span>Zahlungsziel (Tage)</span><input inputMode="numeric" value={ziel} disabled={!darfSchreiben} onChange={(e) => setZiel(e.target.value)} placeholder="z. B. 30" /></label>
+        </div>
+        <div className="fi-zwei">
+          <label className="nk-feld"><span>Skonto %</span><input inputMode="decimal" value={skontoP} disabled={!darfSchreiben} onChange={(e) => setSkontoP(e.target.value)} placeholder="z. B. 2" /></label>
+          <label className="nk-feld"><span>Skonto Tage</span><input inputMode="numeric" value={skontoT} disabled={!darfSchreiben} onChange={(e) => setSkontoT(e.target.value)} placeholder="z. B. 10" /></label>
+        </div>
+        <span className="small">Mit IBAN kommt der Lieferant in den Zahlungsvorschlag (Bank & Kasse › Zahlungen); das Zahlungsziel setzt die Fälligkeit neuer Belege.</span>
+        {bankFehler && <div className="fi-hinweis fi-rot" role="alert">{bankFehler}</div>}
         {fehler && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
       </div>
     </Blatt>

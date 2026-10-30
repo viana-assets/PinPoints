@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **und `112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **`112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) **und `113_finance_zahlungsausgang.sql`, `114_finance_belegeingang.sql`, `115_finance_plan.sql`, `116_finance_pruefung.sql`** (der Reihe nach, nach 112, alle vor den Dateien von v186) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1685,4 +1685,31 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   doppelt, Beleg bei Eingang, Rest ohne Konto abgelehnt; Überzahlung als Rest auf 2700; Techniker darf nicht sammeln; „Alle
   Daten löschen“ leert Regeln und Teile. `t106`–`t111` gegen 112 gleich. Zweiter Lauf folgenlos. Rücknahme:
   `rollback/112_rollback.sql` (weigert sich bei Sammelzuordnungen, stellt die Fassungen aus 91 wieder her; zweimal lauffähig),
-  danach erneut ausgeführt.
+  danach erneut ausgeführt. Seit v186 steht das Entfernen in der Rücknahme im selben Block wie die Prüfung – bei
+  Sammelzuordnungen bleiben Regeln und Teile auch dann stehen, wenn der Editor nach der Ablehnung weiterläuft (nachgeprüft).
+
+- `113_finance_zahlungsausgang.sql` – **noch auszuführen**, nach 112 und vor den Dateien von v186 (Finance Stufe E, Teil 2,
+  `docs/finance.md` Abschnitt 18). Inhalt: Recht `finance.zahlungen` in `module_permissions` (leer, nur Superadmin);
+  `fin_lieferanten` + `iban`, `bic`, `zahlungsziel_tage`, `skonto_prozent`, `skonto_tage` mit Prüfregeln und Spaltenrechten;
+  Tabellen `fin_zahlauftraege`/`fin_zahlauftrag_posten` (RLS nur lesen mit `finance.zahlungen`); `fin_zahlauftrag_anlegen()`,
+  `fin_zahlauftrag_verwerfen()`. Bucht nichts, überweist nichts. Wache: bricht ohne 112 ab. Ergebnistabelle mit vier Zeilen.
+- `114_finance_belegeingang.sql` – **noch auszuführen**, nach 113 (Stufe F, Abschnitt 19). Inhalt: `fin_buchung_dateien` (RLS
+  lesen `finance.buchen`), `fin_buchung_datei_merken()`; Storage-Regeln „Finance-Buchungsdateien lesen/hochladen“ für
+  `buchung/…` im Bucket `fin-belege`; „Finance-Belegdateien löschen“ neu ohne `buchung/…`. Wache: bricht ohne 113 ab.
+  Ergebnistabelle mit drei Zeilen (die Storage-Zeile nennt fünf Regeln).
+- `115_finance_plan.sql` – **noch auszuführen**, nach 114 (Stufe G, Abschnitt 20). Inhalt: `fin_plan` (RLS lesen
+  `finance.abschluss`), `fin_plan_setzen()`, `fin_plan_aus_vorjahr()`. Wache: bricht ohne 114 ab. Ergebnistabelle mit zwei Zeilen.
+- `116_finance_pruefung.sql` – **noch auszuführen**, nach 115 (Stufe H, Abschnitt 21). Inhalt: `fin_pruefung(jahr)`, nur lesend.
+  Wache: bricht ohne 115 ab. Ergebnistabelle mit einer Zeile.
+- Geprüft gegen PG 16 (`/tmp/pgt/t116.sql`): Lieferant mit IBAN/BIC/Ziel/Skonto, falsche IBAN, Skonto länger als das Ziel, halb
+  und über 10 % abgelehnt; Zahlauftrag mit zwei Belegen (116,62 + 2,38 Skonto und 238) → Summe 354,62, Name/IBAN/BIC kopiert,
+  Zweck „Rechnung LR-1 abzgl. Skonto 2,38“; derselbe Beleg in einem zweiten Auftrag abgelehnt, nach Verwerfen (mit Grund)
+  wieder möglich; gestern, Konto ohne IBAN, mehr als offen, Skonto über 10 %, Lieferant ohne IBAN, Entwurf, doppelter Beleg,
+  leere Liste und Techniker abgelehnt, Techniker liest nichts, direktes Schreiben verweigert. Belegbild: falscher Pfad, `..`,
+  GIF abgelehnt, zweites Merken folgenlos, Löschen/Ändern verweigert, Datei unter fremder Buchung abgelehnt, Datei unter
+  `buchung/` nicht löschbar, Techniker abgelehnt. Plan: zwölf Werte, Bank-Konto/elf Werte/Jahr ohne Einstellungen abgelehnt,
+  aus Vorjahr +10 % (Erlös 100 → 110, Miete 500 → 550), vorhandener Plan bleibt bzw. wird ersetzt, −200 % abgelehnt, Techniker
+  abgelehnt. Prüfliste: Rechnungslücke 3–4 (Testrechnung ignoriert), offene Monate März–September, alter Bankumsatz, alter
+  Entwurf, ohne Personenkonto 1, Buchungslücke 2, leeres Jahr, Techniker abgelehnt. „Alle Daten löschen“ leert die neuen
+  Tabellen, das Recht bleibt. `t106`–`t112` gegen 116 gleich. Zweiter Lauf folgenlos. Rücknahme `rollback/116…113_rollback.sql`
+  (114 weigert sich bei vorhandenen Belegbildern; je zweimal lauffähig), danach erneut ausgeführt.

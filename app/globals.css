@@ -5044,6 +5044,56 @@ span.ap-haken{cursor:default;}
   .fi-kacheln.fi-drei{grid-template-columns:repeat(2,minmax(0,1fr));}
 }
 
+/* ---------------- Finance Stufen E2–H (v186): Zahlungen, Belegbilder, Cockpit, Plan/Ist, OP-Analyse, Prüfung, Berichte ---------------- */
+.fi-zahl-werkzeug .nk-feld{min-width:150px;}
+.fi-zahlauftrag + .fi-zahlauftrag{border-top:1px solid #f1ece2;}
+.fi-zahlauftrag-kopf{flex:1;display:flex;align-items:center;gap:10px;min-width:0;background:none;border:none;padding:0;text-align:left;cursor:pointer;color:inherit;font:inherit;}
+.fi-auftrag-treffer{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.fi-belegbilder{display:flex;flex-direction:column;gap:6px;}
+.fi-belegbilder-liste{display:flex;flex-wrap:wrap;gap:6px;}
+.fi-dateiwahl.deaktiviert{opacity:.6;pointer-events:none;}
+.fi-cockpit{grid-template-columns:repeat(4,minmax(0,1fr));}
+.fi-kachel-knopf{display:flex;flex-direction:column;align-items:flex-start;text-align:left;cursor:pointer;font:inherit;color:inherit;}
+.fi-kachel-knopf:hover{border-color:var(--accent);}
+.fi-tabelle tr.fi-klickbar{cursor:pointer;}
+.fi-tabelle tr.fi-klickbar:hover td{background:var(--accent-bg);}
+.fi-tabelle tr.fi-warn-zeile td{color:var(--red);}
+.fi-plan-monate{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;}
+.fi-plan-monate input{text-align:right;}
+.fi-unten{align-self:end;}
+.fi-schritt.fi-schritt-warn{background:var(--red-bg);border-color:var(--red);color:var(--red);font-size:12px;}
+.fi-bericht{background:#fff;color:#111;padding:14px;font-size:12px;}
+.fi-bericht-kopf{display:flex;justify-content:space-between;gap:16px;border-bottom:2px solid #111;padding-bottom:6px;margin-bottom:8px;}
+.fi-bericht-kopf b{display:block;font-size:16px;}
+.fi-bericht-kopf span{display:block;color:#444;}
+.fi-bericht-stand{text-align:right;}
+.fi-bericht-tabelle{width:100%;border-collapse:collapse;}
+.fi-bericht-tabelle th{text-align:left;border-bottom:1px solid #111;padding:3px 6px;font-size:11px;}
+.fi-bericht-tabelle td{padding:3px 6px;border-bottom:1px solid #ddd;vertical-align:top;}
+.fi-bericht-tabelle .zahl{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.fi-bericht-tabelle tr.summe td{font-weight:700;border-top:1px solid #111;}
+.fi-bericht-tabelle tr.leise td{color:#555;}
+.fi-bericht-fuss{margin-top:8px;color:#444;font-size:11px;}
+@media print{
+  /* Wie bei Rechnung und Etikettenbogen: im Druck ist alles `visibility:hidden`, sichtbar wird nur das Dokument. */
+  .fi-bericht, .fi-bericht *{visibility:visible;}
+  .fi-bericht{padding:0;}
+  html:has(.fi-bericht), body:has(.fi-bericht), body:has(.fi-bericht) *:has(.fi-bericht){background:#ffffff !important;}
+  .fi-bericht-tabelle tr{break-inside:avoid;}
+}
+@media (max-width:900px){
+  .fi-cockpit{grid-template-columns:repeat(2,minmax(0,1fr));}
+}
+@media (max-width:640px){
+  /* Plan/Ist am Handy: die Prozentspalte weg, sonst ragt die Tabelle über die Karte. */
+  .fi-planist-bwa th:nth-child(5),.fi-planist-bwa td:nth-child(5){display:none;}
+  .fi-planist{font-size:12px;}
+  .fi-planist td,.fi-planist th{padding:5px 3px;}
+  .fi-plan-monate{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .fi-bericht-kopf{flex-direction:column;}
+  .fi-bericht-stand{text-align:left;}
+}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

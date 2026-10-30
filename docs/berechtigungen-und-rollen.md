@@ -310,6 +310,16 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **Liquiditätsvorschau (Migration 100, v158):** `finance.abschluss` · L = Auswertungen › Liquidität und die Planposten sehen
   (`fin_planposten`); die Vorschau nimmt Rechnungen, Belege, Umsatzsteuer und Kontoauszüge nur auf, soweit die Person sie lesen
   darf (die Seite nennt, was fehlt). S = Planposten anlegen, ändern, löschen (`fin_planposten_speichern()` / `_loeschen()`).
+  **Zahlungen (Migration 113, v186):** eigenes Recht `finance.zahlungen` (ab Werk leer) · L = Bank & Kasse › Zahlungen sehen
+  (Zahlungsvorschlag, Zahlaufträge mit IBANs der Lieferanten), S = SEPA-Datei erstellen (`fin_zahlauftrag_anlegen()`) und einen
+  Zahlauftrag verwerfen. Hängt von `finance.bank` L und `finance.belege` L ab (dort steht der Reiter, dort die Belege). Die Datei
+  überweist nichts – freigegeben wird im Online-Banking mit den Rechten der Bank. Bankdaten und Zahlungsbedingungen der
+  Lieferanten pflegt, wer `finance.belege` S hat.
+  **Belegbild an Buchungen (Migration 114, v186):** L = `finance.buchen` L, anhängen = `finance.buchen` S
+  (`fin_buchung_datei_merken()`; Speicher unter `buchung/…` im Bucket `fin-belege`). Entfernen kann niemand.
+  **Plan (Migration 115) und Prüfliste (Migration 116, v186):** `finance.abschluss` · L = Plan/Ist, Cockpit, OP-Analyse und
+  Prüfliste sehen (`fin_pruefung()`), S = planen (`fin_plan_setzen()`, `fin_plan_aus_vorjahr()`). Cockpit, OP-Analyse und
+  Prüfliste zeigen Rechnungen, Belege, Kasse und Umsatzsteuer nur, soweit die Person sie lesen darf.
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

@@ -27,6 +27,7 @@ import { FinanceKontenArbeitsplatz } from "./FinanceKontenArbeitsplatz";
 import { FinancePersonenkonten } from "./FinancePersonenkonten";
 import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
 import { KostWahl } from "./arbeitsplatz/KostWahl";
+import { BelegBilder } from "./BelegBilder";
 import type { FinKostenstelle } from "@/lib/finance/kostenstellen";
 
 // Finance › Buchungen (Phase F1, Migration 88, v146): Journal, Konten mit Saldo, Monate festschreiben. Am Rechner seit
@@ -459,6 +460,7 @@ function BuchungDetail({ supabase, buchung, alle, konten, schluessel, fest, darf
         {z.storniert && <div className="fi-hinweis fi-warn">Storniert durch Nr. {nrVon(buchung.storniert_durch) ?? "?"}</div>}
         {z.festgeschrieben && <div className="fi-hinweis fi-info">Der Monat ist festgeschrieben. Ein Storno wird heute gebucht.</div>}
         <ZeilenTabelle zeilen={buchung.fin_buchungszeilen} name={name} />
+        <BelegBilder supabase={supabase} buchungId={buchung.id} darfAnhaengen={darfBuchen} />
         {frage && (
           <>
             <label className="nk-feld"><span>Grund für das Storno</span>

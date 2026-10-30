@@ -23,16 +23,22 @@ import { dateiHerunterladen } from "@/lib/download";
 import { formatEUR } from "@/lib/format";
 import type { FinanceAnsicht } from "./FinanceBereich";
 import { KontoWahl } from "./FinanceBuchungen";
+import { FinancePruefung, type PruefRechte } from "./FinancePruefung";
 
 // Finance › Jahresabschluss (Phase F8, Migration 96, v154): Schritte zum Abschluss, Rückstellungen und Abgrenzungen
 // (nur Bilanzierung), Saldenvortrag ins Folgejahr, GuV, Bilanz und Anlagenspiegel – für das laufende Jahr oder das
 // Vorjahr. Gerechnet wird in lib/finance/abschluss.ts, gebucht nur von der Datenbank. Den Abschluss stellt der
 // Steuerberater auf; das hier ist der vorbereitete Stand.
 
-type Reiter = "schritte" | "guv" | "bilanz" | "spiegel";
+// Seit v186 (Stufe H): Reiter „Prüfung“ mit der Prüfliste (Migration 116).
+type Reiter = "schritte" | "pruefung" | "guv" | "bilanz" | "spiegel";
 
-export function FinanceAbschluss({ supabase, jahr, heute, darfSchreiben, onSeite }: {
+const OHNE_RECHTE: PruefRechte = { rechnungen: false, belege: false, buchen: false, steuern: false, zahlungen: false };
+
+export function FinanceAbschluss({ supabase, jahr, heute, darfSchreiben, onSeite, rechte = OHNE_RECHTE }: {
   supabase: SupabaseClient; jahr: number; heute: string; darfSchreiben: boolean; onSeite: (s: FinanceAnsicht) => void;
+  // Für die Prüfliste: welche Quellen diese Person lesen darf.
+  rechte?: PruefRechte;
 }) {
   const vorQ = useFinEinstellungen(supabase, jahr - 1, true);
   const jetztQ = useFinEinstellungen(supabase, jahr, true);
@@ -60,14 +66,15 @@ export function FinanceAbschluss({ supabase, jahr, heute, darfSchreiben, onSeite
           <button type="button" className="btn-primary fi-knopf" onClick={() => onSeite("einstellungen")}>Zu den Einstellungen</button>
         </div>
       ) : (
-        <AbschlussJahr key={j} supabase={supabase} jahr={j} laufend={jahr} heute={heute} e={e} darfSchreiben={darfSchreiben} onSeite={onSeite} />
+        <AbschlussJahr key={j} supabase={supabase} jahr={j} laufend={jahr} heute={heute} e={e} darfSchreiben={darfSchreiben} onSeite={onSeite} rechte={rechte} />
       )}
     </>
   );
 }
 
-function AbschlussJahr({ supabase, jahr, laufend, heute, e, darfSchreiben, onSeite }: {
+function AbschlussJahr({ supabase, jahr, laufend, heute, e, darfSchreiben, onSeite, rechte }: {
   supabase: SupabaseClient; jahr: number; laufend: number; heute: string; e: FinEinstellungen; darfSchreiben: boolean; onSeite: (s: FinanceAnsicht) => void;
+  rechte: PruefRechte;
 }) {
   const queryClient = useQueryClient();
   const rahmen = e.kontenrahmen;
@@ -129,10 +136,12 @@ function AbschlussJahr({ supabase, jahr, laufend, heute, e, darfSchreiben, onSei
       {meldung && <div className="fi-hinweis fi-ok" role="status">{meldung}</div>}
       {fehler && !zurueck && !neu && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
       <div className="lg-lagerwahl es-segment fi-reiter fi-reiter-breit" role="tablist" aria-label="Jahresabschluss">
-        {([["schritte", "Schritte"], ["guv", "GuV"], ["bilanz", "Bilanz"], ["spiegel", "Anlagenspiegel"]] as [Reiter, string][]).map(([k, t]) => (
+        {([["schritte", "Schritte"], ["pruefung", "Prüfung"], ["guv", "GuV"], ["bilanz", "Bilanz"], ["spiegel", "Anlagenspiegel"]] as [Reiter, string][]).map(([k, t]) => (
           <button key={k} type="button" role="tab" aria-selected={reiter === k} className={reiter === k ? "aktiv" : ""} onClick={() => setReiter(k)}>{t}</button>
         ))}
       </div>
+
+      {reiter === "pruefung" && <FinancePruefung supabase={supabase} jahr={jahr} heute={heute} e={e} rechte={rechte} onSeite={onSeite} />}
 
       {reiter === "schritte" && (
         <>

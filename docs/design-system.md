@@ -1090,4 +1090,10 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
   mit `--accent-bg` hinterlegt); Zweifelsfälle sind vorab abgewählt und rot begründet. Der Hauptknopf nennt die Zahl
   („3 Umsätze buchen“) und zählt während des Buchens mit. Dasselbe Muster für die Auswahl mehrerer Posten mit Betrag und
   Skonto je Zeile (`.fi-sammel-felder`, am Handy volle Breite).
+- **Bericht als PDF** (Finance, v186): `BerichtDruck` – ein `Blatt` mit `breite="dokument"` und `ebene="druck-fenster …"`,
+  darin Kopf (Bericht, Zeitraum, Firma, Stand) und eine schlichte Tabelle (`.fi-bericht-tabelle`, Summenzeilen fett). Das
+  Querformat setzt ein `@page` im Fenster selbst, nur solange es offen ist. Jede Auswertung hat neben „Als CSV“ den Knopf
+  „Drucken“.
+- **Cockpit-Kacheln** (Finance, v186): `.fi-kacheln.fi-cockpit` (vier Spalten, ab 900 px zwei); eine Kachel mit Ziel ist ein
+  Knopf (`.fi-kachel-knopf`), Plan-Abweichung grün/rot in der Unterzeile, negative Werte als `.fi-kachel-warn`.
 

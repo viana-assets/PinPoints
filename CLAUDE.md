@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 30.10.2026 (Migrationen bis 112, 101–107 ausgeführt, 108–112 noch auszuführen; Service Worker v185; Regeln seit der Projektdurchsicht vom
+Stand: 30.10.2026 (Migrationen bis 116, 101–107 ausgeführt, 108–116 noch auszuführen; Service Worker v186; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -123,6 +123,10 @@ Er arbeitet ausschließlich über die Browser-Oberflächen von GitHub und Supaba
     Tabelle und scheiterte, das `drop column` danach lief trotzdem. Wo ein Schritt einen
     späteren absichert, gehören beide in **getrennte Dateien**, und die zweite wird erst
     ausgeliefert, wenn die erste nachweislich durchgelaufen ist.
+- **Eine Rücknahme, die sich unter Umständen weigert, packt Prüfung UND Löschen in denselben `do $$ … $$`-Block.**
+  Steht die Prüfung allein in einem Block und das `drop table` dahinter, läuft das Löschen weiter, wenn der Editor nach
+  dem Fehler fortfährt – so stand es bis v185 in `rollback/112` (lokal mit psql ohne `ON_ERROR_STOP` nachgestellt, v186
+  korrigiert, ebenso `rollback/114`).
 - Diese Eigenheiten fallen beim Prüfen gegen ein lokales Postgres **nicht** auf – dort hält
   `begin`/`commit`, und temporäre Tabellen leben. Ein grüner lokaler Lauf beweist, dass die
   Logik stimmt, nicht dass das Skript im Editor durchläuft.
@@ -433,7 +437,7 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
 | Wie funktionieren Artikelstammdaten und Leistungen? | `docs/artikelstammdaten.md` |
 | Wie funktioniert die Rechnungsstellung? | `docs/rechnungen.md` |
 | Was ist offen, was ist als Nächstes dran? | `docs/fahrplan.md` |
-| Was soll Finance (Buchhaltung) werden? | `docs/finance.md` (Konzept und Phasen; gebaut: F0 Systemwechsel/Rechte/Einstellungen, F1 Konten/Journal/Festschreibung, F3 Rechnungen/offene Posten, F2 Belege/Lieferanten, F4 Bank/Kasse, F5 Voranmeldung als Probelauf; v151 Teilzahlungen, Kassensturz, Fristerinnerung; F6 Auswertungen, F7 Anlagen/Abschreibungen, F8 Jahresabschluss, F9 Export DATEV/GoBD; v156 Skonto, ZUGFeRD-PDF, USt-Jahreswerte; v157 Mahnwesen; v158 Liquiditätsvorschau, BWA-Vorjahresvergleich; Ausbau Abschnitt 9, v178 Stufe A Arbeitsplatz am Rechner: Journal-Tabelle, Kontofeld, Tastatur, Leiste in Bereichen; v179 Stufe B Kontoblatt und Konten; v180 Stufe C Teil 1 Buchungsstapel, Migration 106; v181 Vorlagen und wiederkehrende Buchungen, Migration 107; v182 Kostenstellen KOST1 Transporter und KOST2 Leistungsart, Migration 108; v183 Stufe C abgeschlossen: Stapel am Handy, Splitt, Abhaken, Migration 109; v184 Stufe D Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel, Migrationen 110/111; v185 Stufe E Teil 1 Bankregeln, Sammelzuordnung mit Skonto/Differenz, Geldtransit, Migration 112) |
+| Was soll Finance (Buchhaltung) werden? | `docs/finance.md` (Konzept und Phasen; gebaut: F0 Systemwechsel/Rechte/Einstellungen, F1 Konten/Journal/Festschreibung, F3 Rechnungen/offene Posten, F2 Belege/Lieferanten, F4 Bank/Kasse, F5 Voranmeldung als Probelauf; v151 Teilzahlungen, Kassensturz, Fristerinnerung; F6 Auswertungen, F7 Anlagen/Abschreibungen, F8 Jahresabschluss, F9 Export DATEV/GoBD; v156 Skonto, ZUGFeRD-PDF, USt-Jahreswerte; v157 Mahnwesen; v158 Liquiditätsvorschau, BWA-Vorjahresvergleich; Ausbau Abschnitt 9, v178 Stufe A Arbeitsplatz am Rechner: Journal-Tabelle, Kontofeld, Tastatur, Leiste in Bereichen; v179 Stufe B Kontoblatt und Konten; v180 Stufe C Teil 1 Buchungsstapel, Migration 106; v181 Vorlagen und wiederkehrende Buchungen, Migration 107; v182 Kostenstellen KOST1 Transporter und KOST2 Leistungsart, Migration 108; v183 Stufe C abgeschlossen: Stapel am Handy, Splitt, Abhaken, Migration 109; v184 Stufe D Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel, Migrationen 110/111; v185 Stufe E Teil 1 Bankregeln, Sammelzuordnung mit Skonto/Differenz, Geldtransit, Migration 112; v186 Ausbau abgeschlossen: E2 Zahlungsvorschlag/SEPA-Datei, F Belegkorb/Belegbild an Buchungen, G Cockpit/Plan-Ist/OP-Analyse/Berichte als PDF, H Abstimmung/ZM/Prüfliste, Migrationen 113–116) |
 | Wie ist die PWA aufgebaut, was fehlt offline? | `docs/pwa-plan.md` |
 | Wie funktioniert die Terminerinnerung per Push? | `docs/benachrichtigungen-plan.md` |
 | Wie funktioniert die Stempeluhr? | `docs/zeiterfassung.md` |

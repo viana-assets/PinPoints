@@ -19,7 +19,7 @@ import { BESTELL_FOTO_BUCKET } from "@/lib/bestellung";
 
 //
 // Seit v148 (Migration 90) genauso die Belegdateien von Finance (`fin-belege`): Ist `fin_belege` leer,
-// gehört dort keine Datei mehr hin. Seit v173 (Migration 104) ebenso die Fotos der Bestellliste (`bestell-fotos`).
+// gehört dort keine Datei mehr hin (seit v186 auch `fin_buchung_dateien`). Seit v173 (Migration 104) ebenso die Fotos der Bestellliste (`bestell-fotos`).
 
 // So viele Runden zu je 200 Pfaden (`chat_fotos_weg_liste`) höchstens – reicht für 10 000 Fotos.
 const RUNDEN = 50;
@@ -46,7 +46,11 @@ export async function POST() {
     if (!zaehlFehler && count === 0) entfernt += await bucketLeeren(admin, CHAT_FOTO_BUCKET);
     // Fehlt die Tabelle (Migration 90 nicht gelaufen), kommt ein Fehler – dann bleibt der Speicher, wie er ist.
     const belege = await admin.from("fin_belege").select("id", { count: "exact", head: true });
-    if (!belege.error && belege.count === 0) entfernt += await bucketLeeren(admin, FIN_BELEG_BUCKET);
+    // Seit Migration 114 liegen dort auch Belegbilder von Buchungen (`buchung/…`): nur leeren, wenn auch die weg sind.
+    // Fehlt die Tabelle (114 nicht gelaufen), gibt es solche Dateien nicht.
+    const anBuchungen = await admin.from("fin_buchung_dateien").select("id", { count: "exact", head: true });
+    const keineBuchungsDateien = anBuchungen.error ? true : anBuchungen.count === 0;
+    if (!belege.error && belege.count === 0 && keineBuchungsDateien) entfernt += await bucketLeeren(admin, FIN_BELEG_BUCKET);
     // Seit Migration 105 merkt das Leeren die Bestellfotos vor – erst abarbeiten, dann (bei leerer Liste) den Rest.
     for (let i = 0; i < RUNDEN; i++) {
       const runde = await bestellFotosAufraeumen(admin);

@@ -78,17 +78,27 @@ begin
 end;
 $$;
 
-drop function if exists public.fin_bank_zu_konto(uuid, integer, text, text, text, text);
-drop trigger if exists fin_bank_teile_schutz on public.fin_buchungen;
-drop function if exists public.fin_bank_teile_schutz();
-drop function if exists public.fin_bank_sammeln(uuid, jsonb, integer, text, text);
-drop function if exists public.fin_kost_an_buchung(uuid, text, text, text);
-drop function if exists public.fin_bankregel_loeschen(uuid);
-drop function if exists public.fin_bankregel_speichern(uuid, text, text, text, text, text, integer, text, text, text, text, boolean);
-drop table if exists public.fin_bank_teile;
-drop table if exists public.fin_bankregeln;
-alter table public.fin_bankumsaetze drop constraint if exists fin_bu_zuordnung;
-alter table public.fin_bankumsaetze add constraint fin_bu_zuordnung check (zuordnung is null or zuordnung in ('rechnung', 'beleg', 'konto'));
+-- Das Entfernen in EINEM Block mit derselben Prüfung (v186 nachgetragen): Führt der SQL-Editor nach der abgelehnten
+-- Prüfung oben weiter aus, bleiben die Teile der Sammelzuordnungen trotzdem stehen.
+do $$
+begin
+  if to_regclass('public.fin_bank_teile') is not null then
+    if exists (select 1 from public.fin_bankumsaetze where status = 'zugeordnet' and zuordnung = 'mehrere') then
+      raise exception 'Es gibt noch Sammelzuordnungen – erst unter Finance › Bank & Kasse „Zuordnung aufheben“. Bankregeln und Teile bleiben.';
+    end if;
+  end if;
+  drop function if exists public.fin_bank_zu_konto(uuid, integer, text, text, text, text);
+  drop trigger if exists fin_bank_teile_schutz on public.fin_buchungen;
+  drop function if exists public.fin_bank_teile_schutz();
+  drop function if exists public.fin_bank_sammeln(uuid, jsonb, integer, text, text);
+  drop function if exists public.fin_kost_an_buchung(uuid, text, text, text);
+  drop function if exists public.fin_bankregel_loeschen(uuid);
+  drop function if exists public.fin_bankregel_speichern(uuid, text, text, text, text, text, integer, text, text, text, text, boolean);
+  drop table if exists public.fin_bank_teile;
+  drop table if exists public.fin_bankregeln;
+  alter table public.fin_bankumsaetze drop constraint if exists fin_bu_zuordnung;
+  alter table public.fin_bankumsaetze add constraint fin_bu_zuordnung check (zuordnung is null or zuordnung in ('rechnung', 'beleg', 'konto'));
+end $$;
 
 select 'Tabellen fin_bankregeln / fin_bank_teile' as pruefung,
        case when to_regclass('public.fin_bankregeln') is null and to_regclass('public.fin_bank_teile') is null then 'weg' else 'noch da' end as ergebnis

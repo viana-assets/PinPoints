@@ -157,6 +157,13 @@ viana-pinpoints/
       FinanceStapelHandy.tsx         Stapel am Handy (v183): Kartenliste, schlanke Maske, + Teil, buchen
                                      (tests/financeStapelHandy.test.tsx)
       FinancePersonenkonten.tsx      Debitoren/Kreditoren (Migration 110, v184): Liste, Personenkontoblatt, offene Posten, Handy-Karten
+      FinanceZahlungen.tsx           Bank & Kasse › Zahlungen (Migration 113, v186): Zahlungsvorschlag, SEPA-Datei, Zahlaufträge
+                                     (tests/financeZahlungenOberflaeche.test.tsx)
+      BelegBilder.tsx                Belegbild an einer Buchung (Migration 114, v186), im Buchungsfenster
+      FinanceAuswertungPlus.tsx      Auswertungen Stufe G (v186): Cockpit, Plan/Ist mit Planpflege (Migration 115), OP-Analyse
+      FinancePruefung.tsx            Jahresabschluss › Prüfung (Migration 116, v186): Prüfliste mit Sprung
+      BerichtDruck.tsx               Bericht als PDF im A4-Querformat (v186): Kopf, Tabelle, Druckregeln wie Rechnung
+                                     (tests/financeStufeGHOberflaeche.test.tsx)
                                      (tests/financePersonenkontenOberflaeche.test.tsx)
       FinanceVorlagen.tsx            Vorlagen und wiederkehrende Buchungen am Rechner (Migration 107, v181); `VorlageFormular` auch für
                                      „Als Vorlage“ im Stapel (tests/financeVorlagenOberflaeche.test.tsx)
@@ -395,6 +402,12 @@ viana-pinpoints/
                                   Erfassungszeile (Migration 107, v181; tests/financeVorlagen.test.ts)
       kostenstellen.ts            Kostenstellen: Auswahl, Anzeige, Auswertung je KOST1/KOST2 (Migration 108, v182); Leistungsart-
                                   Vorgabe je Artikel (Migration 111, v184; tests/financeKostenstellen.test.ts)
+      zahlungen.ts                Zahlungsvorschlag, Zustand, Treffer im Kontoauszug, SEPA pain.001.001.09 (Migration 113, v186;
+                                  tests/financeZahlungen.test.ts)
+      plan.ts                     Plan als Salden, Plan/Ist je Konto, Eingabe und Verteilen (Migration 115, v186)
+      cockpit.ts                  Cockpit-Kacheln, nächste Voranmeldung (v186)
+      opanalyse.ts                Offene Posten nach Fälligkeit, Stufen, je Person (v186)
+      pruefung.ts                 Prüfliste lesen und zu Punkten verdichten (Migration 116, v186; tests/financeStufeGH.test.ts)
       personen.ts                 Personenkonten: Salden, offene Posten je Beleg, Filter, CSV für die Kanzlei (Migration 110, v184;
                                   tests/financePersonen.test.ts)
       kontoblatt.ts               Zeitraum (Jahr/Quartal/Monat/frei), Kontoblatt mit laufendem Saldo, Konten im Zeitraum (v179, Stufe B;
@@ -826,7 +839,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 112** (30.10.2026; 101–107 ausgeführt, 108–112 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 116** (30.10.2026; 101–107 ausgeführt, 108–116 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -1028,6 +1041,13 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **112** – Finance Bankregeln und Sammelzuordnung: `fin_bankregeln` mit `fin_bankregel_speichern()`/`_loeschen()`,
   `fin_bank_zu_konto()` mit KOST1/KOST2, `fin_bank_teile` und `fin_bank_sammeln()` (mehrere Posten, Skonto, Rest auf Konto),
   `fin_bank_aufheben()` bucht alle Teile gegen (Abschnitt 17).
+- **113** – Finance Zahlungsausgang: Recht `finance.zahlungen`, Lieferanten mit IBAN/BIC/Zahlungsziel/Skonto,
+  `fin_zahlauftraege`/`fin_zahlauftrag_posten` mit `fin_zahlauftrag_anlegen()`/`_verwerfen()` – bucht nichts (Abschnitt 18).
+- **114** – Finance Belegeingang: `fin_buchung_dateien` mit `fin_buchung_datei_merken()`, Storage-Regeln für `buchung/…`
+  im Bucket `fin-belege`, Löschregel ohne `buchung/…` (Abschnitt 19).
+- **115** – Finance Plan: `fin_plan` (Jahr, Konto, Monat), `fin_plan_setzen()`, `fin_plan_aus_vorjahr()` (Abschnitt 20).
+- **116** – Finance Prüfliste: `fin_pruefung(jahr)` – Lücken, ohne Beleg, ohne Personenkonto, offene Bank, alte Entwürfe,
+  nicht festgeschriebene Monate (Abschnitt 21).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

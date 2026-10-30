@@ -93,6 +93,7 @@ Zeiterfassung:
 | `finance.rechnungen` | Finance › Rechnungen, Offene Posten | Rechnung aus Finance ausstellen, „bar bezahlt“ (F3) | – |
 | `finance.belege` | Belege sehen | Belege erfassen, buchen | Entwurf verwerfen (gebuchte nie) |
 | `finance.bank` | Bankkonten, Umsätze | importieren, zuordnen | Import vor dem Zuordnen zurücknehmen |
+| `finance.zahlungen` (v186) | Zahlungsvorschlag, Zahlaufträge | SEPA-Datei erstellen, Zahlauftrag verwerfen | – |
 | `finance.buchen` | Journal, Kontenblätter | manuelle Buchungen, Storno | – |
 | `finance.steuer` | UStVA, Fristen | Voranmeldung als „abgegeben“ festhalten | – |
 | `finance.abschluss` | Auswertungen, EÜR, Bilanz | Monat festschreiben, Abschlussbuchungen | – |
@@ -717,7 +718,8 @@ Offen vor dem Echtbetrieb weiterhin: Kontenliste und Kennzahlen mit dem Steuerbe
 wiederkehrende Buchungen (Abschnitt 13), Kostenstellen (Abschnitt 14), Stapel am Handy, Splitt und Abhaken (Abschnitt 15).
 Stufe D gebaut (Abschnitt 16): Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel. Damit kann Finance die
 Buchhaltung ab 01.01.2027 vollständig führen (Weg B); offen vor dem Echtbetrieb bleiben Kontenliste und Kennzahlen mit dem
-Steuerberater und die Eröffnungsbilanz. Als Nächstes: Stufe E (Zahlungsverkehr).
+Steuerberater und die Eröffnungsbilanz. Stufe E Teil 1 (Abschnitt 17, v185) und E Teil 2 bis H (Abschnitte 18–22, v186) sind
+gebaut – der Ausbau A–H ist fertig.
 
 ## 10. So ist Stufe A gebaut (v178, ohne Migration)
 
@@ -959,3 +961,86 @@ in der Oberfläche steht „Transporter“ und „Leistung“.
   `/tmp/pgt/t112.sql`.
 - **Teil 2 (als Nächstes):** Bankdaten und Zahlungsbedingungen je Lieferant, Zahlungsvorschlag für fällige Belege,
   SEPA-Überweisungsdatei (pain.001) zum Hochladen ins Online-Banking.
+
+## 18. Stufe E Teil 2: Zahlungsausgang mit SEPA-Datei (v186, Migration 113)
+
+- **Recht `finance.zahlungen`** (lesen/schreiben, ab Werk leer): Zahlungsdateien nur mit eigenem Recht. Braucht dazu
+  „Bank“ und „Belege“ lesen (`RECHTE_ABHAENGIGKEITEN`).
+- **Lieferanten** bekommen IBAN, BIC (freiwillig), Zahlungsziel in Tagen und Skonto (Prozent und Tage; höchstens 10 %, nicht
+  länger als das Ziel). Das Zahlungsziel setzt die Fälligkeit eines neuen Belegs, wenn keine eingetragen ist.
+- **Zahlungsvorschlag** (Bank & Kasse › Zahlungen, `zahlungsvorschlag()` in `lib/finance/zahlungen.ts`): gebuchte, offene
+  Belege, die bis zum Stichtag (Vorgabe heute + 7 Tage) fällig sind – oder bei denen das Skonto bis zum Ausführungstag noch
+  gilt (dann mit Skontobetrag, nur auf den ganzen Beleg, nicht nach einer Teilzahlung). Ohne Lieferant oder ohne IBAN steht der
+  Beleg mit Grund da und ist nicht wählbar. Belege in einem offenen Zahlauftrag fehlen, bis er verworfen ist.
+- **Zahlauftrag** (`fin_zahlauftrag_anlegen()`, Tabellen `fin_zahlauftraege` und `fin_zahlauftrag_posten`): prüft Recht,
+  Bankkonto mit IBAN, Ausführung heute bis +90 Tage, jeden Beleg (gebucht, offen, nicht doppelt, Betrag + Skonto ≤ Rest,
+  Skonto ≤ 10 %) und hält Name, IBAN, BIC, Verwendungszweck („Rechnung LR-1 abzgl. Skonto 2,38“) und End-to-End-ID als Kopie
+  fest. Daraus erzeugt die App im Browser die Datei **pain.001.001.09** (`sepaXml()`: Einzelbuchungen, Zeichen nach
+  SEPA-Zeichensatz umgeschrieben, ohne eigene BIC „NOTPROVIDED“). Die Datei lässt sich jederzeit wieder herunterladen.
+- **Gebucht und überwiesen wird nichts von selbst:** Die Datei wird im Online-Banking hochgeladen und dort freigegeben. Erst
+  die Abbuchung auf dem Kontoauszug bucht – im Umsatzfenster erkennt `zahlauftragTreffer()` den Posten (Betrag plus IBAN,
+  End-to-End-ID oder Zweck; bei einer Sammelbuchung der ganze Auftrag) und „So zuordnen“ bucht über `fin_bank_sammeln()`
+  Zahlung und Skonto. Ein Zahlauftrag ist „offen“, „teilweise“ oder „abgeglichen“, je nachdem, wie viele seiner Belege
+  bezahlt sind. „Verwerfen“ (mit Grund) nur, wenn die Bank die Datei nicht ausführt – sonst würde doppelt gezahlt.
+- Den Auftraggebernamen nimmt die Datei aus Admin › Betrieb (Firma, sonst Inhaber), die eigene BIC nur, wenn die IBAN dort
+  zum Bankkonto passt. **Vor dem ersten echten Lauf eine kleine Datei mit der Hausbank testen.**
+- Tests: `tests/financeZahlungen.test.ts`, `tests/financeZahlungenOberflaeche.test.tsx`; Datenbank `/tmp/pgt/t116.sql` (Teil 1–2).
+
+## 19. Stufe F: Belegeingang (v186, Migration 114)
+
+- **Belegkorb:** Belege › „Mehrere hochladen“ nimmt bis zu 30 Fotos, PDFs oder E-Rechnungen auf einmal; je Datei entsteht ein
+  Entwurf mit der Datei. Eine E-Rechnung (XML oder ZUGFeRD-PDF) füllt Nummer, Datum, Fälligkeit, Posten und – wenn bekannt –
+  den Lieferanten samt Kontovorschlag; sonst steht der Dateiname bzw. „Lieferant: …“ als Text da. Fotos werden verkleinert.
+  Was nicht passt (Dateiart, Größe), steht danach in der Liste. Keine Datenbankänderung dafür.
+- **Kontierungsvorschlag:** wie bisher aus dem Lieferanten bzw. seinem letzten Beleg, dazu die Fälligkeit aus dem Zahlungsziel.
+- **Belegbild an jeder Buchung** (`fin_buchung_dateien`, `fin_buchung_datei_merken()`): im Buchungsfenster „Belegbild anhängen“
+  – auch an Bank-, Kassen- und Stapelbuchungen; bis zu 10 Dateien. Ablage `buchung/<Buchung>/<Zeit>-<Name>` im Bucket
+  `fin-belege`. Unveränderbar wie die Buchung: kein Entfernen (falsch → Storno und neu). Die Löschregel des Buckets nimmt
+  `buchung/…` ausdrücklich aus. „Alle Daten löschen“ leert den Bucket nur, wenn weder Belege noch Belegbilder übrig sind.
+- **Nicht gebaut: Eingang per E-Mail.** Das bräuchte einen Dienst, der E-Mails annimmt und die Anhänge weiterreicht – ein
+  weiterer Dritter mit Zugriff auf Rechnungen und eine eigene Datenschutzentscheidung. Bis dahin: PDF aus der Mail speichern und
+  in den Belegkorb ziehen.
+- Tests: `tests/financeBelegeOberflaeche.test.tsx` (Belegkorb, Lieferant mit Bankdaten, Fälligkeit),
+  `tests/financeStufeGHOberflaeche.test.tsx` (Belegbild); Datenbank `/tmp/pgt/t116.sql` (Teil 3).
+
+## 20. Stufe G: Auswertungen (v186, Migration 115)
+
+- **Cockpit** (erster Reiter unter Auswertungen, `lib/finance/cockpit.ts`): Umsatz im Monat und im Jahr, Rohertrag, vorläufiges
+  Ergebnis (je mit Plan, wenn es einen gibt), Kasse und Bank, Forderungen, Verbindlichkeiten und die nächste offene
+  Voranmeldung mit Zahllast und Frist. Jede Kachel führt in die Auswertung dahinter (BWA, Plan/Ist, Liquidität, OP-Analyse).
+- **Plan/Ist** (`fin_plan`: Jahr, Konto, Monat, Betrag positiv): je Erlös- und Aufwandskonto zwölf Monatswerte
+  (`fin_plan_setzen()`, Jahresbetrag gleich verteilen) oder alles aus dem Ist des Vorjahres mit Auf-/Abschlag
+  (`fin_plan_aus_vorjahr()`, wahlweise vorhandene Pläne überschreiben). Der Plan läuft als „Salden“ verkleidet durch dieselbe
+  BWA (`planAlsSalden()`), daneben je Konto Plan, Ist und Abweichung (grün: mehr Erlös bzw. weniger Aufwand). Kostenstellen
+  stehen weiter unter Buchungen › Kostenstellen.
+- **OP-Analyse** (`lib/finance/opanalyse.ts`): offene Rechnungen und Belege nach Tagen über der Fälligkeit
+  (`FIN_OP_STUFEN`: nicht fällig, 1–30, 31–60, 61–90, über 90), dazu je Kunde und Lieferant Rest, überfällig und ältester Posten.
+  Rechnungen und Belege des Jahres; Offenes aus Vorjahren steht im Personenkonto.
+- **Berichte als PDF** (`components/finance/BerichtDruck.tsx`): Summen & Salden, BWA (auch mit Vorjahr), Plan/Ist,
+  OP-Analyse und die Prüfliste im A4-Querformat mit Kopf (Bericht, Zeitraum, Firma, Stand) über den Druckdialog – dieselben
+  Druckregeln wie Rechnung und Mahnung (`druck-fenster`).
+- Tests: `tests/financeStufeGH.test.ts`, `tests/financeStufeGHOberflaeche.test.tsx`, `tests/financeAuswertungenOberflaeche.test.tsx`;
+  Datenbank `/tmp/pgt/t116.sql` (Teil 4).
+
+## 21. Stufe H: Steuern, Abschluss und Prüfung (v186, Migration 116)
+
+- **Abstimmung Konto ↔ Kennzahl** (im Fenster jeder Voranmeldung, `ustKontenAbstimmung()`): Bewegung auf den Umsatz- und
+  Vorsteuerkonten im Zeitraum gegen die Zahllast laut Kennzahlen „wie gebucht“. Bei Soll-Versteuerung muss das stimmen;
+  ein Unterschied heißt: direkt auf ein Steuerkonto gebucht. Bei Ist-Versteuerung erklären offene Rechnungen den Unterschied.
+  Braucht „Buchungen“ lesen.
+- **Zusammenfassende Meldung** (nur wenn innergemeinschaftliche Geschäfte eingeschaltet sind, `zmMeldung()`): Lieferungen mit dem
+  Schlüssel „igl“ je Quartal, nach Debitor bzw. Buchung. Die USt-IdNr. des Abnehmers steht auf der Rechnung, nicht in Finance.
+- **Prüfliste** (Jahresabschluss › Prüfung, `fin_pruefung()`, `pruefPunkte()`): Buchungsnummern und Rechnungskreis lückenlos,
+  Rechnungen aus FSM gebucht, jede Buchung von Hand mit Belegnummer oder Belegbild, Forderungen/Verbindlichkeiten am
+  Personenkonto, keine Bankumsätze älter als 14 Tage offen, keine Entwürfe älter als 30 Tage, vergangene Monate
+  festgeschrieben, Kasse nie negativ, Zahlaufträge abgeglichen, Voranmeldungen nicht überfällig – je Punkt mit „Öffnen“.
+  Nur lesend, ohne Kundennamen. Die Schritte zum Abschluss (Abschnitt F8) bleiben daneben.
+- Tests: `tests/financeStufeGH.test.ts`, `tests/financeStufeGHOberflaeche.test.tsx`; Datenbank `/tmp/pgt/t116.sql` (Teil 5).
+
+## 22. Was bewusst noch nicht gebaut ist
+
+- **Prüfer-Lesezugang:** Entscheidung 6 – erst, wenn die Kanzlei danach fragt. Bis dahin: DATEV- und GoBD-Export.
+- **Belegeingang per E-Mail:** siehe Abschnitt 19 (Dritter, Datenschutz).
+- **ELSTER-Übermittlung, Lohn, FinTS/PSD2-Bankabruf, Zertifizierung:** Abgrenzung im Gesamtkonzept – unverändert.
+- **Vor dem Echtbetrieb ab 01.01.2027:** Kontenliste und Kennzahlen mit dem Steuerberater, Rechnungen ohne Steuerausweis
+  klären (Abschnitt 16), Eröffnungsbilanz, eine kleine SEPA-Testdatei mit der Hausbank, Rechte verteilen (Admin › Rechte).

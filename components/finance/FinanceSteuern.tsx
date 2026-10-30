@@ -6,26 +6,31 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Blatt } from "@/components/Blatt";
 import { fehlerText } from "@/components/FehlerHinweis";
 import { qk } from "@/lib/queries/keys";
-import { useFinUst } from "@/lib/queries/hooks";
+import { useFinBuchungen, useFinSteuerschluessel, useFinUst } from "@/lib/queries/hooks";
 import { finSteuerJahrSpeichern, finUstAbgegeben } from "@/lib/api/finance";
 import { betragLesen, kontoNr } from "@/lib/finance/buchung";
 import {
   KLEINUNTERNEHMER_GRENZE_LAUFEND, KLEINUNTERNEHMER_GRENZE_VORJAHR, finKurztext, type FinEinstellungen,
 } from "@/lib/finance/einstellungen";
 import {
-  FIN_UST_ZAHLUNG_KONTEN, kuPruefung, sondervorauszahlungVorschlag, ustFormular, ustFrist, ustJahreswerte, ustZustand, ustZustandText, zeitraumText,
-  type FinKennzahlen, type FinUstZeitraum, type UstZustand,
+  FIN_UST_ZAHLUNG_KONTEN, kuPruefung, sondervorauszahlungVorschlag, ustFormular, ustFrist, ustJahreswerte, ustKontenAbstimmung, ustZustand, ustZustandText,
+  zeitraumText, zmMeldung, type FinKennzahlen, type FinUstZeitraum, type UstZustand,
 } from "@/lib/finance/steuern";
+import type { FinBuchung, FinSteuerschluessel } from "@/lib/finance/buchung";
 import { formatEUR } from "@/lib/format";
 
 // Finance › Steuern (Phase F5, Migration 92, v150): Umsatzsteuer-Voranmeldung als PROBELAUF. Kennzahlen je
 // Zeitraum aus dem Journal, Frist, Zustand; „als abgegeben festhalten“ legt eine Fassung ab, eine spätere
 // Änderung im Zeitraum fällt auf (Berichtigung). Übermittelt wird über ELSTER oder den Steuerberater.
 
-export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchreiben, onEinstellungen }: {
+export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchreiben, buchungenSehen = false, onEinstellungen }: {
   supabase: SupabaseClient; jahr: number; heute: string; einstellungen: FinEinstellungen | null; darfSchreiben: boolean; onEinstellungen: () => void;
+  // Stufe H (v186): Abstimmung Konto ↔ Kennzahl und Zusammenfassende Meldung lesen das Journal (Recht „Finance › Buchungen“).
+  buchungenSehen?: boolean;
 }) {
   const e = einstellungen;
+  const journalQ = useFinBuchungen(supabase, jahr, !!e && buchungenSehen);
+  const schluesselQ = useFinSteuerschluessel(supabase, e?.kontenrahmen ?? "skr03", !!e && buchungenSehen);
   const svzGilt = !!e && e.voranmeldung === "monat" && e.dauerfrist && e.besteuerung !== "klein";
   const standQ = useFinUst(supabase, jahr, !!e);
   const vorjahrQ = useFinUst(supabase, jahr - 1, svzGilt);
@@ -98,6 +103,8 @@ export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchre
         <Kleinunternehmer supabase={supabase} jahr={jahr} umsatzJahr={stand.umsatz_jahr} umsatzVorjahr={stand.umsatz_vorjahr} svz={stand.sondervorauszahlung}
           darfSchreiben={darfSchreiben} onGespeichert={setMeldung} alle={e.rechnungen_umfang === "alle"} />
       )}
+      {e.innergemeinschaftlich && buchungenSehen && <ZmAnsicht jahr={jahr} buchungen={journalQ.data ?? []} laedt={journalQ.isPending} />}
+
       {svzGilt && stand?.eingerichtet && (
         <Sondervorauszahlung supabase={supabase} jahr={jahr} wert={stand.sondervorauszahlung} umsatzVorjahr={stand.umsatz_vorjahr}
           vorschlag={vorjahrQ.data ? sondervorauszahlungVorschlag(vorjahrQ.data) : null} konto={konten.sonder}
@@ -107,8 +114,62 @@ export function FinanceSteuern({ supabase, jahr, heute, einstellungen, darfSchre
       {offen && (
         <UstBlatt supabase={supabase} jahr={jahr} heute={heute} einstellungen={e}
           z={zeitraeume.find((x) => x.zeitraum === offen.zeitraum) ?? offen} kennzahlen={mitSvz(zeitraeume.find((x) => x.zeitraum === offen.zeitraum) ?? offen)}
-          darfSchreiben={darfSchreiben} onFertig={(t) => { setOffen(null); setMeldung(t); }} onClose={() => setOffen(null)} />
+          darfSchreiben={darfSchreiben} onFertig={(t) => { setOffen(null); setMeldung(t); }} onClose={() => setOffen(null)}
+          journal={buchungenSehen && journalQ.data && schluesselQ.data ? { buchungen: journalQ.data, schluessel: schluesselQ.data } : null} />
       )}
+    </>
+  );
+}
+
+// Abstimmung Konto ↔ Kennzahl (Stufe H, v186): Bewegung auf den Steuerkonten im Zeitraum gegen die Zahllast laut
+// Kennzahlen „wie gebucht“ (ohne Sondervorauszahlung).
+function Abstimmung({ buchungen, schluessel, z, ist }: { buchungen: FinBuchung[]; schluessel: FinSteuerschluessel[]; z: FinUstZeitraum; ist: boolean }) {
+  const a = ustKontenAbstimmung(buchungen, schluessel, z.von, z.bis);
+  const kz = ustFormular(z.kennzahlen).zahllastBuch;
+  const diff = Math.round((a.summe - kz) * 100) / 100;
+  return (
+    <>
+      <span className="op-gruppe-titel">ABSTIMMUNG MIT DEN KONTEN</span>
+      <table className="fi-tabelle fi-ust">
+        <thead><tr><th>Konto</th><th className="zahl">Haben − Soll</th></tr></thead>
+        <tbody>
+          {a.konten.length === 0 ? <tr><td>Keine Bewegung auf den Steuerkonten</td><td className="zahl">{formatEUR(0)}</td></tr>
+            : a.konten.map((k) => <tr key={k.konto}><td>{kontoNr(k.konto)}</td><td className="zahl">{formatEUR(k.saldo)}</td></tr>)}
+          <tr className="summe"><td>Laut Konten</td><td className="zahl">{formatEUR(a.summe)}</td></tr>
+          <tr><td>Laut Kennzahlen (wie gebucht)</td><td className="zahl">{formatEUR(kz)}</td></tr>
+        </tbody>
+        <tfoot><tr><td>Unterschied</td><td className={"zahl " + (diff === 0 ? "fi-gruen-text" : "fi-rot-text")}>{diff === 0 ? "stimmt" : formatEUR(diff)}</td></tr></tfoot>
+      </table>
+      {diff !== 0 && (
+        <span className="small">{ist
+          ? "Bei Ist-Versteuerung zählt die Umsatzsteuer erst mit der Zahlung, gebucht ist sie mit der Rechnung – ein Unterschied durch offene Rechnungen ist dann richtig."
+          : "Etwas ist direkt auf ein Steuerkonto gebucht (ohne Steuerschlüssel) – im Kontoblatt des Kontos nachsehen."}</span>
+      )}
+    </>
+  );
+}
+
+// Zusammenfassende Meldung (Stufe H, v186): steuerfreie innergemeinschaftliche Lieferungen je Quartal.
+function ZmAnsicht({ jahr, buchungen, laedt }: { jahr: number; buchungen: FinBuchung[]; laedt: boolean }) {
+  const zm = zmMeldung(buchungen, jahr);
+  return (
+    <>
+      <span className="op-gruppe-titel">ZUSAMMENFASSENDE MELDUNG</span>
+      <div className="db-karte es-karte">
+        {laedt ? <span className="small">Lädt …</span> : zm.quartale.length === 0 ? <span className="small">{jahr} keine innergemeinschaftliche Lieferung gebucht – keine Meldung nötig.</span>
+          : zm.quartale.map((q) => (
+            <div key={q.quartal} className="fi-gruppe">
+              <div className="es-zeile statisch fi-buchung"><span className="db-punkt-text"><b>{q.quartal}. Quartal {jahr}</b>
+                <span className="small">Abgabe bis zum 25. des Folgemonats beim Bundeszentralamt für Steuern</span></span>
+                <span className="fi-betrag">{formatEUR(q.summe)}</span></div>
+              {q.zeilen.map((zl, i) => (
+                <div key={i} className="es-zeile statisch fi-buchung fi-teil"><span className="db-punkt-text"><span className="small">{zl.text}</span></span>
+                  <span className="fi-betrag">{formatEUR(zl.betrag)}</span></div>
+              ))}
+            </div>
+          ))}
+      </div>
+      <span className="small es-fuss fi-fuss">Gebucht mit dem Schlüssel „Innergemeinschaftliche Lieferung“. Die USt-IdNr. des Abnehmers steht auf der Rechnung – in der Meldung je Abnehmer angeben.</span>
     </>
   );
 }
@@ -147,9 +208,10 @@ function zustandKlasse(s: UstZustand): string {
 }
 
 // ---------------------------------------------------------------- Ein Zeitraum
-function UstBlatt({ supabase, jahr, heute, einstellungen: e, z, kennzahlen, darfSchreiben, onFertig, onClose }: {
+function UstBlatt({ supabase, jahr, heute, einstellungen: e, z, kennzahlen, darfSchreiben, onFertig, onClose, journal }: {
   supabase: SupabaseClient; jahr: number; heute: string; einstellungen: FinEinstellungen; z: FinUstZeitraum; kennzahlen: FinKennzahlen;
   darfSchreiben: boolean; onFertig: (t: string) => void; onClose: () => void;
+  journal?: { buchungen: FinBuchung[]; schluessel: FinSteuerschluessel[] } | null;
 }) {
   const queryClient = useQueryClient();
   const s = ustZustand(z, e, heute);
@@ -215,6 +277,7 @@ function UstBlatt({ supabase, jahr, heute, einstellungen: e, z, kennzahlen, darf
         {!f.leer && f.zahllast !== f.zahllastBuch && (
           <span className="small">Laut Buchhaltung {formatEUR(f.zahllastBuch)} – der Unterschied kommt aus den vollen Euro im Formular, das die Steuer zu 81, 86 und 89 selbst rechnet.</span>
         )}
+        {journal && <Abstimmung buchungen={journal.buchungen} schluessel={journal.schluessel} z={z} ist={e.versteuerung === "ist"} />}
         {z.abgaben.length > 0 && (
           <>
             <span className="op-gruppe-titel">FESTGEHALTEN</span>

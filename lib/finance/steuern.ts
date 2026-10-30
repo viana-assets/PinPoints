@@ -8,6 +8,7 @@
 import type { FinEinstellungen, Kontenrahmen } from "./einstellungen";
 import { KLEINUNTERNEHMER_GRENZE_LAUFEND, KLEINUNTERNEHMER_GRENZE_VORJAHR } from "./einstellungen";
 import { MONATSNAMEN } from "./auswertungen";
+import type { FinBuchung, FinSteuerschluessel } from "./buchung";
 
 export type FinKennzahlen = Record<string, { b?: number; s?: number }>;
 export type FinUstAbgabe = { fassung: number; abgegeben_am: string; kennzahlen: FinKennzahlen; notiz: string | null; erstellt_am: string };
@@ -285,4 +286,47 @@ export function ustErinnerungText(e: UstErinnerung): { titel: string; text: stri
     titel: "Umsatzsteuer-Voranmeldung",
     text: `${zeitraumText(e.zeitraum, e.jahr)}: Frist ${e.stufe === "heute" ? "heute" : `am ${t}.${m}.${j} (in ${e.tage} ${e.tage === 1 ? "Tag" : "Tagen"})`}. Probelauf unter Finance › Steuern ansehen – abgegeben wird über den Steuerberater oder ELSTER.`,
   };
+}
+
+// ---------------------------------------------------------------- Abstimmung und ZM (Stufe H, v186)
+// Abstimmung Konto ↔ Kennzahl: Was auf den Umsatzsteuer- und Vorsteuerkonten im Zeitraum gebucht ist (Haben minus Soll,
+// Vorsteuer also negativ), gegen die Zahllast laut Kennzahlen („wie gebucht“). Bei Soll-Versteuerung sollten beide gleich
+// sein; ein Unterschied kommt von Buchungen direkt auf ein Steuerkonto ohne Schlüssel – oder bei Ist-Versteuerung von
+// Rechnungen, die noch nicht bezahlt sind.
+export type UstKontoSaldo = { konto: number; saldo: number };
+export function ustKontenAbstimmung(buchungen: readonly FinBuchung[], schluessel: readonly FinSteuerschluessel[], von: string, bis: string): { konten: UstKontoSaldo[]; summe: number } {
+  const steuerKonten = new Set(schluessel.flatMap((s) => [s.ust_konto, s.vst_konto]).filter((k): k is number => k != null));
+  const m = new Map<number, number>();
+  for (const b of buchungen) {
+    if (b.datum < von || b.datum > bis) continue;
+    for (const z of b.fin_buchungszeilen) {
+      if (!steuerKonten.has(z.konto)) continue;
+      m.set(z.konto, cent((m.get(z.konto) ?? 0) + (z.seite === "H" ? z.betrag : -z.betrag)));
+    }
+  }
+  const konten = [...m.entries()].map(([konto, saldo]) => ({ konto, saldo })).filter((k) => k.saldo !== 0).sort((a, b) => a.konto - b.konto);
+  return { konten, summe: cent(konten.reduce((t, k) => t + k.saldo, 0)) };
+}
+
+// Zusammenfassende Meldung: steuerfreie innergemeinschaftliche Lieferungen (Schlüssel „igl“) je Quartal, nach
+// Debitor bzw. Buchung. Die USt-IdNr. des Abnehmers gehört auf die Rechnung – sie steht nicht in Finance.
+export type ZmZeile = { quartal: number; personenkonto: number | null; text: string; betrag: number };
+export function zmMeldung(buchungen: readonly FinBuchung[], jahr: number): { quartale: { quartal: number; zeilen: ZmZeile[]; summe: number }[] } {
+  const zeilen: ZmZeile[] = [];
+  for (const b of buchungen) {
+    if (b.jahr !== jahr || b.storniert_durch || b.storno_von) continue;
+    const igl = b.fin_buchungszeilen.filter((z) => z.steuerschluessel === "igl" && !z.ist_steuer && z.seite === "H");
+    if (!igl.length) continue;
+    const pk = b.fin_buchungszeilen.find((z) => z.personenkonto)?.personenkonto ?? null;
+    const quartal = Math.floor((Number(b.datum.slice(5, 7)) - 1) / 3) + 1;
+    const betrag = cent(igl.reduce((t, z) => t + z.betrag, 0));
+    const da = zeilen.find((z) => z.quartal === quartal && z.personenkonto != null && z.personenkonto === pk);
+    if (da) da.betrag = cent(da.betrag + betrag);
+    else zeilen.push({ quartal, personenkonto: pk, text: pk ? `Debitor ${pk}` : `Nr. ${b.nr}: ${b.text}`, betrag });
+  }
+  const quartale = [1, 2, 3, 4].map((q) => {
+    const z = zeilen.filter((x) => x.quartal === q);
+    return { quartal: q, zeilen: z, summe: cent(z.reduce((t, x) => t + x.betrag, 0)) };
+  }).filter((q) => q.zeilen.length > 0);
+  return { quartale };
 }

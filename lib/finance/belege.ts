@@ -19,6 +19,12 @@ export type FinLieferant = {
   konto: number | null;
   steuer: string | null;
   aktiv: boolean;
+  // Migration 113 (v186): Bankdaten und Zahlungsbedingungen – für Zahlungsvorschlag und SEPA-Datei (lib/finance/zahlungen.ts).
+  iban?: string | null;
+  bic?: string | null;
+  zahlungsziel_tage?: number | null;
+  skonto_prozent?: number | null;
+  skonto_tage?: number | null;
 };
 
 export type FinBelegPosten = { konto: number | null; betrag: number | null; steuer: string | null };
@@ -118,6 +124,12 @@ export function belegDateiPfad(belegId: string, name: string, jetzt: Date): stri
   const sauber = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w.-]+/g, "_").replace(/_+/g, "_").slice(-80) || "beleg";
   return `${belegId}/${jetzt.getTime()}-${sauber}`;
 }
+
+// Belegbild an einer Buchung (Migration 114): `buchung/<Buchungs-ID>/<Zeit>-<Name>` im selben Bucket.
+export function buchungDateiPfad(buchungId: string, name: string, jetzt: Date): string {
+  return `buchung/${belegDateiPfad(buchungId, name, jetzt)}`;
+}
+export type FinBuchungDatei = { id: string; buchung_id: string; pfad: string; name: string; typ: string; erstellt_am: string };
 
 export function istXml(datei: { type: string; name: string }): boolean {
   return /xml/.test(datei.type) || /\.xml$/i.test(datei.name);

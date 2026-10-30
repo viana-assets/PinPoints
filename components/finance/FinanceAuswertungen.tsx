@@ -5,18 +5,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { useFinEinstellungen, useFinEuer, useFinKontenblatt, useFinKonten, useFinSalden, useFinSteuerschluessel } from "@/lib/queries/hooks";
 import { FIN_KONTO_KATEGORIEN, kontoNr, type FinKonto } from "@/lib/finance/buchung";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
-import { FIN_BWA_KOSTEN, MONATSNAMEN, abweichung, bwa, euer, kontenblattMitSaldo, summenSalden, type Bwa, type BwaWerte } from "@/lib/finance/auswertungen";
+import { MONATSNAMEN, abweichung, bwa, euer, kontenblattMitSaldo, summenSalden, type Bwa } from "@/lib/finance/auswertungen";
 import { csv } from "@/lib/datev";
 import { dateiHerunterladen } from "@/lib/download";
 import { formatEUR } from "@/lib/format";
 import { KontoWahl } from "./FinanceBuchungen";
 import { FinanceLiquiditaet } from "./FinanceLiquiditaet";
+import { BWA_ZEILEN, Cockpit, OpAnsicht, PlanIstAnsicht, useFirma } from "./FinanceAuswertungPlus";
+import { BerichtDruck, type BerichtZeile } from "./BerichtDruck";
 
 // Finance › Auswertungen (Phase F6, Migration 94, v152): Summen- und Saldenliste, Kontenblatt, BWA und – bei
 // EÜR – die Einnahmen-Überschuss-Rechnung. Alles lesend, als CSV für den Steuerberater. Probelauf aus dem, was in
 // Finance gebucht ist. Seit v158: BWA mit Vorjahresvergleich und die Liquiditätsvorschau (FinanceLiquiditaet).
 
-type Reiter = "salden" | "konto" | "bwa" | "euer" | "liq";
+// Seit v186 (Stufe G): Cockpit vorn, Plan und Ist (Migration 115), offene Posten nach Fälligkeit, Berichte als PDF.
+type Reiter = "cockpit" | "salden" | "konto" | "bwa" | "plan" | "op" | "euer" | "liq";
 
 export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEinstellungen, rechte }: {
   supabase: SupabaseClient; jahr: number; heute: string; einstellungen: FinEinstellungen | null; onEinstellungen: () => void;
@@ -26,7 +29,9 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
   const e = einstellungen;
   const rahmen = e?.kontenrahmen ?? "skr03";
   const istEuer = e?.gewinnermittlung === "euer";
-  const [reiter, setReiter] = useState<Reiter>("salden");
+  const [reiter, setReiter] = useState<Reiter>("cockpit");
+  const [druck, setDruck] = useState<{ titel: string; unter: string; kopf: string[]; zeilen: BerichtZeile[]; fuss?: string } | null>(null);
+  const firma = useFirma(supabase);
   const laufend = heute.slice(0, 4) === String(jahr) ? Number(heute.slice(5, 7)) : 12;
   const [von, setVon] = useState(1);
   const [bis, setBis] = useState(laufend);
@@ -57,7 +62,8 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
   const konten = kontenQ.data ?? [];
   const salden = saldenQ.data ?? [];
   const name = (n: number) => konten.find((k) => k.nummer === n)?.bezeichnung ?? "";
-  const reiterListe: [Reiter, string][] = [["salden", "Summen & Salden"], ["konto", "Kontenblatt"], ["bwa", "BWA"], ...(istEuer ? [["euer", "EÜR"] as [Reiter, string]] : []), ["liq", "Liquidität"]];
+  const reiterListe: [Reiter, string][] = [["cockpit", "Cockpit"], ["salden", "Summen & Salden"], ["konto", "Kontenblatt"], ["bwa", "BWA"], ["plan", "Plan/Ist"], ["op", "OP-Analyse"],
+    ...(istEuer ? [["euer", "EÜR"] as [Reiter, string]] : []), ["liq", "Liquidität"]];
   const monatWahl = (wert: number, setze: (n: number) => void, label: string, min = 1) => (
     <select className="fi-monat" value={wert} onChange={(ev) => setze(Number(ev.target.value))} aria-label={label}>
       {MONATSNAMEN.map((m, i) => i + 1 >= min && <option key={m} value={i + 1}>{m}</option>)}
@@ -73,6 +79,16 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
         ))}
       </div>
 
+      {reiter === "cockpit" && (
+        <Cockpit supabase={supabase} jahr={jahr} heute={heute} e={e} salden={salden} konten={konten} monat={bis} steuernSehen={rechte.steuern}
+          onZiel={(z) => setReiter(z)} />
+      )}
+      {reiter === "plan" && (
+        <PlanIstAnsicht supabase={supabase} jahr={jahr} heute={heute} e={e} salden={salden} konten={konten} monat={bis} setMonat={setBis} darfPlanen={rechte.planen} firma={firma} />
+      )}
+      {reiter === "op" && <OpAnsicht supabase={supabase} jahr={jahr} heute={heute} rechnungenSehen={rechte.rechnungen} belegeSehen={rechte.belege} firma={firma} />}
+      {druck && <BerichtDruck {...druck} firma={firma} stand={datumKurz(heute)} onClose={() => setDruck(null)} />}
+
       {reiter === "salden" && (() => {
         const s = summenSalden(salden, konten, von, bis);
         return (
@@ -84,6 +100,10 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
               <button type="button" className="btn-secondary fi-knopf" disabled={!s.zeilen.length} onClick={() => dateiHerunterladen(`Summen_Salden_${jahr}_${von}-${bis}.csv`,
                 csv([["Konto", "Bezeichnung", "Soll", "Haben", "Saldo"], ...s.zeilen.map((z) => [kontoNr(z.konto), z.bezeichnung, z.soll, z.haben, z.saldo]), ["", "Summe", s.soll, s.haben, ""]]),
                 "text/csv;charset=utf-8")}>Als CSV</button>
+              <button type="button" className="btn-secondary fi-knopf" disabled={!s.zeilen.length} onClick={() => setDruck({
+                titel: "Summen- und Saldenliste", unter: `${MONATSNAMEN[von - 1]} bis ${MONATSNAMEN[bis - 1]} ${jahr}`, kopf: ["Konto", "Bezeichnung", "Soll", "Haben", "Saldo"],
+                zeilen: [...s.zeilen.map((z) => ({ zellen: [kontoNr(z.konto), z.bezeichnung, z.soll, z.haben, saldoText(z.saldo)] })), { zellen: ["", "Summe", s.soll, s.haben, ""], art: "summe" as const }],
+              })}>Drucken</button>
             </div>
             {saldenQ.isPending ? <div className="db-karte es-karte"><span className="small">Lädt …</span></div>
               : s.zeilen.length === 0 ? <div className="db-karte es-karte"><span className="small">In diesem Zeitraum ist nichts gebucht.</span></div>
@@ -117,16 +137,7 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
       {reiter === "bwa" && (() => {
         const b = bwa(salden, konten, rahmen, bis);
         const bv: Bwa | null = vjE && vjSaldenQ.data && vjKontenQ.data ? bwa(vjSaldenQ.data, vjKontenQ.data, vjE.kontenrahmen, bis) : null;
-        const zeilen: [string, (w: BwaWerte) => number, "fett" | "" | "leise"][] = [
-          ["Umsatzerlöse", (w) => w.umsatz, ""],
-          [FIN_BWA_KOSTEN[0].text, (w) => w.material, ""],
-          ["Rohertrag", (w) => w.rohertrag, "fett"],
-          ...FIN_BWA_KOSTEN.slice(1).map((k) => [k.text, (w: BwaWerte) => w.kosten[k.key], "leise"] as [string, (w: BwaWerte) => number, "leise"]),
-          ["Gesamtkosten", (w) => w.gesamtkosten, ""],
-          ["Betriebsergebnis", (w) => w.betriebsergebnis, "fett"],
-          ["Sonstige Erträge", (w) => w.sonstigeErtraege, ""],
-          ["Vorläufiges Ergebnis", (w) => w.ergebnis, "fett"],
-        ];
+        const zeilen = BWA_ZEILEN;
         const teil = (x: Bwa) => (vjKumuliert ? x.kumuliert : x.monat);
         const zeitraum = vjKumuliert ? `Januar bis ${MONATSNAMEN[bis - 1]}` : MONATSNAMEN[bis - 1];
         const vjLeer = !!bv && zeilen.every(([, f]) => f(bv.kumuliert) === 0);
@@ -157,6 +168,16 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
                     })]
                   : [["Zeile", MONATSNAMEN[bis - 1], `Januar bis ${MONATSNAMEN[bis - 1]}`], ...zeilen.map(([t, f]) => [t, f(b.monat), f(b.kumuliert)])]),
                 "text/csv;charset=utf-8")}>Als CSV</button>
+              <button type="button" className="btn-secondary fi-knopf" onClick={() => setDruck(vergleich && bv ? {
+                titel: "BWA mit Vorjahr", unter: zeitraum, kopf: ["Zeile", String(jahr), String(jahr - 1), "Abweichung"],
+                zeilen: zeilen.filter(([, f, art]) => !(art === "leise" && f(teil(b)) === 0 && f(teil(bv)) === 0))
+                  .map(([t, f, art]) => ({ zellen: [t, f(teil(b)), f(teil(bv)), abweichung(f(teil(b)), f(teil(bv))).betrag], art: art === "fett" ? "summe" as const : undefined })),
+              } : {
+                titel: "Betriebswirtschaftliche Auswertung", unter: `${MONATSNAMEN[bis - 1]} ${jahr}`, kopf: ["Zeile", MONATSNAMEN[bis - 1], `Januar bis ${MONATSNAMEN[bis - 1]}`],
+                zeilen: zeilen.filter(([, f, art]) => !(art === "leise" && f(b.kumuliert) === 0))
+                  .map(([t, f, art]) => ({ zellen: [t, f(b.monat), f(b.kumuliert)], art: art === "fett" ? "summe" as const : undefined })),
+                fuss: "Nach Buchungsdatum, ohne Umsatzsteuer.",
+              })}>Drucken</button>
             </div>
             {vergleich && vjStandQ.isSuccess && !vjE && <div className="fi-hinweis fi-liq-info">Für {jahr - 1} ist Finance nicht eingerichtet – es gibt keine Vorjahreswerte. Der Vergleich trägt erst ab dem zweiten Jahr.</div>}
             {vergleich && vjLeer && <div className="fi-hinweis fi-liq-info">In {jahr - 1} ist in Finance nichts gebucht – die Vorjahreswerte sind 0.</div>}
