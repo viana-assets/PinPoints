@@ -174,7 +174,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('102', 'Navigation zum Lager (user_settings.nav_lager_id)', exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'user_settings' and column_name = 'nav_lager_id')),
     ('103', 'Firma ohne Ansprechpartner (Rechnungsprüfung Name oder Firma)', position('Name oder Firma des Kunden' in pg_get_functiondef('public.pruefe_rechnungsdaten()'::regprocedure)) > 0),
     ('104', 'Bestellliste (bestellwuensche, Recht bestellungen)', to_regclass('public.bestellwuensche') is not null and exists (select 1 from public.module_permissions where module_key = 'bestellungen.verwalten')),
-    ('105', 'Bestellliste im Löschkonzept, Chat-Karten (bestell_aufraeumen, kunde_endgueltig_loeschen_grund)', to_regprocedure('public.bestell_aufraeumen(interval)') is not null and to_regprocedure('public.kunde_endgueltig_loeschen_grund(uuid)') is not null)
+    ('105', 'Bestellliste im Löschkonzept, Chat-Karten (bestell_aufraeumen, kunde_endgueltig_loeschen_grund)', to_regprocedure('public.bestell_aufraeumen(interval)') is not null and to_regprocedure('public.kunde_endgueltig_loeschen_grund(uuid)') is not null),
+    ('106', 'Finance: Buchungsstapel (fin_stapel, fin_stapel_buchen)', to_regclass('public.fin_stapel_zeilen') is not null and to_regprocedure('public.fin_stapel_buchen(uuid)') is not null)
 )
 select migration, woran_erkennbar, gelaufen from (
   select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen

@@ -713,7 +713,8 @@ Abschluss, Prüfung.
    gefragt wird.
 
 Offen vor dem Echtbetrieb weiterhin: Kontenliste und Kennzahlen mit dem Steuerberater abgleichen. Stufe A ist gebaut
-(Abschnitt 10), Stufe B auch (Abschnitt 11); nächster Schritt: Stufe C.
+(Abschnitt 10), Stufe B auch (Abschnitt 11), von Stufe C der Buchungsstapel (Abschnitt 12); nächster Schritt: Vorlagen,
+wiederkehrende Buchungen und Kostenstellen.
 
 ## 10. So ist Stufe A gebaut (v178, ohne Migration)
 
@@ -770,4 +771,30 @@ Konten und Kontoblatt auf den Bausteinen aus Stufe A, nur am Rechner (Finance �
 **Noch nicht in Stufe B:** Haken je Zeile für die Kontenabstimmung (braucht eine Tabelle, also eine Migration), Druck als
 PDF im Querformat, Breite der Spalten merken. Tests: `tests/financeKontoblatt.test.ts`,
 `tests/financeKontoblattOberflaeche.test.tsx`.
+
+## 12. So ist der Buchungsstapel gebaut (Stufe C Teil 1, v180, Migration 106)
+
+Wie bei DATEV: erst erfassen, dann buchen. Ein **Stapel** gehört zu einem Wirtschaftsjahr und ist „offen“ (vorläufig,
+änderbar, löschbar) oder „gebucht“ (ins Journal übernommen, unveränderlich).
+
+- **Datenbank** (Migration 106): `fin_stapel`, `fin_stapel_zeilen` (Datum, Beleg, Text, Soll, Haben, Betrag, Steuerschlüssel –
+  genau ein Posten von `fin_buchen()`; nach dem Buchen `buchung_id`). Lesen per RLS mit „Finance › Buchungen“ lesen;
+  geschrieben nur über `fin_stapel_anlegen()`, `fin_stapel_zeile_speichern()`, `fin_stapel_zeile_loeschen()`,
+  `fin_stapel_loeschen()` mit „Finance › Buchungen“ schreiben. Ein gebuchter Stapel lehnt jede Änderung im Klartext ab.
+- **Buchen** (`fin_stapel_buchen()`): jede Zeile über `fin_buchen()` – dieselben Regeln, dieselbe Steuer, dieselbe
+  Festschreibungsprüfung –, Reihenfolge Datum, dann Erfassung. **Alle oder keine:** Scheitert eine Zeile, bricht die ganze
+  Anweisung ab, es ist nichts gebucht und keine Nummer verbraucht; der Fehler nennt Zeile, Datum und Text.
+- **Oberfläche** (`components/finance/FinanceStapel.tsx`, Reiter „Stapel“ am Rechner): Stapel wählen oder anlegen; oben die
+  Erfassungszeile Datum (TTMM, „10.2.“), Beleg, Soll, Haben (Kontofeld), Betrag, Steuer, Text. Enter springt ins nächste
+  Feld (ein offenes Kontovorschlagsfeld nimmt Enter selbst), im Text übernimmt es die Zeile; danach bleiben Datum und
+  Steuer stehen, der Beleg zählt weiter (`belegWeiter`: „ER-0042“ → „ER-0043“). Darunter „So wird gebucht“ mit den Zeilen
+  von `postenZeilen`. In der Liste prüft jede Zeile vorab, woran das Buchen scheitern würde (`stapelZeilePruefen`); Enter
+  lädt eine Zeile zum Ändern (Esc bricht ab), Entf löscht sie. „Stapel buchen“ (Strg+S) fragt nach und geht nur ohne
+  Fehler. Ein gebuchter Stapel zeigt die Nummern im Journal; Enter öffnet die Buchung.
+- **Regeln** in `lib/finance/stapel.ts`; Tests `tests/financeStapel.test.ts`, `tests/financeStapelOberflaeche.test.tsx`,
+  Datenbank geprüft mit `/tmp/pgt/t106.sql` (siehe `supabase/migrations/README.md`).
+
+**Noch nicht:** mehrere Posten (Splitt) in einer Stapelzeile – dafür weiter das Buchungsfenster; Buchungsvorlagen und
+wiederkehrende Buchungen; Kostenstellen; vom Handy in einen Stapel erfassen (Entscheidung 5, eigene Runde); ein Belegbild
+an der Zeile.
 

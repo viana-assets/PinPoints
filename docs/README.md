@@ -5,7 +5,7 @@ Dieser Ordner ist die Detail-Dokumentation des Projekts, ein Baustein pro Datei.
 Fallstricke und ein Index hierher. Wer wissen will, **wie ein bestimmter Baustein
 funktioniert, wo er im Code liegt und womit er verknüpft ist**, findet das hier.
 
-Stand: 30.10.2026, Migrationen bis 105 (101–105 noch auszuführen, soweit nicht gemeldet), Service Worker v179.
+Stand: 30.10.2026, Migrationen bis 106 (101–106 noch auszuführen, soweit nicht gemeldet), Service Worker v180.
 
 ## Die eine Regel, die den Ordner zusammenhält
 
@@ -44,7 +44,7 @@ je Abschnitt, was gebaut ist und was nicht.
 | `zeiterfassung.md` | Stempeluhr: ein-/ausstempeln, Pause, Tag/Woche/Monat, alle Mitarbeiter, Korrektur mit Grund, Urlaub, Export, Feierabend mit Heimfahrt, Stempel-Erinnerung, Rechte (Migrationen 82, 83, 85) |
 | `benachrichtigungen-plan.md` | Terminerinnerung als Push: Architektur, Zeitgeber, iOS-Grenzen, offener Gerätetest |
 | `prompt-etikettendrucker.md` | Etikettendrucker: gekauft ist der Brother QL-820NWBc (Stand 30.09.2026), darunter der Recherche-Prompt für eine Neuanschaffung |
-| `finance.md` | **Finance (Pilot; F0 v145, F1 v146, F3 v147, F2 v148, F4 v149, F5 v150, Nachträge v151, F6 v152, F7 v153, F8 v154, F9 v155, Nachträge v156, Mahnwesen v157, Liquidität v158; Ausbau Stufe A v178, Stufe B v179)**: Buchhaltung als eigenes System neben FSM – Systemwechsel, Rechte, Besteuerung (§ 19, Soll/Ist, § 13b), Funktionsumfang, Phasen F0–F9 |
+| `finance.md` | **Finance (Pilot; F0 v145, F1 v146, F3 v147, F2 v148, F4 v149, F5 v150, Nachträge v151, F6 v152, F7 v153, F8 v154, F9 v155, Nachträge v156, Mahnwesen v157, Liquidität v158; Ausbau Stufe A v178, Stufe B v179, Stapel v180)**: Buchhaltung als eigenes System neben FSM – Systemwechsel, Rechte, Besteuerung (§ 19, Soll/Ist, § 13b), Funktionsumfang, Phasen F0–F9 |
 | `fahrplan.md` | **Alles Offene**: Fehler, Aufräumarbeiten, Verbesserungen, neue Funktionen – mit Priorität |
 
 Jede Datei nennt die betroffenen Tabellen und Migrationen, die zentralen Funktionen und

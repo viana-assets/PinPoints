@@ -4958,6 +4958,21 @@ th.ap-zahl .ap-kopf{justify-content:flex-end;}
 .ap-chip-gross .ap-konto input{width:90px;}
 .ap-chip-gross .ap-kontoname{max-width:200px;color:var(--text);}
 .ap-chip input.ap-tag{width:120px;font-weight:600;}
+/* Buchungsstapel (v180, Stufe C): Erfassungszeile wie bei DATEV */
+.ap-luft-voll{flex:1 1 auto;}
+.ap-leerkarte{display:flex;flex-direction:column;gap:4px;padding:16px;}
+.ap-erfassung{display:grid;grid-template-columns:70px 96px minmax(0,1fr) minmax(0,1fr) 100px 76px minmax(0,1.6fr) auto;gap:6px;align-items:end;
+  background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:8px 10px;}
+.ap-erfassung.ap-bearbeite{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent);}
+.ap-erfassung > label{display:flex;flex-direction:column;gap:2px;min-width:0;font-size:11px;font-weight:700;color:var(--muted);}
+.ap-erfassung input,.ap-erfassung select{height:32px;border:1px solid var(--border);border-radius:7px;padding:0 7px;font:inherit;font-size:13px;
+  font-weight:500;color:var(--text);background:#fff;width:100%;min-width:0;box-sizing:border-box;}
+.ap-erfassung input:focus,.ap-erfassung select:focus{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent);}
+.ap-erfassung .ap-konto{display:flex;flex-direction:column;align-items:stretch;gap:0;}
+.ap-erfassung .ap-kontoname{font-size:10.5px;min-height:13px;}
+.ap-erfassung > label:not([data-feld="soll"]):not([data-feld="haben"])::after{content:"";height:13px;flex:0 0 13px;}
+.ap-erf-knopf{height:32px;border-radius:8px;padding:0 12px;font-size:13px;white-space:nowrap;align-self:end;margin-bottom:13px;}
+.ap-erf-fuss{grid-column:1 / -1;font-size:12px;min-height:16px;color:var(--text);}
 @media (max-width:1100px){
   .ap-rahmen{grid-template-columns:minmax(0,1fr);}
   .ap-detail{position:static;max-height:none;}

@@ -19,6 +19,7 @@ import { useAmRechner } from "@/lib/amRechner";
 import { BUCHUNG_QUELLE_TEXT } from "@/lib/finance/arbeitsplatz";
 import { FinanceJournalArbeitsplatz } from "./FinanceJournalArbeitsplatz";
 import { FinanceKontoblatt } from "./FinanceKontoblatt";
+import { FinanceStapel } from "./FinanceStapel";
 import { FinanceKontenArbeitsplatz } from "./FinanceKontenArbeitsplatz";
 import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
 
@@ -30,8 +31,8 @@ import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
 // Löschen gibt es nicht: korrigiert wird mit Storno.
 
 const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August", "September", "Oktober", "November", "Dezember"];
-// „kontoblatt“ gibt es nur am Rechner (v179, Stufe B).
-type Reiter = "journal" | "kontoblatt" | "konten" | "monate";
+// „stapel“ (v180) und „kontoblatt“ (v179) gibt es nur am Rechner.
+type Reiter = "journal" | "stapel" | "kontoblatt" | "konten" | "monate";
 
 export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuchen, darfFestschreiben, darfKonten, onEinstellungen }: {
   supabase: SupabaseClient;
@@ -87,7 +88,7 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   return (
     <>
       <div className="lg-lagerwahl es-segment fi-reiter" role="tablist" aria-label="Buchungen">
-        {(amRechner ? [["journal", "Journal"], ["kontoblatt", "Kontoblatt"], ["konten", "Konten"], ["monate", "Monate"]] as const
+        {(amRechner ? [["journal", "Journal"], ["stapel", "Stapel"], ["kontoblatt", "Kontoblatt"], ["konten", "Konten"], ["monate", "Monate"]] as const
           : [["journal", "Journal"], ["konten", "Konten"], ["monate", "Monate"]] as const).map(([k, t]) => (
           <button key={k} type="button" role="tab" aria-selected={reiter === k} className={reiter === k ? "aktiv" : ""} onClick={() => setReiter(k)}>{t}</button>
         ))}
@@ -99,6 +100,10 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
         <FinanceJournalArbeitsplatz buchungen={buchungen} konten={konten} schluessel={schluessel} fest={fest} jahr={jahr}
           laedt={buchungenQ.isPending} darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail}
           onKontoblatt={kontoblattOeffnen} />
+      )}
+      {reiter === "stapel" && amRechner && (
+        <FinanceStapel supabase={supabase} jahr={jahr} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
+          fest={fest} buchungen={buchungen} darfBuchen={darfBuchen} onMeldung={setMeldung} onOeffnen={setDetail} onKontoblatt={kontoblattOeffnen} />
       )}
       {reiter === "kontoblatt" && amRechner && (
         <FinanceKontoblatt buchungen={buchungen} konten={konten} fest={fest} jahr={jahr} laedt={buchungenQ.isPending}

@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v179";
+export const APP_VERSION = "v180";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,15 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v180", datum: "2026-10-30", titel: "Finance: Buchungsstapel",
+    punkte: [
+      "Unter Finance › Buchungen gibt es am Rechner den Reiter „Stapel“: Buchungen werden erst vorläufig erfasst – ändern und löschen geht noch – und dann mit „Stapel buchen“ (Strg+S) auf einmal ins Journal geschrieben.",
+      "Die Erfassungszeile geht ganz mit der Tastatur: Datum als TTMM, Beleg, Soll, Haben (Nummer oder Name), Betrag, Steuer, Text – Enter springt ins nächste Feld und übernimmt im letzten die Zeile. Die Belegnummer zählt von selbst weiter.",
+      "Jede Zeile wird gleich geprüft (Konto vorhanden, Steuer passt, Monat nicht festgeschrieben). Gebucht wird nur, wenn alle stimmen – alle Zeilen oder keine.",
+      "Braucht Migration 106 im Supabase-SQL-Editor.",
+    ],
+  },
   {
     version: "v179", datum: "2026-10-30", titel: "Finance: Kontoblatt und Konten am Rechner",
     punkte: [

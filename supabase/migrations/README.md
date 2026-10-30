@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **`104_bestellliste.sql`** (vor den Dateien von v173) **und `105_bestellliste_loeschkonzept_chatkarten.sql`** (nach 104, vor den Dateien von v174) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `101_kundengruppen.sql`** (vor den Dateien von v165), **`102_navigation_lager.sql`** (vor den Dateien von v169), **`103_firma_ohne_ansprechpartner.sql`** (vor den Dateien von v172) **`104_bestellliste.sql`** (vor den Dateien von v173) **`105_bestellliste_loeschkonzept_chatkarten.sql`** (nach 104, vor den Dateien von v174) **und `106_finance_buchungsstapel.sql`** (vor den Dateien von v180) – Abschnitte unten. **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1568,6 +1568,18 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   Zweiter Lauf folgenlos. Rücknahme: `rollback/105_rollback.sql` (Karten „Bestellung“/„Packliste“ verschwinden aus den
   Nachrichten, der Text bleibt; Namen weg; noch vorgemerkte Fotodateien nennt die Tabelle – dann bleibt die Liste stehen,
   bis sie von Hand geleert ist; zweimal lauffähig).
+
+- `106_finance_buchungsstapel.sql` – **noch auszuführen**, vor den Dateien von v180 (Finance Stufe C, Teil 1, `docs/finance.md`
+  Abschnitt 12). Inhalt: Tabellen `fin_stapel` und `fin_stapel_zeilen` (RLS: nur lesen mit „Finance › Buchungen“ lesen),
+  geschrieben nur über `fin_stapel_anlegen()`, `fin_stapel_zeile_speichern()`, `fin_stapel_zeile_loeschen()`,
+  `fin_stapel_loeschen()` (Recht „Finance › Buchungen“ schreiben, gebuchte Stapel gesperrt) und `fin_stapel_buchen()`
+  (jede Zeile über `fin_buchen()`, alle oder keine; der Fehler nennt die Zeile). Wache: bricht ohne die Finance-Migrationen
+  88–100 ab. Ergebnistabelle mit vier Zeilen. Geprüft gegen PG 16 (`/tmp/pgt/t106.sql`): Techniker abgelehnt; anlegen,
+  erfassen, ändern, löschen; Jahr, Konten, Cent, Text geprüft; eine kaputte Zeile → nichts gebucht, keine Nummer verbraucht,
+  Stapel offen; korrigiert → drei Buchungen Nr. 1–3 in Datumsreihenfolge mit Vorsteuer bzw. Umsatzsteuer, Zeilen verknüpft;
+  gebucht → nichts mehr änderbar; leerer Stapel und festgeschriebener Monat abgelehnt; direktes Schreiben verweigert;
+  „Alle Daten löschen“ leert beide Tabellen. Zweiter Lauf folgenlos. Rücknahme: `rollback/106_rollback.sql` (löscht die
+  Stapel, Gebuchtes bleibt im Journal; zweimal lauffähig).
   Geprüft gegen Postgres 16 mit 01–104 als Vorstufe: zweimal ausgeführt; 12 Fälle (Name aus Mitarbeiter bzw. E-Mail, Fälschen
   beim Anlegen und Ändern wirkungslos; „+1“ mit Namen; Hilfsfunktionen nicht von außen; Packliste-Karte nur mit gültiger
   Kennung; Kunde endgültig löschen nimmt Wünsche zu Kunde und Auftrag mit, Foto vorgemerkt, Chat-Karte „Bestellung

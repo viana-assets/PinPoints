@@ -151,6 +151,8 @@ viana-pinpoints/
                                      mit Kontofeld und Strg+Enter (v178)
       FinanceJournalArbeitsplatz.tsx Journal am Rechner (v178, Stufe A): Filterleiste, Datentabelle, Detail rechts mit
                                      Saldo vor/nach, Statuszeile, F2/F3/N, CSV (tests/financeArbeitsplatzOberflaeche.test.tsx)
+      FinanceStapel.tsx              Buchungsstapel am Rechner (Migration 106, v180): Erfassungszeile mit Enter, Prüfung je Zeile,
+                                     ändern/löschen, Strg+S bucht alle oder keine (tests/financeStapelOberflaeche.test.tsx)
       FinanceKontoblatt.tsx          Kontoblatt am Rechner (v179, Stufe B): Zeitraum, Eröffnung, laufender Saldo, Sprung übers
                                      Gegenkonto, Zurück, CSV (tests/financeKontoblattOberflaeche.test.tsx)
       FinanceKontenArbeitsplatz.tsx  Konten am Rechner (v179): Summen und Salden im Zeitraum, Filter, Ein-/Ausblenden, eigenes Konto
@@ -375,6 +377,8 @@ viana-pinpoints/
       seiten.ts                   Die Seiten von Finance mit Recht und Phase (v145); Aufbau der Seitenleiste am Rechner (v178)
       arbeitsplatz.ts             Arbeitsplatz am Rechner: Sortieren, Tastatur, Konto aus Nummer/Name, CSV, Journal-Zeilen,
                                   Filter, Saldo vor/nach (v178, Stufe A; tests/financeArbeitsplatz.test.ts)
+      stapel.ts                   Buchungsstapel: Datum TTMM, Beleg weiterzählen, Prüfung wie fin_buchen(), Reihenfolge (Migration 106,
+                                  v180; tests/financeStapel.test.ts)
       kontoblatt.ts               Zeitraum (Jahr/Quartal/Monat/frei), Kontoblatt mit laufendem Saldo, Konten im Zeitraum (v179, Stufe B;
                                   tests/financeKontoblatt.test.ts)
       buchung.ts                  Buchungsregeln wie `fin_posten_schreiben()` (Vorschau), Salden, Betrag lesen (Migration 88, v146)
@@ -803,7 +807,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 105** (29.10.2026; 101–105 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 106** (30.10.2026; 101–106 noch auszuführen, soweit nicht gemeldet). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -989,6 +993,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   Fotos vormerken (`private.bestell_fotos_weg`), Aufräumen 12 Monate nach Erledigen (`bestell_aufraeumen()`, 03:45 UTC),
   `kunde_endgueltig_loeschen()`/`kunden_zusammenfuehren()` als Hülle um `…_grund` mit der Bestellliste, Auskunft mit
   Bestellwünschen; Chat-Karten `bestellung` und `packliste` (`docs/bestellliste.md`, `docs/team-chat.md`).
+- **106** – Finance Buchungsstapel: `fin_stapel`, `fin_stapel_zeilen`, `fin_stapel_*()`, `fin_stapel_buchen()` bucht alle Zeilen
+  über `fin_buchen()` oder keine (`docs/finance.md` Abschnitt 12).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

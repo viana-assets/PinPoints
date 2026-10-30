@@ -9,6 +9,7 @@ import { ustStandLesen, type FinUstStand } from "@/lib/finance/steuern";
 import type { FinAnlage } from "@/lib/finance/anlagen";
 import type { FinMahnung } from "@/lib/finance/mahnung";
 import type { FinPlanposten } from "@/lib/finance/liquiditaet";
+import type { FinStapel, FinStapelZeile } from "@/lib/finance/stapel";
 import { protokolleLesen, type FinExportBeleg, type FinExportProtokoll } from "@/lib/finance/export";
 import { vortragLesen, type AbschlussArt, type FinAbschlussposten, type FinVortragStand } from "@/lib/finance/abschluss";
 import { euerLesen, saldenLesen, type FinEuerStand, type FinKontenblattZeile, type FinSaldo } from "@/lib/finance/auswertungen";
@@ -518,4 +519,36 @@ export async function finPlanpostenSpeichern(supabase: SupabaseClient, id: strin
 }
 export async function finPlanpostenLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
   await q("Der Planposten wurde nicht gelöscht", supabase.rpc("fin_planposten_loeschen", { p_id: id }));
+}
+
+// ---------------------------------------------------------------- Buchungsstapel (Migration 106, v180)
+// Gelesen per RLS (Recht „Finance › Buchungen“ lesen), geschrieben nur über die Funktionen fin_stapel_*().
+export async function fetchFinStapel(supabase: SupabaseClient, jahr: number): Promise<FinStapel[]> {
+  const alle = await fetchPaged<FinStapel>("Die Buchungsstapel konnten nicht geladen werden", (von, bis) =>
+    supabase.from("fin_stapel")
+      .select("id, jahr, bezeichnung, zustand, erstellt_am, gebucht_am, fin_stapel_zeilen(id, stapel_id, lfd, datum, beleg, text, soll, haben, betrag, steuer, buchung_id)")
+      .eq("jahr", jahr).order("erstellt_am").order("id").range(von, bis));
+  return alle.map((st) => ({
+    ...st,
+    fin_stapel_zeilen: [...(st.fin_stapel_zeilen ?? [])].map((z: FinStapelZeile) => ({ ...z, betrag: Number(z.betrag), lfd: Number(z.lfd) })),
+  }));
+}
+export async function finStapelAnlegen(supabase: SupabaseClient, jahr: number, bezeichnung: string): Promise<string> {
+  return String(await q<string>("Der Stapel wurde nicht angelegt", supabase.rpc("fin_stapel_anlegen", { p_jahr: jahr, p_bezeichnung: bezeichnung })));
+}
+export type FinStapelZeileFelder = Pick<FinStapelZeile, "datum" | "beleg" | "text" | "soll" | "haben" | "betrag" | "steuer">;
+export async function finStapelZeileSpeichern(supabase: SupabaseClient, stapel: string, id: string | null, f: FinStapelZeileFelder): Promise<string> {
+  return String(await q<string>("Die Zeile wurde nicht gespeichert", supabase.rpc("fin_stapel_zeile_speichern", {
+    p_id: id, p_stapel: stapel, p_datum: f.datum, p_beleg: f.beleg, p_text: f.text, p_soll: f.soll, p_haben: f.haben, p_betrag: f.betrag, p_steuer: f.steuer })));
+}
+export async function finStapelZeileLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Die Zeile wurde nicht gelöscht", supabase.rpc("fin_stapel_zeile_loeschen", { p_id: id }));
+}
+export async function finStapelLoeschen(supabase: SupabaseClient, id: string): Promise<void> {
+  await q("Der Stapel wurde nicht gelöscht", supabase.rpc("fin_stapel_loeschen", { p_stapel: id }));
+}
+export async function finStapelBuchen(supabase: SupabaseClient, id: string): Promise<{ anzahl: number; jahr: number; von: number; bis: number }> {
+  const r = await q<{ anzahl: number; jahr: number; von: number; bis: number }>("Der Stapel wurde nicht gebucht", supabase.rpc("fin_stapel_buchen", { p_stapel: id }));
+  if (!r) throw new ApiError("Der Stapel wurde nicht gebucht", { message: "Die Datenbank hat keine Nummern zurückgegeben." });
+  return r;
 }

@@ -101,6 +101,8 @@ export const qk = {
   // Mahnwesen (Migration 99): alle Mahnungen (wenige je Jahr).
   finMahnungen: () => ["finance", "mahnungen"] as const,
   finPlanposten: () => ["finance", "planposten"] as const,
+  // Stufe C (Migration 106): Buchungsstapel eines Jahres mit ihren Zeilen.
+  finStapel: (jahr: number) => ["finance", "stapel", jahr] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.
