@@ -8,7 +8,7 @@ import { fehlerText } from "@/components/FehlerHinweis";
 import { SuchFeld } from "@/components/SuchFeld";
 import { qk } from "@/lib/queries/keys";
 import { useFinAbgehakt, useFinBuchungen, useFinPersonenkonten, useFinFestschreibungen, useFinKonten, useFinKostenstellen, useFinSteuerschluessel } from "@/lib/queries/hooks";
-import { finAbhaken, finBuchen, finKontoAktiv, finKontoAnlegen, finMonatFestschreiben, finStornieren } from "@/lib/api/finance";
+import { finAbhaken, finBuchen, finBuchungDateiHochladen, finKontoAktiv, finKontoAnlegen, finMonatFestschreiben, finStornieren } from "@/lib/api/finance";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import {
   FIN_KONTO_KATEGORIEN, betragLesen, buchungBetrag, buchungVorschau, buchungZustand, kontenSalden, kontoNr, passendeSchluessel,
@@ -28,7 +28,12 @@ import { FinancePersonenkonten } from "./FinancePersonenkonten";
 import { BetragFeld, KontoFeld } from "./arbeitsplatz/KontoFeld";
 import { KostWahl } from "./arbeitsplatz/KostWahl";
 import { BelegBilder } from "./BelegBilder";
+import { useFirma } from "./FinanceAuswertungPlus";
+import { FinanceHandyBuchen } from "./FinanceHandyBuchen";
 import type { FinKostenstelle } from "@/lib/finance/kostenstellen";
+import { dateiMangel } from "@/lib/finance/belege";
+import { bildVerkleinern } from "@/lib/belegBild";
+import { FIN_PERIODE_JAHR, periodeFilter, periodeZeitraum, type Periode } from "@/lib/finance/kopfleiste";
 
 // Finance › Buchungen (Phase F1, Migration 88, v146): Journal, Konten mit Saldo, Monate festschreiben. Am Rechner seit
 // v178/v179 als Arbeitsplatz: Journal, Kontoblatt und Konten als Tabellen (FinanceJournalArbeitsplatz, FinanceKontoblatt,
@@ -41,7 +46,12 @@ const MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "A
 // „stapel“ (v180), „vorlagen“ (v181), „kontoblatt“ (v179) und „kosten“ (v182) gibt es nur am Rechner.
 type Reiter = "journal" | "stapel" | "vorlagen" | "kontoblatt" | "konten" | "personen" | "kosten" | "monate";
 
-export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuchen, darfFestschreiben, darfKonten, onEinstellungen }: {
+// Sprung aus der Kopfleiste oder Statuszeile (v187): Schnellbuchung, ein Kontoblatt, das Journal mit Suche oder Partner,
+// die Monate. Wird beim Öffnen gelesen (FinanceBereich setzt dafür einen neuen `key`).
+export type BuchungenStart = { art: "neu" } | { art: "monate" } | { art: "konto"; konto: number } | { art: "suche"; text: string } | { art: "partner"; nummer: number };
+
+export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuchen, darfFestschreiben, darfKonten, onEinstellungen,
+  periode = FIN_PERIODE_JAHR, start, darfBelege = false }: {
   supabase: SupabaseClient;
   jahr: number;
   heute: string;
@@ -50,6 +60,10 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   darfFestschreiben: boolean;
   darfKonten: boolean;
   onEinstellungen: () => void;
+  // v187: Periode der Kopfleiste (Journal, Kontoblatt, Konten), Sprung, Recht auf Belege (am Handy: „Noch offen“).
+  periode?: Periode;
+  start?: BuchungenStart;
+  darfBelege?: boolean;
 }) {
   const rahmen = einstellungen?.kontenrahmen ?? "skr03";
   const bereit = !!einstellungen;
@@ -62,16 +76,19 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   // Abhaken (Migration 109, v183). Fehlt die Migration, gibt es keine Haken und keinen Knopf.
   const hakenQ = useFinAbgehakt(supabase, jahr, bereit);
   const queryClient = useQueryClient();
-  const [reiter, setReiter] = useState<Reiter>("journal");
-  // Personenkonten (Migration 110, v184) – erst geladen, wenn der Reiter offen ist.
-  const personenQ = useFinPersonenkonten(supabase, jahr, bereit && reiter === "personen");
-  const [neuOffen, setNeuOffen] = useState(false);
-  const [detail, setDetail] = useState<FinBuchung | null>(null);
-  const [meldung, setMeldung] = useState<string | null>(null);
+  const [reiter, setReiter] = useState<Reiter>(start?.art === "monate" ? "monate" : start?.art === "konto" ? "kontoblatt" : "journal");
   // Am Rechner das Journal als Arbeitsplatz (v178, Stufe A), am Handy die Kartenliste.
   const amRechner = useAmRechner();
+  // Personenkonten (Migration 110, v184) – geladen für den Reiter und (seit v187) für den Partnerfilter im Journal.
+  const personenQ = useFinPersonenkonten(supabase, jahr, bereit && (reiter === "personen" || (amRechner && reiter === "journal")));
+  const [neuOffen, setNeuOffen] = useState(start?.art === "neu" && amRechner);
+  // Am Handy (v187): die schlanke Maske „Buchen am Handy“ statt des Kontenfensters; das gibt es dort über „Mit Konten buchen“.
+  const [handyOffen, setHandyOffen] = useState(start?.art === "neu" && !amRechner);
+  const [detail, setDetail] = useState<FinBuchung | null>(null);
+  const [meldung, setMeldung] = useState<string | null>(null);
+  const firma = useFirma(supabase);
   // Kontoblatt (v179, Stufe B): welches Konto, und der Weg dorthin für „Zurück“ (Sprünge über Gegenkonten).
-  const [blattKonto, setBlattKonto] = useState<number | null>(null);
+  const [blattKonto, setBlattKonto] = useState<number | null>(start?.art === "konto" ? start.konto : null);
   const [blattWeg, setBlattWeg] = useState<number[]>([]);
   const kontoblattOeffnen = (n: number) => {
     if (reiter === "kontoblatt" && blattKonto != null && n !== blattKonto) setBlattWeg([...blattWeg, blattKonto]);
@@ -100,6 +117,33 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
   const kostenstellen = kostQ.data ?? [];
   const abgehakt = new Set(hakenQ.data ?? []);
   const fehlt = [kontenQ, schluesselQ, buchungenQ, festQ].some((x) => x.isError);
+  // Periode der Kopfleiste (v187) als Anfangszeitraum; Suche und Partner aus der Kopfleiste als Anfangsfilter.
+  const startZeitraum = periodeZeitraum(jahr, periode);
+  const journalStart = { ...periodeFilter(jahr, periode), ...(start?.art === "suche" ? { text: start.text } : {}), ...(start?.art === "partner" ? { partner: start.nummer } : {}) };
+  const stand = heute.split("-").reverse().join(".");
+  const neu = () => { setMeldung(null); if (amRechner) setNeuOffen(true); else setHandyOffen(true); };
+
+  // „Beleg zuordnen“ (v187): eine Datei an jede markierte Buchung – Foto verkleinert wie beim Anhängen einzeln.
+  async function belegZuordnen(ids: string[], f: File): Promise<string> {
+    const mangel = dateiMangel(f);
+    if (mangel) throw new Error(mangel);
+    const bild = f.type.startsWith("image/");
+    const blob = bild ? (await bildVerkleinern(f)).blob : f;
+    const name = bild ? f.name.replace(/\.\w+$/, "") + ".jpg" : f.name;
+    let ok = 0;
+    for (const id of ids) {
+      try {
+        await finBuchungDateiHochladen(supabase, id, blob, name);
+        ok++;
+      } catch (e) {
+        if (!ok) throw e;
+        break;
+      }
+    }
+    await queryClient.invalidateQueries({ queryKey: ["finance", "buchung-dateien"] });
+    await queryClient.invalidateQueries({ queryKey: ["finance", "pruefung"] });
+    return ok === ids.length ? `Beleg an ${ok === 1 ? "1 Buchung" : `${ok} Buchungen`} gehängt.` : `Beleg an ${ok} von ${ids.length} Buchungen gehängt – beim Rest ging es nicht.`;
+  }
 
   return (
     <>
@@ -114,8 +158,9 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
 
       {reiter === "journal" && amRechner && (
         <FinanceJournalArbeitsplatz buchungen={buchungen} konten={konten} schluessel={schluessel} fest={fest} jahr={jahr} kostenstellen={kostenstellen}
-          laedt={buchungenQ.isPending} darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail}
-          onKontoblatt={kontoblattOeffnen} />
+          laedt={buchungenQ.isPending} darfBuchen={darfBuchen} onNeu={neu} onOeffnen={setDetail}
+          onKontoblatt={kontoblattOeffnen} personen={personenQ.data ?? []} start={journalStart} supabase={supabase} firma={firma} stand={stand}
+          onBelegZuordnen={belegZuordnen} />
       )}
       {reiter === "stapel" && amRechner && (
         <FinanceStapel supabase={supabase} jahr={jahr} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel} kostenstellen={kostenstellen}
@@ -133,7 +178,7 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
         <FinanceKontoblatt buchungen={buchungen} konten={konten} fest={fest} jahr={jahr} laedt={buchungenQ.isPending} kostenstellen={kostenstellen}
           konto={blattKonto} onKonto={kontoblattOeffnen} zurueck={blattWeg[blattWeg.length - 1] ?? null}
           onZurueck={() => { setBlattKonto(blattWeg[blattWeg.length - 1] ?? null); setBlattWeg(blattWeg.slice(0, -1)); }}
-          darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail}
+          darfBuchen={darfBuchen} onNeu={neu} onOeffnen={setDetail} startZeitraum={startZeitraum} supabase={supabase} firma={firma} stand={stand}
           abgehakt={abgehakt} onAbhaken={darfBuchen && !hakenQ.isError ? async (ids, an) => {
             await finAbhaken(supabase, ids, an);
             await queryClient.invalidateQueries({ queryKey: qk.finAbgehakt(jahr) });
@@ -141,11 +186,11 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
       )}
       {reiter === "journal" && !amRechner && (
         <Journal buchungen={buchungen} konten={konten} fest={fest} laedt={buchungenQ.isPending}
-          darfBuchen={darfBuchen} onNeu={() => { setMeldung(null); setNeuOffen(true); }} onOeffnen={setDetail} />
+          darfBuchen={darfBuchen || darfBelege} onNeu={neu} onOeffnen={setDetail} />
       )}
       {reiter === "konten" && amRechner && (
         <FinanceKontenArbeitsplatz supabase={supabase} rahmen={rahmen} buchungen={buchungen} konten={konten} jahr={jahr}
-          laedt={kontenQ.isPending || buchungenQ.isPending} darfKonten={darfKonten} onKontoblatt={kontoblattOeffnen} />
+          laedt={kontenQ.isPending || buchungenQ.isPending} darfKonten={darfKonten} onKontoblatt={kontoblattOeffnen} startZeitraum={startZeitraum} />
       )}
       {reiter === "konten" && !amRechner && (
         <Konten supabase={supabase} rahmen={rahmen} konten={konten} buchungen={buchungen} darfKonten={darfKonten} />
@@ -162,6 +207,12 @@ export function FinanceBuchungen({ supabase, jahr, heute, einstellungen, darfBuc
         <Monate supabase={supabase} jahr={jahr} heute={heute} buchungen={buchungen} fest={fest} darf={darfFestschreiben} onMeldung={setMeldung} />
       )}
 
+      {handyOffen && (
+        <FinanceHandyBuchen supabase={supabase} jahr={jahr} heute={heute} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
+          buchungen={buchungen} kostenstellen={kostenstellen} rechte={{ buchen: darfBuchen, belege: darfBelege }}
+          onGebucht={setMeldung} onAusfuehrlich={darfBuchen ? () => { setHandyOffen(false); setNeuOffen(true); } : undefined}
+          onClose={() => setHandyOffen(false)} />
+      )}
       {neuOffen && (
         <BuchungNeu supabase={supabase} heute={heute} jahr={jahr} einstellungen={einstellungen} konten={konten} schluessel={schluessel}
           tastatur={amRechner} kostenstellen={kostenstellen} onGebucht={(nr) => { setNeuOffen(false); setMeldung(`Gebucht als Nr. ${jahr}-${nr}.`); }}

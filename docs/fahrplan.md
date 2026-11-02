@@ -16,13 +16,19 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **30.10.2026 – Finance: Rest aus dem Entwurf nachgeholt (Service Worker v187, ohne Migration).** Abgleich Mockup ↔ gebaute
+  App (Vitali): Was fehlte, ist gebaut – Kopfleiste am Rechner mit Wirtschaftsjahr, Periode und Suche (F2), Schnellbuchung
+  von jeder Seite, Statuszeile (Belegeingang, Bank, nächste Frist, festgeschrieben bis), Zahlen in der Seitenleiste; Journal
+  mit Partnerfilter, Quartal/frei, Excel und PDF, „Beleg zuordnen“ für markierte Buchungen, Belegbild rechts mit F4
+  (Kontoblatt ebenso, dazu Excel/PDF); „Buchen am Handy“ mit Foto, Betrag, Wofür (lernend), Bezahlt mit und Transporter.
+  Nicht gebaut: Texterkennung auf dem Foto (Dritter bzw. großes Modell). `docs/finance.md` Abschnitt 22.
 * **30.10.2026 – Finance-Ausbau abgeschlossen: Stufen E (Teil 2) bis H (Service Worker v186, Migrationen 113–116).**
   E: Bankdaten und Zahlungsbedingungen je Lieferant, Zahlungsvorschlag (fällig oder Skonto), SEPA-Datei pain.001.001.09 –
   überwiesen wird erst im Online-Banking, die Abbuchung ordnet sich mit Skonto zu; eigenes Recht „Finance › Zahlungen“.
   F: Belegkorb (viele Dateien → je ein Entwurf, E-Rechnung gelesen), Belegbild an jeder Buchung. G: Cockpit, Plan/Ist je
   Konto und Monat (auch aus dem Vorjahr), OP-Analyse nach Fälligkeit, jede Auswertung als PDF. H: Abstimmung
   Steuerkonten ↔ Kennzahlen, Zusammenfassende Meldung, Prüfliste vor Festschreiben/Kanzlei. Nicht gebaut: Belegeingang
-  per E-Mail und Prüfer-Lesezugang (Begründung in `docs/finance.md` Abschnitt 22). `docs/finance.md` Abschnitte 18–22.
+  per E-Mail und Prüfer-Lesezugang (Begründung in `docs/finance.md` Abschnitt 23). `docs/finance.md` Abschnitte 18–23.
 * **30.10.2026 – Finance Stufe E, Teil 1: Bankregeln, Sammelzuordnung, Geldtransit (Service Worker v185, Migration 112).**
   Bankregeln (Name, Zweck, IBAN → Konto, Steuer, Text, KOST1/KOST2) füllen das Konto vor; „Nach Regeln buchen“ bucht erst
   nach der Bestätigungsliste, nie von selbst. Ein Umsatz lässt sich auf mehrere Rechnungen bzw. Belege verteilen, je Posten
@@ -1068,9 +1074,12 @@ Migration 109):** Stapel am Handy, Splitt, Abhaken (Abschnitt 15). **Stufe D geb
 Personenkonten, alle Rechnungen ab 2027, Leistungsart aus dem Artikel (Abschnitt 16). **Stufe E Teil 1 gebaut (v185,
 Migration 112):** Bankregeln, Sammelzuordnung mit Skonto und Differenz, Geldtransit (Abschnitt 17). **Stufen E Teil 2 bis H
 gebaut (v186, Migrationen 113–116):** Zahlungsvorschlag und SEPA-Datei, Belegkorb und Belegbild an Buchungen, Cockpit,
-Plan/Ist, OP-Analyse, Berichte als PDF, Abstimmung, ZM, Prüfliste (Abschnitte 18–22). Damit ist der Ausbau A–H fertig.
+Plan/Ist, OP-Analyse, Berichte als PDF, Abstimmung, ZM, Prüfliste (Abschnitte 18–21). Damit ist der Ausbau A–H fertig.
+**Rest aus dem Entwurf (v187, ohne Migration):** Kopfleiste, Statuszeile, Zahlen in der Seitenleiste, Journal mit Partner,
+Excel/PDF und Belegbild, Buchen am Handy (Abschnitt 22).
 Vor dem Echtbetrieb: Kontenliste, Kennzahlen und Rechnungen ohne Steuerausweis mit dem Steuerberater, Eröffnungsbilanz,
-Probelauf einer SEPA-Datei mit der Hausbank. Offen nach Bedarf: Belegeingang per E-Mail, Prüfer-Lesezugang.
+Probelauf einer SEPA-Datei mit der Hausbank. Offen nach Bedarf: Belegeingang per E-Mail, Prüfer-Lesezugang, Texterkennung,
+Kostenstelle an Belegen (Abschnitt 23).
 
 Konzept, Entscheidungen und Phasen F0–F9 in **`docs/finance.md`**, klickbarer Mockup
 `Claude outputs\Mockup_Finance_v3.html`. Kurz: Systemwechsel an der Marke („MR Assistent · FSM“ ↔

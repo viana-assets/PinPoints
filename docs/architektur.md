@@ -150,7 +150,8 @@ viana-pinpoints/
                                      Konten mit Saldo, eigene Konten, Monate festschreiben; am Rechner Schnellbuchung
                                      mit Kontofeld und Strg+Enter (v178)
       FinanceJournalArbeitsplatz.tsx Journal am Rechner (v178, Stufe A): Filterleiste, Datentabelle, Detail rechts mit
-                                     Saldo vor/nach, Statuszeile, F2/F3/N, CSV (tests/financeArbeitsplatzOberflaeche.test.tsx)
+                                     Saldo vor/nach, Statuszeile, F2/F3/N, CSV (tests/financeArbeitsplatzOberflaeche.test.tsx);
+                                     v187 Partner, Zeitraum frei, Excel/PDF, Beleg zuordnen, Belegbild/F4
       FinanceStapel.tsx              Buchungsstapel am Rechner (Migration 106, v180): Erfassungszeile mit Enter, Prüfung je Zeile,
                                      ändern/löschen, Strg+S bucht alle oder keine, Teile/Splitt mit T (Migration 109, v183)
                                      (tests/financeStapelOberflaeche.test.tsx)
@@ -164,6 +165,10 @@ viana-pinpoints/
       FinancePruefung.tsx            Jahresabschluss › Prüfung (Migration 116, v186): Prüfliste mit Sprung
       BerichtDruck.tsx               Bericht als PDF im A4-Querformat (v186): Kopf, Tabelle, Druckregeln wie Rechnung
                                      (tests/financeStufeGHOberflaeche.test.tsx)
+      FinanceKopfleiste.tsx          Kopfleiste am Rechner (v187): Wirtschaftsjahr, Periode, Suche F2, Schnellbuchung N; Statuszeile;
+                                     `useFinanceStand` auch für die Zahlen in der Seitenleiste (tests/financeKopfleisteOberflaeche.test.tsx)
+      BelegVorschau.tsx              Belegbild der gewählten Buchung rechts in Journal und Kontoblatt, F4 öffnet groß (v187)
+      FinanceHandyBuchen.tsx         Buchen am Handy (v187): Foto, Betrag, Wofür, Bezahlt mit, Transporter, Vorschau, heute gebucht
                                      (tests/financePersonenkontenOberflaeche.test.tsx)
       FinanceVorlagen.tsx            Vorlagen und wiederkehrende Buchungen am Rechner (Migration 107, v181); `VorlageFormular` auch für
                                      „Als Vorlage“ im Stapel (tests/financeVorlagenOberflaeche.test.tsx)
@@ -408,6 +413,11 @@ viana-pinpoints/
       cockpit.ts                  Cockpit-Kacheln, nächste Voranmeldung (v186)
       opanalyse.ts                Offene Posten nach Fälligkeit, Stufen, je Person (v186)
       pruefung.ts                 Prüfliste lesen und zu Punkten verdichten (Migration 116, v186; tests/financeStufeGH.test.ts)
+      kopfleiste.ts               Wirtschaftsjahr, Periode, Suche (F2), festgeschrieben bis, Zähler und Statuszeile (v187;
+                                  tests/financeKopfleiste.test.ts)
+      handybuchen.ts              Buchen am Handy: Zwecke (lernend), Zahlwege und Gegenkonten, Posten, heute gebucht (v187;
+                                  tests/financeHandyBuchen.test.ts)
+      xlsx.ts                     Excel-Datei (.xlsx) aus einer Tabelle ohne Bibliothek (v187; tests/financeXlsx.test.ts)
       personen.ts                 Personenkonten: Salden, offene Posten je Beleg, Filter, CSV für die Kanzlei (Migration 110, v184;
                                   tests/financePersonen.test.ts)
       kontoblatt.ts               Zeitraum (Jahr/Quartal/Monat/frei), Kontoblatt mit laufendem Saldo, Konten im Zeitraum (v179, Stufe B;

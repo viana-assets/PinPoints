@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Verb } from "@/lib/constants";
@@ -9,7 +9,9 @@ import { useFinMahnungen, useFinBankumsaetze, useFinBelege, useFinEinstellungen,
 import { belegZustand } from "@/lib/finance/belege";
 import { useAmRechner } from "@/lib/amRechner";
 import { saveFinEinstellungen } from "@/lib/api/finance";
-import { FinanceBuchungen } from "./FinanceBuchungen";
+import { FinanceBuchungen, type BuchungenStart } from "./FinanceBuchungen";
+import { FinanceKopfleiste, FinanceStatuszeile, useFinanceStand } from "./FinanceKopfleiste";
+import { FIN_PERIODE_JAHR, periodeMonate, type Periode, type SuchZiel } from "@/lib/finance/kopfleiste";
 import { FinanceRechnungen } from "./FinanceRechnungen";
 import { BelegeOffenePosten, FinanceBelege } from "./FinanceBelege";
 import { FinanceBank } from "./FinanceBank";
@@ -49,9 +51,13 @@ export const FINANCE_ICONS: Record<FinanceSeiteKey, () => React.JSX.Element> = {
 
 export type FinanceAnsicht = FinanceSeiteKey | "mehr";
 
-export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onSystemWahl, onRechnungOeffnen }: {
+export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onSystemWahl, onRechnungOeffnen, jahr: jahrWahl, onJahr }: {
   supabase: SupabaseClient;
   seite: FinanceAnsicht;
+  // Wirtschaftsjahr aus der Kopfleiste (v187) – liegt in app/page.tsx, weil auch die Seitenleiste (Zähler) es braucht.
+  // Ohne: das laufende Jahr.
+  jahr?: number;
+  onJahr?: (j: number) => void;
   onSeite: (s: FinanceAnsicht) => void;
   darf: (bereich: string, verb?: Verb) => boolean;
   wechselbar: boolean;
@@ -64,9 +70,33 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
-  const jahr = Number(heute.slice(0, 4));
+  const laufend = Number(heute.slice(0, 4));
+  const jahr = jahrWahl ?? laufend;
   const einstellungenQuery = useFinEinstellungen(supabase, jahr, true);
   const stand = einstellungenQuery.data;
+  const amRechner = useAmRechner();
+  // Periode der Kopfleiste (v187): gilt für Journal, Kontoblatt, Konten und Auswertungen – neu gewählt, fangen sie neu an.
+  const [periode, setPeriode] = useState<Periode>(FIN_PERIODE_JAHR);
+  // Sprung nach „Buchungen“ (Schnellbuchung, Kontoblatt, Suche, Partner, Monate). `n` macht daraus einen neuen Anfang;
+  // verlässt man „Buchungen“, ist der Sprung verbraucht (sonst öffnete die Schnellbuchung beim nächsten Besuch wieder).
+  const [sprung, setSprung] = useState<{ n: number; start: BuchungenStart | null }>({ n: 0, start: null });
+  const [vorige, setVorige] = useState<FinanceAnsicht>(seite);
+  if (vorige !== seite) {
+    setVorige(seite);
+    if (seite !== "buchungen" && sprung.start) setSprung({ n: sprung.n, start: null });
+  }
+  const springen = useCallback((start: BuchungenStart) => {
+    setSprung((s) => ({ n: s.n + 1, start }));
+    onSeite("buchungen");
+  }, [onSeite]);
+  const schnellbuchung = useCallback(() => springen({ art: "neu" }), [springen]);
+  const finanzStand = useFinanceStand(supabase, jahr, heute, darf);
+  function suchziel(z: SuchZiel) {
+    if (z.art === "seite") onSeite(z.seite);
+    else if (z.art === "konto") springen({ art: "konto", konto: z.konto });
+    else if (z.art === "person") springen({ art: "partner", nummer: z.nummer });
+    else springen({ art: "suche", text: z.text });
+  }
 
   const sichtbar = sichtbareFinanceSeiten((r) => darf(r));
   // Eine Seite, die diese Person nicht sehen darf (Link, alter Merker), wird zur Übersicht.
@@ -75,7 +105,7 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
   // Neue Seite = oben anfangen (sonst bliebe die Lage der vorigen, langen Einstellungsseite stehen).
   const obenRef = useRef<HTMLDivElement>(null);
   // Der Journal-Arbeitsplatz (v178) braucht am Rechner die ganze Breite statt der Lesespalte.
-  const breit = useAmRechner() && aktiv === "buchungen";
+  const breit = amRechner && aktiv === "buchungen";
   useEffect(() => { obenRef.current?.scrollIntoView?.({ block: "start" }); }, [aktiv]);
 
   return (
@@ -85,10 +115,23 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
           <div className="lg-kopf">
             <div className="lg-titel">
               <h2>{aktiv === "mehr" ? "Weitere" : eintrag?.label}</h2>
-              <span className="small">{aktiv === "mehr" ? "Finance" : `Finance · Wirtschaftsjahr ${jahr}`}</span>
+              {aktiv === "mehr" ? <span className="small">Finance</span> : amRechner || !onJahr ? <span className="small">Finance · Wirtschaftsjahr {jahr}</span> : (
+                // Am Handy wählt man das Jahr im Untertitel; die ganze Kopfleiste gibt es am Rechner.
+                <label className="small fi-wj-handy">Finance · Wirtschaftsjahr{" "}
+                  <select value={jahr} aria-label="Wirtschaftsjahr" onChange={(ev) => { onJahr(Number(ev.target.value)); setPeriode(FIN_PERIODE_JAHR); }}>
+                    {[laufend + 1, laufend, laufend - 1, laufend - 2].map((j) => <option key={j} value={j}>{j}</option>)}
+                  </select>
+                </label>
+              )}
             </div>
           </div>
+          {amRechner && aktiv !== "mehr" && onJahr && (
+            <FinanceKopfleiste supabase={supabase} jahr={jahr} laufend={laufend} onJahr={(j) => { onJahr(j); setPeriode(FIN_PERIODE_JAHR); }}
+              periode={periode} onPeriode={setPeriode} e={stand?.status === "da" ? stand.einstellungen : null} seiten={sichtbar} darf={darf}
+              aktivSeite={aktiv} onSuchziel={suchziel} onNeu={schnellbuchung} />
+          )}
         </div>
+        <Fragment key={jahr}>
 
         {stand?.status === "da" && stand.einstellungen?.rechnungen_umfang !== "alle" && (
           <div className="fi-hinweis fi-pilot" role="note">
@@ -118,6 +161,8 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             belegeSehen={darf("finance.belege", "lesen")}
             bankSehen={darf("finance.bank", "lesen")}
             steuernSehen={darf("finance.steuer", "lesen")}
+            onHandyBuchen={!amRechner && stand?.status === "da" && darf("finance.buchen", "lesen") && (darf("finance.buchen", "schreiben") || darf("finance.belege", "schreiben"))
+              ? schnellbuchung : undefined}
           />
         )}
         {aktiv === "einstellungen" && (
@@ -173,7 +218,8 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
             onEinstellungen={() => onSeite("einstellungen")} />
         )}
         {aktiv === "auswertungen" && (
-          <FinanceAuswertungen supabase={supabase} jahr={jahr} heute={heute}
+          <FinanceAuswertungen key={periode} supabase={supabase} jahr={jahr} heute={heute}
+            startMonate={periode === FIN_PERIODE_JAHR ? undefined : periodeMonate(periode, 12)}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null} onEinstellungen={() => onSeite("einstellungen")}
             rechte={{ rechnungen: darf("finance.rechnungen", "lesen"), belege: darf("finance.belege", "lesen"), bank: darf("finance.bank", "lesen"),
               steuern: darf("finance.steuer", "lesen"), planen: darf("finance.abschluss", "schreiben") }} />
@@ -186,19 +232,25 @@ export function FinanceBereich({ supabase, seite, onSeite, darf, wechselbar, onS
         )}
         {aktiv === "export" && <FinanceExport supabase={supabase} jahr={jahr} heute={heute} onSeite={onSeite} />}
         {aktiv === "buchungen" && (
-          <FinanceBuchungen supabase={supabase} jahr={jahr} heute={heute}
+          <FinanceBuchungen key={`${periode}|${sprung.n}`} supabase={supabase} jahr={jahr} heute={heute}
             einstellungen={stand?.status === "da" ? stand.einstellungen : null}
             darfBuchen={darf("finance.buchen", "schreiben")} darfFestschreiben={darf("finance.abschluss", "schreiben")}
-            darfKonten={darf("finance.einstellungen", "schreiben")} onEinstellungen={() => onSeite("einstellungen")} />
+            darfKonten={darf("finance.einstellungen", "schreiben")} onEinstellungen={() => onSeite("einstellungen")}
+            periode={periode} start={sprung.start ?? undefined} darfBelege={darf("finance.belege", "schreiben")} />
         )}
         {eintrag && eintrag.phase && <FinancePlatzhalter seite={eintrag} />}
+        </Fragment>
+        {amRechner && aktiv !== "mehr" && onJahr && (
+          <FinanceStatuszeile supabase={supabase} jahr={jahr} heute={heute} stand={finanzStand} darf={darf}
+            onSeite={onSeite} onMonate={() => springen({ art: "monate" })} />
+        )}
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------- Übersicht
-function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten, onSeite, rechnungenSehen, belegeSehen, bankSehen, steuernSehen }: {
+function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten, onSeite, rechnungenSehen, belegeSehen, bankSehen, steuernSehen, onHandyBuchen }: {
   supabase: SupabaseClient;
   jahr: number;
   heute: string;
@@ -210,6 +262,8 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
   belegeSehen: boolean;
   bankSehen: boolean;
   steuernSehen: boolean;
+  // Am Handy (v187): „Beleg buchen“ öffnet die schlanke Maske unter Buchungen.
+  onHandyBuchen?: () => void;
 }) {
   const kommend = seiten.filter((s) => s.phase);
   const rechnungenQ = useFinRechnungen(supabase, jahr, rechnungenSehen);
@@ -244,6 +298,9 @@ function FinanceUebersicht({ supabase, jahr, heute, einstellungen, laedt, seiten
     || (bankSehen && !!einstellungen && bankQ.isPending) || (steuernSehen && !!einstellungen && ustQ.isPending);
   return (
     <>
+      {onHandyBuchen && (
+        <button type="button" className="btn-primary fi-knopf fi-handy-start" onClick={onHandyBuchen}>+ Beleg buchen (Foto, Betrag, wofür)</button>
+      )}
       {(rechnungenSehen || belegeSehen || bankSehen || steuernSehen) && (
         <>
           <span className="op-gruppe-titel">ZU ERLEDIGEN</span>

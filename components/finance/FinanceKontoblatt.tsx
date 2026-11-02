@@ -1,10 +1,13 @@
 "use client";
 import { useMemo, useRef, useState } from "react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { DatenTabelle, SpaltenWahl, type Spalte } from "./arbeitsplatz/DatenTabelle";
 import { KontoFeld } from "./arbeitsplatz/KontoFeld";
 import { useKurzbefehle, ZeitraumWahl } from "./arbeitsplatz/Werkzeuge";
 import { BuchungSpalte } from "./FinanceJournalArbeitsplatz";
+import { BerichtDruck } from "./BerichtDruck";
 import { dateiHerunterladen } from "@/lib/download";
+import { XLSX_TYP, tabelleXlsx } from "@/lib/finance/xlsx";
 import { FIN_KONTO_KATEGORIEN, kontoNr, type FinBuchung, type FinFestschreibung, type FinKonto } from "@/lib/finance/buchung";
 import { JOURNAL_ZUSTAENDE, betragText, datumDe, saldoText, sortiere, tabellenCsv, type JournalZustand, type Sortierung } from "@/lib/finance/arbeitsplatz";
 import { kontoblatt, zeitraumVorgaben, type KontoblattZeile, type Zeitraum } from "@/lib/finance/kontoblatt";
@@ -23,7 +26,7 @@ type HakenFilter = "alle" | "offen" | "abgehakt";
 const KEINE_HAKEN: ReadonlySet<number> = new Set();
 
 export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto, onKonto, zurueck, onZurueck, darfBuchen, onNeu, onOeffnen, kostenstellen = [],
-  abgehakt = KEINE_HAKEN, onAbhaken }: {
+  abgehakt = KEINE_HAKEN, onAbhaken, startZeitraum, supabase, firma = "", stand = "" }: {
   buchungen: FinBuchung[];
   konten: FinKonto[];
   fest: FinFestschreibung[];
@@ -43,8 +46,14 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
   // Abhaken (Migration 109): die abgehakten Buchungszeilen; ohne `onAbhaken` (kein Recht, Migration fehlt) nur ansehen.
   abgehakt?: ReadonlySet<number>;
   onAbhaken?: (zeilen: number[], an: boolean) => Promise<void>;
+  // v187: Zeitraum aus der Periode der Kopfleiste; Belegbild rechts (mit `supabase`); Firma und Stand fürs PDF.
+  startZeitraum?: Zeitraum;
+  supabase?: SupabaseClient;
+  firma?: string;
+  stand?: string;
 }) {
-  const [zeitraum, setZeitraum] = useState<Zeitraum>(() => zeitraumVorgaben(jahr)[0]);
+  const [zeitraum, setZeitraum] = useState<Zeitraum>(() => startZeitraum ?? zeitraumVorgaben(jahr)[0]);
+  const [druck, setDruck] = useState(false);
   const [suche, setSuche] = useState("");
   const [sortierung, setSortierung] = useState<Sortierung>(null);
   const [auswahl, setAuswahl] = useState<string | null>(null);
@@ -112,21 +121,26 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
   useKurzbefehle((b) => {
     if (b === "suche") { sucheRef.current?.focus(); return true; }
     if (b === "neu") { if (darfBuchen) onNeu(); return darfBuchen; }
+    if (b === "beleg") return false;
     if (gewaehlt?.gegen == null) return false;
     onKonto(gewaehlt.gegen);
     return true;
   });
 
+  const exportKopf = ["Datum", "Nr.", "Beleg", "Buchungstext", "Gegenkonto", "Gegenkontobezeichnung", "Soll", "Haben", "Saldo", "S/H", "Steuer", "Zustand", "Abgehakt"];
+  const exportDaten = (nurMarkiert: boolean) => !blatt ? [] : [
+    ["", "", "", "Eröffnungssaldo", "", "", null, null, Math.abs(blatt.eroeffnung), blatt.eroeffnung < 0 ? "H" : "S", "", "", ""],
+    ...(nurMarkiert ? markiertListe : zeilen).map((z) => [datumDe(z.datum), z.nr, z.beleg, z.text, z.gegen == null ? "div." : kontoNr(z.gegen), z.gegen == null ? "" : name(z.gegen),
+      z.soll || null, z.haben || null, Math.abs(z.saldo), z.saldo < 0 ? "H" : "S", z.steuer, ZUSTAND_TEXT[z.zustand], istAb(z) ? "ja" : ""]),
+  ];
+  const dateiname = konto != null ? `kontoblatt_${kontoNr(konto)}_${zeitraum.von}_${zeitraum.bis}` : "kontoblatt";
   function csv(nurMarkiert: boolean) {
     if (!blatt || konto == null) return;
-    const liste = nurMarkiert ? markiertListe : zeilen;
-    const kopf = ["Datum", "Nr.", "Beleg", "Buchungstext", "Gegenkonto", "Gegenkontobezeichnung", "Soll", "Haben", "Saldo", "S/H", "Steuer", "Zustand", "Abgehakt"];
-    const daten = [
-      ["", "", "", "Eröffnungssaldo", "", "", null, null, Math.abs(blatt.eroeffnung), blatt.eroeffnung < 0 ? "H" : "S", "", "", ""],
-      ...liste.map((z) => [datumDe(z.datum), z.nr, z.beleg, z.text, z.gegen == null ? "div." : kontoNr(z.gegen), z.gegen == null ? "" : name(z.gegen),
-        z.soll || null, z.haben || null, Math.abs(z.saldo), z.saldo < 0 ? "H" : "S", z.steuer, ZUSTAND_TEXT[z.zustand], istAb(z) ? "ja" : ""]),
-    ];
-    dateiHerunterladen(`kontoblatt_${kontoNr(konto)}_${zeitraum.von}_${zeitraum.bis}.csv`, tabellenCsv(kopf, daten), "text/csv;charset=utf-8");
+    dateiHerunterladen(`${dateiname}.csv`, tabellenCsv(exportKopf, exportDaten(nurMarkiert)), "text/csv;charset=utf-8");
+  }
+  function excel(nurMarkiert: boolean) {
+    if (!blatt || konto == null) return;
+    dateiHerunterladen(`${dateiname}.xlsx`, tabelleXlsx(`Kontoblatt ${kontoNr(konto)}`, exportKopf, exportDaten(nurMarkiert), new Date()) as BlobPart, XLSX_TYP);
   }
 
   const art = kontoDaten ? FIN_KONTO_KATEGORIEN.find((k) => k.wert === kontoDaten.kategorie)?.text : null;
@@ -143,7 +157,7 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
           <ZeitraumWahl jahr={jahr} wert={zeitraum} onWert={setZeitraum} />
           <label className="ap-chip ap-chip-suche">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-            <input ref={sucheRef} value={suche} placeholder="Text, Beleg, Gegenkonto, Betrag (F2)" aria-label="Kontoblatt durchsuchen"
+            <input ref={sucheRef} value={suche} placeholder="Text, Beleg, Gegenkonto, Betrag (F2)" aria-label="Kontoblatt durchsuchen" data-eigene-suche=""
               onChange={(e) => setSuche(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Escape" && suche) { e.preventDefault(); setSuche(""); } }} />
           </label>
@@ -155,7 +169,9 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
             </select>
           </label>}
           <SpaltenWahl spalten={mitHaken ? alleSpalten : alleSpalten.filter((x) => x.key !== "haken")} aus={aus} onAus={setAus} />
-          <button type="button" className="es-knopf" onClick={() => csv(false)} disabled={!blatt} title="Für Excel: Semikolon, Komma als Dezimalzeichen">CSV</button>
+          <button type="button" className="es-knopf" onClick={() => csv(false)} disabled={!blatt} title="Semikolon, Komma als Dezimalzeichen">CSV</button>
+          <button type="button" className="es-knopf" onClick={() => excel(false)} disabled={!blatt} title="Excel-Datei (.xlsx)">Excel</button>
+          <button type="button" className="es-knopf" onClick={() => setDruck(true)} disabled={!blatt} title="Drucken oder als PDF speichern">PDF</button>
           {darfBuchen && <button type="button" className="btn-primary ap-neu" onClick={onNeu}>+ Schnellbuchung (N)</button>}
         </div>
 
@@ -176,6 +192,7 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
             {onAbhaken && <button type="button" className="es-knopf" onClick={() => void abhaken(markiertListe, true)}>Abhaken (H)</button>}
             {onAbhaken && <button type="button" className="es-knopf" onClick={() => void abhaken(markiertListe, false)}>Haken entfernen</button>}
             <button type="button" className="es-knopf" onClick={() => csv(true)} disabled={!markiertListe.length}>Markierte als CSV</button>
+            <button type="button" className="es-knopf" onClick={() => excel(true)} disabled={!markiertListe.length}>Markierte als Excel</button>
             <button type="button" className="es-knopf" onClick={() => setMarkiert(new Set())}>Auswahl aufheben</button>
           </div>
         )}
@@ -207,11 +224,22 @@ export function FinanceKontoblatt({ buchungen, konten, fest, jahr, laedt, konto,
       <aside className="ap-detail" aria-label="Gewählte Buchung">
         {gewaehlt && konto != null ? (
           <BuchungSpalte buchung={gewaehlt.buchung} zustand={gewaehlt.zustand} saldoKonto={konto} alle={buchungen} name={name}
-            onOeffnen={() => onOeffnen(gewaehlt.buchung)} onKontoblatt={onKonto}
+            onOeffnen={() => onOeffnen(gewaehlt.buchung)} onKontoblatt={onKonto} supabase={supabase}
             sprungKonten={[...new Set(gewaehlt.buchung.fin_buchungszeilen.map((x) => x.konto))].filter((n) => n !== konto)
               .sort((a, b) => (a === gewaehlt.gegen ? -1 : b === gewaehlt.gegen ? 1 : a - b))} />
         ) : <span className="small">Keine Buchung gewählt.</span>}
       </aside>
+      {druck && blatt && konto != null && (
+        <BerichtDruck titel={`Kontoblatt ${kontoNr(konto)} ${kontoDaten?.bezeichnung ?? ""}`.trim()} unter={`${datumDe(zeitraum.von)} – ${datumDe(zeitraum.bis)}${s || haken !== "alle" ? " · gefiltert" : ""}`}
+          kopf={["Datum", "Nr.", "Beleg", "Buchungstext", "Gegenkonto", "Soll", "Haben", "Saldo"]}
+          zeilen={[
+            { zellen: ["", "", "", "Eröffnungssaldo", "", "", "", saldoText(blatt.eroeffnung)], art: "leise" as const },
+            ...zeilen.map((z) => ({ zellen: [datumDe(z.datum), String(z.nr), z.beleg, z.text, z.gegen == null ? "div." : kontoNr(z.gegen),
+              z.soll || null, z.haben || null, saldoText(z.saldo)], art: z.zustand === "storniert" || z.zustand === "storno" ? "leise" as const : undefined })),
+            { zellen: ["", "", "", "Verkehrszahlen und Endsaldo", "", blatt.soll, blatt.haben, saldoText(blatt.ende)], art: "summe" as const },
+          ]}
+          firma={firma} stand={stand} onClose={() => setDruck(false)} />
+      )}
     </div>
   );
 }

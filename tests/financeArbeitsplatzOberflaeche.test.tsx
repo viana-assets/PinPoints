@@ -83,9 +83,10 @@ describe("Journal am Rechner", () => {
 
   it("Filter: Zeitraum, Zustand, Suche; F3 nur das Konto der Zeile; zurücksetzen", () => {
     journal();
-    fireEvent.change(screen.getByLabelText("Zeitraum"), { target: { value: "2" } });
+    // Seit v187 der Zeitraum wie im Kontoblatt: Monat, Quartal oder frei.
+    fireEvent.change(screen.getByLabelText("Zeitraum"), { target: { value: "m2" } });
     expect(zeilenTexte()).toEqual(["b3"]);
-    fireEvent.change(screen.getByLabelText("Zeitraum"), { target: { value: "0" } });
+    fireEvent.change(screen.getByLabelText("Zeitraum"), { target: { value: "jahr" } });
     fireEvent.click(screen.getAllByRole("row").find((r) => r.dataset.key === "b1")!);
     fireEvent.keyDown(window, { key: "F3" });
     expect(zeilenTexte()).toEqual(["b1"]);

@@ -22,6 +22,8 @@ vi.mock("@/lib/queries/hooks", () => {
     useFinKostenstellen: () => q([]),
     useFinAbgehakt: () => q([]),
     useFinPersonenkonten: () => q([]),
+    useBetrieb: () => q(null),
+    useFinBuchungBelegbilder: () => q([]), useFinDateiLink: () => q(null),
   };
 });
 

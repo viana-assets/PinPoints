@@ -320,6 +320,10 @@ Einzelne Zeilen verdienen einen Satz Begründung:
   **Plan (Migration 115) und Prüfliste (Migration 116, v186):** `finance.abschluss` · L = Plan/Ist, Cockpit, OP-Analyse und
   Prüfliste sehen (`fin_pruefung()`), S = planen (`fin_plan_setzen()`, `fin_plan_aus_vorjahr()`). Cockpit, OP-Analyse und
   Prüfliste zeigen Rechnungen, Belege, Kasse und Umsatzsteuer nur, soweit die Person sie lesen darf.
+  **Kopfleiste, Statuszeile, Buchen am Handy (v187, ohne neues Recht):** Suche und Zahlen zeigen nur, was die Person lesen
+  darf (Konten und Personen mit `finance.buchen` L). Am Handy buchen „Firmenkarte“, „Bar“ und „Privat ausgelegt“ mit
+  `finance.buchen` S über `fin_buchen()`; „Noch offen“ legt einen Beleg an und bucht ihn – dafür `finance.belege` S.
+  „Beleg zuordnen“ im Journal wie das Belegbild an Buchungen (`finance.buchen` S).
   Freischalten wie gewohnt in Admin › Rechte. Siehe `docs/finance.md`.
 - **Team-Chat (Migration 80, v129):** `chat` · L = mitlesen, bei jeder neuen Nachricht eine
   Push-Meldung bekommen und in der @-Liste stehen (Richtlinie „Chat lesen“, `chat_personen()`,

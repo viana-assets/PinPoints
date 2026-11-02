@@ -9,6 +9,7 @@ import { fehlerText } from "@/components/FehlerHinweis";
 import { finKontoAktiv } from "@/lib/api/finance";
 import { qk } from "@/lib/queries/keys";
 import { dateiHerunterladen } from "@/lib/download";
+import { XLSX_TYP, tabelleXlsx } from "@/lib/finance/xlsx";
 import { FIN_KONTO_KATEGORIEN, kontoNr, type FinBuchung, type FinKonto, type KontoKategorie } from "@/lib/finance/buchung";
 import type { FinEinstellungen } from "@/lib/finance/einstellungen";
 import { betragText, saldoText, sortiere, tabellenCsv, type Sortierung } from "@/lib/finance/arbeitsplatz";
@@ -22,7 +23,7 @@ import { KONTEN_FILTER_LEER, kontenFiltern, kontenUebersicht, zeitraumVorgaben, 
 const ART_TEXT = Object.fromEntries(FIN_KONTO_KATEGORIEN.map((k) => [k.wert, k.text])) as Record<KontoKategorie, string>;
 const ART_REIHE = Object.fromEntries(FIN_KONTO_KATEGORIEN.map((k, i) => [k.wert, i])) as Record<KontoKategorie, number>;
 
-export function FinanceKontenArbeitsplatz({ supabase, rahmen, buchungen, konten, jahr, laedt, darfKonten, onKontoblatt }: {
+export function FinanceKontenArbeitsplatz({ supabase, rahmen, buchungen, konten, jahr, laedt, darfKonten, onKontoblatt, startZeitraum }: {
   supabase: SupabaseClient;
   rahmen: FinEinstellungen["kontenrahmen"];
   buchungen: FinBuchung[];
@@ -31,9 +32,11 @@ export function FinanceKontenArbeitsplatz({ supabase, rahmen, buchungen, konten,
   laedt: boolean;
   darfKonten: boolean;
   onKontoblatt: (n: number) => void;
+  // v187: Zeitraum aus der Periode der Kopfleiste.
+  startZeitraum?: Zeitraum;
 }) {
   const queryClient = useQueryClient();
-  const [zeitraum, setZeitraum] = useState<Zeitraum>(() => zeitraumVorgaben(jahr)[0]);
+  const [zeitraum, setZeitraum] = useState<Zeitraum>(() => startZeitraum ?? zeitraumVorgaben(jahr)[0]);
   const [filter, setFilter] = useState<KontenFilter>(KONTEN_FILTER_LEER);
   const [sortierung, setSortierung] = useState<Sortierung>(null);
   const [auswahl, setAuswahl] = useState<string | null>(null);
@@ -81,12 +84,15 @@ export function FinanceKontenArbeitsplatz({ supabase, rahmen, buchungen, konten,
     }
   }
 
-  function csv(nurMarkiert: boolean) {
-    const liste = nurMarkiert ? zeilen.filter((z) => markiert.has(key(z))) : zeilen;
-    const kopf = ["Konto", "Bezeichnung", "Art", "Eröffnung", "S/H", "Soll", "Haben", "Saldo", "S/H", "Bewegungen"];
-    const daten = liste.map((z) => [kontoNr(z.konto.nummer), z.konto.bezeichnung, ART_TEXT[z.konto.kategorie], Math.abs(z.eroeffnung), z.eroeffnung < 0 ? "H" : "S",
+  const exportKopf = ["Konto", "Bezeichnung", "Art", "Eröffnung", "S/H", "Soll", "Haben", "Saldo", "S/H", "Bewegungen"];
+  const exportDaten = (nurMarkiert: boolean) => (nurMarkiert ? zeilen.filter((z) => markiert.has(key(z))) : zeilen)
+    .map((z) => [kontoNr(z.konto.nummer), z.konto.bezeichnung, ART_TEXT[z.konto.kategorie], Math.abs(z.eroeffnung), z.eroeffnung < 0 ? "H" : "S",
       z.soll, z.haben, Math.abs(z.ende), z.ende < 0 ? "H" : "S", z.anzahl]);
-    dateiHerunterladen(`konten_${zeitraum.von}_${zeitraum.bis}.csv`, tabellenCsv(kopf, daten), "text/csv;charset=utf-8");
+  function csv(nurMarkiert: boolean) {
+    dateiHerunterladen(`konten_${zeitraum.von}_${zeitraum.bis}.csv`, tabellenCsv(exportKopf, exportDaten(nurMarkiert)), "text/csv;charset=utf-8");
+  }
+  function excel(nurMarkiert: boolean) {
+    dateiHerunterladen(`konten_${zeitraum.von}_${zeitraum.bis}.xlsx`, tabelleXlsx(`Konten ${jahr}`, exportKopf, exportDaten(nurMarkiert), new Date()) as BlobPart, XLSX_TYP);
   }
 
   return (
@@ -110,12 +116,13 @@ export function FinanceKontenArbeitsplatz({ supabase, rahmen, buchungen, konten,
           </label>
           <label className="ap-chip ap-chip-suche">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden="true"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
-            <input ref={sucheRef} value={filter.text} placeholder="Nummer oder Bezeichnung (F2)" aria-label="Konten durchsuchen"
+            <input ref={sucheRef} value={filter.text} placeholder="Nummer oder Bezeichnung (F2)" aria-label="Konten durchsuchen" data-eigene-suche=""
               onChange={(e) => setze({ text: e.target.value })}
               onKeyDown={(e) => { if (e.key === "Escape" && filter.text) { e.preventDefault(); setze({ text: "" }); } }} />
           </label>
           <SpaltenWahl spalten={alleSpalten} aus={aus} onAus={setAus} />
           <button type="button" className="es-knopf" onClick={() => csv(false)} disabled={!zeilen.length}>CSV</button>
+          <button type="button" className="es-knopf" onClick={() => excel(false)} disabled={!zeilen.length}>Excel</button>
           {darfKonten && <button type="button" className="es-knopf" onClick={() => setNeu(true)}>Eigenes Konto</button>}
         </div>
         {fehler && <div className="fi-hinweis fi-rot" role="alert">{fehler}</div>}
@@ -123,6 +130,7 @@ export function FinanceKontenArbeitsplatz({ supabase, rahmen, buchungen, konten,
           <div className="ap-sammel" role="status">
             <b>{markiert.size} markiert</b>
             <button type="button" className="es-knopf" onClick={() => csv(true)}>Markierte als CSV</button>
+            <button type="button" className="es-knopf" onClick={() => excel(true)}>Markierte als Excel</button>
             <button type="button" className="es-knopf" onClick={() => setMarkiert(new Set())}>Auswahl aufheben</button>
           </div>
         )}

@@ -52,17 +52,20 @@ export function tastenZiel(taste: string, index: number, anzahl: number): number
   }
 }
 
-// Kurzbefehle des Arbeitsplatzes. In einem Eingabefeld zählt nur F2 (Suche) und F3 – ein „n“ ist dort ein Buchstabe.
-export type Kurzbefehl = "suche" | "neu" | "konto";
+// Kurzbefehle des Arbeitsplatzes. In einem Eingabefeld zählen nur die F-Tasten – ein „n“ ist dort ein Buchstabe.
+// F4 (v187) öffnet das Belegbild der gewählten Buchung.
+export type Kurzbefehl = "suche" | "neu" | "konto" | "beleg";
 export const FIN_KURZBEFEHLE: { taste: string; befehl: Kurzbefehl; text: string }[] = [
   { taste: "F2", befehl: "suche", text: "Suche" },
   { taste: "F3", befehl: "konto", text: "Kontoblatt" },
+  { taste: "F4", befehl: "beleg", text: "Beleg" },
   { taste: "N", befehl: "neu", text: "Schnellbuchung" },
 ];
 export function kurzbefehl(e: { key: string; ctrlKey?: boolean; altKey?: boolean; metaKey?: boolean }, imFeld: boolean): Kurzbefehl | null {
   if (e.ctrlKey || e.altKey || e.metaKey) return null;
   if (e.key === "F2") return "suche";
   if (e.key === "F3") return "konto";
+  if (e.key === "F4") return "beleg";
   if (!imFeld && (e.key === "n" || e.key === "N")) return "neu";
   return null;
 }
@@ -179,13 +182,18 @@ export type JournalFilter = {
   text: string;
   // Kostenstelle als „kost1|T1“ bzw. „kost2|100“ (v182, Migration 108); null = alle.
   kost?: string | null;
+  // v187: Zeitraum von–bis (Tage, ISO; null = offen) – Monat, Quartal oder frei, wie im Kontoblatt.
+  von?: string | null;
+  bis?: string | null;
+  // v187: Partner – Debitor oder Kreditor (Personenkonto, Migration 110); null = alle.
+  partner?: number | null;
 };
-export const JOURNAL_FILTER_LEER: JournalFilter = { monat: 0, konto: null, zustand: null, betragVon: null, betragBis: null, text: "", kost: null };
+export const JOURNAL_FILTER_LEER: JournalFilter = { monat: 0, konto: null, zustand: null, betragVon: null, betragBis: null, text: "", kost: null, von: null, bis: null, partner: null };
 
 // Wie viele Filter gesetzt sind (für „Filter zurücksetzen“).
 export function filterAnzahl(f: JournalFilter): number {
-  return [f.monat !== 0, f.konto != null, f.zustand != null, f.betragVon != null || f.betragBis != null, f.text.trim() !== "", !!f.kost]
-    .filter(Boolean).length;
+  return [f.monat !== 0 || !!f.von || !!f.bis, f.konto != null, f.zustand != null, f.betragVon != null || f.betragBis != null, f.text.trim() !== "", !!f.kost,
+    f.partner != null].filter(Boolean).length;
 }
 
 // Das Konto zählt, wenn es in irgendeiner Zeile der Buchung steht (auch als Steuerkonto). Die Suche geht über
@@ -194,6 +202,9 @@ export function journalFiltern(zeilen: readonly JournalZeile[], f: JournalFilter
   const s = f.text.trim().toLowerCase();
   return zeilen.filter((z) => {
     if (f.monat && Number(z.datum.slice(5, 7)) !== f.monat) return false;
+    if (f.von && z.datum < f.von) return false;
+    if (f.bis && z.datum > f.bis) return false;
+    if (f.partner != null && !z.buchung.fin_buchungszeilen.some((x) => x.personenkonto === f.partner)) return false;
     if (f.konto != null && !z.buchung.fin_buchungszeilen.some((x) => x.konto === f.konto)) return false;
     if (f.zustand && z.zustand !== f.zustand) return false;
     if (f.kost) {

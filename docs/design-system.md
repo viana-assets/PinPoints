@@ -1096,4 +1096,15 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
   „Drucken“.
 - **Cockpit-Kacheln** (Finance, v186): `.fi-kacheln.fi-cockpit` (vier Spalten, ab 900 px zwei); eine Kachel mit Ziel ist ein
   Knopf (`.fi-kachel-knopf`), Plan-Abweichung grün/rot in der Unterzeile, negative Werte als `.fi-kachel-warn`.
+- **Kopfleiste und Statuszeile** (Finance, v187): Unter dem Seitentitel `.fi-kopfleiste` aus denselben Chips wie die
+  Filterleiste (WJ, Periode), die Suche `.fi-suche-global` mit Trefferliste wie das Kontofeld (`.ap-vorschlaege`, Art rechts
+  grau), Kontenrahmen klein grau, „+ Schnellbuchung (N)“ ganz rechts (nicht auf „Buchungen“ – dort steht er in der
+  Werkzeugleiste). Unten klebt `.fi-statuszeile` (weiße Leiste, 12 px): je Punkt ein Textknopf, die Zahl fett, offen in
+  Petrol, überfällig rot, Kurzbefehle rechts. **Zahlen in der Seitenleiste** `.fi-nav-zahl` (Petrol-Pille, 18 px; „Offene
+  Posten“ ruhig grau), am Handy aus. Am Handy steht das Wirtschaftsjahr als Auswahl im Untertitel (`.fi-wj-handy`).
+- **Belegbild rechts** (v187, `.ap-beleg`): oben in der Detailspalte, Foto `object-fit:contain` bis 220 px hoch, PDF/XML als
+  Kachel mit der Dateiart, darunter Dateiname und „F4 groß“; ohne Bild eine flache Zeile „Kein Belegbild“.
+- **Buchen am Handy** (v187, `.fi-handy`): Foto zuerst (gestrichelter Rahmen, Hauptknopf „Beleg fotografieren“), Betrag groß
+  rechtsbündig, Auswahl als Wahlknöpfe (`.fi-chips`/`.fi-chip`, 38 px, gewählt Petrol), darunter „So wird gebucht“ mit der
+  Zeilentabelle und „Heute von dir gebucht“ als Kartenliste.
 

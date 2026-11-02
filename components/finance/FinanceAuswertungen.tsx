@@ -21,10 +21,12 @@ import { BerichtDruck, type BerichtZeile } from "./BerichtDruck";
 // Seit v186 (Stufe G): Cockpit vorn, Plan und Ist (Migration 115), offene Posten nach Fälligkeit, Berichte als PDF.
 type Reiter = "cockpit" | "salden" | "konto" | "bwa" | "plan" | "op" | "euer" | "liq";
 
-export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEinstellungen, rechte }: {
+export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEinstellungen, rechte, startMonate }: {
   supabase: SupabaseClient; jahr: number; heute: string; einstellungen: FinEinstellungen | null; onEinstellungen: () => void;
   // Für die Liquiditätsvorschau: welche Quellen diese Person lesen darf, und ob sie Planposten pflegen darf.
   rechte: { rechnungen: boolean; belege: boolean; bank: boolean; steuern: boolean; planen: boolean };
+  // v187: Monate aus der Periode der Kopfleiste (Quartal, Monat); ohne: Januar bis zum laufenden Monat.
+  startMonate?: { von: number; bis: number };
 }) {
   const e = einstellungen;
   const rahmen = e?.kontenrahmen ?? "skr03";
@@ -33,8 +35,8 @@ export function FinanceAuswertungen({ supabase, jahr, heute, einstellungen, onEi
   const [druck, setDruck] = useState<{ titel: string; unter: string; kopf: string[]; zeilen: BerichtZeile[]; fuss?: string } | null>(null);
   const firma = useFirma(supabase);
   const laufend = heute.slice(0, 4) === String(jahr) ? Number(heute.slice(5, 7)) : 12;
-  const [von, setVon] = useState(1);
-  const [bis, setBis] = useState(laufend);
+  const [von, setVon] = useState(startMonate?.von ?? 1);
+  const [bis, setBis] = useState(startMonate?.bis ?? laufend);
   const [konto, setKonto] = useState("");
   const saldenQ = useFinSalden(supabase, jahr, !!e);
   const kontenQ = useFinKonten(supabase, rahmen, !!e);

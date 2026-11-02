@@ -73,6 +73,8 @@ export type FinBuchung = {
   storniert_durch: string | null;
   grund: string | null;
   erstellt_am: string;
+  // Wer gebucht hat (auth.uid(), Migration 88) – für „Heute von dir gebucht“ am Handy (v187).
+  erstellt_von?: string | null;
   fin_buchungszeilen: FinZeile[];
 };
 

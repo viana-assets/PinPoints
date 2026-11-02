@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v186";
+export const APP_VERSION = "v187";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,18 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v187", datum: "2026-10-30", titel: "Finance: Kopfleiste mit Jahr, Periode und Suche, Belegbild im Journal, Buchen am Handy",
+    punkte: [
+      "Am Rechner steht oben auf jeder Finance-Seite die Kopfleiste: Wirtschaftsjahr wählen (auch Vorjahre und das nächste), Periode (Monat, Quartal, ganzes Jahr) für Journal, Kontoblatt, Konten und Auswertungen, und eine Suche (F2) nach Konto, Kunde oder Lieferant, Buchung oder Seite. „+ Schnellbuchung (N)“ geht von jeder Seite aus.",
+      "Unten steht die Statuszeile: wie viele Belege im Eingang warten, wie viele Bankumsätze nicht zugeordnet sind, die nächste Umsatzsteuer-Frist und bis wann festgeschrieben ist – ein Klick führt jeweils dorthin. In der Seitenleiste zeigen Zahlen an Belege, Bank & Kasse und Offene Posten, wo etwas zu tun ist.",
+      "Journal: neuer Filter „Partner“ (Kunde oder Lieferant), Zeitraum auch als Quartal oder frei von–bis, Export als Excel-Datei und als PDF. Markierte Buchungen lassen sich als Excel speichern, und „Beleg zuordnen“ hängt ein Foto oder PDF an alle markierten auf einmal.",
+      "Rechts neben dem Journal und dem Kontoblatt erscheint jetzt das Belegbild der gewählten Buchung; F4 öffnet es groß. Kontoblatt und Konten gibt es ebenfalls als Excel, das Kontoblatt auch als PDF.",
+      "Am Handy: „+ Beleg buchen“ auf der Übersicht. Foto machen, Betrag, wofür (Tanken, Material, Werkzeug, Bewirtung, Parken – die häufigsten zuerst, oft benutzte Konten kommen dazu), womit bezahlt (Firmenkarte, bar, privat ausgelegt, noch offen) und der Transporter. Vor dem Buchen zeigt die App die Buchung; darunter steht, was du heute schon gebucht hast.",
+      "„Noch offen“ legt den Beleg beim Lieferanten an – er steht dann in den offenen Posten und im Zahlungsvorschlag. Die Firmenkarte wird über Geldtransit gebucht: den Umsatz auf dem Kontoauszug später unter Bank & Kasse demselben Konto zuordnen.",
+      "Keine neue Datenbank-Änderung nötig.",
+    ],
+  },
   {
     version: "v186", datum: "2026-10-30", titel: "Finance: Überweisungen per SEPA-Datei, Belegkorb, Cockpit, Plan/Ist, Prüfliste",
     punkte: [

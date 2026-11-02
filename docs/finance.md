@@ -1037,10 +1037,49 @@ in der Oberfläche steht „Transporter“ und „Leistung“.
   Nur lesend, ohne Kundennamen. Die Schritte zum Abschluss (Abschnitt F8) bleiben daneben.
 - Tests: `tests/financeStufeGH.test.ts`, `tests/financeStufeGHOberflaeche.test.tsx`; Datenbank `/tmp/pgt/t116.sql` (Teil 5).
 
-## 22. Was bewusst noch nicht gebaut ist
+## 22. Rest aus dem Entwurf: Kopfleiste, Statuszeile, Journal, Buchen am Handy (v187, ohne Migration)
+
+Abgleich des gebauten Arbeitsplatzes mit dem Entwurf (`Claude outputs/Mockup_Finance_StufeA_v1.html`) am 30.10.2026: Was dort
+als eigener Menüpunkt stand (Buchungsstapel, Kontoblatt, Debitoren/Kreditoren, Zahlungsvorschlag, Kostenstellen), liegt als
+Reiter auf der passenden Seite – so bleibt es. Was ganz fehlte, ist mit v187 nachgeholt:
+
+- **Kopfleiste am Rechner** (`components/finance/FinanceKopfleiste.tsx`, Regeln in `lib/finance/kopfleiste.ts`): Wirtschaftsjahr
+  (zwei zurück bis eins voraus, `wjAuswahl`), Periode (ganzes Jahr, Quartal, Monat – `zeitraumVorgaben`), Suche (F2) nach Seite,
+  Konto (→ Kontoblatt), Debitor/Kreditor (→ Journal mit Partnerfilter) und Text (→ Journal mit Suche) (`globaleSuche`),
+  Kontenrahmen und Versteuerung, „+ Schnellbuchung (N)“ von jeder Seite. Das Jahr liegt in `app/page.tsx` (`finJahr`), weil
+  Seitenleiste und Inhalt es teilen; am Handy wählt man es im Untertitel. Die Periode gilt als Anfangswert für Journal,
+  Kontoblatt, Konten und Auswertungen (neu gewählt, fangen diese Seiten neu an). Sprünge nach „Buchungen“ laufen über
+  `BuchungenStart` (neuer `key`); verlässt man die Seite, ist der Sprung verbraucht.
+- **Statuszeile** (unten, am Rechner): Belegeingang offen, Bankumsätze nicht zugeordnet, nächste Voranmeldung mit Frist
+  (`naechsteUst`), festgeschrieben bis (`festgeschriebenBis`) – je ein Sprung. **Zahlen in der Seitenleiste** an Belege
+  (Entwürfe), Bank & Kasse (nicht zugeordnet), Offene Posten (überfällig) – `financeStand`, `navZahl`; am Handy aus.
+- **Journal:** Zeitraum wie im Kontoblatt (Monat, Quartal, frei), Filter „Partner“ (Personenkonto an einer Zeile,
+  Migration 110), Export als Excel (`lib/finance/xlsx.ts`: .xlsx ohne Bibliothek, Text als Text – keine Formeln) und PDF
+  (`BerichtDruck`); markiert: „Beleg zuordnen“ (eine Datei an jede markierte Buchung, Migration 114) und „Markierte als Excel“.
+  Kontoblatt und Konten ebenfalls mit Excel, das Kontoblatt auch mit PDF.
+- **Belegbild rechts** (`BelegVorschau`): der Beleg aus dem Belegeingang (gebucht oder bezahlt mit der Buchung) und die an der
+  Buchung hängenden Dateien; Foto als Bild, PDF/XML als Kachel. F4 öffnet groß (neuer Kurzbefehl, `FIN_KURZBEFEHLE`).
+- **Buchen am Handy** (`components/finance/FinanceHandyBuchen.tsx`, Regeln in `lib/finance/handybuchen.ts`): Foto, Betrag brutto,
+  „Wofür?“ (Tanken 4530/6530, Material 3400/5400, Werkzeug 4985/6845, Bewirtung 4650/6640, Parken 4580/6570 – nach Häufigkeit,
+  dazu bis zu drei oft bebuchte Aufwandskonten; „Anderes …“ öffnet die Kontosuche), „Bezahlt mit“ und Transporter (KOST1).
+  Firmenkarte bucht gegen Geldtransit (1360/1460 – der Kontoauszug wird später demselben Konto zugeordnet), bar gegen die
+  Kasse, privat ausgelegt gegen Privateinlagen (1890/2180, nicht bei UG/GmbH) – alles über `fin_buchen()`, das Foto danach an
+  die Buchung. „Noch offen“ legt einen Beleg beim Lieferanten an (Lieferant neu, falls es ihn nicht gibt) und bucht ihn
+  (`fin_beleg_buchen`) – Belege tragen keine Kostenstelle, deshalb dort ohne Transporter. Vorsteuer 19 % abwählbar
+  (Kleinunternehmer: keine). Gebucht wird mit dem heutigen Datum; „Heute von dir gebucht“ liest `erstellt_von`.
+  Bewirtung: gebucht wird der volle Betrag auf Bewirtungskosten; die Aufteilung 70/30 für die Steuer klärt die Kanzlei.
+- **Nicht gebaut: „Text erkannt“** (Texterkennung auf dem Foto). Ein Dienst dafür wäre ein Dritter mit Belegdaten
+  (Datenschutz-Entscheidung); eine Erkennung im Browser bräuchte ein großes Sprachmodell zum Herunterladen. Betrag und
+  Lieferant tippt man ab; E-Rechnungen (XRechnung, ZUGFeRD) liest der Belegkorb weiter selbst.
+- Tests: `tests/financeKopfleiste.test.ts`, `tests/financeHandyBuchen.test.ts`, `tests/financeXlsx.test.ts`,
+  `tests/financeKopfleisteOberflaeche.test.tsx`.
+
+## 23. Was bewusst noch nicht gebaut ist
 
 - **Prüfer-Lesezugang:** Entscheidung 6 – erst, wenn die Kanzlei danach fragt. Bis dahin: DATEV- und GoBD-Export.
 - **Belegeingang per E-Mail:** siehe Abschnitt 19 (Dritter, Datenschutz).
+- **Texterkennung auf Belegfotos:** siehe Abschnitt 22 (Dritter bzw. großes Modell im Browser).
+- **Kostenstelle an Belegen:** Belege aus dem Belegeingang tragen keine KOST1/KOST2 (`fin_beleg_buchen`); bei Bedarf eigene Migration.
 - **ELSTER-Übermittlung, Lohn, FinTS/PSD2-Bankabruf, Zertifizierung:** Abgrenzung im Gesamtkonzept – unverändert.
 - **Vor dem Echtbetrieb ab 01.01.2027:** Kontenliste und Kennzahlen mit dem Steuerberater, Rechnungen ohne Steuerausweis
   klären (Abschnitt 16), Eröffnungsbilanz, eine kleine SEPA-Testdatei mit der Hausbank, Rechte verteilen (Admin › Rechte).

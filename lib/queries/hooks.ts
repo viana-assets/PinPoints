@@ -20,7 +20,7 @@ import type { Order } from "@/lib/types";
 import { fetchVehicles, fetchVehiclesFuerKunde } from "@/lib/api/vehicles";
 import { fetchArticles, fetchArticlePrices } from "@/lib/api/articles";
 import { fetchVorlagen } from "@/lib/api/vorlagen";
-import { fetchFinAbgehakt, fetchFinBankregeln, fetchFinBuchungDateien, fetchFinPlan, fetchFinPruefung, fetchFinZahlauftraege, fetchFinArtikelLeistungsarten, fetchFinPersonenkonten, fetchFinKostenstellen, fetchFinStapel, fetchFinVorlagen, fetchFinWiederkehrend, fetchFinPlanposten, fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
+import { fetchFinAbgehakt, fetchFinBankregeln, fetchFinBuchungBelegbilder, fetchFinBuchungDateien, finBelegDateiLink, fetchFinPlan, fetchFinPruefung, fetchFinZahlauftraege, fetchFinArtikelLeistungsarten, fetchFinPersonenkonten, fetchFinKostenstellen, fetchFinStapel, fetchFinVorlagen, fetchFinWiederkehrend, fetchFinPlanposten, fetchFinMahnungen, fetchFinSkonti, fetchFinExportProtokolle, fetchFinAbschlussposten, fetchFinVortrag, fetchFinAfaGebucht, fetchFinAnlagen, fetchFirmenfahrzeugeFuerAnlagen, fetchFinEuer, fetchFinKontenblatt, fetchFinSalden, fetchFinKassenstuerze, fetchFinUstStand, fetchFinBankimporte, fetchFinBankkonten, fetchFinBankumsaetze, fetchFinBelege, fetchFinBuchungen, fetchFinEinstellungen, fetchFinLieferanten, fetchFinRechnungenStand, fetchFinFestschreibungen, fetchFinKonten, fetchFinSteuerschluessel } from "@/lib/api/finance";
 import type { Kontenrahmen } from "@/lib/finance/einstellungen";
 import {
   fetchWarehouses, fetchStorageSlots, fetchTireStorages, fetchLagerKennzahlen,
@@ -615,6 +615,18 @@ export function useFinZahlauftraege(supabase: SupabaseClient, aktiv: boolean) {
 }
 export function useFinBuchungDateien(supabase: SupabaseClient, buchungId: string | null, aktiv: boolean) {
   return useQuery({ queryKey: qk.finBuchungDateien(buchungId ?? ""), queryFn: () => fetchFinBuchungDateien(supabase, buchungId as string), enabled: aktiv && !!buchungId, staleTime: FRISCH_MS, retry: false });
+}
+// v187: Belegbild in der Detailspalte (Journal, Kontoblatt) und ein Link dazu (15 Minuten gültig, 10 Minuten gemerkt).
+export function useFinBuchungBelegbilder(supabase: SupabaseClient, buchungId: string | null, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finBuchungBelegbilder(buchungId ?? ""), queryFn: () => fetchFinBuchungBelegbilder(supabase, buchungId as string), enabled: aktiv && !!buchungId, staleTime: FRISCH_MS, retry: false });
+}
+export function useFinDateiLink(supabase: SupabaseClient, pfad: string | null, aktiv: boolean) {
+  return useQuery({ queryKey: qk.finDateiLink(pfad ?? ""), queryFn: () => finBelegDateiLink(supabase, pfad as string), enabled: aktiv && !!pfad,
+    staleTime: 10 * 60_000, gcTime: 10 * 60_000, retry: false });
+}
+// Die eigene Nutzer-ID aus der gespeicherten Sitzung (ohne Netz) – für „Heute von dir gebucht“.
+export function useMeineId(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.meineId(), queryFn: async () => (await supabase.auth.getSession()).data.session?.user.id ?? null, enabled: aktiv, staleTime: Infinity, retry: false });
 }
 export function useFinPlan(supabase: SupabaseClient, jahr: number, aktiv: boolean) {
   return useQuery({ queryKey: qk.finPlan(jahr), queryFn: () => fetchFinPlan(supabase, jahr), enabled: aktiv, staleTime: FRISCH_MS, retry: false });

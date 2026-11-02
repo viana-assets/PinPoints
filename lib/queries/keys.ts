@@ -118,6 +118,10 @@ export const qk = {
   finBuchungDateien: (buchungId: string) => ["finance", "buchung-dateien", buchungId] as const,
   finPlan: (jahr: number) => ["finance", "plan", jahr] as const,
   finPruefung: (jahr: number) => ["finance", "pruefung", jahr] as const,
+  // v187: alle Belegbilder einer Buchung (Beleg + angehängte Dateien) – unter finBuchungDateien, damit Anhängen beide auffrischt.
+  finBuchungBelegbilder: (buchungId: string) => ["finance", "buchung-dateien", buchungId, "alle"] as const,
+  finDateiLink: (pfad: string) => ["finance", "datei-link", pfad] as const,
+  meineId: () => ["meine-id"] as const,
 
   // Team-Chat (Migration 80). Der Oberbegriff trifft Verlauf, Zahl und Personen zugleich – eine neue
   // Nachricht ändert Verlauf und Zahl auf einmal.

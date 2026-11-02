@@ -265,6 +265,8 @@ export default function HomePage() {
     const f = ansichtLesen().finSeite;
     return f && (f === "mehr" || FINANCE_SEITEN.some((s) => s.key === f)) ? (f as FinanceAnsicht) : "uebersicht";
   });
+  // Wirtschaftsjahr der Finance-Kopfleiste (v187): hier, weil Seitenleiste (Zähler) und Inhalt es teilen. Startet im laufenden Jahr.
+  const [finJahr, setFinJahr] = useState(() => new Date().getFullYear());
   // Wo dieses Fenster steht, für das nächste Neuladen merken (v167).
   useEffect(() => { ansichtMerken({ tab, system: systemWunsch, finSeite }); }, [tab, systemWunsch, finSeite]);
   // Mausrad über Filterpillen und Umschaltern scrollt sie seitlich (v177, lib/querRad.ts).
@@ -2076,7 +2078,7 @@ export default function HomePage() {
           <>
             {/* Seit v178 in Bereichen wie FSM (components/finance/FinanceNavigation.tsx). */}
             <FinanceNavigation seiten={sichtbareFinanceSeiten((r) => darf(r))} aktiv={finSeite === "mehr" ? null : finSeite}
-              onSeite={setFinSeite} />
+              onSeite={setFinSeite} supabase={supabase} jahr={finJahr} darf={darf} />
             <NavItem className="nav-more-btn" active={finSeite === "mehr" || !sichtbareFinanceSeiten((r) => darf(r)).some((s) => s.key === finSeite && s.primaer)}
               onClick={() => setFinSeite("mehr")} icon={<IconMore />} label="Weitere" />
           </>
@@ -2125,7 +2127,7 @@ export default function HomePage() {
         </header>
 
         {systemAktiv === "finance" && (
-          <FinanceBereich supabase={supabase} seite={finSeite} onSeite={setFinSeite} darf={darf}
+          <FinanceBereich supabase={supabase} seite={finSeite} onSeite={setFinSeite} darf={darf} jahr={finJahr} onJahr={setFinJahr}
             wechselbar={systemWechselbar} onSystemWahl={() => setSystemWahlOffen(true)}
             onRechnungOeffnen={(orderId) => {
               // Dasselbe Rechnungsfenster wie in FSM (F3). Ein älterer erledigter Auftrag liegt nicht im

@@ -81,7 +81,7 @@ export async function fetchFinSteuerschluessel(supabase: SupabaseClient, rahmen:
 export async function fetchFinBuchungen(supabase: SupabaseClient, jahr: number): Promise<FinBuchung[]> {
   const alle = await fetchPaged<FinBuchung>("Die Buchungen konnten nicht geladen werden", (von, bis) =>
     supabase.from("fin_buchungen")
-      .select("id, jahr, nr, datum, text, beleg, quelle, quelle_id, storno_von, storniert_durch, grund, erstellt_am, fin_buchungszeilen(id, posten, seite, konto, betrag, steuerschluessel, ist_steuer, kost1, kost2, personenkonto)")
+      .select("id, jahr, nr, datum, text, beleg, quelle, quelle_id, storno_von, storniert_durch, grund, erstellt_am, erstellt_von, fin_buchungszeilen(id, posten, seite, konto, betrag, steuerschluessel, ist_steuer, kost1, kost2, personenkonto)")
       .eq("jahr", jahr).order("nr").order("id").range(von, bis));
   return alle.map((b) => ({
     ...b,
@@ -715,6 +715,24 @@ export async function fetchFinBuchungDateien(supabase: SupabaseClient, buchungId
     supabase.from("fin_buchung_dateien").select("id, buchung_id, pfad, name, typ, erstellt_am").eq("buchung_id", buchungId)
       .order("erstellt_am").order("id"))) ?? [];
 }
+// Alle Belegbilder zu einer Buchung für die Detailspalte (v187): der Beleg aus dem Belegeingang (gebucht oder bezahlt
+// mit dieser Buchung) und was an der Buchung selbst hängt (Migration 114). Fehlt eine Quelle (Migration, Recht),
+// bleibt sie leer – die Vorschau ist eine Hilfe, kein Muss.
+export type FinBelegbild = { pfad: string; name: string; typ: string };
+export async function fetchFinBuchungBelegbilder(supabase: SupabaseClient, buchungId: string): Promise<FinBelegbild[]> {
+  const [belege, dateien] = await Promise.all([
+    supabase.from("fin_belege").select("id, datei_pfad, datei_name, datei_typ")
+      .or(`buchung_id.eq.${buchungId},zahlung_buchung_id.eq.${buchungId}`).not("datei_pfad", "is", null).order("id").limit(5),
+    supabase.from("fin_buchung_dateien").select("id, pfad, name, typ").eq("buchung_id", buchungId).order("erstellt_am").order("id").limit(10),
+  ]);
+  const aus: FinBelegbild[] = [];
+  for (const b of (belege.error ? [] : belege.data ?? []) as { datei_pfad: string; datei_name: string | null; datei_typ: string | null }[]) {
+    aus.push({ pfad: b.datei_pfad, name: b.datei_name ?? "Beleg", typ: b.datei_typ ?? "" });
+  }
+  for (const d of (dateien.error ? [] : dateien.data ?? []) as { pfad: string; name: string; typ: string }[]) aus.push({ pfad: d.pfad, name: d.name, typ: d.typ });
+  return aus;
+}
+
 // Erst die Datei, dann der Eintrag – bleibt nur die Datei liegen, ist sie unsichtbar, nie umgekehrt.
 export async function finBuchungDateiHochladen(supabase: SupabaseClient, buchungId: string, datei: Blob, name: string): Promise<void> {
   const typ = istXml({ type: datei.type, name }) ? "application/xml" : datei.type;

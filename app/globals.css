@@ -5094,6 +5094,57 @@ span.ap-haken{cursor:default;}
   .fi-bericht-stand{text-align:left;}
 }
 
+/* ---------------- Finance v187: Kopfleiste, Statuszeile, Zahlen in der Seitenleiste, Belegbild, Buchen am Handy ---------------- */
+.fi-kopfleiste{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.fi-kopfleiste .ap-chip select{max-width:170px;}
+.fi-suche-global{position:relative;flex:1 1 240px;min-width:200px;max-width:420px;}
+.fi-suche-global .ap-chip-suche{width:100%;}
+.fi-suche-treffer{min-width:100%;max-width:460px;}
+.fi-suche-treffer li{display:flex;justify-content:space-between;gap:12px;align-items:baseline;}
+.fi-suche-treffer li b{font-weight:600;overflow:hidden;text-overflow:ellipsis;}
+.fi-suche-treffer li .small{flex:none;color:var(--muted);}
+.fi-kopf-rahmen{font-size:12px;color:var(--muted);font-weight:600;white-space:nowrap;padding:0 4px;}
+.fi-kopfleiste .ap-neu{margin-left:auto;}
+.ap-chip-partner select{max-width:200px;}
+.fi-statuszeile{position:sticky;bottom:0;z-index:15;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;margin-top:12px;
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:6px 10px;font-size:12px;color:var(--muted);}
+.fi-statuszeile button{background:none;border:0;padding:2px 0;font:inherit;color:inherit;cursor:pointer;text-align:left;}
+.fi-statuszeile button:hover b,.fi-statuszeile button:focus-visible b{text-decoration:underline;}
+.fi-statuszeile b{color:var(--text);font-weight:700;}
+.fi-statuszeile b.fi-st-offen{color:var(--fin);}
+.fi-statuszeile b.fi-st-rot{color:var(--red);}
+.fi-st-tasten{margin-left:auto;}
+.fi-nav-zahl{margin-left:auto;min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--fin);color:#fff;font-size:10.5px;font-weight:700;
+  display:inline-flex;align-items:center;justify-content:center;line-height:1;}
+.fi-nav-zahl.ruhig{background:var(--hover);color:var(--text);}
+.fi-wj-handy{display:flex;align-items:center;gap:4px;margin:0;font-weight:400;}
+.fi-wj-handy select{width:auto;min-width:0;border:0;background:transparent;padding:0 2px;color:var(--text);font-weight:700;}
+.ap-beleg{display:flex;flex-direction:column;gap:4px;border:1px solid var(--border);border-radius:10px;padding:6px;background:var(--bg);
+  text-decoration:none;color:var(--text);margin:8px 0;}
+.ap-beleg.leer{align-items:center;justify-content:center;min-height:44px;color:var(--muted);}
+.ap-beleg img{display:block;width:100%;max-height:220px;object-fit:contain;background:#fff;border-radius:6px;}
+.ap-beleg-kachel{display:flex;align-items:center;justify-content:center;height:90px;border-radius:6px;background:#fff;font-weight:800;font-size:20px;color:var(--fin);letter-spacing:.06em;}
+.ap-beleg-fuss{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--muted);}
+.ap-beleg-fuss span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.fi-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.fi-chip{height:38px;padding:0 14px;border-radius:19px;border:1px solid var(--border);background:var(--chip-bg);color:var(--text);font:inherit;font-size:14px;font-weight:600;cursor:pointer;}
+.fi-chip.an{background:var(--fin);border-color:var(--fin);color:#fff;}
+.fi-chip:disabled{opacity:.5;cursor:default;}
+.fi-handy{display:flex;flex-direction:column;gap:12px;}
+.fi-handy-foto{display:flex;flex-direction:column;gap:8px;align-items:stretch;border:1px dashed var(--border);border-radius:12px;padding:10px;text-align:center;}
+.fi-handy-foto.da{border-style:solid;}
+.fi-handy-foto img{max-height:200px;object-fit:contain;border-radius:8px;background:#fff;}
+.fi-handy-datei{font-weight:600;}
+.fi-handy-foto-knoepfe{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.fi-handy-betrag{font-size:24px !important;font-weight:700;text-align:right;}
+.fi-handy-konto{position:relative;margin-top:6px;}
+.fi-handy-vorschau{display:flex;flex-direction:column;gap:6px;}
+.fi-handy-mehr{align-self:flex-start;}
+.fi-handy-start{width:100%;margin-bottom:10px;}
+@media (max-width: 700px){
+  .fi-nav-zahl{display:none;}
+}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

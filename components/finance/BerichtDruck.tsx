@@ -12,10 +12,11 @@ export type BerichtZeile = { zellen: BerichtZelle[]; art?: "summe" | "leise" };
 // Querformat nur, solange dieses Fenster offen ist (wie RECHNUNG_SEITE_CSS beim Rechnungsfenster).
 const BERICHT_SEITE_CSS = "@page { size: A4 landscape; margin: 12mm 14mm; }";
 
-// Eine Spalte ist eine Zahlenspalte (rechtsbündig), wenn jede gefüllte Zelle eine Zahl, Prozentangabe oder „–“ ist.
+// Eine Spalte ist eine Zahlenspalte (rechtsbündig), wenn jede gefüllte Zelle eine Zahl, Prozentangabe, „–“ oder ein
+// Saldo mit Seite („1.248,30 S“, Kontoblatt seit v187) ist.
 function zahlenspalte(zeilen: BerichtZeile[], i: number): boolean {
   const zellen = zeilen.map((z) => z.zellen[i]).filter((c) => c != null && c !== "");
-  return i > 0 && zellen.length > 0 && zellen.every((c) => typeof c === "number" || /^[+−-]?[\d.,]+\s?%$|^–$/.test(String(c)));
+  return i > 0 && zellen.length > 0 && zellen.every((c) => typeof c === "number" || /^[+−-]?[\d.,]+\s?%$|^–$|^\d{1,3}(\.\d{3})*,\d{2}( [SH])?$/.test(String(c)));
 }
 
 export function BerichtDruck({ titel, unter, kopf, zeilen, fuss, firma, stand, onClose }: {
