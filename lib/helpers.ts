@@ -35,12 +35,13 @@ export function nextOrder(orders: Order[]): Order | null {
   return list[0] || null;
 }
 
-export function isContactedActive(cust: Customer, periodMonths: number): boolean {
+// `heute` (seit v188) statt der Uhr: `effectiveColor` reicht seinen Stichtag durch – vorher rechnete diese Stelle
+// mit dem echten Datum, und der Test „grün innerhalb des Zeitraums“ kippte, sobald der Kalender drei Monate weiter war.
+export function isContactedActive(cust: Customer, periodMonths: number, heute: string = todayStr()): boolean {
   if (cust.status !== "kontaktiert" || !cust.last_contact) return false;
-  const last = new Date(cust.last_contact);
-  const limit = new Date(last);
+  const limit = new Date(cust.last_contact);
   limit.setMonth(limit.getMonth() + (periodMonths || 3));
-  return new Date() < limit;
+  return heute < limit.toISOString().slice(0, 10);
 }
 
 // Die vier Zustände, in denen ein Kunde auf Karte und Liste erscheinen kann (Migration 23).
@@ -99,7 +100,7 @@ export function effectiveColor(
   if (cust.kontakt_ergebnis === "kein_interesse") return "kein-interesse";
   if (cust.wiedervorlage_am && cust.wiedervorlage_am > heute) return "wiedervorlage";
   if (cust.wiedervorlage_am) return "red";
-  return isContactedActive(cust, periodMonths) ? "green" : "red";
+  return isContactedActive(cust, periodMonths, heute) ? "green" : "red";
 }
 
 // Welche Kunden haben einen Termin vor sich? Einmal gebildet statt je Kunde durch alle

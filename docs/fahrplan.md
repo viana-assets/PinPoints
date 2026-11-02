@@ -16,6 +16,9 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **02.11.2026 – Test „grün innerhalb des Wiedervorlage-Zeitraums“ rot nach Monatswechsel (Service Worker v188, ohne
+  Migration).** `isContactedActive` rechnete mit der echten Uhr statt mit dem Stichtag aus `effectiveColor` – der Test mit
+  festem Datum (29.08.2026) kippte, sobald heute mehr als drei Monate nach dem Kontakt lag. Jetzt wird `heute` durchgereicht.
 * **30.10.2026 – Finance: Rest aus dem Entwurf nachgeholt (Service Worker v187, ohne Migration).** Abgleich Mockup ↔ gebaute
   App (Vitali): Was fehlte, ist gebaut – Kopfleiste am Rechner mit Wirtschaftsjahr, Periode und Suche (F2), Schnellbuchung
   von jeder Seite, Statuszeile (Belegeingang, Bank, nächste Frist, festgeschrieben bis), Zahlen in der Seitenleiste; Journal
