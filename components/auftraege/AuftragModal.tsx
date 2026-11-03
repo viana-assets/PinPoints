@@ -3,7 +3,7 @@ import type { SatzNotizen } from "@/lib/lagerNotizen";
 import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useAusgang } from "@/lib/offline/speicher";
 import { useEffect, useRef, useState } from "react";
-import type { Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verfuegbarkeit, Warehouse } from "@/lib/types";
+import type { Ansprechpartner, Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verfuegbarkeit, Warehouse } from "@/lib/types";
 import { eintragAm, fensterText, teamHinweise } from "@/lib/verfuegbarkeit";
 import type { RadFelder } from "@/lib/api/lager";
 import { BestaetigungBlatt } from "./BestaetigungBlatt";
@@ -32,6 +32,11 @@ import { RechnungsdatenBlock } from "./RechnungsdatenBlock";
 import { FahrzeugeBlock } from "./FahrzeugeBlock";
 import { AuftragProtokoll } from "./AuftragProtokoll";
 import { auftragsNr } from "@/lib/testkunde";
+import { AdressFeld } from "@/components/AdressFeld";
+import {
+  apAnzeige, hatEigeneAdresse, wechselortAusAuftrag, wechselortGleich, wechselortMangel, wechselortVorschlag, type WechselortEingabe,
+} from "@/lib/ansprechpartner";
+import { kundenName as kundeNameVon } from "@/lib/kundengruppe";
 
 // Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
 //
@@ -65,7 +70,12 @@ export function AuftragModal({
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
   andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null, kunden,
+  ansprechpartner = [], onFahrzeugAnsprechpartner,
 }: {
+  // Ansprechpartner der Gruppe dieses Kunden (Migration 117, v189) mit dem Kunden, unter dem sie stehen – für den
+  // Wechselort und „Steht bei“ am Fahrzeug.
+  ansprechpartner?: { ap: Ansprechpartner; kunde: Customer }[];
+  onFahrzeugAnsprechpartner?: (fahrzeugId: string, apId: string | null) => Promise<void>;
   // Alle Kunden – für die Namen im Tagesplan, wenn der Termin aus dem Kalender gewählt wird
   // (TerminWahlBlatt, v138). Fehlt es, springt der Termin oben wie früher in die Karte „Termin & Team“.
   kunden?: Customer[];
@@ -169,6 +179,8 @@ export function AuftragModal({
     status: OrderStatus; assignedEmployeeIds: string[];
     // Nur bei der Laufkundschaft (Migration 57). Fehlt das Feld, bleibt der Wert unverändert.
     laufkunde?: { name: string; telefon: string; ort: string };
+    // Wechselort (Migration 117, v189). Fehlt er, bleibt er unverändert.
+    wechselort?: WechselortEingabe;
   }) => Promise<void>;
   // Öffnet das Rechnungsfenster. Es liegt NICHT in diesem Bauteil: Es braucht Betriebsdaten
   // und die Belege zu diesem Auftrag, und beides hier durchzureichen hieße, dem
@@ -315,9 +327,20 @@ export function AuftragModal({
   const [lkName, setLkName] = useState(order.laufkunde_name || "");
   const [lkTelefon, setLkTelefon] = useState(order.laufkunde_telefon || "");
   const [lkOrt, setLkOrt] = useState(order.laufkunde_ort || "");
+  // Wechselort (Migration 117, v189) – Teil des Entwurfs wie der Laufkunde; nicht bei der Laufkundschaft.
+  const ortGespeichert = wechselortAusAuftrag(order);
+  const [ort, setOrt] = useState<WechselortEingabe>(ortGespeichert);
+  const ortAp = ort.art === "ansprechpartner" ? ansprechpartner.find((x) => x.ap.id === ort.ansprechpartnerId)?.ap ?? null : null;
+  // Wo dieser Entwurf stattfindet – für Kopf, Navigation und Bestätigung.
+  const ortJetzt = ort.art === "einmalig" && ort.adresse.trim()
+    ? { address: ort.adresse.trim(), lat: ort.lat, lng: ort.lng, geo_genauigkeit: ort.geo }
+    : ortAp && hatEigeneAdresse(ortAp) ? { address: (ortAp.address ?? "").trim(), lat: ortAp.lat, lng: ortAp.lng, geo_genauigkeit: ortAp.geo_genauigkeit }
+    : ort.art === "ansprechpartner" && order.einsatz_adresse ? { address: order.einsatz_adresse, lat: order.einsatz_lat ?? null, lng: order.einsatz_lng ?? null, geo_genauigkeit: order.einsatz_geo_genauigkeit ?? null }
+    : null;
+  const ortBei = ort.art === "ansprechpartner" ? (ortAp ? apAnzeige(ortAp) : order.einsatz_name ?? "") : ort.art === "einmalig" ? ort.name.trim() : "";
   const kundeAnzeige = laufkunde
     ? kundeZumAuftrag({ laufkunde_name: lkName, laufkunde_telefon: lkTelefon, laufkunde_ort: lkOrt }, customer)
-    : customer;
+    : customer && ortJetzt ? { ...customer, ...ortJetzt } : customer;
   const [speichert, setSpeichert] = useState(false);
   const [gespeichert, setGespeichert] = useState(false);
   // Offline schreiben (F1): Was für DIESEN Auftrag noch im Ausgangskorb liegt. Steht oben im
@@ -366,6 +389,7 @@ export function AuftragModal({
     lkName !== (order.laufkunde_name || "") ||
     lkTelefon !== (order.laufkunde_telefon || "") ||
     lkOrt !== (order.laufkunde_ort || "") ||
+    (!laufkunde && !wechselortGleich(ort, ortGespeichert)) ||
     !gleicheListe(mitarbeiterIds, assignedEmployeeIds);
   // Zwei Handlungen brauchen eine Begründung. Statt eines Browser-Dialogs klappt hier ein
   // kleiner Block auf – der Nutzer sieht dabei weiterhin den Auftrag, um den es geht.
@@ -516,6 +540,7 @@ export function AuftragModal({
         status: order.status,
         assignedEmployeeIds: mitarbeiterIds,
         ...(laufkunde ? { laufkunde: { name: lkName, telefon: lkTelefon, ort: lkOrt } } : {}),
+        ...(!laufkunde && !wechselortGleich(ort, ortGespeichert) ? { wechselort: ort } : {}),
       });
       // Den Transporter teilt das Büro ein (Migration 75): Beim Techniker nie mitschreiben – sonst
       // überschriebe ein offenes Fenster mit altem Stand eine Änderung, die das Büro inzwischen gemacht hat.
@@ -801,6 +826,12 @@ export function AuftragModal({
                 <b className="ao-wer-name">{lkName.trim() || "Laufkundschaft"}</b>
                 <span className="ao-wer-adr">{[lkOrt.trim(), "Barverkauf ohne Kundenanlage"].filter(Boolean).join(" · ")}</span>
               </>
+            ) : customer && ortJetzt ? (
+              <>
+                <b className="ao-wer-name">{kundeNameVon(customer)}</b>
+                <span className="ao-wer-adr">{ortBei ? `bei ${ortBei} · ` : ""}{ortJetzt.address}</span>
+                <span className="ao-wer-adr ao-wer-rechnung">Rechnung an: {customer.address.trim() || "ohne Adresse"}</span>
+              </>
             ) : customer ? (
               <>
                 <b className="ao-wer-name">{(customer.company || "").trim() || customer.name}</b>
@@ -857,6 +888,61 @@ export function AuftragModal({
                       <input type="text" value={lkOrt} onChange={(e) => setLkOrt(e.target.value)} placeholder="z. B. Rastplatz A9, Parkplatz Süd" />
                     </label>
                   </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* ---------------------------------------------------------------- Wechselort */}
+          {/* Migration 117 (v189): Wo gewechselt wird, wenn nicht an der Adresse des Kunden – bei einem Ansprechpartner
+              oder an einer Adresse nur für diesen Termin. Die Rechnung geht weiter an den Kunden. */}
+          {customer && !laufkunde && (
+            <div className="db-karte ao-karte ao-wechselort">
+              <div className="db-karte-kopf"><span className="db-karte-titel">Wechselort</span></div>
+              {gesperrt || !feldeAendern ? (
+                <span className="small">{ortJetzt ? `${ortBei ? `bei ${ortBei} · ` : ""}${ortJetzt.address}` : "Adresse des Kunden"}</span>
+              ) : (
+                <>
+                  <select aria-label="Wechselort" value={ort.art === "ansprechpartner" ? `ap:${ort.ansprechpartnerId ?? ""}` : ort.art ?? ""}
+                    onChange={(e) => {
+                      const w = e.target.value;
+                      if (!w) setOrt({ ...ort, art: null, ansprechpartnerId: null });
+                      else if (w === "einmalig") setOrt({ ...ort, art: "einmalig", ansprechpartnerId: null });
+                      else setOrt({ ...ort, art: "ansprechpartner", ansprechpartnerId: w.slice(3) });
+                    }}>
+                    <option value="">Adresse des Kunden{customer.address.trim() ? ` – ${customer.address.trim()}` : ""}</option>
+                    {ansprechpartner.map(({ ap, kunde }) => (
+                      <option key={ap.id} value={`ap:${ap.id}`} disabled={!hatEigeneAdresse(ap)}>
+                        {apAnzeige(ap)}{kunde.id !== customer.id ? ` (${kundeNameVon(kunde)})` : ""}{hatEigeneAdresse(ap) ? ` – ${(ap.address ?? "").trim()}` : " – ohne eigene Adresse"}
+                      </option>
+                    ))}
+                    {ort.art === "ansprechpartner" && ort.ansprechpartnerId && !ortAp && <option value={`ap:${ort.ansprechpartnerId}`}>{order.einsatz_name || "Ansprechpartner"}</option>}
+                    <option value="einmalig">Andere Adresse – nur für diesen Termin …</option>
+                  </select>
+                  {ort.art === "einmalig" && (
+                    <div className="nk-zeile">
+                      <label className="nk-feld"><span>Bezeichnung (freiwillig)</span>
+                        <input type="text" value={ort.name} maxLength={140} onChange={(e) => setOrt({ ...ort, name: e.target.value })} placeholder="z. B. Messe, Baustelle" />
+                      </label>
+                      <label className="nk-feld"><span>Adresse *</span>
+                        <AdressFeld wert={ort.adresse} platzhalter="Straße Nr., PLZ Ort"
+                          onChange={(t) => setOrt({ ...ort, adresse: t, lat: null, lng: null, geo: null })}
+                          onVorschlagGewaehlt={(v) => setOrt({ ...ort, adresse: v.label, lat: v.lat, lng: v.lng, geo: "exakt" })} />
+                      </label>
+                    </div>
+                  )}
+                  {(() => {
+                    const vorschlag = !ort.art ? wechselortVorschlag(auftragsFahrzeuge.map((f) => f.vehicle_id), vehicles, ansprechpartner.map((x) => x.ap)) : null;
+                    return vorschlag ? (
+                      <button type="button" className="es-knopf ao-vorschlag" onClick={() => setOrt({ ...ort, art: "ansprechpartner", ansprechpartnerId: vorschlag.id })}>
+                        Die Fahrzeuge stehen bei {apAnzeige(vorschlag)} – dort wechseln
+                      </button>
+                    ) : null;
+                  })()}
+                  {wechselortMangel(ort) && <span className="small ao-fehlt-text">{wechselortMangel(ort)}</span>}
+                  {ort.art === "einmalig" && ort.adresse.trim() && ort.lat == null && (
+                    <span className="small">Ohne gewählten Vorschlag sucht die App die Adresse beim Speichern selbst.</span>
+                  )}
                 </>
               )}
             </div>
@@ -1053,6 +1139,8 @@ export function AuftragModal({
               onFahrzeugAnlegen={(kz, kid) => onRechnungsFahrzeugAnlegen(order.id, kid ?? order.customer_id, kz)}
               gruppe={gruppe}
               onFahrzeugHalter={onFahrzeugHalter}
+              ansprechpartner={ansprechpartner.map(({ ap, kunde }) => ({ id: ap.id, name: apAnzeige(ap) + (customer && kunde.id !== customer.id ? ` (${kundeNameVon(kunde)})` : "") }))}
+              onFahrzeugAnsprechpartner={darfFahrzeuge ? onFahrzeugAnsprechpartner : undefined}
               onKilometerstand={onKilometerstand}
               onFahrzeugAngaben={darfFahrzeuge ? onFahrzeugAngaben : undefined}
               darfAnlegen={darfFahrzeuge}
@@ -1367,7 +1455,7 @@ export function AuftragModal({
         <UnterschriftBlatt
           auftragsNr={auftragsNr(order.order_number)}
           datum={order.order_date}
-          vorschlagName={laufkunde ? lkName : customer?.name ?? ""}
+          vorschlagName={laufkunde ? lkName : ortAp ? ortAp.name : customer?.name ?? ""}
           onSpeichern={(bild, masse, name) => belege.onHochladen("unterschrift", bild, masse, name)}
           onClose={() => setUnterschriftOffen(false)}
         />
@@ -1400,7 +1488,10 @@ export function AuftragModal({
           // Datum und Uhrzeit aus dem Entwurf: Wer eben verschoben und noch nicht gespeichert hat,
           // bestätigt sonst den alten Termin. Gespeichert wird trotzdem nur mit „Speichern".
           auftrag={{ order_date: datum || order.order_date, time: zeit || null, end_time: zeitBis || null }}
-          kunde={kundeAnzeige}
+          // Beim Ansprechpartner als Wechselort geht die Nachricht an ihn (Name, Telefon, E-Mail), sonst an den Kunden.
+          kunde={ortAp ? { ...kundeAnzeige, anrede: ortAp.anrede, name: ortAp.name, phone_mobile: ortAp.telefon ?? kundeAnzeige.phone_mobile,
+            phone_landline: ortAp.telefon ? null : kundeAnzeige.phone_landline, email: ortAp.email ?? kundeAnzeige.email } : kundeAnzeige}
+          woAnders={!!ortJetzt}
           kennzeichen={auftragsFahrzeuge.map((af) => af.fahrzeug?.license_plate?.trim()).filter((k): k is string => !!k)}
           betrieb={betrieb}
           onClose={() => setBestaetigungOffen(false)}

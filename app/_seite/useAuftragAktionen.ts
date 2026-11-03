@@ -9,7 +9,8 @@ import {
   deleteOrderById, insertOrder, updateOrderById, updateOrderFirmenfahrzeug, updateOrderStatusById,
   updateOrderTechnikerNotiz, updateOrderTermin,
 } from "@/lib/api/orders";
-import { currentArticlePrice, DEFAULT_VAT_RATE, terminTitel, todayStr } from "@/lib/helpers";
+import { currentArticlePrice, DEFAULT_VAT_RATE, geocodeAddress, terminTitel, todayStr } from "@/lib/helpers";
+import type { WechselortEingabe } from "@/lib/ansprechpartner";
 import { aenderungen, AUFTRAG_OFFLINE_FELDER, type AuftragFeld } from "@/lib/offline/ausgang";
 import { ausgangAufnehmen } from "@/lib/offline/speicher";
 import type { Article, ArticlePrice, Customer, Order, OrderArticle, OrderStatus, TireStorage } from "@/lib/types";
@@ -155,8 +156,12 @@ export function useAuftragAktionen(k: AuftragKontext) {
   async function updateOrder(id: string, fields: {
     title: string; description: string; orderDate: string; time: string; endTime?: string; rechnungNoetig?: boolean;
     status: OrderStatus; assignedEmployeeIds: string[]; laufkunde?: { name: string; telefon: string; ort: string };
+    wechselort?: WechselortEingabe;
   }) {
     if (netzLos()) {
+      // Der Wechselort geht nur mit Netz (Migration 117): Die Adresse eines Ansprechpartners kopiert die Datenbank,
+      // eine einmalige Adresse braucht die Suche nach ihrer Lage.
+      if (fields.wechselort) throw new Error("Den Wechselort ohne Netz nicht ändern – Titel, Beschreibung, Termin und Leistungen gehen offline.");
       // Ohne Netz (F1): Titel, Beschreibung, Termin, „Rechnung benötigt" und die Angaben zum
       // Laufkunden gehen in den Ausgangskorb. Mitarbeiter und Status nicht – das Konzept nimmt
       // sie bewusst aus (Einteilen ist nicht Sache vor Ort, ein Statuswechsel friert ein).
@@ -178,7 +183,17 @@ export function useAuftragAktionen(k: AuftragKontext) {
       if (a) await ausgangAufnehmen(a.inhalt, a.titel);
       return;
     }
-    await updateOrderById(supabase, id, fields);
+    // Eine einmalige Adresse ohne angenommenen Vorschlag: Lage suchen (unkritisch – scheitert es, fehlt nur die Nadel).
+    let felder = fields;
+    if (fields.wechselort?.art === "einmalig" && fields.wechselort.lat == null && fields.wechselort.adresse.trim()) {
+      try {
+        const r = await geocodeAddress(fields.wechselort.adresse);
+        if (r) felder = { ...fields, wechselort: { ...fields.wechselort, lat: r.lat, lng: r.lng, geo: r.genauigkeit } };
+      } catch {
+        // ohne Lage speichern
+      }
+    }
+    await updateOrderById(supabase, id, felder);
     // Die Einteilung nur anfassen, wenn sie sich wirklich geändert hat. Zwei Gründe, und der
     // zweite ist der wichtigere:
     //

@@ -232,6 +232,8 @@ viana-pinpoints/
       KundenListePanel.tsx           Die Kundenliste mit Suche, Filtern, Buchstabenleiste (Entwurf J)
       EingelagerteReifen.tsx         Alle eingelagerten Sätze eines Kunden im Kundenfenster
       KundengruppeKarte.tsx          Kundengruppe im Kundenfenster, „Einem Hauptkunden zuordnen …“ (v165), „Unterdebitoren zuordnen …“ (v166)
+      AnsprechpartnerKarte.tsx       Ansprechpartner im Kundenfenster, „Auf der Karte“ für Kunde und Ansprechpartner, Fenster mit
+                                     Fahrzeugen (Migration 117, v189; tests/ansprechpartnerOberflaeche.test.tsx)
       AnrufFenster.tsx               „Auf dem Handy anrufen": Fenster nach Antippen der Meldung
     admin/
       SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Navigation, Anzeige, App)
@@ -365,7 +367,7 @@ viana-pinpoints/
     karte.ts                      Regeln hinter der Karte (Entwurf W), Nadeln am selben Ort auffächern (v166); gezeichnet in app/_seite/useKarte.ts
     eingelagert.ts                Die eingelagerten Sätze eines Kunden als Liste
     langlieger.ts                 Langlieger-Übersicht (Fahrplan E4)
-    laufkunde.ts                  Laufkunde am Auftrag (Migration 57)
+    laufkunde.ts                  Laufkunde am Auftrag (Migration 57); seit v189 auch der Wechselort (Adresse/Koordinate des Einsatzes)
     mitnehmen.ts                  „Reifen mitnehmen" – eine Rechnung für Abendhinweis und Fenster
     offline/
       ausgang.ts                  Offline schreiben (F1): Absichten, Konflikte, Vorgreifen,
@@ -449,6 +451,8 @@ viana-pinpoints/
     terminAenderung.ts            Termin vorher → nachher für Rückgängig und Historie (v91)
     kennzeichen.ts                Kennzeichen vergleichen, Dubletten erkennen (v93), groß schreiben (v108)
     kundengruppe.ts               Hauptkunde/Unterdebitoren: Gruppe, Mitglieder, Kandidaten beider Richtungen, gleiche Anschrift (Migration 101, v165/v166)
+    ansprechpartner.ts            Ansprechpartner der Gruppe, Wechselort (Spalten, Vorschlag, Text), Nadeln der Karte
+                                  `kartenNadeln()` (Migration 117, v189; tests/ansprechpartner.test.ts)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)
@@ -485,6 +489,7 @@ viana-pinpoints/
       auftragFahrzeuge.ts            Fahrzeuge am Auftrag inkl. Kilometerstand (Migration 44)
       employees.ts                 Mitarbeiter (Einsatzplanung)
       vehicles.ts                  Kundenfahrzeuge (seit v113 auch `fetchVehiclesFuerKunden` in Blöcken zu 150)
+      ansprechpartner.ts             Ansprechpartner lesen/anlegen/ändern/löschen, Kartenschalter, Fahrzeug zuordnen (Migration 117)
       firmenfahrzeuge.ts             Eigene Transporter (getrennt von vehicles.ts, Migration 32)
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
@@ -849,7 +854,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 116** (30.10.2026; 101–107 ausgeführt, 108–116 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 117** (03.11.2026; 101–107 ausgeführt, 108–117 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -1058,6 +1063,9 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **115** – Finance Plan: `fin_plan` (Jahr, Konto, Monat), `fin_plan_setzen()`, `fin_plan_aus_vorjahr()` (Abschnitt 20).
 - **116** – Finance Prüfliste: `fin_pruefung(jahr)` – Lücken, ohne Beleg, ohne Personenkonto, offene Bank, alte Entwürfe,
   nicht festgeschriebene Monate (Abschnitt 21).
+- **117** – Ansprechpartner je Kunde (`kunden_ansprechpartner`, eigene Adresse, „Auf der Karte“), `customers.auf_karte`,
+  Wechselort am Auftrag (`orders.wechselort`, `einsatz_*`, Momentaufnahme mit Nachziehen), Fahrzeug bei einem
+  Ansprechpartner (docs/kunden-und-karte.md „Ansprechpartner und Wechselort“).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **`112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) **und `113_finance_zahlungsausgang.sql`, `114_finance_belegeingang.sql`, `115_finance_plan.sql`, `116_finance_pruefung.sql`** (der Reihe nach, nach 112, alle vor den Dateien von v186) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **`112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) **und `113_finance_zahlungsausgang.sql`, `114_finance_belegeingang.sql`, `115_finance_plan.sql`, `116_finance_pruefung.sql`** (der Reihe nach, nach 112, alle vor den Dateien von v186) **sowie `117_ansprechpartner_und_wechselort.sql`** (unabhängig von 108–116, braucht nur 105; vor den Dateien von v189) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1713,3 +1713,18 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   Entwurf, ohne Personenkonto 1, Buchungslücke 2, leeres Jahr, Techniker abgelehnt. „Alle Daten löschen“ leert die neuen
   Tabellen, das Recht bleibt. `t106`–`t112` gegen 116 gleich. Zweiter Lauf folgenlos. Rücknahme `rollback/116…113_rollback.sql`
   (114 weigert sich bei vorhandenen Belegbildern; je zweimal lauffähig), danach erneut ausgeführt.
+- `117_ansprechpartner_und_wechselort.sql` – **noch auszuführen**, vor den Dateien von v189 (braucht 101 und 105, nicht
+  108–116). Inhalt: `customers.auf_karte`; Tabelle `kunden_ansprechpartner` (RLS wie Kunden, Techniker nur bei eigenen
+  Kunden; Protokoll, Löschrecht); am Auftrag `wechselort`, `ansprechpartner_id`, `einsatz_*` mit `auftrag_wechselort()`
+  (Momentaufnahme der Adresse) und `ansprechpartner_nachziehen()` (offene Aufträge folgen, Leeren einer benutzten Adresse
+  abgelehnt); `vehicles.ansprechpartner_id` mit Prüfung „gleiche Gruppe“. Bestand: bei Firmen wird aus Name/Anrede/Telefon/
+  E-Mail Ansprechpartner 1, der Name am Kunden geleert. Zusammenführen, Auskunft und Schwärzen erweitert. Wache: bricht ohne
+  101/105 ab. Ergebnistabelle mit fünf Zeilen. Fachlich: docs/kunden-und-karte.md „Ansprechpartner und Wechselort“.
+- Geprüft gegen PG 16 (`/tmp/pgt/t117.sql`): Bestand (Firma → Ansprechpartner 1, Privatkunde unverändert), Nadel ohne Adresse
+  und leerer Name abgelehnt, Wechselort beim Ansprechpartner kopiert Name/Adresse/Koordinate, Mogeln an der Adresse
+  überschrieben, Ansprechpartner ohne Adresse, fremde Gruppe, fehlende Wahl, einmalig ohne Adresse und unbekannter Wert
+  abgelehnt; Adressänderung zieht offene Aufträge nach, Leeren abgelehnt; Fahrzeug nur in der eigenen Gruppe; Techniker sieht
+  nur die Ansprechpartner seiner Kunden und legt keine an; Löschen macht aus dem Ort eine einmalige Adresse; Zusammenführen
+  nimmt die Ansprechpartner mit; Auskunft und Schwärzen. `t106`–`t112` und `t116` gegen 117 gleich. Zweiter Lauf folgenlos.
+  Rücknahme `rollback/117_rollback.sql` weigert sich bei neuen Angaben, holt sonst Name/Anrede zurück; zweimal lauffähig,
+  danach erneut ausgeführt.

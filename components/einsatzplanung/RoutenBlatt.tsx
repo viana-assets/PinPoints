@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Customer, Order } from "@/lib/types";
 import { formatDate, geocodeAddress, navigationsZiel, terminZeitraum } from "@/lib/helpers";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
+import { anzeigeName } from "@/lib/kundenAnsicht";
 import { MAPS_ZWISCHENZIELE_MAX, mapsRoutenUrl, routenvorschlag, UMWEG_FAKTOR, type Punkt } from "@/lib/route";
 
 // Die Tagesroute (Fahrplan E5, v104): die Termine eines Tages von der Firmenadresse los und wieder zurück.
@@ -129,7 +130,7 @@ export function RoutenBlatt({ datum, gruppen, startGruppeId, customers, firmenad
                     <button type="button" className="ro-stopp" onClick={() => onOpenOrder(o.id)}>
                       <span className="ro-nr">{index}</span>
                       <span className="ro-text">
-                        <b>{k?.name ?? "Kunde"}</b>
+                        <b>{(k && anzeigeName(k)) || "Kunde"}</b>
                         <span className="small">{[terminZeitraum(o) || "ohne Uhrzeit", k?.address].filter(Boolean).join(" · ")}</span>
                       </span>
                       {modus === "kuerzeste" && r.andersAlsUhrzeit && platz !== index && <span className="ro-anders">nach Uhrzeit {platz}.</span>}
@@ -145,7 +146,7 @@ export function RoutenBlatt({ datum, gruppen, startGruppeId, customers, firmenad
                 <span className="op-gruppe-titel">OHNE KARTENPOSITION – NICHT EINGEPLANT</span>
                 {r.ohnePosition.map(({ o, k }) => (
                   <button key={o.id} type="button" className="ro-stopp leise" onClick={() => onOpenOrder(o.id)}>
-                    <span className="ro-text"><b>{k?.name ?? "Kunde"}</b><span className="small">{[terminZeitraum(o) || "ohne Uhrzeit", k?.address].filter(Boolean).join(" · ")}</span></span>
+                    <span className="ro-text"><b>{(k && anzeigeName(k)) || "Kunde"}</b><span className="small">{[terminZeitraum(o) || "ohne Uhrzeit", k?.address].filter(Boolean).join(" · ")}</span></span>
                   </button>
                 ))}
               </div>

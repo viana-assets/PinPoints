@@ -52,6 +52,8 @@ export type BestaetigungDaten = {
   betrieb: Pick<Betrieb, "firma" | "telefon"> | null;
   // Für die Erinnerung: Ist der Termin heute oder morgen, heißt es so.
   heute: string;
+  // Wechselort (Migration 117, v189): Der Termin ist nicht an der Adresse des Kunden – dann nicht „bei Ihnen“.
+  woAnders?: boolean;
 };
 
 export function bestaetigungText(d: BestaetigungDaten): string {
@@ -66,7 +68,7 @@ export function bestaetigungText(d: BestaetigungDaten): string {
   const wo = d.kunde.address.trim();
   const zeilen = [anredeZeile(d.kunde), ""];
   if (d.art === "bestaetigung") {
-    zeilen.push(`hiermit bestätigen wir Ihren Termin am ${wann}${wo ? ` bei Ihnen in ${wo}` : ""}.`);
+    zeilen.push(`hiermit bestätigen wir Ihren Termin am ${wann}${wo ? ` ${d.woAnders ? "in" : "bei Ihnen in"} ${wo}` : ""}.`);
   } else {
     const wort = d.auftrag.order_date === d.heute ? "heute, " : d.auftrag.order_date === morgen ? "morgen, " : "am ";
     zeilen.push(`wir möchten Sie an Ihren Termin ${wort}${wann}${wo ? ` in ${wo}` : ""} erinnern.`);

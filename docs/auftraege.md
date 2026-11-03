@@ -38,6 +38,7 @@ Daten.
 | `order_date`, `time`, `end_time` | Datum, Anfang, Ende (Migration 37, Abschnitt 4). |
 | `techniker_notiz` | Freitext, ausschließlich von der zugeordneten Techniker-Rolle gepflegt. |
 | `firmenfahrzeug_id` | Welcher eigene Transporter fährt (Migration 32) – Büro-Sache, siehe Abschnitt 3. |
+| `wechselort`, `ansprechpartner_id`, `einsatz_*` | Wo gewechselt wird, wenn nicht beim Kunden (Migration 117, v189): leer = Adresse des Kunden, `ansprechpartner` = Momentaufnahme seiner Adresse, `einmalig` = Adresse nur für diesen Termin. Abschnitt 4a. |
 | `completed_at/by`, `cancelled_at/by`, `cancel_reason`, `reopen_reason` | Von der Datenbank gesetzt, nie vom Client (Migration 20/46). |
 | `rechnung_noetig` | Schalter am Auftrag: kommt auf den Nettobetrag die Steuer (Migration 38)? |
 | `rechnung_erstellt_am/von`, `rechnung_nummer` | Seit Migration 49 von einem Trigger gesetzt, sobald eine Rechnung zum Auftrag entsteht (Abschnitt 8e) – kein manueller Haken mehr. |
@@ -237,6 +238,14 @@ der Datenbank erzwungen (ein Auftrag entsteht per Karten-Klick eine Sekunde lang
 eine NOT-NULL-Regel würde genau diesen Weg verbauen). Sie gilt für jeden, der die Felder ändern
 darf – seit Migration 41 also auch für den Techniker an seinen eigenen Aufträgen (bis 04.10.2026
 stand hier „nicht für Techniker"; das galt nur, solange er ausschließlich die Notiz schreiben durfte).
+
+### 4a. Wechselort (Migration 117, v189, 03.11.2026)
+
+Karte „Wechselort“ im Auftragsfenster: Adresse des Kunden, ein Ansprechpartner der Kundengruppe oder eine Adresse nur für
+diesen Termin. Die Rechnung bleibt beim Kunden („Rechnung an:“ im Kopf). Die Datenbank kopiert beim Ansprechpartner Name
+und Adresse (`auftrag_wechselort()`) und zieht offene Aufträge nach, wenn er umzieht; erledigte behalten den Ort.
+Kalender, Liste, Karte, Route, Packliste, Navigation und Terminbestätigung folgen dem Wechselort über
+`kundeFuerAuftrag()`. Ohne Netz nicht änderbar. Einzelheiten: docs/kunden-und-karte.md „Ansprechpartner und Wechselort“.
 
 ### Uhrzeit eingeben (v168, 19.10.2026)
 

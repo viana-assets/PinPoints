@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v188";
+export const APP_VERSION = "v189";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,18 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v189", datum: "2026-11-03", titel: "Mehrere Ansprechpartner je Kunde, Wechselort am Termin",
+    punkte: [
+      "Im Kundenfenster gibt es die Karte „Ansprechpartner“: beliebig viele je Kunde, mit Funktion, Telefon, E-Mail, Notiz und – freiwillig – einer eigenen Adresse. Anrufen und Mail gehen direkt aus der Liste. Private Adressen bitte nur eintragen, wo dort tatsächlich gewechselt wird.",
+      "Die Rechnung geht weiter an den Kunden (bei einer Kundengruppe an den Unterdebitor), nie an einen Ansprechpartner. Bei Firmen steht der bisherige Ansprechpartner jetzt als Ansprechpartner 1 in der neuen Karte; das Feld „Zu Händen“ im Reiter Daten ist nur noch für die Rechnung.",
+      "„Auf der Karte“: Ein Ansprechpartner mit eigener Adresse kann eine eigene Nadel bekommen – in der Farbe der Firma, blau erst, wenn dort ein Termin ansteht. Die Firmenadresse lässt sich von der Karte nehmen (nur Rechnungsadresse); eine Nadel erscheint dort dann nur, solange ein Termin an dieser Adresse ansteht.",
+      "Im Auftragsfenster die neue Karte „Wechselort“: Adresse des Kunden, ein Ansprechpartner oder eine Adresse nur für diesen Termin. Stehen die Fahrzeuge des Auftrags bei einem Ansprechpartner, schlägt die App ihn vor. Kalender, Karte, Tagesroute, Packliste, Navigation und die Terminbestätigung nehmen dann diesen Ort.",
+      "Fahrzeuge gehören weiter dem Kunden, lassen sich aber einem Ansprechpartner zuordnen – im Fenster des Ansprechpartners oder im Auftrag unter „Steht bei“. Das Etikett der eingelagerten Reifen nennt dann Firma, Fahrzeug und „bei …“.",
+      "Zieht ein Ansprechpartner um, folgen offene Termine bei ihm der neuen Adresse; erledigte behalten den alten Ort. Wird er gelöscht, behalten seine Termine die Adresse.",
+      "Datenbank: Migration 117 im Supabase-SQL-Editor ausführen, bevor die Dateien hochgeladen werden.",
+    ],
+  },
   {
     version: "v188", datum: "2026-11-02", titel: "Kundenfarbe: Wiedervorlage-Zeitraum zuverlässig",
     punkte: [

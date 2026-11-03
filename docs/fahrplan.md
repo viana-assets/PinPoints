@@ -16,6 +16,13 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **03.11.2026 – Ansprechpartner je Kunde und Wechselort am Termin (Service Worker v189, Migration 117).** Wunsch Vitali:
+  unter einer Firma mehrere Ansprechpartner mit eigener Adresse, beim Termin wählen, wo gewechselt wird (Firmenadresse,
+  Ansprechpartner, einmalige Adresse). Die Rechnung bleibt beim Kunden. „Auf der Karte“ für Kunde und Ansprechpartner,
+  Nadel im Zustand des Kunden, Fahrzeuge einem Ansprechpartner zuordnen („Steht bei“, Etikett). Kalender, Karte, Route,
+  Packliste, Navigation und Terminbestätigung folgen dem Wechselort. Bestand: bei Firmen wurde der bisherige
+  Ansprechpartner zu Ansprechpartner 1. Offen als Runde 2 (v190): eine Rechnung je Unterdebitor aus einem Auftrag beim
+  Hauptkunden, Leistungen je Fahrzeug (docs/kunden-und-karte.md „Ansprechpartner und Wechselort“).
 * **02.11.2026 – Test „grün innerhalb des Wiedervorlage-Zeitraums“ rot nach Monatswechsel (Service Worker v188, ohne
   Migration).** `isContactedActive` rechnete mit der echten Uhr statt mit dem Stichtag aus `effectiveColor` – der Test mit
   festem Datum (29.08.2026) kippte, sobald heute mehr als drei Monate nach dem Kontakt lag. Jetzt wird `heute` durchgereicht.

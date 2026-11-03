@@ -9,7 +9,7 @@ import type {
   Customer, ContactHistoryEntry, UserSettings, Warehouse, StorageSlot, TireStorage, Order,
   Vehicle, Role, Employee, Article, ArticlePrice, ArtikelFelder, OrderArticle, Saison,
   Firmenfahrzeug, EingelagertesRad, Rechnung, Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
-  AuftragBeleg, OrderStatus, Bestellwunsch,
+  AuftragBeleg, OrderStatus, Bestellwunsch, Ansprechpartner,
 } from "@/lib/types";
 import {
   todayStr, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
@@ -147,8 +147,11 @@ import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useGruppeFahrzeuge, useKundeHistorie, useMitarbeiter,
   useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useAppStand, useRechnungen, useAuftragRechnungen, useLager,
   useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge, useFirmenfahrzeuge,
-  useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten, useBestellwuensche,
+  useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten, useBestellwuensche, useAnsprechpartner,
 } from "@/lib/queries/hooks";
+import { apsDerGruppe, apsVonKunde, apSuchtexte } from "@/lib/ansprechpartner";
+import { fahrzeugAnsprechpartner } from "@/lib/api/ansprechpartner";
+import { AnsprechpartnerKarte } from "@/components/kunden/AnsprechpartnerKarte";
 import { verfuegbarkeitAustragen, verfuegbarkeitSetzen, verfuegbarkeitVorlage } from "@/lib/api/verfuegbarkeit";
 import type { VerfuegbarkeitImPlan } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { useLagerAktionen } from "./_seite/useLagerAktionen";
@@ -164,6 +167,7 @@ import {
 // Stabile leere Listen: `?? []` würde bei jedem Rendern ein neues Array erzeugen und damit
 // Effekte auslösen, die eigentlich nur auf echte Datenänderungen reagieren sollen.
 const KEINE_KUNDEN: Customer[] = [];
+const KEINE_ANSPRECHPARTNER: Ansprechpartner[] = [];
 const KEINE_AUFTRAEGE: Order[] = [];
 const KEINE_MITARBEITER: Employee[] = [];
 const KEINE_ARTIKEL: Article[] = [];
@@ -548,6 +552,10 @@ export default function HomePage() {
   const kontaktKunde = (kundenQuery.data ?? KEINE_KUNDEN).find((c) => c.id === kontaktKundeId);
 
   const customers = kundenQuery.data ?? KEINE_KUNDEN;
+  // Ansprechpartner (Migration 117, v189): wenige, deshalb mit den Kunden auf einmal; ohne Migration leer.
+  const ansprechpartnerQuery = useAnsprechpartner(supabase, sitzungBereit);
+  const ansprechpartner = ansprechpartnerQuery.data ?? KEINE_ANSPRECHPARTNER;
+  const apTexte = useMemo(() => apSuchtexte(ansprechpartner), [ansprechpartner]);
   const orders = auftraegeDaten?.orders ?? KEINE_AUFTRAEGE;
   const employees = mitarbeiterQuery.data ?? KEINE_MITARBEITER;
   // Welche Mitarbeiter in den FILTERLEISTEN von Auftragsliste und Einsatzplanung auftauchen.
@@ -1035,7 +1043,7 @@ export default function HomePage() {
     mapDivRef, mapRef, terminKundenRef, tagRef, tagAusrichtenOffenRef, kartenKarteRef,
     syncMarkers, tagAusrichten, nadelHervorheben, kartenFlaecheSperren, standortZeigen, platzFuerKarte, applyMapStyle,
   } = useKarte({
-    loading, settings, customers, orders, sichtbareZustaende, liveRef, kartenKundeId, tagStationId, positionSetzenZiel, positionSetzenRef,
+    loading, settings, customers, orders, sichtbareZustaende, liveRef, kartenKundeId, tagStationId, positionSetzenZiel, positionSetzenRef, ansprechpartner,
     setKartenKundeId, setTagStationId, setKartenAusschnitt, setFehler, setStandortSucht,
     positionAusKarteSpeichern: (id, lat, lng) => positionAusKarteSpeichern(id, lat, lng),
   });
@@ -1286,7 +1294,9 @@ export default function HomePage() {
             || (c.company || "").toLowerCase().includes(s)
             || (c.email || "").toLowerCase().includes(s)
             // Seit v102 (D10) auch über die Telefonnummer, gleich in welcher Schreibweise.
-            || telefonPasst([c.phone_mobile, c.phone_landline], search);
+            || telefonPasst([c.phone_mobile, c.phone_landline], search)
+            // Seit v189 auch über Name, Telefon und E-Mail der Ansprechpartner (Migration 117).
+            || (apTexte.get(c.id) ?? "").toLowerCase().includes(s);
         })
         // Nach dem angezeigten Namen (bei Firmen die Firma), wie Sortierung und Gruppen der Liste.
         .filter((c) => !letterFilter || anfangsbuchstabe(c) === letterFilter)
@@ -1295,7 +1305,7 @@ export default function HomePage() {
           const match = c.address.match(/\b\d{5}\b/);
           return !!match && match[0].startsWith(plzFilter.trim());
         }),
-    [activeCustomers, search, letterFilter, plzFilter]
+    [activeCustomers, search, letterFilter, plzFilter, apTexte]
   );
   const artZahlen = useMemo(() => kundenArtZahlen(vorArt), [vorArt]);
   const vorgefiltert = useMemo(() => vorArt.filter((c) => kundenArtPasst(c, kundenArt)), [vorArt, kundenArt]);
@@ -2905,6 +2915,7 @@ export default function HomePage() {
           warehouses={warehouses}
           onClose={() => setEtikettSatzIds([])}
           onKundeWechseln={darf("kunden.fahrzeuge", "schreiben") || darf("lager.einlagerung", "schreiben") ? etikettKundeWechseln : undefined}
+          ansprechpartner={ansprechpartner}
         />
       )}
 
@@ -2951,7 +2962,7 @@ export default function HomePage() {
           andereAuftraege={orders}
           auftragsZuordnungen={orderEmployees}
           kunden={customers}
-          kundeName={(id) => customers.find((c) => c.id === id)?.name ?? "Unbekannter Kunde"}
+          kundeName={(id) => { const k = customers.find((c) => c.id === id); return k ? anzeigeName(k) || "Unbekannter Kunde" : "Unbekannter Kunde"; }}
           customer={customers.find((c) => c.id === offenerAuftrag.customer_id)}
           vehicles={auftragKundenFahrzeuge}
           employees={employees}
@@ -3053,6 +3064,8 @@ export default function HomePage() {
           onRechnungsFahrzeugAnlegen={(o, k, kz) => rechnungsFahrzeugAnlegen(o, k, kz, auftragGruppeIds)}
           gruppe={auftragGruppe.length > 1 ? auftragGruppe : undefined}
           onFahrzeugHalter={darf("kunden.fahrzeuge", "schreiben") ? fahrzeugHalterWechseln : undefined}
+          ansprechpartner={apsDerGruppe(offenerAuftrag.customer_id, customers, ansprechpartner)}
+          onFahrzeugAnsprechpartner={async (fid, apId) => { await fahrzeugAnsprechpartner(supabase, fid, apId); await refreshVehicles(); }}
           onKilometerstand={kilometerstandSetzen}
           onFahrzeugAngaben={fahrzeugAngabenSetzen}
           onFahrzeugEntfernen={fahrzeugEntfernen}
@@ -3164,6 +3177,11 @@ export default function HomePage() {
           onZumLagerplatz={canView("lager") ? (platzId) => { setSelectedId(null); setGescannterLagerplatzId(platzId); setTab("lager"); } : undefined}
           onNavigate={openNavMenu}
           onCall={openCallMenu}
+          ansprechpartnerKarte={
+            <AnsprechpartnerKarte supabase={supabase} kunde={gewaehlterKunde} aps={apsVonKunde(gewaehlterKunde.id, ansprechpartner)} fahrzeuge={vehicles}
+              darfSchreiben={darf("kunden", "schreiben")} darfLoeschen={darf("kunden", "loeschen")} fehlt={ansprechpartnerQuery.isError}
+              onFahrzeugeGeaendert={() => refreshVehicles()} />
+          }
         />
       )}
 

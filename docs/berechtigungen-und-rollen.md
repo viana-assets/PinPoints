@@ -464,6 +464,12 @@ Gruppe zuordnen) verlangt `kunden.fahrzeuge` S, beim Techniker dazu `ist_eigener
 bisheriger Halter in derselben Gruppe stehen. `ist_eigener_kunde()` zählt seither auch die Unterdebitoren eines
 Hauptkunden, auf dessen Auftrag der Techniker steht – sonst sähe er im Auftrag die Fahrzeuge nicht, die er bearbeitet.
 
+**Ansprechpartner und Wechselort** (Migration 117, v189, ohne neues Recht). Ansprechpartner lesen wie Kunden (`kunden` L;
+der Techniker nur bei seinen Kunden, `ist_eigener_kunde()`), anlegen und ändern mit `kunden` S, löschen mit dem
+Löschrecht für Kunden (`pruefe_loeschrecht('kunden')`). Die Schalter „Auf der Karte“ (Kunde und Ansprechpartner) sind
+Änderungen am Kunden (`kunden` S). Der Wechselort ist ein Feld am Auftrag – wer den Auftrag ändern darf, darf ihn setzen;
+ein Fahrzeug einem Ansprechpartner zuordnen verlangt dasselbe wie andere Fahrzeugänderungen (`kunden.fahrzeuge` S).
+
 **Zum Lager navigieren** (Migration 102, v169). Der Knopf im Schnellmenü erscheint mit `lager` L; die Wahl des Lagers
 ist eine eigene Einstellung (`user_settings`, jeder nur seine Zeile). Name und Adresse des Lagers in den Einstellungen
 ändern nur mit `lager.regale` S – dieselbe Richtlinie wie im Lager-Reiter.

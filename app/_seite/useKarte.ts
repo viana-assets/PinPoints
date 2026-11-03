@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type MutableRefObject } from "react";
-import type { Customer, Order, UserSettings } from "@/lib/types";
-import { todayStr, nextOrder, effectiveColor, kundenMitTermin, type KundenZustand } from "@/lib/helpers";
+import type { Ansprechpartner, Customer, Order, UserSettings } from "@/lib/types";
+import { todayStr, nextOrder, type KundenZustand } from "@/lib/helpers";
+import { kartenNadeln, type KartenNadel } from "@/lib/ansprechpartner";
 import { MAP_STYLES, DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM, type MapStyleKey } from "@/lib/mapStyles";
 import { buendeln, nadelFaecher, nadelTerminText, BUENDEL_BIS_ZOOM, BUENDEL_AUSWAHL_AB, type KartenPunkt, type TagesStation } from "@/lib/karte";
 import { nadelHtml, stationHtml, buendelHtml, NADEL_MASS, KREIS_MASS, STATION_MASS } from "@/components/karte/nadel";
@@ -23,6 +24,7 @@ import { nadelHtml, stationHtml, buendelHtml, NADEL_MASS, KREIS_MASS, STATION_MA
 // zu Bündeln zusammen (BUENDEL_BIS_ZOOM, lib/karte.ts) – diese Grenze fängt nur noch den Fall
 // ab, dass auf einer nahen Zoomstufe sehr viele Kunden dicht beieinander liegen.
 const MAX_MARKER = 600;
+const KEINE_AP: Ansprechpartner[] = [];
 
 function escapeHtml(str: string): string {
   return String(str).replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m] as string));
@@ -48,6 +50,8 @@ export type KartenKontext = {
   setFehler: (t: string | null) => void;
   setStandortSucht: (v: boolean) => void;
   positionAusKarteSpeichern: (kundenId: string, lat: number, lng: number) => Promise<void>;
+  // Ansprechpartner (Migration 117, v189): eigene Nadeln für die mit „Auf der Karte“, Termine an ihrem Ort.
+  ansprechpartner?: Ansprechpartner[];
 };
 
 export function useKarte(ctx: KartenKontext) {
@@ -55,6 +59,10 @@ export function useKarte(ctx: KartenKontext) {
     loading, settings, customers, orders, sichtbareZustaende, liveRef, kartenKundeId, tagStationId, positionSetzenZiel, positionSetzenRef,
     setKartenKundeId, setTagStationId, setKartenAusschnitt, setFehler, setStandortSucht, positionAusKarteSpeichern,
   } = ctx;
+  const ansprechpartner = ctx.ansprechpartner ?? KEINE_AP;
+  // Wie `liveRef`: Leaflet-Ereignisse lesen den aktuellen Stand, nicht den beim Registrieren.
+  const apRef = useRef<Ansprechpartner[]>(ansprechpartner);
+  useEffect(() => { apRef.current = ansprechpartner; }, [ansprechpartner]);
 
   // Welche Nadel ist gerade hervorgehoben? Als Ref und nicht als Zustand: Beim Überfahren der
   // Kundenliste soll NICHT die ganze Seite neu gezeichnet werden – es wird nur eine Klasse an
@@ -280,9 +288,11 @@ export function useKarte(ctx: KartenKontext) {
   }
 
   // Die Klassen einer Nadel neu setzen – nach setIcon() ist ihr Element ein neues.
-  function nadelKlassen(kundenId: string, marker: any) {
+  // Seit v189 kann ein Kunde mehrere Nadeln haben (Ansprechpartner, Termin woanders): Der Marker trägt `_kundeId`.
+  function nadelKlassen(schluessel: string, marker: any) {
     const el = marker.getElement() as HTMLElement | undefined;
     if (!el) return;
+    const kundenId = marker._kundeId ?? schluessel;
     el.classList.toggle("pin-hervor", hervorgehobeneNadelRef.current === kundenId);
     el.classList.toggle("pin-gewaehlt", liveRef.current.kartenKundeId === kundenId);
   }
@@ -319,7 +329,6 @@ export function useKarte(ctx: KartenKontext) {
     // Aus `ords` und nicht aus dem Render-Wert: Diese Funktion wird auch von Leaflet-Ereignissen
     // aufgerufen, die einmal registriert wurden. Ein dort eingefangener Wert von damals wäre
     // beim Verschieben der Karte längst veraltet – deshalb liest hier alles aus `liveRef`.
-    const mitTerminLive = kundenMitTermin(ords);
     const heute = todayStr();
     // Nur zeichnen, was im Bild ist (Roadmap Phase 10). `pad` nimmt einen Rand mit, damit beim
     // Schieben nichts nachträglich aufpoppt.
@@ -327,30 +336,30 @@ export function useKarte(ctx: KartenKontext) {
     const zoom = karte.getZoom();
     const nurTermine = terminKundenRef.current;
 
-    const kandidaten: { cust: Customer; zustand: KundenZustand }[] = [];
-    custs.forEach((cust) => {
-      if (cust.active === false || cust.lat == null || cust.lng == null) return;
-      if (!grenzen.contains([cust.lat, cust.lng])) return;
+    // Seit v189 (Migration 117) Nadeln statt Kunden: die Adresse des Kunden (außer „nicht auf der Karte“), jeder
+    // Ansprechpartner mit „Auf der Karte“, jeder Termin an einem anderen Ort – lib/ansprechpartner.ts, `kartenNadeln`.
+    const kandidaten: KartenNadel[] = [];
+    kartenNadeln(custs, apRef.current, ords, s.period_months, heute).forEach((n) => {
+      if (!grenzen.contains([n.lat, n.lng])) return;
       // Ausgeblendete Zustände fallen VOR der Obergrenze raus: sonst würden unsichtbare Nadeln
       // das Kontingent aufbrauchen und der Hinweis zählte Kunden mit, die man nicht sehen will.
-      const zustand = effectiveColor(cust, s.period_months, heute, mitTerminLive.has(cust.id));
       // Bei einer Auswahl (Termine, Saisonliste) gelten die Zustands-Pillen nicht: Die Auswahl
       // ist dort die Frage, und ein in „Kunden" ausgeblendetes „Termin" versteckte sonst genau
       // die Termine, die man sehen will (gemeldet 26.09.2026). Die Pillen stehen dort deshalb
       // auch gar nicht erst.
-      if (!nurTermine && !sichtbar.includes(zustand)) return;
+      if (!nurTermine && !sichtbar.includes(n.zustand)) return;
       // Im Reiter „Termine" bleiben alle Kunden ohne Termin im gewählten Zeitraum außen vor.
-      if (nurTermine && !nurTermine.has(cust.id)) return;
-      kandidaten.push({ cust, zustand });
+      if (nurTermine && !nurTermine.has(n.kunde.id)) return;
+      kandidaten.push(n);
     });
 
     // Weit weg: nahe Nadeln zu Bündeln zusammenfassen (lib/karte.ts, BUENDEL_BIS_ZOOM).
     let einzeln: Set<string> | null = null;
     let buendelListe: ReturnType<typeof buendeln>["buendel"] = [];
     if (zoom <= BUENDEL_BIS_ZOOM && (!nurTermine || kandidaten.length >= BUENDEL_AUSWAHL_AB)) {
-      const punkte: KartenPunkt[] = kandidaten.map(({ cust, zustand }) => {
-        const pt = karte.project([cust.lat, cust.lng], zoom);
-        return { id: cust.id, x: pt.x, y: pt.y, zustand };
+      const punkte: KartenPunkt[] = kandidaten.map((n) => {
+        const pt = karte.project([n.lat, n.lng], zoom);
+        return { id: n.key, x: pt.x, y: pt.y, zustand: n.zustand };
       });
       const r = buendeln(punkte);
       einzeln = new Set(r.einzeln);
@@ -359,56 +368,57 @@ export function useKarte(ctx: KartenKontext) {
 
     // Nadeln am selben Ort nebeneinander statt übereinander (v166, lib/karte.ts `nadelFaecher`). Sortiert nach
     // Name, damit die Reihenfolge beim Verschieben nicht springt.
-    const gezeichnet = kandidaten.filter(({ cust }) => !einzeln || einzeln.has(cust.id)).slice(0, MAX_MARKER)
-      .sort((a, b) => (a.cust.company || a.cust.name).localeCompare(b.cust.company || b.cust.name, "de") || a.cust.id.localeCompare(b.cust.id));
-    const faecher = nadelFaecher(gezeichnet.map(({ cust }) => {
-      const pt = karte.project([cust.lat as number, cust.lng as number], zoom);
-      return { id: cust.id, x: pt.x, y: pt.y };
+    const gezeichnet = kandidaten.filter((n) => !einzeln || einzeln.has(n.key)).slice(0, MAX_MARKER)
+      .sort((a, b) => a.titel.localeCompare(b.titel, "de") || a.key.localeCompare(b.key));
+    const faecher = nadelFaecher(gezeichnet.map((n) => {
+      const pt = karte.project([n.lat, n.lng], zoom);
+      return { id: n.key, x: pt.x, y: pt.y };
     }));
-    const lage = (cust: Customer): [number, number] | { lat: number; lng: number } => {
-      const f = faecher.get(cust.id);
-      return f ? karte.unproject([f.x, f.y], zoom) : [cust.lat as number, cust.lng as number];
+    const lage = (n: KartenNadel): [number, number] | { lat: number; lng: number } => {
+      const f = faecher.get(n.key);
+      return f ? karte.unproject([f.x, f.y], zoom) : [n.lat, n.lng];
     };
 
     let nadeln = 0;
     let ausgelassen = 0;
     const seen = new Set<string>();
-    for (const { cust, zustand } of kandidaten) {
-      if (einzeln && !einzeln.has(cust.id)) continue;
+    for (const n of kandidaten) {
+      if (einzeln && !einzeln.has(n.key)) continue;
       if (nadeln >= MAX_MARKER) { ausgelassen++; continue; }
       nadeln++;
-      seen.add(cust.id);
-      const ungefaehr = cust.geo_genauigkeit === "ungefaehr";
+      seen.add(n.key);
+      const ungefaehr = n.geo === "ungefaehr";
       // Terminnadeln tragen ihr Schild: heute die Uhrzeit, sonst Tag (nadelTerminText).
-      const naechster = zustand === "termin" ? nextOrder(ordersForLive(cust.id, ords)) : null;
+      const naechster = n.zustand === "termin" ? nextOrder(n.termine.length ? n.termine : ordersForLive(n.kunde.id, ords)) : null;
       const schild = naechster ? nadelTerminText(naechster, heute) : null;
-      const schluessel = `${zustand}|${ungefaehr}|${schild ?? ""}`;
-      const tooltip = `<b>${escapeHtml(cust.company || cust.name)}</b><br>${escapeHtml(cust.address)}` +
+      const schluessel = `${n.zustand}|${ungefaehr}|${schild ?? ""}`;
+      const tooltip = `<b>${escapeHtml(n.titel)}</b><br>${escapeHtml(n.adresse)}` +
         (ungefaehr ? "<br><i>Ungefähre Position – nur die Straße war auffindbar</i>" : "");
       // Rot und Termin liegen oben: Rot ist, was heute zu tun ist, der Termin, wo man hinfährt.
-      const ebene = zustand === "termin" ? 400 : zustand === "red" ? 200 : 0;
+      const ebene = n.zustand === "termin" ? 400 : n.zustand === "red" ? 200 : 0;
 
-      let marker = markerIndexRef.current[cust.id];
+      let marker = markerIndexRef.current[n.key];
       if (marker) {
         // Nur bei geänderter Form neu setzen: setIcon baut das Element neu, und syncMarkers
         // läuft bei jedem Verschieben für jede Nadel im Bild.
         if (marker._pinSchluessel !== schluessel) {
-          marker.setIcon(makeIcon(zustand, ungefaehr, schild));
+          marker.setIcon(makeIcon(n.zustand, ungefaehr, schild));
           marker._pinSchluessel = schluessel;
         }
-        marker.setLatLng(lage(cust));
+        marker.setLatLng(lage(n));
         marker.setZIndexOffset(ebene);
         marker.setTooltipContent(tooltip);
       } else {
-        marker = L.marker(lage(cust), { icon: makeIcon(zustand, ungefaehr, schild), zIndexOffset: ebene, riseOnHover: true });
+        marker = L.marker(lage(n), { icon: makeIcon(n.zustand, ungefaehr, schild), zIndexOffset: ebene, riseOnHover: true });
         marker._pinSchluessel = schluessel;
+        marker._kundeId = n.kunde.id;
         marker.bindTooltip(tooltip, { className: "cust-tip", direction: "top", offset: [0, -30] });
-        const id = cust.id;
+        const id = n.kunde.id;
         marker.on("click", () => { marker.closeTooltip(); kartenWahlRef.current(id); });
         marker.addTo(markerLayerRef.current);
-        markerIndexRef.current[cust.id] = marker;
+        markerIndexRef.current[n.key] = marker;
       }
-      nadelKlassen(cust.id, marker);
+      nadelKlassen(n.key, marker);
     }
     Object.keys(markerIndexRef.current).forEach((id) => {
       if (!seen.has(id)) {
@@ -423,7 +433,8 @@ export function useKarte(ctx: KartenKontext) {
     buendelMarkerRef.current = [];
     buendelVonKundeRef.current = {};
     let gebuendelt = 0;
-    const koordinate = new Map(kandidaten.map(({ cust }) => [cust.id, [cust.lat as number, cust.lng as number] as [number, number]]));
+    const koordinate = new Map(kandidaten.map((n) => [n.key, [n.lat, n.lng] as [number, number]]));
+    const kundeVonNadel = new Map(kandidaten.map((n) => [n.key, n.kunde.id]));
     for (const b of buendelListe) {
       gebuendelt += b.ids.length;
       const { html, groesse } = buendelHtml(b.ids.length, b.anteile);
@@ -441,8 +452,9 @@ export function useKarte(ctx: KartenKontext) {
       });
       m.addTo(markerLayerRef.current);
       buendelMarkerRef.current.push(m);
-      for (const id of b.ids) buendelVonKundeRef.current[id] = m;
-      if (hervorgehobeneNadelRef.current && b.ids.includes(hervorgehobeneNadelRef.current)) m.getElement()?.classList.add("pin-hervor");
+      // Das Bündel steht für den Kunden jeder Nadel darin (Überfahren der Kundenliste).
+      for (const id of b.ids) buendelVonKundeRef.current[kundeVonNadel.get(id) ?? id] = m;
+      if (hervorgehobeneNadelRef.current && b.ids.some((id) => (kundeVonNadel.get(id) ?? id) === hervorgehobeneNadelRef.current)) m.getElement()?.classList.add("pin-hervor");
     }
 
     const neu = { nadeln, gebuendelt, buendel: buendelListe.length, ausgelassen };
@@ -453,7 +465,7 @@ export function useKarte(ctx: KartenKontext) {
   function ordersForLive(customerId: string, ords: Order[]) {
     return ords.filter((o) => o.customer_id === customerId);
   }
-  useEffect(() => { syncMarkers(); }, [customers, orders, settings.period_months, sichtbareZustaende]);
+  useEffect(() => { syncMarkers(); }, [customers, orders, settings.period_months, sichtbareZustaende, ansprechpartner]);
 
   // Der Tag auf der Karte: nummerierte Stationen und je Mitarbeiter eine gestrichelte Luftlinie
   // (warum Luftlinie: lib/karte.ts, tagesWege).

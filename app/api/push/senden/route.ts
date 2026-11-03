@@ -223,6 +223,15 @@ export async function POST(request: Request) {
   if (eintragFehler) return antwort({ error: eintragFehler.message }, { status: 500 });
   if (!neu || neu.length === 0) return antwort({ faellig: faellig.length, gesendet: 0 });
 
+  // Wechselort (Migration 117, v189): eigene Abfrage – fehlt die Migration, scheitert nur sie, und die Meldung nennt
+  // wie früher die Adresse des Kunden.
+  const { data: orte } = await supabase
+    .from("orders")
+    .select("id,einsatz_name,einsatz_adresse")
+    .in("id", faellig.map((a) => a.id))
+    .not("wechselort", "is", null);
+  const ortNach = new Map(((orte as { id: string; einsatz_name: string | null; einsatz_adresse: string | null }[] | null) || []).map((o) => [o.id, o]));
+
   const { data: kunden } = await supabase
     .from("customers")
     .select("id,name,company,address,laufkundschaft")
@@ -256,7 +265,7 @@ export async function POST(request: Request) {
         // Einsatzort und die Nummer – „Laufkundschaft" sagte im Auto nichts.
         text: (kunde?.laufkundschaft
           ? [auftrag.laufkunde_name || kunde.name, auftrag.laufkunde_ort, auftrag.laufkunde_telefon, auftrag.title]
-          : [kunde ? anzeigeName(kunde) : null, kunde?.address, auftrag.title]
+          : [kunde ? anzeigeName(kunde) : null, ortNach.get(auftrag.id)?.einsatz_name, ortNach.get(auftrag.id)?.einsatz_adresse || kunde?.address, auftrag.title]
         ).filter(Boolean).join(" · "),
         // Antippen führt direkt in das Auftragsfenster (app/page.tsx wertet den Parameter
         // aus): dort stehen Fahrzeug, Leistungen und die Knöpfe für Navigation und Anruf.

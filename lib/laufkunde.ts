@@ -1,4 +1,5 @@
 import type { Customer, Order } from "./types";
+import { abweichenderOrt } from "./ansprechpartner";
 
 // Der Laufkunde am Auftrag (Migration 57, 24.09.2026).
 //
@@ -14,6 +15,10 @@ import type { Customer, Order } from "./types";
 //
 // Der Einsatzort ist Freitext und wird nicht geokodiert – deshalb bleiben lat/lng leer, und die
 // Navigation sucht nach dem Text. Eine Nadel entsteht daraus nie.
+//
+// Seit v189 (Migration 117) auch der Wechselort: Findet der Auftrag bei einem Ansprechpartner oder an einer einmaligen
+// Adresse statt, tragen `address`, `lat`, `lng` diesen Ort – Kalender, Route, Navigation und Tageskarte folgen ihm
+// damit von selbst. Name, Telefon und Kundennummer bleiben die des Kunden (die Rechnung geht an ihn).
 
 export function istLaufkundenAuftrag(kunde: Pick<Customer, "laufkundschaft"> | null | undefined): boolean {
   return kunde?.laufkundschaft === true;
@@ -26,12 +31,17 @@ export function laufkundeName(auftrag: Pick<Order, "laufkunde_name">, sammelkund
   return name ? `${name} (Laufkunde)` : sammelkunde.name;
 }
 
+type OrtFelder = Partial<Pick<Order, "wechselort" | "einsatz_adresse" | "einsatz_lat" | "einsatz_lng" | "einsatz_geo_genauigkeit">>;
+
 export function kundeZumAuftrag(
-  auftrag: Pick<Order, "laufkunde_name" | "laufkunde_telefon" | "laufkunde_ort">,
+  auftrag: Pick<Order, "laufkunde_name" | "laufkunde_telefon" | "laufkunde_ort"> & OrtFelder,
   kunde: Customer | null | undefined
 ): Customer | undefined {
   if (!kunde) return undefined;
-  if (!istLaufkundenAuftrag(kunde)) return kunde;
+  if (!istLaufkundenAuftrag(kunde)) {
+    const ort = abweichenderOrt(auftrag);
+    return ort ? { ...kunde, ...ort } : kunde;
+  }
   return {
     ...kunde,
     name: laufkundeName(auftrag, kunde),
@@ -47,7 +57,7 @@ export function kundeZumAuftrag(
 
 // Kurzform für Listen: den passenden Kunden zu einem Auftrag aus dem Bestand holen.
 export function kundeFuerAuftrag(
-  auftrag: Pick<Order, "customer_id" | "laufkunde_name" | "laufkunde_telefon" | "laufkunde_ort">,
+  auftrag: Pick<Order, "customer_id" | "laufkunde_name" | "laufkunde_telefon" | "laufkunde_ort"> & OrtFelder,
   kunden: Customer[]
 ): Customer | undefined {
   return kundeZumAuftrag(auftrag, kunden.find((c) => c.id === auftrag.customer_id));

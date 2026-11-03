@@ -1107,4 +1107,11 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
 - **Buchen am Handy** (v187, `.fi-handy`): Foto zuerst (gestrichelter Rahmen, Hauptknopf „Beleg fotografieren“), Betrag groß
   rechtsbündig, Auswahl als Wahlknöpfe (`.fi-chips`/`.fi-chip`, 38 px, gewählt Petrol), darunter „So wird gebucht“ mit der
   Zeilentabelle und „Heute von dir gebucht“ als Kartenliste.
+- **Ansprechpartner im Kundenfenster** (v189, `.dm-ap`): Karte wie „Kundengruppe“; je Ansprechpartner eine Zeile
+  `.dm-ap-zeile` (Text links antippbar, rechts runde Knöpfe ☎/@ und „Karte an/aus“), oben der Schalter für die Adresse des
+  Kunden (`.dm-ap-nadel`, Spur wie bei den Einstellungen). Das Fenster `.dm-ap-formular` öffnet über dem Kundenfenster
+  (`ebene="modal-storno"`).
+- **Wechselort im Auftragsfenster** (v189, `.ao-wechselort`): Karte mit Auswahl, darunter bei „Nur für diesen Termin“ Name
+  und Adressfeld; der Vorschlag aus den Fahrzeugen als Textknopf `.ao-vorschlag`, Fehlendes als `.ao-fehlt-text`. Im Kopf
+  unter der Adresse „Rechnung an: …“ (`.ao-wer-rechnung`, klein grau).
 

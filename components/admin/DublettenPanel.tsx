@@ -103,7 +103,7 @@ export function DublettenPanel({ supabase, kunden, onKundeOeffnen, onKundenbesta
             <span className="du-gruende">{p.gruende.map((g) => DUBLETTEN_GRUND_LABEL[g]).join(" · ")}</span>
             {[p.a, p.b].map((k) => (
               <button key={k.id} type="button" className="du-kunde" onClick={() => onKundeOeffnen(k.id)}>
-                <b>{k.name}{k.company ? ` · ${k.company}` : ""}{k.active === false ? " (deaktiviert)" : ""}</b>
+                <b>{[k.name, k.company].map((x) => (x ?? "").trim()).filter(Boolean).join(" · ")}{k.active === false ? " (deaktiviert)" : ""}</b>
                 <span className="small">{[k.kundennummer != null ? `Kd.-Nr. ${k.kundennummer}` : "ohne Kundennummer", zeile(k)].filter(Boolean).join(" · ")}</span>
               </button>
             ))}
@@ -128,7 +128,7 @@ export function DublettenPanel({ supabase, kunden, onKundeOeffnen, onKundenbesta
               {[offen.paar.a, offen.paar.b].map((k) => (
                 <button key={k.id} type="button" className={"ab-option" + (k.id === offen.behaltenId ? " gewaehlt" : "")} aria-pressed={k.id === offen.behaltenId}
                   onClick={() => setOffen({ ...offen, behaltenId: k.id })}>
-                  <span className="ab-text">{k.id === offen.behaltenId ? "✓ " : ""}{k.name}{k.kundennummer != null ? ` · Kd.-Nr. ${k.kundennummer}` : ""}</span>
+                  <span className="ab-text">{k.id === offen.behaltenId ? "✓ " : ""}{(k.company ?? "").trim() || k.name}{k.kundennummer != null ? ` · Kd.-Nr. ${k.kundennummer}` : ""}</span>
                   <span className="small">{zeile(k)}</span>
                 </button>
               ))}

@@ -11,17 +11,19 @@ import { todayStr } from "@/lib/helpers";
 // sich mit fertigem Text, man sieht ihn dort noch einmal und tippt auf „Senden". Kein Versanddienst,
 // keine Absenderadresse (Entscheidung 02.10.2026). Der Text bleibt hier änderbar – „bitte Hof
 // hinten" oder eine andere Uhrzeit gehören in genau diesen einen Text, nicht in die Vorlage.
-export function BestaetigungBlatt({ auftrag, kunde, kennzeichen, betrieb, onClose }: {
+export function BestaetigungBlatt({ auftrag, kunde, kennzeichen, betrieb, woAnders, onClose }: {
   auftrag: Pick<Order, "order_date" | "time" | "end_time">;
   // Wie ihn `kundeFuerAuftrag` liefert – bei der Laufkundschaft der Laufkunde.
   kunde: Customer;
   kennzeichen: string[];
   betrieb: Pick<Betrieb, "firma" | "telefon"> | null;
+  // Wechselort (v189): nicht „bei Ihnen“.
+  woAnders?: boolean;
   onClose: () => void;
 }) {
   const heute = todayStr();
   const [art, setArt] = useState<BestaetigungArt>(auftrag.order_date > heute ? "bestaetigung" : "erinnerung");
-  const vorschlag = (a: BestaetigungArt) => bestaetigungText({ art: a, auftrag, kunde, kennzeichen, betrieb, heute });
+  const vorschlag = (a: BestaetigungArt) => bestaetigungText({ art: a, auftrag, kunde, kennzeichen, betrieb, heute, woAnders });
   const [text, setText] = useState(() => vorschlag(art));
   const [kopiert, setKopiert] = useState(false);
   const betreff = bestaetigungBetreff({ art, auftrag, betrieb });

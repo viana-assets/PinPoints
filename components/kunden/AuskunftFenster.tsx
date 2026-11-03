@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import { fetchKundeAuskunft } from "@/lib/api/customers";
-import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, bestellZeile, reifenNotizZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
+import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, bestellZeile, ansprechpartnerZeile, wechselortZeile, reifenNotizZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
 import { formatEUR } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { PROTOKOLL_SCHWAERZEN_MONATE, RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -102,6 +102,16 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
             {daten.reifen_notizen && daten.reifen_notizen.length > 0 && (<>
               <h2>Notizen zu einzelnen Reifen</h2>
               <Tabelle zeilen={daten.reifen_notizen.map(reifenNotizZeile)} />
+            </>)}
+
+            {daten.ansprechpartner && daten.ansprechpartner.length > 0 && (<>
+              <h2>Ansprechpartner</h2>
+              <Tabelle zeilen={daten.ansprechpartner.map(ansprechpartnerZeile)} />
+            </>)}
+
+            {daten.wechselorte && daten.wechselorte.length > 0 && (<>
+              <h2>Termine an einem anderen Ort</h2>
+              <Tabelle zeilen={daten.wechselorte.map(wechselortZeile)} />
             </>)}
 
             {daten.bestellungen && daten.bestellungen.length > 0 && (<>

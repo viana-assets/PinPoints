@@ -781,6 +781,8 @@ export const PROTOKOLL_TABELLE_LABEL: Record<string, string> = {
   employees: "Mitarbeiter",
   profiles: "Zugang",
   module_permissions: "Rechte",
+  // Migration 117 (v189).
+  kunden_ansprechpartner: "Ansprechpartner",
 };
 
 // WICHTIG: Aus dieser Liste wird NICHTS entfernt, wenn eine Spalte aus der Datenbank fällt.
@@ -825,6 +827,11 @@ export const PROTOKOLL_FELD_LABEL: Record<string, string> = {
   // Artikel (Migration 46/48/50)
   abrechnungsart: "Abrechnungsart", fragt_einlagerung: "fragt nach Altreifen",
   einheit: "Einheit", freitext: "Bezeichnung am Auftrag",
+  // Ansprechpartner und Wechselort (Migration 117, v189)
+  funktion: "Funktion", auf_karte: "auf der Karte", sortierung: "Reihenfolge",
+  wechselort: "Wechselort", ansprechpartner_id: "Ansprechpartner", einsatz_name: "Einsatzort (bei)",
+  einsatz_adresse: "Einsatzadresse", einsatz_lat: "Einsatzort Breitengrad", einsatz_lng: "Einsatzort Längengrad",
+  einsatz_geo_genauigkeit: "Genauigkeit des Einsatzorts",
   // Auftrag / Lager, Nachzügler
   end_time: "Uhrzeit bis", entnahme_order_id: "Auslagerung mit Auftrag",
   // Migration 67: die Lagergebühr gehört zu einem Reifensatz.

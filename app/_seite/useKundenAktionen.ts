@@ -7,6 +7,7 @@ import {
 } from "@/lib/api/customers";
 import type { Verb } from "@/lib/constants";
 import { formatDate } from "@/lib/helpers";
+import { ansprechpartnerAnlegen } from "@/lib/api/ansprechpartner";
 import { qk } from "@/lib/queries/keys";
 import type { Customer, KontaktErgebnis } from "@/lib/types";
 import type { Nachladen, NeuerTermin, NeuLaden } from "./typen";
@@ -114,7 +115,19 @@ export function useKundenAktionen(k: KundenKontext) {
     einmalkunde: boolean;
     testkunde: boolean;
   }) {
-    const { id: createdId, lat } = await insertCustomer(supabase, fields);
+    // Firma mit Ansprechpartner (Migration 117, v189): Der Name wird Ansprechpartner 1, am Kunden bleibt die Firma.
+    // Fehlt die Migration (Anlegen scheitert), bleibt der Name wie früher am Kunden – nichts geht verloren.
+    const firmaMitPerson = !!fields.company.trim() && !!fields.name.trim() && !fields.laufkundschaft;
+    const { id: createdId, lat } = await insertCustomer(supabase, firmaMitPerson ? { ...fields, name: "", anrede: "" } : fields);
+    if (createdId && firmaMitPerson) {
+      try {
+        await ansprechpartnerAnlegen(supabase, createdId, { anrede: fields.anrede || null, name: fields.name, funktion: null,
+          telefon: fields.phone_mobile || fields.phone_landline || null, email: null, address: null, auf_karte: false, notiz: null }, 0);
+      } catch {
+        await updateCustomerFieldsById(supabase, createdId, { name: fields.name.trim(), anrede: fields.anrede || null }, undefined);
+      }
+      neuLaden(qk.ansprechpartner());
+    }
     await refreshCustomers();
     // Ruft ein Kunde selbst an und wird dabei neu angelegt, ist meist auch schon klar, worum es
     // geht. Statt eines eigenen kleinen Auftragsformulars hier führt der Weg über dieselbe

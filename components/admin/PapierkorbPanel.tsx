@@ -52,7 +52,7 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
     setLaeuft(k.id); setFehler(null); setMeldung(null);
     try {
       await kundeWiederherstellen(supabase, k.id);
-      setMeldung(`${k.name} ist wiederhergestellt – samt der mitgelöschten Aufträge.`);
+      setMeldung(`${k.company?.trim() || k.name} ist wiederhergestellt – samt der mitgelöschten Aufträge.`);
       onKundenbestandGeaendert();
       setStand((n) => n + 1);
     } catch (e) {
@@ -159,7 +159,7 @@ export function PapierkorbPanel({ supabase, isSuperAdmin, onKundenbestandGeaende
             <div className="ad-karte-zeile">
               <span className="ad-kreis grau">{initialen(k.company?.trim() || k.name)}</span>
               <span className="ad-karte-text">
-                <b>{k.name}{k.company ? ` · ${k.company}` : ""}{k.testkunde && <span className="test-marke">TEST</span>}</b>
+                <b>{[k.name, k.company].map((x) => (x ?? "").trim()).filter(Boolean).join(" · ")}{k.testkunde && <span className="test-marke">TEST</span>}</b>
                 <span className="small">
                   gelöscht {formatDate(k.deleted_at)}
                   {k.kundennummer ? ` · Kd.-Nr. ${k.kundennummer}` : ""}

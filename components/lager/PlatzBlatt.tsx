@@ -83,7 +83,7 @@ export function PlatzBlatt({
         const k = customers.find((c) => c.id === h.customer_id);
         return (
           <div key={h.id} className="hist-entry">
-            <span className="he-cust">{k ? k.name : "Unbekannter Kunde"}</span>
+            <span className="he-cust">{k ? anzeigeName(k) : "Unbekannter Kunde"}</span>
             {h.saison ? ` · ${SAISON_LABEL[h.saison]}` : ""}
             {h.dot_date ? ` · DOT ${h.dot_date}` : ""}
             {" "}

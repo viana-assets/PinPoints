@@ -89,6 +89,8 @@ export function DetailModal(props: {
   darfGruppe?: boolean;
   // v166: einen ANDEREN Kunden ändern – vom Hauptkunden aus Unterdebitoren zuordnen und lösen.
   onKundeFelder?: (id: string, f: Partial<Customer>) => Promise<void>;
+  // Ansprechpartner (Migration 117, v189) – die Karte baut die Seite (sie braucht den Datenzugang).
+  ansprechpartnerKarte?: React.ReactNode;
 }) {
   const { customer: cust } = props;
   const [name, setName] = useState(cust.name);
@@ -315,6 +317,8 @@ export function DetailModal(props: {
                   onUnterWaehlen={props.onKundeFelder ? () => setUnterWaehlen(true) : undefined} />
               )}
 
+              {props.ansprechpartnerKarte}
+
               <div className="db-karte dm-lager">
                 <EingelagerteReifen
                   saetze={props.tireStorages}
@@ -422,7 +426,8 @@ export function DetailModal(props: {
                     <option value="Frau">Frau</option>
                   </select>
                 </label>
-                <label className="nk-feld"><span>{istFirma ? "Ansprechpartner" : "Name *"}</span><input type="text" value={name} onChange={(e) => setName(e.target.value)} /></label>
+                <label className="nk-feld"><span>{istFirma ? "Zu Händen (Rechnung, freiwillig)" : "Name *"}</span><input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                  placeholder={istFirma ? "Ansprechpartner stehen auf der Übersicht" : undefined} /></label>
               </div>
               {/* Wird ein Vorschlag angenommen, kommt die Koordinate gleich mit und wird zusammen
                   mit den übrigen Feldern gespeichert. Ohne das würde beim Speichern erneut
@@ -586,7 +591,7 @@ export function DetailModal(props: {
               <button type="button" className="ab-option gefahr"
                 onClick={() => {
                   const lieg = props.tireStorages.filter((t) => !t.removed_at).length;
-                  if (!confirm(`Testkunden "${cust.name}" restlos löschen? Weg sind danach auch ${props.orders.length} ${props.orders.length === 1 ? "Auftrag" : "Aufträge"}, alle Testrechnungen${lieg ? `, ${lieg} ${lieg === 1 ? "Reifensatz" : "Reifensätze"} im Regal` : ""}, Fahrzeuge, Kontakte und das Protokoll. Das lässt sich nicht zurückholen.`)) return;
+                  if (!confirm(`Testkunden "${hauptname}" restlos löschen? Weg sind danach auch ${props.orders.length} ${props.orders.length === 1 ? "Auftrag" : "Aufträge"}, alle Testrechnungen${lieg ? `, ${lieg} ${lieg === 1 ? "Reifensatz" : "Reifensätze"} im Regal` : ""}, Fahrzeuge, Kontakte und das Protokoll. Das lässt sich nicht zurückholen.`)) return;
                   setMenueOffen(false);
                   void props.onTestkundeLoeschen?.();
                 }}>
@@ -594,7 +599,7 @@ export function DetailModal(props: {
               </button>
             ) : (
               <button type="button" className="ab-option gefahr"
-                onClick={() => { if (confirm(`Kunde "${cust.name}" wirklich löschen? Er kommt in den Papierkorb (Admin) und lässt sich von dort zurückholen.`)) { setMenueOffen(false); props.onDelete(); } }}>
+                onClick={() => { if (confirm(`Kunde "${hauptname}" wirklich löschen? Er kommt in den Papierkorb (Admin) und lässt sich von dort zurückholen.`)) { setMenueOffen(false); props.onDelete(); } }}>
                 <span className="ab-text">In den Papierkorb <span className="small">· samt Aufträgen wiederherstellbar</span></span>
               </button>
             )}

@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { qk } from "./keys";
 import { fetchCustomers, fetchContactHistory } from "@/lib/api/customers";
+import { fetchAnsprechpartner } from "@/lib/api/ansprechpartner";
 import { fetchGepackt } from "@/lib/api/mitnehmen";
 import { fetchOrders, fetchOrdersFuerKunde, type AuftragsFenster, type Auftragsdaten } from "@/lib/api/orders";
 import { fetchEmployees } from "@/lib/api/employees";
@@ -77,6 +78,11 @@ export function useAuftraege(supabase: SupabaseClient, fenster: AuftragsFenster,
     // kurz leer zu zeigen.
     placeholderData: (vorher) => vorher,
   });
+}
+
+// Ansprechpartner (Migration 117, v189). Fehlt die Migration, kein Wiederholen – die App läuft ohne.
+export function useAnsprechpartner(supabase: SupabaseClient, aktiv: boolean) {
+  return useQuery({ queryKey: qk.ansprechpartner(), queryFn: () => fetchAnsprechpartner(supabase), enabled: aktiv, staleTime: 5 * 60_000, retry: false });
 }
 
 export function useKundenAuftraege(supabase: SupabaseClient, kundeId: string | null, aktiv: boolean) {

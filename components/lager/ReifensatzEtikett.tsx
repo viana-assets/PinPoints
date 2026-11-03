@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { QrBild } from "./QrBild";
-import type { Customer, EingelagertesRad, RadPosition, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
+import type { Ansprechpartner, Customer, EingelagertesRad, RadPosition, StorageSlot, TireStorage, Vehicle, Warehouse } from "@/lib/types";
 import { RAD_POSITION_LABEL, SAISON_LABEL } from "@/lib/constants";
 import { formatDate, profilText, satzProfilMm } from "@/lib/helpers";
 import { satzUrl } from "@/lib/aufkleberCode";
@@ -11,6 +11,7 @@ import { notizenText, radNotiz, satzPositionen } from "@/lib/lagerNotizen";
 import { dateiName, etikettDatei, etikettenPdfDatei, mmZuPx, PX_PRO_MM_300, teilenOderSpeichern, type EtikettInhalt, type EtikettMasse } from "@/lib/etikettBild";
 import { Blatt } from "@/components/Blatt";
 import { gruppenMitglieder, kundenName as gruppenName } from "@/lib/kundengruppe";
+import { apAnzeige } from "@/lib/ansprechpartner";
 
 // Etikett für einen eingelagerten Reifensatz (17.09.2026).
 //
@@ -72,7 +73,9 @@ export const ETIKETT_FORMATE: EtikettFormat[] = [
 // sehen gleich aus; die Antwort steckt in der Messung, die ein halbes Jahr zurückliegt.
 export type EtikettArt = "satz" | "raeder";
 
-export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, warehouses, onClose, onKundeWechseln }: {
+export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, warehouses, onClose, onKundeWechseln, ansprechpartner = [] }: {
+  // Ansprechpartner (Migration 117, v189): Steht das Fahrzeug bei einem, nennt das Etikett ihn unter der Firma.
+  ansprechpartner?: Ansprechpartner[];
   // Eine Liste, auch wenn meistens genau einer darin steht: Aus dem Auftrag heraus druckt man
   // einen, beim Nachdrucken im Lager vielleicht mehrere. Ein zweites Bauteil für denselben
   // Aufkleber wären zwei Etiketten, die auseinanderlaufen.
@@ -171,6 +174,9 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
   const etiketten: Bogen[] = saetze.flatMap((satz): Bogen[] => {
     const kunde = customers.find((c) => c.id === satz.customer_id);
     const kundenName = kunde?.company || kunde?.name || "Unbekannter Kunde";
+    const apId = vehicles.find((v) => v.id === satz.vehicle_id)?.ansprechpartner_id;
+    const ap = apId ? ansprechpartner.find((a) => a.id === apId) : undefined;
+    const beiAp = ap ? `bei ${apAnzeige(ap)}` : null;
 
     if (art === "satz") {
       return [{
@@ -179,6 +185,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
           kopf: kundenName,
           zeilen: [
             fahrzeugText(satz),
+            ...(beiAp ? [beiAp] : []),
             // Das schwächste Rad, wenn einzeln gemessen wurde – dieselbe Regel wie überall
             // sonst in der App. Ein Satz ist so gut wie sein schlechtester Reifen; der
             // Durchschnitt wäre eine beruhigende Zahl ohne Aussage.
@@ -208,7 +215,7 @@ export function ReifensatzEtikett({ saetze, raeder, customers, vehicles, slots, 
             // – und im Kopf hat er die Zeile gesprengt.
             `${RAD_POSITION_LABEL[position]}${profil.satzwert ? " · Satzwert" : ""}`,
             kundenName,
-            [rad?.reifengroesse, fahrzeugText(satz)].filter(Boolean).join(" · "),
+            [rad?.reifengroesse, fahrzeugText(satz), beiAp].filter(Boolean).join(" · "),
             platzText(satz),
           ],
           notiz: radNotiz(satz, position),

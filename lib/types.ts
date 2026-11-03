@@ -60,6 +60,9 @@ export type Customer = {
   // Hauptkunde dieses Unterdebitors (Migration 101, v165): eine Ebene, die Rechnungen gehen an den Unterdebitor.
   // Optional, weil Testgerüste den Kunden von Hand bauen; die Abfrage liefert sie mit (`select("*")`).
   haupt_kunde_id?: string | null;
+  // Nadel an der Adresse des Kunden (Migration 117, v189). Aus = nur Rechnungsadresse; eine Nadel gibt es dann nur,
+  // solange ein Termin an dieser Adresse ansteht. Optional wie `haupt_kunde_id` (Testgerüste, vor der Migration).
+  auf_karte?: boolean;
   active: boolean;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
   // bleibt für Rechnungsbezug und Änderungsprotokoll erhalten. Alle Listenabfragen
@@ -289,6 +292,30 @@ export type AuftragFahrzeug = {
   updated_at: string;
 };
 
+// Migration 117 (v189): wo ein Auftrag stattfindet, wenn nicht an der Adresse des Kunden.
+export type Wechselort = "ansprechpartner" | "einmalig";
+
+// Ein Ansprechpartner unter einem Kunden (Migration 117, v189) – Firma, Hauptkunde oder Unterdebitor. Rechnungen gehen
+// nie an ihn, sondern an den Kunden.
+export type Ansprechpartner = {
+  id: string;
+  customer_id: string;
+  anrede: "Herr" | "Frau" | null;
+  name: string;
+  funktion: string | null;
+  telefon: string | null;
+  email: string | null;
+  // Leer = keine eigene Adresse (sitzt in der Firma oder organisiert nur).
+  address: string | null;
+  lat: number | null;
+  lng: number | null;
+  geo_genauigkeit: GeoGenauigkeit | null;
+  auf_karte: boolean;
+  notiz: string | null;
+  sortierung: number;
+  created_at?: string;
+};
+
 export type Order = {
   id: string;
   // Fortlaufende, für Menschen lesbare Auftragsnummer (Migration 20) – für Rechnungen und für
@@ -350,6 +377,16 @@ export type Order = {
   laufkunde_name: string | null;
   laufkunde_telefon: string | null;
   laufkunde_ort: string | null;
+  // Wechselort (Migration 117, v189): leer = Adresse des Kunden, „ansprechpartner“ = Adresse eines Ansprechpartners
+  // (die Datenbank kopiert sie nach `einsatz_*` und zieht sie bei offenen Aufträgen nach), „einmalig“ = eine Adresse
+  // nur für diesen Termin. Optional, damit Testgerüste und der Stand vor der Migration nichts brechen.
+  wechselort?: Wechselort | null;
+  ansprechpartner_id?: string | null;
+  einsatz_name?: string | null;
+  einsatz_adresse?: string | null;
+  einsatz_lat?: number | null;
+  einsatz_lng?: number | null;
+  einsatz_geo_genauigkeit?: GeoGenauigkeit | null;
   created_at: string;
   updated_at: string;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile
@@ -397,6 +434,8 @@ export type Firmenfahrzeug = {
 export type Vehicle = {
   id: string;
   customer_id: string;
+  // Bei welchem Ansprechpartner der Gruppe das Fahrzeug steht (Migration 117, v189); Halter bleibt `customer_id`.
+  ansprechpartner_id?: string | null;
   license_plate: string | null;
   make_model: string | null;
   // Welche Reifengröße das Auto fährt – eine Eigenschaft des FAHRZEUGS, sie wechselt nicht

@@ -38,6 +38,10 @@ export type AuskunftDaten = {
   // Seit Migration 105 (v174): Bestellwünsche zu diesem Kunden oder seinen Aufträgen. Ohne den Namen des
   // Mitarbeiters – der Auszug gilt dem Kunden. Optional wie oben.
   bestellungen?: { eingetragen: string; text: string; menge: string | null; status: BestellStatus; notiz: string | null; grund: string | null; foto: boolean }[];
+  // Seit Migration 117 (v189): Ansprechpartner des Kunden und Termine an einem anderen Ort. Optional wie oben.
+  ansprechpartner?: { anrede: string | null; name: string; funktion: string | null; telefon: string | null; email: string | null; adresse: string | null;
+    auf_karte: boolean; notiz: string | null; angelegt: string }[];
+  wechselorte?: { auftrag: number; datum: string; bei: string | null; adresse: string | null }[];
 };
 
 export type Zeile = [string, string];
@@ -126,6 +130,16 @@ export function bestellZeile(b: NonNullable<AuskunftDaten["bestellungen"]>[numbe
   return [`${tag(b.eingetragen)} · ${BESTELL_STATUS_LABEL[b.status] ?? b.status}`, was];
 }
 
+// Ein Ansprechpartner (Migration 117): „Herr Max Muster · Fuhrpark“ – „0170 … · max@… · Adresse · Notiz“.
+export function ansprechpartnerZeile(a: NonNullable<AuskunftDaten["ansprechpartner"]>[number]): Zeile {
+  return [[`${a.anrede ? a.anrede + " " : ""}${a.name}`, text(a.funktion)].filter(Boolean).join(" · "),
+    [text(a.telefon), text(a.email), text(a.adresse), text(a.notiz)].filter(Boolean).join(" · ") || "–"];
+}
+// Ein Termin an einem anderen Ort (Migration 117).
+export function wechselortZeile(w: NonNullable<AuskunftDaten["wechselorte"]>[number]): Zeile {
+  return [`Auftrag ${auftragsNr(w.auftrag)} · ${tag(w.datum)}`, [w.bei ? `bei ${w.bei}` : null, text(w.adresse)].filter(Boolean).join(" · ") || "–"];
+}
+
 // Wie viele Einträge in jedem Abschnitt stehen – für die Übersicht oben im Auszug.
 export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
   return [
@@ -137,6 +151,8 @@ export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
     ...(d.belege ? [["Fotos und Unterschriften", String(d.belege.length)] as Zeile] : []),
     ...(d.reifen_notizen ? [["Notizen zu einzelnen Reifen", String(d.reifen_notizen.length)] as Zeile] : []),
     ...(d.bestellungen ? [["Bestellwünsche (Bestellliste)", String(d.bestellungen.length)] as Zeile] : []),
+    ...(d.ansprechpartner ? [["Ansprechpartner", String(d.ansprechpartner.length)] as Zeile] : []),
+    ...(d.wechselorte ? [["Termine an einem anderen Ort", String(d.wechselorte.length)] as Zeile] : []),
     ["Einträge im Änderungsprotokoll", String(d.protokoll.eintraege)],
   ];
 }

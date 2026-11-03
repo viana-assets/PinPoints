@@ -162,7 +162,7 @@ Auftragstitel – steht bei Firmen die Firma (`anzeigeName()`); vorher stand im 
 | Feld | Bedeutung |
 |---|---|
 | `company` | Firmenname. Leer bei Privatpersonen. |
-| `name` | Name – bei Firmen der **Ansprechpartner** (seit v172 freiwillig, darf leer sein). |
+| `name` | Name – bei Firmen bis v188 der Ansprechpartner (seit v172 freiwillig); seit v189 „Zu Händen“ auf der Rechnung, die Ansprechpartner stehen in `kunden_ansprechpartner`. |
 | `email` | gab es bis dahin überhaupt nicht. |
 | `anrede` | „Herr" / „Frau", getrennt vom Namen. |
 
@@ -185,10 +185,9 @@ Namensfeld („Frau Graf"). Das verfälscht die alphabetische Sortierung – die
 F statt unter G – und spätestens bei den Rechnungen aus Roadmap-Phase 5 braucht ein Anschreiben
 die Anrede getrennt vom Namen.
 
-**Warum keine eigene Firmen-Tabelle:** sie wäre die sauberere Modellierung, sobald mehrere
-Ansprechpartner je Firma vorkommen. Das ist hier nicht der Fall (vier Firmen, je einer), und
-eine Tabelle mit vier Zeilen plus einer Verknüpfung in jeder Abfrage kostet mehr, als sie
-einbringt. Der Weg dorthin bleibt offen: `company` wird dann zum Fremdschlüssel.
+**Warum keine eigene Firmen-Tabelle:** Die Firma bleibt der Kunde (sie bekommt die Rechnung). Seit v189 (Migration 117)
+stehen die **Ansprechpartner** in einer eigenen Tabelle unter dem Kunden – beliebig viele, je mit eigener Adresse; siehe
+„Ansprechpartner und Wechselort“ unten. `name` bleibt bei Firmen nur noch „Zu Händen“ auf der Rechnung (freiwillig).
 
 ## Sammellauf Geokodierung (Admin → Wartung)
 
@@ -488,6 +487,53 @@ auf einem Auftrag des Hauptkunden sieht dessen Unterdebitoren samt Fahrzeugen.
 
 Läuft ein Auftrag auf einen Unterdebitor, bleibt alles wie bei einem Einzelkunden (nur seine Fahrzeuge). Offen für Runde 2:
 die Rechnung je Unterdebitor aus einem Auftrag; Runde 3: Offene Posten je Unterdebitor mit Summe der Gruppe im Finance.
+
+## Ansprechpartner und Wechselort (Migration 117, v189, 03.11.2026)
+
+Wunsch Vitali 03.11.2026: Unter einer Firma mehrere Ansprechpartner, mit unterschiedlichen Adressen, und beim Termin
+festlegen, wo gewechselt wird. Entschieden am selben Tag:
+
+- **Der Kunde bekommt die Rechnung** – Privatkunde, Firma, Unterdebitor. Nie ein Ansprechpartner. In einer Kundengruppe
+  geht sie an den Unterdebitor; der Hauptkunde ist nur die Klammer.
+- **Ansprechpartner** (`kunden_ansprechpartner`) unter jedem Kunden, beliebig viele: Anrede, Name (Pflicht), Funktion,
+  Telefon, E-Mail, **eigene Adresse (freiwillig)**, Notiz und der Schalter **„Auf der Karte“** (nur mit Adresse,
+  Regel `kap_karte`). Kundenfenster → Übersicht → Karte „Ansprechpartner“; antippen öffnet das Fenster, dort auch die
+  Fahrzeuge, die bei ihm stehen. Hinweis im Fenster: private Adressen nur eintragen, wo tatsächlich dort gewechselt wird
+  (Datenminimierung).
+- **Derselbe Schalter am Kunden** (`customers.auf_karte`): aus = nur Rechnungsadresse. Eine Nadel gibt es dort dann nur,
+  solange ein Termin an dieser Adresse ansteht.
+- **Nadel eines Ansprechpartners** im Zustand des Kunden (Anrufstatus, Wiedervorlage führt die Firma). Termin-blau wird sie
+  nur, wenn der Termin bei genau diesem Ansprechpartner ist. Antippen öffnet den Kunden. Ein Termin an einem Ort ohne
+  eigene Nadel (einmalige Adresse, Ansprechpartner ohne „Auf der Karte“) bekommt eine Termin-Nadel am Einsatzort.
+  Alles in `kartenNadeln()` (`lib/ansprechpartner.ts`).
+- **Fahrzeuge und Reifen gehören dem Kunden** (in der Gruppe dem Unterdebitor), lassen sich aber einem Ansprechpartner der
+  Gruppe zuordnen (`vehicles.ansprechpartner_id`, „Steht bei“ im Auftrag). Das Etikett nennt dann „bei <Ansprechpartner>“.
+- **Bestand:** Bei Firmen wurde aus Name/Anrede/Telefon/E-Mail Ansprechpartner 1 (ohne eigene Adresse, ohne Nadel), der
+  Name am Kunden geleert. Neue Firmen mit Ansprechpartner legen ihn genauso an.
+
+### Wechselort am Termin
+
+Im Auftragsfenster die Karte **„Wechselort“**: Adresse des Kunden (Vorgabe), **ein Ansprechpartner der Gruppe** oder
+**„Nur für diesen Termin“** (Name freiwillig, Adresse Pflicht, mit Adressvorschlägen). Stehen alle zugeordneten
+Fahrzeuge des Auftrags bei genau einem Ansprechpartner mit Adresse, schlägt das Fenster ihn vor
+(`wechselortVorschlag()`). Oben steht „bei X · Adresse“ und „Rechnung an: <Kunde>“.
+
+Gespeichert am Auftrag (`orders.wechselort`, `ansprechpartner_id`, `einsatz_*`). Beim Ansprechpartner kopiert die
+Datenbank Name und Adresse als Momentaufnahme (`auftrag_wechselort()`); ändert sich danach seine Adresse, zieht
+`ansprechpartner_nachziehen()` offene Aufträge nach, erledigte behalten den alten Ort. Eine Adresse, die ein offener
+Auftrag braucht, lässt sich nicht leeren. Wird ein Ansprechpartner gelöscht, behalten seine Termine den Ort als
+einmalige Adresse. Ohne Netz lässt sich der Wechselort nicht ändern.
+
+Kalender, Liste, Karte, Route, Packliste, Navigation und die Terminbestätigung („in X“ statt „bei Ihnen in X“) nehmen den
+Wechselort – alle gehen über `kundeFuerAuftrag()` (`lib/laufkunde.ts`), das Adresse und Koordinate ersetzt, Name und
+Rechnungsempfänger aber beim Kunden lässt. Die Push-Erinnerung nennt den Einsatzort.
+
+Zusammenführen nimmt die Ansprechpartner mit, der Auskunftsauszug (Art. 15) listet Ansprechpartner und Wechselorte,
+das Schwärzen des Protokolls erfasst die neuen Felder. Neue Rechte gibt es nicht: Ansprechpartner lesen/ändern wie
+Kunden (`kunden`), der Techniker sieht sie bei seinen Kunden.
+
+**Runde 2 (v190):** Ein Auftrag beim Hauptkunden ergibt je Unterdebitor eine Rechnung mit dessen Fahrzeugen; Leistungen
+je Fahrzeug („alle Fahrzeuge gleich“), der Halter des Fahrzeugs bestimmt die Rechnung.
 
 ## Papierkorb und endgültiges Löschen (Migration 56, Fahrplan B2, 23.09.2026)
 

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Order, OrderArticle, OrderStatus } from "@/lib/types";
 import { fetchPaged, qOne, qWrite } from "./client";
+import { wechselortSpalten, type WechselortEingabe } from "@/lib/ansprechpartner";
 
 // Datenzugriffsschicht für Aufträge/Termine (ein Termin ist ein Auftrag mit Uhrzeit, siehe
 // Migration 07) und die Mitarbeiter-Zuordnung (`order_employees`, Migration 11). Reine
@@ -145,6 +146,8 @@ export async function updateOrderById(supabase: SupabaseClient, id: string, fiel
   // Nur bei der Laufkundschaft (Migration 57). Fehlt es, bleiben die drei Spalten unberührt –
   // derselbe Grund wie bei `rechnungNoetig` darunter.
   laufkunde?: { name: string; telefon: string; ort: string };
+  // Wechselort (Migration 117, v189). Fehlt er, bleiben die Spalten unberührt.
+  wechselort?: WechselortEingabe;
 }): Promise<void> {
   await qWrite(
     "Der Auftrag konnte nicht gespeichert werden",
@@ -162,6 +165,7 @@ export async function updateOrderById(supabase: SupabaseClient, id: string, fiel
         laufkunde_telefon: fields.laufkunde.telefon.trim() || null,
         laufkunde_ort: fields.laufkunde.ort.trim() || null,
       }),
+      ...(fields.wechselort === undefined ? {} : wechselortSpalten(fields.wechselort)),
       status: fields.status,
     }).eq("id", id)
   );

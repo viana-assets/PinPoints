@@ -21,7 +21,7 @@ import { KennzeichenFeld } from "@/components/KennzeichenFeld";
 export function FahrzeugeBlock({
   fahrzeuge, alleFahrzeuge, gesperrt,
   onFahrzeugHinzufuegen, onFahrzeugAnlegen, onKilometerstand, onFahrzeugAngaben, onFahrzeugEntfernen, darfAnlegen = true,
-  gruppe, onFahrzeugHalter,
+  gruppe, onFahrzeugHalter, ansprechpartner, onFahrzeugAnsprechpartner,
 }: {
   // Die Fahrzeuge DIESES Auftrags, angereichert um das zugehörige Fahrzeug.
   fahrzeuge: (AuftragFahrzeug & { fahrzeug: Vehicle | null })[];
@@ -44,6 +44,9 @@ export function FahrzeugeBlock({
   // folgen dem Halter. Umhängen (`onFahrzeugHalter`) nimmt die Sätze des Fahrzeugs im Lager mit.
   gruppe?: { id: string; name: string }[];
   onFahrzeugHalter?: (fahrzeugId: string, kundeId: string) => Promise<void>;
+  // Ansprechpartner der Gruppe (Migration 117, v189): bei wem das Fahrzeug steht. Fehlt die Liste, fehlt die Zeile.
+  ansprechpartner?: { id: string; name: string }[];
+  onFahrzeugAnsprechpartner?: (fahrzeugId: string, apId: string | null) => Promise<void>;
 }) {
   const [neuesKennzeichen, setNeuesKennzeichen] = useState("");
   const [auswahl, setAuswahl] = useState("");
@@ -118,6 +121,24 @@ export function FahrzeugeBlock({
                     {gruppe!.map((k) => <option key={k.id} value={k.id}>{k.name}</option>)}
                   </select>
                 ) : <b>{halterName(f.fahrzeug.customer_id)}</b>}
+              </label>
+            )}
+            {!!ansprechpartner?.length && f.fahrzeug && (
+              <label className="ao-km ao-halter">
+                <span>Steht bei</span>
+                {onFahrzeugAnsprechpartner && !gesperrt ? (
+                  <select aria-label="Ansprechpartner des Fahrzeugs" value={f.fahrzeug.ansprechpartner_id ?? ""} disabled={halterLaeuft === f.vehicle_id}
+                    onChange={async (e) => {
+                      setHalterLaeuft(f.vehicle_id);
+                      try { await onFahrzeugAnsprechpartner(f.vehicle_id, e.target.value || null); } finally { setHalterLaeuft(null); }
+                    }}>
+                    <option value="">– keinem Ansprechpartner –</option>
+                    {f.fahrzeug.ansprechpartner_id && !ansprechpartner.some((a) => a.id === f.fahrzeug!.ansprechpartner_id) && (
+                      <option value={f.fahrzeug.ansprechpartner_id}>anderer Ansprechpartner</option>
+                    )}
+                    {ansprechpartner.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                ) : <b>{ansprechpartner.find((a) => a.id === f.fahrzeug?.ansprechpartner_id)?.name ?? "–"}</b>}
               </label>
             )}
             <label className="ao-km">
