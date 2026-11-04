@@ -909,6 +909,7 @@ export const TERMIN_INTERVALLE = [15, 20, 30, 45, 60, 90, 120];
 
 // Das Grundfenster der Tages- und Wochenansicht in Stunden. Es dehnt sich aus, sobald ein
 // Termin darüber hinausgeht, wird aber nie enger – sonst läge die Acht-Uhr-Linie an jedem Tag
-// woanders (siehe `zeitfenster()` in lib/calendar.ts).
+// woanders (siehe `zeitfenster()` in lib/calendar.ts). Bis 21 Uhr seit v190 (Wunsch Vitali 04.11.2026: Termine
+// bis 19 Uhr füllten die Ansicht bis zum Rand, danach war nichts mehr frei); bewusst fest, keine Einstellung.
 export const KALENDER_VON_STUNDE = 7;
-export const KALENDER_BIS_STUNDE = 19;
+export const KALENDER_BIS_STUNDE = 21;

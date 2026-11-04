@@ -130,19 +130,19 @@ describe("layoutSpalten", () => {
 
 describe("zeitfenster", () => {
   it("nimmt ohne Termine das Grundfenster", () => {
-    expect(zeitfenster([])).toEqual({ vonStunde: 7, bisStunde: 19 });
+    expect(zeitfenster([])).toEqual({ vonStunde: 7, bisStunde: 21 });
   });
 
   it("dehnt sich nach oben und unten aus, wenn ein Termin herausragt", () => {
-    expect(zeitfenster([{ start: 6 * 60 + 30, ende: 20 * 60 + 15 }]))
-      .toEqual({ vonStunde: 6, bisStunde: 21 });
+    expect(zeitfenster([{ start: 6 * 60 + 30, ende: 21 * 60 + 15 }]))
+      .toEqual({ vonStunde: 6, bisStunde: 22 });
   });
 
   // Enger als das Grundfenster wird es nie – sonst hätte die Ansicht bei jedem Tageswechsel
   // eine andere Höhe, und die Stundenlinien lägen jedes Mal woanders.
   it("wird durch einen kurzen Tag nicht enger", () => {
     expect(zeitfenster([{ start: 10 * 60, ende: 11 * 60 }]))
-      .toEqual({ vonStunde: 7, bisStunde: 19 });
+      .toEqual({ vonStunde: 7, bisStunde: 21 });
   });
 });
 

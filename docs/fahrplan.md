@@ -16,6 +16,9 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **04.11.2026 – Einsatzplanung: Tages- und Wochenansicht bis 21 Uhr (Service Worker v190, ohne Migration).** Wunsch
+  Vitali: Das Raster endete um 19 Uhr. Grundfenster jetzt 7–21 Uhr (`KALENDER_BIS_STUNDE`), fest für alle – eine Einstellung
+  je Benutzer oder im Admin hätte eine Migration gebraucht und war nicht gewünscht.
 * **03.11.2026 – Ansprechpartner je Kunde und Wechselort am Termin (Service Worker v189, Migration 117).** Wunsch Vitali:
   unter einer Firma mehrere Ansprechpartner mit eigener Adresse, beim Termin wählen, wo gewechselt wird (Firmenadresse,
   Ansprechpartner, einmalige Adresse). Die Rechnung bleibt beim Kunden. „Auf der Karte“ für Kunde und Ansprechpartner,

@@ -2,7 +2,7 @@
 // ISO-Kalenderwochen, Mitarbeiterfarbe). Reine Funktionen ohne React/Supabase-Abhängigkeit,
 // ausgelagert aus app/page.tsx.
 import type { Employee } from "./types";
-import { EMP_COLORS } from "./constants";
+import { EMP_COLORS, KALENDER_BIS_STUNDE, KALENDER_VON_STUNDE } from "./constants";
 import { datumStr } from "./helpers";
 
 export function employeeColorFor(employees: Employee[], employeeId: string): string {
@@ -208,8 +208,8 @@ export function layoutSpalten<T extends Zeitraum>(termine: T[]): (T & { spalte: 
 // Tageswechsel eine andere Höhe hat.
 export function zeitfenster(
   zeitraeume: Zeitraum[],
-  grundVon = 7,
-  grundBis = 19
+  grundVon = KALENDER_VON_STUNDE,
+  grundBis = KALENDER_BIS_STUNDE
 ): { vonStunde: number; bisStunde: number } {
   let von = grundVon;
   let bis = grundBis;

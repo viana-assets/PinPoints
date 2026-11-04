@@ -315,7 +315,7 @@ Monatsübersicht, die in der vorigen Fassung dieses Dokuments beschrieben war:
   gruppiert nach Mitarbeiter, steht in der Monatsansicht weiter für den ausgewählten Tag.
 - **Woche** und **Tag**: ein Stundenraster (`Stundenraster.tsx`, Rechenlogik in
   `lib/calendar.ts`), dieselbe Komponente für beide – der Unterschied ist nur die Länge der
-  Tage-Liste. Grundfenster 7–19 Uhr (`KALENDER_VON_STUNDE`/`KALENDER_BIS_STUNDE`), dehnt sich
+  Tage-Liste. Grundfenster 7–21 Uhr (`KALENDER_VON_STUNDE`/`KALENDER_BIS_STUNDE`; bis v189 7–19 Uhr, fest – keine Einstellung, Wunsch Vitali 04.11.2026), dehnt sich
   aus, sobald ein Termin darüber hinausgeht. **Farbe = Mitarbeiter** (erster zugeordneter,
   dieselbe Farbe wie im Monatskalender), **Form = Zustand** (▶ in Arbeit, ✓ erledigt, ✕
   storniert schraffiert/durchgestrichen, gestrichelte Unterkante = Ende nur geschätzt, weil
