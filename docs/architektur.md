@@ -234,6 +234,8 @@ viana-pinpoints/
       KundengruppeKarte.tsx          Kundengruppe im Kundenfenster, „Einem Hauptkunden zuordnen …“ (v165), „Unterdebitoren zuordnen …“ (v166)
       AnsprechpartnerKarte.tsx       Ansprechpartner im Kundenfenster, „Auf der Karte“ für Kunde und Ansprechpartner, Fenster mit
                                      Fahrzeugen (Migration 117, v189; tests/ansprechpartnerOberflaeche.test.tsx)
+      KundenpreiseKarte.tsx          Kundenpreise im Kundenfenster: Liste, geerbte vom Hauptkunden, Fenster zum Anlegen/Ändern
+                                     (Migration 118, v191; tests/kundenpreiseOberflaeche.test.tsx)
       AnrufFenster.tsx               „Auf dem Handy anrufen": Fenster nach Antippen der Meldung
     admin/
       SettingsPanel.tsx              Tab "Einstellungen" (Konto, Benachrichtigungen, Navigation, Anzeige, App)
@@ -453,6 +455,8 @@ viana-pinpoints/
     kundengruppe.ts               Hauptkunde/Unterdebitoren: Gruppe, Mitglieder, Kandidaten beider Richtungen, gleiche Anschrift (Migration 101, v165/v166)
     ansprechpartner.ts            Ansprechpartner der Gruppe, Wechselort (Spalten, Vorschlag, Text), Nadeln der Karte
                                   `kartenNadeln()` (Migration 117, v189; tests/ansprechpartner.test.ts)
+    kundenpreise.ts               Welcher Kundenpreis an einem Tag gilt (Hauptkunde als Rückfall), Formularprüfung wie
+                                  `kunden_preis_pruefen()` (Migration 118, v191; tests/kundenpreise.test.ts)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)
@@ -490,6 +494,7 @@ viana-pinpoints/
       employees.ts                 Mitarbeiter (Einsatzplanung)
       vehicles.ts                  Kundenfahrzeuge (seit v113 auch `fetchVehiclesFuerKunden` in Blöcken zu 150)
       ansprechpartner.ts             Ansprechpartner lesen/anlegen/ändern/löschen, Kartenschalter, Fahrzeug zuordnen (Migration 117)
+      kundenpreise.ts                Kundenpreise lesen/anlegen/ändern/löschen (Migration 118)
       firmenfahrzeuge.ts             Eigene Transporter (getrennt von vehicles.ts, Migration 32)
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
@@ -854,7 +859,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 117** (03.11.2026; 101–107 ausgeführt, 108–117 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 118** (19.11.2026; 101–107 ausgeführt, 108–118 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -1066,6 +1071,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
 - **117** – Ansprechpartner je Kunde (`kunden_ansprechpartner`, eigene Adresse, „Auf der Karte“), `customers.auf_karte`,
   Wechselort am Auftrag (`orders.wechselort`, `einsatz_*`, Momentaufnahme mit Nachziehen), Fahrzeug bei einem
   Ansprechpartner (docs/kunden-und-karte.md „Ansprechpartner und Wechselort“).
+- **118** – Kundenpreise (`kunden_preise`): eigener Netto-Preis je Kunde und Artikel, beim Anlegen einer Position von der
+  Datenbank eingesetzt (`position_kundenpreis()`, Listenpreis in `order_articles.listenpreis_netto`; docs/artikelstammdaten.md).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

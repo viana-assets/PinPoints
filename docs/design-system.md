@@ -1114,4 +1114,8 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
 - **Wechselort im Auftragsfenster** (v189, `.ao-wechselort`): Karte mit Auswahl, darunter bei „Nur für diesen Termin“ Name
   und Adressfeld; der Vorschlag aus den Fahrzeugen als Textknopf `.ao-vorschlag`, Fehlendes als `.ao-fehlt-text`. Im Kopf
   unter der Adresse „Rechnung an: …“ (`.ao-wer-rechnung`, klein grau).
+- **Kundenpreise** (v191, `.dm-kp`): Karte im Kundenfenster wie „Ansprechpartner“; je Preis eine Zeile (`.dm-kp-zeile`,
+  Artikel links, Preis grün rechts mit „Liste …“ darunter, abgelaufen blass), darunter gestrichelt abgesetzt die geerbten
+  vom Hauptkunden (`.dm-kp-geerbt`). In der Leistungsauswahl `.ls-kundenpreis`: Kundenpreis grün, Listenpreis
+  durchgestrichen darunter.
 

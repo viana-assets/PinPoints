@@ -11,6 +11,7 @@ export const qk = {
   kunden: () => ["kunden"] as const,
   // Ansprechpartner (Migration 117, v189) – unter „kunden“, damit ein Neuladen der Kunden sie mitnimmt.
   ansprechpartner: () => ["kunden", "ansprechpartner"] as const,
+  kundenpreise: () => ["kunden", "preise"] as const,
   kundeFahrzeuge: (kundeId: string) => ["kunde", kundeId, "fahrzeuge"] as const,
   kundeAuftraege: (kundeId: string) => ["kunde", kundeId, "auftraege"] as const,
   kundeHistorie: (kundeId: string) => ["kunde", kundeId, "historie"] as const,

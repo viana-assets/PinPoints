@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Article, ArticlePrice, Auftragsvorlage, OrderArticle, ReifenZustand, StorageSlot, Verkaufsreifen, Warehouse } from "@/lib/types";
+import type { GeltenderKundenpreis } from "@/lib/kundenpreise";
 import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
 import { reifenFrei, reifenZustandVonArtikel } from "@/lib/reifenverkauf";
 import { ReifenSuche } from "./ReifenSuche";
@@ -36,7 +37,7 @@ export type ReifenImAuftrag = {
 // Seit Migration 61: „Reifen aus dem Lager" öffnet die Reifensuche (ReifenSuche.tsx). Dieselbe
 // Suche öffnet sich, wenn im Leistungsblatt ein Artikel mit der Abrechnungsart Reifenverkauf
 // gewählt wird – der Artikel allein wüsste weder Preis noch Reifen.
-export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove, vorlagen, darfEndpreis = true, darfLagergebuehr = true }: {
+export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove, vorlagen, darfEndpreis = true, darfLagergebuehr = true, kundenpreise }: {
   orderId: string;
   reifen?: ReifenImAuftrag | null;
   articles: Article[];
@@ -69,6 +70,9 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   onRemove: (id: string) => Promise<void>;
   // Auftragsvorlagen (E6, Migration 63): mehrere Leistungen mit einem Tipp.
   vorlagen?: Auftragsvorlage[];
+  // Kundenpreise dieses Kunden am Datum des Auftrags (Migration 118) – nur zur Anzeige in der Auswahl. Eingesetzt
+  // werden sie von der Datenbank beim Anlegen (`position_kundenpreis()`); an der Zeile steht dann „Kundenpreis“.
+  kundenpreise?: Map<string, GeltenderKundenpreis>;
 }) {
   const activeArticles = articles.filter((a) => a.active);
   const [blattOffen, setBlattOffen] = useState(false);
@@ -157,6 +161,7 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
         const keinerMehrFrei = !!posten && reifenFrei(posten) === 0;
         const info = [
           `${formatEUR(r.net_price)} / ${art?.einheit?.trim() || "Stk."}`,
+          r.listenpreis_netto != null ? `Kundenpreis (Liste ${formatEUR(Number(r.listenpreis_netto))})` : null,
           r.endpreis_netto != null ? "Sonderpreis" : null,
           r.verkaufsreifen_id ? (gesperrt ? "aus dem Lager, abgebucht" : `aus dem Lager${ort ? ` (${ort})` : ""}`) : null,
         ].filter(Boolean).join(" · ");
@@ -275,13 +280,21 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
             {katalog.length === 0 && <span className="small ls-leer">Kein Treffer.</span>}
             {katalog.map((a) => {
               const preis = preisVon(a.id);
+              const kp = kundenpreise?.get(a.id) ?? null;
               return (
                 <button key={a.id} type="button" className="ab-option ls-artikel" disabled={!!fuegtHinzu} onClick={() => void hinzufuegen(a)}>
                   <span className="ab-text ls-artikel-text">
                     <b>{a.short_name}</b>
                     <span className="small">{a.freitext ? "Bezeichnung wird am Auftrag eingegeben" : reifenZustandVonArtikel(a) && reifen ? "öffnet die Reifensuche im Lager" : a.long_name}</span>
                   </span>
-                  <span className="ls-artikel-preis">{preis ? formatEUR(preis.net_price) : a.freitext ? "frei" : reifenZustandVonArtikel(a) ? "vom Reifen" : "–"}</span>
+                  {kp ? (
+                    <span className="ls-artikel-preis ls-kundenpreis" title={kp.vomHauptkunden ? "Kundenpreis des Hauptkunden" : "Kundenpreis"}>
+                      {formatEUR(Number(kp.preis.net_price))}
+                      {preis && <s className="small">{formatEUR(preis.net_price)}</s>}
+                    </span>
+                  ) : (
+                    <span className="ls-artikel-preis">{preis ? formatEUR(preis.net_price) : a.freitext ? "frei" : reifenZustandVonArtikel(a) ? "vom Reifen" : "–"}</span>
+                  )}
                   <span className="ls-artikel-plus" aria-hidden="true">{fuegtHinzu === a.id ? "…" : "+"}</span>
                 </button>
               );

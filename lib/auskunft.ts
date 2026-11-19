@@ -2,6 +2,7 @@ import type { BelegArt, BestellStatus, Customer, OrderStatus, Saison } from "./t
 import { BELEG_ART_LABEL, ORDER_STATUS_LABEL, SAISON_LABEL } from "./constants";
 import { BESTELL_STATUS_LABEL } from "./bestellung";
 import { auftragsNr } from "./testkunde";
+import { formatEUR } from "./format";
 
 // Der Auskunftsauszug je Kunde (Fahrplan E10, v103) – „was ist über mich gespeichert?"
 // (Art. 15 DSGVO). Die Daten kommen in EINEM Abruf aus `kunde_auskunft()` (Migration 64); hier
@@ -42,6 +43,8 @@ export type AuskunftDaten = {
   ansprechpartner?: { anrede: string | null; name: string; funktion: string | null; telefon: string | null; email: string | null; adresse: string | null;
     auf_karte: boolean; notiz: string | null; angelegt: string }[];
   wechselorte?: { auftrag: number; datum: string; bei: string | null; adresse: string | null }[];
+  // Seit Migration 118 (v191): eigene Preise des Kunden. Optional wie oben.
+  kundenpreise?: { artikel: string; preis_netto: number; ab: string | null; bis: string | null; notiz: string | null; angelegt: string }[];
 };
 
 export type Zeile = [string, string];
@@ -140,6 +143,12 @@ export function wechselortZeile(w: NonNullable<AuskunftDaten["wechselorte"]>[num
   return [`Auftrag ${auftragsNr(w.auftrag)} · ${tag(w.datum)}`, [w.bei ? `bei ${w.bei}` : null, text(w.adresse)].filter(Boolean).join(" · ") || "–"];
 }
 
+// Ein Kundenpreis (Migration 118): „Radwechsel“ – „20,00 € netto · ab 01.12.2026 · Notiz“.
+export function kundenpreisZeile(k: NonNullable<AuskunftDaten["kundenpreise"]>[number]): Zeile {
+  const zeitraum = k.ab && k.bis ? `${tag(k.ab)} – ${tag(k.bis)}` : k.ab ? `ab ${tag(k.ab)}` : k.bis ? `bis ${tag(k.bis)}` : "unbefristet";
+  return [k.artikel, [`${formatEUR(Number(k.preis_netto))} netto`, zeitraum, text(k.notiz)].filter(Boolean).join(" · ")];
+}
+
 // Wie viele Einträge in jedem Abschnitt stehen – für die Übersicht oben im Auszug.
 export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
   return [
@@ -153,6 +162,7 @@ export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
     ...(d.bestellungen ? [["Bestellwünsche (Bestellliste)", String(d.bestellungen.length)] as Zeile] : []),
     ...(d.ansprechpartner ? [["Ansprechpartner", String(d.ansprechpartner.length)] as Zeile] : []),
     ...(d.wechselorte ? [["Termine an einem anderen Ort", String(d.wechselorte.length)] as Zeile] : []),
+    ...(d.kundenpreise ? [["Kundenpreise", String(d.kundenpreise.length)] as Zeile] : []),
     ["Einträge im Änderungsprotokoll", String(d.protokoll.eintraege)],
   ];
 }

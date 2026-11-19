@@ -186,7 +186,8 @@ with pruefungen(nr, was, vorhanden) as (
     ('114', 'Finance: Belegbild an Buchungen (fin_buchung_dateien)', to_regclass('public.fin_buchung_dateien') is not null),
     ('115', 'Finance: Plan je Konto und Monat (fin_plan)', to_regclass('public.fin_plan') is not null),
     ('116', 'Finance: Prüfliste (fin_pruefung)', to_regprocedure('public.fin_pruefung(integer)') is not null),
-    ('117', 'Ansprechpartner je Kunde, Wechselort am Auftrag (kunden_ansprechpartner, orders.wechselort)', to_regclass('public.kunden_ansprechpartner') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'wechselort'))
+    ('117', 'Ansprechpartner je Kunde, Wechselort am Auftrag (kunden_ansprechpartner, orders.wechselort)', to_regclass('public.kunden_ansprechpartner') is not null and exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'wechselort')),
+    ('118', 'Kundenpreise (kunden_preise, order_articles.listenpreis_netto)', to_regclass('public.kunden_preise') is not null)
 )
 select migration, woran_erkennbar, gelaufen from (
   select '00' as migration, 'DATENBANK: ' || current_database() as woran_erkennbar, '(zur Kontrolle)' as gelaufen

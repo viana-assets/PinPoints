@@ -152,6 +152,43 @@ Tabelle `auftragsvorlagen` (Name eindeutig ohne Groß/Klein, `positionen` als js
 `pruefe_loeschrecht('artikel')`. Fehlt die Tabelle (Migration nicht gelaufen), lädt die App eine
 leere Liste – der Knopf erscheint dann nicht.
 
+## Kundenpreise (Migration 118, v191, 19.11.2026)
+
+Wunsch Vitali (17.11.2026, Rückfrage aus dem Betrieb): Bestimmte Kunden bekommen bestimmte Leistungen immer günstiger
+(„bei denen kostet der Radwechsel nur 20 €, Reifen aufziehen 10 €“) – ohne es bei jedem Auftrag von Hand einzutippen und
+ohne dass andere Kunden es sehen.
+
+**Nicht zu verwechseln mit dem Sonderpreis** an einer Position (`endpreis_netto`): Der gilt für eine Position in einem
+Auftrag und wird dort von Hand gesetzt. Der **Kundenpreis** gilt für einen Kunden und einen Artikel, für jeden Auftrag.
+
+- **Pflege:** Kundenfenster → Übersicht → Karte „Kundenpreise“ → „+ Kundenpreis“: Artikel, Preis netto je Einheit,
+  wahlweise „gültig ab/bis“, Notiz. Daneben steht der Listenpreis und wie viel günstiger es ist. Abgelaufene bleiben
+  blass in der Liste (Nachweis), ändern und löschen über die Zeile.
+- **Wirkung:** Kommt der Artikel in einen Auftrag dieses Kunden – einzeln, über eine Vorlage, als Lagergebühr –, setzt
+  die **Datenbank** beim Anlegen der Position den Kundenpreis als Preis je Einheit ein (`position_kundenpreis()`) und
+  merkt den Listenpreis in `order_articles.listenpreis_netto`. Maßgeblich ist das **Datum des Auftrags**. An der Zeile
+  steht dann „Kundenpreis (Liste 25,00 €)“, in der Leistungsauswahl der Kundenpreis mit durchgestrichenem Listenpreis.
+  Mengen, Endpreis (Sonderpreis), Rechnung und Auswertungen funktionieren wie bei jeder Position; der Kundenpreis ist
+  kein „Nachlass“ in der Auswertung, sondern der Preis.
+- **Schnappschuss:** Danach steht der Preis an der Position fest. Ein später geänderter oder gelöschter Kundenpreis
+  ändert keine vorhandene Position – wer ihn in einem offenen Auftrag nachziehen will, entfernt die Leistung und trägt sie
+  neu ein.
+- **Kundengruppe (Migration 101):** Ein Kundenpreis am Hauptkunden gilt auch für seine Unterdebitoren; ein eigener
+  Kundenpreis am Unterdebitor geht vor. Die Karte des Unterdebitors zeigt die geerbten darunter.
+- **Nicht** für die Laufkundschaft und nicht für Reifenverkauf (der Preis kommt vom Reifen); Reifen aus dem Lager
+  bekommen nie einen Kundenpreis.
+- **Zeiträume** desselben Artikels beim selben Kunden dürfen sich nicht überschneiden (`kunden_preis_pruefen()` und
+  `kundenpreisMaengel()` in `lib/kundenpreise.ts` – dieselben Regeln an beiden Stellen).
+- **Rechte:** Sehen und pflegen nur mit „Endpreis überschreiben“ (`auftraege.preis` schreiben) und Kunden lesen. Wer das
+  Recht nicht hat – etwa der Techniker –, sieht die Karte nicht und in der Auswahl den Listenpreis, bekommt den
+  Kundenpreis an der Position aber trotzdem (die Datenbank setzt ihn ein). Ohne Netz angelegte Positionen zeigen bis zum
+  Senden den Listenpreis; beim Senden setzt die Datenbank den Kundenpreis ein.
+- **Datenschutz:** Zusammenführen nimmt die Kundenpreise mit (bei Überschneidung bleibt der des verbleibenden Kunden),
+  der Auskunftsauszug nennt sie, „Kunde endgültig löschen“ nimmt sie samt Protokoll mit, das Schwärzen des Protokolls
+  erfasst die Notiz.
+
+Tabelle `kunden_preise` (customer_id, article_id, net_price ≥ 0, valid_from/valid_to, notiz ≤ 300; Protokoll).
+
 ## Die Artikel-Seite (Entwurf „Q · Artikel", 26.09.2026)
 
 Karten statt Tabelle: Nummer, Kurz- und Langbezeichnung, Marken (Lagergebühr · beim Auslagern,

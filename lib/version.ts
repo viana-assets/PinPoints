@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v190";
+export const APP_VERSION = "v191";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,16 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v191", datum: "2026-11-19", titel: "Kundenpreise: eigene Preise für bestimmte Kunden",
+    punkte: [
+      "Im Kundenfenster gibt es die Karte „Kundenpreise“. Dort trägst du je Artikel einen eigenen Netto-Preis für diesen Kunden ein – zum Beispiel Radwechsel 20 € statt 25 €. Wahlweise mit „gültig ab/bis“, etwa für einen Rahmenvertrag oder eine Aktion.",
+      "Kommt der Artikel in einen Auftrag dieses Kunden, steht der Kundenpreis automatisch drin – auch wenn der Techniker die Leistung einträgt. An der Leistung steht „Kundenpreis (Liste …)“, in der Auswahl der Kundenpreis mit durchgestrichenem Listenpreis. Maßgeblich ist das Datum des Auftrags.",
+      "Bei einer Kundengruppe gilt der Kundenpreis des Hauptkunden auch für alle Unterdebitoren; ein eigener Preis am Unterdebitor geht vor.",
+      "Eine spätere Änderung des Kundenpreises ändert keine Leistung, die schon eingetragen ist. Andere Kunden sehen davon nichts; die Karte sieht nur, wer „Endpreis überschreiben“ darf.",
+      "Datenbank: Migration 118 im Supabase-SQL-Editor ausführen (nach 117), bevor die Dateien hochgeladen werden.",
+    ],
+  },
   {
     version: "v190", datum: "2026-11-04", titel: "Tages- und Wochenansicht bis 21 Uhr",
     punkte: [

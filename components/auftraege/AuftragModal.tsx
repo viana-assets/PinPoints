@@ -4,6 +4,7 @@ import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useAusgang } from "@/lib/offline/speicher";
 import { useEffect, useRef, useState } from "react";
 import type { Ansprechpartner, Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verfuegbarkeit, Warehouse } from "@/lib/types";
+import type { GeltenderKundenpreis } from "@/lib/kundenpreise";
 import { eintragAm, fensterText, teamHinweise } from "@/lib/verfuegbarkeit";
 import type { RadFelder } from "@/lib/api/lager";
 import { BestaetigungBlatt } from "./BestaetigungBlatt";
@@ -70,11 +71,14 @@ export function AuftragModal({
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
   andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null, kunden,
-  ansprechpartner = [], onFahrzeugAnsprechpartner,
+  ansprechpartner = [], onFahrzeugAnsprechpartner, kundenpreise,
 }: {
   // Ansprechpartner der Gruppe dieses Kunden (Migration 117, v189) mit dem Kunden, unter dem sie stehen – für den
   // Wechselort und „Steht bei“ am Fahrzeug.
   ansprechpartner?: { ap: Ansprechpartner; kunde: Customer }[];
+  // Kundenpreise am Datum des Auftrags (Migration 118) – nur zur Anzeige in der Leistungsauswahl; eingesetzt werden sie
+  // von der Datenbank. Fehlt die Angabe (ohne „Endpreis überschreiben“), zeigt die Auswahl den Listenpreis.
+  kundenpreise?: Map<string, GeltenderKundenpreis>;
   onFahrzeugAnsprechpartner?: (fahrzeugId: string, apId: string | null) => Promise<void>;
   // Alle Kunden – für die Namen im Tagesplan, wenn der Termin aus dem Kalender gewählt wird
   // (TerminWahlBlatt, v138). Fehlt es, springt der Termin oben wie früher in die Karte „Termin & Team“.
@@ -1181,6 +1185,7 @@ export function AuftragModal({
               onUpdateText={onUpdateArticleText}
               onRemove={onRemoveArticle}
               vorlagen={vorlagen}
+              kundenpreise={kundenpreise}
             />
           </div>
 

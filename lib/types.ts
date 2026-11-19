@@ -555,6 +555,22 @@ export type OrderArticle = {
   // Lagergebühr für diesen Reifensatz (Migration 67) – geht mit, wenn die Vormerkung zum
   // Auslagern zurückgenommen wird.
   lager_satz_id?: string | null;
+  // Kundenpreis (Migration 118): Beim Anlegen hat die Datenbank den Preis dieses Kunden eingesetzt (`net_price`) und
+  // hier den Listenpreis je Einheit gemerkt. Leer = Listenpreis. Optional wie oben (Testgerüste, vor Migration 118).
+  listenpreis_netto?: number | null;
+};
+
+// Eigener Netto-Preis je Kunde und Artikel (Migration 118, docs/artikelstammdaten.md „Kundenpreise“). Leeres ab/bis =
+// offen. Nicht zu verwechseln mit dem „Sonderpreis“ an einer Position (`endpreis_netto`, von Hand je Auftrag).
+export type KundenPreis = {
+  id: string;
+  customer_id: string;
+  article_id: string;
+  net_price: number;
+  valid_from: string | null;
+  valid_to: string | null;
+  notiz: string | null;
+  created_at?: string;
 };
 
 // Reifen und Kompletträder, die der Betrieb verkauft (Migration 61). Ein Posten = gleiche Reifen

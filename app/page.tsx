@@ -9,7 +9,7 @@ import type {
   Customer, ContactHistoryEntry, UserSettings, Warehouse, StorageSlot, TireStorage, Order,
   Vehicle, Role, Employee, Article, ArticlePrice, ArtikelFelder, OrderArticle, Saison,
   Firmenfahrzeug, EingelagertesRad, Rechnung, Verkaufsreifen, VerkaufsreifenFelder, Auftragsvorlage,
-  AuftragBeleg, OrderStatus, Bestellwunsch, Ansprechpartner,
+  AuftragBeleg, OrderStatus, Bestellwunsch, Ansprechpartner, KundenPreis,
 } from "@/lib/types";
 import {
   todayStr, nextOrder, orderDateTime, effectiveColor, kundenMitTermin,
@@ -147,11 +147,13 @@ import {
   useKunden, useAuftraege, useKundenAuftraege, useKundeFahrzeuge, useGruppeFahrzeuge, useKundeHistorie, useMitarbeiter,
   useArtikel, useArtikelpreise, useVorlagen, useBetrieb, useAppStand, useRechnungen, useAuftragRechnungen, useLager,
   useLagerplaetze, useEinlagerungen, useLagerKennzahlen, useModulrechte, useFahrzeuge, useFirmenfahrzeuge,
-  useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten, useBestellwuensche, useAnsprechpartner,
+  useEingelagerteRaeder, useVerkaufsreifen, useAuftragBelege, useBelegLinks, useVerfuegbarkeiten, useBestellwuensche, useAnsprechpartner, useKundenpreise,
 } from "@/lib/queries/hooks";
 import { apsDerGruppe, apsVonKunde, apSuchtexte } from "@/lib/ansprechpartner";
 import { fahrzeugAnsprechpartner } from "@/lib/api/ansprechpartner";
 import { AnsprechpartnerKarte } from "@/components/kunden/AnsprechpartnerKarte";
+import { KundenpreiseKarte } from "@/components/kunden/KundenpreiseKarte";
+import { kundenpreiseAm } from "@/lib/kundenpreise";
 import { verfuegbarkeitAustragen, verfuegbarkeitSetzen, verfuegbarkeitVorlage } from "@/lib/api/verfuegbarkeit";
 import type { VerfuegbarkeitImPlan } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { useLagerAktionen } from "./_seite/useLagerAktionen";
@@ -168,6 +170,7 @@ import {
 // Effekte auslösen, die eigentlich nur auf echte Datenänderungen reagieren sollen.
 const KEINE_KUNDEN: Customer[] = [];
 const KEINE_ANSPRECHPARTNER: Ansprechpartner[] = [];
+const KEINE_KUNDENPREISE: KundenPreis[] = [];
 const KEINE_AUFTRAEGE: Order[] = [];
 const KEINE_MITARBEITER: Employee[] = [];
 const KEINE_ARTIKEL: Article[] = [];
@@ -594,6 +597,12 @@ export default function HomePage() {
   const firmenfahrzeuge = firmenfahrzeugeQuery.data ?? KEINE_FIRMENFAHRZEUGE;
   const history = historieQuery.data ?? KEINE_HISTORIE;
   const modulePermissions = modulrechteQuery.data ?? KEINE_ZUORDNUNGEN;
+  // Erst hier: `darf()` liest `modulePermissions`.
+  // Kundenpreise (Migration 118): nur für „Endpreis überschreiben“ – die anderen lesen ohnehin nichts (RLS), und die
+  // Datenbank setzt den Preis an der Position auch ohne sie ein.
+  const darfKundenpreise = darf("auftraege.preis", "schreiben") && darf("kunden", "lesen");
+  const kundenpreiseQuery = useKundenpreise(supabase, sitzungBereit && darfKundenpreise && (kundeOffen || offenerAuftragId !== null));
+  const kundenpreise = kundenpreiseQuery.data ?? KEINE_KUNDENPREISE;
 
   // Das Kundendetail zeigt die VOLLSTÄNDIGE Auftragshistorie eines Kunden, unabhängig vom
   // Zeitfenster der Listen – dort will man sehen, was es zu diesem Kunden je gab.
@@ -3065,6 +3074,7 @@ export default function HomePage() {
           gruppe={auftragGruppe.length > 1 ? auftragGruppe : undefined}
           onFahrzeugHalter={darf("kunden.fahrzeuge", "schreiben") ? fahrzeugHalterWechseln : undefined}
           ansprechpartner={apsDerGruppe(offenerAuftrag.customer_id, customers, ansprechpartner)}
+          kundenpreise={darfKundenpreise ? kundenpreiseAm(offenerAuftrag.customer_id, offenerAuftrag.order_date || todayStr(), kundenpreise, customers) : undefined}
           onFahrzeugAnsprechpartner={async (fid, apId) => { await fahrzeugAnsprechpartner(supabase, fid, apId); await refreshVehicles(); }}
           onKilometerstand={kilometerstandSetzen}
           onFahrzeugAngaben={fahrzeugAngabenSetzen}
@@ -3182,6 +3192,10 @@ export default function HomePage() {
               darfSchreiben={darf("kunden", "schreiben")} darfLoeschen={darf("kunden", "loeschen")} fehlt={ansprechpartnerQuery.isError}
               onFahrzeugeGeaendert={() => refreshVehicles()} />
           }
+          kundenpreiseKarte={darfKundenpreise ? (
+            <KundenpreiseKarte supabase={supabase} kunde={gewaehlterKunde} kunden={customers} preise={kundenpreise} articles={articles}
+              articlePrices={articlePrices} fehlt={kundenpreiseQuery.isError} />
+          ) : undefined}
         />
       )}
 

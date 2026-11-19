@@ -470,6 +470,11 @@ Löschrecht für Kunden (`pruefe_loeschrecht('kunden')`). Die Schalter „Auf de
 Änderungen am Kunden (`kunden` S). Der Wechselort ist ein Feld am Auftrag – wer den Auftrag ändern darf, darf ihn setzen;
 ein Fahrzeug einem Ansprechpartner zuordnen verlangt dasselbe wie andere Fahrzeugänderungen (`kunden.fahrzeuge` S).
 
+**Kundenpreise** (Migration 118, v191, ohne neues Recht). Lesen, anlegen, ändern und löschen nur mit „Endpreis
+überschreiben“ (`auftraege.preis` S) und Kunden lesen – dieselbe Bedingung in allen vier Richtlinien; wer sie nicht
+hat, sieht die Tabelle leer und die Karte im Kundenfenster nicht. Eingesetzt wird der Kundenpreis an der Position von
+`position_kundenpreis()` (`security definer`) – auch beim Techniker, der die Preise selbst nicht lesen kann.
+
 **Zum Lager navigieren** (Migration 102, v169). Der Knopf im Schnellmenü erscheint mit `lager` L; die Wahl des Lagers
 ist eine eigene Einstellung (`user_settings`, jeder nur seine Zeile). Name und Adresse des Lagers in den Einstellungen
 ändern nur mit `lager.regale` S – dieselbe Richtlinie wie im Lager-Reiter.

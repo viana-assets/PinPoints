@@ -5163,6 +5163,20 @@ span.ap-haken{cursor:default;}
 .ao-vorschlag{align-self:flex-start;}
 .ao-fehlt-text{color:var(--red);}
 
+/* ---------------- v191: Kundenpreise im Kundenfenster und in der Leistungsauswahl ---------------- */
+.dm-kp{display:flex;flex-direction:column;gap:8px;}
+.dm-kp-zeile{display:flex;align-items:center;gap:10px;width:100%;border:0;border-top:1px solid var(--border);padding:8px 0 0;background:none;font:inherit;color:inherit;text-align:left;cursor:pointer;}
+.dm-kp-zeile.vorbei{opacity:.55;}
+.dm-kp-text{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.dm-kp-text b{font-size:14px;}
+.dm-kp-text .small{overflow:hidden;text-overflow:ellipsis;}
+.dm-kp-preis{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:1px;}
+.dm-kp-preis b{font-size:14px;color:var(--green);}
+.dm-kp-geerbt{display:flex;flex-direction:column;gap:2px;border-top:1px dashed var(--border);padding-top:8px;}
+.dm-kp-formular{display:flex;flex-direction:column;gap:10px;}
+.ls-kundenpreis{display:flex;flex-direction:column;align-items:flex-end;color:var(--green);}
+.ls-kundenpreis s{color:var(--muted, #8a8274);font-weight:400;}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

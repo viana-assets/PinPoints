@@ -91,6 +91,8 @@ export function DetailModal(props: {
   onKundeFelder?: (id: string, f: Partial<Customer>) => Promise<void>;
   // Ansprechpartner (Migration 117, v189) – die Karte baut die Seite (sie braucht den Datenzugang).
   ansprechpartnerKarte?: React.ReactNode;
+  // Kundenpreise (Migration 118, v191) – nur mit „Endpreis überschreiben“, sonst fehlt die Karte.
+  kundenpreiseKarte?: React.ReactNode;
 }) {
   const { customer: cust } = props;
   const [name, setName] = useState(cust.name);
@@ -318,6 +320,7 @@ export function DetailModal(props: {
               )}
 
               {props.ansprechpartnerKarte}
+              {props.kundenpreiseKarte}
 
               <div className="db-karte dm-lager">
                 <EingelagerteReifen
