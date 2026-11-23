@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **`112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) **und `113_finance_zahlungsausgang.sql`, `114_finance_belegeingang.sql`, `115_finance_plan.sql`, `116_finance_pruefung.sql`** (der Reihe nach, nach 112, alle vor den Dateien von v186) **sowie `117_ansprechpartner_und_wechselort.sql`** (unabhängig von 108–116, braucht nur 105; vor den Dateien von v189) **und `118_kundenpreise.sql`** (nach 117, vor den Dateien von v191) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **`112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) **und `113_finance_zahlungsausgang.sql`, `114_finance_belegeingang.sql`, `115_finance_plan.sql`, `116_finance_pruefung.sql`** (der Reihe nach, nach 112, alle vor den Dateien von v186) **sowie `117_ansprechpartner_und_wechselort.sql`** (unabhängig von 108–116, braucht nur 105; vor den Dateien von v189) **und `118_kundenpreise.sql`** (nach 117, vor den Dateien von v191) **sowie `119_kundenartikel.sql`** (nach 118, vor den Dateien von v192) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1741,3 +1741,18 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   Kunden), Schwärzen der Notiz. `t106`–`t112`, `t116`, `t117` gegen 118 gleich. Zweiter Lauf folgenlos. Rücknahme
   `rollback/118_rollback.sql` weigert sich bei Kundenpreisen oder Positionen mit Kundenpreis, stellt sonst die Funktionen
   wie nach 117 her (gleiche Prüfsumme); zweimal lauffähig, danach erneut ausgeführt.
+- `119_kundenartikel.sql` – **noch auszuführen**, nach 118, vor den Dateien von v192. Inhalt: `articles.customer_id` (on
+  delete set null), `artikel_kunde_pruefen()` (nur „normal“, keine Laufkundschaft), `position_kundenartikel_pruefen()` (nur
+  in der Kundengruppe, über `kunde_gruppe()`), `kunden_preis_pruefen()` ohne Kundenpreis auf Kundenartikel;
+  `kunde_endgueltig_loeschen()` und `testkunde_loeschen()` (jetzt Hülle um `testkunde_loeschen_grund()`) löschen die
+  Kundenartikel samt Protokoll (`kundenartikel_vor_loeschen()`/`_nach_loeschen()`, Abbruch mit Klartext, wenn ein anderer
+  Kunde einen noch benutzt); Zusammenführen und Auskunft erweitert. Wache: bricht ohne 118 ab. Ergebnistabelle mit vier
+  Zeilen. Fachlich: docs/artikelstammdaten.md „Kundenartikel“.
+- Geprüft gegen PG 16 (`/tmp/pgt/t119.sql`): Laufkundschaft, Lagergebühr (Anlegen und Ändern) und Kundenpreis auf
+  Kundenartikel abgelehnt; Position beim Hauptkunden und beim Unterdebitor (Gruppe) ja, bei fremdem Kunden und per Ändern
+  des Artikels nein; Techniker sieht Kundenartikel, legt keine an; Auskunft, Zusammenführen; endgültig löschen bricht ab,
+  solange ein anderer Kunde einen Kundenartikel benutzt, sonst Artikel und Protokoll weg; Testkunde restlos samt
+  Kundenartikel. `t106`–`t112`, `t116`, `t117` gegen 119 gleich, `t118` gleich bis auf Zeilennummern in Fehlerkontexten.
+  Zweiter Lauf folgenlos. Rücknahme `rollback/119_rollback.sql` weigert sich bei Kundenartikeln, stellt sonst die
+  Funktionen wie nach 118 her (gleiche Prüfsummen, `testkunde_loeschen` wieder ohne Hülle); zweimal lauffähig, danach
+  erneut ausgeführt.

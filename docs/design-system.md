@@ -1118,4 +1118,9 @@ Für Buchhaltung am Rechner gilt ein eigenes, dichteres Muster als in FSM – wi
   Artikel links, Preis grün rechts mit „Liste …“ darunter, abgelaufen blass), darunter gestrichelt abgesetzt die geerbten
   vom Hauptkunden (`.dm-kp-geerbt`). In der Leistungsauswahl `.ls-kundenpreis`: Kundenpreis grün, Listenpreis
   durchgestrichen darunter.
+- **Preise und Artikel** (v192): dieselbe Karte, Abschnitte mit kleiner Großschrift-Überschrift (`.dm-kp-abschnitt`,
+  `.dm-kp-titel`) – erst Kundenartikel, dann Kundenpreise. In der Leistungsauswahl Gruppenköpfe `.ls-gruppe` („Für diesen
+  Kunden“, „Alle Leistungen“). Artikelstamm: Umschalter „Artikel · Kundenartikel“ (`.ar-ansicht`), Kundenartikel je Kunde
+  (`.ar-kundengruppe`, Kopf mit Kd.-Nr. und „Zum Kunden ›“). Auswertung: Reiter „Konditionen“, Vorteil grün rechts
+  (`.am-kond-wert`), Aufteilung je Kunde grün klein (`.am-konditionen`).
 

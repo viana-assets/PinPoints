@@ -479,6 +479,9 @@ export type Article = {
   //                    kommen vom Reifen. Zwei Arten statt einer, weil gebrauchte Reifen
   //                    steuerlich anders zu behandeln sein können (mit dem Steuerberater klären).
   abrechnungsart: "normal" | "lagergebuehr" | "reifenverkauf_neu" | "reifenverkauf_gebraucht";
+  // Kundenartikel (Migration 119): gehört zu diesem Kunden und taucht nur in Aufträgen seiner Kundengruppe auf. Leer =
+  // Artikel für alle. Optional, weil Testgerüste Artikel von Hand bauen und es ihn vor Migration 119 nicht gab.
+  customer_id?: string | null;
   // Fallen bei dieser Leistung Altreifen an (Migration 46)? Dann fragt das Auftragsfenster
   // beim Abschließen nach, wenn nichts eingelagert wurde – „nimmt der Kunde die alten mit?".
   //

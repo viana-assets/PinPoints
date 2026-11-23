@@ -574,6 +574,9 @@ einer Rechnung, damit die Summe dem Beleg entspricht. Nicht festgeschrieben (Fel
 Windows-1252. Gesperrt, solange Berater oder Mandant fehlen, wenn der Zeitraum über zwei
 Wirtschaftsjahre reicht oder ein Debitor außerhalb 10000–69999 läge – jeweils mit Klartext.
 
+**Kundenkonditionen** (v192): Reiter „Konditionen“, Kundenartikel getrennt im Reiter „Artikel“, Aufteilung je Kunde im
+Reiter „Kunden“ – Einzelheiten in `docs/artikelstammdaten.md` („Kundenkonditionen in der Auswertung“).
+
 **Arbeitszeit laut Stempeluhr** (v144) im Reiter „Einsatz“: gestempelt (ohne Pausen, mit Heimfahrt),
 davon beim Kunden laut Termin (je eingeteilter Person), übrige Zeit, Heimfahrten, Urlaub, Korrekturen –
 **nur als Summe des Betriebs**, ohne Werte je Person, nur mit „Zeiten aller · lesen“ und ohne

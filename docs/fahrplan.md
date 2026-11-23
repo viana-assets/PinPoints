@@ -16,12 +16,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **21.11.2026 – Kundenartikel und Konditionen-Auswertung (Service Worker v192, Migration 119).** Eigene Leistungen je
+  Kunde: angelegt im Kundenfenster („Preise und Artikel“), Übersicht im Artikelstamm (Reiter „Kundenartikel“), in der
+  Leistungsauswahl nur bei Aufträgen der Kundengruppe. Auswertung: Kundenartikel getrennt im Reiter „Artikel“, Aufteilung
+  je Kunde im Reiter „Kunden“, neuer Reiter „Konditionen“ mit Preisvorteil. Die Rechnung je Unterdebitor (Runde B) folgt
+  mit Migration 120.
 * **19.11.2026 – Kundenpreise (Service Worker v191, Migration 118).** Rückfrage aus dem Betrieb: eigene Preise für bestimmte
   Kunden („Radwechsel 20 €, Reifen aufziehen 10 €“), ohne Eintippen und ohne dass andere Kunden sie sehen. Im
   Kundenfenster je Artikel ein Netto-Preis, wahlweise mit Zeitraum; die Datenbank setzt ihn beim Anlegen einer Position
   ein, an der Zeile steht „Kundenpreis (Liste …)“. Hauptkunde gilt für seine Unterdebitoren, eigener Preis geht vor. Nur mit
   „Endpreis überschreiben“ sichtbar (docs/artikelstammdaten.md „Kundenpreise“). Die Rechnung je Unterdebitor (Runde B) folgt
-  mit Migration 119.
+  später.
 * **04.11.2026 – Einsatzplanung: Tages- und Wochenansicht bis 21 Uhr (Service Worker v190, ohne Migration).** Wunsch
   Vitali: Das Raster endete um 19 Uhr. Grundfenster jetzt 7–21 Uhr (`KALENDER_BIS_STUNDE`), fest für alle – eine Einstellung
   je Benutzer oder im Admin hätte eine Migration gebraucht und war nicht gewünscht.

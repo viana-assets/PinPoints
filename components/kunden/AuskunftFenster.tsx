@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
 import { fetchKundeAuskunft } from "@/lib/api/customers";
-import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, bestellZeile, ansprechpartnerZeile, wechselortZeile, kundenpreisZeile, reifenNotizZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
+import { auftragZeile, auskunftDateiname, auskunftUmfang, belegZeile, bestellZeile, ansprechpartnerZeile, wechselortZeile, kundenpreisZeile, kundenartikelZeile, reifenNotizZeile, satzZeile, stammdatenZeilen, type AuskunftDaten, type Zeile } from "@/lib/auskunft";
 import { formatEUR } from "@/lib/helpers";
 import { auftragsNr } from "@/lib/testkunde";
 import { PROTOKOLL_SCHWAERZEN_MONATE, RECHNUNG_SEITE_CSS } from "@/lib/constants";
@@ -117,6 +117,11 @@ export function AuskunftFenster({ kundeId, onClose }: { kundeId: string; onClose
             {daten.kundenpreise && daten.kundenpreise.length > 0 && (<>
               <h2>Kundenpreise</h2>
               <Tabelle zeilen={daten.kundenpreise.map(kundenpreisZeile)} />
+            </>)}
+
+            {daten.kundenartikel && daten.kundenartikel.length > 0 && (<>
+              <h2>Kundenartikel</h2>
+              <Tabelle zeilen={daten.kundenartikel.map(kundenartikelZeile)} />
             </>)}
 
             {daten.bestellungen && daten.bestellungen.length > 0 && (<>

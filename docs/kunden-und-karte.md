@@ -528,14 +528,14 @@ Kalender, Liste, Karte, Route, Packliste, Navigation und die Terminbestätigung 
 Wechselort – alle gehen über `kundeFuerAuftrag()` (`lib/laufkunde.ts`), das Adresse und Koordinate ersetzt, Name und
 Rechnungsempfänger aber beim Kunden lässt. Die Push-Erinnerung nennt den Einsatzort.
 
-Seit v191 steht unter den Ansprechpartnern die Karte **„Kundenpreise“** (eigene Preise je Artikel, nur mit „Endpreis
-überschreiben“; docs/artikelstammdaten.md „Kundenpreise“).
+Seit v191 steht unter den Ansprechpartnern die Karte **„Kundenpreise“**, seit v192 **„Preise und Artikel“** mit
+Kundenartikeln (eigene Leistungen) und Kundenpreisen (docs/artikelstammdaten.md „Kundenartikel“ und „Kundenpreise“).
 
 Zusammenführen nimmt die Ansprechpartner mit, der Auskunftsauszug (Art. 15) listet Ansprechpartner und Wechselorte,
 das Schwärzen des Protokolls erfasst die neuen Felder. Neue Rechte gibt es nicht: Ansprechpartner lesen/ändern wie
 Kunden (`kunden`), der Techniker sieht sie bei seinen Kunden.
 
-**Runde 2 (Migration 119):** Ein Auftrag beim Hauptkunden ergibt je Unterdebitor eine Rechnung mit dessen Fahrzeugen; Leistungen
+**Runde 2 (Migration 120):** Ein Auftrag beim Hauptkunden ergibt je Unterdebitor eine Rechnung mit dessen Fahrzeugen; Leistungen
 je Fahrzeug („alle Fahrzeuge gleich“), der Halter des Fahrzeugs bestimmt die Rechnung.
 
 ## Papierkorb und endgültiges Löschen (Migration 56, Fahrplan B2, 23.09.2026)

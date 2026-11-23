@@ -5177,6 +5177,24 @@ span.ap-haken{cursor:default;}
 .ls-kundenpreis{display:flex;flex-direction:column;align-items:flex-end;color:var(--green);}
 .ls-kundenpreis s{color:var(--muted, #8a8274);font-weight:400;}
 
+/* ---------------- v192: Kundenartikel, Konditionen in der Auswertung ---------------- */
+.dm-kp-abschnitt{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;}
+.dm-kp-titel{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+.dm-kp-zeile:disabled{cursor:default;}
+.ls-gruppe{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);padding:6px 2px 0;}
+.ar-ansicht{margin-top:2px;}
+.ar-ansicht .op-zahl{margin-left:6px;}
+.ar-kundengruppe{display:flex;flex-direction:column;gap:8px;margin-top:10px;}
+.ar-kunde-kopf{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.ar-kunde-kopf .db-link{margin-left:auto;}
+.am-artikelart{margin-bottom:10px;}
+.am-konditionen{color:var(--green);}
+.am-kond-zeilen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:4px 0 10px;}
+.am-kond-zeilen span{display:flex;flex-direction:column;gap:1px;}
+.am-kond-zeilen b{font-size:17px;}
+.am-kond-wert{display:flex;flex-direction:column;align-items:flex-end;flex:none;}
+.am-kond-wert b{color:var(--green);}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

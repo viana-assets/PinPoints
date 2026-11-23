@@ -64,7 +64,8 @@ function VorlageBlatt({ vorlage, articles, onClose, onSpeichern, onLoeschen }: {
   const [aktiv, setAktiv] = useState(vorlage?.aktiv ?? true);
   const [neuArtikel, setNeuArtikel] = useState("");
   const [laeuft, setLaeuft] = useState(false);
-  const waehlbar = articles.filter((a) => a.active).sort((a, b) => a.article_number - b.article_number);
+  // Kundenartikel (Migration 119) gehören nicht in Vorlagen für alle – bei anderen Kunden lehnte die Datenbank sie ab.
+  const waehlbar = articles.filter((a) => a.active && !a.customer_id).sort((a, b) => a.article_number - b.article_number);
 
   async function speichern() {
     setLaeuft(true);

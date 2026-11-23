@@ -45,6 +45,8 @@ export type AuskunftDaten = {
   wechselorte?: { auftrag: number; datum: string; bei: string | null; adresse: string | null }[];
   // Seit Migration 118 (v191): eigene Preise des Kunden. Optional wie oben.
   kundenpreise?: { artikel: string; preis_netto: number; ab: string | null; bis: string | null; notiz: string | null; angelegt: string }[];
+  // Seit Migration 119 (v192): Kundenartikel. Optional wie oben.
+  kundenartikel?: { nummer: number; artikel: string; bezeichnung: string; aktiv: boolean; angelegt: string }[];
 };
 
 export type Zeile = [string, string];
@@ -149,6 +151,11 @@ export function kundenpreisZeile(k: NonNullable<AuskunftDaten["kundenpreise"]>[n
   return [k.artikel, [`${formatEUR(Number(k.preis_netto))} netto`, zeitraum, text(k.notiz)].filter(Boolean).join(" · ")];
 }
 
+// Ein Kundenartikel (Migration 119): „601 · Flottencheck“ – „Flottencheck je Fahrzeug · inaktiv“.
+export function kundenartikelZeile(a: NonNullable<AuskunftDaten["kundenartikel"]>[number]): Zeile {
+  return [`${a.nummer} · ${a.artikel}`, [text(a.bezeichnung), a.aktiv ? null : "inaktiv"].filter(Boolean).join(" · ") || "–"];
+}
+
 // Wie viele Einträge in jedem Abschnitt stehen – für die Übersicht oben im Auszug.
 export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
   return [
@@ -163,6 +170,7 @@ export function auskunftUmfang(d: AuskunftDaten): Zeile[] {
     ...(d.ansprechpartner ? [["Ansprechpartner", String(d.ansprechpartner.length)] as Zeile] : []),
     ...(d.wechselorte ? [["Termine an einem anderen Ort", String(d.wechselorte.length)] as Zeile] : []),
     ...(d.kundenpreise ? [["Kundenpreise", String(d.kundenpreise.length)] as Zeile] : []),
+    ...(d.kundenartikel ? [["Kundenartikel", String(d.kundenartikel.length)] as Zeile] : []),
     ["Einträge im Änderungsprotokoll", String(d.protokoll.eintraege)],
   ];
 }

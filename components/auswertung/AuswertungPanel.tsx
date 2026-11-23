@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabaseClient";
-import type { Article, ArticlePrice, Customer, Employee, Order, OrderArticle, Vehicle } from "@/lib/types";
+import type { Article, ArticlePrice, Customer, Employee, KundenPreis, Order, OrderArticle, Vehicle } from "@/lib/types";
+import { artikelWerteTeilen, gruppenSumme, konditionenJeKunde, konditionenSumme, kundenMitKonditionen } from "@/lib/konditionen";
 import { fetchAuswertungsdaten, type AuswertungsAbzug } from "@/lib/api/auswertung";
 import { artikelDetail, jeArtikel, jeMitarbeiter, kennzahlen, type Auswertungsdaten, type Zeitraum } from "@/lib/auswertung";
 import {
@@ -38,10 +39,12 @@ import { addDays, toDateStr } from "@/lib/calendar";
 // Gerechnet wird in lib/auswertung.ts, lib/auswertungAnsicht.ts und lib/datev.ts – alle mit
 // Prüffällen. Diese Datei zeigt nur an.
 
-type Reiter = "umsatz" | "kunden" | "einsatz" | "lager" | "artikel" | "reifen";
+type Reiter = "umsatz" | "kunden" | "einsatz" | "lager" | "artikel" | "reifen" | "konditionen";
 const REITER: { wert: Reiter; text: string }[] = [
   { wert: "umsatz", text: "Umsatz" }, { wert: "kunden", text: "Kunden" }, { wert: "einsatz", text: "Einsatz" },
   { wert: "lager", text: "Lager" }, { wert: "artikel", text: "Artikel" }, { wert: "reifen", text: "Reifen" },
+  // v192: Kundenpreise und Kundenartikel (nur mit „Endpreis überschreiben“).
+  { wert: "konditionen", text: "Konditionen" },
 ];
 type Blatt = null | "frei" | "person" | "export" | "offen" | "monat" | "artikel";
 
@@ -124,6 +127,10 @@ export function AuswertungPanel(p: {
   onOpenCustomer: (id: string) => void;
   onZuSaison?: () => void;
   onZuLager?: () => void;
+  // Kundenkonditionen (v192): Reiter „Konditionen“ und die Aufteilung je Kunde nur mit „Endpreis überschreiben“ – sie
+  // zeigen, wer welche Konditionen hat. `kundenpreise` nennt die Kunden mit hinterlegten Kundenpreisen.
+  darfKonditionen?: boolean;
+  kundenpreise?: KundenPreis[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const heute = todayStr();
@@ -136,6 +143,7 @@ export function AuswertungPanel(p: {
   const [blatt, setBlatt] = useState<Blatt>(null);
   const [monat, setMonat] = useState<string | null>(null);
   const [artikelId, setArtikelId] = useState("");
+  const [artikelArt, setArtikelArt] = useState<"alle" | "standard" | "kunden">("alle");
   const [exportFehler, setExportFehler] = useState<string[]>([]);
 
   const z = art === "frei" ? frei : zeitraumFuer(art, heute);
@@ -262,10 +270,21 @@ export function AuswertungPanel(p: {
   const ra = rv ? reifenAuswertung(rv.zeilen, rv.posten, z, heute) : null;
   const raVJ = rv ? reifenAuswertung(rv.zeilen, rv.posten, zVJ, heute) : null;
   const rvVerlauf = rv ? lagerwertVerlauf(rv.zeilen, rv.posten, monate.map((m) => { const e2 = monatsende(m); return e2 < heute ? e2 : heute; })) : [];
-  const reiterSichtbar = REITER.filter((r) => r.wert !== "reifen" || p.darfReifenverkauf);
+  const reiterSichtbar = REITER.filter((r) => (r.wert !== "reifen" || p.darfReifenverkauf) && (r.wert !== "konditionen" || p.darfKonditionen));
+
+  // ---------------------------------------------------------------- Konditionen (v192)
+  const kj = konditionenJeKunde(datenP, z);
+  const kjVJ = konditionenJeKunde(datenP, zVJ);
+  const kListe = kundenMitKonditionen(kj, daten, p.kundenpreise ?? []);
+  const kSumme = konditionenSumme(kListe);
+  const kSummeVJ = konditionenSumme(kundenMitKonditionen(kjVJ, daten, p.kundenpreise ?? []));
+  const kAnteil = s.netto > 0 ? Math.round(((kSumme.kundenpreis + kSumme.kundenartikel) / s.netto) * 100) : null;
 
   // ---------------------------------------------------------------- Artikel
-  const ohneVerkauf = p.articles.filter((x) => x.active && !artikelWerte.some((w2) => w2.id === x.id)).map((x) => x.short_name).sort((x, y) => x.localeCompare(y, "de"));
+  const geteilt = artikelWerteTeilen(artikelWerte, p.articles, p.customers);
+  const kundenartikelSumme = geteilt.kunden.reduce((n, x) => n + x.umsatzNetto, 0);
+  const standardWerte = artikelArt === "kunden" ? [] : geteilt.standard;
+  const ohneVerkauf = p.articles.filter((x) => x.active && !x.customer_id && !artikelWerte.some((w2) => w2.id === x.id)).map((x) => x.short_name).sort((x, y) => x.localeCompare(y, "de"));
   const einheit = (id: string) => (gebuehrArtikel.has(id) ? "Monate" : "Stück");
   const detail = artikelDetail(datenP, z, artikelId);
   // Die Monate dazu über dieselben zwölf Monate wie die Umsatzsäulen – ein einzelner Monat
@@ -293,7 +312,9 @@ export function AuswertungPanel(p: {
       : reiter === "einsatz" ? [["Mitarbeiter", "Stunden", "Termine"], ...e.jePerson.map((x) => [x.name, Math.round((x.minuten / 60) * 100) / 100, x.termine])]
       : reiter === "lager" ? [["Monat", "Belegt am Monatsende", "Vorjahr"], ...monate.map((m, i) => [monatLang(m), verlauf[i], verlaufVJ[i]])]
       : reiter === "reifen" ? [["Monat", "Lagerwert Reifenverkauf netto (ungefähr)"], ...monate.map((m, i) => [monatLang(m), rvVerlauf[i] ?? 0])]
-      : [["Artikel", "Menge", "Einheit", "Umsatz netto"], ...artikelWerte.map((x) => [x.name, x.menge, einheit(x.id), x.umsatzNetto])];
+      : reiter === "konditionen" ? [["Kunde", "Kd.-Nr.", "Aufträge", "Umsatz netto", "davon Listenpreis", "davon Kundenpreis", "davon Kundenartikel", "Preisvorteil", "Letzter Auftrag"],
+          ...kListe.map((x) => [x.name, x.kundennummer, x.auftraege, x.netto, x.liste, x.kundenpreis, x.kundenartikel, x.preisvorteil, x.letzterAuftrag])]
+      : [["Artikel", "Kunde", "Menge", "Einheit", "Umsatz netto"], ...artikelWerte.map((x) => [x.name, geteilt.kunden.find((k2) => k2.id === x.id)?.kunde ?? "", x.menge, einheit(x.id), x.umsatzNetto])];
     herunterladen(`Auswertung_${reiter}_${z.von}_${z.bis}.csv`, csv(zeilen), "text/csv;charset=utf-8");
   }
 
@@ -498,12 +519,31 @@ export function AuswertungPanel(p: {
               {top.length === 0 ? <div className="db-leer">Kein Umsatz im Zeitraum.</div> : top.map((x, i) => (
                 <button key={x.id} type="button" className="am-listen-zeile" onClick={() => p.onOpenCustomer(x.id)}>
                   <span className="am-rang">{i + 1}</span>
-                  <span className="am-lz-text"><b>{x.name}</b><span className="small">{x.auftraege} {x.auftraege === 1 ? "Beleg bzw. Auftrag" : "Belege bzw. Aufträge"}</span></span>
+                  <span className="am-lz-text"><b>{x.name}</b><span className="small">{x.auftraege} {x.auftraege === 1 ? "Beleg bzw. Auftrag" : "Belege bzw. Aufträge"}</span>
+                    {p.darfKonditionen && (() => {
+                      const kx = kj.get(x.id);
+                      if (!kx || (kx.kundenpreis <= 0 && kx.kundenartikel <= 0)) return null;
+                      return <span className="small am-konditionen">{[kx.kundenpreis > 0 ? `mit Kundenpreis ${eur0(kx.kundenpreis)} (Vorteil ${eur0(kx.preisvorteil)})` : null,
+                        kx.kundenartikel > 0 ? `Kundenartikel ${eur0(kx.kundenartikel)}` : null].filter(Boolean).join(" · ")}</span>;
+                    })()}
+                  </span>
                   <b>{eur0(x.netto)}</b>
                   <span className="am-chevron" aria-hidden="true">›</span>
                 </button>
               ))}
             </div>
+
+            {p.darfKonditionen && kSumme.kunden > 0 && (
+              <div className="db-karte">
+                <div className="db-karte-kopf"><span className="db-karte-titel">Kundenkonditionen</span><span className="small">im Zeitraum, aus den Leistungen</span></div>
+                <div className="am-kond-zeilen">
+                  <span><b>{eur0(kSumme.kundenpreis)}</b><span className="small">mit Kundenpreis</span></span>
+                  <span><b>{eur0(kSumme.preisvorteil)}</b><span className="small">Preisvorteil</span></span>
+                  <span><b>{eur0(kSumme.kundenartikel)}</b><span className="small">Kundenartikel</span></span>
+                </div>
+                <button type="button" className="am-knopf" onClick={() => setReiter("konditionen")}>{kSumme.kunden} Kunden mit Konditionen ansehen</button>
+              </div>
+            )}
 
             <div className="db-karte">
               <div className="db-karte-kopf"><span className="db-karte-titel">Neu und Bestand</span><span className="small">bediente Kunden je Monat</span></div>
@@ -654,6 +694,47 @@ export function AuswertungPanel(p: {
         )}
 
         {/* ============================================================ REIFEN (E18) */}
+        {/* ============================================================ KONDITIONEN (v192) */}
+        {reiter === "konditionen" && (
+          <>
+            <div className="am-antwort">
+              <span className="am-a-titel">PREISVORTEIL · {titel.toUpperCase()}</span>
+              <div className="am-a-zeile"><span className="am-a-wert">{eur0(kSumme.preisvorteil)}</span><span className="am-a-unter">gegenüber dem Listenpreis gewährt</span></div>
+              {vergleich && (kSumme.preisvorteil > 0 || kSummeVJ.preisvorteil > 0) && <Delta jetzt={kSumme.preisvorteil} vorher={kSummeVJ.preisvorteil} dunkel />}
+              <span className="am-a-klein">Aus den Leistungen erledigter Aufträge: (Listenpreis − Kundenpreis) × Menge. Ein von Hand gesetzter Endpreis zählt nicht dazu.</span>
+            </div>
+            <div className="am-kacheln">
+              <Kachel titel="Kunden mit Konditionen" wert={String(kSumme.kunden)} unter="Kundenpreis oder Kundenartikel" />
+              <Kachel titel="Umsatz mit Kundenpreis" wert={eur0(kSumme.kundenpreis)} unter="netto">{vergleich && <Delta jetzt={kSumme.kundenpreis} vorher={kSummeVJ.kundenpreis} />}</Kachel>
+              <Kachel titel="Umsatz Kundenartikel" wert={eur0(kSumme.kundenartikel)} unter="netto">{vergleich && <Delta jetzt={kSumme.kundenartikel} vorher={kSummeVJ.kundenartikel} />}</Kachel>
+              <Kachel titel="Anteil am Umsatz" wert={kAnteil != null ? `${kAnteil} %` : "–"} unter="Kundenpreis und Kundenartikel" />
+            </div>
+            <div className="db-karte">
+              <div className="db-karte-kopf"><span className="db-karte-titel">Kunden mit Konditionen</span><span className="small">größter Preisvorteil zuerst</span></div>
+              {kListe.length === 0 ? <div className="db-leer">Noch keine Kundenpreise oder Kundenartikel hinterlegt.</div> : kListe.map((x) => {
+                const g = gruppenSumme(x.id, kj, p.customers);
+                const anteilKa = x.netto > 0 ? Math.round((x.kundenartikel / x.netto) * 100) : 0;
+                return (
+                  <button key={x.id} type="button" className="am-listen-zeile" onClick={() => p.onOpenCustomer(x.id)}>
+                    <span className="am-lz-text">
+                      <b>{x.name}{x.kundennummer != null ? <span className="small"> · Kd.-Nr. {x.kundennummer}</span> : null}</b>
+                      <span className="small">
+                        {x.auftraege === 0 ? "keine Aufträge im Zeitraum" : `${x.auftraege} ${x.auftraege === 1 ? "Auftrag" : "Aufträge"} · ${eur0(x.netto)}`}
+                        {x.kundenartikel > 0 ? ` · Kundenartikel ${anteilKa} %` : ""}
+                        {x.letzterAuftrag ? ` · zuletzt ${tagDeutsch(x.letzterAuftrag)}` : ""}
+                      </span>
+                      {g && <span className="small am-konditionen">Gruppe gesamt: {eur0(g.netto)} · Vorteil {eur0(g.preisvorteil)}</span>}
+                    </span>
+                    <span className="am-kond-wert"><b>{eur0(x.preisvorteil)}</b><span className="small">Vorteil</span></span>
+                    <span className="am-chevron" aria-hidden="true">›</span>
+                  </button>
+                );
+              })}
+            </div>
+            <span className="small am-fuss">Eine Grundlage, um Konditionen regelmäßig zu prüfen. Kunden mit hinterlegten Konditionen stehen auch ohne Auftrag im Zeitraum in der Liste.</span>
+          </>
+        )}
+
         {reiter === "reifen" && (
           !ra ? (
             <div className="db-karte"><div className="db-leer">{laedt ? "Lädt …" : "Für den Reifenverkauf fehlt das Leserecht."}</div></div>
@@ -702,15 +783,22 @@ export function AuswertungPanel(p: {
         {/* ============================================================ ARTIKEL */}
         {reiter === "artikel" && (
           <>
-            <div className="db-karte">
+            {geteilt.kunden.length > 0 && (
+              <div className="lg-lagerwahl am-artikelart" role="group" aria-label="Artikel">
+                {([["alle", "Alle"], ["standard", "Standard"], ["kunden", "Kundenartikel"]] as const).map(([w2, t]) => (
+                  <button key={w2} type="button" className={artikelArt === w2 ? "aktiv" : ""} aria-pressed={artikelArt === w2} onClick={() => setArtikelArt(w2)}>{t}</button>
+                ))}
+              </div>
+            )}
+            {artikelArt !== "kunden" && <div className="db-karte">
               <div className="db-karte-kopf"><span className="db-karte-titel">Was verkauft wird</span><span className="small">antippen für Einzelheiten</span></div>
-              {artikelWerte.length === 0 ? <div className="db-leer">Keine Leistungen im Zeitraum.</div> : artikelWerte.map((x) => {
+              {standardWerte.length === 0 ? <div className="db-leer">Keine Leistungen im Zeitraum.</div> : standardWerte.map((x) => {
                 const vj = artikelWerteVJ.get(x.id)?.umsatzNetto ?? 0;
                 const d = veraenderung(x.umsatzNetto, vj);
                 return (
                   <button key={x.id} type="button" className="am-artikel" onClick={() => { setArtikelId(x.id); setBlatt("artikel"); }}>
                     <span className="am-bz-kopf"><span className="am-name">{x.name}</span><b>{eur0(x.umsatzNetto)}</b></span>
-                    <span className="am-bz-spur"><span style={{ width: `${(x.umsatzNetto / Math.max(1, artikelWerte[0].umsatzNetto)) * 100}%`, background: "var(--accent)" }} /></span>
+                    <span className="am-bz-spur"><span style={{ width: `${(x.umsatzNetto / Math.max(1, standardWerte[0].umsatzNetto)) * 100}%`, background: "var(--accent)" }} /></span>
                     <span className="am-bz-fuss">
                       <span>{x.menge.toLocaleString("de-DE")} {einheit(x.id)}{artikelSumme > 0 ? ` · ${Math.round((x.umsatzNetto / artikelSumme) * 100)} %` : ""}</span>
                       {vergleich && d != null && <span className={"am-delta " + (d >= 0 ? "plus" : "minus")}>{d >= 0 ? "▲" : "▼"} {Math.abs(d)} % zum Vorjahr</span>}
@@ -718,8 +806,28 @@ export function AuswertungPanel(p: {
                   </button>
                 );
               })}
-            </div>
-            {ohneVerkauf.length > 0 && <span className="small am-fuss">Ohne Verkauf im Zeitraum: {ohneVerkauf.join(", ")}.</span>}
+            </div>}
+            {artikelArt !== "standard" && geteilt.kunden.length > 0 && (
+              <div className="db-karte">
+                <div className="db-karte-kopf"><span className="db-karte-titel">Kundenartikel</span>
+                  <span className="small">{geteilt.kunden.length} Artikel · {eur0(kundenartikelSumme)}{artikelSumme > 0 ? ` · ${Math.round((kundenartikelSumme / artikelSumme) * 100)} %` : ""}</span></div>
+                {geteilt.kunden.map((x) => {
+                  const vj = artikelWerteVJ.get(x.id)?.umsatzNetto ?? 0;
+                  const d = veraenderung(x.umsatzNetto, vj);
+                  return (
+                    <button key={x.id} type="button" className="am-artikel" onClick={() => { setArtikelId(x.id); setBlatt("artikel"); }}>
+                      <span className="am-bz-kopf"><span className="am-name">{x.name}<span className="small"> · {x.kunde}</span></span><b>{eur0(x.umsatzNetto)}</b></span>
+                      <span className="am-bz-spur"><span style={{ width: `${(x.umsatzNetto / Math.max(1, geteilt.kunden[0].umsatzNetto)) * 100}%`, background: "var(--navy)" }} /></span>
+                      <span className="am-bz-fuss">
+                        <span>{x.menge.toLocaleString("de-DE")} {einheit(x.id)}</span>
+                        {vergleich && d != null && <span className={"am-delta " + (d >= 0 ? "plus" : "minus")}>{d >= 0 ? "▲" : "▼"} {Math.abs(d)} % zum Vorjahr</span>}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {artikelArt !== "kunden" && ohneVerkauf.length > 0 && <span className="small am-fuss">Ohne Verkauf im Zeitraum: {ohneVerkauf.join(", ")}.</span>}
             <span className="small am-fuss">Bei der Lagergebühr ist die Menge die Zahl der Monate, nicht der Sätze.</span>
           </>
         )}

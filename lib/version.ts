@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v191";
+export const APP_VERSION = "v192";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,16 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v192", datum: "2026-11-21", titel: "Kundenartikel und Auswertung der Konditionen",
+    punkte: [
+      "Im Kundenfenster heißt die Karte jetzt „Preise und Artikel“. Mit „+ Kundenartikel“ legst du eine eigene Leistung nur für diesen Kunden an – etwa einen Flottencheck oder Bringservice – mit Preis, Einheit und Steuersatz.",
+      "Kundenartikel stehen in der Leistungsauswahl nur bei Aufträgen dieses Kunden, ganz oben unter „Für diesen Kunden“. Bei einer Kundengruppe gelten sie für Hauptkunde und alle Unterdebitoren. Andere Kunden sehen sie nicht.",
+      "Im Artikelstamm gibt es den Reiter „Kundenartikel“: alle auf einen Blick, je Kunde mit Kundennummer, suchbar, mit Sprung zum Kunden. Preise, Einheit und „aktiv“ änderst du dort wie bei jedem Artikel.",
+      "Auswertungen: Im Reiter „Artikel“ stehen Kundenartikel getrennt, im Reiter „Kunden“ siehst du je Kunde, was mit Kundenpreis und Kundenartikeln lief. Neu ist der Reiter „Konditionen“: Preisvorteil gegenüber der Liste, Umsatz mit Kundenpreisen und Kundenartikeln und alle Kunden mit Sonderkonditionen – auch als CSV.",
+      "Datenbank: Migration 119 im Supabase-SQL-Editor ausführen (nach 118), bevor die Dateien hochgeladen werden.",
+    ],
+  },
   {
     version: "v191", datum: "2026-11-19", titel: "Kundenpreise: eigene Preise für bestimmte Kunden",
     punkte: [

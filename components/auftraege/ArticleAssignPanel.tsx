@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Article, ArticlePrice, Auftragsvorlage, OrderArticle, ReifenZustand, StorageSlot, Verkaufsreifen, Warehouse } from "@/lib/types";
 import type { GeltenderKundenpreis } from "@/lib/kundenpreise";
+import { waehlbarFuer } from "@/lib/kundenartikel";
 import { currentArticlePrice, formatEUR, orderArticleTotals, positionListenwert } from "@/lib/helpers";
 import { reifenFrei, reifenZustandVonArtikel } from "@/lib/reifenverkauf";
 import { ReifenSuche } from "./ReifenSuche";
@@ -37,7 +38,7 @@ export type ReifenImAuftrag = {
 // Seit Migration 61: „Reifen aus dem Lager" öffnet die Reifensuche (ReifenSuche.tsx). Dieselbe
 // Suche öffnet sich, wenn im Leistungsblatt ein Artikel mit der Abrechnungsart Reifenverkauf
 // gewählt wird – der Artikel allein wüsste weder Preis noch Reifen.
-export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove, vorlagen, darfEndpreis = true, darfLagergebuehr = true, kundenpreise }: {
+export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, gesperrt, rechnungNoetig, reifen, onAdd, onUpdateQty, onUpdateEndpreis, onUpdateText, onRemove, vorlagen, darfEndpreis = true, darfLagergebuehr = true, kundenpreise, kundenIds }: {
   orderId: string;
   reifen?: ReifenImAuftrag | null;
   articles: Article[];
@@ -73,6 +74,9 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   // Kundenpreise dieses Kunden am Datum des Auftrags (Migration 118) – nur zur Anzeige in der Auswahl. Eingesetzt
   // werden sie von der Datenbank beim Anlegen (`position_kundenpreis()`); an der Zeile steht dann „Kundenpreis“.
   kundenpreise?: Map<string, GeltenderKundenpreis>;
+  // Kundenartikel (Migration 119): die Kunden, deren Kundenartikel hier wählbar sind – die Kundengruppe des Auftrags.
+  // Fehlt die Angabe, stehen keine Kundenartikel in der Auswahl (die Datenbank lehnt fremde ohnehin ab).
+  kundenIds?: string[];
 }) {
   const activeArticles = articles.filter((a) => a.active);
   const [blattOffen, setBlattOffen] = useState(false);
@@ -110,10 +114,13 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
   const preisVon = (id: string) => currentArticlePrice(articlePrices.filter((p) => p.article_id === id));
 
   const s = suche.trim().toLowerCase();
+  // Kundenartikel dieser Kundengruppe zuerst („Für diesen Kunden“), dann die Artikel für alle.
   const katalog = activeArticles
+    .filter((a) => waehlbarFuer(a, kundenIds))
     .filter((a) => !s || `${a.article_number} ${a.short_name} ${a.long_name}`.toLowerCase().includes(s))
     .slice()
-    .sort((a, b) => a.article_number - b.article_number);
+    .sort((a, b) => Number(!a.customer_id) - Number(!b.customer_id) || a.article_number - b.article_number);
+  const ersterAllgemeiner = katalog.findIndex((a) => !a.customer_id);
 
   async function hinzufuegen(a: Article) {
     if (fuegtHinzu) return;
@@ -278,10 +285,10 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
               placeholder="Leistung suchen …" ariaLabel="Leistung suchen" autoFocus />
             <span className="small">Menge 1 – Menge, Endpreis und Text danach an der Zeile.</span>
             {katalog.length === 0 && <span className="small ls-leer">Kein Treffer.</span>}
-            {katalog.map((a) => {
+            {katalog.map((a, i) => {
               const preis = preisVon(a.id);
               const kp = kundenpreise?.get(a.id) ?? null;
-              return (
+              const knopf = (
                 <button key={a.id} type="button" className="ab-option ls-artikel" disabled={!!fuegtHinzu} onClick={() => void hinzufuegen(a)}>
                   <span className="ab-text ls-artikel-text">
                     <b>{a.short_name}</b>
@@ -298,6 +305,9 @@ export function ArticleAssignPanel({ orderId, articles, articlePrices, rows, ges
                   <span className="ls-artikel-plus" aria-hidden="true">{fuegtHinzu === a.id ? "…" : "+"}</span>
                 </button>
               );
+              // Überschriften nur, wenn es Kundenartikel gibt: „Für diesen Kunden“ vor dem ersten, „Alle Leistungen“ danach.
+              const kopf = i === 0 && a.customer_id ? "Für diesen Kunden" : i === ersterAllgemeiner && i > 0 ? "Alle Leistungen" : null;
+              return kopf ? [<span key={"k" + a.id} className="ls-gruppe">{kopf}</span>, knopf] : knopf;
             })}
           </div>
         </div>

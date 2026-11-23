@@ -5,7 +5,7 @@ Dieser Ordner ist die Detail-Dokumentation des Projekts, ein Baustein pro Datei.
 Fallstricke und ein Index hierher. Wer wissen will, **wie ein bestimmter Baustein
 funktioniert, wo er im Code liegt und womit er verknüpft ist**, findet das hier.
 
-Stand: 19.11.2026, Migrationen bis 118 (101–107 ausgeführt, 108–118 noch auszuführen), Service Worker v191.
+Stand: 21.11.2026, Migrationen bis 119 (101–107 ausgeführt, 108–119 noch auszuführen), Service Worker v192.
 
 ## Die eine Regel, die den Ordner zusammenhält
 
@@ -36,7 +36,7 @@ je Abschnitt, was gebaut ist und was nicht.
 | `kunden-und-karte.md` | Kunden-Modul, Karte, Geokodierung, Kartenstile, Adressprüfung |
 | `auftraege.md` | Aufträge, Termine, Einsatzplanung, Kontakthistorie, Auftragslebenszyklus |
 | `lager.md` | Lager, Lagerplätze, Reifen-Einlagerung, QR-Aufkleber, Lagergebühr |
-| `artikelstammdaten.md` | Artikel und Leistungen, Preis-Historie, Abrechnungsart, freie Position, Kundenpreise (Migration 118) |
+| `artikelstammdaten.md` | Artikel und Leistungen, Preis-Historie, Abrechnungsart, freie Position, Kundenpreise (Migration 118), Kundenartikel und Konditionen-Auswertung (Migration 119) |
 | `rechnungen.md` | Rechnungsstellung: Betriebsdaten, Nummernkreis, Snapshot, A4-Druck, Girocode, Storno |
 | `pwa-plan.md` | Ausbau zur PWA: welche Stufe gebaut ist, was offen ist, Service-Worker-Regeln |
 | `team-chat.md` | Team-Chat: Blase, Karten, @-Erwähnung, Reaktionen, Antworten, Einzelchats, Bearbeiten/Löschen, Fotos, Haken, Push bei jeder Nachricht, Aufbewahrung (Migrationen 80, 81, 84, 85) |

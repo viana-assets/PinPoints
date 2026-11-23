@@ -475,6 +475,11 @@ ein Fahrzeug einem Ansprechpartner zuordnen verlangt dasselbe wie andere Fahrzeu
 hat, sieht die Tabelle leer und die Karte im Kundenfenster nicht. Eingesetzt wird der Kundenpreis an der Position von
 `position_kundenpreis()` (`security definer`) – auch beim Techniker, der die Preise selbst nicht lesen kann.
 
+**Kundenartikel** (Migration 119, v192, ohne neues Recht). Wie jeder Artikel: sehen mit „Artikel“ L, anlegen und ändern
+mit „Artikel“ S (auch aus dem Kundenfenster), eintragen in den Auftrag mit „Leistungen“ S – nur in der Kundengruppe des
+Auftrags (`position_kundenartikel_pruefen()`). Die **Auswertung der Konditionen** (Reiter „Konditionen“, Aufteilung je
+Kunde) zeigt die App nur mit „Endpreis überschreiben“, wie die Kundenpreise selbst.
+
 **Zum Lager navigieren** (Migration 102, v169). Der Knopf im Schnellmenü erscheint mit `lager` L; die Wahl des Lagers
 ist eine eigene Einstellung (`user_settings`, jeder nur seine Zeile). Name und Adresse des Lagers in den Einstellungen
 ändern nur mit `lager.regale` S – dieselbe Richtlinie wie im Lager-Reiter.

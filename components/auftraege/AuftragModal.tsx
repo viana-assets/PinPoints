@@ -71,7 +71,7 @@ export function AuftragModal({
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
   andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null, kunden,
-  ansprechpartner = [], onFahrzeugAnsprechpartner, kundenpreise,
+  ansprechpartner = [], onFahrzeugAnsprechpartner, kundenpreise, kundenartikelKunden,
 }: {
   // Ansprechpartner der Gruppe dieses Kunden (Migration 117, v189) mit dem Kunden, unter dem sie stehen – für den
   // Wechselort und „Steht bei“ am Fahrzeug.
@@ -79,6 +79,8 @@ export function AuftragModal({
   // Kundenpreise am Datum des Auftrags (Migration 118) – nur zur Anzeige in der Leistungsauswahl; eingesetzt werden sie
   // von der Datenbank. Fehlt die Angabe (ohne „Endpreis überschreiben“), zeigt die Auswahl den Listenpreis.
   kundenpreise?: Map<string, GeltenderKundenpreis>;
+  // Kundenartikel (Migration 119): die Kunden der Kundengruppe, deren Kundenartikel in der Auswahl stehen.
+  kundenartikelKunden?: string[];
   onFahrzeugAnsprechpartner?: (fahrzeugId: string, apId: string | null) => Promise<void>;
   // Alle Kunden – für die Namen im Tagesplan, wenn der Termin aus dem Kalender gewählt wird
   // (TerminWahlBlatt, v138). Fehlt es, springt der Termin oben wie früher in die Karte „Termin & Team“.
@@ -1186,6 +1188,7 @@ export function AuftragModal({
               onRemove={onRemoveArticle}
               vorlagen={vorlagen}
               kundenpreise={kundenpreise}
+              kundenIds={kundenartikelKunden}
             />
           </div>
 

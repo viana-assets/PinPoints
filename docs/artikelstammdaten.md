@@ -161,7 +161,7 @@ ohne dass andere Kunden es sehen.
 **Nicht zu verwechseln mit dem Sonderpreis** an einer Position (`endpreis_netto`): Der gilt für eine Position in einem
 Auftrag und wird dort von Hand gesetzt. Der **Kundenpreis** gilt für einen Kunden und einen Artikel, für jeden Auftrag.
 
-- **Pflege:** Kundenfenster → Übersicht → Karte „Kundenpreise“ → „+ Kundenpreis“: Artikel, Preis netto je Einheit,
+- **Pflege:** Kundenfenster → Übersicht → Karte „Preise und Artikel“ (seit v192, vorher „Kundenpreise“) → „+ Kundenpreis“: Artikel, Preis netto je Einheit,
   wahlweise „gültig ab/bis“, Notiz. Daneben steht der Listenpreis und wie viel günstiger es ist. Abgelaufene bleiben
   blass in der Liste (Nachweis), ändern und löschen über die Zeile.
 - **Wirkung:** Kommt der Artikel in einen Auftrag dieses Kunden – einzeln, über eine Vorlage, als Lagergebühr –, setzt
@@ -188,6 +188,46 @@ Auftrag und wird dort von Hand gesetzt. Der **Kundenpreis** gilt für einen Kund
   erfasst die Notiz.
 
 Tabelle `kunden_preise` (customer_id, article_id, net_price ≥ 0, valid_from/valid_to, notiz ≤ 300; Protokoll).
+
+## Kundenartikel (Migration 119, v192, 21.11.2026)
+
+Wunsch Vitali (21.11.2026): Neben den Kundenpreisen eigene Leistungen für bestimmte Kunden („Flottencheck Kunterbunt“,
+„Hol- und Bringservice“), gepflegt beim Kunden, mit einer Übersicht im Artikelstamm.
+
+- **Ein Kundenartikel ist ein normaler Artikel** mit `articles.customer_id` – keine eigene Tabelle. So laufen Rechnung,
+  MwSt, Auswertung, Finance-Leistungsart (KOST2, Vorgabe „Leistung“), Protokoll und Preis-Historie ohne Sonderweg.
+- **Anlegen beim Kunden:** Kundenfenster → „Preise und Artikel“ → „+ Kundenartikel“: Kurzbezeichnung, Bezeichnung auf der
+  Rechnung, Preis netto, Einheit, MwSt. Die Nummer kommt aus dem normalen Nummernkreis, der Preis gilt ab heute. Ein Tipp
+  auf die Zeile öffnet dasselbe Artikelfenster wie im Artikelstamm (Preise, Einheit, aktiv). Beim Unterdebitor stehen die
+  Kundenartikel des Hauptkunden darunter.
+- **Übersicht im Artikelstamm:** Reiter „Kundenartikel“ neben „Artikel“ – je Kunde gruppiert mit Kd.-Nr., suchbar nach
+  Artikel, Kunde und Kundennummer, „Zum Kunden ›“. Im Reiter „Artikel“ stehen sie nicht.
+- **Im Auftrag:** In der Leistungsauswahl nur bei Aufträgen dieses Kunden oder seiner **Kundengruppe** (Hauptkunde und
+  Unterdebitoren), oben unter „Für diesen Kunden“, darunter „Alle Leistungen“. Die Datenbank lehnt einen fremden
+  Kundenartikel ab (`position_kundenartikel_pruefen()` über `kunde_gruppe()`); dieselbe Regel in `waehlbarFuer()`
+  (`lib/kundenartikel.ts`).
+- **Regeln:** nur Abrechnungsart „normal“, nicht für die Laufkundschaft (`artikel_kunde_pruefen()`); kein Kundenpreis auf
+  einen Kundenartikel – sein Preis steht am Artikel; nicht in Auftragsvorlagen (die gelten für alle).
+- **Rechte:** wie jeder Artikel – sehen mit „Artikel“ lesen, anlegen und ändern mit „Artikel“ schreiben; eintragen in den
+  Auftrag mit „Leistungen“ (auch der Techniker).
+- **Löschen:** Unbenutzte Kundenartikel lassen sich wie jeder Artikel löschen, benutzte werden deaktiviert. „Kunde
+  endgültig löschen“ und „Testkunde restlos löschen“ nehmen seine Kundenartikel samt Protokoll mit (der Name nennt oft den
+  Kunden); steht einer noch in einem Auftrag eines anderen Kunden der Gruppe, bricht das Löschen mit Klartext ab.
+  Zusammenführen nimmt sie mit, der Auskunftsauszug nennt sie.
+
+## Kundenkonditionen in der Auswertung (v192)
+
+Aus den Leistungen erledigter Aufträge im Zeitraum (`lib/konditionen.ts`):
+
+- **Reiter „Artikel“:** Kundenartikel als eigene Karte (je Artikel mit Kunde, Summe und Anteil), Umschalter „Alle ·
+  Standard · Kundenartikel“. Die Liste „Was verkauft wird“ zeigt nur Artikel für alle.
+- **Reiter „Kunden“:** Karte „Kundenkonditionen“ (Umsatz mit Kundenpreis, Preisvorteil, Kundenartikel) und je Kunde in den
+  umsatzstärksten Kunden die Aufteilung.
+- **Reiter „Konditionen“:** Preisvorteil gesamt (mit Vorjahr), Kunden mit Konditionen, Umsatz mit Kundenpreis bzw.
+  Kundenartikel, Anteil am Umsatz; Liste aller Kunden mit hinterlegten oder abgerechneten Konditionen (größter Vorteil
+  zuerst, mit Aufträgen, Umsatz, Anteil Kundenartikel, letztem Auftrag, bei Hauptkunden „Gruppe gesamt“), als CSV.
+- **Preisvorteil** = (Listenpreis − Kundenpreis) × Menge aus `listenpreis_netto`; ein von Hand gesetzter Endpreis zählt
+  nicht dazu. Aufteilung je Kunde und Reiter „Konditionen“ nur mit „Endpreis überschreiben“ (wie die Kundenpreise selbst).
 
 ## Die Artikel-Seite (Entwurf „Q · Artikel", 26.09.2026)
 

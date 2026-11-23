@@ -96,6 +96,7 @@ import { AddCustomerForm } from "@/components/kunden/AddCustomerForm";
 import { SettingsPanel } from "@/components/admin/SettingsPanel";
 import { AdminPanel } from "@/components/admin/AdminPanel";
 import { ArticleAdminPanel } from "@/components/admin/artikel/ArticleAdminPanel";
+import { ArticleDetailEditor } from "@/components/admin/artikel/ArticleDetailEditor";
 import { AuswertungPanel } from "@/components/auswertung/AuswertungPanel";
 import { RechnungenPanel, type OffeneRechnung } from "@/components/rechnungen/RechnungenPanel";
 import { RechnungModal } from "@/components/rechnungen/RechnungModal";
@@ -154,6 +155,7 @@ import { fahrzeugAnsprechpartner } from "@/lib/api/ansprechpartner";
 import { AnsprechpartnerKarte } from "@/components/kunden/AnsprechpartnerKarte";
 import { KundenpreiseKarte } from "@/components/kunden/KundenpreiseKarte";
 import { kundenpreiseAm } from "@/lib/kundenpreise";
+import { kundenartikelKunden } from "@/lib/kundenartikel";
 import { verfuegbarkeitAustragen, verfuegbarkeitSetzen, verfuegbarkeitVorlage } from "@/lib/api/verfuegbarkeit";
 import type { VerfuegbarkeitImPlan } from "@/components/einsatzplanung/EinsatzplanungPanel";
 import { useLagerAktionen } from "./_seite/useLagerAktionen";
@@ -601,7 +603,7 @@ export default function HomePage() {
   // Kundenpreise (Migration 118): nur für „Endpreis überschreiben“ – die anderen lesen ohnehin nichts (RLS), und die
   // Datenbank setzt den Preis an der Position auch ohne sie ein.
   const darfKundenpreise = darf("auftraege.preis", "schreiben") && darf("kunden", "lesen");
-  const kundenpreiseQuery = useKundenpreise(supabase, sitzungBereit && darfKundenpreise && (kundeOffen || offenerAuftragId !== null));
+  const kundenpreiseQuery = useKundenpreise(supabase, sitzungBereit && darfKundenpreise && (kundeOffen || offenerAuftragId !== null || tab === "auswertung"));
   const kundenpreise = kundenpreiseQuery.data ?? KEINE_KUNDENPREISE;
 
   // Das Kundendetail zeigt die VOLLSTÄNDIGE Auftragshistorie eines Kunden, unabhängig vom
@@ -2544,6 +2546,8 @@ export default function HomePage() {
             darfRechnungen={canView("rechnungen")}
             darfReifenverkauf={darf("lager.verkauf", "lesen")}
             darfZeitAlle={darf("zeiterfassung.alle", "lesen")}
+            darfKonditionen={darfKundenpreise}
+            kundenpreise={kundenpreise}
             standardDauerMin={terminIntervall}
             onOpenOrder={setOffenerAuftragId}
             onOpenCustomer={openDetail}
@@ -2569,6 +2573,8 @@ export default function HomePage() {
           <ArticleAdminPanel
             articles={articles}
             articlePrices={articlePrices}
+            kunden={customers}
+            onZumKunden={openDetail}
             onAddArticle={addArticle}
             onUpdateArticle={updateArticle}
             onUpdateArticleNumber={updateArticleNumber}
@@ -3074,6 +3080,7 @@ export default function HomePage() {
           gruppe={auftragGruppe.length > 1 ? auftragGruppe : undefined}
           onFahrzeugHalter={darf("kunden.fahrzeuge", "schreiben") ? fahrzeugHalterWechseln : undefined}
           ansprechpartner={apsDerGruppe(offenerAuftrag.customer_id, customers, ansprechpartner)}
+          kundenartikelKunden={kundenartikelKunden(offenerAuftrag.customer_id, customers)}
           kundenpreise={darfKundenpreise ? kundenpreiseAm(offenerAuftrag.customer_id, offenerAuftrag.order_date || todayStr(), kundenpreise, customers) : undefined}
           onFahrzeugAnsprechpartner={async (fid, apId) => { await fahrzeugAnsprechpartner(supabase, fid, apId); await refreshVehicles(); }}
           onKilometerstand={kilometerstandSetzen}
@@ -3192,9 +3199,16 @@ export default function HomePage() {
               darfSchreiben={darf("kunden", "schreiben")} darfLoeschen={darf("kunden", "loeschen")} fehlt={ansprechpartnerQuery.isError}
               onFahrzeugeGeaendert={() => refreshVehicles()} />
           }
-          kundenpreiseKarte={darfKundenpreise ? (
+          kundenpreiseKarte={darfKundenpreise || darf("artikel", "lesen") ? (
             <KundenpreiseKarte supabase={supabase} kunde={gewaehlterKunde} kunden={customers} preise={kundenpreise} articles={articles}
-              articlePrices={articlePrices} fehlt={kundenpreiseQuery.isError} />
+              articlePrices={articlePrices} fehlt={kundenpreiseQuery.isError} darfKundenpreise={darfKundenpreise}
+              darfArtikel={darf("artikel", "lesen")} darfArtikelSchreiben={darf("artikel", "schreiben")}
+              onArtikelAngelegt={async () => { await refreshArticles(); await refreshArticlePrices(); }}
+              artikelEditor={(a, zu) => (
+                <ArticleDetailEditor key={a.id} article={a} prices={articlePrices.filter((x) => x.article_id === a.id)} onClose={zu}
+                  onUpdateArticle={updateArticle} onUpdateArticleNumber={updateArticleNumber} onAddPrice={addArticlePrice}
+                  onUpdatePrice={updateArticlePrice} onDeletePrice={deleteArticlePrice} />
+              )} />
           ) : undefined}
         />
       )}

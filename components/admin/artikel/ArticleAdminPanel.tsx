@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Article, ArticlePrice, ArtikelFelder } from "@/lib/types";
+import type { Article, ArticlePrice, ArtikelFelder, Customer } from "@/lib/types";
+import { kundenartikelUebersicht } from "@/lib/kundenartikel";
 import { formatEUR, currentArticlePrice } from "@/lib/helpers";
 import { ABRECHNUNGSART_LABEL } from "@/lib/constants";
 import { ArticleDetailEditor } from "./ArticleDetailEditor";
@@ -20,8 +21,11 @@ import { SuchFeld } from "@/components/SuchFeld";
 type Filter = "aktiv" | "inaktiv" | "ohne" | "alle";
 const FILTER: [Filter, string][] = [["aktiv", "Aktiv"], ["inaktiv", "Inaktiv"], ["ohne", "Ohne Preis"], ["alle", "Alle"]];
 
-export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpdateArticle, onUpdateArticleNumber, onAddArticlePrice, onUpdateArticlePrice, onDeleteArticlePrice, zusatz }: {
+export function ArticleAdminPanel({ articles: alleArtikel, articlePrices, onAddArticle, onUpdateArticle, onUpdateArticleNumber, onAddArticlePrice, onUpdateArticlePrice, onDeleteArticlePrice, zusatz, kunden = [], onZumKunden }: {
   articles: Article[];
+  // Kundenartikel (Migration 119): für die Übersicht je Kunde. Angelegt werden sie im Kundenfenster.
+  kunden?: Pick<Customer, "id" | "name" | "company" | "kundennummer">[];
+  onZumKunden?: (kundeId: string) => void;
   articlePrices: ArticlePrice[];
   onAddArticle: (shortName: string, longName: string) => Promise<void>;
   onUpdateArticle: (id: string, fields: ArtikelFelder) => Promise<void>;
@@ -33,6 +37,10 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
   // Fenster nicht auch noch deren Laden und Speichern kennen muss.
   zusatz?: React.ReactNode;
 }) {
+  const [ansicht, setAnsicht] = useState<"artikel" | "kunden">("artikel");
+  // Der Reiter „Artikel“ zeigt nur die Artikel für alle; die Kundenartikel stehen im eigenen Reiter.
+  const articles = useMemo(() => alleArtikel.filter((a) => !a.customer_id), [alleArtikel]);
+  const kundenartikelZahl = alleArtikel.length - articles.length;
   const [suche, setSuche] = useState("");
   const [filter, setFilter] = useState<Filter>("aktiv");
   const [openId, setOpenId] = useState<string | null>(null);
@@ -48,12 +56,12 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
   useEffect(() => {
     const vorher = bekannteIds.current;
     if (!vorher) return;
-    const neu = articles.find((a) => !vorher.has(a.id));
+    const neu = alleArtikel.find((a) => !vorher.has(a.id));
     if (neu) {
       bekannteIds.current = null;
       setOpenId(neu.id);
     }
-  }, [articles]);
+  }, [alleArtikel]);
 
   const preiseJe = useMemo(() => {
     const m = new Map<string, ArticlePrice[]>();
@@ -80,7 +88,9 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
     .slice()
     .sort((a, b) => a.article_number - b.article_number);
 
-  const offen = openId ? articles.find((a) => a.id === openId) ?? null : null;
+  const offen = openId ? alleArtikel.find((a) => a.id === openId) ?? null : null;
+  const gruppen = kundenartikelUebersicht(alleArtikel, kunden, suche);
+  const kundenName = (k: Pick<Customer, "name" | "company"> | null) => (k ? (k.company || "").trim() || (k.name || "").trim() : "Kunde nicht geladen");
 
   async function anlegen() {
     if (!newShort.trim() || !newLong.trim() || legtAn) return;
@@ -106,22 +116,58 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
             <div className="lg-titel">
               <h2>Artikel</h2>
               <span className="lg-unter">
-                {articles.length} Artikel · {zahl("aktiv")} aktiv{zahl("ohne") > 0 ? ` · ${zahl("ohne")} ohne Preis` : ""}
+                {articles.length} Artikel · {zahl("aktiv")} aktiv{zahl("ohne") > 0 ? ` · ${zahl("ohne")} ohne Preis` : ""}{kundenartikelZahl > 0 ? ` · ${kundenartikelZahl} Kundenartikel` : ""}
               </span>
             </div>
-            <button type="button" className="kl-neu" onClick={() => setNeuOffen(true)}>+ Artikel</button>
+            {ansicht === "artikel" && <button type="button" className="kl-neu" onClick={() => setNeuOffen(true)}>+ Artikel</button>}
+          </div>
+          <div className="lg-lagerwahl ar-ansicht" role="tablist" aria-label="Ansicht">
+            <button type="button" role="tab" aria-selected={ansicht === "artikel"} className={ansicht === "artikel" ? "aktiv" : ""} onClick={() => setAnsicht("artikel")}>Artikel</button>
+            <button type="button" role="tab" aria-selected={ansicht === "kunden"} className={ansicht === "kunden" ? "aktiv" : ""} onClick={() => setAnsicht("kunden")}>
+              Kundenartikel{kundenartikelZahl > 0 ? <span className="op-zahl">{kundenartikelZahl}</span> : null}
+            </button>
           </div>
           <SuchFeld className="ar-suche" value={suche} onWert={setSuche}
-            placeholder="Bezeichnung oder Artikelnummer …" ariaLabel="Artikel suchen" />
-          <div className="pl-filter au-filter" role="group" aria-label="Filter">
+            placeholder={ansicht === "kunden" ? "Artikel, Kunde oder Kundennummer …" : "Bezeichnung oder Artikelnummer …"} ariaLabel="Artikel suchen" />
+          {ansicht === "artikel" && <div className="pl-filter au-filter" role="group" aria-label="Filter">
             {FILTER.map(([f, t]) => (
               <button key={f} type="button" className={"pl-pille" + (filter === f ? " aktiv" : "")} aria-pressed={filter === f} onClick={() => setFilter(f)}>
                 {t}<span className="op-zahl">{zahl(f)}</span>
               </button>
             ))}
-          </div>
+          </div>}
         </div>
 
+        {ansicht === "kunden" ? (<>
+          <span className="small ar-hilfe">
+            Kundenartikel stehen nur in Aufträgen ihres Kunden (und seiner Kundengruppe) in der Auswahl. Angelegt werden sie im
+            Kundenfenster unter „Preise und Artikel“; Preise, Einheit und „aktiv“ ändern sich hier wie bei jedem Artikel.
+          </span>
+          {gruppen.length === 0 ? (
+            <div className="db-karte"><div className="db-leer">{kundenartikelZahl === 0 ? "Noch keine Kundenartikel angelegt." : "Kein Treffer."}</div></div>
+          ) : gruppen.map((g) => (
+            <div key={g.kundeId} className="ar-kundengruppe">
+              <div className="ar-kunde-kopf">
+                <b>{kundenName(g.kunde)}</b>
+                <span className="small">{g.kunde?.kundennummer != null ? `Kd.-Nr. ${g.kunde.kundennummer} · ` : ""}{g.artikel.length} {g.artikel.length === 1 ? "Artikel" : "Artikel"}</span>
+                {onZumKunden && <button type="button" className="db-link" onClick={() => onZumKunden(g.kundeId)}>Zum Kunden ›</button>}
+              </div>
+              <div className="ar-liste">
+                {g.artikel.map((a) => {
+                  const p = aktuell(a);
+                  return (
+                    <button key={a.id} type="button" className={"ar-karte" + (a.active ? "" : " inaktiv")} onClick={() => setOpenId(a.id)}>
+                      <span className="ar-nr">{a.article_number}</span>
+                      <span className="ar-text"><b>{a.short_name}</b><span className="small">{a.long_name}</span>
+                        {!a.active && <span className="ar-marken"><span className="ar-marke grau">inaktiv</span></span>}</span>
+                      <span className="ar-preis"><b className={p ? "" : "fehlt"}>{p ? formatEUR(p.net_price) : "kein Preis"}</b><span className="small">{a.einheit}</span></span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </>) : (<>
         <span className="small ar-hilfe">
           Leistungen, die einem Auftrag zugeordnet werden. Jeder Preis gilt ab einem Datum – ein neuer
           Preis schließt den vorherigen einen Tag davor ab. Rabatte gibt es am Auftrag, nicht hier.
@@ -163,6 +209,7 @@ export function ArticleAdminPanel({ articles, articlePrices, onAddArticle, onUpd
           </div>
         )}
         {zusatz}
+        </>)}
       </div>
 
       {neuOffen && (
