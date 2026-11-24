@@ -3,7 +3,7 @@ import type { SatzNotizen } from "@/lib/lagerNotizen";
 import { auftragLoeschPruefung } from "@/lib/auftragLoeschen";
 import { useAusgang } from "@/lib/offline/speicher";
 import { useEffect, useRef, useState } from "react";
-import type { Ansprechpartner, Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, Saison, StorageSlot, TireStorage, Vehicle, Verfuegbarkeit, Warehouse } from "@/lib/types";
+import type { Ansprechpartner, Article, ArticlePrice, Auftragsvorlage, AuftragFahrzeug, Betrieb, Customer, EingelagertesRad, Employee, Erfassungsart, Firmenfahrzeug, Order, OrderArticle, OrderStatus, RadPosition, ReklamationErgebnis, Saison, StorageSlot, TireStorage, Vehicle, Verfuegbarkeit, Warehouse } from "@/lib/types";
 import type { GeltenderKundenpreis } from "@/lib/kundenpreise";
 import { eintragAm, fensterText, teamHinweise } from "@/lib/verfuegbarkeit";
 import type { RadFelder } from "@/lib/api/lager";
@@ -38,6 +38,8 @@ import {
   apAnzeige, hatEigeneAdresse, wechselortAusAuftrag, wechselortGleich, wechselortMangel, wechselortVorschlag, type WechselortEingabe,
 } from "@/lib/ansprechpartner";
 import { kundenName as kundeNameVon } from "@/lib/kundengruppe";
+import { abschlussMaengel, bezugText, ergebnisText, grundText, istReklamation, REKLAMATION_ERGEBNISSE } from "@/lib/reklamation";
+import type { StatusZusatz } from "@/lib/api/orders";
 
 // Das Auftragsfenster (Migration 20, Konzept in docs/auftragsablauf.md).
 //
@@ -71,7 +73,7 @@ export function AuftragModal({
   onEinlagern, onEinlagerungEntfernen, onEinlagerungAngaben,
   onErfassungsart, onAnzahlRaeder, onRadSpeichern, onRadEntfernen, onSatzNotizen, onFahrzeugAnlegen,
   andereAuftraege, auftragsZuordnungen, kundeName, onKundeOeffnen, reifen, betrieb = null, belege = null, kunden,
-  ansprechpartner = [], onFahrzeugAnsprechpartner, kundenpreise, kundenartikelKunden,
+  ansprechpartner = [], onFahrzeugAnsprechpartner, kundenpreise, kundenartikelKunden, onReklamation, onBezugOeffnen,
 }: {
   // Ansprechpartner der Gruppe dieses Kunden (Migration 117, v189) mit dem Kunden, unter dem sie stehen – für den
   // Wechselort und „Steht bei“ am Fahrzeug.
@@ -81,6 +83,10 @@ export function AuftragModal({
   kundenpreise?: Map<string, GeltenderKundenpreis>;
   // Kundenartikel (Migration 119): die Kunden der Kundengruppe, deren Kundenartikel in der Auswahl stehen.
   kundenartikelKunden?: string[];
+  // Reklamation (Migration 120, v193): „Reklamation zu diesem Auftrag“ im Menü eines erledigten Auftrags, und bei einer
+  // Reklamation der Sprung zum Bezugsauftrag. Fehlt die Angabe, fehlt der Menüpunkt.
+  onReklamation?: () => void;
+  onBezugOeffnen?: (orderId: string) => void;
   onFahrzeugAnsprechpartner?: (fahrzeugId: string, apId: string | null) => Promise<void>;
   // Alle Kunden – für die Namen im Tagesplan, wenn der Termin aus dem Kalender gewählt wird
   // (TerminWahlBlatt, v138). Fehlt es, springt der Termin oben wie früher in die Karte „Termin & Team“.
@@ -218,7 +224,7 @@ export function AuftragModal({
   onFahrzeugEntfernen: (id: string) => Promise<void>;
   onSetFirmenfahrzeug: (id: string, firmenfahrzeugId: string | null) => Promise<void>;
   onUpdateTechnikerNotiz: (id: string, notiz: string) => Promise<void>;
-  onSetStatus: (id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) => Promise<void>;
+  onSetStatus: (id: string, status: OrderStatus, grund?: StatusZusatz) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
   onAddArticle: (orderId: string, articleId: string, quantity: number, endpreisNetto: number | null, text: string | null) => Promise<void>;
   // Auftragsvorlagen (E6, Migration 63).
@@ -258,6 +264,7 @@ export function AuftragModal({
   onFahrzeugAnlegen: (kennzeichen: string, modell: string, einlagerungId?: string) => Promise<void>;
 }) {
   const gesperrt = istAbgeschlossen(order.status);
+  const reklamation = istReklamation(order);
 
   // Die Vorschau auf die Regeln, die beim Abschließen greifen (Migration 22 und 30). Sie steht
   // hier oben und nicht im Fuß, weil sie dieselben Daten liest wie die Blöcke darüber – und
@@ -400,6 +407,12 @@ export function AuftragModal({
   // Zwei Handlungen brauchen eine Begründung. Statt eines Browser-Dialogs klappt hier ein
   // kleiner Block auf – der Nutzer sieht dabei weiterhin den Auftrag, um den es geht.
   const [stornoOffen, setStornoOffen] = useState(false);
+  // Ergebnis der Reklamation beim Abschließen (Migration 120): Pflicht, „nicht berechtigt“ darf berechnet werden.
+  const [ergebnisOffen, setErgebnisOffen] = useState(false);
+  const [ergebnis, setErgebnis] = useState<ReklamationErgebnis | null>(order.reklamation_ergebnis ?? null);
+  const [berechnen, setBerechnen] = useState(false);
+  const [ergebnisLaeuft, setErgebnisLaeuft] = useState(false);
+  const [ergebnisFehler, setErgebnisFehler] = useState<string | null>(null);
   const [stornoGrund, setStornoGrund] = useState("");
   const [wiederOffen, setWiederOffen] = useState(false);
   const [wiederGrund, setWiederGrund] = useState("");
@@ -622,7 +635,7 @@ export function AuftragModal({
     await speichern();
     return true;
   }
-  async function statusSetzen(status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
+  async function statusSetzen(status: OrderStatus, grund?: StatusZusatz) {
     if (!(await erstSpeichern())) return;
     await onSetStatus(order.id, status, grund);
   }
@@ -643,6 +656,8 @@ export function AuftragModal({
   }
   // Nach den Fragen: nur noch die Rückfrage ohne Leistung, dann abschließen.
   function abschliessenOhneFragen() {
+    // Eine Reklamation fragt stattdessen nach dem Ergebnis – ohne Leistung ist dort der Normalfall.
+    if (reklamation) { setErgebnisFehler(null); setBerechnen(ergebnis === "nicht_berechtigt" && rechnungNoetig); setErgebnisOffen(true); return; }
     if (orderArticles.length === 0 && !confirm("Für diesen Auftrag ist keine Leistung eingetragen. Trotzdem als erledigt abschließen? Danach lassen sich keine Leistungen mehr eintragen.")) return;
     void statusSetzen("erledigt");
   }
@@ -705,7 +720,8 @@ export function AuftragModal({
   if (order.status === "offen" && frischAngelegt) {
     fussHinweis = "„Auftrag anlegen“ speichert den Auftrag. Wenn die Arbeit getan ist: „Auftrag erledigt“.";
   } else if (order.status === "offen" || order.status === "in_arbeit") {
-    fussHinweis = fehltListe.length ? `Fehlt noch: ${fehltListe.join(" · ")}` : "Bereit – geprüft wird beim Klick auf „Auftrag erledigt“.";
+    fussHinweis = fehltListe.length ? `Fehlt noch: ${fehltListe.join(" · ")}`
+      : reklamation ? "Bereit – beim Klick auf „Reklamation erledigt“ wird nach dem Ergebnis gefragt." : "Bereit – geprüft wird beim Klick auf „Auftrag erledigt“.";
     fussHinweisArt = fehltListe.length ? "warn" : "ok";
   } else if (order.status === "erledigt") {
     fussHinweis = `Abgeschlossen${order.completed_at ? ` am ${formatDate(order.completed_at.slice(0, 10))}` : ""} · ${anderswo ? "anderswo abgerechnet" : "die Leistungen stehen fest"}`;
@@ -713,7 +729,7 @@ export function AuftragModal({
     fussHinweis = `Storniert${order.cancelled_at ? ` am ${formatDate(order.cancelled_at.slice(0, 10))}` : ""}${order.cancel_reason ? ` – ${order.cancel_reason}` : ""}`;
   }
 
-  type MenuePunkt = "chat" | "bestellen" | "termin" | "wieder" | "rechnung" | "anderswo" | "anderswoZurueck" | "historie" | "storno" | "loeschen";
+  type MenuePunkt = "chat" | "bestellen" | "termin" | "wieder" | "rechnung" | "anderswo" | "anderswoZurueck" | "historie" | "storno" | "loeschen" | "reklamation" | "bezug";
   const menue: { key: MenuePunkt; text: string; info?: string; gefahr?: boolean; aus?: boolean }[] = [];
   // Ein eben erst erzeugter Auftrag ist noch keiner, über den man reden kann.
   if (onInDenChat && !frischAngelegt) menue.push({ key: "chat", text: "In den Chat", info: "als Karte im Team-Chat" });
@@ -730,6 +746,8 @@ export function AuftragModal({
   if (rechnungDa && onRechnungOeffnen) menue.push({ key: "rechnung", text: "Rechnung ansehen", info: order.rechnung_nummer ?? undefined });
   if (rechnungOffenHier && rechnungAnderswo) menue.push({ key: "anderswo", text: "Anderswo abgerechnet", info: "Rechnung in einem anderen System erstellt" });
   if (anderswo && rechnungAnderswo) menue.push({ key: "anderswoZurueck", text: "Vermerk „anderswo abgerechnet“ zurücknehmen", info: "steht danach wieder unter „noch nicht ausgestellt“" });
+  if (onReklamation && order.status === "erledigt") menue.push({ key: "reklamation", text: "Reklamation zu diesem Auftrag", info: "der Kunde meldet ein Problem nach dieser Arbeit" });
+  if (reklamation && order.reklamation_von && onBezugOeffnen) menue.push({ key: "bezug", text: "Bezugsauftrag öffnen", info: bezugText(order) });
   menue.push({ key: "historie", text: "Historie", info: "wer hat was geändert" });
   if (!gesperrt && (darfStornieren ?? !isTechniker)) menue.push({ key: "storno", text: "Stornieren", info: "mit Grund – bleibt in der Liste", gefahr: true });
   // Einen Auftrag, den man vor einer Sekunde selbst erzeugt hat, löscht man nicht – man nimmt
@@ -756,6 +774,8 @@ export function AuftragModal({
     else if (k === "rechnung") onRechnungOeffnen?.(order.id);
     else if (k === "anderswo") { setAnderswoFehler(null); setAnderswoOffen(true); }
     else if (k === "anderswoZurueck") void anderswoAusfuehren("zuruecknehmen");
+    else if (k === "reklamation") onReklamation?.();
+    else if (k === "bezug" && order.reklamation_von) onBezugOeffnen?.(order.reklamation_von);
     else if (k === "historie") protokollRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     else if (k === "storno") setStornoOffen(true);
   }
@@ -772,7 +792,7 @@ export function AuftragModal({
         <div className="ao-kopf">
           <button type="button" className="dm-zu" onClick={schliessenVersuchen} aria-label="Schließen">×</button>
           <span className="ao-kopf-text">
-            <b>{frischAngelegt ? "Neuer Auftrag" : "Auftrag"} #{auftragsNr(order.order_number)}{order.order_number < 0 && <span className="test-marke">TEST</span>}</b>
+            <b>{reklamation ? (frischAngelegt ? "Neue Reklamation" : "Reklamation") : frischAngelegt ? "Neuer Auftrag" : "Auftrag"} #{auftragsNr(order.order_number)}{order.order_number < 0 && <span className="test-marke">TEST</span>}</b>
             <span className={"small" + ((geaendert && !gesperrt) || ausgangText ? " ao-ungespeichert" : "")}>
               {speichert ? "speichert …" : frischAngelegt ? "noch nicht angelegt" : geaendert && !gesperrt ? "Änderungen noch nicht gespeichert" : ausgangText ?? (gespeichert ? "✓ gespeichert" : ORDER_STATUS_LABEL[order.status])}
             </span>
@@ -822,7 +842,10 @@ export function AuftragModal({
           {/* ---------------------------------------------------------------- Wer, wann, wo */}
           <div className="ao-wer">
             <div className="ao-wer-kopf">
-              <span className={"ao-status " + statusKlasse}>{ORDER_STATUS_LABEL[order.status]}</span>
+              <span className="rk-status">
+                <span className={"ao-status " + statusKlasse}>{ORDER_STATUS_LABEL[order.status]}</span>
+                {reklamation && <span className="ao-status rk-marke">Reklamation</span>}
+              </span>
               <button type="button" className="ao-termin" disabled={gesperrt || !feldeAendern} onClick={terminWaehlen}>
                 {terminText}{!gesperrt && feldeAendern ? " ›" : ""}
               </button>
@@ -870,6 +893,42 @@ export function AuftragModal({
               </div>
             )}
           </div>
+
+          {/* ---------------------------------------------------------------- Reklamation */}
+          {/* Migration 120 (v193): Was der Kunde meldet und was damals gemacht wurde – aus dem Schnappschuss des
+              Bezugsauftrags, damit es auch der Techniker sieht, der den alten Auftrag selbst nicht lesen darf. */}
+          {reklamation && (
+            <div className="db-karte ao-karte rk-karte">
+              <div className="db-karte-kopf">
+                <span className="db-karte-titel">Reklamation</span>
+                <span className="small">{order.status === "erledigt" ? `Ergebnis: ${ergebnisText(order.reklamation_ergebnis)}` : "Ergebnis beim Abschluss"}</span>
+              </div>
+              <span className="rk-grund"><b>{grundText(order.reklamation_grund)}</b>{order.reklamation_text ? ` – ${order.reklamation_text}` : ""}</span>
+              {order.reklamation_bezug ? (
+                <div className="rk-bezug">
+                  <span className="rk-bezug-titel">
+                    {bezugText(order)}
+                    {order.reklamation_von && onBezugOeffnen && (
+                      <button type="button" className="kp-aendern" onClick={() => { if (geaendert && !gesperrt) { setSchliessenNachfrage(true); return; } onBezugOeffnen(order.reklamation_von!); }}>öffnen ›</button>
+                    )}
+                  </span>
+                  <span className="small">Damals: {order.reklamation_bezug.leistungen.length
+                    ? order.reklamation_bezug.leistungen.map((l) => `${l.menge > 1 ? l.menge + "× " : ""}${l.artikel ?? "Leistung"}${l.text ? ` (${l.text})` : ""}`).join(" · ")
+                    : "keine Leistung eingetragen"}</span>
+                  {order.reklamation_bezug.techniker.length > 0 && (
+                    <span className="small">Gemacht von: {order.reklamation_bezug.techniker.map((t) => t.name).join(", ")}</span>
+                  )}
+                  {(order.reklamation_bezug.fahrzeuge ?? []).length > 0 && (
+                    <span className="small">Fahrzeug: {(order.reklamation_bezug.fahrzeuge ?? []).map((f) => f.kennzeichen + (f.kilometerstand ? ` · ${f.kilometerstand.toLocaleString("de-DE")} km` : "")).join(", ")}</span>
+                  )}
+                  {order.reklamation_bezug.notiz && <span className="small">Notiz damals: {order.reklamation_bezug.notiz}</span>}
+                  {!order.reklamation_von && <span className="small">Der Bezugsauftrag ist inzwischen gelöscht.</span>}
+                </div>
+              ) : (
+                <span className="small">Ohne Bezugsauftrag{order.reklamation_ohne_bezug ? ` – ${order.reklamation_ohne_bezug}` : ""}</span>
+              )}
+            </div>
+          )}
 
           {/* ---------------------------------------------------------------- Laufkunde */}
           {/* Laufkundschaft (Migration 57): Der Sammelkunde hat keinen Namen, keine Nummer und
@@ -1197,6 +1256,10 @@ export function AuftragModal({
             {/* „Rechnung nötig" (Migration 38) – entscheidet, ob auf den Nettobetrag die Steuer
                 kommt. Der Satz darunter nennt die Wirkung, nicht die Einstellung. Teil des
                 Entwurfs, gespeichert mit „Speichern". */}
+            {/* Eine Reklamation wird nur bei „nicht berechtigt“ berechnet – gefragt beim Abschließen (Migration 120). */}
+            {reklamation && !rechnungNoetig ? (
+              <span className="small rk-rechnung">Reklamation – ohne Rechnung. Berechnet wird nur, wenn sie nicht berechtigt war; das wird beim Abschließen gefragt.</span>
+            ) : (
             <button type="button" className="sl-chance nk-schalter ar-schalter ao-schalter" aria-pressed={rechnungNoetig} disabled={gesperrt}
               onClick={() => setRechnungNoetig(!rechnungNoetig)}>
               <span className="db-punkt-text">
@@ -1205,6 +1268,7 @@ export function AuftragModal({
               </span>
               <span className={"nk-spur" + (rechnungNoetig ? " an" : "")} aria-hidden="true"><span /></span>
             </button>
+            )}
             {/* Sobald „Rechnung nötig" gesetzt ist: was dafür noch fehlt (Migration 44). Die
                 Liste sperrt nichts – verlangt werden die Angaben erst beim Abschließen, und dort
                 von der Datenbank. */}
@@ -1445,7 +1509,7 @@ export function AuftragModal({
               <button type="button" className="ao-haupt orange" onClick={() => void anlegen()}>Auftrag anlegen</button>
             )}
             {((order.status === "offen" && !frischAngelegt) || order.status === "in_arbeit") && (
-              <button type="button" className="ao-haupt gruen" onClick={abschliessen}>Auftrag erledigt</button>
+              <button type="button" className="ao-haupt gruen" onClick={abschliessen}>{reklamation ? "Reklamation erledigt" : "Auftrag erledigt"}</button>
             )}
             {order.status === "erledigt" && rechnungNoetig && onRechnungOeffnen && !anderswo && (
               rechnungDa
@@ -1519,6 +1583,51 @@ export function AuftragModal({
                 </span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- Blatt: Ergebnis der Reklamation */}
+      {ergebnisOffen && (
+        <div className="modal-overlay auswahl-overlay ao-blatt-overlay" onClick={(e) => { e.stopPropagation(); setErgebnisOffen(false); }}>
+          <div className="auswahl-blatt ao-blatt rk-ergebnis" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Ergebnis der Reklamation">
+            <div className="ab-griff" />
+            <div className="ab-titel">Wie ist die Reklamation ausgegangen?</div>
+            <span className="small">Das Ergebnis zählt in der Auswertung. Berechnet wird nur, wenn sie nicht berechtigt war.</span>
+            {REKLAMATION_ERGEBNISSE.map((x) => (
+              <button key={x.wert} type="button" className={"ab-option" + (ergebnis === x.wert ? " aktiv" : "")} aria-pressed={ergebnis === x.wert}
+                onClick={() => { setErgebnis(x.wert); if (x.wert !== "nicht_berechtigt") setBerechnen(false); setErgebnisFehler(null); }}>
+                <span className="ab-text"><b>{x.text}</b><span className="small">{x.info}</span></span>
+                {ergebnis === x.wert && <span className="ab-haken">✓</span>}
+              </button>
+            ))}
+            {ergebnis === "nicht_berechtigt" && (
+              <button type="button" className="sl-chance nk-schalter ar-schalter ao-schalter" aria-pressed={berechnen} onClick={() => setBerechnen(!berechnen)}>
+                <span className="db-punkt-text">
+                  <span className="db-punkt-titel">Dem Kunden berechnen</span>
+                  <span className="small">{berechnen ? "„Rechnung nötig“ – die eingetragenen Leistungen werden abgerechnet." : "Nicht berechtigt, aber ohne Rechnung."}</span>
+                </span>
+                <span className={"nk-spur" + (berechnen ? " an" : "")} aria-hidden="true"><span /></span>
+              </button>
+            )}
+            {ergebnisFehler && <div className="hinweis-pflicht">{ergebnisFehler}</div>}
+            <button type="button" className="am-knopf gruen" disabled={!ergebnis || ergebnisLaeuft}
+              onClick={async () => {
+                const mangel = abschlussMaengel(ergebnis, berechnen);
+                if (mangel) { setErgebnisFehler(mangel); return; }
+                if (berechnen && orderArticles.length === 0) { setErgebnisFehler("Zum Berechnen zuerst die Leistungen eintragen."); return; }
+                setErgebnisLaeuft(true); setErgebnisFehler(null);
+                try {
+                  await statusSetzen("erledigt", { reklamationErgebnis: ergebnis!, rechnungNoetig: berechnen });
+                  setErgebnisOffen(false);
+                } catch (e) {
+                  setErgebnisFehler(e instanceof Error ? e.message : String(e));
+                } finally {
+                  setErgebnisLaeuft(false);
+                }
+              }}>
+              {ergebnisLaeuft ? "speichert …" : "Reklamation abschließen"}
+            </button>
           </div>
         </div>
       )}

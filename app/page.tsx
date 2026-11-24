@@ -114,6 +114,9 @@ import { frueherEingelagert, istVorgemerkt, saetzeAusDemLager } from "@/lib/lage
 import { ReifensatzEtikett } from "@/components/lager/ReifensatzEtikett";
 import { SaisonPanel, type SaisonZeile } from "@/components/lager/SaisonPanel";
 import { AuftraegePanel } from "@/components/auftraege/AuftraegePanel";
+import { ReklamationBlatt, type ReklamationVorgabe } from "@/components/auftraege/ReklamationBlatt";
+import { reklamationAnlegen } from "@/lib/api/reklamation";
+import { reklamationTitel } from "@/lib/reklamation";
 import { WeiterePanel, type WeitereHinweis } from "@/components/WeiterePanel";
 import { InaktivePanel } from "@/components/kunden/InaktivePanel";
 import { TerminePanel } from "@/components/termine/TerminePanel";
@@ -134,7 +137,7 @@ import {
   updateArticlePrice as updateArticlePriceApi, deleteArticlePrice as deleteArticlePriceApi,
 } from "@/lib/api/articles";
 import {
-  replaceOrderEmployees, rechnungAnderswoVermerken, rechnungAnderswoZuruecknehmen, type AuftragsFenster,
+  replaceOrderEmployees, rechnungAnderswoVermerken, rechnungAnderswoZuruecknehmen, type AuftragsFenster, type StatusZusatz,
 } from "@/lib/api/orders";
 import { setWiedervorlageBulk, setzePositionVonHand } from "@/lib/api/customers";
 import { upsertModulePermissions, type Bereichsrechte } from "@/lib/api/permissions";
@@ -371,6 +374,8 @@ export default function HomePage() {
   // erst beim Absenden schreibt, könnte den wichtigsten Teil des Fensters nicht anbieten.
   // Siehe docs/termine-kontakt-auftrag-analyse.md.
   const [frischerAuftragId, setFrischerAuftragId] = useState<string | null>(null);
+  // Reklamation anlegen (Migration 120, v193): offen mit oder ohne vorgewählten Bezugsauftrag.
+  const [reklamationBlatt, setReklamationBlatt] = useState<{ vorgabe: ReklamationVorgabe | null } | null>(null);
   // Ein im Kalender angeklickter Termin, der auf einen Kunden wartet, den es noch nicht gibt.
   // Er überlebt den Wechsel in das Kundenformular und wird nach dem Anlegen eingesetzt.
   const [terminFuerNeuenKunden, setTerminFuerNeuenKunden] = useState<NeuerTermin | null>(null);
@@ -1147,7 +1152,7 @@ export default function HomePage() {
   const darfStempeln = darf("zeiterfassung", "schreiben");
   // „Für heute fertig?“ nach dem letzten Auftrag des Tages (Migration 85, v138).
   const [feierabendFrage, setFeierabendFrage] = useState(false);
-  async function auftragsStatusSetzen(id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
+  async function auftragsStatusSetzen(id: string, status: OrderStatus, grund?: StatusZusatz) {
     await updateOrderStatus(id, status, grund);
     if (status !== "erledigt" || !darfStempeln || !zeit.schicht || zeit.schicht.ende) return;
     const meineMitarbeiter = employees.filter((e) => e.profile_id === meineId).map((e) => e.id);
@@ -2291,6 +2296,8 @@ export default function HomePage() {
             onCall={openCallMenu}
             isTechniker={isTechniker}
             darfAnlegen={darf("auftraege.anlegen", "schreiben")}
+            onReklamation={darf("auftraege.anlegen", "schreiben")
+              ? (o) => setReklamationBlatt({ vorgabe: o ? { order: o, positionen: orderArticlesFor(o.id) } : null }) : undefined}
           />
           </>
         )}
@@ -2726,6 +2733,24 @@ export default function HomePage() {
       {/* Am Handy (v159): Stoppuhr und Chat hinter dem Knopf oben rechts statt unten schwebend. */}
       <SchnellMenue eintraege={schnellEintraege} versteckt={schnellVersteckt} />
       {bestellMeldung && <div className="bw-toast" role="status">{bestellMeldung}</div>}
+      {/* Reklamation anlegen (Migration 120, v193) – über dem Auftragsfenster (Ebene 10002), aus dem sie auch kommt. */}
+      {reklamationBlatt && (
+        <ReklamationBlatt
+          supabase={supabase}
+          customers={customers}
+          articles={articles}
+          vorgabe={reklamationBlatt.vorgabe}
+          onClose={() => setReklamationBlatt(null)}
+          onAnlegen={async (e) => {
+            const kunde = customers.find((c) => c.id === e.kundeId);
+            const id = await reklamationAnlegen(supabase, e, reklamationTitel(kunde ? anzeigeName(kunde) : undefined), todayStr());
+            await refreshOrders();
+            setReklamationBlatt(null);
+            setFrischerAuftragId(id);
+            setOffenerAuftragId(id);
+          }}
+        />
+      )}
       {/* „Fehlt was?“ (Migration 104): aus dem Schnellmenü, dem Auftrag oder der Bestellliste. Ebene 10002. */}
       {bestellBlatt && meineId && (
         <BestellBlatt
@@ -3064,6 +3089,15 @@ export default function HomePage() {
           onSetFirmenfahrzeug={setOrderFirmenfahrzeug}
           onUpdateTechnikerNotiz={updateTechnikerNotiz}
           onSetStatus={auftragsStatusSetzen}
+          onReklamation={darf("auftraege.anlegen", "schreiben")
+            ? () => setReklamationBlatt({ vorgabe: { order: offenerAuftrag, positionen: orderArticlesFor(offenerAuftrag.id) } }) : undefined}
+          // Den Bezugsauftrag öffnen: Ist er älter als das geladene Fenster, lädt die Kundenhistorie ihn nach (der Kunde
+          // der Reklamation ist der des Bezugsauftrags). Techniker lesen ihn ohnehin nicht – für sie fehlt der Knopf.
+          onBezugOeffnen={isTechniker ? undefined : (id) => {
+            if (!orders.some((o) => o.id === id)) openDetail(offenerAuftrag.customer_id);
+            setFrischerAuftragId(null);
+            setOffenerAuftragId(id);
+          }}
           // Kein Knopf für den, der Rechnungen nicht einmal lesen darf. Ein Knopf, der ein
           // Fenster mit lauter abgeschalteten Schaltern öffnet, ist schlechter als keiner.
           onRechnungOeffnen={darf("rechnungen", "lesen") ? (id) => setRechnungAuftragId(id) : undefined}

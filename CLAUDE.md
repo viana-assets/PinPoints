@@ -10,7 +10,7 @@ Die Detail-Dokumentation liegt in `docs/` – siehe `docs/README.md` für die Ü
 Diese Datei hier bleibt bewusst schlank: Prozessregeln, gelernte Fallstricke,
 Tech-Stack-Kurzüberblick, Verweis dorthin.
 
-Stand: 21.11.2026 (Migrationen bis 119, 101–107 ausgeführt, 108–119 noch auszuführen; Service Worker v192; Regeln seit der Projektdurchsicht vom
+Stand: 24.11.2026 (Migrationen bis 120, 101–107 ausgeführt, 108–120 noch auszuführen; Service Worker v193; Regeln seit der Projektdurchsicht vom
 18.09.2026).
 
 ---
@@ -432,7 +432,7 @@ Bei jeder neuen Konstante `docs/konstanten-register.md` mitpflegen.
 | Welche festen Wertelisten gibt es, wo sind sie definiert? | `docs/konstanten-register.md` |
 | Wie funktionieren Rollen und Modul-Berechtigungen? | `docs/berechtigungen-und-rollen.md` |
 | Wie funktionieren Kunden-Tab und Karte? | `docs/kunden-und-karte.md` |
-| Wie funktionieren Aufträge, Termine, Einsatzplanung? | `docs/auftraege.md` |
+| Wie funktionieren Aufträge, Termine, Einsatzplanung? | `docs/auftraege.md` (Reklamationsauftrag: Abschnitt „Reklamation“, Migration 120) |
 | Wie funktioniert das Lager-Modul? | `docs/lager.md` |
 | Wie funktionieren Artikelstammdaten und Leistungen? | `docs/artikelstammdaten.md` |
 | Wie funktioniert die Rechnungsstellung? | `docs/rechnungen.md` |

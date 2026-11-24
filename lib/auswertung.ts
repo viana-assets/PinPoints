@@ -1,5 +1,6 @@
 import type { Article, AuftragFahrzeug, Customer, Employee, Order, OrderArticle, TireStorage, Vehicle } from "./types";
 import { orderArticleTotals, positionListenwert } from "./helpers";
+import { istReklamation } from "./reklamation";
 
 // Die Rechnung hinter dem Register „Auswertungen" (Block D).
 //
@@ -83,6 +84,10 @@ function positionenVon(daten: Auswertungsdaten, auftragId: string): OrderArticle
 export function kennzahlen(daten: Auswertungsdaten, z: Zeitraum): Kennzahlen {
   const auftraege = daten.orders.filter((o) => imZeitraum(o.order_date, z));
   const erledigt = auftraege.filter((o) => o.status === "erledigt");
+  // Reklamationen (Migration 120) sind Nacharbeit, kein neues Geschäft: Ihr Umsatz zählt (nur „nicht berechtigt“ wird
+  // berechnet), als Auftrag und als bedienter Kunde zählen sie nicht – sonst stiege „Aufträge je Kunde“ mit jedem Fehler.
+  const gezaehlt = auftraege.filter((o) => !istReklamation(o));
+  const erledigtGezaehlt = erledigt.filter((o) => !istReklamation(o));
 
   // Wer ist die Laufkundschaft? Höchstens einer – die Datenbank lässt seit Migration 53 keinen
   // zweiten zu. Als Menge geführt, damit der Code auch dann stimmt, wenn es später anders wäre.
@@ -106,13 +111,13 @@ export function kennzahlen(daten: Auswertungsdaten, z: Zeitraum): Kennzahlen {
   // Sammelposten, kein Kunde. Als einer gezählt, machte sie aus vierzig Barverkäufen einen
   // einzigen Kunden mit vierzig Aufträgen – und „Aufträge je Kunde" wäre keine Kennzahl mehr,
   // sondern ein Artefakt.
-  const kunden = new Set(erledigt.map((o) => o.customer_id).filter((id) => !laufkundschaftIds.has(id)));
-  const erledigtOhneLauf = erledigt.filter((o) => !laufkundschaftIds.has(o.customer_id));
+  const kunden = new Set(erledigtGezaehlt.map((o) => o.customer_id).filter((id) => !laufkundschaftIds.has(id)));
+  const erledigtOhneLauf = erledigtGezaehlt.filter((o) => !laufkundschaftIds.has(o.customer_id));
   return {
-    auftraegeErledigt: erledigt.length,
-    auftraegeMitRechnung: erledigt.filter((o) => o.rechnung_noetig).length,
-    auftraegeGesamt: auftraege.length,
-    auftraegeStorniert: auftraege.filter((o) => o.status === "storniert").length,
+    auftraegeErledigt: erledigtGezaehlt.length,
+    auftraegeMitRechnung: erledigtGezaehlt.filter((o) => o.rechnung_noetig).length,
+    auftraegeGesamt: gezaehlt.length,
+    auftraegeStorniert: gezaehlt.filter((o) => o.status === "storniert").length,
     umsatzNetto: netto,
     umsatzBrutto: netto + steuer,
     umsatzsteuer: steuer,

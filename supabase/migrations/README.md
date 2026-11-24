@@ -10,7 +10,7 @@ So bleibt nachvollziehbar, was in der Supabase-Datenbank bereits läuft und
 was noch im SQL-Editor ausgeführt werden muss, ohne dass alte Befehle
 überschrieben werden oder man durcheinanderkommt.
 
-**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **`112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) **und `113_finance_zahlungsausgang.sql`, `114_finance_belegeingang.sql`, `115_finance_plan.sql`, `116_finance_pruefung.sql`** (der Reihe nach, nach 112, alle vor den Dateien von v186) **sowie `117_ansprechpartner_und_wechselort.sql`** (unabhängig von 108–116, braucht nur 105; vor den Dateien von v189) **und `118_kundenpreise.sql`** (nach 117, vor den Dateien von v191) **sowie `119_kundenartikel.sql`** (nach 118, vor den Dateien von v192) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
+**Noch auszuführen: `108_finance_kostenstellen.sql`** (nach 107, vor den Dateien von v182) **`109_finance_splitt_abhaken.sql`** (nach 108, vor den Dateien von v183), **`110_finance_personenkonten.sql`** (nach 109) **`111_finance_alle_rechnungen.sql`** (nach 110, beide vor den Dateien von v184) **`112_finance_bankregeln_sammeln.sql`** (nach 111, vor den Dateien von v185) **und `113_finance_zahlungsausgang.sql`, `114_finance_belegeingang.sql`, `115_finance_plan.sql`, `116_finance_pruefung.sql`** (der Reihe nach, nach 112, alle vor den Dateien von v186) **sowie `117_ansprechpartner_und_wechselort.sql`** (unabhängig von 108–116, braucht nur 105; vor den Dateien von v189) **und `118_kundenpreise.sql`** (nach 117, vor den Dateien von v191) **sowie `119_kundenartikel.sql`** (nach 118, vor den Dateien von v192) **und `120_reklamation.sql`** (nach 119, vor den Dateien von v193) – Abschnitte unten. **Stand 30.10.2026: 101–107 sind laut Vitali ausgeführt** („alle SQL und Dateien ausgeführt und hochgeladen“). **Stand 17.10.2026: Die Migrationen 01–100 sind in der Produktivdatenbank ausgeführt** (73–78 laut Vitali am 08.10.2026; 79–82 am selben Tag – Team-Chat und Zeiterfassung liefen danach im Betrieb; 83 und 84 am 08./09.10.2026, bei 84 mit „Run and enable RLS“; 85 und 86 laut Vitali am 13.10.2026; 87 am 13.10.2026, Ergebnistabelle mit drei Zeilen gesehen; 88–90 laut Vitali am 13.10.2026; 91–99 am 14.10.2026; 100 mit der Lieferung v158 gemeldet, „alles hochgeladen“) –
 geprüft mit `PRUEFUNG_welche_migrationen_liefen.sql` (jede Zeile „ja"). Die Abschnitte unten,
 die noch „noch auszuführen" hießen, sind damit erledigt und heißen jetzt „ausgeführt"; ihr Text
 bleibt als Begründung stehen. Eine neue Migration bekommt wieder einen eigenen Abschnitt
@@ -1756,3 +1756,19 @@ Nebenbei in `PRUEFUNG_welche_migrationen_liefen.sql`: Zeile 72 erkennt jetzt auc
   Zweiter Lauf folgenlos. Rücknahme `rollback/119_rollback.sql` weigert sich bei Kundenartikeln, stellt sonst die
   Funktionen wie nach 118 her (gleiche Prüfsummen, `testkunde_loeschen` wieder ohne Hülle); zweimal lauffähig, danach
   erneut ausgeführt.
+- `120_reklamation.sql` – **noch auszuführen**, nach 119, vor den Dateien von v193. Inhalt: `orders.art` (auftrag |
+  reklamation), `reklamation_von` (on delete set null), `reklamation_grund` (feste Liste), `reklamation_text`,
+  `reklamation_ohne_bezug`, `reklamation_ergebnis` (berechtigt | kulanz | nicht_berechtigt), `reklamation_bezug`
+  (Schnappschuss des Bezugsauftrags über `reklamation_bezug_schnappschuss()`), Prüfregeln; `auftrag_reklamation_pruefen()`
+  (security definer: Art fest ab Anlegen, Bezug nur auf erledigten Auftrag derselben Kundengruppe, ohne Bezug Begründung
+  Pflicht, Vorgabe ohne Rechnung, Ergebnis Pflicht beim Abschließen, Rechnung nur bei „nicht berechtigt“; Löschfolge des
+  Bezugsauftrags nimmt Kennzeichen und Notiz aus dem Schnappschuss); `betrieb.stundensatz_intern`; Auskunft mit
+  Reklamationen. Wache: bricht ohne 119 ab. Ergebnistabelle mit vier Zeilen. Fachlich: docs/auftraege.md „Reklamation“.
+- Geprüft gegen PG 16 (`/tmp/pgt/t120.sql`, Datenbank aus allen Migrationen 01–120 neu aufgebaut): Bezug auf offenen
+  Auftrag, fremden Kunden, sich selbst abgelehnt, Kundengruppe und Folge-Reklamation erlaubt; ohne Bezug ohne Begründung,
+  ohne Grund, falscher Grund, Reklamationsangaben am gewöhnlichen Auftrag, Art nachträglich ändern abgelehnt; Rechnung bei
+  offener Reklamation, Abschluss ohne Ergebnis und Kulanz mit Rechnung abgelehnt, „nicht berechtigt“ mit Rechnung ja;
+  Wiedereröffnen behält das Ergebnis; Techniker sieht den Schnappschuss, den Bezugsauftrag nicht, und schließt ab;
+  Bezugsauftrag gelöscht → Reklamation bleibt mit Nummer und Leistungen. Zweiter Lauf folgenlos. Rücknahme
+  `rollback/120_rollback.sql` weigert sich bei Reklamationen, sonst Schema gleich 119 (pg_dump verglichen); zweimal
+  lauffähig, danach erneut ausgeführt.

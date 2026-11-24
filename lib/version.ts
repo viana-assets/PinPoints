@@ -9,7 +9,7 @@
 // Die Neuigkeiten stehen im Code und nicht in der Datenbank: Sie beschreiben genau dieses
 // Programm und kommen mit ihm. Neueste zuerst. Geschrieben für das Büro, nicht für Entwickler.
 
-export const APP_VERSION = "v192";
+export const APP_VERSION = "v193";
 
 export type Neuigkeit = {
   version: string;
@@ -19,6 +19,17 @@ export type Neuigkeit = {
 };
 
 export const NEUIGKEITEN: Neuigkeit[] = [
+  {
+    version: "v193", datum: "2026-11-24", titel: "Reklamationsauftrag",
+    punkte: [
+      "Ruft ein Kunde nach einer Arbeit an („das Lenkrad vibriert“), legst du eine Reklamation an: in den Aufträgen über den Pfeil neben „+ Auftrag“ › „Reklamation“, oder bei einem erledigten Auftrag im Menü ⋯ › „Reklamation zu diesem Auftrag“.",
+      "Im Fenster suchst du den Auftrag von damals nach Kunde, Kennzeichen oder Auftragsnummer – auch ältere. Dazu der Grund (z. B. Vibration/Unwucht, Radmutter) und was der Kunde sagt. Gibt es keinen Auftrag dazu, geht „Ohne Bezugsauftrag“ mit kurzer Begründung.",
+      "Die Reklamation ist ein Auftrag mit Termin, Team und Leistungen wie jeder andere, rot markiert. Oben steht, was damals gemacht wurde und von wem – das sieht auch der Techniker.",
+      "Sie läuft ohne Rechnung. Bei „Reklamation erledigt“ wählst du das Ergebnis: berechtigt, Kulanz oder nicht berechtigt. Nur bei „nicht berechtigt“ kann sie dem Kunden berechnet werden.",
+      "Auswertungen: neuer Reiter „Reklamationen“ mit Anzahl, Quote je 100 Aufträge, Gründen, Ergebnissen, wer den Auftrag damals gemacht hat, und dem Schaden – Kosten über den internen Stundensatz und entgangener Umsatz über den Ø Umsatz je Terminstunde. Den Stundensatz trägst du unter Admin › Betriebsdaten › „Interner Stundensatz“ ein.",
+      "Datenbank: Migration 120 im Supabase-SQL-Editor ausführen (nach 119), bevor die Dateien hochgeladen werden.",
+    ],
+  },
   {
     version: "v192", datum: "2026-11-21", titel: "Kundenartikel und Auswertung der Konditionen",
     punkte: [

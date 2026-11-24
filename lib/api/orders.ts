@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Order, OrderArticle, OrderStatus } from "@/lib/types";
+import type { Order, OrderArticle, OrderStatus, ReklamationErgebnis } from "@/lib/types";
 import { fetchPaged, qOne, qWrite } from "./client";
 import { wechselortSpalten, type WechselortEingabe } from "@/lib/ansprechpartner";
 
@@ -208,15 +208,27 @@ export async function updateOrderFirmenfahrzeug(supabase: SupabaseClient, id: st
 //
 // `grund` wird bei einer Stornierung und bei einer Wiedereröffnung verlangt; die Zeitstempel
 // (completed_at, cancelled_at) und die handelnde Person setzt die Datenbank selbst.
+// Was mit einem Statuswechsel zusammen gespeichert wird: der Grund eines Stornos oder einer Wiedereröffnung, und beim
+// Abschluss einer Reklamation (Migration 120) das Ergebnis samt „Rechnung nötig“ – in DERSELBEN Anweisung, weil die
+// Datenbank beides beim Abschluss prüft.
+export type StatusZusatz = {
+  stornoGrund?: string;
+  wiedereroeffnungsGrund?: string;
+  reklamationErgebnis?: ReklamationErgebnis;
+  rechnungNoetig?: boolean;
+};
+
 export async function updateOrderStatusById(
   supabase: SupabaseClient,
   id: string,
   status: OrderStatus,
-  grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }
+  grund?: StatusZusatz
 ): Promise<void> {
   const felder: Record<string, unknown> = { status };
   if (grund?.stornoGrund !== undefined) felder.cancel_reason = grund.stornoGrund;
   if (grund?.wiedereroeffnungsGrund !== undefined) felder.reopen_reason = grund.wiedereroeffnungsGrund;
+  if (grund?.reklamationErgebnis !== undefined) felder.reklamation_ergebnis = grund.reklamationErgebnis;
+  if (grund?.rechnungNoetig !== undefined) felder.rechnung_noetig = grund.rechnungNoetig;
   await qWrite(
     "Der Status konnte nicht geändert werden",
     supabase.from("orders").update(felder).eq("id", id)

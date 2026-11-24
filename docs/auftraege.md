@@ -1,4 +1,4 @@
-# Aufträge, Termine, Einsatzplanung (Stand 09.10.2026)
+# Aufträge, Termine, Einsatzplanung (Stand 24.11.2026)
 
 Ersetzt `auftragsablauf.md` (Stand 04.09.2026) und `auftraege-termine-einsatzplanung.md`
 (Stand 10.09.2026), die beide gelöscht werden. Dieses Blatt beschreibt nur den **Ist-Zustand**
@@ -947,3 +947,76 @@ echte Nummer verbraucht hätte). Aufträge eines Testkunden bekommen eine negati
 `test_auftrag_nummer_seq`; angezeigt wird sie über `auftragsNr()` als „T1" – auch im
 Kontakteintrag beim Abschließen („Auftrag T1 abgeschlossen", `auftrag_nr_text()`). Ein Auftrag
 zieht nicht zwischen Test- und echtem Kunden um (`auftrag_bleibt_test_oder_echt()`).
+
+## Reklamation (Migration 120, v193, 24.11.2026)
+
+Wunsch Vitali 24.11.2026: Ruft ein Kunde nach einem Reifenwechsel an („das Lenkrad vibriert“), entsteht ein
+Reklamationsauftrag – mit Bezug auf den erledigten Auftrag von damals oder, im Sonderfall, ohne. Entscheidungen
+24.11.2026 (Projekt-Notiz `claude/reklamation.md`): Ergebnis beim Abschluss, Schaden als zwei Zahlen, Auswertung auch
+je Techniker, Grund als feste Liste plus Freitext.
+
+### Datenmodell
+
+Eine Reklamation ist ein gewöhnlicher Auftrag mit `orders.art = 'reklamation'` – Termin, Team, Karte, Push, Leistungen,
+Fotos, Protokoll und Offline laufen ohne Umbau weiter. Dazu:
+
+| Spalte | Inhalt |
+|---|---|
+| `art` | `auftrag` (Vorgabe) oder `reklamation`; steht beim Anlegen fest |
+| `reklamation_von` | der erledigte Bezugsauftrag (on delete set null) |
+| `reklamation_grund` | feste Liste `REKLAMATION_GRUENDE` (lib/reklamation.ts) = Prüfregel `orders_reklamation_grund_werte` |
+| `reklamation_text` | was der Kunde sagt (≤ 1000) |
+| `reklamation_ohne_bezug` | Begründung, wenn es keinen Bezugsauftrag gibt (≤ 300, dann Pflicht) |
+| `reklamation_ergebnis` | `berechtigt` / `kulanz` / `nicht_berechtigt` – Pflicht beim Abschließen |
+| `reklamation_bezug` | Schnappschuss des Bezugsauftrags: Nummer, Datum, Titel, Leistungen, Techniker (Id + Name), Fahrzeuge (Kennzeichen, km), Notiz |
+
+`auftrag_reklamation_pruefen()` (BEFORE INSERT/UPDATE, `security definer`, weil der Bezugsauftrag auch für jemanden
+gelesen werden muss, der ihn nicht sehen darf): Art nicht änderbar; Bezug nur auf einen erledigten, nicht gelöschten
+Auftrag derselben Kundengruppe (`kunde_gruppe()`), nicht auf sich selbst – eine Folge-Reklamation auf eine erledigte
+Reklamation geht; ohne Bezug Begründung Pflicht; beim Anlegen „Rechnung nötig“ aus; beim Abschließen Ergebnis Pflicht;
+„Rechnung nötig“ nur bei „nicht berechtigt“. Dieselben Regeln in `reklamationMaengel()` und `abschlussMaengel()`.
+Wird der Bezugsauftrag endgültig gelöscht (Kunde endgültig löschen), bleibt die Reklamation; ihr Schnappschuss behält
+Nummer und Leistungen, Kennzeichen und Notiz fallen heraus (`pg_trigger_depth() > 1`).
+
+**Warum ein Schnappschuss und kein Verweis:** Der Techniker sieht nur eigene Aufträge (RLS) – den alten Auftrag eines
+Kollegen könnte er nicht lesen, soll aber wissen, was damals gemacht wurde. Und die Auswertung „wer hat den Auftrag
+damals gemacht“ hängt so nicht am geladenen Zeitraum.
+
+### Bedienung
+
+- **Anlegen:** Aufträge › Pfeil neben „+ Auftrag“ › „Reklamation“ (ein Klick für den Normalfall bleibt), oder bei einem
+  erledigten Auftrag Menü ⋯ › „Reklamation zu diesem Auftrag“ – in der Liste und im Auftragsfenster. Recht: „Aufträge ›
+  Anlegen“.
+- **Reklamationsfenster** (`components/auftraege/ReklamationBlatt.tsx`, Ebene 10002): „Zu einem Auftrag“ – eine Suche
+  nach Kunde (aus der Kartei), Kennzeichen (`vehicles`, ilike) oder Auftragsnummer („441“, „#441“, „T12“), danach die
+  erledigten Aufträge des Kunden und seiner Kundengruppe ohne Zeitfenster (`fetchErledigteAuftraege`, die 60 jüngsten);
+  oder „Ohne Bezugsauftrag“ mit Kunde und Begründung. Dazu Grund (Pillen) und „Was sagt der Kunde?“. Die Reklamation
+  gehört dem Kunden des Bezugsauftrags (bei einer Gruppe also dem Unterdebitor). Danach öffnet sich das Auftragsfenster
+  wie beim neuen Auftrag (Titel „Reklamation – Kunde“, heute, ohne Uhrzeit).
+- **Auftragsfenster:** Kopf „Reklamation #…“, rote Marke, Karte „Reklamation“ mit Grund, Text und dem Bezug (damalige
+  Leistungen, „Gemacht von“, Fahrzeug, Notiz, „öffnen ›“ – nicht für Techniker). Die Rechnungskarte zeigt statt des
+  Schalters „ohne Rechnung“. „Reklamation erledigt“ fragt nach dem Ergebnis; bei „nicht berechtigt“ der Schalter „Dem
+  Kunden berechnen“ (setzt „Rechnung nötig“ in derselben Anweisung wie den Status – die Rechnungsangaben prüft die
+  Datenbank wie immer).
+- **Liste:** rote Marke „Reklamation“ an der Karte.
+
+### Auswertung (Reiter „Reklamationen“)
+
+`reklamationAuswertung()` aus den Aufträgen des Zeitraums (ohne stornierte, ohne Testaufträge): Anzahl, Quote je 100
+erledigte gewöhnliche Aufträge, offene, nach Grund, nach Ergebnis, ohne Bezug, je Techniker des Bezugsauftrags (nur
+Information – ein Auftrag mit zwei Technikern zählt bei beiden; keine Bewertung von Personen), Liste mit Sprung zum
+Auftrag, CSV.
+
+Schaden je Reklamation (`reklamationSchaden()`):
+
+- **Kosten** = Dauer des Termins (von–bis, sonst Standarddauer) × eingeteilte Techniker (mindestens 1) × interner
+  Stundensatz (`betrieb.stundensatz_intern`, Admin › Betriebsdaten › „Interner Stundensatz“) + eingesetzte Leistungen
+  zum Listenpreis. Ohne Stundensatz „–“ mit Hinweis.
+- **Entgangener Umsatz** = Dauer × Ø Netto-Umsatz je Terminstunde (`umsatzJeTerminstunde()`: gewöhnliche erledigte
+  Aufträge mit Uhrzeit der letzten zwölf Monate). Eine Obergrenze: Er entgeht nur, wenn der Platz sonst bezahlt belegt
+  gewesen wäre.
+- „Nicht berechtigt“ zählt nicht als Schaden.
+
+In den Kennzahlen (`kennzahlen()`) zählen Reklamationen nicht als Auftrag und nicht als bedienter Kunde; ihr Umsatz
+(nur „nicht berechtigt“ mit Rechnung) zählt mit. Der Stundensatz steht in `betrieb` und ist damit – wie alle
+Betriebsdaten – für jeden angemeldeten Nutzer lesbar.

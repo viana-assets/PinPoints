@@ -137,6 +137,9 @@ export type Betrieb = {
   // liegen damit schon im Debitorenbereich.
   datev_debitor_basis: number;
   datev_sammeldebitor: number;
+  // Interne Kosten je Technikerstunde, netto (Migration 120) – für den Schaden einer Reklamation. Optional, weil es die
+  // Spalte vor Migration 120 nicht gibt.
+  stundensatz_intern?: number | null;
 };
 
 // Die Felder der Betriebsdaten-Maske. `updated_at`, `updated_by` und die beiden Zähler stehen
@@ -147,7 +150,8 @@ export type BetriebFelder = Pick<Betrieb,
   | "ust_id" | "steuernummer" | "kontoinhaber" | "bank" | "iban" | "bic" | "logo"
   | "anschreiben" | "fuss_zahlung" | "fuss_hinweis" | "fuss_dank" | "rechnung_praefix"
   | "datev_berater" | "datev_mandant" | "datev_wj_beginn_monat" | "datev_sachkontenlaenge" | "datev_skr"
-  | "datev_konto_19" | "datev_konto_7" | "datev_konto_0" | "datev_debitor_basis" | "datev_sammeldebitor">;
+  | "datev_konto_19" | "datev_konto_7" | "datev_konto_0" | "datev_debitor_basis" | "datev_sammeldebitor"
+  | "stundensatz_intern">;
 
 export type UserSettings = {
   user_id: string;
@@ -316,6 +320,23 @@ export type Ansprechpartner = {
   created_at?: string;
 };
 
+export type AuftragsArt = "auftrag" | "reklamation";
+// Dieselben Werte wie die Prüfregeln von Migration 120; Beschriftungen in lib/reklamation.ts.
+export type ReklamationGrund = "vibration" | "radmutter" | "luftdruck" | "beschaedigung" | "falsche_montage" | "sonstiges";
+export type ReklamationErgebnis = "berechtigt" | "kulanz" | "nicht_berechtigt";
+// Schnappschuss des Bezugsauftrags (`reklamation_bezug_schnappschuss()`, Migration 120). Nach dem endgültigen Löschen des
+// Bezugsauftrags fehlen `fahrzeuge` und `notiz`.
+export type ReklamationBezug = {
+  nummer: number;
+  datum: string;
+  titel?: string | null;
+  abgeschlossen?: string | null;
+  notiz?: string | null;
+  leistungen: { menge: number; artikel: string | null; text: string | null }[];
+  techniker: { id: string; name: string }[];
+  fahrzeuge?: { kennzeichen: string | null; kilometerstand: number | null }[];
+};
+
 export type Order = {
   id: string;
   // Fortlaufende, für Menschen lesbare Auftragsnummer (Migration 20) – für Rechnungen und für
@@ -387,6 +408,16 @@ export type Order = {
   einsatz_lat?: number | null;
   einsatz_lng?: number | null;
   einsatz_geo_genauigkeit?: GeoGenauigkeit | null;
+  // Reklamation (Migration 120, v193, lib/reklamation.ts): „reklamation“ steht beim Anlegen fest. Der Bezug zeigt auf den
+  // erledigten Auftrag von damals, `reklamation_bezug` ist sein Schnappschuss (Leistungen, Techniker, Fahrzeuge). Alles
+  // optional – Altdaten, Offline-Speicher und Testgerüste ohne die Spalten gelten als gewöhnlicher Auftrag.
+  art?: AuftragsArt | null;
+  reklamation_von?: string | null;
+  reklamation_grund?: ReklamationGrund | null;
+  reklamation_text?: string | null;
+  reklamation_ohne_bezug?: string | null;
+  reklamation_ergebnis?: ReklamationErgebnis | null;
+  reklamation_bezug?: ReklamationBezug | null;
   created_at: string;
   updated_at: string;
   // Seit Migration 19 wird nicht mehr hart gelöscht, sondern nur markiert – die Zeile

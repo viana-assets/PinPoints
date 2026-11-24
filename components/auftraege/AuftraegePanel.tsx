@@ -12,6 +12,7 @@ import { OrderModal } from "./OrderModal";
 import { kundeFuerAuftrag } from "@/lib/laufkunde";
 import { auftragsNr } from "@/lib/testkunde";
 import { SuchFeld } from "@/components/SuchFeld";
+import { istReklamation } from "@/lib/reklamation";
 
 // Aufträge-Modul (neu gestaltet am 26.09.2026, Entwurf „K · Aufträge").
 //
@@ -27,7 +28,7 @@ import { SuchFeld } from "@/components/SuchFeld";
 
 const STATUS_WAHL: ("all" | OrderStatus)[] = ["all", "offen", "in_arbeit", "erledigt", "storniert"];
 
-export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, leistungenText, onOpenCustomer, onOpenOrder, onNavigate, onCall, isTechniker, fenster, darfAnlegen }: {
+export function AuftraegePanel({ customers, orders, employees, orderEmployees, onNeuerAuftrag, onDelete, onEditEmployees, leistungenText, onOpenCustomer, onOpenOrder, onNavigate, onCall, isTechniker, fenster, darfAnlegen, onReklamation }: {
   customers: Customer[]; orders: Order[]; employees: Employee[]; orderEmployees: Record<string, string[]>;
   // Legt für den gewählten Kunden einen Auftrag an und öffnet das Auftragsfenster – derselbe
   // Weg wie im Karten-Popup und im Kundenfenster (docs/auftragsablauf.md).
@@ -52,6 +53,9 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   fenster?: { wert: AuftragsFenster; onChange: (w: AuftragsFenster) => void; laedt: boolean };
   // Recht „Aufträge anlegen“ (Migration 78). Fehlt es, gilt wie früher: alle außer dem Techniker.
   darfAnlegen?: boolean;
+  // Reklamation anlegen (Migration 120, v193): ohne Auftrag über „+ Auftrag ▾“, mit Auftrag aus dem Menü eines
+  // erledigten. Fehlt es, gibt es beides nicht.
+  onReklamation?: (bezug: Order | null) => void;
 }) {
   const anlegen = darfAnlegen ?? !isTechniker;
   const heute = todayStr();
@@ -66,6 +70,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
   const [vergangene, setVergangene] = useState(false);
   const [blatt, setBlatt] = useState<null | "person" | "zeitraum" | "sort">(null);
   const [menuFuer, setMenuFuer] = useState<string | null>(null);
+  const [neuMenue, setNeuMenue] = useState(false);
 
   const kundeName = (o: Order) => {
     const c = kundeFuerAuftrag(o, customers);
@@ -135,6 +140,9 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
                     <button type="button" onClick={() => { setMenuFuer(null); onOpenOrder(o.id); }}>Auftrag öffnen</button>
                     {!isTechniker && <button type="button" onClick={(e) => { setMenuFuer(null); onEditEmployees(e, o.id); }}>Mitarbeiter zuteilen</button>}
                     {cust && <button type="button" onClick={() => { setMenuFuer(null); onOpenCustomer(cust.id); }}>Kunde öffnen</button>}
+                    {onReklamation && anlegen && o.status === "erledigt" && (
+                      <button type="button" onClick={() => { setMenuFuer(null); onReklamation(o); }}>Reklamation zu diesem Auftrag</button>
+                    )}
                     {/* Abgerechnete Aufträge werden nicht gelöscht (D2, lib/auftragLoeschen.ts). */}
                     {!isTechniker && (() => {
                       const pruefung = auftragLoeschPruefung(o);
@@ -162,6 +170,7 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
               <button type="button" className="au-wer leer" onClick={(e) => { e.stopPropagation(); onEditEmployees(e, o.id); }}>+ Mitarbeiter</button>
             )}
             <span className={`badge ${ORDER_STATUS_FARBE[o.status]}`}>{ORDER_STATUS_LABEL[o.status]}</span>
+            {istReklamation(o) && <span className="badge rk-badge">Reklamation</span>}
             {offeneRechnung && !nurRechnungOffen && <span className="au-rechnung">Rechnung offen</span>}
             {emailFehlt && <span className="au-rechnung au-email-fehlt">E-Mail hinterlegen</span>}
           </span>
@@ -198,11 +207,23 @@ export function AuftraegePanel({ customers, orders, employees, orderEmployees, o
               <h2>Aufträge</h2>
               <span className="lg-unter" title="Ein Termin ist ein Auftrag mit Uhrzeit">{orders.length} Aufträge · {offenGesamt} offen</span>
             </div>
+            {/* „+ Auftrag“ bleibt der eine Klick für den Normalfall; der Pfeil daneben bietet die Reklamation an (v193). */}
             {anlegen && (
-              <button type="button" className="kl-neu" onClick={() => setShowAdd(true)}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-                Auftrag
-              </button>
+              <span className={"kl-neu-gruppe op-menue-anker" + (onReklamation ? " mit-pfeil" : "")}>
+                <button type="button" className="kl-neu" onClick={() => setShowAdd(true)}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+                  Auftrag
+                </button>
+                {onReklamation && (
+                  <button type="button" className="kl-neu kl-neu-pfeil" aria-label="Weitere Auftragsarten" aria-expanded={neuMenue} onClick={() => setNeuMenue(!neuMenue)}>{pfeil}</button>
+                )}
+                {neuMenue && onReklamation && (
+                  <span className="op-menue">
+                    <button type="button" onClick={() => { setNeuMenue(false); setShowAdd(true); }}>Neuer Auftrag</button>
+                    <button type="button" onClick={() => { setNeuMenue(false); onReklamation(null); }}>Reklamation</button>
+                  </span>
+                )}
+              </span>
             )}
           </div>
           <SuchFeld className="au-suche" value={suche} onWert={setSuche}

@@ -21,6 +21,7 @@ import { dateiHerunterladen } from "@/lib/download";
 import { fetchZeitAbwesenheiten, fetchZeitKorrekturenZeitraum, fetchZeitSchichten } from "@/lib/api/zeiterfassung";
 import { arbeitMs } from "@/lib/zeiterfassung";
 import { addDays, toDateStr } from "@/lib/calendar";
+import { ergebnisText, grundText, reklamationAuswertung, umsatzJeTerminstunde } from "@/lib/reklamation";
 
 // Register „Auswertungen" – neu gestaltet am 26.09.2026 (Entwurf „M · Auswertungen", Fahrplan
 // E13). Vorher eine starre Seite: drei Zeiträume, sechs Kacheln, ein Balkendiagramm, zwei
@@ -39,12 +40,14 @@ import { addDays, toDateStr } from "@/lib/calendar";
 // Gerechnet wird in lib/auswertung.ts, lib/auswertungAnsicht.ts und lib/datev.ts – alle mit
 // Prüffällen. Diese Datei zeigt nur an.
 
-type Reiter = "umsatz" | "kunden" | "einsatz" | "lager" | "artikel" | "reifen" | "konditionen";
+type Reiter = "umsatz" | "kunden" | "einsatz" | "lager" | "artikel" | "reifen" | "konditionen" | "reklamationen";
 const REITER: { wert: Reiter; text: string }[] = [
   { wert: "umsatz", text: "Umsatz" }, { wert: "kunden", text: "Kunden" }, { wert: "einsatz", text: "Einsatz" },
   { wert: "lager", text: "Lager" }, { wert: "artikel", text: "Artikel" }, { wert: "reifen", text: "Reifen" },
   // v192: Kundenpreise und Kundenartikel (nur mit „Endpreis überschreiben“).
   { wert: "konditionen", text: "Konditionen" },
+  // v193: Reklamationsaufträge (Migration 120) – Anzahl, Gründe, Schaden.
+  { wert: "reklamationen", text: "Reklamationen" },
 ];
 type Blatt = null | "frei" | "person" | "export" | "offen" | "monat" | "artikel";
 
@@ -280,6 +283,17 @@ export function AuswertungPanel(p: {
   const kSummeVJ = konditionenSumme(kundenMitKonditionen(kjVJ, daten, p.kundenpreise ?? []));
   const kAnteil = s.netto > 0 ? Math.round(((kSumme.kundenpreis + kSumme.kundenartikel) / s.netto) * 100) : null;
 
+  // ---------------------------------------------------------------- Reklamationen (v193)
+  // Ø Umsatz je Terminstunde aus den letzten zwölf Monaten – Grundlage für den entgangenen Umsatz.
+  const jeStunde = umsatzJeTerminstunde(a.orders, a.orderArticles, verschiebeJahr(heute, -1), heute, p.standardDauerMin);
+  const rkEingang = { orders: datenP.orders, positionen: a.orderArticles, orderEmployees: a.orderEmployees,
+    stundensatz: a.betrieb?.stundensatz_intern, jeStunde, standardMin: p.standardDauerMin };
+  const rk = reklamationAuswertung(rkEingang, z);
+  const rkVJ = reklamationAuswertung(rkEingang, zVJ);
+  const rkGrundMax = Math.max(1, ...rk.jeGrund.map((x) => x.anzahl));
+  const rkTechMax = Math.max(1, ...rk.jeTechniker.map((x) => x.anzahl));
+  const kundeVon = (id: string) => { const c = p.customers.find((x) => x.id === id); return c ? (c.company || "").trim() || c.name : "Unbekannt"; };
+
   // ---------------------------------------------------------------- Artikel
   const geteilt = artikelWerteTeilen(artikelWerte, p.articles, p.customers);
   const kundenartikelSumme = geteilt.kunden.reduce((n, x) => n + x.umsatzNetto, 0);
@@ -312,6 +326,10 @@ export function AuswertungPanel(p: {
       : reiter === "einsatz" ? [["Mitarbeiter", "Stunden", "Termine"], ...e.jePerson.map((x) => [x.name, Math.round((x.minuten / 60) * 100) / 100, x.termine])]
       : reiter === "lager" ? [["Monat", "Belegt am Monatsende", "Vorjahr"], ...monate.map((m, i) => [monatLang(m), verlauf[i], verlaufVJ[i]])]
       : reiter === "reifen" ? [["Monat", "Lagerwert Reifenverkauf netto (ungefähr)"], ...monate.map((m, i) => [monatLang(m), rvVerlauf[i] ?? 0])]
+      : reiter === "reklamationen" ? [["Datum", "Auftrag", "Kunde", "Grund", "Bezug", "Ergebnis", "Minuten", "Techniker", "Material netto", "Kosten netto", "Entgangener Umsatz netto"],
+          ...rk.zeilen.map(({ auftrag: o, schaden: x }) => [o.order_date, auftragsNr(o.order_number), kundeVon(o.customer_id), grundText(o.reklamation_grund),
+            o.reklamation_bezug ? auftragsNr(o.reklamation_bezug.nummer) : "ohne", o.status === "erledigt" ? ergebnisText(o.reklamation_ergebnis) : "offen",
+            x.dauerMin, x.techniker, x.material, x.kosten, x.entgangen])]
       : reiter === "konditionen" ? [["Kunde", "Kd.-Nr.", "Aufträge", "Umsatz netto", "davon Listenpreis", "davon Kundenpreis", "davon Kundenartikel", "Preisvorteil", "Letzter Auftrag"],
           ...kListe.map((x) => [x.name, x.kundennummer, x.auftraege, x.netto, x.liste, x.kundenpreis, x.kundenartikel, x.preisvorteil, x.letzterAuftrag])]
       : [["Artikel", "Kunde", "Menge", "Einheit", "Umsatz netto"], ...artikelWerte.map((x) => [x.name, geteilt.kunden.find((k2) => k2.id === x.id)?.kunde ?? "", x.menge, einheit(x.id), x.umsatzNetto])];
@@ -732,6 +750,76 @@ export function AuswertungPanel(p: {
               })}
             </div>
             <span className="small am-fuss">Eine Grundlage, um Konditionen regelmäßig zu prüfen. Kunden mit hinterlegten Konditionen stehen auch ohne Auftrag im Zeitraum in der Liste.</span>
+          </>
+        )}
+
+        {/* ============================================================ REKLAMATIONEN (v193) */}
+        {reiter === "reklamationen" && (
+          <>
+            <div className="am-antwort">
+              <span className="am-a-titel">REKLAMATIONEN · {titel.toUpperCase()}</span>
+              <div className="am-a-zeile"><span className="am-a-wert">{rk.anzahl}</span>
+                <span className="am-a-unter">{rk.quote != null ? `${rk.quote.toLocaleString("de-DE")} je 100 erledigte Aufträge` : "keine erledigten Aufträge im Zeitraum"}{rk.offen ? ` · ${rk.offen} noch offen` : ""}</span></div>
+              {vergleich && <Delta jetzt={rk.anzahl} vorher={rkVJ.anzahl} dunkel einheit={`${rkVJ.anzahl}`} />}
+              <span className="am-a-klein">Reklamationsaufträge mit Termin im Zeitraum, ohne stornierte. Sie zählen nicht als Aufträge im Umsatz-Reiter.</span>
+            </div>
+            <div className="am-kacheln">
+              <Kachel titel="Kosten" wert={rk.kostenUnvollstaendig && rk.kosten === 0 ? "–" : eur0(rk.kosten)}
+                unter={rk.kostenUnvollstaendig ? "Stundensatz fehlt – Admin › Betriebsdaten" : `${stunden(rk.minuten)} Std. · Stundensatz ${eur0(Number(a.betrieb?.stundensatz_intern ?? 0))}`}>
+                {vergleich && !rk.kostenUnvollstaendig && <Delta jetzt={rk.kosten} vorher={rkVJ.kosten} />}
+              </Kachel>
+              <Kachel titel="Entgangener Umsatz" wert={jeStunde == null ? "–" : eur0(rk.entgangen)}
+                unter={jeStunde == null ? "noch kein Ø je Stunde" : `höchstens · Ø ${eur0(jeStunde)} je Terminstunde`} />
+              <Kachel titel="Ohne Bezugsauftrag" wert={String(rk.ohneBezug)} unter="Sonderfälle mit Begründung" />
+              <Kachel titel="Nicht berechtigt" wert={String(rk.jeErgebnis.find((x) => x.ergebnis === "nicht_berechtigt")?.anzahl ?? 0)} unter="Ursache beim Kunden – kein Schaden" />
+            </div>
+
+            <div className="db-karte">
+              <div className="db-karte-kopf"><span className="db-karte-titel">Nach Grund</span><span className="small">{rk.anzahl} Reklamationen</span></div>
+              {rk.jeGrund.length === 0 ? <div className="db-leer">Keine Reklamation im Zeitraum.</div> : rk.jeGrund.map((x) => (
+                <div key={x.grund} className="am-balkenzeile">
+                  <div className="am-bz-kopf"><span className="am-name">{grundText(x.grund)}</span><b>{x.anzahl}</b></div>
+                  <span className="am-bz-spur"><span style={{ width: `${(x.anzahl / rkGrundMax) * 100}%`, background: "var(--accent)" }} /></span>
+                </div>
+              ))}
+              {rk.jeErgebnis.length > 0 && (
+                <span className="small am-fuss">Ergebnis: {rk.jeErgebnis.map((x) => `${x.ergebnis === "offen" ? "noch offen" : ergebnisText(x.ergebnis)} ${x.anzahl}`).join(" · ")}</span>
+              )}
+            </div>
+
+            <div className="db-karte">
+              <div className="db-karte-kopf"><span className="db-karte-titel">Wer den Auftrag damals gemacht hat</span><span className="small">aus dem Bezugsauftrag</span></div>
+              {rk.jeTechniker.length === 0 ? <div className="db-leer">Keine Reklamation mit Bezugsauftrag im Zeitraum.</div> : rk.jeTechniker.map((x) => (
+                <div key={x.id} className="am-balkenzeile">
+                  <div className="am-bz-kopf">
+                    <span className="am-punkt rund" style={{ background: employeeColorFor(p.employees, x.id) }} />
+                    <span className="am-name">{x.name}</span>
+                    <b>{x.anzahl}</b>
+                  </div>
+                  <span className="am-bz-spur"><span style={{ width: `${(x.anzahl / rkTechMax) * 100}%`, background: employeeColorFor(p.employees, x.id) }} /></span>
+                </div>
+              ))}
+              <span className="small am-fuss">Nur zur Information, keine Bewertung: Ob eine Reklamation berechtigt war, steht beim Ergebnis – und ein Auftrag mit zwei Technikern zählt bei beiden.</span>
+            </div>
+
+            <div className="db-karte">
+              <div className="db-karte-kopf"><span className="db-karte-titel">Reklamationen</span><span className="small">neueste zuerst</span></div>
+              {rk.zeilen.length === 0 ? <div className="db-leer">Keine Reklamation im Zeitraum.</div> : rk.zeilen.map(({ auftrag: o, schaden: x }) => (
+                <button key={o.id} type="button" className="am-listen-zeile rk-zeile" onClick={() => p.onOpenOrder(o.id)}>
+                  <span className="am-lz-text">
+                    <b>{kundeVon(o.customer_id)} <span className="small">· #{auftragsNr(o.order_number)} · {tagDeutsch(o.order_date)}</span></b>
+                    <span className="small">{grundText(o.reklamation_grund)} · {o.reklamation_bezug ? `zu #${auftragsNr(o.reklamation_bezug.nummer)}` : "ohne Bezugsauftrag"} · {o.status === "erledigt" ? ergebnisText(o.reklamation_ergebnis) : "offen"}</span>
+                  </span>
+                  <span className="am-kond-wert"><b>{x.keinSchaden ? "–" : x.kosten != null ? eur0(x.kosten) : stunden(x.dauerMin)}</b><span className="small">{x.keinSchaden ? "kein Schaden" : x.kosten != null ? "Kosten" : "Std."}</span></span>
+                  <span className="am-chevron" aria-hidden="true">›</span>
+                </button>
+              ))}
+              <span className="small am-fuss">
+                Kosten = Dauer des Termins × eingeteilte Techniker × interner Stundensatz + eingesetzte Leistungen zum Listenpreis.
+                Entgangener Umsatz = Dauer × Ø Umsatz je Terminstunde – eine Obergrenze: Er entgeht nur, wenn der Platz sonst bezahlt belegt gewesen wäre.
+                „Nicht berechtigt“ zählt nicht als Schaden.
+              </span>
+            </div>
           </>
         )}
 

@@ -3,6 +3,8 @@ import type { Betrieb, BetriebFelder } from "@/lib/types";
 import { LOGO_MAX_BYTES, LOGO_TYPEN } from "@/lib/constants";
 import { ibanFehler, nummernkreisFehler } from "@/lib/rechnung";
 import { datevEinstellungFehler, type DatevEinstellung } from "@/lib/datev";
+import { preisLesen } from "@/lib/kundenpreise";
+import { formatEUR } from "@/lib/format";
 
 // Der Briefkopf (Migration 48). Was hier steht, steht auf jeder Rechnung, die das Haus
 // verlässt – und zwar als ABSCHRIFT: Eine Rechnung von letztem Jahr behält den Briefkopf, den
@@ -42,9 +44,14 @@ function Feld({ label, wert, onChange, hinweis, breit, mehrzeilig, platzhalter }
   );
 }
 
-type Abschnitt = "briefkopf" | "bank" | "logo" | "texte" | "nummernkreis" | "datev" | "terminraster";
+type Abschnitt = "briefkopf" | "bank" | "logo" | "texte" | "nummernkreis" | "datev" | "kosten" | "terminraster";
 
-function felderAus(b: Betrieb): Omit<BetriebFelder, keyof DatevEinstellung> {
+// Der interne Stundensatz (Migration 120) als Text, solange getippt wird – wie die DATEV-Angaben.
+function satzTextAus(b: Betrieb): string {
+  return b.stundensatz_intern == null ? "" : String(Number(b.stundensatz_intern)).replace(".", ",");
+}
+
+function felderAus(b: Betrieb): Omit<BetriebFelder, keyof DatevEinstellung | "stundensatz_intern"> {
   return {
     firma: b.firma, inhaber: b.inhaber, strasse: b.strasse,
     plz: b.plz, ort: b.ort, telefon: b.telefon, email: b.email,
@@ -90,6 +97,7 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
   const [f, setF] = useState(() => felderAus(betrieb));
   const [stand, setStand] = useState<"bereit" | "speichert" | "gespeichert">("bereit");
   const [d, setD] = useState(() => datevTexteAus(betrieb));
+  const [satz, setSatz] = useState(() => satzTextAus(betrieb));
   const [blatt, setBlatt] = useState<Abschnitt | null>(null);
   const setzD = (teil: Partial<typeof d>) => { setD((alt) => ({ ...alt, ...teil })); setStand("bereit"); };
   const zahl = (t: string): number | null => (t.trim() === "" ? null : /^\d+$/.test(t.trim()) ? Number(t.trim()) : NaN);
@@ -115,6 +123,7 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
   function oeffnen(a: Abschnitt) {
     setF(felderAus(betrieb));
     setD(datevTexteAus(betrieb));
+    setSatz(satzTextAus(betrieb));
     setNummer(String(betrieb.rechnung_naechste_nummer));
     setNummerOffen(false);
     setFehler(null);
@@ -123,7 +132,11 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
   }
 
   const entwurfGeaendert =
-    JSON.stringify(f) !== JSON.stringify(felderAus(betrieb)) || JSON.stringify(d) !== JSON.stringify(datevTexteAus(betrieb));
+    JSON.stringify(f) !== JSON.stringify(felderAus(betrieb)) || JSON.stringify(d) !== JSON.stringify(datevTexteAus(betrieb))
+    || satz !== satzTextAus(betrieb);
+  // Leer = kein Stundensatz (dann fehlen die Kosten in der Reklamations-Auswertung).
+  const satzWert = satz.trim() === "" ? null : preisLesen(satz);
+  const satzFalsch = satz.trim() !== "" && (satzWert == null || satzWert > 9999);
 
   function schliessen() {
     if (entwurfGeaendert && stand !== "speichert" && !window.confirm("Die Änderungen sind noch nicht gespeichert. Verwerfen?")) return;
@@ -135,6 +148,7 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
     // nächsten Rechnung und im Girocode.
     const ibanGrund = ibanFehler(f.iban);
     if (ibanGrund) { setFehler(ibanGrund); return; }
+    if (satzFalsch) { setFehler("Der Stundensatz ist keine gültige Zahl (z. B. 45 oder 45,50 – höchstens 9.999 €)."); return; }
     if (datevUngueltig) {
       setFehler("Bei den DATEV-Angaben steht etwas, das keine Zahl ist. Bitte nur Ziffern eintragen.");
       return;
@@ -142,7 +156,9 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
     setStand("speichert");
     setFehler(null);
     try {
-      await onSpeichern({ ...f, ...datev });
+      // Den Stundensatz nur mitschicken, wenn es die Spalte gibt (Migration 120) oder einer eingetragen wird – sonst
+      // scheiterte jedes Speichern, solange die Migration noch nicht lief.
+      await onSpeichern({ ...f, ...datev, ...("stundensatz_intern" in betrieb || satzWert != null ? { stundensatz_intern: satzWert } : {}) });
       setStand("gespeichert");
       setBlatt(null);
       setTimeout(() => setStand("bereit"), 2500);
@@ -217,6 +233,8 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
       info: datevGespeichert.length ? (b.datev_berater == null || b.datev_mandant == null ? "Berater- oder Mandantennummer fehlt – Export gesperrt" : "Angaben unvollständig – Export gesperrt")
         : `Berater ${b.datev_berater} · Mandant ${b.datev_mandant} · SKR${b.datev_skr}`,
       warn: datevGespeichert.length > 0 },
+    { a: "kosten", titel: "Interner Stundensatz",
+      info: b.stundensatz_intern == null ? "nicht eingetragen – ohne ihn fehlen die Kosten von Reklamationen" : `${formatEUR(Number(b.stundensatz_intern))} je Technikerstunde` },
     { a: "terminraster", titel: "Terminraster", info: terminrasterInfo },
   ];
   const titel = zeilen.find((z) => z.a === blatt)?.titel ?? "";
@@ -438,6 +456,20 @@ export function BetriebsdatenPanel({ betrieb, onSpeichern, onNummernkreis, hoech
                     Vor dem ersten Export: {datevHinweise.join(" ")}
                   </div>
                 )}
+                {speichernKnopf}
+              </>
+            )}
+
+            {blatt === "kosten" && (
+              <>
+                <span className="small">
+                  Was eine Technikerstunde den Betrieb kostet (netto: Lohn mit Nebenkosten, Fahrzeug, Werkzeug). Damit rechnet
+                  die Auswertung den Schaden einer Reklamation: Dauer des Termins × Techniker × Stundensatz, dazu das
+                  eingesetzte Material. Erscheint auf keiner Rechnung.
+                </span>
+                <div className="bd-raster">
+                  <Feld label="Kosten je Technikerstunde (netto, €)" wert={satz} onChange={(w) => { setSatz(w); setStand("bereit"); }} platzhalter="z. B. 45" />
+                </div>
                 {speichernKnopf}
               </>
             )}

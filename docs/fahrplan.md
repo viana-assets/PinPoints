@@ -16,11 +16,17 @@ gelassen. Sonst entsteht wieder das, was am 18.09.2026 aufgeräumt wurde.
 
 ## Zuletzt erledigt
 
+* **24.11.2026 – Reklamationsauftrag (Service Worker v193, Migration 120).** Kunde meldet ein Problem nach einer Arbeit:
+  Reklamation über „+ Auftrag ▾“ oder das Menü eines erledigten Auftrags, Bezugsauftrag suchen (Kunde, Kennzeichen,
+  Nummer) oder ohne Bezug mit Begründung, Grund aus fester Liste. Der Techniker sieht, was damals gemacht wurde
+  (Schnappschuss). Ohne Rechnung, Ergebnis beim Abschluss (berechtigt/Kulanz/nicht berechtigt – nur Letzteres berechenbar).
+  Auswertung „Reklamationen“ mit Quote, Gründen, Technikern des Bezugsauftrags und Schaden (interner Stundensatz, Ø Umsatz
+  je Terminstunde). Die Rechnung je Unterdebitor (Runde B) rückt auf Migration 121.
 * **21.11.2026 – Kundenartikel und Konditionen-Auswertung (Service Worker v192, Migration 119).** Eigene Leistungen je
   Kunde: angelegt im Kundenfenster („Preise und Artikel“), Übersicht im Artikelstamm (Reiter „Kundenartikel“), in der
   Leistungsauswahl nur bei Aufträgen der Kundengruppe. Auswertung: Kundenartikel getrennt im Reiter „Artikel“, Aufteilung
   je Kunde im Reiter „Kunden“, neuer Reiter „Konditionen“ mit Preisvorteil. Die Rechnung je Unterdebitor (Runde B) folgt
-  mit Migration 120.
+  später (seit v193 mit Migration 121).
 * **19.11.2026 – Kundenpreise (Service Worker v191, Migration 118).** Rückfrage aus dem Betrieb: eigene Preise für bestimmte
   Kunden („Radwechsel 20 €, Reifen aufziehen 10 €“), ohne Eintippen und ohne dass andere Kunden sie sehen. Im
   Kundenfenster je Artikel ein Netto-Preis, wahlweise mit Zeitraum; die Datenbank setzt ihn beim Anlegen einer Position

@@ -265,6 +265,8 @@ viana-pinpoints/
                                        Abrechnungsart/Einheit/Freitext-Schalter
     auftraege/
       AuftraegePanel.tsx             Tab "Aufträge & Termine" (Übersicht, Klick öffnet das Fenster)
+      ReklamationBlatt.tsx           Reklamation anlegen: Bezugsauftrag suchen (Kunde, Kennzeichen, Nummer) oder ohne Bezug,
+                                     Grund, Text (Migration 120, v193; tests/reklamationOberflaeche.test.tsx)
       AuftragModal.tsx               Das Auftragsfenster in Karten (Termin & Team offen in der
                                      Karte seit v87), Menü „⋯", Fuß mit der Handlung, die dran ist (Entwurf N;
                                      siehe docs/auftraege.md)
@@ -462,6 +464,9 @@ viana-pinpoints/
                                   tests/kundenartikel.test.ts)
     konditionen.ts                Auswertung der Konditionen: Aufteilung je Kunde, Preisvorteil, Kundenartikel getrennt (v192;
                                   tests/konditionen.test.ts)
+    reklamation.ts                Reklamationsauftrag: Gründe, Ergebnisse, Prüfregeln wie `auftrag_reklamation_pruefen()`,
+                                  Schaden (Stundensatz, Ø Umsatz je Terminstunde), Auswertung (Migration 120, v193;
+                                  tests/reklamation.test.ts)
     rechnung.ts                   Rechnungsbeträge/-belege als reine Funktionen (kein
                                   Datenbank-/React-Bezug, deshalb mit Vitest prüfbar)
     auswertung.ts                  Rechenkern der Auswertungen (reine Funktionen)
@@ -501,6 +506,7 @@ viana-pinpoints/
       ansprechpartner.ts             Ansprechpartner lesen/anlegen/ändern/löschen, Kartenschalter, Fahrzeug zuordnen (Migration 117)
       kundenpreise.ts                Kundenpreise lesen/anlegen/ändern/löschen (Migration 118)
       kundenartikel.ts               Kundenartikel aus dem Kundenfenster anlegen (Artikel + erster Preis, Migration 119)
+      reklamation.ts                 Reklamation anlegen, erledigte Aufträge eines Kunden, Suche nach Nummer/Kennzeichen (Migration 120)
       firmenfahrzeuge.ts             Eigene Transporter (getrennt von vehicles.ts, Migration 32)
       articles.ts                  Artikelstamm, Preis-Historie, Auftrags-Artikelzeilen
       lager.ts                     Warehouses, Lagerplätze, Reifen-Einlagerung
@@ -865,7 +871,7 @@ Drei technisch getrennte Stufen, mit einer bewussten Grenze zwischen ihnen:
 
 Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rücknahmen unter
 `supabase/migrations/rollback/<nr>_rollback.sql`. Der aktuelle Stand reicht bis
-**Migration 119** (21.11.2026; 101–107 ausgeführt, 108–119 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
+**Migration 120** (24.11.2026; 101–107 ausgeführt, 108–120 noch auszuführen). Fachlich wichtige Stationen seit dem 10.09.2026 (Migration 28):
 
 - **34** – DOT-Datum/Profiltiefe vom Fahrzeug an den Reifensatz verschoben.
 - **35** – `customers.geo_genauigkeit` (exakt/ungefähr/von Hand).
@@ -1081,6 +1087,8 @@ Die SQL-Migrationen liegen durchnummeriert unter `supabase/migrations/`, die Rü
   Datenbank eingesetzt (`position_kundenpreis()`, Listenpreis in `order_articles.listenpreis_netto`; docs/artikelstammdaten.md).
 - **119** – Kundenartikel (`articles.customer_id`): nur in der Kundengruppe wählbar (`position_kundenartikel_pruefen()`),
   Löschen des Kunden nimmt sie samt Protokoll mit (Hüllen um `kunde_endgueltig_loeschen_grund()`/`testkunde_loeschen_grund()`).
+- **120** – Reklamationsauftrag (`orders.art`, `reklamation_*`, Schnappschuss des Bezugsauftrags, Ergebnis beim Abschluss,
+  `betrieb.stundensatz_intern`; `auftrag_reklamation_pruefen()`; docs/auftraege.md „Reklamation“).
 
 `supabase/migrations/README.md` führt Buch darüber, was in der Produktivdatenbank schon
 ausgeführt ist und was noch aussteht; die Begründungen stehen zusätzlich in den

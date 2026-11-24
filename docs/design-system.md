@@ -187,6 +187,7 @@ Runde 5 der Designprüfung. Es gab zehn Spielarten von Hauptknöpfen. Seitdem:
 | Wofür | Klasse | Aussehen |
 |---|---|---|
 | Hauptknopf einer Seite (im Kopf) | `.kl-neu` | orange Pille, 44 px – „+ Auftrag“, „+ Artikel“, „Export“ |
+| Hauptknopf mit Auswahl (v193) | `.kl-neu-gruppe.mit-pfeil` | zwei `.kl-neu` aneinander: links der Normalfall mit einem Klick, rechts der Pfeil `.kl-neu-pfeil` mit `.op-menue` – „+ Auftrag ▾ › Reklamation“ |
 | Knöpfe eines Fensters | `.btn-primary` / `.btn-secondary` in `.bl-fuss` | 46 px, Radius 12; der Zweitknopf weiß mit Rand, nur so breit wie nötig |
 | Knopf in einer Zeile oder Karte | `.am-mini` (orange, 34 px) oder `.es-knopf` (weiß mit Rand, 38 px) | |
 | Löschen, Unwiderrufliches | `.btn-danger` | rot |

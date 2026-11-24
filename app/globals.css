@@ -5195,6 +5195,30 @@ span.ap-haken{cursor:default;}
 .am-kond-wert{display:flex;flex-direction:column;align-items:flex-end;flex:none;}
 .am-kond-wert b{color:var(--green);}
 
+/* ---------------- v193: Reklamationsauftrag ---------------- */
+/* „+ Auftrag“ mit Pfeil daneben: ein Knopf, zwei Flächen. */
+.kl-neu-gruppe{display:inline-flex;flex:0 0 auto;}
+.rk-status{display:inline-flex;gap:6px;flex-wrap:wrap;}
+.kl-neu-gruppe.mit-pfeil .kl-neu:first-child{border-radius:22px 0 0 22px;padding-right:12px;}
+.kl-neu-gruppe .kl-neu-pfeil{border-radius:0 22px 22px 0;padding:0 12px 0 10px;border-left:1px solid rgba(255,255,255,.35);}
+.kl-neu-gruppe .op-menue{top:50px;min-width:190px;}
+.badge.rk-badge,.ao-status.rk-marke{background:var(--red-bg);color:#b3261e;}
+.rk-karte{border-left:4px solid var(--red);}
+.rk-grund{font-size:14px;line-height:1.4;}
+.rk-bezug{display:flex;flex-direction:column;gap:3px;background:var(--bg);border-radius:12px;padding:10px 12px;}
+.rk-bezug-titel{display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:700;font-size:13.5px;}
+.rk-rechnung{display:block;padding:4px 2px;}
+.rk-blatt .rk-modus{max-width:none;}
+.rk-blatt .rk-modus button{flex:1 1 0;}
+.rk-suche{display:flex;flex-direction:column;gap:8px;}
+.rk-gewaehlt{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:10px 12px;}
+.rk-gewaehlt-text{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.rk-kopf{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.rk-auftraege{max-height:calc(40vh / var(--z));}
+.rk-gruende{flex-wrap:wrap;overflow:visible;}
+.rk-ergebnis .ab-option .ab-text{display:flex;flex-direction:column;gap:1px;}
+.rk-zeile .am-kond-wert b{color:var(--text);}
+
 /* ---------------- Eingabefelder am Handy, Teil 2 (v174): MUSS die letzte Regel der Datei bleiben ----------------
    textarea und select auf 16px, damit iOS beim Antippen nicht hineinzoomt (Begründung oben bei
    „Eingabefelder am Handy: 16px“). `:not(.rm-feld)` gibt die Spezifität einer Klasse – genug gegen

@@ -7,7 +7,7 @@ import {
 } from "@/lib/api/articles";
 import {
   deleteOrderById, insertOrder, updateOrderById, updateOrderFirmenfahrzeug, updateOrderStatusById,
-  updateOrderTechnikerNotiz, updateOrderTermin,
+  updateOrderTechnikerNotiz, updateOrderTermin, type StatusZusatz,
 } from "@/lib/api/orders";
 import { currentArticlePrice, DEFAULT_VAT_RATE, geocodeAddress, terminTitel, todayStr } from "@/lib/helpers";
 import type { WechselortEingabe } from "@/lib/ansprechpartner";
@@ -219,7 +219,7 @@ export function useAuftragAktionen(k: AuftragKontext) {
   // Zustandswechsel eines Auftrags. Welche Übergänge erlaubt sind, entscheidet der Trigger aus
   // Migration 20 – lehnt er ab, kommt der Grund als Fehlermeldung zurück und wird über die
   // zentrale Anzeige sichtbar (siehe lib/api/client.ts).
-  async function updateOrderStatus(id: string, status: OrderStatus, grund?: { stornoGrund?: string; wiedereroeffnungsGrund?: string }) {
+  async function updateOrderStatus(id: string, status: OrderStatus, grund?: StatusZusatz) {
     await updateOrderStatusById(supabase, id, status, grund);
     await refreshOrders();
     // Abschließen lagert vorgemerkte Reifen aus, Wiedereröffnen holt sie zurück, Stornieren hebt
